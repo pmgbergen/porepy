@@ -512,14 +512,6 @@ class VariablesMomentumBalance(VariableMixin):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
 
     def create_variables(self) -> None:
         """Set variables for the subdomains and interfaces.
@@ -570,7 +562,8 @@ class VariablesMomentumBalance(VariableMixin):
         if len(domains) == 0 or all(
             isinstance(grid, pp.BoundaryGrid) for grid in domains
         ):
-            return self.create_boundary_operator(  # type: ignore[call-arg]
+            domains = cast(Sequence[pp.BoundaryGrid], domains)
+            return self.create_boundary_operator(
                 name=self.displacement_variable, domains=domains
             )
         # Check that the subdomains are grids

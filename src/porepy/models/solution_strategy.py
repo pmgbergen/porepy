@@ -72,8 +72,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         """Initialize the solution strategy.
 
         Parameters:
-            params: Parameters for the solution strategy. Defaults to
-                None.
+            params: Parameters for the solution strategy. Defaults to None.
 
         """
         if params is None:
@@ -87,45 +86,21 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         }
 
         default_params.update(params)
-
         self.params = default_params
-        """Dictionary of parameters."""
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
-        self.convergence_status: bool = False
-        """Whether the non-linear iteration has converged."""
+        self.convergence_status = False
 
-        # Define attributes to be assigned later
-        self.equation_system: pp.ad.EquationSystem
-        """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
-
-        """
-        self.linear_system: tuple[sps.spmatrix, np.ndarray]
-        """The linear system to be solved in each iteration of the non-linear solver.
-        The tuple contains the sparse matrix and the right hand side residual vector.
-
-        """
         self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
-        self.exporter: pp.Exporter
-        """Exporter for visualization."""
+        self.units = params.get("units", pp.Units())
 
-        self.units: pp.Units = params.get("units", pp.Units())
-        """Units of the model. See also :meth:`set_units`."""
-
-        self.fluid: pp.FluidConstants
-        """Fluid constants. See also :meth:`set_materials`."""
-
-        self.solid: pp.SolidConstants
-        """Solid constants. See also :meth:`set_materials`."""
-
-        self.time_manager: pp.TimeManager = params.get(
+        self.time_manager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
-        """Time manager for the simulation."""
 
-        self.restart_options: dict = params.get(
+        self.restart_options = params.get(
             "restart_options",
             {
                 "restart": False,
@@ -156,17 +131,9 @@ class SolutionStrategy(abc.ABC, PorePyModel):
                 # assumed to address the last time step in times_file.
             },
         )
-        """Restart options (template) for restart from pvd as expected restart routines
-        within :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
 
-        """
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
-        """Time step as an automatic differentiation scalar.
 
-        This is used to ensure that the time step is for all equations if the time step
-        is adjusted during simulation. See :meth:`before_nonlinear_loop`.
-
-        """
         self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:

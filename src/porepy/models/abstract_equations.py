@@ -35,16 +35,6 @@ class BalanceEquation(PorePyModel):
     :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
-    time_manager: pp.TimeManager
-    """Time manager. Normally set by a mixin instance of
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    ad_time_step: pp.ad.Scalar
-    """Time step as an automatic differentiation scalar. Normally set in
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
 
     def balance_equation(
         self,

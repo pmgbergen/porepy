@@ -141,24 +141,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.EnthalpyFromTemperature`.
 
     """
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """Boundary conditions wrapped as an operator. Defined in
-    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-
-    """
-    _combine_boundary_operators: Callable[
-        [
-            Sequence[pp.Grid],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[pp.Grid], pp.BoundaryCondition],
-            str,
-            int,
-        ],
-        pp.ad.Operator,
-    ]
 
     bc_type_enthalpy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
 
@@ -314,11 +296,10 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         if len(subdomains) == 0 or all(
             [isinstance(g, pp.BoundaryGrid) for g in subdomains]
         ):
-            return self.create_boundary_operator(  # type: ignore[call-arg]
+            return self.create_boundary_operator(
                 name=self.bc_data_enthalpy_flux_key,
-                domains=subdomains,
+                domains=cast(Sequence[pp.BoundaryGrid], subdomains),
             )
-
         # Check that the domains are grids.
         if not all([isinstance(g, pp.Grid) for g in subdomains]):
             raise ValueError(
@@ -334,7 +315,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             result *= self.mobility_rho(boundary_grids)
             return result
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+        boundary_operator = self._combine_boundary_operators(
             subdomains=subdomains,
             dirichlet_operator=enthalpy_dirichlet,
             neumann_operator=self.enthalpy_flux,
@@ -516,13 +497,6 @@ class VariablesEnergyBalance(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """Boundary conditions wrapped as an operator. Defined in
-    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-
-    """
 
     def create_variables(self) -> None:
         """Assign primary variables to subdomains and interfaces of the
@@ -571,7 +545,8 @@ class VariablesEnergyBalance(pp.VariableMixin):
         """
         if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             return self.create_boundary_operator(
-                name=self.temperature_variable, domains=domains  # type: ignore[call-arg]
+                name=self.temperature_variable,
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
             )
 
         # Check that the domains are grids.
