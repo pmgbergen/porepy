@@ -21,6 +21,7 @@ from typing import Callable, Optional, Sequence, cast
 import numpy as np
 
 import porepy as pp
+from porepy.models.abstract_equations import VariableMixin
 
 from . import constitutive_laws
 
@@ -42,23 +43,6 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     physical laws governing the stress.
 
     """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    internal_boundary_normal_to_outwards: Callable[
-        [list[pp.Grid], int], pp.ad.SparseArray
-    ]
-    """Switch interface normal vectors to point outwards from the subdomain. Normally
-    set by a mixin instance of :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
     fracture_stress: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """Stress on the fracture faces. Provided by a suitable mixin class that specifies
     the physical laws governing the stress, see for instance
@@ -66,24 +50,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.PressureStress`.
 
     """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
-    """Basis for the local coordinate system. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    normal_component: Callable[[list[pp.Grid]], pp.ad.SparseArray]
-    """Operator giving the normal component of vectors. Normally defined in a mixin
-    instance of :class:`~porepy.models.models.ModelGeometry`.
-
-    """
-    tangential_component: Callable[[list[pp.Grid]], pp.ad.SparseArray]
-    """Operator giving the tangential component of vectors. Normally defined in a mixin
-    instance of :class:`~porepy.models.models.ModelGeometry`.
-
-    """
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    """Operator giving the displacement jump on fracture grids. Normally defined is
+    VariablesMomentumBalance
 
     """
     contact_traction: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
@@ -491,7 +460,7 @@ class ConstitutiveLawsMomentumBalance(
         return self.mechanical_stress(domains)
 
 
-class VariablesMomentumBalance:
+class VariablesMomentumBalance(VariableMixin):
     """Variables for mixed-dimensional deformation.
 
     Displacement in matrix and on fracture-matrix interfaces. Fracture contact
@@ -517,29 +486,9 @@ class VariablesMomentumBalance:
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
-
-    """
-    local_coordinates: Callable[[list[pp.Grid]], pp.ad.SparseArray]
-    """Mapping to local coordinates. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
     create_boundary_operator: Callable[
@@ -706,11 +655,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     """
 
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
@@ -731,11 +675,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     """Function that returns the boundary condition type for the momentum problem.
     Normally provided by a mixin instance of
     :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.
-
-    """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
-    """Basis for the local coordinate system. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
 
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -921,11 +860,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     """Boundary conditions for the momentum balance."""
 
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
     displacement_variable: str
 
     stress_keyword: str

@@ -189,9 +189,9 @@ class SolutionStrategyThermoporomechanics(
             scalar_vector_mappings = data[pp.PARAMETERS][self.darcy_keyword].get(
                 "scalar_vector_mappings", {}
             )
-            scalar_vector_mappings[self.enthalpy_keyword] = (
-                self.solid_thermal_expansion_tensor([sd])
-            )
+            scalar_vector_mappings[
+                self.enthalpy_keyword
+            ] = self.solid_thermal_expansion_tensor([sd])
             scalar_vector_mappings[self.darcy_keyword] = self.biot_tensor([sd])
             data[pp.PARAMETERS][self.stress_keyword][
                 "scalar_vector_mappings"

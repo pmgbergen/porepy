@@ -7,12 +7,13 @@ Contains:
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, Union
+from typing import Callable, Union
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 
 
-class BalanceEquation:
+class BalanceEquation(PorePyModel):
     """Generic class for vector balance equations.
 
     In the only known use case, the balance equation is the momentum balance equation,
@@ -24,16 +25,6 @@ class BalanceEquation:
 
     """
 
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int], pp.ad.DenseArray]
-    """Wrap a grid attribute as a DenseArray. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
     specific_volume: Callable[
         [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
     ]
@@ -42,11 +33,6 @@ class BalanceEquation:
 
     Normally provided by a mixin of instance
     :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
-    """Basis for the local coordinate system. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
 
     """
     time_manager: pp.TimeManager
@@ -88,7 +74,6 @@ class BalanceEquation:
             Operator for the balance equation.
 
         """
-
         dt_operator = pp.ad.time_derivatives.dt
         dt = self.ad_time_step
         div = pp.ad.Divergence(subdomains, dim=dim)
@@ -125,9 +110,7 @@ class BalanceEquation:
 
         # First account for cell volumes.
         # Ignore mypy complaint about unexpected keyword arguments.
-        cell_volumes = self.wrap_grid_attribute(  # type: ignore[call-arg]
-            grids, "cell_volumes", dim=1
-        )
+        cell_volumes = self.wrap_grid_attribute(grids, "cell_volumes", dim=1)
 
         # Next, include the effects of reduced dimensions, expressed as specific
         # volumes.
@@ -138,9 +121,7 @@ class BalanceEquation:
             # For vector problems, we need to expand the volume array from cell-wise
             # scalar values to cell-wise vectors. We do this by left multiplication with
             #  e_i and summing over i.
-            basis: list[pp.ad.SparseArray] = self.basis(
-                grids, dim=dim  # type: ignore[call-arg]
-            )
+            basis = self.basis(grids, dim=dim)
             volumes_nd = pp.ad.sum_operator_list(
                 [e @ (cell_volumes * self.specific_volume(grids)) for e in basis]
             )
@@ -148,7 +129,7 @@ class BalanceEquation:
             return volumes_nd * integrand
 
 
-class VariableMixin:
+class VariableMixin(PorePyModel):
     """Mixin class for variables.
 
     This class is intended to be used together with the other model classes providing

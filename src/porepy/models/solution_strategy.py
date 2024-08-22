@@ -18,26 +18,17 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 
 logger = logging.getLogger(__name__)
 
 
-class SolutionStrategy(abc.ABC):
+class SolutionStrategy(abc.ABC, PorePyModel):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
 
     """
 
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    set_geometry: Callable[[], None]
-    """Set the geometry of the model. Normally provided by a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     initialize_data_saving: Callable[[], None]
     """Initialize data saving. Normally provided by a mixin instance of
     :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
@@ -107,16 +98,6 @@ class SolutionStrategy(abc.ABC):
         # Define attributes to be assigned later
         self.equation_system: pp.ad.EquationSystem
         """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
-
-        """
-        self.mdg: pp.MixedDimensionalGrid
-        """Mixed-dimensional grid. Will normally be set by a mixin instance of
-        :class:`~porepy.models.geometry.ModelGeometry`.
-
-        """
-        self._domain: pp.Domain
-        """Box-shaped domain. Will normally be set by a mixin instance of
-        :class:`~porepy.models.geometry.ModelGeometry`.
 
         """
         self.linear_system: tuple[sps.spmatrix, np.ndarray]
@@ -272,11 +253,6 @@ class SolutionStrategy(abc.ABC):
 
         # Initialize time dependent ad arrays, including those for boundary values.
         self.update_time_dependent_ad_arrays()
-
-    @property
-    def domain(self) -> pp.Domain:
-        """Domain of the problem."""
-        return self._domain
 
     @property
     def time_step_indices(self) -> np.ndarray:
