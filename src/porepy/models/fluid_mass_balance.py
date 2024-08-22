@@ -34,11 +34,6 @@ class MassBalanceEquations(pp.BalanceEquation):
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
@@ -101,16 +96,6 @@ class MassBalanceEquations(pp.BalanceEquation):
     interface_darcy_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """Interface Darcy flux equation. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
     well_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
@@ -556,11 +541,6 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     defining the solution strategy.
 
     """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     fluid: pp.FluidConstants
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
@@ -590,11 +570,6 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     ]
     """Boundary conditions wrapped as an operator. Defined in
     :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-
-    """
-    nd: int
-    """Number of spatial dimensions. Normally defined in a mixin of instance
-    :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
 
@@ -726,11 +701,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Function that returns the permeability of a subdomain. Normally provided by a
     mixin class with a suitable permeability definition.
-
-    """
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
 
     """
     bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]

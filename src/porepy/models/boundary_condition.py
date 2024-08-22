@@ -4,25 +4,14 @@ from typing import Callable, Optional, Sequence, Union
 import numpy as np
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 
 
-class BoundaryConditionMixin:
+class BoundaryConditionMixin(PorePyModel):
     """Mixin class for boundary conditions.
 
     This class is intended to be used together with the other model classes providing
     generic functionality for boundary conditions.
-
-    """
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
 
@@ -31,19 +20,8 @@ class BoundaryConditionMixin:
     :class:`porepy.models.solution_strategy.SolutionStrategy`.
 
     """
-
-    subdomains_to_boundary_grids: Callable[
-        [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
-    ]
-    """Function that maps a sequence of subdomains to a sequence of boundary grids.
-    Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
     units: "pp.Units"
     """Units object, containing the scaling of base magnitudes."""
-
     time_step_indices: np.ndarray
     """See :meth:`~porepy.models.solution_strategy.SolutionStragey.time_step_indices`.
     """

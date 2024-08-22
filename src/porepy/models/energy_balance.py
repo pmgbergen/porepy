@@ -31,12 +31,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
     """
 
-    # Expected attributes for this mixin
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
@@ -119,16 +113,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     """Ad operator representing the advective flux on internal boundaries. Normally
     provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
-
-    """
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
     well_advective_flux: Callable[
@@ -477,7 +461,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         return source
 
 
-class VariablesEnergyBalance:
+class VariablesEnergyBalance(pp.VariableMixin):
     """
     Creates necessary variables (temperature, advective and diffusive interface flux)
     and provides getter methods for these and their reference values. Getters construct
@@ -512,11 +496,6 @@ class VariablesEnergyBalance:
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     temperature_variable: str
     """See :attr:`SolutionStrategyEnergyBalance.temperature_variable`."""
     interface_fourier_flux_variable: str
@@ -542,11 +521,6 @@ class VariablesEnergyBalance:
     ]
     """Boundary conditions wrapped as an operator. Defined in
     :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-
-    """
-    nd: int
-    """Number of spatial dimensions. Normally defined in a mixin of instance
-    :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
 
@@ -858,11 +832,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
     """
 
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
     specific_volume: Callable[
         [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
     ]
