@@ -167,7 +167,7 @@ class Tpsa:
                 "Boundary conditions for rotations are only relevant if the Cosserat "
                 "parameter is non-zero."
             )
-        if bnd_rot is not None and sum(bnd_rot.is_rob) > 0:
+        if bnd_rot is not None and np.sum(bnd_rot.is_rob) > 0:
             # The implementation should not be difficult, but has not been prioritized.
             raise NotImplementedError("Robin conditions for rotations have not been implemented")
 
