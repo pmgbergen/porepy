@@ -114,27 +114,27 @@ def test_boundary_condition_mixin(t_end: int):
 
 
 class BCValues:
-    """Set boundary values for momentum balance and mass and energy balance."""
+    """Primary variable west boundary values for momentum/mass and energy balance."""
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns displacement values in the x-direction of the west boundary."""
-        values = np.ones((self.nd, bg.num_cells)) * 24
+        values = np.zeros((self.nd, bg.num_cells))
         bounds = self.domain_boundary_sides(bg)
-        values[0][bounds.west] += np.ones(len(values[0][bounds.west])) * 18
+        values[0][bounds.west] += np.ones(values[0][bounds.west].size) * 24
         return values.ravel("F")
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns pressure values on the west boundary."""
-        values = np.ones(bg.num_cells) * 24
+        values = np.zeros(bg.num_cells)
         bounds = self.domain_boundary_sides(bg)
-        values[bounds.west] += np.ones(len(values[bounds.west])) * 18
+        values[bounds.west] += np.ones(values[bounds.west].size) * 24
         return values
 
     def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns temperature values on the west boundary."""
-        values = np.ones(bg.num_cells) * 24
+        values = np.zeros(bg.num_cells)
         bounds = self.domain_boundary_sides(bg)
-        values[bounds.west] += np.ones(len(values[bounds.west])) * 18
+        values[bounds.west] += np.ones(values[bounds.west].size)
         return values
 
 
@@ -143,6 +143,7 @@ class BCRobin:
 
     Sets Dirichlet on the west boundary, and Robin on all other boundaries. The value of
     the Robin weight is determined from the parameter "alpha" in the params dictionary.
+    This class also sets Robin boundary values.
 
     This class is common for all the model classes that enters into testing Robin limit
     cases.
@@ -183,8 +184,35 @@ class BCRobin:
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self._bc_type_scalar(sd=sd)
 
+    def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Assigns Fourier flux values on top, bottom and right boundary."""
+        values = np.zeros((bg.num_cells))
+        bounds = self.domain_boundary_sides(bg)
+        values[bounds.west + bounds.north + bounds.south] += (
+            np.ones(values[bounds.west + bounds.north + bounds.south].size) * 24
+        )
+        return values.ravel("F")
 
-class BCNeumann:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Assigns Darcy flux values on top, bottom and right boundary."""
+        values = np.zeros((bg.num_cells))
+        bounds = self.domain_boundary_sides(bg)
+        values[bounds.west + bounds.north + bounds.south] += (
+            np.ones(values[bounds.west + bounds.north + bounds.south].size) * 24
+        )
+        return values.ravel("F")
+
+    def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Assigns stress values on top, bottom and right boundary."""
+        values = np.zeros((self.nd, bg.num_cells))
+        bounds = self.domain_boundary_sides(bg)
+        values[0][bounds.west + bounds.north + bounds.south] += (
+            np.ones(values[0][bounds.west + bounds.north + bounds.south].size) * 24
+        )
+        return values.ravel("F")
+
+
+class BCNeumann(BCRobin):
     """Set Dirichlet and Neumann for momentum balance and mass and energy balance.
 
     Sets Dirichlet on the west boundary, and Neumann on all other boundaries.
@@ -219,35 +247,57 @@ class BCNeumann:
         return self._bc_type_scalar(sd=sd)
 
 
-class BCDirichlet(BCNeumann):
-    """Set all Dirichlet boundaries for momentum balance and mass and energy balance."""
+# class BCDirichlet(BCValues, BCNeumann):
+#     """Set all Dirichlet boundaries for momentum balance and mass and energy balance."""
 
-    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "dir")
-        return bc
+#     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+#         bounds = self.domain_boundary_sides(sd)
+#         bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "dir")
+#         return bc
 
-    def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Helper function for setting boundary conditions on scalar fields.
+#     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
+#         """Helper function for setting boundary conditions on scalar fields.
 
-        The function sets Dirichlet on all boundaries.
+#         The function sets Dirichlet on all boundaries.
 
-        """
+#         """
 
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.all_bf, "dir")
-        return bc
+#         bounds = self.domain_boundary_sides(sd)
+#         bc = pp.BoundaryCondition(sd, bounds.all_bf, "dir")
+#         return bc
 
+#     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
+#         """Assigns displacement values in the x-direction of the west boundary."""
+#         values = super().bc_values_displacement(bg=bg)
+#         values = values.reshape((self.nd, bg.num_cells))
+#         bounds = self.domain_boundary_sides(bg)
+#         values[0][bounds.north + bounds.south + bounds.west] += (
+#             np.ones(values[0][bounds.north + bounds.south + bounds.west].size) * 24
+#         )
+#         return values.ravel("F")
 
-class GeometryAndBCValues(
-    SquareDomainOrthogonalFractures,
-    BCValues,
-):
-    """Mixin for geometry and boundary values which are common for all the model setups."""
+#     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
+#         """Assigns pressure values on the west boundary."""
+#         values = super().bc_values_pressure(bg=bg)
+#         bounds = self.domain_boundary_sides(bg)
+#         values[bounds.north + bounds.south + bounds.west] += (
+#             np.ones(values[bounds.north + bounds.south + bounds.west].size) * 24
+#         )
+#         return values
+
+#     def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
+#         """Assigns temperature values on the west boundary."""
+#         values = super().bc_values_temperature(bg=bg)
+#         bounds = self.domain_boundary_sides(bg)
+#         values[bounds.north + bounds.south + bounds.west] += (
+#             np.ones(values[bounds.north + bounds.south + bounds.west].size) * 24
+#         )
+#         return values
 
 
 class CommonMassEnergyBalance(
-    GeometryAndBCValues,
+    SquareDomainOrthogonalFractures,
+    BCValues,
     pp.models.mass_and_energy_balance.MassAndEnergyBalance,
 ):
     """Base mass and energy balance setup.
@@ -264,7 +314,8 @@ class MassAndEnergyBalanceRobin(BCRobin, CommonMassEnergyBalance):
 
 
 class CommonMomentumBalance(
-    GeometryAndBCValues,
+    SquareDomainOrthogonalFractures,
+    BCValues,
     pp.models.momentum_balance.MomentumBalance,
 ):
     """Base momentum balance setup.
@@ -311,8 +362,8 @@ def run_model():
     [
         (MomentumBalanceRobin, CommonMomentumBalance, 0),
         (MassAndEnergyBalanceRobin, CommonMassEnergyBalance, 0),
-        # (MomentumBalanceRobin, CommonMomentumBalance, 1e20),
-        # (MassAndEnergyBalanceRobin, CommonMassEnergyBalance, 1e20),
+        # (MomentumBalanceRobin, CommonMomentumBalance, 1e5),
+        # (MassAndEnergyBalanceRobin, CommonMassEnergyBalance, 1e5),
     ],
 )
 def test_robin_limit_case(run_model, rob_class, reference_class, alpha):
@@ -324,14 +375,15 @@ def test_robin_limit_case(run_model, rob_class, reference_class, alpha):
 
     We test this for momentum balance and mass and energy balance.
 
-    Common for all model setups is that al of them have a unitary Dirichlet condition on
-    the west boundary.
+    Common for all model setups is that al of them have a Dirichlet condition on the
+    west boundary.
 
     The model class setups with documentation are further up in this document.
 
     """
     if alpha > 0:
-        reference_bc_class = BCDirichlet
+        # reference_bc_class = BCDirichlet
+        ...
     elif alpha == 0:
         reference_bc_class = BCNeumann
 
