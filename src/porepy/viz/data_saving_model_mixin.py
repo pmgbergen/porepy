@@ -15,8 +15,8 @@ from typing import Callable, Optional, Union
 import numpy as np
 
 import porepy as pp
-from porepy.viz.exporter import DataInput
 from porepy.models.protocol import PorePyModel
+from porepy.viz.exporter import DataInput
 
 
 class DataSavingMixin(PorePyModel):
