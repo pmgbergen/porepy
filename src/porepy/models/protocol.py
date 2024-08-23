@@ -1,35 +1,53 @@
 from pathlib import Path
-from typing import Callable, Literal, Optional, Protocol, Sequence, Union
+from typing import TYPE_CHECKING, Callable, Literal, Optional, Protocol, Sequence, Union
 
 import numpy as np
 import scipy.sparse as sps
 
-import porepy as pp
+# The following is the way to avoid circular importing.
+if TYPE_CHECKING:
+    import porepy as pp
+# TODO: It is either this, which requires to annotate all the porepy types with
+# quotation marks, or:
+# if not TYPE_CHECKING:
+
+#     class ModelGeometryProtocol(Protocol):
+#         pass
+#
+# else:
+#
+#     import porepy as pp
+#
+#     class ModelGeometryProtocol(Protocol):
+#         # correct definition
+#
+#  I'm not sure what is prettier.
+# Maybe the latter is preferable because it ensures that the protocol does not mess with
+# the runtime definitions
 
 
 class ModelGeometryProtocol(Protocol):
     """This class provides geometry related methods and information for a simulation
     model."""
 
-    fracture_network: pp.fracture_network
+    fracture_network: "pp.fracture_network"
     """Representation of fracture network including intersections."""
 
-    well_network: pp.WellNetwork3d
+    well_network: "pp.WellNetwork3d"
     """Well network."""
 
-    mdg: pp.MixedDimensionalGrid
+    mdg: "pp.MixedDimensionalGrid"
     """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`."""
 
-    @property
-    def nd(self) -> int:
-        """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
+    nd: int
+    """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
 
     @property
-    def domain(self) -> pp.Domain:
+    def domain(self) -> "pp.Domain":
         """Domain of the problem."""
 
     @property
-    def fractures(self) -> list[pp.LineFracture] | list[pp.PlaneFracture]:
+    def fractures(self) -> list["pp.LineFracture"] | list["pp.PlaneFracture"]:
         """Fractures of the problem."""
 
     def set_geometry(self) -> None:
@@ -41,7 +59,7 @@ class ModelGeometryProtocol(Protocol):
 
         """
 
-    def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
+    def is_well(self, grid: "pp.Grid | pp.MortarGrid") -> bool:
         """Check if a subdomain is a well.
 
         Parameters:
@@ -78,8 +96,8 @@ class ModelGeometryProtocol(Protocol):
         """
 
     def subdomains_to_interfaces(
-        self, subdomains: list[pp.Grid], codims: list[int]
-    ) -> list[pp.MortarGrid]:
+        self, subdomains: list["pp.Grid"], codims: list[int]
+    ) -> list["pp.MortarGrid"]:
         """Interfaces neighbouring any of the subdomains.
 
         Parameters:
@@ -95,8 +113,8 @@ class ModelGeometryProtocol(Protocol):
         """
 
     def interfaces_to_subdomains(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> list[pp.Grid]:
+        self, interfaces: list["pp.MortarGrid"]
+    ) -> list["pp.Grid"]:
         """Subdomain neighbours of interfaces.
 
         Parameters:
@@ -110,8 +128,8 @@ class ModelGeometryProtocol(Protocol):
         """
 
     def subdomains_to_boundary_grids(
-        self, subdomains: Sequence[pp.Grid]
-    ) -> Sequence[pp.BoundaryGrid]:
+        self, subdomains: Sequence["pp.Grid"]
+    ) -> Sequence["pp.BoundaryGrid"]:
         """Boundary grids of subdomains.
 
         Parameters:
@@ -124,11 +142,11 @@ class ModelGeometryProtocol(Protocol):
 
     def wrap_grid_attribute(
         self,
-        grids: Sequence[pp.GridLike],
+        grids: Sequence["pp.GridLike"],
         attr: str,
         *,
         dim: int,
-    ) -> pp.ad.DenseArray:
+    ) -> "pp.ad.DenseArray":
         """Wrap a grid attribute as an ad matrix.
 
         Parameters:
@@ -153,7 +171,9 @@ class ModelGeometryProtocol(Protocol):
 
         """
 
-    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.SparseArray]:
+    def basis(
+        self, grids: Sequence["pp.GridLike"], dim: int
+    ) -> list["pp.ad.SparseArray"]:
         """Return a cell-wise basis for all subdomains.
 
         The basis is represented as a list of matrices, each of which represents a
@@ -183,8 +203,8 @@ class ModelGeometryProtocol(Protocol):
         """
 
     def e_i(
-        self, grids: Sequence[pp.GridLike], *, i: int, dim: int
-    ) -> pp.ad.SparseArray:
+        self, grids: Sequence["pp.GridLike"], *, i: int, dim: int
+    ) -> "pp.ad.SparseArray":
         """Return a cell-wise basis function in a specified dimension.
 
         It is assumed that the grids are embedded in a space of dimension dim and
@@ -196,11 +216,11 @@ class ModelGeometryProtocol(Protocol):
             will be (after conversion to a numpy array)
             .. code-block:: python
                 array([[0., 0.],
-                       [1., 0.],
-                       [0., 0.],
-                       [0., 0.],
-                       [0., 1.],
-                       [0., 0.]])
+                    [1., 0.],
+                    [0., 0.],
+                    [0., 0.],
+                    [0., 1.],
+                    [0., 0.]])
 
         See also:
             :meth:`basis` for the construction of a full basis.
@@ -219,7 +239,7 @@ class ModelGeometryProtocol(Protocol):
 
         """
 
-    def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def tangential_component(self, subdomains: list["pp.Grid"]) -> "pp.ad.Operator":
         """Compute the tangential component of a vector field.
 
         The tangential space is defined according to the local coordinates of the
@@ -236,7 +256,7 @@ class ModelGeometryProtocol(Protocol):
 
         """
 
-    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
+    def normal_component(self, subdomains: list["pp.Grid"]) -> "pp.ad.SparseArray":
         """Compute the normal component of a vector field.
 
         The normal space is defined according to the local coordinates of the
@@ -259,7 +279,7 @@ class ModelGeometryProtocol(Protocol):
 
         """
 
-    def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
+    def local_coordinates(self, subdomains: list["pp.Grid"]) -> "pp.ad.SparseArray":
         """Ad wrapper around tangential_normal_projections for fractures.
 
         Parameters:
@@ -270,7 +290,7 @@ class ModelGeometryProtocol(Protocol):
 
         """
 
-    def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
+    def subdomain_projections(self, dim: int) -> "pp.ad.SubdomainProjections":
         """Return the projection operators for all subdomains in md-grid.
 
         The projection operators restrict or prolong a dim-dimensional quantity from the
@@ -289,8 +309,8 @@ class ModelGeometryProtocol(Protocol):
         """
 
     def domain_boundary_sides(
-        self, domain: pp.Grid | pp.BoundaryGrid, tol: Optional[float] = 1e-10
-    ) -> pp.domain.DomainSides:
+        self, domain: "pp.Grid | pp.BoundaryGrid", tol: Optional[float] = 1e-10
+    ) -> "pp.domain.DomainSides":
         """Obtain indices of the faces lying on the sides of the domain boundaries.
 
         The method is primarily intended for box-shaped domains. However, it can also be
@@ -332,10 +352,10 @@ class ModelGeometryProtocol(Protocol):
 
     def internal_boundary_normal_to_outwards(
         self,
-        subdomains: list[pp.Grid],
+        subdomains: list["pp.Grid"],
         *,
         dim: int,
-    ) -> pp.ad.Operator:
+    ) -> "pp.ad.Operator":
         """Obtain a vector for flipping normal vectors on internal boundaries.
 
         For a list of subdomains, check if the normal vector on internal boundaries
@@ -360,10 +380,10 @@ class ModelGeometryProtocol(Protocol):
 
     def outwards_internal_boundary_normals(
         self,
-        interfaces: list[pp.MortarGrid],
+        interfaces: list["pp.MortarGrid"],
         *,
         unitary: bool,
-    ) -> pp.ad.Operator:
+    ) -> "pp.ad.Operator":
         """Compute outward normal vectors on internal boundaries.
 
         Parameters:
@@ -387,7 +407,7 @@ class SolutionStrategyProtocol(Protocol):
     convergence_status: bool
     """Whether the non-linear iteration has converged."""
 
-    equation_system: pp.ad.EquationSystem
+    equation_system: "pp.ad.EquationSystem"
     """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
 
     """
@@ -398,15 +418,13 @@ class SolutionStrategyProtocol(Protocol):
     """
     params: dict
     """Dictionary of parameters."""
-    exporter: pp.Exporter
-    """Exporter for visualization."""
-    units: pp.Units
+    units: "pp.Units"
     """Units of the model. See also :meth:`set_units`."""
-    fluid: pp.FluidConstants
+    fluid: "pp.FluidConstants"
     """Fluid constants. See also :meth:`set_materials`."""
-    solid: pp.SolidConstants
+    solid: "pp.SolidConstants"
     """Solid constants. See also :meth:`set_materials`."""
-    time_manager: pp.TimeManager
+    time_manager: "pp.TimeManager"
     """Time manager for the simulation."""
     restart_options: dict
     """Restart options for restart from pvd as expected restart routines within
@@ -414,8 +432,10 @@ class SolutionStrategyProtocol(Protocol):
     provided in `SolutionStrategy.__init__`.
 
     """
-    ad_time_step: pp.ad.Scalar
+    ad_time_step: "pp.ad.Scalar"
     """Time step as an automatic differentiation scalar."""
+    nonlinear_solver_statistics: "pp.SolverStatistics"
+    """Solver statistics for the nonlinear solver."""
 
     @property
     def time_step_indices(self) -> np.ndarray:
@@ -442,7 +462,7 @@ class SolutionStrategyProtocol(Protocol):
 
 
 class VariableProtocol(Protocol):
-    def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
+    def perturbation_from_reference(self, variable_name: str, grids: list["pp.Grid"]):
         """Perturbation of a variable from its reference value.
 
         The parameter :code:`variable_name` should be the name of a variable so that
@@ -479,8 +499,8 @@ class BoundaryConditionProtocol(Protocol):
     """
 
     def create_boundary_operator(
-        self, name: str, domains: Sequence[pp.BoundaryGrid]
-    ) -> pp.ad.TimeDependentDenseArray:
+        self, name: str, domains: Sequence["pp.BoundaryGrid"]
+    ) -> "pp.ad.TimeDependentDenseArray":
         """
         Parameters:
             name: Name of the variable or operator to be represented on the boundary.
@@ -498,16 +518,16 @@ class BoundaryConditionProtocol(Protocol):
 
     def _combine_boundary_operators(
         self,
-        subdomains: Sequence[pp.Grid],
-        dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-        neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+        subdomains: Sequence["pp.Grid"],
+        dirichlet_operator: Callable[[Sequence["pp.BoundaryGrid"]], "pp.ad.Operator"],
+        neumann_operator: Callable[[Sequence["pp.BoundaryGrid"]], "pp.ad.Operator"],
         robin_operator: Optional[
-            Union[None, Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]]
+            Union[None, Callable[[Sequence["pp.BoundaryGrid"]], "pp.ad.Operator"]]
         ],
-        bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
+        bc_type: Callable[["pp.Grid"], "pp.BoundaryCondition"],
         name: str,
         dim: int = 1,
-    ) -> pp.ad.Operator:
+    ) -> "pp.ad.Operator":
         """Creates an operator representing Dirichlet, Neumann and Robin boundary
         conditions and projects it to the subdomains from boundary grids.
 
@@ -556,10 +576,10 @@ class EquationProtocol(Protocol):
 
     def volume_integral(
         self,
-        integrand: pp.ad.Operator,
-        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+        integrand: "pp.ad.Operator",
+        grids: Union[list["pp.Grid"], list["pp.MortarGrid"]],
         dim: int,
-    ) -> pp.ad.Operator:
+    ) -> "pp.ad.Operator":
         """Numerical volume integral over subdomain or interface cells.
 
         Includes cell volumes and specific volume.
@@ -591,12 +611,15 @@ class DataSavingProtocol(Protocol):
 
     """
 
+    exporter: "pp.Exporter"
+    """Exporter for visualization."""
+
     def save_data_time_step(self) -> None:
         """Export the model state at a given time step, and log time.
         The options for exporting times are:
             * None: All time steps are exported
             * list: Export if time is in the list. If the list is empty, then no times
-              are exported.
+            are exported.
 
         In addition, save the solver statistics to file if the option is set.
 
@@ -676,3 +699,4 @@ class PorePyModel(
 
 # TODO: ALL DOCSTRINGS HERE
 # TODO: Try to remove all reduntant type: ignore
+# Specific mixins should(?) annotate on the class level what attributes do they define
