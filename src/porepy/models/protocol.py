@@ -13,11 +13,11 @@ if TYPE_CHECKING:
 
 #     class ModelGeometryProtocol(Protocol):
 #         pass
-#
+
 # else:
-#
+
 #     import porepy as pp
-#
+
 #     class ModelGeometryProtocol(Protocol):
 #         # correct definition
 #
@@ -693,10 +693,15 @@ class PorePyModel(
     SolutionStrategyProtocol,
     Protocol,
 ):
-    """This is a protocol meant for subclassing. It's parents are not meant for
+    """This is a protocol meant for subclassing. Its parents are not meant for
     subclassing (TODO)"""
 
 
 # TODO: ALL DOCSTRINGS HERE
 # TODO: Try to remove all reduntant type: ignore
 # Specific mixins should(?) annotate on the class level what attributes do they define
+
+# 1. locality of definitions (this mixin relies only on geometry)
+# 2. one or multiple protocols?
+# 3. where to put the docstrings?
+# 4. We need to inherit.
