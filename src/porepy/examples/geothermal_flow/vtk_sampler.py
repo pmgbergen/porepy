@@ -13,6 +13,17 @@ class VTKSampler:
         self.__build_search_space()
 
     @property
+    def mutex_state(self):
+        if hasattr(self, "_mutex_state"):
+            return self._mutex_state
+        else:
+            return False  # Able to modify
+
+    @mutex_state.setter
+    def mutex_state(self, mutex_state):
+        self._mutex_state = mutex_state
+
+    @property
     def conversion_factors(self):
         if hasattr(self, "_conversion_factors"):
             return self._conversion_factors
@@ -76,6 +87,8 @@ class VTKSampler:
         self._sampled_could = sampled_could.copy()
 
     def sample_at(self, points):
+        if self.mutex_state and self.sampled_could is not None:
+            return
         points = self._apply_conversion_factor(points)
         points = self._apply_translation_factor(points)
 
