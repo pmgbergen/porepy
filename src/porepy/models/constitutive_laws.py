@@ -1158,7 +1158,7 @@ class DarcysLaw(PorePyModel):
             The combined Darcy flux boundary operator.
 
         """
-        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+        op = self._combine_boundary_operators(
             subdomains=subdomains,
             dirichlet_operator=self.pressure,
             neumann_operator=self.darcy_flux,
