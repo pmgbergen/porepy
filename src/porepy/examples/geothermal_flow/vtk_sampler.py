@@ -83,16 +83,20 @@ class VTKSampler:
     @sampled_could.setter
     def sampled_could(self, sampled_could):
         if hasattr(self, "_sampled_could"):
-            self._sampled_could.clear_data()
-        self._sampled_could = sampled_could.copy()
+            self._sampled_could.clean()
+            self._sampled_could.copy_from(sampled_could, deep=True)
+        else:
+            self._sampled_could = sampled_could.copy(deep=True)
+        del sampled_could
 
     def sample_at(self, points):
         if self.mutex_state and self.sampled_could is not None:
             return
-        points = self._apply_conversion_factor(points)
-        points = self._apply_translation_factor(points)
+        x_par = points.copy()
+        self._apply_conversion_factor(x_par)
+        self._apply_translation_factor(x_par)
 
-        point_cloud = pyvista.PolyData(points)
+        point_cloud = pyvista.PolyData(x_par)
         self.sampled_could = point_cloud.sample(self._search_space)
         check_enclosed_points = point_cloud.select_enclosed_points(
             self.boundary_surface, check_surface=False
@@ -100,8 +104,10 @@ class VTKSampler:
         external_idx = np.logical_not(
             check_enclosed_points.point_data["SelectedPoints"]
         )
+        self.__release_memory_of(point_cloud)
+        self.__release_memory_of(check_enclosed_points)
         if self.taylor_extended_q:
-            self.__taylor_expansion(points, external_idx)
+            self.__taylor_expansion(x_par, external_idx)
 
         self._apply_conversion_factor_on_gradients()
 
@@ -122,10 +128,18 @@ class VTKSampler:
                     grad[:, i] *= scale
         return
 
+    def __release_memory_of(self, point_cloud):
+        point_cloud.clean()
+        del point_cloud
+
+    def release_memory(self):
+        self.__release_memory_of(self._search_space)
+        self.__release_memory_of(self._boundary_surface)
+
     def __build_search_space(self):
         tb = time.time()
         self._search_space = pyvista.read(self.file_name)
-        self._boundary_surface = self._search_space.extract_surface()
+        self._boundary_surface = self._search_space.extract_surface(pass_pointid=False, pass_cellid=False, nonlinear_subdivision=0)
         te = time.time()
         print("VTKSampler:: Time for loading interpolation space: ", te - tb)
 
