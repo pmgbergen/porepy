@@ -219,7 +219,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
                 f_l = f_h
                 x_l = x_h
             else:
-                # There is a local minimum in the narrowed-down interval [a, c].
+                # There is a local minimum in the narrowed-down interval [x_l, x_h].
                 if step_size > step_size_tolerance:
                     # Find it to better precision.
                     return self.recursive_weight_from_sampling(
@@ -230,10 +230,11 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
                         num_steps=num_steps,
                         step_size_tolerance=step_size_tolerance,
                         f_a=f_l,
+                        f_b=f_h,
                     )
                 else:
-                    # We're happy with the precision, return the minimum value at which the
-                    # condition is known to be violated.
+                    # We're happy with the precision, return the minimum value at which
+                    # the condition is known to be violated.
                     return x_h
 
         # We went through the whole interval without finding a local minimum. Thus, we
@@ -517,7 +518,8 @@ class ConstraintLineSearch:
 
     The contract with the Model class is that the constraint functions are defined in
     the model as Operator returning methods called "opening_indicator" and
-    "sliding_indicator".
+    "sliding_indicator". These are assumed to be scaled such that their range is approx.
+    [-1, 1].
 
     """
 

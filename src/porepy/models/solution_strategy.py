@@ -782,12 +782,12 @@ class ContactIndicators:
     def opening_indicator(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Function describing the state of the opening constraint.
 
-        The function is a linear combination of the two arguments of the max
-        function of the normal fracture deformation equation. Arbitrary sign
-        convention: Negative for open fractures, positive for closed ones.
+        The function is a linear combination of the two arguments of the max function of
+        the normal fracture deformation equation. Arbitrary sign convention: Negative
+        for open fractures, positive for closed ones.
 
-        The parameter `adaptive_indicator_scaling` scales the indicator by the
-        contact traction estimate.
+        The parameter `adaptive_indicator_scaling` scales the indicator by the contact
+        traction estimate.
 
         Parameters:
             subdomains: List of fracture subdomains.
@@ -797,7 +797,7 @@ class ContactIndicators:
 
         """
         nd_vec_to_normal = self.normal_component(subdomains)
-        # The normal component of the contact traction and the displacement jump
+        # The normal component of the contact traction and the displacement jump.
         t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
         u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
         c_num = self.contact_mechanics_numerical_constant(subdomains)
@@ -819,9 +819,9 @@ class ContactIndicators:
     ) -> pp.ad.Operator:
         """Function describing the state of the sliding constraint.
 
-        The function is a linear combination of the two arguments of the max function
-        of the tangential fracture deformation equation. Arbitrary sign convention:
-        Negative for sticking, positive for sliding:  ||T_t+c_t u_t||-b_p
+        The function is a linear combination of the two arguments of the max function of
+        the tangential fracture deformation equation. Sign convention: Negative for
+        sticking, positive for sliding:  ||T_t+c_t u_t||-b_p
 
         The parameter `adaptive_indicator_scaling` scales the indicator by the contact
         traction estimate.
@@ -883,10 +883,7 @@ class ContactIndicators:
         return ind * h_oi
 
     def contact_traction_estimate(self, subdomains):
-        """Estimate the characteristic size of contact traction.
-
-        The characteristic fracture traction is estimated as the maximum of the
-        contact traction over the fracture subdomains.
+        """Estimate the magnitude of contact traction.
 
         Parameters:
             subdomains: List of subdomains where the contact traction is defined.
@@ -895,7 +892,6 @@ class ContactIndicators:
             Characteristic fracture traction estimate.
 
         """
-        # The normal component of the contact traction and the displacement jump
         t: pp.ad.Operator = self.contact_traction(subdomains)
         e_n = self.e_i(subdomains, dim=self.nd, i=self.nd - 1)
 
