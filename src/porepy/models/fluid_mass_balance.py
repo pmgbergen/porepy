@@ -229,7 +229,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         discr = self.mobility_discretization(domains)
         mob_rho = self.mobility_rho(domains)
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+        boundary_operator = self._combine_boundary_operators(
             subdomains=domains,
             dirichlet_operator=self.mobility_rho,
             neumann_operator=self.fluid_flux,
