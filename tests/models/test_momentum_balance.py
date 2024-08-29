@@ -135,10 +135,10 @@ def test_unit_conversion(units, uy_north):
     setup_0 = LinearModel(model_reference_params)
     pp.run_time_dependent_model(setup_0)
 
-    params["units"] = pp.Units(**units)
-    setup_1 = LinearModel(params)
+    model_reference_params["units"] = pp.Units(**units)
+    setup_1 = LinearModel(model_reference_params)
 
-    pp.run_time_dependent_model(setup_1, params)
+    pp.run_time_dependent_model(setup_1)
     variables = [
         setup_1.displacement_variable,
         setup_1.interface_displacement_variable,
