@@ -18,9 +18,10 @@ from typing import Any, Callable, Optional, Sequence, Union, cast
 import numpy as np
 
 import porepy as pp
+from porepy.models.protocol import AdvectiveFluxProtocol
 
 
-class EnergyBalanceEquations(pp.BalanceEquation):
+class EnergyBalanceEquations(pp.BalanceEquation, AdvectiveFluxProtocol):
     """Mixed-dimensional energy balance equation.
 
     Balance equation for all subdomains and advective and diffusive fluxes internally
@@ -60,11 +61,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
     """
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
-    """
     fourier_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Fourier flux. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.FouriersLaw`.
@@ -83,39 +79,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
-    advective_flux: Callable[
-        [
-            list[pp.Grid],
-            pp.ad.Operator,
-            pp.ad.UpwindAd,
-            pp.ad.Operator,
-            Callable[[list[pp.MortarGrid]], pp.ad.Operator],
-        ],
-        pp.ad.Operator,
-    ]
-    """Ad operator representing the advective flux. Normally provided by a mixin
-    instance of :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
-
-    """
     bc_values_enthalpy_flux: Callable[[list[pp.Grid]], pp.ad.DenseArray]
     """Boundary condition for enthalpy flux. Normally defined in a mixin instance
     of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
-
-    """
-    interface_advective_flux: Callable[
-        [list[pp.MortarGrid], pp.ad.Operator, pp.ad.UpwindCouplingAd], pp.ad.Operator
-    ]
-    """Ad operator representing the advective flux on internal boundaries. Normally
-    provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
-
-    """
-    well_advective_flux: Callable[
-        [list[pp.MortarGrid], pp.ad.Operator, pp.ad.UpwindCouplingAd], pp.ad.Operator
-    ]
-    """Ad operator representing the advective flux on well interfaces. Normally
-    provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
 
     """
     well_enthalpy_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]

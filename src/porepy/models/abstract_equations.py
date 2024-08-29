@@ -111,7 +111,9 @@ class VariableMixin(PorePyModel):
 
     """
 
-    def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
+    def perturbation_from_reference(
+        self, variable_name: str, grids: pp.GridLikeSequence
+    ):
         var = getattr(self, variable_name)
         var_ref = getattr(self, "reference_" + variable_name)
         d_var = var(grids) - var_ref(grids)

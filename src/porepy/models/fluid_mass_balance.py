@@ -16,101 +16,23 @@ Notes:
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Sequence, Union, cast
+from typing import Optional, Sequence, cast
 
 import numpy as np
 
 import porepy as pp
+from porepy.models.protocol import FluidMassBalanceProtocol, TensorProtocol
 
 logger = logging.getLogger(__name__)
 
 
-class MassBalanceEquations(pp.BalanceEquation):
+class MassBalanceEquations(pp.BalanceEquation, FluidMassBalanceProtocol):
     """Mixed-dimensional mass balance equation.
 
     Balance equation for all subdomains and Darcy-type flux relation on all interfaces
     of codimension one and Peaceman flux relation on interfaces of codimension two
     (well-fracture intersections).
 
-    """
-
-    interface_darcy_flux: Callable[
-        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
-    ]
-    """Darcy flux variable on interfaces. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
-    """
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid density. Defined in a mixin class with a suitable constitutive relation.
-    """
-    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Porosity of the rock. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
-
-    """
-    mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid mobility. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FluidMobility`.
-
-    """
-    mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
-    """Discretization of the fluid mobility. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FluidMobility`.
-
-    """
-    interface_mobility_discretization: Callable[
-        [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
-    ]
-    """Discretization of the fluid mobility on internal boundaries. Normally provided
-    by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
-
-    """
-    advective_flux: Callable[
-        [
-            list[pp.Grid],
-            pp.ad.Operator,
-            pp.ad.UpwindAd,
-            pp.ad.Operator,
-            Callable[[list[pp.MortarGrid]], pp.ad.Operator],
-        ],
-        pp.ad.Operator,
-    ]
-    """Ad operator representing the advective flux. Normally provided by a mixin
-    instance of :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
-
-    """
-    interface_advective_flux: Callable[
-        [list[pp.MortarGrid], pp.ad.Operator, pp.ad.UpwindCouplingAd], pp.ad.Operator
-    ]
-    """Ad operator representing the advective flux on internal boundaries. Normally
-    provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
-
-    """
-    interface_darcy_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-    """Interface Darcy flux equation. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-    well_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-    """Well flux equation. Provided e.g. by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.PiecmannWellFlux`.
-
-    """
-    well_advective_flux: Callable[
-        [list[pp.MortarGrid], pp.ad.Operator, pp.ad.UpwindCouplingAd], pp.ad.Operator
-    ]
-    """Ad operator representing the advective flux on well interfaces. Normally
-    provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
-
-    """
-    bc_data_fluid_flux_key: str
-    """See :class:`BoundaryConditionsSinglePhaseFlow`.
-    """
-    bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
-    """See :class:`BoundaryConditionsSinglePhaseFlow`.
     """
 
     def set_equations(self):
@@ -370,16 +292,13 @@ class ConstitutiveLawsSinglePhaseFlow(
     """
 
 
-class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
+class BoundaryConditionsSinglePhaseFlow(
+    pp.BoundaryConditionMixin, FluidMassBalanceProtocol
+):
     """Boundary conditions for single-phase flow."""
 
-    bc_data_fluid_flux_key: str = "fluid_flux"
-    bc_data_darcy_flux_key: str = "darcy_flux"
-    """Name of the boundary data for the Neuman boundary condition."""
-    pressure_variable: str
-    """Name of the pressure variable."""
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    bc_data_fluid_flux_key = "fluid_flux"
+    bc_data_darcy_flux_key = "darcy_flux"
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary conditions on all external boundaries.
@@ -491,7 +410,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         )
 
 
-class VariablesSinglePhaseFlow(pp.VariableMixin):
+class VariablesSinglePhaseFlow(pp.VariableMixin, FluidMassBalanceProtocol):
     """
     Creates necessary variables (pressure, interface flux) and provides getter methods
     for these and their reference values. Getters construct mixed-dimensional variables
@@ -505,25 +424,6 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         Operators as return values, we can in theory add it as a primary variable and
         solved mixed form. Similarly for different formulations of the pressure (e.g.
         pressure head) or enthalpy/ temperature for the energy equation.
-
-    """
-
-    pressure_variable: str
-    """Name of the primary variable representing the pressure. Normally defined in a
-    mixin of instance
-    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
-
-    """
-    interface_darcy_flux_variable: str
-    """Name of the primary variable representing the Darcy flux across an interface.
-    Normally defined in a mixin of instance
-    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
-
-    """
-    well_flux_variable: str
-    """Name of the primary variable representing the flux across a well interface.
-    Normally defined in a mixin of instance
-    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
 
@@ -629,7 +529,9 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         return pp.wrap_as_dense_ad_array(p_ref, size, name="reference_pressure")
 
 
-class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
+class SolutionStrategySinglePhaseFlow(
+    pp.SolutionStrategy, FluidMassBalanceProtocol, TensorProtocol
+):
     """Setup and numerics-related methods for a single-phase flow problem.
 
     At some point, this will be refined to be a more sophisticated (modularised)
@@ -643,82 +545,17 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
     """
 
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Function that returns the specific volume of a subdomain or interface.
-
-    Normally provided by a mixin of instance
-    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
-
-    permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Function that returns the permeability of a subdomain. Normally provided by a
-    mixin class with a suitable permeability definition.
-
-    """
-    bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
-    """Function that returns the boundary condition type for the Darcy flux. Normally
-    provided by a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
-
-    """
-    bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
-    """Function that returns the boundary condition type for the advective flux.
-    Normally provided by a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
-
-    """
-    mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
-    """Discretization of the fluid mobility. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FluidMobility`.
-
-    """
-    interface_mobility_discretization: Callable[
-        [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
-    ]
-    """Discretization of the fluid mobility on internal boundaries. Normally provided
-    by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
-
-    """
-    operator_to_SecondOrderTensor: Callable[
-        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
-    ]
-    """Function that returns a SecondOrderTensor provided a method returning
-    permeability as a Operator. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.SecondOrderTensorUtils`.
-
-    """
-
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
 
         # Variables
-        self.pressure_variable: str = "pressure"
-        """Name of the pressure variable."""
-
-        self.interface_darcy_flux_variable: str = "interface_darcy_flux"
-        """Name of the primary variable representing the Darcy flux on interfaces of
-        codimension one."""
-
-        self.well_flux_variable: str = "well_flux"
-        """Name of the primary variable representing the well flux on interfaces of
-        codimension two."""
+        self.pressure_variable = "pressure"
+        self.interface_darcy_flux_variable = "interface_darcy_flux"
+        self.well_flux_variable = "well_flux"
 
         # Discretization
-        self.darcy_keyword: str = "flow"
-        """Keyword for Darcy flux term.
-
-        Used to access discretization parameters and store discretization matrices.
-
-        """
-        self.mobility_keyword: str = "mobility"
-        """Keyword for mobility factor.
-
-        Used to access discretization parameters and store discretization matrices.
-
-        """
+        self.darcy_keyword = "flow"
+        self.mobility_keyword = "mobility"
 
     def initial_condition(self) -> None:
         """New formulation requires darcy flux (the flux is "advective" with mobilities
@@ -817,16 +654,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         )
 
 
-# Note that we ignore a mypy error here. There are some inconsistencies in the method
-# definitions of the mixins, related to the enforcement of keyword-only arguments. The
-# type Callable is poorly supported, except if protocols are used and we really do not
-# want to go there. Specifically, method definitions that contains a *, for instance,
-#   def method(a: int, *, b: int) -> None: pass
-# which should be types as Callable[[int, int], None], cannot be parsed by mypy.
-# For this reason, we ignore the error here, and rely on the tests to catch any
-# inconsistencies.
-# TODO: Remove type ignore after done with protocols
-class SinglePhaseFlow(  # type: ignore[misc]
+class SinglePhaseFlow(
     MassBalanceEquations,
     VariablesSinglePhaseFlow,
     ConstitutiveLawsSinglePhaseFlow,
