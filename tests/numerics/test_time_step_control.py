@@ -908,7 +908,7 @@ def test_model_time_step_control(params: dict):
     model = DynamicTimeStepTestCaseModel(
         num_nonlinear_iterations=num_nonlinear_iterations,
         time_step_converged=time_step_converged,
-        model_params={
+        params={
             "time_manager": time_manager,
             "times_to_export": [],  # Suspends export
         },
