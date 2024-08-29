@@ -177,13 +177,13 @@ def create_fractured_setup(solid_vals, fluid_vals, uy_north):
     solid = pp.SolidConstants(solid_vals)
     fluid = pp.FluidConstants(fluid_vals)
 
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
         "uy_north": uy_north,
         "max_iterations": 20,
     }
-    setup = TailoredPoromechanics(params)
+    setup = TailoredPoromechanics(model_params)
     return setup
 
 
@@ -328,14 +328,14 @@ def test_poromechanics_model_no_modification():
 def test_without_fracture(biot_coefficient):
     fluid = pp.FluidConstants(constants={"compressibility": 0.5})
     solid = pp.SolidConstants(constants={"biot_coefficient": biot_coefficient})
-    params = {
+    model_params = {
         "fracture_indices": [],
         "material_constants": {"fluid": fluid, "solid": solid},
         "uy_north": 0.001,
         "cartesian": True,
     }
-    m = TailoredPoromechanics(params)
-    pp.run_time_dependent_model(m, {})
+    m = TailoredPoromechanics(model_params)
+    pp.run_time_dependent_model(m)
 
     sd = m.mdg.subdomains(dim=m.nd)
     u = m.displacement(sd).value(m.equation_system).reshape((m.nd, -1), order="F")
@@ -488,17 +488,17 @@ def test_unit_conversion(units):
         "uy_north": 1e-5,
         "material_constants": {"solid": solid, "fluid": fluid},
     }
-    reference_params = copy.deepcopy(params)
-    reference_params["file_name"] = "unit_conversion_reference"
+    model_reference_params = copy.deepcopy(model_params)
+    model_reference_params["file_name"] = "unit_conversion_reference"
 
     # Create model and run simulation
-    setup_0 = TailoredPoromechanics(reference_params)
-    pp.run_time_dependent_model(setup_0, reference_params)
+    setup_0 = TailoredPoromechanics(model_reference_params)
+    pp.run_time_dependent_model(setup_0)
 
-    params["units"] = pp.Units(**units)
-    setup_1 = TailoredPoromechanics(params)
+    model_reference_params["units"] = pp.Units(**units)
+    setup_1 = TailoredPoromechanics(model_reference_params)
 
-    pp.run_time_dependent_model(setup_1, params)
+    pp.run_time_dependent_model(setup_1)
     variables = [
         setup_1.pressure_variable,
         setup_1.interface_darcy_flux_variable,
@@ -534,9 +534,9 @@ class PoromechanicsWell(
 def test_poromechanics_well():
     """Test that the poromechanics model runs without errors."""
     # These parameters hopefully yield a relatively easy problem
-    params = {
+    model_params = {
         "fracture_indices": [2],
         "well_flux": -1e-2,
     }
-    setup = PoromechanicsWell(params)
-    pp.run_time_dependent_model(setup, {})
+    setup = PoromechanicsWell(model_params)
+    pp.run_time_dependent_model(setup)
