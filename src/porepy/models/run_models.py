@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Union
+from typing import Union, Optional,Dict,Literal
 
 import numpy as np
 
@@ -56,7 +56,7 @@ def run_stationary_model(model, params: dict) -> None:
     model.after_simulation()
 
 
-def run_time_dependent_model(model, params: dict={}) -> None:
+def run_time_dependent_model(model, params:Optional[dict]= None) -> None:
     """Run a time dependent model.
 
     Note:
@@ -76,6 +76,7 @@ def run_time_dependent_model(model, params: dict={}) -> None:
             as e.g. model.solution_parameters?
 
     """
+    params = params or {}
     # Assign parameters, variables and discretizations. Discretize time-indepedent terms
     if params.get("prepare_simulation", True):
         model.prepare_simulation()
