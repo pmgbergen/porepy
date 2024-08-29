@@ -59,7 +59,7 @@ def test_biot_equal_to_incompressible_poromechanics():
         "num_cells": 10,
     }
     setup_poromech = TerzaghiSetupPoromechanics(model_params_poromech)
-    pp.run_time_dependent_model(setup_poromech)
+    pp.run_time_dependent_model(model=setup_poromech)
     p_poromechanics = setup_poromech.results[0].approx_pressure
     U_poromechanics = setup_poromech.results[0].approx_consolidation_degree
 
@@ -72,7 +72,7 @@ def test_biot_equal_to_incompressible_poromechanics():
         "num_cells": 10,
     }
     setup_biot = TerzaghiSetup(model_params_biot)
-    pp.run_time_dependent_model(setup_biot)
+    pp.run_time_dependent_model(model=setup_biot)
     p_biot = setup_biot.results[0].approx_pressure
     U_biot = setup_biot.results[0].approx_consolidation_degree
 
