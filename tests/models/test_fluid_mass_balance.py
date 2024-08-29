@@ -427,25 +427,28 @@ def test_unit_conversion(units):
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
     solid = pp.SolidConstants(solid_vals)
     fluid = pp.FluidConstants(fluid_vals)
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid},
+    }
+    solver_params = {
         "nl_convergence_tol_res": 1e-12,
         "nl_convergence_tol": 1,
     }
-    reference_params = copy.deepcopy(params)
-    reference_params["file_name"] = "unit_conversion_reference"
+
+    model_reference_params = copy.deepcopy(model_params)
+    model_reference_params["file_name"] = "unit_conversion_reference"
 
     # Create model and run simulation
-    setup_0 = Model(reference_params)
-    pp.run_time_dependent_model(setup_0, reference_params)
+    setup_0 = Model(model_reference_params)
+    pp.run_time_dependent_model(setup_0, solver_params)
 
-    params["units"] = pp.Units(**units)
-    setup_1 = Model(params)
+    model_params["units"] = pp.Units(**units)
+    setup_1 = Model(model_params)
 
-    pp.run_time_dependent_model(setup_1, params)
+    pp.run_time_dependent_model(setup_1, solver_params)
     variables = [setup_1.pressure_variable, setup_1.interface_darcy_flux_variable]
     variable_units = ["Pa", "Pa * m^2 * s^-1"]
     models.compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
@@ -475,7 +478,7 @@ def test_well_incompressible_pressure_values():
     the effect of the low-permeable matrix.
 
     """
-    params = {
+    model_params = {
         # Set impermeable matrix
         "material_constants": {
             "solid": pp.SolidConstants({"permeability": 1e-6 / 4, "well_radius": 0.01})
@@ -484,8 +487,8 @@ def test_well_incompressible_pressure_values():
         "fracture_indices": [2],
     }
 
-    setup = WellModel(params)
-    pp.run_time_dependent_model(setup, params)
+    setup = WellModel(model_params)
+    pp.run_time_dependent_model(setup)
     # Check that the matrix pressure is close to linear in z
     matrix = setup.mdg.subdomains(dim=3)[0]
     matrix_pressure = setup.pressure([matrix]).value(setup.equation_system)
