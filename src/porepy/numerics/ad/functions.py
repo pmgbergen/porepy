@@ -254,9 +254,30 @@ def arctanh(var: FloatType) -> FloatType:
 
 
 # Step and Heaviside functions
-def heaviside(var, zerovalue: float = 0.5):
-    if isinstance(var, AdArray):
-        return np.heaviside(var.val, zerovalue)
+def heaviside(zerovalue: float, var: FloatType) -> FloatType:
+    """Heaviside function.
+
+    The Heaviside function is defined as:
+    .. math::
+        H(x) = \\begin{cases}
+            0, & x < 0, \\\\
+            zerovalue, & x = 0, \\\\
+            1, & x > 0.
+        \\end{cases}
+
+    Parameters:
+        zerovalue: Value of the Heaviside function at zero. Typically, this is
+        set to 0, 0.5 or 1.
+        var: Input array.
+
+    Returns:
+        Heaviside function (and its Jacobian if applicable) in form of a AdArray
+        or ndarray (depending on the input).
+
+    """
+    if isinstance(var, pp.ad.AdArray):
+        zero_jac = sps.csr_matrix(var.jac.shape)
+        return pp.ad.AdArray(np.heaviside(var.val, zerovalue), zero_jac)
     else:
         return np.heaviside(var, zerovalue)
 
