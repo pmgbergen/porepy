@@ -481,7 +481,7 @@ def test_unit_conversion(units):
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
     solid = pp.SolidConstants(solid_vals)
     fluid = pp.FluidConstants(fluid_vals)
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,

@@ -43,15 +43,15 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     """
     # Instantiate constants and store in params.
     solid = pp.SolidConstants(solid_vals)
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
         "uy_north": north_displacement,
     }
 
     # Create model and run simulation
-    setup = LinearModel(params)
-    pp.run_time_dependent_model(setup, params)
+    setup = LinearModel(model_params)
+    pp.run_time_dependent_model(setup)
 
     # Check that the pressure is linear
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
@@ -123,17 +123,17 @@ def test_unit_conversion(units, uy_north):
     """
     solid = pp.SolidConstants(pp.solid_values.extended_granite_values_for_testing)
 
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
         "uy_north": uy_north,
         "material_constants": {"solid": solid},
     }
-    reference_params = copy.deepcopy(params)
+    model_reference_params = copy.deepcopy(model_params)
     # Create model and run simulation.
-    setup_0 = LinearModel(reference_params)
-    pp.run_time_dependent_model(setup_0, reference_params)
+    setup_0 = LinearModel(model_reference_params)
+    pp.run_time_dependent_model(setup_0)
 
     params["units"] = pp.Units(**units)
     setup_1 = LinearModel(params)
