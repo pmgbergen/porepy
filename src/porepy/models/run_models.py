@@ -56,7 +56,7 @@ def run_stationary_model(model, params: dict) -> None:
     model.after_simulation()
 
 
-def run_time_dependent_model(model, params: dict) -> None:
+def run_time_dependent_model(model, params: dict = {}) -> None:
     """Run a time dependent model.
 
     Note:
