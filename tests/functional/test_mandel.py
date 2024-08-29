@@ -38,12 +38,12 @@ def results() -> list[MandelSaveData]:
         "solid": pp.SolidConstants(mandel_solid_constants),
     }
     time_manager = pp.TimeManager([0, 25, 50], 25, True)
-    model_params = {
+    params = {
         "material_constants": material_constants,
         "time_manager": time_manager,
     }
-    setup = MandelSetup(model_params)
-    pp.run_time_dependent_model(setup)
+    setup = MandelSetup(params)
+    pp.run_time_dependent_model(setup, params)
     return setup.results
 
 
@@ -150,12 +150,12 @@ def test_scaled_vs_unscaled_systems():
         "solid": pp.SolidConstants(mandel_solid_constants),
     }
     time_manager_unscaled = pp.TimeManager([0, 10], 10, True)
-    model_params_unscaled = {
+    params_unscaled = {
         "material_constants": material_constants_unscaled,
         "time_manager": time_manager_unscaled,
     }
-    unscaled = MandelSetup(params=model_params_unscaled)
-    pp.run_time_dependent_model(model=unscaled)
+    unscaled = MandelSetup(params=params_unscaled)
+    pp.run_time_dependent_model(unscaled)
 
     # The scaled problem
     material_constants_scaled = {
