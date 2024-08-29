@@ -48,7 +48,7 @@ def _set_uniform_bc(grid, d, bc_type, include_rot=True):
                 grid, faces=face_ind, cond=nf * ["neu"]
             )
             bc_rot = pp.BoundaryCondition(grid, faces=face_ind, cond=nf * ["neu"])
-        case "robin":
+        case "rob":
             bc_disp = pp.BoundaryConditionVectorial(
                 grid, faces=face_ind, cond=nf * ["rob"]
             )
@@ -62,7 +62,7 @@ def _set_uniform_bc(grid, d, bc_type, include_rot=True):
 
 class TestTpsaTailoredGrid:
 
-    @pytest.fixture(scope="class")
+    #@pytest.fixture(scope="class")
     def g(self):
         g = pp.CartGrid([NUM_CELLS, 1])
         g.nodes = np.array(
@@ -73,7 +73,7 @@ class TestTpsaTailoredGrid:
         g.cell_centers = np.array([[1, 0.5, 0], [2.5, 0.5, 0]]).T
         return g
 
-    @pytest.fixture(scope="class")
+    #@pytest.fixture(scope="class")
     def data(self):
         lmbda = np.array([1, 1])
         mu = np.array([1, 2])
@@ -297,8 +297,6 @@ class TestTpsaTailoredGrid:
         cos_0 = 1
         cos_1 = 3
 
-        stress_0 = 2 * mu_0 / d_0_0 * n_0_nrm
-        stress_6 = 2 * mu_1 / d_1_6 * n_6_nrm
 
         r_0 = 1
         r_6 = 1
@@ -358,14 +356,186 @@ class TestTpsaTailoredGrid:
         )
 
 
-
-
-
-    def test_robin_bcs(self, g):
+    def test_robin_bcs(self):
+        g = self.g()
+        data = self.data()
         # Set Robin boundary conditions on all faces, check that the discretization stencil
         # for internal faces, as well as the implementation of the boundary conditions are
         # correct.
-        pass
+        # Set Robin boundary conditions on all faces, check that the implementation of
+        # the boundary conditions are correct.
+        _set_uniform_bc(g, data, "rob")
+
+        # Modify the Robin weight in the displacement boundary condition
+        # Robin weights
+        rw_0_x = 2
+        rw_0_y = 1
+        rw_6 = 1
+        bc_disp = data[pp.PARAMETERS][KEYWORD]['bc']
+        # Set an anisotropic weight for face 0
+        bc_disp.robin_weight[0, 0, 0] = rw_0_x
+        bc_disp.robin_weight[1, 1, 0] = rw_0_y
+        bc_disp.robin_weight[0, 0, 6] = rw_6
+        bc_disp.robin_weight[1, 1, 6] = rw_6
+        
+
+        # Robin boundaries have not yet been implemented for the rotation variable, so
+        # set this to Neumann and ignore the computed values.
+        bc_rot = data[pp.PARAMETERS][KEYWORD]['bc_rot']
+        # This will actually set Neumann conditions also on internal faces, but that
+        # should not be a problem.
+        bc_rot.is_neu[:] = True
+        bc_rot.is_rob[:] = False
+
+        matrices = discretize_get_matrices(g, data)
+
+        # We test the discretization on face 6, as this has two non-trivial components of
+        # the normal vector, and in the vector from cell to face center.
+        target_faces_scalar = np.array([0, 6])
+        target_faces_vector = np.array([0, 1, 12, 13])
+
+        n_0 = np.array([1, 0])
+        n_0_nrm = 1
+        n_6 = np.array([1, 2])
+        n_6_nrm = np.sqrt(5)
+
+        # The distance from cell center to face center, projected onto the normal. Robin
+        # conditions can be interpreted as a distance of 1 / alpha, where alpha is the
+        # Biot parameter in the sense of PorePy.
+        
+        d_0_0 = 1  # Distance from cell 0 to face 0
+        # The Robin condition translated to 'distances'
+        d_0_x_bound = rw_0_x  # In the x-direction, the Robin coefficient is 2
+        d_0_y_bound = rw_0_y  # In the y-direction, the Robin coefficient is 1
+        # The total distances
+        d_0_0_x = d_0_0 + d_0_x_bound
+        d_0_0_y = d_0_0 + d_0_y_bound
+        # For face 6, cell 1, the distance is 2/(3 * nrm_6), the Robin coefficient is 1
+        d_6_bound = 1
+        d_1_6 = 3 / (2 * n_6_nrm) 
+        #d_1_6 = d_1_6_int + d_6_bound
+
+        mu_0 = 1
+        mu_1 = 2
+        cos_0 = 1
+        cos_1 = 3
+
+        # Stress discretization, use distances that incorporate the Robin condition
+        stress_0_x = 2 * n_0_nrm * ((mu_0 / d_0_0) * rw_0_x) / (mu_0 / d_0_0 + rw_0_x)
+        stress_0_y = 2 * n_0_nrm * ((mu_0 / d_0_0) * rw_0_y) / (mu_0 / d_0_0 + rw_0_y)
+        stress_6 = 2 * n_6_nrm * ((mu_1 / d_1_6) * rw_6) / (mu_1 / d_1_6 + rw_6)
+
+        # Averaging coefficient for the interior cell
+        r_0_x = (mu_0 / d_0_0) / (mu_0 / d_0_0 + rw_0_x)
+        r_0_y = (mu_0 / d_0_0) / (mu_0 / d_0_0 + rw_0_y)
+        r_6 = (mu_1 / d_1_6) / (mu_1 / d_1_6 + rw_6)
+        # And the complement
+        cr_0_x = 1 - r_0_x
+        cr_0_y = 1 - r_0_y
+        cr_6 = 1 - r_6
+
+        # Averaging coefficients for the boundary term
+        r_0_x_bound = rw_0_x / (mu_0 / d_0_0 + rw_0_x)
+        r_0_y_bound = rw_0_y / (mu_0 / d_0_0 + rw_0_y)
+        r_6_bound = rw_6 / (mu_1 / d_1_6 + rw_6)
+        # And the complement
+        cr_0_x_bound = 1 - r_0_x_bound
+        cr_0_y_bound = 1 - r_0_y_bound
+        cr_6_bound = 1 - r_6_bound
+
+
+        # The term delta_k^mu
+        delta_0_x = 1 / (2 * (mu_0 / d_0_0 + 2))
+        delta_0_y = 1 / (2 * (mu_0 / d_0_0 + 1))
+        delta_6 = 1 / (2 * (mu_1 / d_1_6 + 1))
+
+
+        # Boundary stress. The first term in the below expressions corresponds to the
+        # Neumann part of the Robin condition, the second is the Dirichlet part. For the
+        # Neumann part, the expression includes the distance measure (or rather 1 -
+        # distance, since the discretization includes the complimentary averaging
+        # operator).
+        bound_stress = np.zeros((4, 14))
+        # The first term is the 'Neumann part', second is Dirichlet. The signs of the
+        # respective parts are the same as in the Dirichlet and Neumann tests.
+        bound_stress[0, 0] = -cr_0_x_bound - stress_0_x
+        bound_stress[1, 1] = -cr_0_y_bound - stress_0_y
+        bound_stress[2, 12] = cr_6_bound + stress_6
+        bound_stress[3, 13] = cr_6_bound + stress_6
+
+        # This is set to Neumann conditions (see top of this method), so copy these
+        # conditions from the relevant test
+        bound_rotation_diffusion = np.zeros((2, 7))
+        bound_rotation_diffusion[0, 0] = -1
+        bound_rotation_diffusion[1, 6] = 1
+
+        # From the definition of \bar{R}, we get [-n[1], n[0]]. There is an additional
+        # minus sign in the analytical expression, which is included in the known values.
+        # First term is the Neumann part, second is Dirichlet.
+        bound_rotation_displacement = np.zeros((2, 14))
+        bound_rotation_displacement[0, 0] = -n_0[1] * delta_0_x + r_0_x_bound * n_0[1]
+        bound_rotation_displacement[0, 1] = n_0[0]  * delta_0_y -r_0_y_bound * n_0[0]
+        bound_rotation_displacement[1, 12] = -n_6[1] * delta_6 + r_6_bound * n_6[1]
+        bound_rotation_displacement[1, 13] = n_6[0] * delta_6 -r_6_bound * n_6[0]
+
+        bound_mass_displacement = np.zeros((2, 14))
+        bound_mass_displacement[0, 0] =  n_0[0] * delta_0_x
+        bound_mass_displacement[0, 1] = n_0[1] * delta_0_y
+        bound_mass_displacement[1, 12] = n_6[0] * delta_6
+        bound_mass_displacement[1, 13] = n_6[1] * delta_6
+
+        known_values = {
+            # The stress discretization is the same as in the Dirichlet case
+            "stress": np.array(
+                [
+                    [stress_0_x, 0, 0, 0],
+                    [0, stress_0_y, 0, 0],
+                    [0, 0, -stress_6, 0],
+                    [0, 0, 0, -stress_6],
+                ]
+            ),
+            "stress_rotation":  -np.array(
+                [
+                    [cr_0_x * n_0[1], 0],
+                    [-cr_0_y * n_0[0], 0],
+                    [0, cr_6 * n_6[1]],
+                    [0, -cr_6 * n_6[0]],
+                ]
+            ),
+            "stress_total_pressure": np.array(
+                [
+                    [cr_0_x * n_0[0], 0],
+                    [cr_0_y * n_0[1], 0],
+                    [0, cr_6 * n_6[0]],
+                    [0, cr_6 * n_6[1]],
+                ]
+            ),
+            # The boundary stress is defined above.
+            "bound_stress": bound_stress,
+            # The outer minus sign is part of the analytical expression. The inner minus
+            # signs, and the coefficients, follow from the definition of R_k^n and the
+            # coefficients of the discretization (see paper).
+            "rotation_displacement": -np.array(
+                [[-r_0_x * n_0[1], r_0_y * n_0[0], 0, 0], [0, 0, -r_6 * n_6[1], r_6 * n_6[0]]]
+            ),
+            "bound_rotation_displacement": bound_rotation_displacement,
+            "rotation_diffusion": np.zeros((2, 2)),
+            "bound_rotation_diffusion": bound_rotation_diffusion,
+            "solid_mass_displacement": np.array(
+                [[r_0_x * n_0[0], r_0_y * n_0[1], 0, 0], [0, 0, r_6 * n_6[0], r_6 * n_6[1]]]
+            ),
+            "bound_mass_displacement": bound_mass_displacement,
+            "solid_mass_total_pressure": np.array(
+                [[d_0_0 / (2 * mu_0) * n_0_nrm, 0], [0, -d_1_6 / (2 * mu_1) * n_6_nrm]]
+            ),
+        }
+
+        compare_matrices(
+            g, matrices, known_values, target_faces_scalar, target_faces_vector
+        )
+
+
+
 
 
     def test_mixed_bcs(self, g):
@@ -377,6 +547,8 @@ class TestTpsaTailoredGrid:
         # interactions.
         pass
 
+
+TestTpsaTailoredGrid().test_robin_bcs()
 
 def test_no_cosserat():
     # Set up a problem without Cosserat effects, check that the rotation diffusion
