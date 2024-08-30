@@ -62,7 +62,7 @@ def _set_uniform_bc(grid, d, bc_type, include_rot=True):
 
 class TestTpsaTailoredGrid:
 
-    #@pytest.fixture(scope="class")
+    @pytest.fixture(scope="class")
     def g(self):
         g = pp.CartGrid([NUM_CELLS, 1])
         g.nodes = np.array(
@@ -73,7 +73,7 @@ class TestTpsaTailoredGrid:
         g.cell_centers = np.array([[1, 0.5, 0], [2.5, 0.5, 0]]).T
         return g
 
-    #@pytest.fixture(scope="class")
+    @pytest.fixture(scope="class")
     def data(self):
         lmbda = np.array([1, 1])
         mu = np.array([1, 2])
@@ -163,7 +163,9 @@ class TestTpsaTailoredGrid:
 
 
     def test_dirichlet_bcs(self, g, data):
-
+    #def test_dirichlet_bcs(self):
+    #    g = self.g()
+    #    data = self.data()
         # Set Dirichlet boundary conditions on all faces, check that the implementation of
         # the boundary conditions are correct.
         _set_uniform_bc(g, data, "dir")
@@ -356,9 +358,7 @@ class TestTpsaTailoredGrid:
         )
 
 
-    def test_robin_bcs(self):
-        g = self.g()
-        data = self.data()
+    def test_robin_bcs(self, g, data):
         # Set Robin boundary conditions on all faces, check that the discretization stencil
         # for internal faces, as well as the implementation of the boundary conditions are
         # correct.
@@ -548,7 +548,7 @@ class TestTpsaTailoredGrid:
         pass
 
 
-TestTpsaTailoredGrid().test_robin_bcs()
+#TestTpsaTailoredGrid().test_dirichlet_bcs()
 
 def test_no_cosserat():
     # Set up a problem without Cosserat effects, check that the rotation diffusion
