@@ -62,8 +62,8 @@ def _set_uniform_bc(grid, d, bc_type, include_rot=True):
 
 class TestTpsaTailoredGrid:
 
-    @pytest.fixture(scope="class")
-    def g(self):
+    @pytest.fixture(autouse=True)
+    def setup(self):
         g = pp.CartGrid([NUM_CELLS, 1])
         g.nodes = np.array(
             [[0, 0, 0], [2, 0, 0], [3, 0, 0], [0, 1, 0], [1, 2, 0], [3, 1, 0]]
@@ -71,33 +71,53 @@ class TestTpsaTailoredGrid:
         g.compute_geometry()
         g.face_centers[0, 3] = 1.5
         g.cell_centers = np.array([[1, 0.5, 0], [2.5, 0.5, 0]]).T
-        return g
+        
+        self.g = g
 
-    @pytest.fixture(scope="class")
-    def data(self):
+        self.mu_0 = 1
+        self.mu_1 = 2
+
+        self.cos_0 = 1
+        self.cos_1 = 3
+
         lmbda = np.array([1, 1])
-        mu = np.array([1, 2])
+        mu = np.array([self.mu_0, self.mu_1])
         C = pp.FourthOrderTensor(mu, lmbda)
-        cosserat = np.array([1, 3])
+        cosserat = np.array([self.cos_0, self.cos_1])
 
-        d = {
+        self.data = {
             pp.PARAMETERS: {
                 KEYWORD: {"fourth_order_tensor": C, "cosserat_parameter": cosserat}
             },
             pp.DISCRETIZATION_MATRICES: {KEYWORD: {}},
         }
 
-        return d        
+        # We test the discretization on face 6, as this has two non-trivial components of
+        # the normal vector, and in the vector from cell to face center.
+        self.target_faces_scalar = np.array([0, 6])
+        self.target_faces_vector = np.array([0, 1, 12, 13])
 
-    def test_discretization_interior_cells(self, g, data):
+        self.n_0 = np.array([1, 0])
+        self.n_0_nrm = 1
+        self.n_6 = np.array([1, 2])
+        self.n_6_nrm = np.sqrt(5)
+
+        # The distance from cell center to face center, projected onto the normal.
+        self.d_0_0 = 1
+        self.d_1_6 = 3 / (2 * self.n_6_nrm)
+
+        
+
+
+    def test_discretization_interior_cells(self):
         # Construct a tpsa discretization on a grid consisting of two cells, compare the
         # computed coefficients with hand-coded values.
 
         # This test considers only the discretization on interior cells, but we still need
         # to give some boundary values to the discretization. Assign Dirichlet conditions,
         # more or less arbitrarily.
-        _set_uniform_bc(g, data, "dir")
-        matrices = discretize_get_matrices(g, data)
+        _set_uniform_bc(self.g, self.data, "dir")
+        matrices = discretize_get_matrices(self.g, self.data)
 
         n = np.array([2, 1])
         n_nrm = np.sqrt(5)
@@ -112,45 +132,41 @@ class TestTpsaTailoredGrid:
         d_1_1 = 3 / (2 * n_nrm)
         d = d_0_1 + d_1_1
 
-        # Shear moduli
-        mu_0 = 1
-        mu_1 = 2
         # Weighted sum of the shear moduli
-        mu_w = mu_0 / d_0_1 + mu_1 / d_1_1
+        mu_w = self.mu_0  / d_0_1 + self.mu_1 / d_1_1
 
         # The stress coefficient is twice the harmonic average of the two shear moduli.
         # Multiply by the length of the face (sqrt(5)).
-        stress = 2 * (mu_0 * mu_1 / (d_0_1 * d_1_1) / mu_w) * n_nrm
+        stress = 2 * (self.mu_0  * self.mu_1 / (d_0_1 * d_1_1) / mu_w) * n_nrm
 
         # The Cosserat parameter is the harmonic average of the two Cosserat parameters.
         # Multiply by the length of the face (sqrt(5)).
-        cos_0 = 1
-        cos_1 = 3
-        cosserat = cos_0 * cos_1 / (d_0_1 * d_1_1) / (cos_0 / d_0_1 + cos_1 / d_1_1) * n_nrm
 
-        r_0 = mu_0 / d_0_1 / mu_w
-        r_1 = mu_1 / d_1_1 / mu_w
+        cosserat = self.cos_0 * self.cos_1 / (d_0_1 * d_1_1) / (self.cos_0 / d_0_1 + self.cos_1 / d_1_1) * n_nrm
 
-        cr_0 = 1 - r_0
+        c2f_avg_0 = self.mu_0  / d_0_1 / mu_w
+        r_1 = self.mu_1 / d_1_1 / mu_w
+
+        c_c2f_avg_0 = 1 - c2f_avg_0
         cr_1 = 1 - r_1
 
         known_values = {
             "stress": np.array([[-stress, 0, stress, 0], [0, -stress, 0, stress]]),
             "bound_stress": np.zeros((2, 14)),
             "stress_rotation": -np.array(
-                [[cr_0 * n[1], cr_1 * n[1]], [-cr_0 * n[0], -cr_1 * n[0]]]
+                [[c_c2f_avg_0 * n[1], cr_1 * n[1]], [-c_c2f_avg_0 * n[0], -cr_1 * n[0]]]
             ),
             "stress_total_pressure": np.array(
-                [[cr_0 * n[0], cr_1 * n[0]], [cr_0 * n[1], cr_1 * n[1]]],
+                [[c_c2f_avg_0 * n[0], cr_1 * n[0]], [c_c2f_avg_0 * n[1], cr_1 * n[1]]],
             ),
             "rotation_displacement": -np.array(
-                [-r_0 * n[1], r_0 * n[0], -r_1 * n[1], r_1 * n[0]]
+                [-c2f_avg_0 * n[1], c2f_avg_0 * n[0], -r_1 * n[1], r_1 * n[0]]
             ),
             "bound_rotation_displacement": np.zeros((1, 14)),
             "rotation_diffusion": np.array([-cosserat, cosserat]),
             "bound_rotation_diffusion": np.zeros((1, 7)),
             "solid_mass_displacement": np.array(
-                [r_0 * n[0], r_0 * n[1], r_1 * n[0], r_1 * n[1]]
+                [c2f_avg_0 * n[0], c2f_avg_0 * n[1], r_1 * n[0], r_1 * n[1]]
             ),
             "bound_mass_displacement": np.zeros((1, 14)),
             "solid_mass_total_pressure": np.array([-1 / (2 * mu_w), 1 / (2 * mu_w)])
@@ -158,46 +174,27 @@ class TestTpsaTailoredGrid:
         }
 
         compare_matrices(
-            g, matrices, known_values, target_faces_scalar, target_faces_vector
+            self.g, matrices, known_values, target_faces_scalar, target_faces_vector
         )
 
 
-    def test_dirichlet_bcs(self, g, data):
-    #def test_dirichlet_bcs(self):
-    #    g = self.g()
-    #    data = self.data()
+    def test_dirichlet_bcs(self):
         # Set Dirichlet boundary conditions on all faces, check that the implementation of
         # the boundary conditions are correct.
-        _set_uniform_bc(g, data, "dir")
-        matrices = discretize_get_matrices(g, data)
+        _set_uniform_bc(self.g, self.data, "dir")
+        matrices = discretize_get_matrices(self.g, self.data)
 
-        # We test the discretization on face 6, as this has two non-trivial components of
-        # the normal vector, and in the vector from cell to face center.
-        target_faces_scalar = np.array([0, 6])
-        target_faces_vector = np.array([0, 1, 12, 13])
+        stress_0 = 2 * self.mu_0  / self.d_0_0 * self.n_0_nrm
+        stress_6 = 2 * self.mu_1 / self.d_1_6 * self.n_6_nrm
 
-        n_0 = np.array([1, 0])
-        n_0_nrm = 1
-        n_6 = np.array([1, 2])
-        n_6_nrm = np.sqrt(5)
-
-        # The distance from cell center to face center, projected onto the normal.
-        d_0_0 = 1
-        d_1_6 = 3 / (2 * n_6_nrm)
-
-        mu_0 = 1
-        mu_1 = 2
-        cos_0 = 1
-        cos_1 = 3
-
-        stress_0 = 2 * mu_0 / d_0_0 * n_0_nrm
-        stress_6 = 2 * mu_1 / d_1_6 * n_6_nrm
-
-        r_0 = 0
-        r_6 = 0
-
-        cr_0 = 1 - r_0
-        cr_6 = 1 - r_6
+        # The values of the cell to face average for face for faces 0 and 6. Also the
+        # complements identified by suffix c_. On Dirichlet faces, the face value is
+        # imposed, thus the cell is asigned weight 0 (hence the complement has weight
+        # 1).
+        c2f_avg_0 = 0
+        c2f_avg_6 = 0
+        c_c2f_avg_0 = 1 - c2f_avg_0
+        c_c2f_avg_6 = 1 - c2f_avg_6
 
         # EK note to self: The coefficients in bound_stress should be negative those of the
         # stress matrix so that translation results in a stress-free configuration.
@@ -208,22 +205,22 @@ class TestTpsaTailoredGrid:
         bound_stress[3, 13] = stress_6
 
         bound_rotation_diffusion = np.zeros((2, 7))
-        bound_rotation_diffusion[0, 0] = -cos_0 / d_0_0 * n_0_nrm
-        bound_rotation_diffusion[1, 6] = cos_1 / d_1_6 * n_6_nrm
+        bound_rotation_diffusion[0, 0] = -self.cos_0 / self.d_0_0 * self.n_0_nrm
+        bound_rotation_diffusion[1, 6] = self.cos_1 / self.d_1_6 * self.n_6_nrm
 
         bound_rotation_displacement = np.zeros((2, 14))
         # From the definition of \bar{R}, we get [-n[1], n[0]]. There is an additional
         # minus sign in the analytical expression, which is included in the known values.
-        bound_rotation_displacement[0, 0] = cr_0 * n_0[1]
-        bound_rotation_displacement[0, 1] = -cr_0 * n_0[0]
-        bound_rotation_displacement[1, 12] = cr_6 * n_6[1]
-        bound_rotation_displacement[1, 13] = -cr_6 * n_6[0]
+        bound_rotation_displacement[0, 0] = c_c2f_avg_0 * self.n_0[1]
+        bound_rotation_displacement[0, 1] = -c_c2f_avg_0 * self.n_0[0]
+        bound_rotation_displacement[1, 12] = c_c2f_avg_6 * self.n_6[1]
+        bound_rotation_displacement[1, 13] = -c_c2f_avg_6 * self.n_6[0]
 
         bound_mass_displacement = np.zeros((2, 14))
-        bound_mass_displacement[0, 0] = cr_0 * n_0[0]
-        bound_mass_displacement[0, 1] = cr_0 * n_0[1]
-        bound_mass_displacement[1, 12] = cr_6 * n_6[0]
-        bound_mass_displacement[1, 13] = cr_6 * n_6[1]
+        bound_mass_displacement[0, 0] = c_c2f_avg_0 * self.n_0[0]
+        bound_mass_displacement[0, 1] = c_c2f_avg_0 * self.n_0[1]
+        bound_mass_displacement[1, 12] = c_c2f_avg_6 * self.n_6[0]
+        bound_mass_displacement[1, 13] = c_c2f_avg_6 * self.n_6[1]
 
         known_values = {
             # Positive sign on the first two rows, since the normal vector is pointing
@@ -241,18 +238,18 @@ class TestTpsaTailoredGrid:
             # Minus sign for the full expression (see paper).
             "stress_rotation": -np.array(
                 [
-                    [cr_0 * n_0[1], 0],
-                    [-cr_0 * n_0[0], 0],
-                    [0, cr_6 * n_6[1]],
-                    [0, -cr_6 * n_6[0]],
+                    [c_c2f_avg_0 * self.n_0[1], 0],
+                    [-c_c2f_avg_0 * self.n_0[0], 0],
+                    [0, c_c2f_avg_6 * self.n_6[1]],
+                    [0, -c_c2f_avg_6 * self.n_6[0]],
                 ]
             ),
             "stress_total_pressure": np.array(
                 [
-                    [cr_0 * n_0[0], 0],
-                    [cr_0 * n_0[1], 0],
-                    [0, cr_6 * n_6[0]],
-                    [0, cr_6 * n_6[1]],
+                    [c_c2f_avg_0 * self.n_0[0], 0],
+                    [c_c2f_avg_0 * self.n_0[1], 0],
+                    [0, c_c2f_avg_6 * self.n_6[0]],
+                    [0, c_c2f_avg_6 * self.n_6[1]],
                 ]
             ),
             "rotation_displacement": np.zeros((2, 4)),
@@ -260,7 +257,7 @@ class TestTpsaTailoredGrid:
             # Minus sign on the second face, since the normal vector is pointing out of the
             # cell.
             "rotation_diffusion": np.array(
-                [[cos_0 / d_0_0 * n_0_nrm, 0], [0, -cos_1 / d_1_6 * n_6_nrm]]
+                [[self.cos_0 / self.d_0_0 * self.n_0_nrm, 0], [0, -self.cos_1 / self.d_1_6 * self.n_6_nrm]]
             ),
             "bound_rotation_diffusion": bound_rotation_diffusion,
             "solid_mass_displacement": np.zeros((2, 4)),
@@ -269,39 +266,23 @@ class TestTpsaTailoredGrid:
         }
 
         compare_matrices(
-            g, matrices, known_values, target_faces_scalar, target_faces_vector
+            self.g, matrices, known_values, self.target_faces_scalar, self.target_faces_vector
         )
 
 
-    def test_neumann_bcs(self, g, data):
-
+    def test_neumann_bcs(self):
         # Set Neumann boundary conditions on all faces, check that the implementation of
         # the boundary conditions are correct.
-        _set_uniform_bc(g, data, "neu")
-        matrices = discretize_get_matrices(g, data)
+        _set_uniform_bc(self.g, self.data, "neu")
+        matrices = discretize_get_matrices(self.g, self.data)
 
-        # We test the discretization on face 6, as this has two non-trivial components of
-        # the normal vector, and in the vector from cell to face center.
-        target_faces_scalar = np.array([0, 6])
-        target_faces_vector = np.array([0, 1, 12, 13])
-
-        n_0 = np.array([1, 0])
-        n_0_nrm = 1
-        n_6 = np.array([1, 2])
-        n_6_nrm = np.sqrt(5)
-
-        # The distance from cell center to face center, projected onto the normal.
-        d_0_0 = 1
-        d_1_6 = 3 / (2 * n_6_nrm)
-
-        mu_0 = 1
-        mu_1 = 2
-        cos_0 = 1
-        cos_1 = 3
-
-
-        r_0 = 1
-        r_6 = 1
+        # The values of the cell to face average for face for faces 0 and 6. Also the
+        # complements identified by suffix c_. On Neumann faces, only the cell value is
+        # used for the computation, thus it is assigned unit value (and the complement,
+        # with value 0, is ignored in the construction of the analytical expressions
+        # below, hence we don't define it).
+        c2f_avg_0 = 1
+        c2f_avg_6 = 1
 
         # Boundary stress: The coefficients in bound_stress should be negative those of the
         # stress matrix so that translation results in a stress-free configuration.
@@ -316,16 +297,16 @@ class TestTpsaTailoredGrid:
         bound_rotation_diffusion[1, 6] = 1
 
         bound_rotation_displacement = np.zeros((2, 14))
-        bound_rotation_displacement[0, 0] = -d_0_0 * n_0[1] / (2 * mu_0)
-        bound_rotation_displacement[0, 1] = d_0_0 * n_0[0] / (2 * mu_0)
-        bound_rotation_displacement[1, 12] = -d_1_6 * n_6[1] / (2 * mu_1)
-        bound_rotation_displacement[1, 13] = d_1_6 * n_6[0] / (2 * mu_1)
+        bound_rotation_displacement[0, 0] = -self.d_0_0 * self.n_0[1] / (2 * self.mu_0 )
+        bound_rotation_displacement[0, 1] = self.d_0_0 * self.n_0[0] / (2 * self.mu_0 )
+        bound_rotation_displacement[1, 12] = -self.d_1_6 * self.n_6[1] / (2 * self.mu_1)
+        bound_rotation_displacement[1, 13] = self.d_1_6 * self.n_6[0] / (2 * self.mu_1)
 
         bound_mass_displacement = np.zeros((2, 14))
-        bound_mass_displacement[0, 0] = d_0_0 * n_0[0] / (2 * mu_0)
-        bound_mass_displacement[0, 1] = d_0_0 * n_0[1] / (2 * mu_0)
-        bound_mass_displacement[1, 12] = d_1_6 * n_6[0] / (2 * mu_1)
-        bound_mass_displacement[1, 13] = d_1_6 * n_6[1] / (2 * mu_1)
+        bound_mass_displacement[0, 0] = self.d_0_0 * self.n_0[0] / (2 * self.mu_0 )
+        bound_mass_displacement[0, 1] = self.d_0_0 * self.n_0[1] / (2 * self.mu_0 )
+        bound_mass_displacement[1, 12] = self.d_1_6 * self.n_6[0] / (2 * self.mu_1)
+        bound_mass_displacement[1, 13] = self.d_1_6 * self.n_6[1] / (2 * self.mu_1)
 
         known_values = {
             # The stress is prescribed, thus no contribution from the interior cells for
@@ -339,132 +320,105 @@ class TestTpsaTailoredGrid:
             # signs, and the coefficients, follow from the definition of R_k^n and the
             # coefficients of the discretization (see paper).
             "rotation_displacement": -np.array(
-                [[-r_0 * n_0[1], r_0 * n_0[0], 0, 0], [0, 0, -r_6 * n_6[1], r_6 * n_6[0]]]
+                [[-c2f_avg_0 * self.n_0[1], c2f_avg_0 * self.n_0[0], 0, 0], [0, 0, -c2f_avg_6 * self.n_6[1], c2f_avg_6 * self.n_6[0]]]
             ),
             "bound_rotation_displacement": bound_rotation_displacement,
             "rotation_diffusion": np.zeros((2, 2)),
             "bound_rotation_diffusion": bound_rotation_diffusion,
             "solid_mass_displacement": np.array(
-                [[r_0 * n_0[0], r_0 * n_0[1], 0, 0], [0, 0, r_6 * n_6[0], r_6 * n_6[1]]]
+                [[c2f_avg_0 * self.n_0[0], c2f_avg_0 * self.n_0[1], 0, 0], [0, 0, c2f_avg_6 * self.n_6[0], c2f_avg_6 * self.n_6[1]]]
             ),
             "bound_mass_displacement": bound_mass_displacement,
             "solid_mass_total_pressure": np.array(
-                [[d_0_0 / (2 * mu_0) * n_0_nrm, 0], [0, -d_1_6 / (2 * mu_1) * n_6_nrm]]
+                [[self.d_0_0 / (2 * self.mu_0 ) * self.n_0_nrm, 0], [0, -self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm]]
             ),
         }
 
         compare_matrices(
-            g, matrices, known_values, target_faces_scalar, target_faces_vector
+            self.g, matrices, known_values, self.target_faces_scalar, self.target_faces_vector
         )
 
 
-    def test_robin_bcs(self, g, data):
+    def test_robin_bcs(self):
         # Set Robin boundary conditions on all faces, check that the discretization stencil
         # for internal faces, as well as the implementation of the boundary conditions are
         # correct.
         # Set Robin boundary conditions on all faces, check that the implementation of
         # the boundary conditions are correct.
-        _set_uniform_bc(g, data, "rob")
+        _set_uniform_bc(self.g, self.data, "rob")
 
-        # Modify the Robin weight in the displacement boundary condition
-        # Robin weights
+        # Modify the Robin weight in the displacement boundary condition. Assign
+        # different weights in the x- and y-direction for face 0, equal weights for face
+        # 6.
         rw_0_x = 2
         rw_0_y = 1
         rw_6 = 1
-        bc_disp = data[pp.PARAMETERS][KEYWORD]['bc']
-        # Set an anisotropic weight for face 0
+        # Assign to boundary condition object.
+        bc_disp = self.data[pp.PARAMETERS][KEYWORD]['bc']
         bc_disp.robin_weight[0, 0, 0] = rw_0_x
         bc_disp.robin_weight[1, 1, 0] = rw_0_y
         bc_disp.robin_weight[0, 0, 6] = rw_6
         bc_disp.robin_weight[1, 1, 6] = rw_6
-        
 
         # Robin boundaries have not yet been implemented for the rotation variable, so
         # set this to Neumann and ignore the computed values.
-        bc_rot = data[pp.PARAMETERS][KEYWORD]['bc_rot']
+        bc_rot = self.data[pp.PARAMETERS][KEYWORD]['bc_rot']
         # This will actually set Neumann conditions also on internal faces, but that
         # should not be a problem.
         bc_rot.is_neu[:] = True
         bc_rot.is_rob[:] = False
 
-        matrices = discretize_get_matrices(g, data)
-
-        # We test the discretization on face 6, as this has two non-trivial components of
-        # the normal vector, and in the vector from cell to face center.
-        target_faces_scalar = np.array([0, 6])
-        target_faces_vector = np.array([0, 1, 12, 13])
-
-        n_0 = np.array([1, 0])
-        n_0_nrm = 1
-        n_6 = np.array([1, 2])
-        n_6_nrm = np.sqrt(5)
-
-        # The distance from cell center to face center, projected onto the normal. Robin
-        # conditions can be interpreted as a distance of 1 / alpha, where alpha is the
-        # Biot parameter in the sense of PorePy.
+        matrices = discretize_get_matrices(self.g, self.data)
         
-        d_0_0 = 1  # Distance from cell 0 to face 0
         # The Robin condition translated to 'distances'
-        d_0_x_bound = rw_0_x  # In the x-direction, the Robin coefficient is 2
-        d_0_y_bound = rw_0_y  # In the y-direction, the Robin coefficient is 1
-        # The total distances
-        d_0_0_x = d_0_0 + d_0_x_bound
-        d_0_0_y = d_0_0 + d_0_y_bound
-        # For face 6, cell 1, the distance is 2/(3 * nrm_6), the Robin coefficient is 1
-        d_6_bound = 1
-        d_1_6 = 3 / (2 * n_6_nrm) 
-        #d_1_6 = d_1_6_int + d_6_bound
+        d_0_x_bound = rw_0_x
+        d_0_y_bound = rw_0_y
+        d_6_bound = rw_6
 
-        mu_0 = 1
-        mu_1 = 2
-        cos_0 = 1
-        cos_1 = 3
-
-        # Stress discretization, use distances that incorporate the Robin condition
-        stress_0_x = 2 * n_0_nrm * ((mu_0 / d_0_0) * rw_0_x) / (mu_0 / d_0_0 + rw_0_x)
-        stress_0_y = 2 * n_0_nrm * ((mu_0 / d_0_0) * rw_0_y) / (mu_0 / d_0_0 + rw_0_y)
-        stress_6 = 2 * n_6_nrm * ((mu_1 / d_1_6) * rw_6) / (mu_1 / d_1_6 + rw_6)
+        # Short hand notation for the shear modulus divided by the cell to face distance
+        mu_0_d = self.mu_0  / self.d_0_0
+        mu_1_d = self.mu_1 / self.d_1_6
 
         # Averaging coefficient for the interior cell
-        r_0_x = (mu_0 / d_0_0) / (mu_0 / d_0_0 + rw_0_x)
-        r_0_y = (mu_0 / d_0_0) / (mu_0 / d_0_0 + rw_0_y)
-        r_6 = (mu_1 / d_1_6) / (mu_1 / d_1_6 + rw_6)
+        c2f_avg_0_x = mu_0_d / (mu_0_d + rw_0_x)
+        c2f_avg_0_y = mu_0_d / (mu_0_d + rw_0_y)
+        c2f_avg_6 = mu_1_d / (mu_1_d + rw_6)
         # And the complement
-        cr_0_x = 1 - r_0_x
-        cr_0_y = 1 - r_0_y
-        cr_6 = 1 - r_6
+        c_c2f_avg_0_x = 1 - c2f_avg_0_x
+        c_c2f_avg_0_y = 1 - c2f_avg_0_y
+        c_c2f_avg_6 = 1 - c2f_avg_6
 
         # Averaging coefficients for the boundary term
-        r_0_x_bound = rw_0_x / (mu_0 / d_0_0 + rw_0_x)
-        r_0_y_bound = rw_0_y / (mu_0 / d_0_0 + rw_0_y)
-        r_6_bound = rw_6 / (mu_1 / d_1_6 + rw_6)
+        c2f_avg_0_x_bound = rw_0_x / (mu_0_d + rw_0_x)
+        c2f_avg_0_y_bound = rw_0_y / (mu_0_d + rw_0_y)
+        c2f_avg_6_bound = rw_6 / (mu_1_d + rw_6)
         # And the complement
-        cr_0_x_bound = 1 - r_0_x_bound
-        cr_0_y_bound = 1 - r_0_y_bound
-        cr_6_bound = 1 - r_6_bound
+        c_c2f_avg_0_x_bound = 1 - c2f_avg_0_x_bound
+        c_c2f_avg_0_y_bound = 1 - c2f_avg_0_y_bound
+        c_c2f_avg_6_bound = 1 - c2f_avg_6_bound
 
+        # The term delta_k^mu (see paper for description)
+        delta_0_x = 1 / (2 * (mu_0_d + rw_0_x))
+        delta_0_y = 1 / (2 * (mu_0_d + rw_0_y))
+        delta_6 = 1 / (2 * (mu_1_d + rw_6))
 
-        # The term delta_k^mu
-        delta_0_x = 1 / (2 * (mu_0 / d_0_0 + 2))
-        delta_0_y = 1 / (2 * (mu_0 / d_0_0 + 1))
-        delta_6 = 1 / (2 * (mu_1 / d_1_6 + 1))
+        # Stress discretization, use distances that incorporate the Robin condition
+        stress_0_x = 2 * self.n_0_nrm * (mu_0_d * rw_0_x) / (mu_0_d + rw_0_x)
+        stress_0_y = 2 * self.n_0_nrm * (mu_0_d * rw_0_y) / (mu_0_d + rw_0_y)
+        stress_6 = 2 * self.n_6_nrm * (mu_1_d * rw_6) / (mu_1_d + rw_6)
 
-
-        # Boundary stress. The first term in the below expressions corresponds to the
-        # Neumann part of the Robin condition, the second is the Dirichlet part. For the
-        # Neumann part, the expression includes the distance measure (or rather 1 -
-        # distance, since the discretization includes the complimentary averaging
-        # operator).
+        # Boundary stress. The first term is the 'Neumann part', second is Dirichlet.
+        # The signs of the respective parts are the same as in the Dirichlet and Neumann
+        # tests.
         bound_stress = np.zeros((4, 14))
-        # The first term is the 'Neumann part', second is Dirichlet. The signs of the
-        # respective parts are the same as in the Dirichlet and Neumann tests.
-        bound_stress[0, 0] = -cr_0_x_bound - stress_0_x
-        bound_stress[1, 1] = -cr_0_y_bound - stress_0_y
-        bound_stress[2, 12] = cr_6_bound + stress_6
-        bound_stress[3, 13] = cr_6_bound + stress_6
+        bound_stress[0, 0] = -c_c2f_avg_0_x_bound - stress_0_x
+        bound_stress[1, 1] = -c_c2f_avg_0_y_bound - stress_0_y
+        bound_stress[2, 12] = c_c2f_avg_6_bound + stress_6
+        bound_stress[3, 13] = c_c2f_avg_6_bound + stress_6
 
-        # This is set to Neumann conditions (see top of this method), so copy these
-        # conditions from the relevant test
+        # The boundary condition for the rotation diffusion problem  is set to Neumann
+        # conditions (see top of this method), so copy these conditions from the
+        # relevant test
         bound_rotation_diffusion = np.zeros((2, 7))
         bound_rotation_diffusion[0, 0] = -1
         bound_rotation_diffusion[1, 6] = 1
@@ -473,16 +427,16 @@ class TestTpsaTailoredGrid:
         # minus sign in the analytical expression, which is included in the known values.
         # First term is the Neumann part, second is Dirichlet.
         bound_rotation_displacement = np.zeros((2, 14))
-        bound_rotation_displacement[0, 0] = -n_0[1] * delta_0_x + r_0_x_bound * n_0[1]
-        bound_rotation_displacement[0, 1] = n_0[0]  * delta_0_y -r_0_y_bound * n_0[0]
-        bound_rotation_displacement[1, 12] = -n_6[1] * delta_6 + r_6_bound * n_6[1]
-        bound_rotation_displacement[1, 13] = n_6[0] * delta_6 -r_6_bound * n_6[0]
+        bound_rotation_displacement[0, 0] = self.n_0[1] *( -delta_0_x + c2f_avg_0_x_bound)
+        bound_rotation_displacement[0, 1] = self.n_0[0]  * (delta_0_y -c2f_avg_0_y_bound)
+        bound_rotation_displacement[1, 12] = self.n_6[1] * (-delta_6 + c2f_avg_6_bound)
+        bound_rotation_displacement[1, 13] = self.n_6[0] * (delta_6 -c2f_avg_6_bound)
 
         bound_mass_displacement = np.zeros((2, 14))
-        bound_mass_displacement[0, 0] =  n_0[0] * delta_0_x
-        bound_mass_displacement[0, 1] = n_0[1] * delta_0_y
-        bound_mass_displacement[1, 12] = n_6[0] * delta_6
-        bound_mass_displacement[1, 13] = n_6[1] * delta_6
+        bound_mass_displacement[0, 0] =  self.n_0[0] * delta_0_x
+        bound_mass_displacement[0, 1] = self.n_0[1] * delta_0_y
+        bound_mass_displacement[1, 12] = self.n_6[0] * delta_6
+        bound_mass_displacement[1, 13] = self.n_6[1] * delta_6
 
         known_values = {
             # The stress discretization is the same as in the Dirichlet case
@@ -496,18 +450,18 @@ class TestTpsaTailoredGrid:
             ),
             "stress_rotation":  -np.array(
                 [
-                    [cr_0_x * n_0[1], 0],
-                    [-cr_0_y * n_0[0], 0],
-                    [0, cr_6 * n_6[1]],
-                    [0, -cr_6 * n_6[0]],
+                    [c_c2f_avg_0_x * self.n_0[1], 0],
+                    [-c_c2f_avg_0_y * self.n_0[0], 0],
+                    [0, c_c2f_avg_6 * self.n_6[1]],
+                    [0, -c_c2f_avg_6 * self.n_6[0]],
                 ]
             ),
             "stress_total_pressure": np.array(
                 [
-                    [cr_0_x * n_0[0], 0],
-                    [cr_0_y * n_0[1], 0],
-                    [0, cr_6 * n_6[0]],
-                    [0, cr_6 * n_6[1]],
+                    [c_c2f_avg_0_x * self.n_0[0], 0],
+                    [c_c2f_avg_0_y * self.n_0[1], 0],
+                    [0, c_c2f_avg_6 * self.n_6[0]],
+                    [0, c_c2f_avg_6 * self.n_6[1]],
                 ]
             ),
             # The boundary stress is defined above.
@@ -516,29 +470,29 @@ class TestTpsaTailoredGrid:
             # signs, and the coefficients, follow from the definition of R_k^n and the
             # coefficients of the discretization (see paper).
             "rotation_displacement": -np.array(
-                [[-r_0_x * n_0[1], r_0_y * n_0[0], 0, 0], [0, 0, -r_6 * n_6[1], r_6 * n_6[0]]]
+                [[-c2f_avg_0_x * self.n_0[1], c2f_avg_0_y * self.n_0[0], 0, 0], [0, 0, -c2f_avg_6 * self.n_6[1], c2f_avg_6 * self.n_6[0]]]
             ),
             "bound_rotation_displacement": bound_rotation_displacement,
             "rotation_diffusion": np.zeros((2, 2)),
             "bound_rotation_diffusion": bound_rotation_diffusion,
             "solid_mass_displacement": np.array(
-                [[r_0_x * n_0[0], r_0_y * n_0[1], 0, 0], [0, 0, r_6 * n_6[0], r_6 * n_6[1]]]
+                [[c2f_avg_0_x * self.n_0[0], c2f_avg_0_y * self.n_0[1], 0, 0], [0, 0, c2f_avg_6 * self.n_6[0], c2f_avg_6 * self.n_6[1]]]
             ),
             "bound_mass_displacement": bound_mass_displacement,
             "solid_mass_total_pressure": np.array(
-                [[d_0_0 / (2 * mu_0) * n_0_nrm, 0], [0, -d_1_6 / (2 * mu_1) * n_6_nrm]]
+                [[self.d_0_0 / (2 * self.mu_0 ) * self.n_0_nrm, 0], [0, -self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm]]
             ),
         }
 
         compare_matrices(
-            g, matrices, known_values, target_faces_scalar, target_faces_vector
+            self.g, matrices, known_values, self.target_faces_scalar, self.target_faces_vector
         )
 
 
 
 
 
-    def test_mixed_bcs(self, g):
+    def test_mixed_bcs(self):
         # Set mixed boundary conditions (e.g. type A in one direction, B in a different
         # direction) on all faces, check that the discretization stencil for internal faces,
         # as well as the implementation of the boundary conditions are correct. Note that it
