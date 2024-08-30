@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Union, Optional
+from typing import Optional, Union
+
 import numpy as np
 
 # ``tqdm`` is not a dependency. Up to the user to install it.
