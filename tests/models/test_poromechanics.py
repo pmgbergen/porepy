@@ -258,7 +258,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     """
 
     setup = create_fractured_setup(solid_vals, {}, north_displacement)
-    pp.run_time_dependent_model(setup, {})
+    pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
 
     # Create model and run simulation
@@ -328,13 +328,13 @@ def test_poromechanics_model_no_modification():
 def test_without_fracture(biot_coefficient):
     fluid = pp.FluidConstants(constants={"compressibility": 0.5})
     solid = pp.SolidConstants(constants={"biot_coefficient": biot_coefficient})
-    model_params = {
+    params = {
         "fracture_indices": [],
         "material_constants": {"fluid": fluid, "solid": solid},
         "uy_north": 0.001,
         "cartesian": True,
     }
-    m = TailoredPoromechanics(model_params)
+    m = TailoredPoromechanics(params)
     pp.run_time_dependent_model(m)
 
     sd = m.mdg.subdomains(dim=m.nd)
@@ -359,7 +359,7 @@ def test_without_fracture(biot_coefficient):
 def test_pull_north_positive_opening():
     """Check solution for a pull on the north side with one horizontal fracture."""
     setup = create_fractured_setup({}, {}, 0.001)
-    pp.run_time_dependent_model(setup, {})
+    pp.run_time_dependent_model(setup)
     _, _s, p_frac, jump, traction = get_variables(setup)
 
     # All components should be open in the normal direction
@@ -383,7 +383,7 @@ def test_pull_south_positive_opening():
 
     setup = create_fractured_setup({}, {}, 0)
     setup.params["uy_south"] = -0.001
-    pp.run_time_dependent_model(setup, {})
+    pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
 
     # All components should be open in the normal direction
@@ -404,7 +404,7 @@ def test_pull_south_positive_opening():
 
 def test_push_north_zero_opening():
     setup = create_fractured_setup({}, {}, -0.001)
-    pp.run_time_dependent_model(setup, {})
+    pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
 
     # All components should be closed in the normal direction
@@ -420,7 +420,7 @@ def test_push_north_zero_opening():
 def test_positive_p_frac_positive_opening():
     setup = create_fractured_setup({}, {}, 0)
     setup.params["fracture_source_value"] = 0.001
-    pp.run_time_dependent_model(setup, {})
+    pp.run_time_dependent_model(setup)
     _, _, p_frac, jump, traction = get_variables(setup)
 
     # All components should be open in the normal direction
@@ -445,7 +445,7 @@ def test_pull_south_positive_reference_pressure():
     setup_ref = create_fractured_setup({}, {}, 0)
     setup_ref.subtract_p_frac = False
     setup_ref.params["uy_south"] = -0.001
-    pp.run_time_dependent_model(setup_ref, {})
+    pp.run_time_dependent_model(setup_ref)
     u_vals_ref, p_vals_ref, p_frac_ref, jump_ref, traction_ref = get_variables(
         setup_ref
     )
@@ -453,7 +453,7 @@ def test_pull_south_positive_reference_pressure():
     setup = create_fractured_setup({}, {"pressure": 1}, 0)
     setup.subtract_p_frac = False
     setup.params["uy_south"] = -0.001
-    pp.run_time_dependent_model(setup, {})
+    pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
 
     assert np.allclose(jump, jump_ref)
@@ -495,8 +495,8 @@ def test_unit_conversion(units):
     setup_0 = TailoredPoromechanics(model_reference_params)
     pp.run_time_dependent_model(setup_0)
 
-    model_reference_params["units"] = pp.Units(**units)
-    setup_1 = TailoredPoromechanics(model_reference_params)
+    model_params["units"] = pp.Units(**units)
+    setup_1 = TailoredPoromechanics(model_params)
 
     pp.run_time_dependent_model(setup_1)
     variables = [
