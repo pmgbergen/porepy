@@ -7,7 +7,20 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 from porepy.params.tensor import FourthOrderTensor
 import porepy as pp
 import warnings
+from dataclasses import dataclass
 
+
+@dataclass
+class _Numbering:
+    nc: int
+    nf: int
+    nd: int
+    fi: np.ndarray
+    ci: np.ndarray
+    fi_expanded: np.ndarray
+    ci_expanded: np.ndarray
+    sgn: np.ndarray
+    sgn_nd: np.ndarray
 
 class Tpsa:
 
@@ -114,10 +127,8 @@ class Tpsa:
             self.keyword
         ]
 
-        # Bookkeeping
-        nf = sd.num_faces
-        nc = sd.num_cells
-        nd = sd.dim
+        numbering = self._create_numbering(sd)
+
 
         # Fetch parameters for the mechanical behavior
         stiffness: FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
@@ -146,12 +157,12 @@ class Tpsa:
         # the alternative is to always use a vectorial boundary condition and make a
         # hack to interpret the vectorial condition as a scalar one for 2d problems.
         # Note that, if the Cosserat parameter is zero, all of this is irrelevant.
-        if nd == 2:
+        if numbering.nd == 2:
             if isinstance(bnd_rot, pp.BoundaryConditionVectorial):
                 raise ValueError(
                     "Boundary conditions for rotations should be scalar if nd == 2"
                 )
-        elif nd == 3:
+        elif numbering.nd == 3:
             if isinstance(bnd_rot, pp.BoundaryCondition):
                 raise ValueError(
                     "Boundary conditions for rotations should be vectorial if nd == 3"
@@ -173,60 +184,33 @@ class Tpsa:
                 "Robin conditions for rotations have not been implemented"
             )
 
-        # The discretization matrices give generalized fluxes across faces in terms of
-        # variables in the centers of adjacent cells. The discretization is based on a
-        # two-point scheme, thus we need a mapping between cells and faces. The below
-        # code generates a triplet of (face index, cell index, sign), where the sign
-        # indicates the orientation of the face normal. Internal faces will occur twice,
-        # with two different cell indices and opposite signs. Boundary faces will occur
-        # only once. In the documentation below, we will refer to this ordering as the
-        # **face-wise ordering**.
-        fi, ci, sgn = sparse_array_to_row_col_data(sd.cell_faces)
-
-        unique_sgn = sgn[np.unique(fi, return_index=True)[1]]
-        unique_sgn_nd = np.tile(unique_sgn, (nd, 1))
+       
 
         # Map the stiffness tensor to the face-wise ordering
-        mu = stiffness.mu[ci]
-        lmbda = stiffness.lmbda[ci]
+        mu = stiffness.mu[numbering.ci]
         if cosserat_values is not None:
-            cosserat_parameter = cosserat_values[ci]
-
-        # For vector quantities, we need fi repeated nd times, do this once and for all
-        # here. Also repeat the face areas and signs
-        fi_nd = np.repeat(fi, nd)
-        face_areas_fi_nd = sd.face_areas[fi_nd]
-        sgn_nd = np.repeat(sgn, nd)
-
-        # Expand face and cell indices to construct nd discretization matrices
-        fi_expanded = fvutils.expand_indices_nd(fi, nd)
-        ci_expanded = fvutils.expand_indices_nd(ci, nd)
+            cosserat_parameter = cosserat_values[numbering.ci]
 
         # Data structures for boundary conditions. Only homogeneous Dirichlet conditions
         # treated so far.
         dir_scalar = bnd_disp.is_dir[0]
 
         # Normal vectors in the face-wise ordering
-        n_fi = sd.face_normals[:, fi]
+        n_fi = sd.face_normals[:, numbering.fi]
         # Switch signs where relevant
-        n_fi *= sgn
+        n_fi *= numbering.sgn
 
         # Get a vector from cell center to face center and project to the direction of
         # the face normal. Divide by the face area to get a unit vector in the normal
         # direction.
         fc_cc = (
             n_fi
-            * (sd.face_centers[::, fi] - sd.cell_centers[::, ci])
-            / sd.face_areas[fi]
+            * (sd.face_centers[::, numbering.fi] - sd.cell_centers[::, numbering.ci])
+            / sd.face_areas[numbering.fi]
         )
         # Get the length of the projected vector; take the absolute value to avoid
         # negative distances.
         dist_fc_cc = np.abs(np.sum(fc_cc, axis=0))
-
-        # For each face, the summed length of the vectors from the face center to the
-        # cell centers on either side of the face. For boundary faces, there is only one
-        # contribution.
-        dist_cc_cc = np.bincount(fi, weights=dist_fc_cc, minlength=nc)
 
         shear_modulus_by_face_cell_distance = mu / dist_fc_cc
 
@@ -249,7 +233,7 @@ class Tpsa:
 
         if (
             np.linalg.norm(
-                np.array([bnd_disp.basis[:, :, i] - np.eye(nd) for i in range(nf)])
+                np.array([bnd_disp.basis[:, :, i] - np.eye(numbering.nd) for i in range(numbering.nf)])
             )
             > 0
         ):
@@ -274,50 +258,41 @@ class Tpsa:
             )
 
         is_internal = np.logical_not(np.logical_or.reduce((is_dir, is_neu, is_rob)))
-        dir_filter = sps.dia_matrix((dir_scalar.astype(int), 0), shape=(nf, nf))
         dir_filter_nd = sps.dia_matrix(
-            (is_dir.astype(int), 0), shape=(nf * nd, nf * nd)
+            (is_dir.astype(int), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
         )
         dir_nopass_filter = sps.dia_matrix(
-            (1 - dir_scalar.astype(int), 0), shape=(nf, nf)
+            (1 - dir_scalar.astype(int), 0), shape=(numbering.nf, numbering.nf)
         )
         dir_nopass_filter_nd = sps.dia_matrix(
             (np.logical_or.reduce((is_neu, is_rob, is_internal)).astype(int), 0),
-            shape=(nf * nd, nf * nd),
+            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
         )
 
         neu_nopass_filter_nd = sps.dia_matrix(
             (np.logical_or.reduce((is_dir, is_rob, is_internal)).astype(int), 0),
-            shape=(nf * nd, nf * nd),
+            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
         )
 
         neu_rob_pass_filter_nd = sps.dia_matrix(
-            (np.logical_or(is_neu, is_rob).astype(int), 0), shape=(nf * nd, nf * nd)
+            (np.logical_or(is_neu, is_rob).astype(int), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
         )
         robin_filter_nd = sps.dia_array(
-            (is_rob.astype(int), 0), shape=(nf * nd, nf * nd)
+            (is_rob.astype(int), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
         )
 
-        # On Dirichlet faces, the
-        dir_indices = np.where(is_dir)[0]
-        neu_indices = np.where(is_neu)[0]
-
-        # dir_indices = np.where(dir_scalar)[0]
-        # r, _, _ = sps.find(cell_to_face_average)
-        # hit = np.in1d(r, dir_indices)
-        # cell_to_face_average.data[hit] = 0
         robin_weight = np.vstack(
             (bnd_disp.robin_weight[0, 0], bnd_disp.robin_weight[1, 1])
         )
-        if nd == 3:
+        if numbering.nd == 3:
             robin_weight = np.vstack((robin_weight, bnd_disp.robin_weight[2, 2]))
         # robin_weight = robin_weight.ravel(order='F')
 
-        dir_weight = np.zeros((nd, nf), dtype=float)
+        dir_weight = np.zeros((numbering.nd, numbering.nf), dtype=float)
         dir_weight[is_dir_nd] = 1
         dir_weight[is_rob_nd] = robin_weight[is_rob_nd]
 
-        neu_weight = np.zeros((nd, nf), dtype=float)
+        neu_weight = np.zeros((numbering.nd, numbering.nf), dtype=float)
         neu_weight[np.logical_or(is_neu_nd, is_rob_nd)] = 1
 
         # Construct an averaging operator from cell centers to faces. The averaging
@@ -327,42 +302,28 @@ class Tpsa:
         # for its nd equivalent (which is needed in several places), and the (scalar)
         # complement which is used in a few places.
 
-        # distance_scaling = sps.dia_array(
-        #        (1 / np.bincount(fi, shear_modulus_by_face_cell_distance), 0),
-        #        shape=(nf, nf),
-        #    )
-        weighted_distance_expanded = np.repeat(shear_modulus_by_face_cell_distance, nd)
+        weighted_distance_expanded = np.repeat(shear_modulus_by_face_cell_distance, numbering.nd)
 
         cell_to_face = sps.coo_array(
-            ((shear_modulus_by_face_cell_distance, (fi, ci))), shape=(nf, nc)
+            ((shear_modulus_by_face_cell_distance, (numbering.fi, numbering.ci))), shape=(numbering.nf, numbering.nc)
         ).tocsr()
-        cell_to_face_nd = sps.kron(cell_to_face, sps.eye(nd)).tocsr()
-
-        all_boundary_faces = sd.get_all_boundary_faces()
-        _, boundary_cells = sd.signs_and_cells_of_boundary_faces(all_boundary_faces)
-        all_boundary_faces_expanded = pp.fvutils.expand_indices_nd(
-            all_boundary_faces, nd
-        )
+        cell_to_face_nd = sps.kron(cell_to_face, sps.eye(numbering.nd)).tocsr()
 
         rob_boundary_faces_expanded = pp.fvutils.expand_indices_nd(
-            np.arange(nf), nd
-        ).reshape((nd, nf), order="F")[is_rob_nd]
+            np.arange(numbering.nf), numbering.nd
+        ).reshape((numbering.nd, numbering.nf), order="F")[is_rob_nd]
         rob_weights_boundary_faces = robin_weight[is_rob_nd]
-
-        dir_weight_boundary = dir_weight[:, all_boundary_faces].ravel("F")
 
         # This is the face-wise sum of the expressions mu/delta, also accounting for
         # boundary conditions. The reciprocal of this field is also, almost, the
         # expression \delta_k^mu, missing is a factor 1/2.
-        # distance_scaling = np.bincount(np.hstack((fi_expanded, all_boundary_faces_expanded)),
-        #    weights=np.hstack((weighted_distance_expanded, dir_weight_boundary)))
         distance_scaling = np.bincount(
-            np.hstack((fi_expanded, rob_boundary_faces_expanded)),
+            np.hstack((numbering.fi_expanded, rob_boundary_faces_expanded)),
             weights=np.hstack((weighted_distance_expanded, rob_weights_boundary_faces)),
         )
 
         distance_scaling_matrix = sps.dia_array(
-            (1 / distance_scaling, 0), shape=(nd * nf, nd * nf)
+            (1 / distance_scaling, 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
         )
 
         cell_to_face_average_nd_new = (
@@ -373,29 +334,12 @@ class Tpsa:
         boundary_to_face_average_nd = (
             robin_filter_nd
             @ distance_scaling_matrix
-            @ sps.dia_array((dir_weight.ravel("F"), 0), shape=(nf * nd, nf * nd))
+            @ sps.dia_array((dir_weight.ravel("F"), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd))
         )
         # For the complement, we only need the diagnoal data.
         boundary_to_face_average_complement_nd = (
             1 - boundary_to_face_average_nd.diagonal()
         )
-
-        # For vector quantities we need a nd version of the averaging operator
-        # cell_to_face_average_nd = sps.kron(cell_to_face_average, sps.eye(nd)).tocsr()
-        # Drop zero elements to avoid mismatch between the data and the indices obtained
-        # from below call to sps.find (which will only find non-zero elements).
-        # cell_to_face_average_nd.eliminate_zeros()
-        # On rows corresponding to Dirichlet boundary conditions, set the averaging
-        # operator to zero. On such faces, the displacement is known, and the average
-        # displacement is not needed.
-        # rows, _, _ = sps.find(cell_to_face_average_nd)
-        # dir_rows = np.in1d(rows, dir_indices)
-        # cell_to_face_average_nd.data[dir_rows] = 0
-        # On Neumann faces, the interior cell should be given unit weight in the average
-        # map. This should be the case anyhow, since any boundary face should have a
-        # single cell, but we include a check for safeguarding.
-        # neu_rows = np.in1d(rows, neu_indices)
-        # cell_to_face_average_nd.data[neu_rows] = 1
 
         cell_to_face_average_nd = cell_to_face_average_nd_new
 
@@ -406,22 +350,20 @@ class Tpsa:
         # for its nd equivalent (which is needed in several places), and the (scalar)
         # complement which is used in a few places.
 
-        is_rob_scalar = np.any(is_rob_nd, axis=0)
-
         cell_to_face_average = (
             sps.dia_matrix(
-                (1 / np.bincount(fi, shear_modulus_by_face_cell_distance), 0),
-                shape=(nf, nf),
+                (1 / np.bincount(numbering.fi, shear_modulus_by_face_cell_distance), 0),
+                shape=(numbering.nf, numbering.nf),
             )
             @ sps.coo_matrix(
-                ((shear_modulus_by_face_cell_distance, (fi, ci))), shape=(nf, nc)
+                ((shear_modulus_by_face_cell_distance, (numbering.fi, numbering.ci))), shape=(numbering.nf, numbering.nc)
             ).tocsr()
         )
         cell_to_face_weighted = sps.coo_matrix(
-            ((shear_modulus_by_face_cell_distance, (fi, ci))), shape=(nf, nc)
+            ((shear_modulus_by_face_cell_distance, (numbering.fi, numbering.ci))), shape=(numbering.nf, numbering.nc)
         ).tocsr()
         cell_to_face_scalar_to_nd = sps.kron(
-            cell_to_face_weighted, sps.csr_array(np.ones((nd, 1)))
+            cell_to_face_weighted, sps.csr_array(np.ones((numbering.nd, 1)))
         )
 
         cell_to_face_average_scalar_to_nd = (
@@ -431,7 +373,6 @@ class Tpsa:
         c2f_rows, *_ = sps.find(cell_to_face_average_scalar_to_nd)
         c2f_rows_is_dir = np.in1d(c2f_rows, np.where(is_dir))
         cell_to_face_average_scalar_to_nd.data[c2f_rows_is_dir] = 0
-        # cell_to_face_average_scalar_to_nd.eliminate_zeros()
 
         cell_to_face_average_scalar_to_nd_complement = sps.csr_array(
             (
@@ -484,116 +425,31 @@ class Tpsa:
         def facewise_harmonic_mean(field: np.ndarray) -> np.ndarray:
             # Note that the implementation of np.bincount means the returned array is
             # ordered linearly in the face index, not in the face-wise ordering.
-            return 1 / np.bincount(fi, weights=1 / field, minlength=nf)
+            return 1 / np.bincount(numbering.fi, weights=1 / field, minlength=numbering.nf)
 
         # Harmonic average of the shear modulus divided by the distance between the face
         # center and the cell center.
 
-        t_shear = (
-            2
-            * sd.face_areas
-            * facewise_harmonic_mean(shear_modulus_by_face_cell_distance)
-        )
         # Replace t_shear with nd version that also contains boundary weights. This is
         # similar, but not identical, to distance_scaling above.
-        shear_modulus_by_face_cell_distance_nd = np.repeat(
-            shear_modulus_by_face_cell_distance, nd
-        )
-
         t_shear_nd = (
             2
-            * np.repeat(sd.face_areas, nd)
+            * np.repeat(sd.face_areas, numbering.nd)
             / np.bincount(
-                np.hstack((fi_expanded, rob_boundary_faces_expanded)),
+                np.hstack((numbering.fi_expanded, rob_boundary_faces_expanded)),
                 weights=np.hstack(
                     (1.0 / weighted_distance_expanded, 1.0 / rob_weights_boundary_faces)
                 ),
             )
-        ).reshape((nd, nf), order="F")
+        ).reshape((numbering.nd, numbering.nf), order="F")
 
         # Arithmetic average of the shear modulus.
         arithmetic_average_shear_modulus = np.bincount(
-            fi, weights=shear_modulus_by_face_cell_distance, minlength=nf
+            numbering.fi, weights=shear_modulus_by_face_cell_distance, minlength=numbering.nf
         )
 
-        def vector_laplace_matrices(
-            trm_nd: np.ndarray, bnd: pp.BoundaryConditionVectorial
-        ) -> tuple[sps.spmatrix, sps.spmatrix]:
-            # The linear stress due to cell center displacements is computed from the
-            # harmonic average of the shear modulus, scaled by the face areas. The
-            # transmissibility is the same for each dimension, implying that the
-            # material is in a sense isotropic.
-
-            # Get the types of boundary conditions.
-            dir_faces = bnd.is_dir
-            neu_faces = bnd.is_neu
-            rob_faces = bnd.is_rob
-
-            # Expand the discretization to vectorial form
-            # trm_nd = np.tile(trm, (nd, 1))
-
-            # Data structure for the discretization of the boundary conditions
-            trm_bnd = np.zeros((nd, nf))
-            # On Dirichlet faces, the coefficient of the boundary condition is the same
-            # as weight of the nearby cell, but with the opposite sign (EITHER HERE OR
-            # IN THE MATRIX DEFINITION). Since the coefficient is multiplied with the
-            # sign on the internal dof, we need to multiply with the sign here as well.
-            trm_bnd[dir_faces] = trm_nd[dir_faces]
-            # EK Note to self regarding implementation: The call 'trm_nd[dir_faces]' and
-            # similar, when made in an interpreter gives a 1d array, obtained raveling
-            # the 2d array using C-ordering. However, the line below really uses
-            # dir_faces to produce views of the 2d array, with trm_bnd being updated in
-            # place. In other words, everything is fine (EK has verified this by
-            # inspection).
-            # trm_bnd[dir_faces] = unique_sgn_nd[dir_faces] * trm_nd[dir_faces]
-
-            trm_bnd[dir_faces] = trm_nd[dir_faces]
-            # On Neumann faces, the coefficient of the discretization itself is
-            # zero, as the 'flux' through the boundary face is given by the boundary
-            # condition.
-            trm_nd[neu_faces] = 0
-            # The boundary condition should simply be imposed. Put a -1 to counteract
-            # the minus sign in the construction of the discretization matrix.
-            # IMPLEMENTATION NOTE: Contrary to the tpfa implementation, the coefficients
-            # of Neumann boundary conditions in tpsa are not multiplied with the sign of
-            # the normal vector. This reflects that Neumann boundary values for
-            # mechanics are set in terms of global coordinate directions, while for the
-            # flow/scalar problem, the conditions are set with respect to the face-wise
-            # normal vector.
-            trm_bnd[neu_faces] = 1
-
-            trm_bnd[rob_faces] = (
-                boundary_to_face_average_complement_nd.reshape((nd, nf), order="F")[
-                    rob_faces
-                ]
-                + trm_nd[rob_faces]
-            )
-
-            # Discretization of the vector Laplacian. Regarding indexing,
-            # the ravel gives a vector-sized array in linear ordering, which is
-            # shuffled to the (vector version of the) face-wise ordering. The sign is
-            # set so that the stress is positive in tension.
-            # TODO: Do we need to shuffle sgn_nd?
-            discr = -sps.coo_matrix(
-                (
-                    trm_nd.ravel("F")[fi_expanded] * sgn_nd,
-                    (fi_expanded, ci_expanded),
-                ),
-                shape=(nf * nd, nc * nd),
-            ).tocsr()
-
-            # Boundary condition.
-            bound_discr = sps.coo_matrix(
-                (
-                    trm_bnd.ravel("F")[fi_expanded] * sgn_nd,
-                    (fi_expanded, fi_expanded),
-                ),
-                shape=(nf * nd, nf * nd),
-            ).tocsr()
-            return discr, bound_discr
-
-        # Discretize the stress-displacement relation
-        stress, bound_stress = vector_laplace_matrices(t_shear_nd, bnd_disp)
+        # Discretize the stress-displacement relation:
+        stress, bound_stress = self._vector_laplace_matrices(t_shear_nd, bnd_disp, numbering, boundary_to_face_average_complement_nd)
 
         # Face normals (note: in the usual ordering, not the face-wise ordering used in
         # the variable n_fi)
@@ -608,17 +464,18 @@ class Tpsa:
             neu_nopass_filter_nd
             @ sps.csc_matrix(
                 (
-                    n[:nd].ravel("F"),
-                    np.arange(0, nd * nf),
-                    np.arange(0, nd * nf + 1, nd),
+                    n[:numbering.nd].ravel("F"),
+                    np.arange(0, numbering.nf * numbering.nd),
+                    np.arange(0, numbering.nf * numbering.nd + 1, numbering.nd),
                 ),
-                shape=(nd * nf, nf),
+                shape=(numbering.nd * numbering.nf, numbering.nf),
             )
             @ cell_to_face_average_complement
         )
         stress_total_pressure = (
             neu_nopass_filter_nd
-            @ sps.dia_matrix((n[:nd].ravel("F"), 0), shape=(nd * nf, nd * nf))
+            @ sps.dia_matrix((n[:numbering.nd].ravel("F"), 0),
+            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd))
             @ cell_to_face_average_scalar_to_nd_complement
         )
 
@@ -627,8 +484,9 @@ class Tpsa:
         # it is), and scaling with the normal vector. To that end, construct a sparse
         # matrix that has one normal vector per row.
         normal_vector_nd = sps.csr_matrix(
-            (n[:nd].ravel("F"), np.arange(nd * nf), np.arange(0, nd * nf + 1, nd)),
-            shape=(nf, nd * nf),
+            (n[:numbering.nd].ravel("F"), np.arange(numbering.nf * numbering.nd),
+             np.arange(0, numbering.nf * numbering.nd + 1, numbering.nd)),
+            shape=(numbering.nf, numbering.nf * numbering.nd),
         )
         # The impact on the solid mass flux from the displacement is then the matrix of
         # normal vectors multiplied with the average displacement over the faces.
@@ -654,7 +512,7 @@ class Tpsa:
         mass_total_pressure = -dir_nopass_filter @ (
             sps.dia_matrix(
                 (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
-                shape=(nf, nf),
+                shape=(numbering.nf, numbering.nf),
             )
             @ sd.cell_faces
         )
@@ -674,7 +532,7 @@ class Tpsa:
         # (see the TPSA paper for details) and use this to discretize stress generated by
         # cell center rotations. Moreover, we discretize the diffusion of rotations
         # generated by cell center displacements, which is different in 2d and 3d.
-        if nd == 3:
+        if numbering.nd == 3:
             # In this case, \hat{R}_k^n = \bar{R}_k^n is the 3x3 projection matrix as
             # given in the TPSA paper reads
             #
@@ -692,11 +550,11 @@ class Tpsa:
             #
             # but this is much slower due to the block_diag construction.
 
-            z = np.zeros(nf)
+            z = np.zeros(numbering.nf)
             Rn_data = np.array([[z, n[2], -n[1]], [-n[2], z, n[0]], [n[1], -n[0], z]])
 
             Rn_hat = pp.matrix_operations.csr_matrix_from_blocks(
-                Rn_data.ravel("F"), nd, nf
+                Rn_data.ravel("F"), numbering.nd, numbering.nf
             )
             Rn_bar = Rn_hat
 
@@ -708,16 +566,16 @@ class Tpsa:
             if cosserat_values is not None:
                 # Use the discretization of Laplace's problem. The transmissibility will
                 # be the same in all directions.
-                rotation_diffusion, bound_rotation_diffusion = vector_laplace_matrices(
-                    np.tile(t_cosserat, (nd, 1)), bnd_rot
+                rotation_diffusion, bound_rotation_diffusion = self._vector_laplace_matrices(
+                    np.tile(t_cosserat, (numbering.nd, 1)), bnd_rot, numbering, boundary_to_face_average_complement_nd
                 )
 
             else:
                 # If the Cosserat parameter is zero, the diffusion operator is zero.
-                rotation_diffusion = sps.csr_matrix((nf * nd, nc * nd))
-                bound_rotation_diffusion = sps.csr_matrix((nf * nd, nf * nd))
+                rotation_diffusion = sps.csr_matrix((numbering.nf * numbering.nd, numbering.nc * numbering.nd))
+                bound_rotation_diffusion = sps.csr_matrix((numbering.nf * numbering.nd, numbering.nf * numbering.nd))
 
-        elif nd == 2:
+        elif numbering.nd == 2:
             # In this case, \hat{R}_k^n and \bar{R}_k^n differ, and read, respectively
             #   \hat{R}_k^n = [[n2], [-n1]],
             #   \bar{R}_k^n = [-n2, n1].
@@ -730,22 +588,14 @@ class Tpsa:
             Rn_bar = sps.csr_matrix(
                 (
                     -normal_vector_data.ravel("F"),
-                    np.arange(nd * nf),
-                    np.arange(0, nd * nf + 1, nd),
+                    np.arange(numbering.nf * numbering.nd),
+                    np.arange(0, numbering.nd * numbering.nf + 1, numbering.nd),
                 ),
-                shape=(nf, nd * nf),
+                shape=(numbering.nf, numbering.nf * numbering.nd),
             )
             # Mapping from average rotations over faces to stresses
-            Rn_hat = sps.csc_matrix(
-                (
-                    normal_vector_data.ravel("F"),
-                    np.arange(nf * nd),
-                    np.arange(0, nd * nf + 1, nd),
-                ),
-                shape=(nd * nf, nf),
-            )
             Rn_hat = sps.dia_matrix(
-                (normal_vector_data.ravel("F"), 0), shape=(nd * nf, nd * nf)
+                (normal_vector_data.ravel("F"), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
             )
             # # Discretization of the stress generated by cell center rotations.
             stress_rotation = (
@@ -759,8 +609,7 @@ class Tpsa:
                 # In 2d, the rotation is a scalar variable and we can treat this by
                 # essentially, tpfa.
 
-                bndr_ind = sd.get_all_boundary_faces()
-                t_cosserat_bnd = np.zeros(nf)
+                t_cosserat_bnd = np.zeros(numbering.nf)
                 t_cosserat_bnd[bnd_rot.is_dir] = t_cosserat[bnd_rot.is_dir]
                 # The boundary condition should simply be imposed. Put a -1 to
                 # counteract the minus sign in the construction of the discretization
@@ -771,17 +620,17 @@ class Tpsa:
 
                 # TODO: Why minus sign here, but not in tpfa? Darcy vs Hook.
                 rotation_diffusion = -sps.coo_matrix(
-                    (t_cosserat[fi] * sgn, (fi, ci)),
-                    shape=(nf, nc),
+                    (t_cosserat[numbering.fi] * numbering.sgn, (numbering.fi, numbering.ci)),
+                    shape=(numbering.nf, numbering.nc),
                 ).tocsr()
 
                 bound_rotation_diffusion = sps.coo_matrix(
-                    (t_cosserat_bnd[fi] * sgn, (fi, fi)), shape=(nf, nf)
+                    (t_cosserat_bnd[numbering.fi] * numbering.sgn, (numbering.fi, numbering.fi)), shape=(numbering.nf, numbering.nf)
                 ).tocsr()
 
             else:
-                rotation_diffusion = sps.csr_matrix((nf, nc))
-                bound_rotation_diffusion = sps.csr_matrix((nf, nf))
+                rotation_diffusion = sps.csr_matrix((numbering.nf, numbering.nc))
+                bound_rotation_diffusion = sps.csr_matrix((numbering.nf, numbering.nf))
 
         # The rotation generated by the cell center displacements is computed from the
         # average displacement over the faces, multiplied by Rn_bar. This construction
@@ -794,7 +643,7 @@ class Tpsa:
         # This is the expression \delta_k^mu.
         mu_face = sps.dia_matrix(
             (1 / (2 * distance_scaling), 0),
-            shape=(nf * nd, nf * nd),
+            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
         )
         # TODO: Implement Dirichlet conditions
         bound_rotation_displacement = Rn_bar @ (
@@ -808,14 +657,7 @@ class Tpsa:
         # not fully consistent for domains with boundaries not aligned with the
         # coordinate axes, and with rolling boundary conditions, but EK does not know
         # what to do there).
-        unique_sgn_matrix = sps.dia_matrix(
-            (unique_sgn.ravel("F"), 0), shape=(nf * nd, nf * nd)
-        )
-        bound_mass_displacement = (
-            normal_vector_nd
-            @ unique_sgn_matrix
-            @ (neu_rob_pass_filter_nd @ mu_face + dir_filter_nd)
-        )
+
         bound_mass_displacement = normal_vector_nd @ (
             neu_rob_pass_filter_nd @ mu_face + dir_filter_nd
         )
@@ -841,3 +683,103 @@ class Tpsa:
         matrix_dictionary[self.bound_rotation_displacement_matrix_key] = (
             bound_rotation_displacement
         )
+
+    def _vector_laplace_matrices(
+        self, trm_nd: np.ndarray, bnd: pp.BoundaryConditionVectorial, numbering: _Numbering,
+        boundary_to_face_average_complement_nd: np.ndarray
+    ) -> tuple[sps.spmatrix, sps.spmatrix]:
+        # The linear stress due to cell center displacements is computed from the
+        # harmonic average of the shear modulus, scaled by the face areas. The
+        # transmissibility is the same for each dimension, implying that the
+        # material is in a sense isotropic.
+
+        # Get the types of boundary conditions.
+        dir_faces = bnd.is_dir
+        neu_faces = bnd.is_neu
+        rob_faces = bnd.is_rob
+
+        # Data structure for the discretization of the boundary conditions
+        trm_bnd = np.zeros((numbering.nd, numbering.nf))
+        # On Dirichlet faces, the coefficient of the boundary condition is the same
+        # as weight of the nearby cell, but with the opposite sign (EITHER HERE OR
+        # IN THE MATRIX DEFINITION). Since the coefficient is multiplied with the
+        # sign on the internal dof, we need to multiply with the sign here as well.
+        trm_bnd[dir_faces] = trm_nd[dir_faces]
+        # EK Note to self regarding implementation: The call 'trm_nd[dir_faces]' and
+        # similar, when made in an interpreter gives a 1d array, obtained raveling
+        # the 2d array using C-ordering. However, the line below really uses
+        # dir_faces to produce views of the 2d array, with trm_bnd being updated in
+        # place. In other words, everything is fine (EK has verified this by
+        # inspection).
+        # trm_bnd[dir_faces] = unique_sgn_nd[dir_faces] * trm_nd[dir_faces]
+
+        trm_bnd[dir_faces] = trm_nd[dir_faces]
+        # On Neumann faces, the coefficient of the discretization itself is
+        # zero, as the 'flux' through the boundary face is given by the boundary
+        # condition.
+        trm_nd[neu_faces] = 0
+        # The boundary condition should simply be imposed. Put a -1 to counteract
+        # the minus sign in the construction of the discretization matrix.
+        # IMPLEMENTATION NOTE: Contrary to the tpfa implementation, the coefficients
+        # of Neumann boundary conditions in tpsa are not multiplied with the sign of
+        # the normal vector. This reflects that Neumann boundary values for
+        # mechanics are set in terms of global coordinate directions, while for the
+        # flow/scalar problem, the conditions are set with respect to the face-wise
+        # normal vector.
+        trm_bnd[neu_faces] = 1
+
+        trm_bnd[rob_faces] = (
+            boundary_to_face_average_complement_nd.reshape((numbering.nd, numbering.nf), order="F")[
+                rob_faces
+            ]
+            + trm_nd[rob_faces]
+        )
+
+        # Discretization of the vector Laplacian. Regarding indexing,
+        # the ravel gives a vector-sized array in linear ordering, which is
+        # shuffled to the (vector version of the) face-wise ordering. The sign is
+        # set so that the stress is positive in tension.
+        discr = -sps.coo_matrix(
+            (
+                trm_nd.ravel("F")[numbering.fi_expanded] * numbering.sgn_nd,
+                (numbering.fi_expanded, numbering.ci_expanded),
+            ),
+            shape=(numbering.nf * numbering.nd, numbering.nc * numbering.nd),
+        ).tocsr()
+
+        # Boundary condition.
+        bound_discr = sps.coo_matrix(
+            (
+                trm_bnd.ravel("F")[numbering.fi_expanded] * numbering.sgn_nd,
+                (numbering.fi_expanded, numbering.fi_expanded),
+            ),
+            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
+        ).tocsr()
+        return discr, bound_discr
+
+    def _create_numbering(self, sd: pp.Grid):
+            # Bookkeeping
+        nf = sd.num_faces
+        nc = sd.num_cells
+        nd = sd.dim
+
+        # The discretization matrices give generalized fluxes across faces in terms of
+        # variables in the centers of adjacent cells. The discretization is based on a
+        # two-point scheme, thus we need a mapping between cells and faces. The below
+        # code generates a triplet of (face index, cell index, sign), where the sign
+        # indicates the orientation of the face normal. Internal faces will occur twice,
+        # with two different cell indices and opposite signs. Boundary faces will occur
+        # only once. In the documentation below, we will refer to this ordering as the
+        # **face-wise ordering**.
+        fi, ci, sgn = sparse_array_to_row_col_data(sd.cell_faces)
+
+        # Expand face and cell indices to construct nd discretization matrices
+        fi_expanded = fvutils.expand_indices_nd(fi, nd)
+        ci_expanded = fvutils.expand_indices_nd(ci, nd) 
+        # For vector quantities, we need fi repeated nd times, do this once and for all
+        # here.
+        sgn_nd = np.repeat(sgn, nd)
+
+        return _Numbering(nc, nf, nd, fi, ci, fi_expanded, ci_expanded, sgn, sgn_nd)
+
+
