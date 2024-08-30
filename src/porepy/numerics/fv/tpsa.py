@@ -169,7 +169,9 @@ class Tpsa:
             )
         if bnd_rot is not None and np.sum(bnd_rot.is_rob) > 0:
             # The implementation should not be difficult, but has not been prioritized.
-            raise NotImplementedError("Robin conditions for rotations have not been implemented")
+            raise NotImplementedError(
+                "Robin conditions for rotations have not been implemented"
+            )
 
         # The discretization matrices give generalized fluxes across faces in terms of
         # variables in the centers of adjacent cells. The discretization is based on a
@@ -240,22 +242,36 @@ class Tpsa:
         is_rob_nd = bnd_disp.is_rob
         has_rob = np.any(is_rob_nd, axis=0)
         if np.any(np.logical_not(is_rob_nd[:, has_rob])) > 0:
-            raise NotImplementedError("Have not implemnented a mixture of Robin and other boundary conditions")
-        is_rob = is_rob_nd.ravel('F')
+            raise NotImplementedError(
+                "Have not implemnented a mixture of Robin and other boundary conditions"
+            )
+        is_rob = is_rob_nd.ravel("F")
 
-        if np.linalg.norm(np.array([bnd_disp.basis[:, :, i] - np.eye(nd) for i in range(nf)])) > 0:
-            raise NotImplementedError("Have not implemented Robin conditions with a non-trivial basis")
-        
+        if (
+            np.linalg.norm(
+                np.array([bnd_disp.basis[:, :, i] - np.eye(nd) for i in range(nf)])
+            )
+            > 0
+        ):
+            raise NotImplementedError(
+                "Have not implemented Robin conditions with a non-trivial basis"
+            )
+
         # The Robin weight will be an nd x nd x nf array, with nd={2, 3}. For the
         # implementation to be valid in both cases, we use slices ([2:]) instead of
         # indexing ([2]), as the former will work also if the array has less than three
         # rows.
-        if np.logical_or.reduce((np.any(bnd_disp.robin_weight[0, 1:, :]>0),
-            np.any(bnd_disp.robin_weight[1, 0, :]>0),
-            np.any(bnd_disp.robin_weight[1, 2:, :]>0),
-            np.any(bnd_disp.robin_weight[2:, :2, :]>0)
-                )):
-            raise NotImplementedError("Non-diagonal Robin weights have not been implemnted")
+        if np.logical_or.reduce(
+            (
+                np.any(bnd_disp.robin_weight[0, 1:, :] > 0),
+                np.any(bnd_disp.robin_weight[1, 0, :] > 0),
+                np.any(bnd_disp.robin_weight[1, 2:, :] > 0),
+                np.any(bnd_disp.robin_weight[2:, :2, :] > 0),
+            )
+        ):
+            raise NotImplementedError(
+                "Non-diagonal Robin weights have not been implemnted"
+            )
 
         is_internal = np.logical_not(np.logical_or.reduce((is_dir, is_neu, is_rob)))
         dir_filter = sps.dia_matrix((dir_scalar.astype(int), 0), shape=(nf, nf))
@@ -266,7 +282,8 @@ class Tpsa:
             (1 - dir_scalar.astype(int), 0), shape=(nf, nf)
         )
         dir_nopass_filter_nd = sps.dia_matrix(
-            (np.logical_or.reduce((is_neu, is_rob, is_internal)).astype(int), 0), shape=(nf * nd, nf * nd)
+            (np.logical_or.reduce((is_neu, is_rob, is_internal)).astype(int), 0),
+            shape=(nf * nd, nf * nd),
         )
 
         neu_nopass_filter_nd = sps.dia_matrix(
@@ -277,7 +294,9 @@ class Tpsa:
         neu_rob_pass_filter_nd = sps.dia_matrix(
             (np.logical_or(is_neu, is_rob).astype(int), 0), shape=(nf * nd, nf * nd)
         )
-        robin_filter_nd = sps.dia_array((is_rob.astype(int), 0), shape=(nf*nd, nf*nd))
+        robin_filter_nd = sps.dia_array(
+            (is_rob.astype(int), 0), shape=(nf * nd, nf * nd)
+        )
 
         # On Dirichlet faces, the
         dir_indices = np.where(is_dir)[0]
@@ -287,10 +306,12 @@ class Tpsa:
         # r, _, _ = sps.find(cell_to_face_average)
         # hit = np.in1d(r, dir_indices)
         # cell_to_face_average.data[hit] = 0
-        robin_weight = np.vstack((bnd_disp.robin_weight[0, 0], bnd_disp.robin_weight[1, 1]))
+        robin_weight = np.vstack(
+            (bnd_disp.robin_weight[0, 0], bnd_disp.robin_weight[1, 1])
+        )
         if nd == 3:
             robin_weight = np.vstack((robin_weight, bnd_disp.robin_weight[2, 2]))
-        #robin_weight = robin_weight.ravel(order='F')
+        # robin_weight = robin_weight.ravel(order='F')
 
         dir_weight = np.zeros((nd, nf), dtype=float)
         dir_weight[is_dir_nd] = 1
@@ -306,64 +327,75 @@ class Tpsa:
         # for its nd equivalent (which is needed in several places), and the (scalar)
         # complement which is used in a few places.
 
-
-
-
-        #distance_scaling = sps.dia_array(
+        # distance_scaling = sps.dia_array(
         #        (1 / np.bincount(fi, shear_modulus_by_face_cell_distance), 0),
         #        shape=(nf, nf),
         #    )
         weighted_distance_expanded = np.repeat(shear_modulus_by_face_cell_distance, nd)
 
         cell_to_face = sps.coo_array(
-                ((shear_modulus_by_face_cell_distance, (fi, ci))), shape=(nf, nc)
-            ).tocsr()
+            ((shear_modulus_by_face_cell_distance, (fi, ci))), shape=(nf, nc)
+        ).tocsr()
         cell_to_face_nd = sps.kron(cell_to_face, sps.eye(nd)).tocsr()
 
         all_boundary_faces = sd.get_all_boundary_faces()
         _, boundary_cells = sd.signs_and_cells_of_boundary_faces(all_boundary_faces)
-        all_boundary_faces_expanded = pp.fvutils.expand_indices_nd(all_boundary_faces, nd)
+        all_boundary_faces_expanded = pp.fvutils.expand_indices_nd(
+            all_boundary_faces, nd
+        )
 
-        rob_boundary_faces_expanded = pp.fvutils.expand_indices_nd(np.arange(nf), nd).reshape((nd, nf), order='F')[is_rob_nd]
+        rob_boundary_faces_expanded = pp.fvutils.expand_indices_nd(
+            np.arange(nf), nd
+        ).reshape((nd, nf), order="F")[is_rob_nd]
         rob_weights_boundary_faces = robin_weight[is_rob_nd]
 
-        dir_weight_boundary = dir_weight[:, all_boundary_faces].ravel('F')
-
-
+        dir_weight_boundary = dir_weight[:, all_boundary_faces].ravel("F")
 
         # This is the face-wise sum of the expressions mu/delta, also accounting for
         # boundary conditions. The reciprocal of this field is also, almost, the
         # expression \delta_k^mu, missing is a factor 1/2.
-        #distance_scaling = np.bincount(np.hstack((fi_expanded, all_boundary_faces_expanded)),
+        # distance_scaling = np.bincount(np.hstack((fi_expanded, all_boundary_faces_expanded)),
         #    weights=np.hstack((weighted_distance_expanded, dir_weight_boundary)))
-        distance_scaling = np.bincount(np.hstack((fi_expanded, rob_boundary_faces_expanded)),
-            weights=np.hstack((weighted_distance_expanded, rob_weights_boundary_faces)))
+        distance_scaling = np.bincount(
+            np.hstack((fi_expanded, rob_boundary_faces_expanded)),
+            weights=np.hstack((weighted_distance_expanded, rob_weights_boundary_faces)),
+        )
 
-        distance_scaling_matrix = sps.dia_array((1 / distance_scaling, 0), shape=(nd*nf, nd*nf))
+        distance_scaling_matrix = sps.dia_array(
+            (1 / distance_scaling, 0), shape=(nd * nf, nd * nf)
+        )
 
-        cell_to_face_average_nd_new = dir_nopass_filter_nd @ distance_scaling_matrix @ cell_to_face_nd
+        cell_to_face_average_nd_new = (
+            dir_nopass_filter_nd @ distance_scaling_matrix @ cell_to_face_nd
+        )
 
         # This is a diagonal matrix. Do we need it, or only the diagonal data? TODO
-        boundary_to_face_average_nd = robin_filter_nd @ distance_scaling_matrix @ sps.dia_array((dir_weight.ravel('F'), 0), shape=(nf*nd, nf*nd))
+        boundary_to_face_average_nd = (
+            robin_filter_nd
+            @ distance_scaling_matrix
+            @ sps.dia_array((dir_weight.ravel("F"), 0), shape=(nf * nd, nf * nd))
+        )
         # For the complement, we only need the diagnoal data.
-        boundary_to_face_average_complement_nd = 1 - boundary_to_face_average_nd.diagonal()
+        boundary_to_face_average_complement_nd = (
+            1 - boundary_to_face_average_nd.diagonal()
+        )
 
         # For vector quantities we need a nd version of the averaging operator
-        #cell_to_face_average_nd = sps.kron(cell_to_face_average, sps.eye(nd)).tocsr()
+        # cell_to_face_average_nd = sps.kron(cell_to_face_average, sps.eye(nd)).tocsr()
         # Drop zero elements to avoid mismatch between the data and the indices obtained
         # from below call to sps.find (which will only find non-zero elements).
-        #cell_to_face_average_nd.eliminate_zeros()
+        # cell_to_face_average_nd.eliminate_zeros()
         # On rows corresponding to Dirichlet boundary conditions, set the averaging
         # operator to zero. On such faces, the displacement is known, and the average
         # displacement is not needed.
-        #rows, _, _ = sps.find(cell_to_face_average_nd)
-        #dir_rows = np.in1d(rows, dir_indices)
-        #cell_to_face_average_nd.data[dir_rows] = 0
+        # rows, _, _ = sps.find(cell_to_face_average_nd)
+        # dir_rows = np.in1d(rows, dir_indices)
+        # cell_to_face_average_nd.data[dir_rows] = 0
         # On Neumann faces, the interior cell should be given unit weight in the average
         # map. This should be the case anyhow, since any boundary face should have a
         # single cell, but we include a check for safeguarding.
-        #neu_rows = np.in1d(rows, neu_indices)
-        #cell_to_face_average_nd.data[neu_rows] = 1
+        # neu_rows = np.in1d(rows, neu_indices)
+        # cell_to_face_average_nd.data[neu_rows] = 1
 
         cell_to_face_average_nd = cell_to_face_average_nd_new
 
@@ -386,27 +418,29 @@ class Tpsa:
             ).tocsr()
         )
         cell_to_face_weighted = sps.coo_matrix(
-                ((shear_modulus_by_face_cell_distance, (fi, ci))), shape=(nf, nc)
-            ).tocsr()
-        cell_to_face_scalar_to_nd = sps.kron(cell_to_face_weighted,
-                 sps.csr_array(np.ones((nd, 1)))
-                 )
+            ((shear_modulus_by_face_cell_distance, (fi, ci))), shape=(nf, nc)
+        ).tocsr()
+        cell_to_face_scalar_to_nd = sps.kron(
+            cell_to_face_weighted, sps.csr_array(np.ones((nd, 1)))
+        )
 
-        cell_to_face_average_scalar_to_nd = distance_scaling_matrix @ cell_to_face_scalar_to_nd
+        cell_to_face_average_scalar_to_nd = (
+            distance_scaling_matrix @ cell_to_face_scalar_to_nd
+        )
 
         c2f_rows, *_ = sps.find(cell_to_face_average_scalar_to_nd)
         c2f_rows_is_dir = np.in1d(c2f_rows, np.where(is_dir))
         cell_to_face_average_scalar_to_nd.data[c2f_rows_is_dir] = 0
-        #cell_to_face_average_scalar_to_nd.eliminate_zeros()
-
+        # cell_to_face_average_scalar_to_nd.eliminate_zeros()
 
         cell_to_face_average_scalar_to_nd_complement = sps.csr_array(
-            (1 - cell_to_face_average_scalar_to_nd.data,
-            cell_to_face_average_scalar_to_nd.indices,
-            cell_to_face_average_scalar_to_nd.indptr),
+            (
+                1 - cell_to_face_average_scalar_to_nd.data,
+                cell_to_face_average_scalar_to_nd.indices,
+                cell_to_face_average_scalar_to_nd.indptr,
+            ),
             shape=cell_to_face_average_scalar_to_nd.shape,
         )
-
 
         # Complement average map, defined as 1 - the average map. Note that this will
         # have a zero value for all boundary faces (since the average map has a
@@ -454,26 +488,33 @@ class Tpsa:
 
         # Harmonic average of the shear modulus divided by the distance between the face
         # center and the cell center.
-        
+
         t_shear = (
             2
             * sd.face_areas
             * facewise_harmonic_mean(shear_modulus_by_face_cell_distance)
         )
-        #Replace t_shear with nd version that also contains boundary weights. This is 
-        #similar, but not identical, to distance_scaling above.
-        shear_modulus_by_face_cell_distance_nd = np.repeat(shear_modulus_by_face_cell_distance, nd)
+        # Replace t_shear with nd version that also contains boundary weights. This is
+        # similar, but not identical, to distance_scaling above.
+        shear_modulus_by_face_cell_distance_nd = np.repeat(
+            shear_modulus_by_face_cell_distance, nd
+        )
 
-        t_shear_nd = (2 * np.repeat(sd.face_areas, nd) 
-            / np.bincount(np.hstack((fi_expanded, rob_boundary_faces_expanded)),
-            weights=np.hstack((1.0 /weighted_distance_expanded, 1.0 / rob_weights_boundary_faces)))
-        ).reshape((nd, nf), order='F')
+        t_shear_nd = (
+            2
+            * np.repeat(sd.face_areas, nd)
+            / np.bincount(
+                np.hstack((fi_expanded, rob_boundary_faces_expanded)),
+                weights=np.hstack(
+                    (1.0 / weighted_distance_expanded, 1.0 / rob_weights_boundary_faces)
+                ),
+            )
+        ).reshape((nd, nf), order="F")
 
         # Arithmetic average of the shear modulus.
         arithmetic_average_shear_modulus = np.bincount(
             fi, weights=shear_modulus_by_face_cell_distance, minlength=nf
         )
-
 
         def vector_laplace_matrices(
             trm_nd: np.ndarray, bnd: pp.BoundaryConditionVectorial
@@ -504,7 +545,7 @@ class Tpsa:
             # dir_faces to produce views of the 2d array, with trm_bnd being updated in
             # place. In other words, everything is fine (EK has verified this by
             # inspection).
-            #trm_bnd[dir_faces] = unique_sgn_nd[dir_faces] * trm_nd[dir_faces]
+            # trm_bnd[dir_faces] = unique_sgn_nd[dir_faces] * trm_nd[dir_faces]
 
             trm_bnd[dir_faces] = trm_nd[dir_faces]
             # On Neumann faces, the coefficient of the discretization itself is
@@ -521,7 +562,12 @@ class Tpsa:
             # normal vector.
             trm_bnd[neu_faces] = 1
 
-            trm_bnd[rob_faces] = boundary_to_face_average_complement_nd.reshape((nd, nf), order='F')[rob_faces] + trm_nd[rob_faces]
+            trm_bnd[rob_faces] = (
+                boundary_to_face_average_complement_nd.reshape((nd, nf), order="F")[
+                    rob_faces
+                ]
+                + trm_nd[rob_faces]
+            )
 
             # Discretization of the vector Laplacian. Regarding indexing,
             # the ravel gives a vector-sized array in linear ordering, which is
@@ -570,7 +616,11 @@ class Tpsa:
             )
             @ cell_to_face_average_complement
         )
-        stress_total_pressure = neu_nopass_filter_nd @ sps.dia_matrix((n[:nd].ravel("F"), 0), shape=(nd*nf, nd*nf)) @ cell_to_face_average_scalar_to_nd_complement
+        stress_total_pressure = (
+            neu_nopass_filter_nd
+            @ sps.dia_matrix((n[:nd].ravel("F"), 0), shape=(nd * nf, nd * nf))
+            @ cell_to_face_average_scalar_to_nd_complement
+        )
 
         # The solid mass conservation equation is discretized by taking the average
         # displacement over the faces (not using the complement, again, this is just how
@@ -694,10 +744,14 @@ class Tpsa:
                 ),
                 shape=(nd * nf, nf),
             )
-            Rn_hat = sps.dia_matrix((normal_vector_data.ravel('F'), 0), shape=(nd * nf, nd * nf))
+            Rn_hat = sps.dia_matrix(
+                (normal_vector_data.ravel("F"), 0), shape=(nd * nf, nd * nf)
+            )
             # # Discretization of the stress generated by cell center rotations.
             stress_rotation = (
-                -neu_nopass_filter_nd @ Rn_hat @ cell_to_face_average_scalar_to_nd_complement
+                -neu_nopass_filter_nd
+                @ Rn_hat
+                @ cell_to_face_average_scalar_to_nd_complement
             )
 
             # Diffusion operator on the rotation if relevant.
@@ -744,7 +798,9 @@ class Tpsa:
         )
         # TODO: Implement Dirichlet conditions
         bound_rotation_displacement = Rn_bar @ (
-            neu_rob_pass_filter_nd @ mu_face - dir_filter_nd - boundary_to_face_average_nd
+            neu_rob_pass_filter_nd @ mu_face
+            - dir_filter_nd
+            - boundary_to_face_average_nd
         )
 
         # Boundary condition. There should be no contribution from Dofs which are
