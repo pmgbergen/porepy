@@ -324,15 +324,21 @@ class Tpsa:
         _, boundary_cells = sd.signs_and_cells_of_boundary_faces(all_boundary_faces)
         all_boundary_faces_expanded = pp.fvutils.expand_indices_nd(all_boundary_faces, nd)
 
-        mu_boundary_nd = stiffness.mu[np.repeat(boundary_cells, nd)]
+        rob_boundary_faces_expanded = pp.fvutils.expand_indices_nd(np.arange(nf), nd).reshape((nd, nf), order='F')[is_rob_nd]
+        rob_weights_boundary_faces = robin_weight[is_rob_nd]
 
         dir_weight_boundary = dir_weight[:, all_boundary_faces].ravel('F')
+
+
 
         # This is the face-wise sum of the expressions mu/delta, also accounting for
         # boundary conditions. The reciprocal of this field is also, almost, the
         # expression \delta_k^mu, missing is a factor 1/2.
-        distance_scaling = np.bincount(np.hstack((fi_expanded, all_boundary_faces_expanded)),
-            weights=np.hstack((weighted_distance_expanded, dir_weight_boundary)))
+        #distance_scaling = np.bincount(np.hstack((fi_expanded, all_boundary_faces_expanded)),
+        #    weights=np.hstack((weighted_distance_expanded, dir_weight_boundary)))
+        distance_scaling = np.bincount(np.hstack((fi_expanded, rob_boundary_faces_expanded)),
+            weights=np.hstack((weighted_distance_expanded, rob_weights_boundary_faces)))
+
         distance_scaling_matrix = sps.dia_array((1 / distance_scaling, 0), shape=(nd*nf, nd*nf))
 
         cell_to_face_average_nd_new = dir_nopass_filter_nd @ distance_scaling_matrix @ cell_to_face_nd
@@ -369,7 +375,6 @@ class Tpsa:
         # complement which is used in a few places.
 
         is_rob_scalar = np.any(is_rob_nd, axis=0)
-        mean_robin_weight = np.mean(robin_weight, axis=0)
 
         cell_to_face_average = (
             sps.dia_matrix(
@@ -383,9 +388,17 @@ class Tpsa:
         cell_to_face_weighted = sps.coo_matrix(
                 ((shear_modulus_by_face_cell_distance, (fi, ci))), shape=(nf, nc)
             ).tocsr()
-        cell_to_face_scalar_to_nd = sps.kron(cell_to_face_weighted, sps.csr_array(np.ones((nd, 1))))
+        cell_to_face_scalar_to_nd = sps.kron(cell_to_face_weighted,
+                 sps.csr_array(np.ones((nd, 1)))
+                 )
 
         cell_to_face_average_scalar_to_nd = distance_scaling_matrix @ cell_to_face_scalar_to_nd
+
+        c2f_rows, *_ = sps.find(cell_to_face_average_scalar_to_nd)
+        c2f_rows_is_dir = np.in1d(c2f_rows, np.where(is_dir))
+        cell_to_face_average_scalar_to_nd.data[c2f_rows_is_dir] = 0
+        #cell_to_face_average_scalar_to_nd.eliminate_zeros()
+
 
         cell_to_face_average_scalar_to_nd_complement = sps.csr_array(
             (1 - cell_to_face_average_scalar_to_nd.data,
@@ -452,8 +465,8 @@ class Tpsa:
         shear_modulus_by_face_cell_distance_nd = np.repeat(shear_modulus_by_face_cell_distance, nd)
 
         t_shear_nd = (2 * np.repeat(sd.face_areas, nd) 
-            / np.bincount(np.hstack((fi_expanded, all_boundary_faces_expanded)),
-            weights=np.hstack((1.0 /weighted_distance_expanded, 1.0 / dir_weight_boundary)))
+            / np.bincount(np.hstack((fi_expanded, rob_boundary_faces_expanded)),
+            weights=np.hstack((1.0 /weighted_distance_expanded, 1.0 / rob_weights_boundary_faces)))
         ).reshape((nd, nf), order='F')
 
         # Arithmetic average of the shear modulus.
@@ -646,7 +659,7 @@ class Tpsa:
                 # Use the discretization of Laplace's problem. The transmissibility will
                 # be the same in all directions.
                 rotation_diffusion, bound_rotation_diffusion = vector_laplace_matrices(
-                    np.tile(t_cosserat, nd, 1), bnd_rot
+                    np.tile(t_cosserat, (nd, 1)), bnd_rot
                 )
 
             else:
