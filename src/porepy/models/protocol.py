@@ -683,6 +683,183 @@ class DataSavingProtocol(Protocol):
 
         """
 
+class SolutionStrategyMBProtocol(Protocol):
+    """This is a class that specifies methods that a momentum balance model must
+    implement to be compatible with the linearization and time stepping methods.
+
+    """
+    displacement_variable: str = "u"
+    """Name of the displacement variable."""
+
+    interface_displacement_variable: str = "u_interface"
+    """Name of the displacement variable on fracture-matrix interfaces."""
+
+    contact_traction_variable: str = "t"
+    """Name of the contact traction variable."""
+
+    # Discretization
+    stress_keyword: str = "mechanics"
+    """Keyword for stress term.
+
+    Used to access discretization parameters and store discretization matrices.
+
+    """
+
+    def contact_mechanics_numerical_constant(
+        self, subdomains: list["pp.Grid"]
+    ) -> "pp.ad.Operator":
+        """Numerical constant for the contact problem [m^-1].
+
+        A physical interpretation of this constant is a characteristic length of
+        the fracture, as it appears as a scaling of displacement jumps when
+        comparing to nondimensionalized contact tractions.
+
+        Parameters:
+            subdomains: List of subdomains. Only the first is used.
+
+        Returns:
+            c_num: Numerical constant.
+
+        """
+
+
+    def contact_mechanics_open_state_characteristic(
+        self, subdomains: list["pp.Grid"]
+    ) -> "pp.ad.Operator":
+        r"""Characteristic function used in the tangential contact mechanics relation.
+        Can be interpreted as an indicator of the fracture cells in the open state.
+        Used to make the problem well-posed in the case b_p is zero.
+
+        The function reads
+        .. math::
+            \begin{equation}
+            \text{characteristic} =
+            \begin{cases}
+                1 & \\text{if }~~ |b_p| < tol  \\
+                0 & \\text{otherwise.}
+            \end{cases}
+            \end{equation}
+        or simply `1 if (abs(b_p) < tol) else 0`
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            characteristic: Characteristic function.
+
+        """
+
+class BoundaryConditionMBProtocol(Protocol):
+    def bc_type_mechanics(self, sd: "pp.Grid") -> "pp.BoundaryConditionVectorial":
+        """Define type of boundary conditions.
+
+        Parameters:
+            sd: Subdomain grid.
+
+        Returns:
+            Boundary condition representation. Dirichlet on all global boundaries,
+            Dirichlet also on fracture faces.
+
+        """
+
+class VariablesMBProtocol(Protocol):
+    def contact_traction(self, subdomains: list["pp.Grid"]) -> "pp.ad.Variable":
+        """Fracture contact traction [-].
+
+        Parameters:
+            subdomains: List of subdomains where the contact traction is defined. Should
+                be of co-dimension one, i.e. fractures.
+
+        Returns:
+            Variable for nondimensionalized fracture contact traction.
+
+        """
+
+    def displacement_jump(self, subdomains: list["pp.Grid"]) -> "pp.ad.Operator":
+        """Displacement jump on fracture-matrix interfaces.
+
+        Parameters:
+            subdomains: List of subdomains where the displacement jump is defined.
+                Should be a fracture subdomain.
+
+        Returns:
+            Operator for the displacement jump.
+
+        Raises:
+             AssertionError: If the subdomains are not fractures, i.e. have dimension
+                `nd - 1`.
+
+        """
+
+class ConstitutiveLawsMBProtocol(Protocol):
+    def friction_bound(self, subdomains: list["pp.Grid"]) -> "pp.ad.Operator":
+        """Friction bound [-].
+
+        Dimensionless, since fracture deformation equations consider non-dimensional
+        tractions. In this class, the bound is given by
+
+        .. math::
+            - F t_n
+
+        where :math:`F` is the friction coefficient and :math:`t_n` is the normal
+        component of the contact traction. TODO: Rename class to CoulombFrictionBound?
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Cell-wise friction bound operator [-].
+
+        """
+
+    def fracture_gap(self, subdomains: list["pp.Grid"]) -> "pp.ad.Operator":
+        """Fracture gap [m].
+
+        Parameters:
+            subdomains: List of subdomains where the gap is defined.
+
+        Raises:
+            ValueError: If the reference fracture gap is smaller than the maximum
+                fracture closure. This can lead to negative openings from the
+                Barton-Bandis model.
+
+        Returns:
+            Cell-wise fracture gap operator.
+
+        """
+
+    def stiffness_tensor(self, subdomain: "pp.Grid") -> "pp.FourthOrderTensor":
+        """Stiffness tensor [Pa].
+
+        Parameters:
+            subdomain: Subdomain where the stiffness tensor is defined.
+
+        Returns:
+            Cell-wise stiffness tensor in SI units.
+
+        """
+
+    def characteristic_displacement(self, subdomains: list["pp.Grid"]) -> \
+            "pp.ad.Operator":
+        """Characteristic displacement [m].
+
+        The value is fetched from the solid constants. See also the method
+        :meth:`characteristic_contact_traction` and its documentation.
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic displacement is
+                defined.
+
+        Returns:
+            Scalar operator representing the characteristic displacement.
+
+        """
+
+class MomentumBalanceProtocol(SolutionStrategyMBProtocol,
+                              VariablesMBProtocol,
+                              ConstitutiveLawsMBProtocol,
+                              BoundaryConditionMBProtocol):
+    """Protocol for the momentum balance model"""
 
 class PorePyModel(
     BoundaryConditionProtocol,

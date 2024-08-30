@@ -22,21 +22,15 @@ import numpy as np
 
 import porepy as pp
 from porepy.models.abstract_equations import VariableMixin
+from porepy.models.protocol import MomentumBalanceProtocol
 
 from . import constitutive_laws
 
 logger = logging.getLogger(__name__)
 
 
-class MomentumBalanceEquations(pp.BalanceEquation):
+class MomentumBalanceEquations(pp.BalanceEquation, MomentumBalanceProtocol):
     """Class for momentum balance equations and fracture deformation equations."""
-
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
 
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Stress on the grid faces. Provided by a suitable mixin class that specifies the
@@ -50,47 +44,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.PressureStress`.
 
     """
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the displacement jump on fracture grids. Normally defined is
-    VariablesMomentumBalance
 
-    """
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Gap of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FractureGap`.
-
-    """
-    friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
-
-    """
-    contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
-    """Numerical constant for contact mechanics. Normally provided by a mixin instance
-    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-
-    contact_mechanics_open_state_characteristic: Callable[
-        [list[pp.Grid]], pp.ad.Operator
-    ]
-    """Characteristic function used in the tangential contact mechanics relation.
-    Can be interpreted as an indicator of the fracture cells in the open state.
-    Normally provided by a mixin instance of
-    :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
     gravity_force: Callable[[list[pp.Grid] | list[pp.MortarGrid], str], pp.ad.Operator]
     """Gravity force. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.GravityForce` or
@@ -460,30 +414,11 @@ class ConstitutiveLawsMomentumBalance(
         return self.mechanical_stress(domains)
 
 
-class VariablesMomentumBalance(VariableMixin):
+class VariablesMomentumBalance(VariableMixin, MomentumBalanceProtocol):
     """Variables for mixed-dimensional deformation.
 
     Displacement in matrix and on fracture-matrix interfaces. Fracture contact
     traction.
-
-    """
-
-    displacement_variable: str
-    """Name of the primary variable representing the displacement in subdomains.
-    Normally defined in a mixin of instance
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-    interface_displacement_variable: str
-    """Name of the primary variable representing the displacement on an interface.
-    Normally defined in a mixin of instance
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-    contact_traction_variable: str
-    """Name of the primary variable representing the contact traction on a fracture
-    subdomain. Normally defined in a mixin of instance
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
 
@@ -637,7 +572,7 @@ class VariablesMomentumBalance(VariableMixin):
         return rotated_jumps
 
 
-class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
+class SolutionStrategyMomentumBalance(pp.SolutionStrategy, MomentumBalanceProtocol):
     """Solution strategy for the momentum balance.
 
     At some point, this will be refined to be a more sophisticated (modularised)
@@ -645,39 +580,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     Parameters:
         params: Parameters for the solution strategy.
-
-    """
-
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
-    stiffness_tensor: Callable[[pp.Grid], pp.FourthOrderTensor]
-    """Function that returns the stiffness tensor of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.ElasticModuli`.
-
-    """
-    bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryConditionVectorial]
-    """Function that returns the boundary condition type for the momentum problem.
-    Normally provided by a mixin instance of
-    :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.
-
-    """
-    friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
-
-    """
-    characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic displacement of the problem. Normally defined in a mixin
-    instance of :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
 
@@ -850,12 +752,9 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         return self.mdg.dim_min() < self.nd
 
 
-class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
+class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin,
+                                        MomentumBalanceProtocol):
     """Boundary conditions for the momentum balance."""
-
-    displacement_variable: str
-
-    stress_keyword: str
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
