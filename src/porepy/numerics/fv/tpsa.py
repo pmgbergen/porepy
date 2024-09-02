@@ -426,11 +426,7 @@ class Tpsa:
 
         # Finally we are ready to construct the discretization matrices.
 
-        # Helper function to compute the harmonic mean of a field over faces.
-        def facewise_harmonic_mean(field: np.ndarray) -> np.ndarray:
-            # Note that the implementation of np.bincount means the returned array is
-            # ordered linearly in the face index, not in the face-wise ordering.
-            return 1 / np.bincount(numbering.fi, weights=1 / field, minlength=numbering.nf)
+
 
         # Harmonic average of the shear modulus divided by the distance between the face
         # center and the cell center.
@@ -517,9 +513,8 @@ class Tpsa:
         # TODO: For zero Cosserat parameters, this involves a division by zero. This
         # gives no actual problem, but filtering would have been more elegant.
         if cosserat_values is not None:
-            t_cosserat = sd.face_areas * facewise_harmonic_mean(
-                cosserat_parameter / dist_fc_cc
-            )
+            t_cosserat = sd.face_areas / np.bincount(numbering.fi,
+             weights=1 / (cosserat_parameter / dist_fc_cc), minlength=numbering.nf)
 
         # The relations involving rotations are more cumbersome, as a rotation in 2d has
         # a single degree of freedom, while a 3d rotation has 3 degrees of freedom. This
@@ -726,8 +721,6 @@ class Tpsa:
         )        
 
         return _BoundaryFilters(dir_nd, dir_nopass, dir_nopass_nd, neu_nopass_nd, neu_rob_pass_nd, rob_nd)
-
-
 
 
 
