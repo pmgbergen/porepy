@@ -126,14 +126,14 @@ class BCValuesLeftSide:
         """Assigns displacement values in the x-direction of the west boundary."""
         values = np.zeros((self.nd, bg.num_cells))
         bounds = self.domain_boundary_sides(bg)
-        values[0][bounds.west] += np.ones(values[0][bounds.west].size) * 24
+        values[0, bounds.west] += 42
         return values.ravel("F")
 
     def _bc_values_scalar(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns scalar values on the west boundary."""
         values = np.zeros(bg.num_cells)
         bounds = self.domain_boundary_sides(bg)
-        values[bounds.west] += np.ones(values[bounds.west].size) * 24
+        values[bounds.west] += 42
         return values
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -232,27 +232,21 @@ class BCValuesFlux:
         """Assigns Fourier flux values on top, bottom and right boundary."""
         values = np.zeros((bg.num_cells))
         bounds = self.domain_boundary_sides(bg)
-        values[bounds.east + bounds.north + bounds.south] += (
-            np.ones(values[bounds.east + bounds.north + bounds.south].size) * 24
-        )
+        values[bounds.east + bounds.north + bounds.south] += 24
         return values.ravel("F")
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Darcy flux values on top, bottom and right boundary."""
         values = np.zeros((bg.num_cells))
         bounds = self.domain_boundary_sides(bg)
-        values[bounds.east + bounds.north + bounds.south] += (
-            np.ones(values[bounds.east + bounds.north + bounds.south].size) * 24
-        )
+        values[bounds.east + bounds.north + bounds.south] += 24
         return values.ravel("F")
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns stress values on top, bottom and right boundary."""
         values = np.zeros((self.nd, bg.num_cells))
         bounds = self.domain_boundary_sides(bg)
-        values[0][bounds.east + bounds.north + bounds.south] += (
-            np.ones(values[0][bounds.east + bounds.north + bounds.south].size) * 24
-        )
+        values[0, bounds.east + bounds.north + bounds.south] += 24
         return values.ravel("F")
 
 
@@ -277,17 +271,14 @@ class BCDirichletReference:
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns displacement values in the x-direction of the west boundary."""
         values = super().bc_values_displacement(bg=bg)
-        values = values.reshape((self.nd, bg.num_cells))
+        values = values.reshape((self.nd, bg.num_cells), order="F")
         bounds = self.domain_boundary_sides(bg)
 
         alpha = self.params["alpha"]
         volumes = bg.cell_volumes[bounds.north + bounds.south + bounds.east]
 
-        values[0][bounds.north + bounds.south + bounds.east] += (
-            np.ones(values[0][bounds.north + bounds.south + bounds.east].size)
-            * 24
-            / (volumes * alpha)
-        )
+        values[0, bounds.north + bounds.south + bounds.east] += 24 / (volumes * alpha)
+
         return values.ravel("F")
 
     def _bc_values_scalar(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -297,11 +288,8 @@ class BCDirichletReference:
         alpha = self.params["alpha"]
         volumes = bg.cell_volumes[bounds.north + bounds.south + bounds.east]
 
-        values[bounds.north + bounds.south + bounds.east] += (
-            np.ones(values[bounds.north + bounds.south + bounds.east].size)
-            * 24
-            / (volumes * alpha)
-        )
+        values[bounds.north + bounds.south + bounds.east] += 24 / (volumes * alpha)
+
         return values
 
 
@@ -343,29 +331,25 @@ class MomentumBalanceRobin(BCRobin, CommonMomentumBalance):
     """Momentum balance with Robin conditions on top, bottom and right boundary."""
 
 
-@pytest.fixture()
-def run_model():
+def run_model(balance_class, alpha):
     params = {
         "times_to_export": [],
         "fracture_indices": [],
         "meshing_arguments": {"cell_size": 0.5},
     }
 
-    def _run_model(balance_class, alpha):
-        params["alpha"] = alpha
-        instance = balance_class(params)
-        pp.run_time_dependent_model(instance, params)
-        sd = instance.mdg.subdomains(dim=2)[0]
+    params["alpha"] = alpha
+    instance = balance_class(params)
+    pp.run_time_dependent_model(instance, params)
+    sd = instance.mdg.subdomains(dim=2)[0]
 
-        try:
-            displacement = instance.displacement([sd]).value(instance.equation_system)
-            return {"displacement": displacement}
-        except AttributeError:
-            pressure = instance.pressure([sd]).value(instance.equation_system)
-            temperature = instance.temperature([sd]).value(instance.equation_system)
-            return {"temperature": temperature, "pressure": pressure}
-
-    return _run_model
+    try:
+        displacement = instance.displacement([sd]).value(instance.equation_system)
+        return {"displacement": displacement}
+    except AttributeError:
+        pressure = instance.pressure([sd]).value(instance.equation_system)
+        temperature = instance.temperature([sd]).value(instance.equation_system)
+        return {"temperature": temperature, "pressure": pressure}
 
 
 # Parameterize the test function with the necessary balance types and conditions
@@ -378,7 +362,7 @@ def run_model():
         # (MomentumBalanceRobin, CommonMomentumBalance, 1e8),
     ],
 )
-def test_robin_limit_case(run_model, rob_class, reference_class, alpha):
+def test_robin_limit_case(rob_class, reference_class, alpha):
     """Test that Robin limit cases are equivalent to Neumann for alpha = 0.
 
     The Robin conditions are implemented on the form: sigma * n + alpha * u = G. That
