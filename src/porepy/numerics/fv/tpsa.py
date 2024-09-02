@@ -22,6 +22,33 @@ class _Numbering:
     sgn: np.ndarray
     sgn_nd: np.ndarray
 
+@dataclass
+class _BoundaryFilters:
+    """Helper class to store filters for applying various boundary conditions.
+
+    The class stores only attributes needed in the implementation; it may well be that
+    different choices in implementation would have needed different filters.
+    """
+
+    dir_pass_nd: sps.sparray
+    """Filter that only lets through boundary faces with Dirichlet conditions."""
+
+    dir_nopass: sps.sparray
+    """Filter that removes Dirichlet conditions. TODO: WHY NOT ND"""
+
+    dir_nopass_nd: sps.sparray
+    """Filter that removes boundary faces with Dirichlet conditions. """
+
+    neu_nopass_nd: sps.sparray
+    """Filter that removes boundary faces with Neumann conditions. """
+
+    neu_rob_pass_nd: sps.sparray
+    """Filter that only lets through boundary faces with Neumann or Robin conditions."""    
+
+    rob_pass_nd: sps.sparray
+    """Filter that only lets through boundary faces with Robin conditions."""
+
+
 class Tpsa:
 
     def __init__(self, keyword: str) -> None:
@@ -191,9 +218,7 @@ class Tpsa:
         if cosserat_values is not None:
             cosserat_parameter = cosserat_values[numbering.ci]
 
-        # Data structures for boundary conditions. Only homogeneous Dirichlet conditions
-        # treated so far.
-        dir_scalar = bnd_disp.is_dir[0]
+
 
         # Normal vectors in the face-wise ordering
         n_fi = sd.face_normals[:, numbering.fi]
@@ -257,43 +282,23 @@ class Tpsa:
                 "Non-diagonal Robin weights have not been implemnted"
             )
 
-        is_internal = np.logical_not(np.logical_or.reduce((is_dir, is_neu, is_rob)))
-        dir_filter_nd = sps.dia_matrix(
-            (is_dir.astype(int), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
-        )
-        dir_nopass_filter = sps.dia_matrix(
-            (1 - dir_scalar.astype(int), 0), shape=(numbering.nf, numbering.nf)
-        )
-        dir_nopass_filter_nd = sps.dia_matrix(
-            (np.logical_or.reduce((is_neu, is_rob, is_internal)).astype(int), 0),
-            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
-        )
-
-        neu_nopass_filter_nd = sps.dia_matrix(
-            (np.logical_or.reduce((is_dir, is_rob, is_internal)).astype(int), 0),
-            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
-        )
-
-        neu_rob_pass_filter_nd = sps.dia_matrix(
-            (np.logical_or(is_neu, is_rob).astype(int), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
-        )
-        robin_filter_nd = sps.dia_array(
-            (is_rob.astype(int), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
-        )
+        # Construct filters that are used to isolate faces with different types of
+        # boundary conditions assigned. We do this only for the displacement variable;
+        # for the rotation variable (in the case of a non-zero Cosserat parameter) we
+        # only need to deal with Dirichlet and Neumann conditions on a diffusion problem
+        # (Robin conditions have not been implemented, see above), which is relatively
+        # easy and handled on the fly.
+        filters = self._create_filters(bnd_disp, numbering, sd)
 
         robin_weight = np.vstack(
             (bnd_disp.robin_weight[0, 0], bnd_disp.robin_weight[1, 1])
         )
         if numbering.nd == 3:
             robin_weight = np.vstack((robin_weight, bnd_disp.robin_weight[2, 2]))
-        # robin_weight = robin_weight.ravel(order='F')
 
         dir_weight = np.zeros((numbering.nd, numbering.nf), dtype=float)
         dir_weight[is_dir_nd] = 1
         dir_weight[is_rob_nd] = robin_weight[is_rob_nd]
-
-        neu_weight = np.zeros((numbering.nd, numbering.nf), dtype=float)
-        neu_weight[np.logical_or(is_neu_nd, is_rob_nd)] = 1
 
         # Construct an averaging operator from cell centers to faces. The averaging
         # weights are the cell-wise shear modulus, divided by the distance between the
@@ -327,12 +332,12 @@ class Tpsa:
         )
 
         cell_to_face_average_nd_new = (
-            dir_nopass_filter_nd @ distance_scaling_matrix @ cell_to_face_nd
+            filters.dir_nopass_nd @ distance_scaling_matrix @ cell_to_face_nd
         )
 
         # This is a diagonal matrix. Do we need it, or only the diagonal data? TODO
         boundary_to_face_average_nd = (
-            robin_filter_nd
+            filters.rob_pass_nd
             @ distance_scaling_matrix
             @ sps.dia_array((dir_weight.ravel("F"), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd))
         )
@@ -461,7 +466,7 @@ class Tpsa:
         # The effect of boundary conditions are already included in
         # cell_to_face_average_complement.
         stress_total_pressure = (
-            neu_nopass_filter_nd
+            filters.neu_nopass_nd
             @ sps.csc_matrix(
                 (
                     n[:numbering.nd].ravel("F"),
@@ -473,7 +478,7 @@ class Tpsa:
             @ cell_to_face_average_complement
         )
         stress_total_pressure = (
-            neu_nopass_filter_nd
+            filters.neu_nopass_nd
             @ sps.dia_matrix((n[:numbering.nd].ravel("F"), 0),
             shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd))
             @ cell_to_face_average_scalar_to_nd_complement
@@ -497,19 +502,10 @@ class Tpsa:
         # While there is no spatial operator that that relates the total pressure to the
         # conservation of solid mass in the continuous equation, the TPSA discretization
         # naturally leads to a stabilization term, as computed below. This acts on
-        # differences in the total pressure, and is scaled with the face area.
-        #
-        # It is not fully clear what to do with this term on the boundary: There is no
-        # boundary condition for the total pressure, this is in a sense inherited from
-        # the displacement. The discretization scheme must however be adjusted, so that
-        # it is zero on Dirichlet faces. The question is, what to do with rolling
-        # boundary conditions, where a mixture of Dirichlet and Neumann conditions are
-        # applied? For now, we pick the condition in the direction which is closest to
-        # the normal vector of the face. While this should work nicely for domains where
-        # the grid is aligned with the coordinate axis, it is more of a question mark
-        # how this will work for rotated domains.
-        # TODO: IMPLEMENT THIS
-        mass_total_pressure = -dir_nopass_filter @ (
+        # differences in the total pressure, and is scaled with the face area. The
+        # setting of the boundary condition is a bit tricky, since the solid pressure is
+        # a derived boundary quantity for which there is no boundary condition set. 
+        mass_total_pressure = -filters.dir_nopass @ (
             sps.dia_matrix(
                 (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
                 shape=(numbering.nf, numbering.nf),
@@ -560,7 +556,7 @@ class Tpsa:
 
             # Discretization of the stress generated by cell center rotations.
             stress_rotation = (
-                -neu_nopass_filter_nd @ Rn_hat @ cell_to_face_average_complement_nd
+                -filters.neu_nopass_nd @ Rn_hat @ cell_to_face_average_complement_nd
             )
 
             if cosserat_values is not None:
@@ -599,7 +595,7 @@ class Tpsa:
             )
             # # Discretization of the stress generated by cell center rotations.
             stress_rotation = (
-                -neu_nopass_filter_nd
+                -filters.neu_nopass_nd
                 @ Rn_hat
                 @ cell_to_face_average_scalar_to_nd_complement
             )
@@ -615,7 +611,6 @@ class Tpsa:
                 # counteract the minus sign in the construction of the discretization
                 # matrix.
                 t_cosserat_bnd[bnd_rot.is_neu] = 1
-                # t_cosserat_bnd = t_cosserat_bnd[bnd_rot.is_neu]
                 t_cosserat[bnd_rot.is_neu] = 0
 
                 # TODO: Why minus sign here, but not in tpfa? Darcy vs Hook.
@@ -647,8 +642,8 @@ class Tpsa:
         )
         # TODO: Implement Dirichlet conditions
         bound_rotation_displacement = Rn_bar @ (
-            neu_rob_pass_filter_nd @ mu_face
-            - dir_filter_nd
+            filters.neu_rob_pass_nd @ mu_face
+            - filters.dir_pass_nd
             - boundary_to_face_average_nd
         )
 
@@ -659,7 +654,7 @@ class Tpsa:
         # what to do there).
 
         bound_mass_displacement = normal_vector_nd @ (
-            neu_rob_pass_filter_nd @ mu_face + dir_filter_nd
+            filters.neu_rob_pass_nd @ mu_face + filters.dir_pass_nd
         )
         ## Store the computed fields
 
@@ -684,8 +679,62 @@ class Tpsa:
             bound_rotation_displacement
         )
 
+    @staticmethod
+    def _create_filters(bnd_disp: pp.BoundaryConditionVectorial,
+        numbering: _Numbering, sd: pp.Grid) -> _BoundaryFilters:
+
+        is_dir = bnd_disp.is_dir.ravel("F")
+        is_neu = bnd_disp.is_neu.ravel("F")
+        is_rob = bnd_disp.is_rob.ravel("F")
+        is_internal = np.logical_not(np.logical_or.reduce((is_dir, is_neu, is_rob)))
+
+        dir_nd = sps.dia_matrix(
+            (is_dir.astype(int), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
+        )
+
+        dir_nopass_nd = sps.dia_matrix(
+            (np.logical_or.reduce((is_neu, is_rob, is_internal)).astype(int), 0),
+            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
+        )
+
+        neu_nopass_nd = sps.dia_matrix(
+            (np.logical_or.reduce((is_dir, is_rob, is_internal)).astype(int), 0),
+            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
+        )
+
+        neu_rob_pass_nd = sps.dia_matrix(
+            (np.logical_or(is_neu, is_rob).astype(int), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
+        )
+        rob_nd = sps.dia_array(
+            (is_rob.astype(int), 0), shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd)
+        )        
+
+        # We also need to deal with BCs on the numerical diffusion term for the solid
+        # pressure. It is not fully clear what to do with this term on the boundary:
+        # There is no boundary condition for the total pressure, this is in a sense
+        # inherited from the displacement. The discretization scheme must however be
+        # adjusted, so that it is zero on Dirichlet faces. The question is, what to do
+        # with rolling boundary conditions, where a mixture of Dirichlet and Neumann
+        # conditions are applied? For now, we pick the condition in the direction which
+        # is closest to the normal vector of the face. While this should work nicely for
+        # domains where the grid is aligned with the coordinate axis, it is more of a
+        # question mark how this will work for rotated domains.
+        max_ind = np.argmax(np.abs(sd.face_normals), axis=0)
+        dir_scalar = bnd_disp.is_dir[max_ind, np.arange(numbering.nf)]
+        dir_nopass = sps.dia_matrix(
+            (np.logical_not(dir_scalar).astype(int), 0), shape=(numbering.nf, numbering.nf)
+        )        
+
+        return _BoundaryFilters(dir_nd, dir_nopass, dir_nopass_nd, neu_nopass_nd, neu_rob_pass_nd, rob_nd)
+
+
+
+
+
+
+    @staticmethod
     def _vector_laplace_matrices(
-        self, trm_nd: np.ndarray, bnd: pp.BoundaryConditionVectorial, numbering: _Numbering,
+        trm_nd: np.ndarray, bnd: pp.BoundaryConditionVectorial, numbering: _Numbering,
         boundary_to_face_average_complement_nd: np.ndarray
     ) -> tuple[sps.spmatrix, sps.spmatrix]:
         # The linear stress due to cell center displacements is computed from the
@@ -757,7 +806,8 @@ class Tpsa:
         ).tocsr()
         return discr, bound_discr
 
-    def _create_numbering(self, sd: pp.Grid):
+    @staticmethod
+    def _create_numbering(sd: pp.Grid):
             # Bookkeeping
         nf = sd.num_faces
         nc = sd.num_cells
