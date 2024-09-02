@@ -25,7 +25,7 @@ class LinearModel(
 @pytest.mark.parametrize(
     "solid_vals,north_displacement",
     [
-        ({}, 0),
+        ({}, 0.0),
         ({"characteristic_displacement": 42}, -0.1),
         ({"porosity": 0.5}, 0.2),
     ],
@@ -46,7 +46,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
-        "uy_north": north_displacement,
+        "u_north": [0.0, north_displacement],
     }
 
     # Create model and run simulation
@@ -127,7 +127,7 @@ def test_unit_conversion(units, uy_north):
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
-        "uy_north": uy_north,
+        "u_north": [0, uy_north],
         "material_constants": {"solid": solid},
     }
     reference_params = copy.deepcopy(params)
