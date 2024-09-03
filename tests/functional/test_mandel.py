@@ -154,8 +154,8 @@ def test_scaled_vs_unscaled_systems():
         "material_constants": material_constants_unscaled,
         "time_manager": time_manager_unscaled,
     }
-    unscaled_model = MandelSetup(params=model_params_unscaled)
-    pp.run_time_dependent_model(unscaled_model)
+    model_unscaled = MandelSetup(params=model_params_unscaled)
+    pp.run_time_dependent_model(model_unscaled)
 
     # The scaled problem
     material_constants_scaled = {
@@ -175,12 +175,12 @@ def test_scaled_vs_unscaled_systems():
 
     # Compare results
     np.testing.assert_almost_equal(
-        unscaled_model.results[-1].error_pressure,
+        model_unscaled.results[-1].error_pressure,
         scaled_model.results[-1].error_pressure,
         decimal=5,
     )
     np.testing.assert_almost_equal(
-        unscaled_model.results[-1].error_displacement,
+        model_unscaled.results[-1].error_displacement,
         scaled_model.results[-1].error_displacement,
         decimal=5,
     )
