@@ -52,12 +52,20 @@ class _BoundaryFilters:
 
 @dataclass
 class _CellToFaceMaps:
+    c2f: sps.sparray
     c2f_compl: sps.sparray
-    c2f_nd: sps.sparray
-    c2f_compl_nd: sps.sparray
     c2f_compl_scalar_2_nd: sps.sparray
-    b2f_nd: sps.sparray
-    b2f_compl_nd: sps.sparray
+    b2f_rob: sps.sparray
+    b2f_rob_compl: sps.sparray
+
+
+@dataclass
+class _Distances:
+    dist_fc_cc: np.ndarray
+    mu_by_dist_fc_cc: np.ndarray
+    mu_by_dist_fc_cc_bound: np.ndarray
+    inv_mu_by_dist_array: sps.dia_array
+    rob_weight: np.ndarray
 
 
 class Tpsa:
@@ -226,24 +234,6 @@ class Tpsa:
         if cosserat_values is not None:
             cosserat_parameter = cosserat_values[numbering.ci]
 
-        # Normal vectors in the face-wise ordering
-        n_fi = sd.face_normals[:, numbering.fi]
-        # Switch signs where relevant
-        n_fi *= numbering.sgn
-
-        # Get a vector from cell center to face center and project to the direction of
-        # the face normal. Divide by the face area to get a unit vector in the normal
-        # direction.
-        fc_cc = (
-            n_fi
-            * (sd.face_centers[::, numbering.fi] - sd.cell_centers[::, numbering.ci])
-            / sd.face_areas[numbering.fi]
-        )
-        # Get the length of the projected vector; take the absolute value to avoid
-        # negative distances.
-        dist_fc_cc = np.abs(np.sum(fc_cc, axis=0))
-
-        shear_modulus_by_face_cell_distance = mu / dist_fc_cc
 
         # For Dirichlet conditions, set the averaging map to zero (as is the correct
         # discretization). TODO: Treat Neumann, and possibly Robin, conditions.
@@ -301,17 +291,14 @@ class Tpsa:
         # easy and handled on the fly.
         filters = self._create_filters(bnd_disp, numbering, sd)
 
-        (
-            c2f_maps,
-            distance_scaling,
-            rob_boundary_faces_expanded,
-            rob_weights_boundary_faces,
-        ) = self._create_cell_to_face_maps(
+        dist, t_shear_rob = self._compute_distances(sd, numbering, mu, bnd_disp)
+        
+        c2f_maps = self._create_cell_to_face_maps(
             numbering,
             filters,
             bnd_disp,
             sd.get_all_boundary_faces(),
-            shear_modulus_by_face_cell_distance,
+            dist,
         )
 
         # Finally we are ready to construct the discretization matrices.
@@ -319,30 +306,23 @@ class Tpsa:
         # Harmonic average of the shear modulus divided by the distance between the face
         # center and the cell center.
 
-        # Replace t_shear with nd version that also contains boundary weights. This is
-        # similar, but not identical, to distance_scaling above.
-        weighted_dist = np.repeat(shear_modulus_by_face_cell_distance, numbering.nd)
+        # Compute t_shear as the sum of the contribution from the interior faces
+        # (computed here) and the Robin boundary conditions (represented in t_shear_rob,
+        # computed previously). Since the Robin conditions are already handled, we use
+        # mu_by_dist_fc_cc, not mu_by_dist_fc_cc_bound.
         t_shear_nd = (
             2
             * np.repeat(sd.face_areas, numbering.nd)
-            / np.bincount(
-                np.hstack((numbering.fi_expanded, rob_boundary_faces_expanded)),
-                weights=np.hstack(
-                    (1.0 / weighted_dist, 1.0 / rob_weights_boundary_faces)
-                ),
+            / (np.bincount(numbering.fi_expanded,
+                weights=1.0 / np.repeat(dist.mu_by_dist_fc_cc, numbering.nd)) + t_shear_rob
             )
         ).reshape((numbering.nd, numbering.nf), order="F")
 
-        # Arithmetic average of the shear modulus.
-        arithmetic_average_shear_modulus = np.bincount(
-            numbering.fi,
-            weights=shear_modulus_by_face_cell_distance,
-            minlength=numbering.nf,
-        )
+
 
         # Discretize the stress-displacement relation:
         stress, bound_stress = self._vector_laplace_matrices(
-            t_shear_nd, bnd_disp, numbering, c2f_maps.b2f_compl_nd
+            t_shear_nd, bnd_disp, numbering, c2f_maps.b2f_rob_compl
         )
 
         # Face normals (note: in the usual ordering, not the face-wise ordering used in
@@ -354,18 +334,7 @@ class Tpsa:
         # normal vector. The latter also gives the correct scaling with the face area.
         # The effect of boundary conditions are already included in
         # cell_to_face_average_complement.
-        stress_total_pressure = (
-            filters.neu_nopass_nd
-            @ sps.csc_matrix(
-                (
-                    n[: numbering.nd].ravel("F"),
-                    np.arange(0, numbering.nf * numbering.nd),
-                    np.arange(0, numbering.nf * numbering.nd + 1, numbering.nd),
-                ),
-                shape=(numbering.nd * numbering.nf, numbering.nf),
-            )
-            @ c2f_maps.c2f_compl
-        )
+
         stress_total_pressure = (
             filters.neu_nopass_nd
             @ sps.dia_matrix(
@@ -391,14 +360,26 @@ class Tpsa:
         # normal vectors multiplied with the average displacement over the faces.
         # This matrix will be empty on Dirichlet faces due to the filtering in
         # cell_to_face_average_nd.
-        mass_displacement = normal_vector_nd @ c2f_maps.c2f_nd
+        mass_displacement = normal_vector_nd @ c2f_maps.c2f
 
         # While there is no spatial operator that that relates the total pressure to the
         # conservation of solid mass in the continuous equation, the TPSA discretization
         # naturally leads to a stabilization term, as computed below. This acts on
-        # differences in the total pressure, and is scaled with the face area. The
-        # setting of the boundary condition is a bit tricky, since the solid pressure is
-        # a derived boundary quantity for which there is no boundary condition set.
+        # differences in the total pressure, and is scaled with the face area. Since the
+        # solid pressure is a derived boundary quantity for which there is no boundary
+        # condition set, it is unclear what to actually do with boundary terms. The
+        # current implementation seems to work.
+
+        # Arithmetic average of shear modulus. No contribution from boundary conditions,
+        # thus do not use mu_by_dist_fc_cc_bound (NOTE: It is not clear to EK this is
+        # the final version of this part of the code, but I have no ideas how to do this
+        # better).
+        arithmetic_average_shear_modulus = np.bincount(
+            numbering.fi,
+            weights=dist.mu_by_dist_fc_cc,
+            minlength=numbering.nf,
+        )
+        # Following the paper, we filter away Dirichlet boundary conditions.
         mass_total_pressure = -filters.dir_nopass @ (
             sps.dia_matrix(
                 (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
@@ -413,7 +394,7 @@ class Tpsa:
         if cosserat_values is not None:
             t_cosserat = sd.face_areas / np.bincount(
                 numbering.fi,
-                weights=1 / (cosserat_parameter / dist_fc_cc),
+                weights=1 / (cosserat_parameter / dist.dist_fc_cc),
                 minlength=numbering.nf,
             )
 
@@ -451,7 +432,7 @@ class Tpsa:
             Rn_bar = Rn_hat
 
             # Discretization of the stress generated by cell center rotations.
-            stress_rotation = -filters.neu_nopass_nd @ Rn_hat @ c2f_maps.c2f_compl_nd
+            stress_rotation = -filters.neu_nopass_nd @ Rn_hat @ c2f_maps.c2f_compl
 
             if cosserat_values is not None:
                 # Use the discretization of Laplace's problem. The transmissibility will
@@ -461,7 +442,7 @@ class Tpsa:
                         np.tile(t_cosserat, (numbering.nd, 1)),
                         bnd_rot,
                         numbering,
-                        c2f_maps.b2f_compl_nd,
+                        c2f_maps.b2f_rob_compl,
                     )
                 )
 
@@ -539,19 +520,19 @@ class Tpsa:
         # The rotation generated by the cell center displacements is computed from the
         # average displacement over the faces, multiplied by Rn_bar. This construction
         # is common for both 2d and 3d.
-        rotation_displacement = -Rn_bar @ c2f_maps.c2f_nd
+        rotation_displacement = -Rn_bar @ c2f_maps.c2f
 
         # The boundary condition for the rotation equation's dependency on the
         # cell center displacements.
 
         # This is the expression \delta_k^mu.
         mu_face = sps.dia_matrix(
-            (1 / (2 * distance_scaling), 0),
+            (1 / (2 * dist.mu_by_dist_fc_cc_bound), 0),
             shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
         )
         # TODO: Implement Dirichlet conditions
         bound_rotation_displacement = Rn_bar @ (
-            filters.neu_rob_pass_nd @ mu_face - filters.dir_pass_nd - c2f_maps.b2f_nd
+            filters.neu_rob_pass_nd @ mu_face - filters.dir_pass_nd - c2f_maps.b2f_rob
         )
 
         # Boundary condition. There should be no contribution from Dofs which are
@@ -559,7 +540,6 @@ class Tpsa:
         # not fully consistent for domains with boundaries not aligned with the
         # coordinate axes, and with rolling boundary conditions, but EK does not know
         # what to do there).
-
         bound_mass_displacement = normal_vector_nd @ (
             filters.neu_rob_pass_nd @ mu_face + filters.dir_pass_nd
         )
@@ -647,103 +627,74 @@ class Tpsa:
         filters: _BoundaryFilters,
         bnd_disp: pp.BoundaryConditionVectorial,
         boundary_faces: np.ndarray,
-        shear_modulus_by_face_cell_distance: np.ndarray,
+        dist: _Distances,
     ):
+        """Helper method to construct mappings from cells, and boundary conditions, to
+        faces.
 
+        Parameters:
+            numbering: Structure for bookkeeping.
+            filters: Necessary filters for imposing boundary conditions
+            bnd_disp: Boundary condition object for the displacement variable
+            mu_by_dist_fc_cc: The first Lame parameter, mu, divided
+                mu the distance between cell and face centers. Expanded to nd.
+        """
+        # Handling of Dirichlet conditions
         is_dir_nd = bnd_disp.is_dir
         is_rob_nd = bnd_disp.is_rob
         is_dir = is_dir_nd.ravel("F")
 
-        robin_weight = np.vstack(
-            (bnd_disp.robin_weight[0, 0], bnd_disp.robin_weight[1, 1])
-        )
-        if numbering.nd == 3:
-            robin_weight = np.vstack((robin_weight, bnd_disp.robin_weight[2, 2]))
-
-        dir_weight = np.zeros((numbering.nd, numbering.nf), dtype=float)
-        dir_weight[is_dir_nd] = 1
-        dir_weight[is_rob_nd] = robin_weight[is_rob_nd]
-
-        # Construct an averaging operator from cell centers to faces. The averaging
-        # weights are the cell-wise shear modulus, divided by the distance between the
-        # face center and the cell center (projected to the face normal direction). The
-        # scalar cell-to-face averaging is not used directly, but will form the basis
-        # for its nd equivalent (which is needed in several places), and the (scalar)
-        # complement which is used in a few places.
-
-        weighted_distance_expanded = np.repeat(
-            shear_modulus_by_face_cell_distance, numbering.nd
-        )
-
+        # Mapping from cell to face, with a weighting of mu / dist.
         cell_to_face = sps.coo_array(
-            ((shear_modulus_by_face_cell_distance, (numbering.fi, numbering.ci))),
+            ((dist.mu_by_dist_fc_cc, (numbering.fi, numbering.ci))),
             shape=(numbering.nf, numbering.nc),
         ).tocsr()
-        cell_to_face_nd = sps.kron(cell_to_face, sps.eye(numbering.nd)).tocsr()
 
-        rob_boundary_faces_expanded = pp.fvutils.expand_indices_nd(
-            np.arange(numbering.nf), numbering.nd
-        ).reshape((numbering.nd, numbering.nf), order="F")[is_rob_nd]
-        rob_weights_boundary_faces = robin_weight[is_rob_nd]
-
-        # This is the face-wise sum of the expressions mu/delta, also accounting for
-        # boundary conditions. The reciprocal of this field is also, almost, the
-        # expression \delta_k^mu, missing is a factor 1/2.
-        distance_scaling = np.bincount(
-            np.hstack((numbering.fi_expanded, rob_boundary_faces_expanded)),
-            weights=np.hstack((weighted_distance_expanded, rob_weights_boundary_faces)),
+        # Create the nd version, multiply with a scaling matrix to get an averaging map,
+        # and filter away Dirichlet boundary conditions (these will be enforced
+        # elsewhere in the code).
+        c2f = filters.dir_nopass_nd @ dist.inv_mu_by_dist_array @ sps.kron(cell_to_face, sps.eye(numbering.nd), format='csr')
+        # Complement map.
+        c2f_compl = sps.csr_matrix(
+            (
+                1 - c2f.data,
+                c2f.indices,
+                c2f.indptr
+            ),
+            shape=c2f.shape,
         )
 
-        distance_scaling_matrix = sps.dia_array(
-            (1 / distance_scaling, 0),
-            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
-        )
-
-        c2f_nd = filters.dir_nopass_nd @ distance_scaling_matrix @ cell_to_face_nd
-
-        # This is a diagonal matrix. Do we need it, or only the diagonal data? TODO
-        b2f_nd = (
+        # Create a mapping for Robin boundary values specifically (note the filter that
+        # lets Robin conditions pass). Inspection of the part of the code where this map
+        # is used will show that Dirichlet and Neumann conditions are treated separately
+        # using filters (which are binary, we cannot do this with Robin since this is a
+        # weighted map).
+        b2f_rob = (
             filters.rob_pass_nd
-            @ distance_scaling_matrix
+            @ dist.inv_mu_by_dist_array
             @ sps.dia_array(
-                (dir_weight.ravel("F"), 0),
+                (dist.rob_weight.ravel("F"), 0),
                 shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
             )
         )
         # For the complement, we only need the diagnoal data.
-        b2f_compl_nd = 1 - b2f_nd.diagonal()
+        b2f_rob_compl = 1 - b2f_rob.diagonal()
 
-        # Construct an averaging operator from cell centers to faces. The averaging
-        # weights are the cell-wise shear modulus, divided by the distance between the
-        # face center and the cell center (projected to the face normal direction). The
-        # scalar cell-to-face averaging is not used directly, but will form the basis
-        # for its nd equivalent (which is needed in several places), and the (scalar)
-        # complement which is used in a few places.
-
-        cell_to_face_average = (
-            sps.dia_matrix(
-                (1 / np.bincount(numbering.fi, shear_modulus_by_face_cell_distance), 0),
-                shape=(numbering.nf, numbering.nf),
-            )
-            @ sps.coo_matrix(
-                ((shear_modulus_by_face_cell_distance, (numbering.fi, numbering.ci))),
-                shape=(numbering.nf, numbering.nc),
-            ).tocsr()
+        # Map from scalar cell quantities to nd face quantities (used e.g. for the solid
+        # pressure).
+        c2f_scalar_2_nd = dist.inv_mu_by_dist_array @ sps.kron(
+            cell_to_face, sps.csr_array(np.ones((numbering.nd, 1))), format='csr'
         )
-        cell_to_face_weighted = sps.coo_matrix(
-            ((shear_modulus_by_face_cell_distance, (numbering.fi, numbering.ci))),
-            shape=(numbering.nf, numbering.nc),
-        ).tocsr()
-        c2f_scalar_to_nd = sps.kron(
-            cell_to_face_weighted, sps.csr_array(np.ones((numbering.nd, 1)))
-        )
-
-        c2f_scalar_2_nd = distance_scaling_matrix @ c2f_scalar_to_nd
-
+        # Specifically set a zero value for faces that have Dirichlet conditions, as
+        # these will draw their values from the boundary condition. While this could
+        # have been realized by multiplication with filters.dir_nopass_nd, this would
+        # have left implicit (not represented) zeros at the boundaries, whereas we need
+        # explicit zeros to construct the complement map below. Hence we enforce the
+        # zeros by manipulating the data array.
         c2f_rows, *_ = sps.find(c2f_scalar_2_nd)
         c2f_rows_is_dir = np.in1d(c2f_rows, np.where(is_dir))
         c2f_scalar_2_nd.data[c2f_rows_is_dir] = 0
-
+        # Complement map.
         c2f_compl_scalar_2_nd = sps.csr_array(
             (
                 1 - c2f_scalar_2_nd.data,
@@ -753,63 +704,107 @@ class Tpsa:
             shape=c2f_scalar_2_nd.shape,
         )
 
-        # Complement average map, defined as 1 - the average map. Note that this will
-        # have a zero value for all boundary faces (since the average map has a
-        # one-sided weight of 1 here). This is corrected below.
-        c2f_compl = sps.csr_matrix(
-            (
-                1 - cell_to_face_average.data,
-                cell_to_face_average.indices,
-                cell_to_face_average.indptr,
-            ),
-            shape=cell_to_face_average.shape,
-        )
-        # Find all rows in the complement average map that correspond to boundary faces,
-        # and set the data to 1. Note the contrast with the nd version, where the data
-        # of the averaging map is set to zero on Dirichlet faces (thus the complement
-        # map has 0 on Neumann faces), and thus a kind of filtering on the boundary
-        # condition is imposed by the averaging map. Since the boundary condition is
-        # given for the (vector) displacement variable, it is not possible to do a
-        # similar filtering applied to a scalar variable (total pressure and, in 2d,
-        # rotation). Instead, we let the complement averaging map be non-zero on all
-        # boundary faces, and do the filtering explicitly (again, the original scalar
-        # averaging map is not used in the discretization).
-        c2f_rows, *_ = sps.find(cell_to_face_average)
-        c2f_rows_is_bound = np.in1d(c2f_rows, boundary_faces)
-        c2f_compl.data[c2f_rows_is_bound] = 1
-
-        # .. as is the nd version. The data is taken from cell_to_face_average_nd, thus
-        # the correct treatment of boundary conditions is already included.
-        c2f_compl_nd = sps.csr_matrix(
-            (
-                1 - c2f_nd.data,
-                c2f_nd.indices,
-                c2f_nd.indptr,
-            ),
-            shape=c2f_nd.shape,
-        )
-
         mappings = _CellToFaceMaps(
+            c2f,
             c2f_compl,
-            c2f_nd,
-            c2f_compl_nd,
             c2f_compl_scalar_2_nd,
-            b2f_nd,
-            b2f_compl_nd,
+            b2f_rob,
+            b2f_rob_compl,
         )
-        return (
-            mappings,
-            distance_scaling,
-            rob_boundary_faces_expanded,
-            rob_weights_boundary_faces,
+        return mappings
+
+
+    @staticmethod
+    def _compute_distances(sd: pp.Grid, numbering: _Numbering,
+        mu: np.ndarray, bnd_disp: pp.BoundaryConditionVectorial):
+        """Compute grid-related distance measures, including the distance weighted
+        shear modulus.
+
+        This is also where the discretization coefficients related to Robin boundary
+        conditions are computed.
+
+        Parameters:
+            sd: Grid
+            numbering: Related to grid counting
+            mu: The shear modulus
+            bnd_disp: Boundary condition for the displacement variable
+
+        Returns:
+            Various distance measures needed in the discretization
+            Discretization coefficients for Robin boundary conditions.
+
+        """
+
+        # Normal vectors in the face-wise ordering
+        n_fi = sd.face_normals[:, numbering.fi]
+        # Switch signs where relevant
+        n_fi *= numbering.sgn
+
+        # Get a vector from cell center to face center and project to the direction of
+        # the face normal. Divide by the face area to get a unit vector in the normal
+        # direction.
+        fc_cc = (
+            n_fi
+            * (sd.face_centers[::, numbering.fi] - sd.cell_centers[::, numbering.ci])
+            / sd.face_areas[numbering.fi]
         )
+        # Get the length of the projected vector; take the absolute value to avoid
+        # negative distances.
+        dist_fc_cc = np.abs(np.sum(fc_cc, axis=0))
+
+        # Construct mu_i / delta_k^i, and its nd version
+        mu_by_dist_fc_cc = mu / dist_fc_cc
+        mu_by_dist_fc_cc_nd = np.repeat(mu_by_dist_fc_cc, numbering.nd)
+
+        # Extract the diagonal of the Robin weight. Non-diagonal elements are ignored
+        # here and specifically ruled out (with error messages) elsewhere in the code.
+        rob_weight = np.vstack(
+            (bnd_disp.robin_weight[0, 0], bnd_disp.robin_weight[1, 1])
+        )
+        if numbering.nd == 3:
+            rob_weight = np.vstack((rob_weight, bnd_disp.robin_weight[2, 2]))
+
+        # Nd version of the faces with Robin boundary conditions.
+        rob_boundary_faces_expanded = pp.fvutils.expand_indices_nd(
+            np.arange(numbering.nf), numbering.nd
+        ).reshape((numbering.nd, numbering.nf), order="F")[bnd_disp.is_rob]
+        rob_weights_boundary_faces = rob_weight[bnd_disp.is_rob]
+
+        # This is the face-wise sum of the expressions mu/delta, also accounting for
+        # boundary conditions. For reference, the reciprocal of this field is also,
+        # almost, the expression \delta_k^mu (used in the paper to describe the
+        # discretization scheme), missing is a factor 1/2.
+        mu_by_dist_fc_cc_bound = np.bincount(
+            np.hstack((numbering.fi_expanded, rob_boundary_faces_expanded)),
+            weights=np.hstack((mu_by_dist_fc_cc_nd, rob_weights_boundary_faces)),
+        )
+
+        # Create a diagonal matrix that can be used to scale face-to-cell maps to have
+        # unit row sum (thus they become true averaging maps), both in the interior and
+        # on faces with Robin boundary conditions.
+        inv_mu_by_dist_array = sps.dia_array(
+            (1 / mu_by_dist_fc_cc_bound, 0),
+            shape=(numbering.nf * numbering.nd, numbering.nf * numbering.nd),
+        )        
+
+        # Finally, since we have obtained the Robin weights and the associated indices
+        # of the faces, we might as well compute the discretization coefficients for
+        # this boundary condition here.
+        t_shear_rob = np.bincount(rob_boundary_faces_expanded,
+                weights=1.0 / rob_weights_boundary_faces,
+                minlength=numbering.nd * numbering.nf
+                )
+
+        dist = _Distances(dist_fc_cc, mu_by_dist_fc_cc, mu_by_dist_fc_cc_bound, inv_mu_by_dist_array, rob_weight)
+
+        return dist, t_shear_rob
 
     @staticmethod
     def _vector_laplace_matrices(
         trm_nd: np.ndarray,
         bnd: pp.BoundaryConditionVectorial,
         numbering: _Numbering,
-        boundary_to_face_average_complement_nd: np.ndarray,
+        b2f_rob_compl: np.ndarray,
     ) -> tuple[sps.spmatrix, sps.spmatrix]:
         # The linear stress due to cell center displacements is computed from the
         # harmonic average of the shear modulus, scaled by the face areas. The
@@ -852,7 +847,7 @@ class Tpsa:
         trm_bnd[neu_faces] = 1
 
         trm_bnd[rob_faces] = (
-            boundary_to_face_average_complement_nd.reshape(
+            b2f_rob_compl.reshape(
                 (numbering.nd, numbering.nf), order="F"
             )[rob_faces]
             + trm_nd[rob_faces]
