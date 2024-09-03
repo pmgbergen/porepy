@@ -61,7 +61,7 @@ def test_biot_equal_to_incompressible_poromechanics():
     setup_poromech = TerzaghiSetupPoromechanics(model_params_poromech)
     pp.run_time_dependent_model(model=setup_poromech)
     p_poromechanics = setup_poromech.results[0].approx_pressure
-    U_poromechanics = setup_poromech.results[0].approx_consolidation_degree
+    u_poromechanics = setup_poromech.results[0].approx_consolidation_degree
 
     # Run Terzaghi setup with Biot model
     model_params_biot = {
@@ -74,10 +74,10 @@ def test_biot_equal_to_incompressible_poromechanics():
     setup_biot = TerzaghiSetup(model_params_biot)
     pp.run_time_dependent_model(model=setup_biot)
     p_biot = setup_biot.results[0].approx_pressure
-    U_biot = setup_biot.results[0].approx_consolidation_degree
+    u_biot = setup_biot.results[0].approx_consolidation_degree
 
     np.testing.assert_almost_equal(p_poromechanics, p_biot)
-    np.testing.assert_almost_equal(U_poromechanics, U_biot)
+    np.testing.assert_almost_equal(u_poromechanics, u_biot)
 
 
 def test_pressure_and_consolidation_degree_errors():
