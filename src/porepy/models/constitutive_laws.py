@@ -4404,11 +4404,7 @@ class ElastoPlasticFractureDeformation:
         u_t = self.elastic_tangential_fracture_deformation(subdomains)
         # Broadcast to number of cells in case elastic normal deformation is scalar, not
         # cell-wise array.
-        nc = sum([sd.num_cells for sd in subdomains])
         u_n = self.elastic_normal_fracture_deformation(subdomains)
-        # * pp.ad.DenseArray(
-        #     np.ones(nc)
-        # )
         return tangential_to_nd @ u_t + normal_to_nd @ u_n
 
     def elastic_tangential_fracture_deformation(
@@ -4443,7 +4439,8 @@ class ElastoPlasticFractureDeformation:
         stiffness_value = stiffness.value(self.equation_system)
         if np.any(stiffness_value < 0):
             # Negative stiffness indicates no elastic tangential deformation.
-            op = pp.ad.DenseArray(np.zeros(sum(sd.num_cells for sd in subdomains)))
+            num_cells = sum(sd.num_cells for sd in subdomains)
+            op = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
             op.set_name("zero_elastic_tangential_fracture_deformation")
             return op
         scaled_stiffness = stiffness / self.characteristic_contact_traction(subdomains)
