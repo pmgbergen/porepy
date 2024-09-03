@@ -1,6 +1,4 @@
-"""Tests for model variables.
-
-"""
+"""Tests for the momentum balance model class. """
 
 from __future__ import annotations
 
@@ -28,7 +26,7 @@ class LinearModel(
     "solid_vals,north_displacement",
     [
         ({}, 0),
-        ({}, -0.1),
+        ({"characteristic_displacement": 42}, -0.1),
         ({"porosity": 0.5}, 0.2),
     ],
 )
@@ -45,15 +43,15 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     """
     # Instantiate constants and store in params.
     solid = pp.SolidConstants(solid_vals)
-    model_params = {
+    params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
         "uy_north": north_displacement,
     }
 
     # Create model and run simulation
-    setup = LinearModel(model_params)
-    pp.run_time_dependent_model(setup)
+    setup = LinearModel(params)
+    pp.run_time_dependent_model(setup, params)
 
     # Check that the pressure is linear
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
@@ -87,7 +85,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
                 np.sign(vals[setup.nd - 1 :: setup.nd][top])
                 == np.sign(north_displacement)
             )
-            # Fracture cuts the domain in half, so the bottom half should be undispalced
+            # Fracture cuts the domain in half, so the bottom half should be undisplaced.
             bottom = sd.cell_centers[1] < 0.5
             assert np.allclose(vals[setup.nd - 1 :: setup.nd][bottom], 0)
             # No displacement in x direction
@@ -105,7 +103,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     else:
         # Displacement jump should be zero
         assert np.all(np.isclose(jump, 0))
-        # Normal traction should be non-positive. Zero if north_displacement is zero.,
+        # Normal traction should be non-positive. Zero if north_displacement is zero.
         if north_displacement < 0:
             assert np.all(traction[setup.nd - 1 :: setup.nd] <= 0)
         else:
@@ -125,28 +123,28 @@ def test_unit_conversion(units, uy_north):
     """
     solid = pp.SolidConstants(pp.solid_values.extended_granite_values_for_testing)
 
-    model_params = {
+    params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
         "uy_north": uy_north,
         "material_constants": {"solid": solid},
     }
-    model_params_ref = copy.deepcopy(model_params)
+    reference_params = copy.deepcopy(params)
     # Create model and run simulation.
-    setup_0 = LinearModel(model_params_ref)
-    pp.run_time_dependent_model(setup_0)
+    setup_0 = LinearModel(reference_params)
+    pp.run_time_dependent_model(setup_0, reference_params)
 
-    model_params["units"] = pp.Units(**units)
-    setup_1 = LinearModel(model_params)
+    params["units"] = pp.Units(**units)
+    setup_1 = LinearModel(params)
 
-    pp.run_time_dependent_model(setup_1)
+    pp.run_time_dependent_model(setup_1, params)
     variables = [
         setup_1.displacement_variable,
         setup_1.interface_displacement_variable,
         setup_1.contact_traction_variable,
     ]
-    variable_units = ["m", "m", "Pa"]
+    variable_units = ["m", "m", "-"]
     compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
     secondary_variables = ["stress", "displacement_jump"]
     secondary_units = ["Pa * m", "m"]
