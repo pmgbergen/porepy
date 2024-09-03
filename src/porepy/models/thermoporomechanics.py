@@ -54,6 +54,7 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.ElastoPlasticFractureDeformation,
     pp.constitutive_laws.LinearElasticMechanicalStress,
     pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FractureGap,
