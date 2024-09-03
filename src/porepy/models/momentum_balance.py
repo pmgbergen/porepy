@@ -382,10 +382,12 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             [e_i for e_i in tangential_basis]
         )
 
-        # Variables: The tangential component of the contact traction and the
-        # displacement jump
+        # Variables: The tangential component of the contact traction and the plastic
+        # displacement jump.
         t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
-        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
+        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
+            subdomains
+        )
         # The time increment of the tangential displacement jump
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
@@ -469,6 +471,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 class ConstitutiveLawsMomentumBalance(
     constitutive_laws.ZeroGravityForce,
     constitutive_laws.ElasticModuli,
+    constitutive_laws.ElastoPlasticFractureDeformation,
     constitutive_laws.LinearElasticMechanicalStress,
     constitutive_laws.ConstantSolidDensity,
     constitutive_laws.FractureGap,
