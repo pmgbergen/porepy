@@ -332,6 +332,7 @@ class SolidConstants(MaterialConstants):
             "dilation_angle": 0,
             "fracture_gap": 0,
             "fracture_normal_stiffness": 1,
+            "fracture_tangential_stiffness": -1.0,
             "friction_coefficient": 1,
             "lame_lambda": 1,
             "maximum_fracture_closure": 0,
@@ -549,6 +550,21 @@ class SolidConstants(MaterialConstants):
         """
         return self.convert_units(
             self.constants["fracture_normal_stiffness"], "Pa*m^-1"
+        )
+
+    def fracture_tangential_stiffness(self) -> number:
+        """The tangential stiffness of a fracture [Pa * m^-1].
+
+        Note: The current default value is -1.0, with the convention that negative
+        values correspond to a fracture that does not deform elastically in the
+        tangential direction.
+
+        Returns:
+            The fracture tangential stiffness in converted units.
+
+        """
+        return self.convert_units(
+            self.constants["fracture_tangential_stiffness"], "Pa*m^-1"
         )
 
     def maximum_fracture_closure(self) -> number:

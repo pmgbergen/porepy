@@ -4121,7 +4121,8 @@ class ShearDilation:
         )
         f_tan = pp.ad.Function(pp.ad.functions.tan, "tan_function")
         shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
-            self.tangential_component(subdomains) @ self.displacement_jump(subdomains)
+            self.tangential_component(subdomains)
+            @ self.plastic_displacement_jump(subdomains)
         )
 
         shear_dilation.set_name("shear_dilation")
@@ -4233,7 +4234,8 @@ class BartonBandis:
         #  If the maximum closure is negative, an error is raised.
         val = maximum_closure.value(self.equation_system)
         if np.any(val == 0):
-            return Scalar(0)
+            num_cells = sum(sd.num_cells for sd in subdomains)
+            return pp.ad.DenseArray(np.zeros(num_cells), "zero_Barton-Bandis_closure")
         elif np.any(val < 0):
             raise ValueError("The maximum closure must be non-negative.")
 
@@ -4358,6 +4360,115 @@ class FractureGap(BartonBandis, ShearDilation):
 
         """
         return Scalar(self.solid.fracture_gap(), "reference_fracture_gap")
+
+
+class ElastoPlasticFractureDeformation:
+    """TODO: Move/rename?"""
+
+    def fracture_tangential_stiffness(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The tangential stiffness of a fracture [Pa*m^-1].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The fracture tangential stiffness.
+
+        """
+        stiffness = self.solid.fracture_tangential_stiffness()
+        return Scalar(stiffness, "fracture_tangential_stiffness")
+
+    def elastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The elastic component of the displacement jump [m].
+
+        The elastic displacement jump is composed of a tangential and normal component,
+        each implementing a relation between displacement jumps, contact tractions and
+        stiffness. The relation may or may not be linear.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the elastic displacement jump.
+
+        """
+        basis = self.basis(subdomains, dim=self.nd)  # type: ignore[call-arg]
+        local_basis = self.basis(subdomains, dim=self.nd - 1)
+        tangential_to_nd = pp.ad.sum_operator_list(
+            e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)
+        )
+        normal_to_nd = basis[-1]
+
+        u_t = self.elastic_tangential_fracture_deformation(subdomains)
+        # Broadcast to number of cells in case elastic normal deformation is scalar, not
+        # cell-wise array.
+        nc = sum([sd.num_cells for sd in subdomains])
+        u_n = self.elastic_normal_fracture_deformation(subdomains)
+        # * pp.ad.DenseArray(
+        #     np.ones(nc)
+        # )
+        return tangential_to_nd @ u_t + normal_to_nd @ u_n
+
+    def elastic_tangential_fracture_deformation(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The elastic tangential fracture deformation [m].
+
+        The elastic tangential fracture deformation is the tangential component of the
+        displacement jump, which is the solution to the contact mechanics problem in the
+        absence of plastic deformation.
+
+        The elastic tangential deformation is given by
+        .. math::
+            u_t = \frac{t_t}{K_t},
+        where :math:`t_t` is the tangential component of the contact traction and
+        :math:`K_t` is the tangential stiffness. If the stiffness is negative, the
+        deformation is set to zero, thus avoiding using :math:`K_t->inf` to represent
+        no tangential deformation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the elastic tangential fracture deformation.
+
+        """
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+        t_t = nd_vec_to_tangential @ self.contact_traction(subdomains)
+        # Since contact traction is nondimensional, the stiffness must be scaled by the
+        # characteristic contact traction.
+        stiffness = self.fracture_tangential_stiffness(subdomains)
+        stiffness_value = stiffness.value(self.equation_system)
+        if np.any(stiffness_value < 0):
+            # Negative stiffness indicates no elastic tangential deformation.
+            op = pp.ad.DenseArray(np.zeros(sum(sd.num_cells for sd in subdomains)))
+            op.set_name("zero_elastic_tangential_fracture_deformation")
+            return op
+        scaled_stiffness = stiffness / self.characteristic_contact_traction(subdomains)
+        u_t = t_t / scaled_stiffness
+        u_t.set_name("elastic_tangential_fracture_deformation")
+        return u_t
+
+    def plastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The plastic component of the displacement jump.
+
+        The plastic displacement jump is the difference between the total displacement
+        jump and the elastic displacement jump.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the plastic displacement jump.
+
+        """
+        total_jump = self.displacement_jump(subdomains)
+        elastic_jump = self.elastic_displacement_jump(subdomains)
+        op = total_jump - elastic_jump
+        op.set_name("plastic_displacement_jump")
+        return op
 
 
 class BiotCoefficient:
