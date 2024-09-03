@@ -130,13 +130,13 @@ def test_unit_conversion(units, uy_north):
         "uy_north": uy_north,
         "material_constants": {"solid": solid},
     }
-    model_reference_params = copy.deepcopy(model_params)
+    model_params = copy.deepcopy(model_params)
     # Create model and run simulation.
-    setup_0 = LinearModel(model_reference_params)
+    setup_0 = LinearModel(model_params)
     pp.run_time_dependent_model(setup_0)
 
-    model_reference_params["units"] = pp.Units(**units)
-    setup_1 = LinearModel(model_reference_params)
+    model_params["units"] = pp.Units(**units)
+    setup_1 = LinearModel(model_params)
 
     pp.run_time_dependent_model(setup_1)
     variables = [
