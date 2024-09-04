@@ -462,7 +462,9 @@ class SolutionStrategyProtocol(Protocol):
 
 
 class VariableProtocol(Protocol):
-    def perturbation_from_reference(self, variable_name: str, grids: list["pp.Grid"]):
+    def perturbation_from_reference(
+        self, variable_name: str, grids: "pp.GridLikeSequence"
+    ):
         """Perturbation of a variable from its reference value.
 
         The parameter :code:`variable_name` should be the name of a variable so that
@@ -882,3 +884,445 @@ class PorePyModel(
 # 2. one or multiple protocols?
 # 3. where to put the docstrings?
 # 4. We need to inherit.
+
+
+class PorousMediaProtocol(Protocol):
+    def porosity(self, subdomains: "list[pp.Grid]") -> "pp.ad.Operator":
+        """Porous media porosity.
+
+        Parameters:
+            subdomains: List of subdomains where the porosity is defined.
+
+        Returns:
+            The porosity represented as an Ad operator [-].
+
+        """
+
+    def reference_porosity(self, subdomains: list["pp.Grid"]) -> "pp.ad.Operator":
+        """Reference porosity.
+
+        Parameters:
+            subdomains: List of subdomains where the reference porosity is defined.
+
+        Returns:
+            Reference porosity operator.
+
+        """
+
+    def gravity_force(
+        self,
+        grids: Union[list["pp.Grid"], list["pp.MortarGrid"]],
+        material: Literal["fluid", "solid"],
+    ) -> "pp.ad.Operator":
+        """Gravity force term on either subdomains or interfaces.
+
+        Parameters:
+            grids: List of subdomain or interface grids where the vector source is
+                defined.
+            material: Name of the material. Could be either "fluid" or "solid".
+
+        Returns:
+            Cell-wise nd-vector representing the gravity force.
+
+        """
+
+
+class PressureProtocol(Protocol):
+    pressure_variable: str
+    """Name of the pressure variable."""
+
+    def pressure(self, domains: "pp.SubdomainsOrBoundaries") -> "pp.ad.Operator":
+        """Pressure term. Either a primary variable if subdomains are provided a
+        boundary condition operator if boundary grids are provided.
+
+        Parameters:
+            domains: List of subdomains or boundary grids.
+
+        Raises:
+            ValueError: If the grids are not all subdomains or all boundary grids.
+
+        Returns:
+            Operator representing the pressure [Pa].
+
+        """
+
+    def reference_pressure(self, subdomains: "list[pp.Grid]") -> "pp.ad.Operator":
+        """Reference pressure.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the reference pressure [Pa].
+
+        """
+
+
+class AdvectiveFluxProtocol(PressureProtocol, Protocol):
+    def advective_flux(
+        self,
+        subdomains: "list[pp.Grid]",
+        advected_entity: "pp.ad.Operator",
+        discr: "pp.ad.UpwindAd",
+        bc_values: "pp.ad.Operator",
+        interface_flux: Optional[
+            Callable[[list["pp.MortarGrid"]], "pp.ad.Operator"]
+        ] = None,
+    ) -> "pp.ad.Operator":
+        """An operator represetning the advective flux on subdomains.
+
+        .. note::
+            The implementation assumes that the advective flux is discretized using a
+            standard upwind discretization. Other discretizations may be possible, but
+            this has not been considered.
+
+        Parameters:
+            subdomains: List of subdomains.
+            advected_entity: Operator representing the advected entity.
+            discr: Discretization of the advective flux.
+            bc_values: Boundary conditions for the advective flux.
+            interface_flux: Interface flux operator/variable. If subdomains have no
+                neighboring interfaces, this argument can be omitted.
+
+        Returns:
+            Operator representing the advective flux.
+
+        """
+
+    def interface_advective_flux(
+        self,
+        interfaces: list["pp.MortarGrid"],
+        advected_entity: "pp.ad.Operator",
+        discr: "pp.ad.UpwindCouplingAd",
+    ) -> "pp.ad.Operator":
+        """An operator represetning the advective flux on interfaces.
+
+        Parameters:
+            interfaces: List of interface grids.
+            advected_entity: Operator representing the advected entity.
+            discr: Discretization of the advective flux.
+
+        Returns:
+            Operator representing the advective flux on the interfaces.
+
+        """
+
+    def well_advective_flux(
+        self,
+        interfaces: list["pp.MortarGrid"],
+        advected_entity: "pp.ad.Operator",
+        discr: "pp.ad.UpwindCouplingAd",
+    ) -> "pp.ad.Operator":
+        """An operator represetning the advective flux on interfaces.
+
+        Parameters:
+            interfaces: List of interface grids.
+            advected_entity: Operator representing the advected entity.
+            discr: Discretization of the advective flux.
+
+        Returns:
+            Operator representing the advective flux on the interfaces.
+
+        """
+
+
+class DarcyFluxProtocol(PressureProtocol, Protocol):
+    def darcy_flux(self, domains: "pp.SubdomainsOrBoundaries") -> "pp.ad.Operator":
+        """Discretization of Darcy's law.
+
+        Parameters:
+            domains: List of domains where the Darcy flux is defined.
+
+        Raises:
+            ValueError if the domains are a mixture of grids and boundary grids.
+
+        Returns:
+            Face-wise Darcy flux in cubic meters per second.
+
+        """
+
+    def interface_darcy_flux(
+        self, interfaces: "list[pp.MortarGrid]"
+    ) -> "pp.ad.MixedDimensionalVariable":
+        """Interface Darcy flux.
+
+        Integrated over faces in the mortar grid.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Variable representing the interface Darcy flux [kg * m^2 * s^-2].
+
+        """
+
+    def well_flux(
+        self, interfaces: "list[pp.MortarGrid]"
+    ) -> "pp.ad.MixedDimensionalVariable":
+        """Variable for the volumetric well flux.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Variable representing the Darcy-like well flux [kg * m^2 * s^-2].
+
+        """
+
+    def permeability(self, subdomains: "list[pp.Grid]") -> "pp.ad.Operator":
+        """Permeability [m^2].
+
+        The permeability is quantity which enters the discretized equations in a form
+        that cannot be differentiated by Ad (this is at least true for a subset of the
+        relevant discretizations). For this reason, the permeability is not returned as
+        an Ad operator, but as a numpy array, to be wrapped as a SecondOrderTensor and
+        passed as a discretization parameter.
+
+        Parameters:
+            subdomains: Subdomains where the permeability is defined.
+
+        Returns:
+            Cell-wise permeability tensor.
+
+        """
+
+    def normal_permeability(
+        self, interfaces: list["pp.MortarGrid"]
+    ) -> "pp.ad.Operator":
+        """Normal permeability [m^2].
+
+        Contrary to the permeability, the normal permeability typically enters into the
+        discrete equations in a form that can be differentiated by Ad. For this reason,
+        the normal permeability is returned as an Ad operator.
+
+        Parameters:
+            interfaces: List of interface grids. Not used in this implementation, but
+                included for compatibility with other implementations.
+
+        Returns:
+            Scalar normal permeability on the interfaces between subdomains, represented
+            as an Ad operator. The value is picked from the solid constants.
+
+        """
+
+    def combine_boundary_operators_darcy_flux(
+        self, subdomains: list["pp.Grid"]
+    ) -> "pp.ad.Operator":
+        """Combine Darcy flux boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.darcy_flux is passed to
+        robin_operator in the default setup.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined Darcy flux boundary operator.
+
+        """
+
+
+class FluidMassBalanceProtocol(
+    PorousMediaProtocol, AdvectiveFluxProtocol, DarcyFluxProtocol, Protocol
+):
+    bc_data_fluid_flux_key: str
+    bc_data_darcy_flux_key: str
+    """Name of the boundary data for the Neuman boundary condition."""
+    interface_darcy_flux_variable: str
+    """Name of the primary variable representing the Darcy flux on interfaces of
+    codimension one."""
+
+    well_flux_variable: str
+    """Name of the primary variable representing the well flux on interfaces of
+    codimension two."""
+
+    mobility_keyword: str
+    """Keyword for mobility factor.
+
+    Used to access discretization parameters and store discretization matrices.
+
+    """
+    darcy_keyword: str
+    """Keyword for Darcy flux term.
+
+    Used to access discretization parameters and store discretization matrices.
+
+    """
+
+    def fluid_density(
+        self, subdomains: "pp.SubdomainsOrBoundaries"
+    ) -> "pp.ad.Operator":
+        """Fluid density.
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Fluid density as a function of pressure [kg * m^-3].
+
+        """
+
+    def mobility(self, subdomains: "pp.SubdomainsOrBoundaries") -> "pp.ad.Operator":
+        """Mobility of the fluid flux.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Operator representing the mobility [m * s * kg^-1].
+
+        """
+
+    def mobility_discretization(self, subdomains: "list[pp.Grid]") -> "pp.ad.UpwindAd":
+        """Discretization of the fluid mobility factor.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Discretization of the fluid mobility.
+
+        """
+
+    def bc_type_fluid_flux(self, sd: "pp.Grid") -> "pp.BoundaryCondition":
+        """Boundary conditions on all external boundaries.
+
+        Parameters:
+            sd: Subdomain grid on which to define boundary conditions.
+
+        Returns:
+            Boundary condition object. Per default Dirichlet-type BC are assigned.
+
+        """
+
+    def interface_darcy_flux_equation(
+        self, interfaces: list["pp.MortarGrid"]
+    ) -> "pp.ad.Operator":
+        """Darcy flux on interfaces.
+
+        The units of the Darcy flux are [m^2 Pa / s], see note in :meth:`darcy_flux`.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the Darcy flux equation on the interfaces.
+
+        """
+
+    def interface_mobility_discretization(
+        self, interfaces: list["pp.MortarGrid"]
+    ) -> "pp.ad.UpwindCouplingAd":
+        """Discretization of the interface mobility.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Discretization for the interface mobility.
+
+        """
+
+    def bc_type_darcy_flux(self, sd: "pp.Grid") -> "pp.BoundaryCondition":
+        """Boundary conditions on all external boundaries.
+
+        Parameters:
+            sd: Subdomain grid on which to define boundary conditions.
+
+        Returns:
+            Boundary condition object. Per default Dirichlet-type BC are assigned,
+            requiring pressure values on the bonudary.
+
+        """
+
+    def fluid_viscosity(
+        self, subdomains: "pp.SubdomainsOrBoundaries"
+    ) -> "pp.ad.Operator":
+        """Fluid viscosity .
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Operator for fluid viscosity [Pa * s], represented as an Ad operator.
+
+        """
+
+
+class TensorProtocol(Protocol):
+    def isotropic_second_order_tensor(
+        self, subdomains: list["pp.Grid"], permeability: "pp.ad.Operator"
+    ) -> "pp.ad.Operator":
+        """Isotropic permeability [m^2].
+
+        Parameters:
+            permeability: Permeability, scalar per cell.
+
+        Returns:
+            3d isotropic permeability, with nonzero values on the diagonal and zero
+            values elsewhere. K is a second order tensor having 3^2 entries per cell,
+            represented as an array of length 9*nc. The values are ordered as
+                Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
+
+        """
+
+    def operator_to_SecondOrderTensor(
+        self,
+        sd: "pp.Grid",
+        operator: "pp.ad.Operator",
+        fallback_value: "pp.number",
+    ) -> "pp.SecondOrderTensor":
+        """Convert Ad operator to PorePy tensor representation.
+
+        Parameters:
+            sd: Subdomain where the operator is defined.
+            operator: Operator to convert.
+
+        Returns:
+            SecondOrderTensor representation of the operator.
+
+        """
+
+
+class MixedDimensionalProtocol(Protocol):
+    def specific_volume(
+        self, grids: Union[list["pp.Grid"], list["pp.MortarGrid"]]
+    ) -> "pp.ad.Operator":
+        """Specific volume [m^(nd-d)].
+
+        For subdomains, the specific volume is the cross-sectional area/volume of the
+        cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the specific
+        volume is inherited from the higher-dimensional subdomain neighbor.
+
+        See also:
+            :meth:aperture.
+
+        Parameters:
+            subdomains: List of subdomain or interface grids.
+
+        Returns:
+            Specific volume for each cell.
+
+        """
+
+    def aperture(self, subdomains: list["pp.Grid"]) -> "pp.ad.Operator":
+        """Aperture [m].
+
+        Aperture is a characteristic thickness of a cell, with units [m]. It's value is
+        1 in matrix, thickness of fractures and "side length" of cross-sectional
+        area/volume (or "specific volume") for intersections of dimension 1 and 0.
+
+        See also:
+            :meth:specific_volume.
+
+        Parameters:
+            subdomains: List of subdomain grids.
+
+        Returns:
+            Ad operator representing the aperture for each cell in each subdomain.
+
+        """
