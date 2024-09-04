@@ -262,7 +262,27 @@ class Tpsa:
             data: For entries, see above.
 
         """
-        # IMPLEMENTATION NOTES:
+        # Overview of implementation: The implementation closely follows the description
+        # of Tpsa given in the arXiv paper (see module-level documentation).
+        # Specifically, the discretization is derived in appendix 2 therein, with some
+        # central definition provided in Section 1. The ingredients of the
+        # discretization are:
+        # 1. Quantities related to bookkeeping, such as face and cell indices.
+        # 2. Distance measures (e.g., cell-face) sometimes scaled with the shear
+        #    modulus.
+        # 3. Mappings that computes averages of cell-quantities and map them to faces.
+        # 4. Specical treatment of boundary conditions. 
+        # 
+        # From these quantities, matrices that represent the different components of the
+        # discretization can be constructed. The actual discretization matrices are
+        # specified in Equation (A2.24) in the Tpsa paper (referring to the version
+        # found at https://arxiv.org/abs/2405.10390v2) for internal faces and (A2.28-31)
+        # for boundary faces. Compared to the description in the paper, the
+        # implementation uses a more explicit treatment of boundary conditions and
+        # prefers more explicit naming of mathematical operators, but should otherwise
+        # be equivalent.
+        #
+        # Implementation choices:
         # 1. To improve oversight of the implementation, it was decided to move
         #    computation of auxiliary quantities into static helper methods, and pass
         #    data around through helper dataclasses (namedtuples or dictionaries could
@@ -274,7 +294,25 @@ class Tpsa:
         #    average maps. While this approach likely could have been followed to a
         #    larger degree, the more explicit treatment herein was preferred partly for
         #    ease of implementation and interpretation, and (honestly) partly for
-        #    reasons of exhaustion on EK's part. It is what it is.
+        #    reasons of exhaustion on EK's part. For future reference, the most natural
+        #    alternative approach is to introduce one weight each for Dirichlet and
+        #    Neumann boundaries and let Robin be an average. The first step would be to
+        #    verify that this does not introduce division by zero somewhere.
+        #
+        # Known shortcomings and known unknowns:
+        # 1. The implementation of boundary conditions for the rotation variable covers
+        #    only Neumann and Dirichlet conditions. Robin conditions should be feasible,
+        #    but have not been prioritized.
+        # 2. Robin conditions for the displacement variable is only implemented for a
+        #    subset of the variations possible within PorePy. Errors are raised if the
+        #    specified boundary condition fall outside the scope of the implementation.
+        # 3. For the term 'mass_total_pressure', it is not clear how to interpret
+        #    boundary conditions, and treatment of such conditions is therefore somewhat
+        #    improvised. Plainly, EK does not know what to do here, but the current
+        #    implementation seems to work. NOTE that this term acts as a numerical
+        #    stabilization, and without it, oscillations may arise in the displacement
+        #    variable. Thus, if oscillations are observed in the displacement close to
+        #    the boundary, we may need to revisit this term.
 
         parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
@@ -310,7 +348,8 @@ class Tpsa:
         # This is a bit awkward, since it requires an if-else on the client side, but
         # the alternative is to always use a vectorial boundary condition and make a
         # hack to interpret the vectorial condition as a scalar one for 2d problems.
-        # Note that, if the Cosserat parameter is zero, all of this is irrelevant.
+        # Note that, if the Cosserat parameter is zero or not provided, all of this is
+        # irrelevant.
         if numbering.nd == 2:
             if isinstance(bnd_rot, pp.BoundaryConditionVectorial):
                 raise ValueError(
@@ -466,9 +505,7 @@ class Tpsa:
         # current implementation seems to work.
         #
         # Arithmetic average of shear modulus. No contribution from boundary conditions,
-        # thus do not use mu_by_dist_fc_cc_bound (NOTE: It is not clear to EK this is
-        # the final version of this part of the code, but I have no ideas how to do this
-        # better).
+        # thus do not use mu_by_dist_fc_cc_bound.
         arithmetic_average_shear_modulus = np.bincount(
             numbering.fi,
             weights=dist.mu_by_dist_fc_cc,
