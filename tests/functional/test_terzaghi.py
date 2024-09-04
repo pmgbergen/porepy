@@ -158,7 +158,7 @@ def test_scaled_vs_unscaled_systems():
     units = pp.Units(**scaling)
     model_params_scaled = {"material_constants": material_constants_scaled, "units": units}
     scaled = TerzaghiSetup(params=model_params_scaled)
-    pp.run_time_dependent_model(model=scaled, params=model_params_scaled)
+    pp.run_time_dependent_model(model=scaled)
 
     # Compare results
     np.testing.assert_almost_equal(
