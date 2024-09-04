@@ -298,7 +298,7 @@ def test_lithostatic(dim: int):
 """Tests for elastoplastic split of fracture deformation below."""
 
 
-class LinearModel(
+class ElastoplasticModel2d(
     SquareDomainOrthogonalFractures,
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
     pp.models.momentum_balance.MomentumBalance,
@@ -319,10 +319,11 @@ solid_vals_elastoplastic = {
 
 
 def verify_elastoplastic_deformation(
-    setup: LinearModel,
+    setup: pp.models.MomentumBalance,
     u_e_expected: list[pp.number],
     u_p_expected: list[pp.number],
     u_top_expected: list[pp.number],
+    traction_expected: list[pp.number],
     tols: list[float],
     compare_means: bool = False,
 ):
@@ -344,7 +345,7 @@ def verify_elastoplastic_deformation(
             Expected value of displacement in the cells above the fracture. nan values
             are ignored, i.e., the test will pass if all computed values match the
             corresponding non-nan expected values.
-        tols: ``len=3``
+        tols: ``len=4``
 
             Tolerances for the comparisons. The first two are for the elastic and
             plastic displacement jumps, respectively, the third is for the displacement
@@ -352,6 +353,10 @@ def verify_elastoplastic_deformation(
             fracture.
         compare_means: Whether to compare the means of the computed values to the
             expected values. If False, the values are compared element-wise.
+
+    Returns:
+        Tuple of the computed elastic displacement jump, plastic displacement jump,
+        displacement in the cells above the fracture and traction on the fracture.
 
 
     """
@@ -437,23 +442,26 @@ def verify_elastoplastic_deformation(
     )
     # Check that open cells have zero traction.
     assert np.allclose(traction[:, open_cells], 0, atol=1e-10)
+    # Compare to expected values.
+    assert np.allclose(traction, np.reshape(traction_expected, (nd, 1)), rtol=tols[3])
+
     return u_e, u_p, u_top, traction
 
 
 @pytest.mark.parametrize(
     "u_north, u_e_expected,u_p_expected,u_expected,traction_expected",
     [
-        # Compression and elastic shear. -1e6 is the expected value of the normal
+        # Compression and elastic shear. -2e6 is the expected value of the normal
         # traction, which is the negative (sign convention) and dominated by the shear
-        # modulus (1e6). 1e1 is the expected value of the traction in the x direction,
-        # which is computed from the tangential stiffness (1e-5) and the normal
-        # traction.
-        ([1.0, -1.0], [1, 0], [0, 0], [1, np.nan], [1e1, -1e6]),
+        # modulus (1e6, remember factor 2 for \mu in Hooke's law!). 1e-5 is the expected
+        # value of the traction in the x direction, which is computed from the
+        # tangential stiffness (1e-5) and the tangential displacement (1).
+        ([1.0, -1.0], [1, 0], [0, 0], [1, np.nan], [1e-5, -2e6]),
         # Extension and plastic shear.
         ([1.0, 1.0], [0, 0], [1, 1], [1, 1], [0, 0]),
     ],
 )
-def test_2d_single_fracture(
+def test_elastoplastic_2d_single_fracture(
     u_north: list[pp.number],
     u_e_expected: list[pp.number],
     u_p_expected: list[pp.number],
@@ -482,21 +490,23 @@ def test_2d_single_fracture(
         "material_constants": {"solid": solid},
         "u_north": u_north,
         "fracture_indices": [1],  # Single fracture with constant y coordinate.
+        # "meshing_arguments": {"cell_size": 0.2},
     }
 
     # Create model and run simulation.
-    setup = LinearModel(params)
+    setup = ElastoplasticModel2d(params)
     pp.run_time_dependent_model(setup, params)
     verify_elastoplastic_deformation(
         setup,
         u_e_expected,
         u_p_expected,
         u_expected,
-        [1e-3, 1e-10, 1e-3, 1e2],
+        traction_expected,
+        [1e-3, 1e-10, 1e-3, 1e-3],
     )
 
 
-class LinearModel3D(
+class ElastoplasticModel3d(
     CubeDomainOrthogonalFractures,
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
     pp.models.momentum_balance.MomentumBalance,
@@ -518,7 +528,7 @@ cases_3d = [
         [2, 0, 3],
         [0, 0, 0],
         [2, np.nan, 3],
-        [2e1 / np.sqrt(13), -1e7, 3e1 / np.sqrt(13)],
+        [2e-5, -2e6, 3e-5],
     ),
     # Shear and, since u_y_north is positive, extension. With opening, no elastic
     # deformation occurs, and the displacement is entirely plastic, identically 0
@@ -531,7 +541,7 @@ cases_3d = [
     "u_north,u_e_expected,u_p_expected,u_expected,traction_expected",
     cases_3d,
 )
-def test_3d_single_fracture(
+def test_elastoplastic_3d_single_fracture(
     u_north: list[pp.number],
     u_e_expected: list[pp.number],
     u_p_expected: list[pp.number],
@@ -566,14 +576,15 @@ def test_3d_single_fracture(
     }
 
     # Create model and run simulation
-    setup = LinearModel3D(params)
+    setup = ElastoplasticModel3d(params)
     pp.run_time_dependent_model(setup, params)
-    verify_elastoplastic_deformation(
+    *_, traction = verify_elastoplastic_deformation(
         setup,
         u_e_expected,
         u_p_expected,
         u_expected,
-        [1e-3, 1e-10, 1e-3, 1e-2],
+        traction_expected,
+        [1e-3, 1e-10, 1e-3, 1e-3],
     )
 
 
@@ -616,7 +627,7 @@ class TimeDependentBCs(
         return values.ravel("F")
 
 
-class LinearModelTimeDependentBCs(
+class ElastoplasticModelTimeDependentBCs(
     CubeDomainOrthogonalFractures,
     TimeDependentBCs,
     pp.models.momentum_balance.MomentumBalance,
@@ -641,15 +652,17 @@ def test_time_dependent_bc():
     }
 
     # Create model and run simulation. The north displacement is 1, -1, 1.
-    setup = LinearModelTimeDependentBCs(params)
+    setup = ElastoplasticModelTimeDependentBCs(params)
     pp.run_time_dependent_model(setup, params)
+    tols = [5e-2, 1e-10, 1e-3, 5e-2]
+
     verify_elastoplastic_deformation(
         setup,
         [0.86, 0, 0.86],
         [0, 0, 0],
         [np.nan, np.nan, np.nan],
-        [1, -1, 1],
-        [5e-2, 1e-10, 1e-3, 5e-2],
+        [0.086, -2.54, 0.086],
+        tols,
     )
     # Continue for one more time step. This time, the north displacement is 1, -1, 2.
     setup.time_manager = pp.TimeManager([1.0, 2.0], 1.0, True)
@@ -657,8 +670,10 @@ def test_time_dependent_bc():
 
     # Fixed values from a previous run. Both normal value (u_y=0) and ratio of
     # tangential displacements (1/50, see BC class) are correct.
-    u_e = [0.50754939, 0.0, 25.37756547]
+    u_e = np.array([0.50754939, 0.0, 25.37756547])
     u_p = [0.40916401, 0.0, 20.45818325]
+    traction = u_e * 1e-1
+    traction[1] = -2.54
     # Same goes here. We expect -0.75, since the top coordinate is 0.75.
     u_top = [0.97917835, -0.75, 48.95893718]
     pp.run_time_dependent_model(setup, params)
@@ -667,6 +682,7 @@ def test_time_dependent_bc():
         u_e,
         u_p,
         u_top,
-        np.ones(3) * 1e-10,
+        traction,
+        tols,
         compare_means=True,
     )
