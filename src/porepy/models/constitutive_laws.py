@@ -261,7 +261,7 @@ class DisplacementJumpAperture(DimensionReduction):
         # Subdomains of the top dimension
         nd_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
 
-        num_cells_nd_subdomains = sum([sd.num_cells for sd in nd_subdomains])
+        num_cells_nd_subdomains = sum(sd.num_cells for sd in nd_subdomains)
         one = pp.wrap_as_dense_ad_array(1, size=num_cells_nd_subdomains, name="one")
         # Start with nd, where aperture is one.
         apertures = projection.cell_prolongation(nd_subdomains) @ one
@@ -2523,7 +2523,7 @@ class ThermalConductivityLTE:
             # for displacement_divergence which has not yet been computed.
             phi = self.reference_porosity(subdomains)
         if isinstance(phi, Scalar):
-            size = sum([sd.num_cells for sd in subdomains])
+            size = sum(sd.num_cells for sd in subdomains)
             phi = phi * pp.wrap_as_dense_ad_array(1, size)
         conductivity = phi * self.fluid_thermal_conductivity(subdomains) + (
             Scalar(1) - phi
@@ -2830,7 +2830,7 @@ class FouriersLaw:
 
         """
         val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
-        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        size = int(np.sum(g.num_cells for g in grids) * self.nd)
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
 
@@ -2849,7 +2849,7 @@ class FouriersLaw:
 
         """
         val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
-        size = int(np.sum([g.num_cells for g in interfaces]))
+        size = int(np.sum(g.num_cells for g in interfaces))
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
 
@@ -3296,7 +3296,7 @@ class GravityForce:
 
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
-        size = np.sum([g.num_cells for g in grids]).astype(int)
+        size = int(np.sum(g.num_cells for g in grids))
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
 
@@ -3345,7 +3345,7 @@ class ZeroGravityForce:
             Cell-wise nd-vector representing the gravity force.
 
         """
-        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        size = int(np.sum(g.num_cells for g in grids) * self.nd)
         return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
 
 
@@ -4402,8 +4402,6 @@ class ElastoPlasticFractureDeformation:
         normal_to_nd = basis[-1]
 
         u_t = self.elastic_tangential_fracture_deformation(subdomains)
-        # Broadcast to number of cells in case elastic normal deformation is scalar, not
-        # cell-wise array.
         u_n = self.elastic_normal_fracture_deformation(subdomains)
         return tangential_to_nd @ u_t + normal_to_nd @ u_n
 
@@ -4440,9 +4438,9 @@ class ElastoPlasticFractureDeformation:
         if np.any(stiffness_value < 0):
             # Negative stiffness indicates no elastic tangential deformation.
             num_cells = sum(sd.num_cells for sd in subdomains)
-            op = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
-            op.set_name("zero_elastic_tangential_fracture_deformation")
-            return op
+            zero_u_t = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
+            zero_u_t.set_name("zero_elastic_tangential_fracture_deformation")
+            return zero_u_t
         scaled_stiffness = stiffness / self.characteristic_contact_traction(subdomains)
         u_t = t_t / scaled_stiffness
         u_t.set_name("elastic_tangential_fracture_deformation")
@@ -4463,9 +4461,9 @@ class ElastoPlasticFractureDeformation:
         """
         total_jump = self.displacement_jump(subdomains)
         elastic_jump = self.elastic_displacement_jump(subdomains)
-        op = total_jump - elastic_jump
-        op.set_name("plastic_displacement_jump")
-        return op
+        u_p = total_jump - elastic_jump
+        u_p.set_name("plastic_displacement_jump")
+        return u_p
 
 
 class BiotCoefficient:
@@ -4680,7 +4678,7 @@ class PoroMechanicsPorosity:
         subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd]
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         # Constant unitary porosity in fractures and intersections
-        size = sum([sd.num_cells for sd in subdomains_lower])
+        size = sum(sd.num_cells for sd in subdomains_lower)
         one = pp.wrap_as_dense_ad_array(1, size=size, name="one")
         rho_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
             subdomains_nd
