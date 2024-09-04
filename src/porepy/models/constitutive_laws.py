@@ -2830,7 +2830,7 @@ class FouriersLaw:
 
         """
         val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
-        size = int(np.sum(g.num_cells for g in grids) * self.nd)
+        size = int(sum(g.num_cells for g in grids) * self.nd)
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
 
@@ -2849,7 +2849,7 @@ class FouriersLaw:
 
         """
         val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
-        size = int(np.sum(g.num_cells for g in interfaces))
+        size = int(sum(g.num_cells for g in interfaces))
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
 
@@ -3296,7 +3296,7 @@ class GravityForce:
 
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
-        size = int(np.sum(g.num_cells for g in grids))
+        size = int(sum(g.num_cells for g in grids))
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
 
@@ -3345,7 +3345,7 @@ class ZeroGravityForce:
             Cell-wise nd-vector representing the gravity force.
 
         """
-        size = int(np.sum(g.num_cells for g in grids) * self.nd)
+        size = int(sum(g.num_cells for g in grids) * self.nd)
         return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
 
 
@@ -3379,7 +3379,7 @@ class LinearElasticMechanicalStress:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
@@ -4093,9 +4093,10 @@ class ShearDilation:
     instance of :class:`~porepy.models.models.ModelGeometry`.
 
     """
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElastoPlasticFractureDeformation`.
 
     """
     solid: pp.SolidConstants
@@ -4363,7 +4364,17 @@ class FractureGap(BartonBandis, ShearDilation):
 
 
 class ElastoPlasticFractureDeformation:
-    """TODO: Move/rename?"""
+    """TODO: Move/rename? Fix docstrings of class vars once that's been decided."""
+
+    solid: pp.SolidConstants
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
+    nd: int
+    equation_system: pp.ad.EquationSystem
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    elastic_normal_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
 
     def fracture_tangential_stiffness(
         self, subdomains: list[pp.Grid]
@@ -4395,9 +4406,9 @@ class ElastoPlasticFractureDeformation:
 
         """
         basis = self.basis(subdomains, dim=self.nd)  # type: ignore[call-arg]
-        local_basis = self.basis(subdomains, dim=self.nd - 1)
+        local_basis = self.basis(subdomains, dim=self.nd - 1)  # type: ignore[call-arg]
         tangential_to_nd = pp.ad.sum_operator_list(
-            e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)
+            [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
         )
         normal_to_nd = basis[-1]
 
