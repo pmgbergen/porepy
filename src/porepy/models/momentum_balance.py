@@ -32,26 +32,6 @@ logger = logging.getLogger(__name__)
 class MomentumBalanceEquations(pp.BalanceEquation, MomentumBalanceProtocol):
     """Class for momentum balance equations and fracture deformation equations."""
 
-    stress: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Stress on the grid faces. Provided by a suitable mixin class that specifies the
-    physical laws governing the stress.
-
-    """
-    fracture_stress: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-    """Stress on the fracture faces. Provided by a suitable mixin class that specifies
-    the physical laws governing the stress, see for instance
-    :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress` or
-    :class:`~porepy.models.constitutive_laws.PressureStress`.
-
-    """
-
-    gravity_force: Callable[[list[pp.Grid] | list[pp.MortarGrid], str], pp.ad.Operator]
-    """Gravity force. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.GravityForce` or
-    :class:`~porepy.models.constitutive_laws.ZeroGravityForce`.
-
-    """
-
     def set_equations(self) -> None:
         """Set equations for the subdomains and interfaces.
 

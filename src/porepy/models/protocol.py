@@ -794,6 +794,11 @@ class VariablesMBProtocol(Protocol):
         """
 
 class ConstitutiveLawsMBProtocol(Protocol):
+
+    def fracture_stress(self, interfaces: list["pp.MortarGrid"]) -> "pp.ad.Operator":
+        """Fracture stress on interfaces [Pa]."""
+
+
     def friction_bound(self, subdomains: list["pp.Grid"]) -> "pp.ad.Operator":
         """Friction bound [-].
 
@@ -857,10 +862,39 @@ class ConstitutiveLawsMBProtocol(Protocol):
 
         """
 
+    def gravity_force(
+        self,
+        grids: Union[list["pp.Grid"], list["pp.MortarGrid"]],
+        material: Literal["fluid", "solid"],
+    ) -> "pp.ad.Operator":
+        """Gravity force term on either subdomains or interfaces.
+
+        Parameters:
+            grids: List of subdomain or interface grids where the vector source is
+                defined.
+            material: Name of the material. Could be either "fluid" or "solid".
+
+        Returns:
+            Cell-wise nd-vector representing the gravity force.
+
+        """
+
+    def stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Stress operator.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Operator for the stress.
+
+        """
+
 class MomentumBalanceProtocol(SolutionStrategyMBProtocol,
                               VariablesMBProtocol,
                               ConstitutiveLawsMBProtocol,
-                              BoundaryConditionMBProtocol):
+                              BoundaryConditionMBProtocol,
+                              Protocol):
     """Protocol for the momentum balance model"""
 
 class PorePyModel(
