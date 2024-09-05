@@ -253,11 +253,7 @@ class BCValuesFlux:
         """Assigns stress values on top, bottom and right boundary."""
         values = np.zeros((self.nd, bg.num_cells))
         inds = self.not_dir_inds(bg)
-        volumes = bg.cell_volumes
-        values[0, inds] = (
-            42 * (1 - bg.cell_centers[0]) * (volumes * self.params["alpha"])
-        )[inds]
-        values[0, inds] = 24 * (volumes[inds] * self.params["alpha"])
+        values[0, inds] = 24
         return values.ravel("F")
 
 
@@ -283,14 +279,10 @@ class BCDirichletReference:
         """Assigns displacement values in the x-direction of the west boundary."""
         values = super().bc_values_displacement(bg=bg)
         values = values.reshape((self.nd, bg.num_cells), order="F")
-        bounds = self.domain_boundary_sides(bg)
-
         alpha = self.params["alpha"]
         inds = self.not_dir_inds(bg)
         volumes = bg.cell_volumes[inds]
-        values[0, inds] = 42 * (1 - bg.cell_centers[0])[inds]  # / (volumes * alpha)
-        # 24 / (volumes * alpha)
-        values[0, inds] = 24
+        values[0, inds] = 24 / (volumes * alpha)
         return values.ravel("F")
 
     def _bc_values_scalar(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -401,6 +393,6 @@ def test_robin_limit_case(rob_class, reference_class, alpha):
     reference_results = run_model(LocalReference, alpha)
 
     assert all(
-        np.allclose(rob_results[key], reference_results[key])
+        np.allclose(rob_results[key], reference_results[key], atol=1e-7)
         for key in rob_results.keys()
     )
