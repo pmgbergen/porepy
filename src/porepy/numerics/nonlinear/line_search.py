@@ -552,7 +552,7 @@ class ConstraintLineSearch:
 
         """
         residual_weight = self.residual_line_search(model, dx)
-        if self.params.get("Local_line_search", False):
+        if model.params.get("Local_line_search", False):
             return self.constraint_line_search(model, dx, residual_weight.min())
         else:
             return residual_weight
