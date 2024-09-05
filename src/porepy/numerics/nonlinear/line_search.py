@@ -639,8 +639,8 @@ class ConstraintLineSearch:
         # If the sign of the function defining the regions has not changed, we use
         # unitary relaxation factors.
         x_0 = model.equation_system.get_variable_values(iterate_index=0)
-        violation_tol = self.params.get("constraint_violation_tolerance", 3e-1)
-        relative_cell_tol = self.params.get(
+        violation_tol = model.params.get("constraint_violation_tolerance", 3e-1)
+        relative_cell_tol = model.params.get(
             "relative_constraint_transition_tolerance", 2e-1
         )
         # Compute the constraint function at the maximum weights. Specify that return
