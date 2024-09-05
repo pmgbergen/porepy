@@ -123,32 +123,46 @@ class BCValuesLeftSide:
     """
 
     def not_dir_inds(self, g):
+        """Indices for the non-Dirichlet boundaries for test.
+
+        The Robin limit case test tests setups with Dirichlet on west/east boundaries,
+        and Robin approximating Dirichlet on the north/south boundaries. This method
+        returns the indices of the north and south boundaries.
+
+        """
         bounds = self.domain_boundary_sides(g)
         return bounds.north + bounds.south
 
     def dir_inds(self, g):
+        """Indices for the Dirichlet boundaries for test.
+
+        The Robin limit case test tests setups with Dirichlet on west/east boundaries,
+        and Robin approximating Dirichlet on the north/south boundaries. This method
+        returns the indices of the east and west boundaries.
+
+        """
         bounds = self.domain_boundary_sides(g)
         return bounds.west + bounds.east
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns displacement values in the x-direction of the west and east
-        boundary."""
+        boundaries."""
         values = np.zeros((self.nd, bg.num_cells))
         values[0, self.dir_inds(bg)] = 42
         return values.ravel("F")
 
     def _bc_values_scalar(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns scalar values on the west boundary."""
+        """Assigns scalar values on the west and east boundaries."""
         values = np.zeros(bg.num_cells)
         values[self.dir_inds(bg)] = 42
         return values
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns pressure values on the west boundary."""
+        """Assigns pressure boundary values."""
         return self._bc_values_scalar(bg=bg)
 
     def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns temperature values on the west boundary."""
+        """Assigns temperature boundary values."""
         return self._bc_values_scalar(bg=bg)
 
 
@@ -180,8 +194,8 @@ class BCRobin:
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Helper function for setting boundary conditions on scalar fields.
 
-        The function sets Dirichlet on the west boundary, and Robin with alpha = 0 on
-        all other boundaries.
+        The function sets Dirichlet on the west and east boundary and Robin on all other
+        boundaries.
 
         """
         bounds = self.domain_boundary_sides(sd)
@@ -234,11 +248,11 @@ class BCNeumannReference:
 
 class BCValuesFlux:
     def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns Fourier flux values on top, bottom and right boundary."""
+        """Assigns Fourier flux values on top and bottom boundary."""
         return self._bc_values_scalar_flux(bg)
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns Darcy flux values on top, bottom and right boundary."""
+        """Assigns Darcy flux values on top and bottom boundary."""
         return self._bc_values_scalar_flux(bg)
 
     def _bc_values_scalar_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -259,8 +273,17 @@ class BCValuesFlux:
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns stress values on the non-Dirichlet boundaries for the test setup."""
         values = np.zeros((self.nd, bg.num_cells))
-        inds = self.not_dir_inds(bg)
-        values[0, inds] = 24
+        val = 24
+        if self.params["alpha"] > 0:  # Robin-Dirichlet
+            # The flux value here will be the value of the Robin condition and not seen
+            # in the Dirichlet reference setup. We need to multiply with the cell volume
+            # and the alpha value to account for Robin being interpreted as an
+            # integrated flux (volume) and being compared to alpha * u, since the Robin
+            # condition is on the form sigma * n + alpha * u = G and the first term is
+            # negligible for large alpha.
+            volumes = bg.cell_volumes[self.not_dir_inds(bg)]
+            val *= volumes * self.params["alpha"]
+        values[0, self.not_dir_inds(bg)] = val
         return values.ravel("F")
 
 
@@ -288,10 +311,8 @@ class BCDirichletReference:
         sides."""
         values = super().bc_values_displacement(bg=bg)
         values = values.reshape((self.nd, bg.num_cells), order="F")
-        alpha = self.params["alpha"]
         inds = self.not_dir_inds(bg)
-        volumes = bg.cell_volumes[inds]
-        values[0, inds] = 24 / (volumes * alpha)
+        values[0, inds] = 24
         return values.ravel("F")
 
     def _bc_values_scalar(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -326,7 +347,7 @@ class CommonMassEnergyBalance(
 
 
 class MassAndEnergyBalanceRobin(BCRobin, CommonMassEnergyBalance):
-    """Mass and energy balance with Robin conditions on top, bottom and right boundary."""
+    """Mass and energy balance with Robin conditions on top and bottom boundary."""
 
 
 class CommonMomentumBalance(
