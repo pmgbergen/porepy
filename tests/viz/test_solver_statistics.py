@@ -24,7 +24,7 @@ def test_solver_statistics_save():
     path = "solver_statistics.json"
     params = {"solver_statistics_file_name": path}
     model = Poromechanics(params)
-    pp.run_time_dependent_model(model, params)
+    pp.run_time_dependent_model(model)
     # Check whether file was saved
     assert model.nonlinear_solver_statistics.path.exists()
     # Clean up
