@@ -329,17 +329,27 @@ def test_robin_boundary_flux():
     # Get boundary sides and assert boundary condition values
     bounds = model.domain_boundary_sides(subdomain)
 
-    assert np.allclose(values["darcy_flux"][bounds.west], model_params["darcy_flux_west"])
-    assert np.allclose(values["darcy_flux"][bounds.east], model_params["darcy_flux_east"])
-
-    assert np.allclose(values["fourier_flux"][bounds.west], model_params["fourier_flux_west"])
-    assert np.allclose(values["fourier_flux"][bounds.east], model_params["fourier_flux_east"])
-
     assert np.allclose(
-        values["mechanical_stress"][0][bounds.west], model_params["mechanical_stress_west"]
+        values["darcy_flux"][bounds.west], model_params["darcy_flux_west"]
     )
     assert np.allclose(
-        values["mechanical_stress"][0][bounds.east], model_params["mechanical_stress_east"]
+        values["darcy_flux"][bounds.east], model_params["darcy_flux_east"]
+    )
+
+    assert np.allclose(
+        values["fourier_flux"][bounds.west], model_params["fourier_flux_west"]
+    )
+    assert np.allclose(
+        values["fourier_flux"][bounds.east], model_params["fourier_flux_east"]
+    )
+
+    assert np.allclose(
+        values["mechanical_stress"][0][bounds.west],
+        model_params["mechanical_stress_west"],
+    )
+    assert np.allclose(
+        values["mechanical_stress"][0][bounds.east],
+        model_params["mechanical_stress_east"],
     )
 
     # Final check to see that the Dirichlet values are also assigned as expected. The
@@ -389,7 +399,7 @@ def test_unit_conversion(units):
 
     # Create model and run simulation
     setup_0 = TailoredThermoporomechanics(model_params_ref)
-    pp.run_time_dependent_model(setup_0, model_params_ref)
+    pp.run_time_dependent_model(setup_0)
 
     model_params["units"] = pp.Units(**units)
     setup_1 = TailoredThermoporomechanics(model_params)
