@@ -114,7 +114,7 @@ def test_boundary_condition_mixin(t_end: int):
 
 
 class BCValuesLeftSide:
-    """Boundary values for primary variables on west boundary.
+    """Boundary values for primary variables on west and east boundary.
 
     Used for:
     * Momentum balance
@@ -131,7 +131,8 @@ class BCValuesLeftSide:
         return bounds.west + bounds.east
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns displacement values in the x-direction of the west boundary."""
+        """Assigns displacement values in the x-direction of the west and east
+        boundary."""
         values = np.zeros((self.nd, bg.num_cells))
         values[0, self.dir_inds(bg)] = 42
         return values.ravel("F")
@@ -154,9 +155,9 @@ class BCValuesLeftSide:
 class BCRobin:
     """Set Dirichlet and Robin for momentum balance and mass and energy balance.
 
-    Sets Dirichlet on the west boundary, and Robin on all other boundaries. The value of
-    the Robin weight is determined from the parameter "alpha" in the params dictionary.
-    This class also sets Robin boundary values.
+    Sets Dirichlet on the west and east boundaries, and Robin on the top and bottom
+    boundaries. The value of the Robin weight is determined from the parameter "alpha"
+    in the params dictionary. This class also sets Robin boundary values.
 
     This class is common for all the model classes that enters into testing Robin limit
     cases.
@@ -164,6 +165,7 @@ class BCRobin:
     """
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        """Sets Robin conditions for the test setup."""
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "rob")
         bc.is_rob[:, self.dir_inds(sd)] = False
@@ -200,11 +202,12 @@ class BCRobin:
 class BCNeumannReference:
     """Set Dirichlet and Neumann for momentum balance and mass and energy balance.
 
-    Sets Dirichlet on the west boundary, and Neumann on all other boundaries.
+    Sets Dirichlet on the west and east boundaries, and Neumann on top and bottom.
 
     """
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        """Assigns Neumann and Dirichlet boundaries for the Neumann reference setup."""
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "neu")
         bc.is_neu[:, self.dir_inds(sd)] = False
@@ -243,7 +246,7 @@ class BCValuesFlux:
         return values.ravel("F")
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns stress values on top, bottom and right boundary."""
+        """Assigns stress values on the non-Dirichlet boundaries for the test setup."""
         values = np.zeros((self.nd, bg.num_cells))
         inds = self.not_dir_inds(bg)
         values[0, inds] = 24
@@ -254,6 +257,7 @@ class BCDirichletReference:
     """Set all Dirichlet boundaries for momentum balance and mass and energy balance."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        """Assigns Dirichlet boundaries on all domain boundary sides."""
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "dir")
         return bc
@@ -269,7 +273,8 @@ class BCDirichletReference:
         return bc
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns displacement values in the x-direction of the west boundary."""
+        """Assigns displacement values in the x-direction of the top and bottom boundary
+        sides."""
         values = super().bc_values_displacement(bg=bg)
         values = values.reshape((self.nd, bg.num_cells), order="F")
         alpha = self.params["alpha"]
@@ -332,7 +337,7 @@ class CommonMomentumBalance(
 
 
 class MomentumBalanceRobin(BCRobin, CommonMomentumBalance):
-    """Momentum balance with Robin conditions on top, bottom and right boundary."""
+    """Momentum balance with Robin conditions on top and bottom boundary."""
 
 
 def run_model(balance_class, alpha):
@@ -367,16 +372,17 @@ def run_model(balance_class, alpha):
     ],
 )
 def test_robin_limit_case(rob_class, reference_class, alpha):
-    """Test that Robin limit cases are equivalent to Neumann for alpha = 0.
+    """Test Robin limit cases.
 
     The Robin conditions are implemented on the form: sigma * n + alpha * u = G. That
     means that setting Robin conditions with alpha = 0 should correspond to setting
-    Neumann conditions.
+    Neumann conditions. For large alpha (alpha -> \infty), the Robin conditions should
+    correspond to Dirichlet conditions.
 
     We test this for momentum balance and mass and energy balance.
 
-    Common for all model setups is that al of them have a Dirichlet condition on the
-    west boundary.
+    Common for all model setups is that all of them have Dirichlet conditions on the
+    west an east boundaries.
 
     The model class setups with documentation are further up in this document.
 
