@@ -235,14 +235,25 @@ class BCNeumannReference:
 class BCValuesFlux:
     def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Fourier flux values on top, bottom and right boundary."""
-        values = np.zeros((bg.num_cells))
-        values[self.not_dir_inds(bg)] = 24
-        return values.ravel("F")
+        return self._bc_values_scalar_flux(bg)
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Darcy flux values on top, bottom and right boundary."""
+        return self._bc_values_scalar_flux(bg)
+
+    def _bc_values_scalar_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         values = np.zeros((bg.num_cells))
-        values[self.not_dir_inds(bg)] = 24
+        val = 24
+        if self.params["alpha"] > 0:  # Robin-Dirichlet
+            # The flux value here will be the value of the Robin condition and not seen
+            # in the Dirichlet reference setup. We need to multiply with the cell volume
+            # and the alpha value to account for Robin being interpreted as an
+            # integrated flux (volume) and being compared to alpha * u, since the Robin
+            # condition is on the form sigma * n + alpha * u = G and the first term is
+            # negligible for large alpha.
+            volumes = bg.cell_volumes[self.not_dir_inds(bg)]
+            val *= volumes * self.params["alpha"]
+        values[self.not_dir_inds(bg)] = val
         return values.ravel("F")
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -295,10 +306,7 @@ class BCDirichletReference:
         """
         # Call super to get values for Dirichlet boundaries.
         values = super()._bc_values_scalar(bg)
-        # Set values for non-Dirichlet boundaries. Scale by alpha and volume to
-        # counteract the scaling implicit in Robin conditions.
-        volumes = bg.cell_volumes[self.not_dir_inds(bg)]
-        values[self.not_dir_inds(bg)] = 24 / (volumes * self.params["alpha"])
+        values[self.not_dir_inds(bg)] = 24
         return values
 
 
