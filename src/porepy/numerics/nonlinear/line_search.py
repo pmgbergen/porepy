@@ -47,6 +47,9 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
 
     """
 
+    params: dict[str, Any]
+    """Solver parameters."""
+
     @property
     def min_line_search_weight(self):
         """Minimum weight for the line search weights."""
@@ -523,6 +526,9 @@ class ConstraintLineSearch:
 
     """
 
+    params: dict[str, Any]
+    """Solver parameters."""
+
     compute_constraint_weights: Callable[..., float]
     """Method for computing the constraint weights.
 
@@ -552,7 +558,7 @@ class ConstraintLineSearch:
 
         """
         residual_weight = self.residual_line_search(model, dx)
-        if model.params.get("Local_line_search", False):
+        if self.params.get("Local_line_search", False):
             return self.constraint_line_search(model, dx, residual_weight.min())
         else:
             return residual_weight
@@ -639,8 +645,8 @@ class ConstraintLineSearch:
         # If the sign of the function defining the regions has not changed, we use
         # unitary relaxation factors.
         x_0 = model.equation_system.get_variable_values(iterate_index=0)
-        violation_tol = model.params.get("constraint_violation_tolerance", 3e-1)
-        relative_cell_tol = model.params.get(
+        violation_tol = self.params.get("constraint_violation_tolerance", 3e-1)
+        relative_cell_tol = self.params.get(
             "relative_constraint_transition_tolerance", 2e-1
         )
         # Compute the constraint function at the maximum weights. Specify that return
