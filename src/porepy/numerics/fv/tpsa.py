@@ -777,9 +777,12 @@ class Tpsa:
         is_rob_nd = bnd_disp.is_rob
         is_dir = is_dir_nd.ravel("F")
 
-        # Mapping from cell to face, with a weighting of mu / dist.
+        # Mapping from cell to face, with a weighting of mu / dist. Only interior faces.
+        # Add a factor 2 to compensate for the factor 1/2 included through
+        # multiplication by inv_mu_by_dist_array below; see the construction of
+        # mu_by_dist_array for further comments.
         cell_to_face = sps.coo_array(
-            ((dist.mu_by_dist_fc_cc, (numbering.fi, numbering.ci))),
+            ((2 * dist.mu_by_dist_fc_cc, (numbering.fi, numbering.ci))),
             shape=(numbering.nf, numbering.nc),
         ).tocsr()
 
@@ -907,12 +910,21 @@ class Tpsa:
         rob_weights_boundary_faces = rob_weight[bnd_disp.is_rob]
 
         # This is the face-wise sum of the expressions mu/delta, also accounting for
-        # boundary conditions. For reference, the reciprocal of this field is also,
-        # almost, the expression \delta_k^mu (used in the paper to describe the
-        # discretization scheme), missing is a factor 1/2.
+        # boundary conditions. EK note to self: The factor 2 is motivated by Robin
+        # boundary conditions: With the Robin weight represented, PorePy style, as
+        # \alpha (rather than 2*\mu*\delta^-1 as is used in the paper), the averagaging
+        # operator for a face with a Robin condition becomes
+        # (2*\mu*\delta^-1)/(2*\mu*\delta^-1 + \alpha) for the cell contribution; the
+        # contribution from the boundary condition has \alpha in the nominator. The
+        # factor 2 introduced here, and inherited in the diagonal scaling matrix
+        # constructed next, must be compensated by a factor 2 in the nominator of the
+        # averaging map, as is done elsewhere in the code.
+        # 
+        # For reference, the reciprocal of this field is also the expression \delta_k^mu
+        # (used in the paper to describe the discretization scheme).
         mu_by_dist_fc_cc_bound = np.bincount(
             np.hstack((numbering.fi_expanded, rob_boundary_faces_expanded)),
-            weights=np.hstack((mu_by_dist_fc_cc_nd, rob_weights_boundary_faces)),
+            weights=np.hstack((2 * mu_by_dist_fc_cc_nd, rob_weights_boundary_faces)),
         )
 
         # Create a diagonal matrix that can be used to scale face-to-cell maps to have
