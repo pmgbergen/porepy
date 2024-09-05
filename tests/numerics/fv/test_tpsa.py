@@ -400,27 +400,27 @@ class TestTpsaTailoredGrid:
         mu_1_d = self.mu_1 / self.d_1_6
 
         # Averaging coefficient for the interior cell
-        c2f_avg_0_x = mu_0_d / (mu_0_d + rw_0_x)
-        c2f_avg_0_y = mu_0_d / (mu_0_d + rw_0_y)
-        c2f_avg_6 = mu_1_d / (mu_1_d + rw_6)
+        c2f_avg_0_x = 2 * mu_0_d / (2 * mu_0_d + rw_0_x)
+        c2f_avg_0_y = 2 * mu_0_d / (2 * mu_0_d + rw_0_y)
+        c2f_avg_6 = 2 * mu_1_d / (2 * mu_1_d + rw_6)
         # And the complement
         c_c2f_avg_0_x = 1 - c2f_avg_0_x
         c_c2f_avg_0_y = 1 - c2f_avg_0_y
         c_c2f_avg_6 = 1 - c2f_avg_6
 
         # Averaging coefficients for the boundary term
-        c2f_avg_0_x_bound = rw_0_x / (mu_0_d + rw_0_x)
-        c2f_avg_0_y_bound = rw_0_y / (mu_0_d + rw_0_y)
-        c2f_avg_6_bound = rw_6 / (mu_1_d + rw_6)
+        c2f_avg_0_x_bound = rw_0_x / (2 * mu_0_d + rw_0_x)
+        c2f_avg_0_y_bound = rw_0_y / (2 * mu_0_d + rw_0_y)
+        c2f_avg_6_bound = rw_6 / (2 * mu_1_d + rw_6)
         # And the complement
         c_c2f_avg_0_x_bound = 1 - c2f_avg_0_x_bound
         c_c2f_avg_0_y_bound = 1 - c2f_avg_0_y_bound
         c_c2f_avg_6_bound = 1 - c2f_avg_6_bound
 
         # The term delta_k^mu (see paper for description)
-        delta_0_x = 1 / (2 * (mu_0_d + rw_0_x))
-        delta_0_y = 1 / (2 * (mu_0_d + rw_0_y))
-        delta_6 = 1 / (2 * (mu_1_d + rw_6))
+        delta_0_x = 1 / (2 * mu_0_d + rw_0_x)
+        delta_0_y = 1 / (2 * mu_0_d + rw_0_y)
+        delta_6 = 1 / (2 * mu_1_d + rw_6)
 
         # Stress discretization, use distances that incorporate the Robin condition
         stress_0_x = 2 * self.n_0_nrm * (mu_0_d * rw_0_x) / (mu_0_d + rw_0_x)
