@@ -266,7 +266,7 @@ def test_targeted_rediscretization(model_class):
         # Make flow problem non-linear:
         "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})}
     }
-    solver_params = {}  # {"fracture_indices": [0, 1]}
+    # {"fracture_indices": [0, 1]}
     # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = models._add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.
