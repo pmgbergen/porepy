@@ -122,11 +122,18 @@ class BCValuesLeftSide:
 
     """
 
+    def not_dir_inds(self, g):
+        bounds = self.domain_boundary_sides(g)
+        return bounds.north + bounds.south
+
+    def dir_inds(self, g):
+        bounds = self.domain_boundary_sides(g)
+        return bounds.west + bounds.east
+
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns displacement values in the x-direction of the west boundary."""
         values = np.zeros((self.nd, bg.num_cells))
-        bounds = self.domain_boundary_sides(bg)
-        values[0, bounds.west] += 42
+        values[0, self.dir_inds(bg)] = 42
         return values.ravel("F")
 
     def _bc_values_scalar(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -160,8 +167,8 @@ class BCRobin:
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "rob")
-        bc.is_rob[:, bounds.west] = False
-        bc.is_dir[:, bounds.west] = True
+        bc.is_rob[:, self.dir_inds(sd)] = False
+        bc.is_dir[:, self.dir_inds(sd)] = True
 
         alpha = self.params["alpha"]
 
@@ -202,8 +209,8 @@ class BCNeumannReference:
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "neu")
-        bc.is_neu[:, bounds.west] = False
-        bc.is_dir[:, bounds.west] = True
+        bc.is_neu[:, self.dir_inds(sd)] = False
+        bc.is_dir[:, self.dir_inds(sd)] = True
         return bc
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -245,8 +252,12 @@ class BCValuesFlux:
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns stress values on top, bottom and right boundary."""
         values = np.zeros((self.nd, bg.num_cells))
-        bounds = self.domain_boundary_sides(bg)
-        values[0, bounds.east + bounds.north + bounds.south] += 24
+        inds = self.not_dir_inds(bg)
+        volumes = bg.cell_volumes
+        values[0, inds] = (
+            42 * (1 - bg.cell_centers[0]) * (volumes * self.params["alpha"])
+        )[inds]
+        values[0, inds] = 24 * (volumes[inds] * self.params["alpha"])
         return values.ravel("F")
 
 
@@ -275,10 +286,11 @@ class BCDirichletReference:
         bounds = self.domain_boundary_sides(bg)
 
         alpha = self.params["alpha"]
-        volumes = bg.cell_volumes[bounds.north + bounds.south + bounds.east]
-
-        values[0, bounds.north + bounds.south + bounds.east] += 24 / (volumes * alpha)
-
+        inds = self.not_dir_inds(bg)
+        volumes = bg.cell_volumes[inds]
+        values[0, inds] = 42 * (1 - bg.cell_centers[0])[inds]  # / (volumes * alpha)
+        # 24 / (volumes * alpha)
+        values[0, inds] = 24
         return values.ravel("F")
 
     def _bc_values_scalar(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -359,7 +371,7 @@ def run_model(balance_class, alpha):
         (MomentumBalanceRobin, CommonMomentumBalance, 0),
         (MassAndEnergyBalanceRobin, CommonMassEnergyBalance, 0),
         (MassAndEnergyBalanceRobin, CommonMassEnergyBalance, 1e8),
-        # (MomentumBalanceRobin, CommonMomentumBalance, 1e8),
+        (MomentumBalanceRobin, CommonMomentumBalance, 1e8),
     ],
 )
 def test_robin_limit_case(rob_class, reference_class, alpha):
