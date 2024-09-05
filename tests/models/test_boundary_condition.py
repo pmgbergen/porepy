@@ -139,8 +139,7 @@ class BCValuesLeftSide:
     def _bc_values_scalar(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns scalar values on the west boundary."""
         values = np.zeros(bg.num_cells)
-        bounds = self.domain_boundary_sides(bg)
-        values[bounds.west] += 42
+        values[self.dir_inds(bg)] = 42
         return values
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -185,11 +184,10 @@ class BCRobin:
         """
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryCondition(sd, bounds.all_bf, "rob")
-        bc.is_rob[bounds.west] = False
-        bc.is_dir[bounds.west] = True
+        bc.is_rob[self.dir_inds(sd)] = False
+        bc.is_dir[self.dir_inds(sd)] = True
 
-        alpha = self.params["alpha"]
-        bc.robin_weight = np.ones(sd.num_faces) * alpha
+        bc.robin_weight = np.ones(sd.num_faces) * self.params["alpha"]
         return bc
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -221,10 +219,7 @@ class BCNeumannReference:
 
         """
 
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.all_bf, "neu")
-        bc.is_neu[bounds.west] = False
-        bc.is_dir[bounds.west] = True
+        bc = pp.BoundaryCondition(sd, self.dir_inds(sd), "dir")
         return bc
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -238,15 +233,13 @@ class BCValuesFlux:
     def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Fourier flux values on top, bottom and right boundary."""
         values = np.zeros((bg.num_cells))
-        bounds = self.domain_boundary_sides(bg)
-        values[bounds.east + bounds.north + bounds.south] += 24
+        values[self.not_dir_inds(bg)] = 24
         return values.ravel("F")
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Darcy flux values on top, bottom and right boundary."""
         values = np.zeros((bg.num_cells))
-        bounds = self.domain_boundary_sides(bg)
-        values[bounds.east + bounds.north + bounds.south] += 24
+        values[self.not_dir_inds(bg)] = 24
         return values.ravel("F")
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -286,14 +279,21 @@ class BCDirichletReference:
         return values.ravel("F")
 
     def _bc_values_scalar(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Set the values for scalar fields.
+
+        Parameters:
+            bg: Boundary grid.
+
+        Returns:
+            np.ndarray: Boundary values.
+
+        """
+        # Call super to get values for Dirichlet boundaries.
         values = super()._bc_values_scalar(bg)
-        bounds = self.domain_boundary_sides(bg)
-
-        alpha = self.params["alpha"]
-        volumes = bg.cell_volumes[bounds.north + bounds.south + bounds.east]
-
-        values[bounds.north + bounds.south + bounds.east] += 24 / (volumes * alpha)
-
+        # Set values for non-Dirichlet boundaries. Scale by alpha and volume to
+        # counteract the scaling implicit in Robin conditions.
+        volumes = bg.cell_volumes[self.not_dir_inds(bg)]
+        values[self.not_dir_inds(bg)] = 24 / (volumes * self.params["alpha"])
         return values
 
 
