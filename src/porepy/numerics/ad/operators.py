@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 from enum import Enum
 from functools import reduce
+from hashlib import sha256
 from itertools import count
 from typing import Any, Callable, Literal, Optional, Sequence, TypeVar, Union, overload
 
@@ -1124,6 +1125,32 @@ class Operator:
             name="reverse @ operator",
         )
 
+    def __hash__(self):
+        return hash(self._key())
+
+    def _key(self) -> str:
+        """String representation for hashing.
+
+        Provides a representation of the operator tree which grows from the current
+        operator meant for hashing. Different AD objects that represent the identical
+        trees defined on the same domains must have identical keys. Otherwise, the keys
+        must be different.
+
+        All the leave operators (which are the subclasses) must override this method.
+        Calling super is not expected.
+
+        Returns:
+            The key string.
+
+        Raises:
+            ValueError: If this method is called from the leave AD object.
+
+        """
+        if self.operation == Operator.Operations.void or len(self.children) == 0:
+            raise ValueError("Base class operator must represent an operation.")
+        tmp = [self.operation.value] + [child._key() for child in self.children]
+        return " ".join(tmp)
+
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
             return [self, Scalar(other)]
@@ -1388,6 +1415,13 @@ class SparseArray(Operator):
         self._shape = mat.shape
         """Shape of the wrapped matrix."""
 
+        # TODO: Make readonly, see https://github.com/pmgbergen/porepy/issues/1214
+        self._hash_value: str = self._compute_spmatrix_hash(mat)
+        """String to uniquly identify the contents of the matrix."""
+
+    def _key(self) -> str:
+        return f"(sparse_array, hash={self._hash_value})"
+
     def __repr__(self) -> str:
         return f"Matrix with shape {self._mat.shape} and {self._mat.data.size} elements"
 
@@ -1431,6 +1465,51 @@ class SparseArray(Operator):
         """Shape of the wrapped matrix."""
         return self._shape
 
+    @staticmethod
+    def _compute_spmatrix_hash(mat: sps.spmatrix) -> str:
+        """Utility function that handles all the sparse formats to compute the hash.
+
+        The hash will match for two sparse arrays with the identical: sparse formats,
+        shapes, data arrays, rows and columns arrays. The identical matrices in the
+        different formats will have different hashes. Such behavior is expected, since
+        two different formats are likely used for a good reason.
+
+        The rows and columns are considered to avoid the collision between, e.g., the
+        following rows in the csr format: `[1, 0, 1, 0]` vs `[0, 1, 0, 1]`.
+
+        The sparse format is included explicitly to resolve the following collision:
+        `hash(mat.tocsr()) == hash(mat.T.tocsc())` - we do not want them to be equal,
+        but the data, indices and indptr will be identical for them.
+
+        """
+        # Proper handling of all the formats like csr, coo, etc..
+        if isinstance(
+            mat,
+            (
+                sps.csr_matrix,
+                sps.csr_array,
+                sps.csc_matrix,
+                sps.csc_array,
+                sps.bsr_matrix,
+                sps.bsr_array,
+            ),
+        ):
+            properties = [mat.data, mat.indices, mat.indptr]
+        elif isinstance(mat, (sps.coo_matrix, sps.coo_array)):
+            properties = [mat.data, mat.row, mat.col]
+        elif isinstance(mat, (sps.dia_matrix, sps.dia_array)):
+            properties = [mat.data, mat.offsets]
+        else:
+            raise NotImplementedError("Hashing not provided for the format", type(mat))
+
+        # Concatenating the hashes of the data, rows and columns arrays.
+        data_hash = "".join(
+            [sha256(array, usedforsecurity=False).hexdigest() for array in properties]
+        )
+        # Adding the information about the matrix format and shape. `mat.format` is not
+        # used because it does not distinguish between, e.g., csr_matrix and csr_array.
+        return f"{type(mat).__name__}_{mat.shape}_{data_hash}"
+
 
 class DenseArray(Operator):
     """AD representation of a constant numpy array.
@@ -1457,6 +1536,15 @@ class DenseArray(Operator):
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._values = values.astype(float, copy=False)
+
+        # TODO: Make readonly, see https://github.com/pmgbergen/porepy/issues/1214
+        self._hash_value: str = sha256(
+            self._values, usedforsecurity=False  # type: ignore[arg-type]
+        ).hexdigest()
+        """String to uniquly identify the array."""
+
+    def _key(self) -> str:
+        return f"(dense_array, hash={self._hash_value})"
 
     def __repr__(self) -> str:
         return f"Wrapped numpy array of size {self._values.size}."
@@ -1534,6 +1622,10 @@ class TimeDependentDenseArray(TimeDependentOperator):
     ):
         super().__init__(name=name, domains=domains)
 
+    def _key(self) -> str:
+        domain_ids = [domain.id for domain in self.domains]
+        return f"(time_dependent_dense_array, name={self.name}, domains={domain_ids})"
+
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
         """Convert this array into numerical values.
 
@@ -1608,6 +1700,9 @@ class Scalar(Operator):
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._value = float(value)
+
+    def _key(self) -> str:
+        return f"(scalar, {self._value})"
 
     def __repr__(self) -> str:
         return f"Wrapped scalar with value {self._value}"
@@ -1723,6 +1818,10 @@ class Variable(TimeDependentOperator, IterativeOperator):
 
         # tag
         self._tags: dict[str, Any] = tags if tags is not None else {}
+
+    def _key(self):
+        # The names are unique for variables.
+        return f"(var, name={self.name}, domain={str(self.domain.id)})"
 
     @property
     def id(self) -> int:
@@ -1843,6 +1942,13 @@ class MixedDimensionalVariable(Variable):
         AssertionError: If one of the above assumptions is violated.
 
     """
+
+    def _key(self) -> str:
+        # The MixedDimensionalVariable is not stored in the equation system but
+        # constructed every time when needed. Thus, its id is updated and cannot be
+        # relied on. Instead, we rely on the name, which is guaranteed to be unique.
+        domain_ids = [domain.id for domain in self.domains]
+        return f"(mdvar, name={self.name}, domains={domain_ids})"
 
     def __init__(self, variables: list[Variable]) -> None:
         # IMPLEMENTATION NOTE VL
