@@ -278,13 +278,13 @@ class TestTpsaTailoredGrid:
             "solid_mass_displacement": np.zeros((2, 4)),
             "bound_mass_displacement": bound_mass_displacement,
             "solid_mass_total_pressure": np.zeros((2, 2)),
-            # No contribution from cell center values to the boundary displacement 
+            # No contribution from cell center values to the boundary displacement
             "bound_displacement_cell": np.zeros((4, 4)),
             "bound_displacement_face": bound_displacement_face,
             # Neither the rotation variable nor the solid pressure contribute to the
             # boundary displacement for Dirichlet faces
             "bound_displacement_rotation_cell": np.zeros((4, 2)),
-            "bound_displacement_solid_pressure_cell": np.zeros((4, 2))
+            "bound_displacement_solid_pressure_cell": np.zeros((4, 2)),
         }
 
         compare_matrices(
@@ -350,19 +350,34 @@ class TestTpsaTailoredGrid:
         bound_displacement_face[3, 13] = self.d_1_6 / (2 * self.mu_1 * self.n_6_nrm)
 
         bound_displacement_rotation_cell = np.zeros((4, 2))
-        bound_displacement_rotation_cell[0, 0] = self.d_0_0 * self.n_0[1] / (2 * self.mu_0 * self.n_0_nrm)
-        bound_displacement_rotation_cell[1, 0] = -self.d_0_0 * self.n_0[0] / (2 * self.mu_0 * self.n_0_nrm)
-        bound_displacement_rotation_cell[2, 1] = -self.d_1_6 * self.n_6[1] / (2 * self.mu_1 * self.n_6_nrm)
-        bound_displacement_rotation_cell[3, 1] = self.d_1_6 * self.n_6[0] / (2 * self.mu_1 * self.n_6_nrm)
+        bound_displacement_rotation_cell[0, 0] = (
+            self.d_0_0 * self.n_0[1] / (2 * self.mu_0 * self.n_0_nrm)
+        )
+        bound_displacement_rotation_cell[1, 0] = (
+            -self.d_0_0 * self.n_0[0] / (2 * self.mu_0 * self.n_0_nrm)
+        )
+        bound_displacement_rotation_cell[2, 1] = (
+            -self.d_1_6 * self.n_6[1] / (2 * self.mu_1 * self.n_6_nrm)
+        )
+        bound_displacement_rotation_cell[3, 1] = (
+            self.d_1_6 * self.n_6[0] / (2 * self.mu_1 * self.n_6_nrm)
+        )
 
         # Contribution from solid pressure. Multiply with -1 on face 0 since this has an
         # inward pointing normal vector.
         bound_displacement_solid_pressure_cell = np.zeros((4, 2))
-        bound_displacement_solid_pressure_cell[0, 0] = -self.d_0_0  * self.n_0[0]  / (2 * self.mu_0 * self.n_0_nrm)
-        bound_displacement_solid_pressure_cell[1, 0] = -self.d_0_0  * self.n_0[1]  / (2 * self.mu_0 * self.n_0_nrm)
-        bound_displacement_solid_pressure_cell[2, 1] = self.d_1_6 * self.n_6[0] / (2 * self.mu_1 * self.n_6_nrm)
-        bound_displacement_solid_pressure_cell[3, 1] = self.d_1_6 * self.n_6[1] / (2 * self.mu_1 * self.n_6_nrm)
-
+        bound_displacement_solid_pressure_cell[0, 0] = (
+            -self.d_0_0 * self.n_0[0] / (2 * self.mu_0 * self.n_0_nrm)
+        )
+        bound_displacement_solid_pressure_cell[1, 0] = (
+            -self.d_0_0 * self.n_0[1] / (2 * self.mu_0 * self.n_0_nrm)
+        )
+        bound_displacement_solid_pressure_cell[2, 1] = (
+            self.d_1_6 * self.n_6[0] / (2 * self.mu_1 * self.n_6_nrm)
+        )
+        bound_displacement_solid_pressure_cell[3, 1] = (
+            self.d_1_6 * self.n_6[1] / (2 * self.mu_1 * self.n_6_nrm)
+        )
 
         known_values = {
             # The stress is prescribed, thus no contribution from the interior cells for
@@ -525,25 +540,48 @@ class TestTpsaTailoredGrid:
         # Prescribed stresses are converted to displacements by 'inverting' Hook's law.
         # Multiply with -1 on face 0 since this has an inward pointing normal vector.
         bound_displacement_face = np.zeros((4, 14))
-        bound_displacement_face[0, 0] = -c2f_avg_0_x_bound/ ((2 * mu_0_d + rw_0_x) * self.n_0_nrm)
-        bound_displacement_face[1, 1] = -c2f_avg_0_y_bound / ((2 * mu_0_d + rw_0_y) * self.n_0_nrm)
-        bound_displacement_face[2, 12] = c2f_avg_6_bound / ((2 * mu_1_d + rw_6) *self.n_6_nrm)
-        bound_displacement_face[3, 13] = c2f_avg_6_bound / ((2 * mu_1_d + rw_6) *self.n_6_nrm)
-
+        bound_displacement_face[0, 0] = -c2f_avg_0_x_bound / (
+            (2 * mu_0_d + rw_0_x) * self.n_0_nrm
+        )
+        bound_displacement_face[1, 1] = -c2f_avg_0_y_bound / (
+            (2 * mu_0_d + rw_0_y) * self.n_0_nrm
+        )
+        bound_displacement_face[2, 12] = c2f_avg_6_bound / (
+            (2 * mu_1_d + rw_6) * self.n_6_nrm
+        )
+        bound_displacement_face[3, 13] = c2f_avg_6_bound / (
+            (2 * mu_1_d + rw_6) * self.n_6_nrm
+        )
 
         bound_displacement_rotation_cell = np.zeros((4, 2))
-        bound_displacement_rotation_cell[0, 0] =  self.n_0[1] * c_c2f_avg_0_x / ((2 * mu_0_d + rw_0_x) * self.n_0_nrm)
-        bound_displacement_rotation_cell[1, 0] = -self.n_0[0] * c_c2f_avg_0_y / ((2 * mu_0_d + rw_0_y) * self.n_0_nrm)
-        bound_displacement_rotation_cell[2, 1] = - self.n_6[1] * c_c2f_avg_6 / ((2 * mu_1_d + rw_6) * self.n_6_nrm)
-        bound_displacement_rotation_cell[3, 1] =  self.n_6[0] * c_c2f_avg_6 / ((2 * mu_1_d + rw_6) * self.n_6_nrm)
+        bound_displacement_rotation_cell[0, 0] = (
+            self.n_0[1] * c_c2f_avg_0_x / ((2 * mu_0_d + rw_0_x) * self.n_0_nrm)
+        )
+        bound_displacement_rotation_cell[1, 0] = (
+            -self.n_0[0] * c_c2f_avg_0_y / ((2 * mu_0_d + rw_0_y) * self.n_0_nrm)
+        )
+        bound_displacement_rotation_cell[2, 1] = (
+            -self.n_6[1] * c_c2f_avg_6 / ((2 * mu_1_d + rw_6) * self.n_6_nrm)
+        )
+        bound_displacement_rotation_cell[3, 1] = (
+            self.n_6[0] * c_c2f_avg_6 / ((2 * mu_1_d + rw_6) * self.n_6_nrm)
+        )
 
         # Contribution from solid pressure. Multiply with -1 on face 0 since this has an
         # inward pointing normal vector.
         bound_displacement_solid_pressure_cell = np.zeros((4, 2))
-        bound_displacement_solid_pressure_cell[0, 0] = - self.n_0[0] * c_c2f_avg_0_x   / ((2 * mu_0_d  + rw_0_x) * self.n_0_nrm)
-        bound_displacement_solid_pressure_cell[1, 0] = - self.n_0[1]* c_c2f_avg_0_y   / ((2 * mu_0_d  + rw_0_y) * self.n_0_nrm)
-        bound_displacement_solid_pressure_cell[2, 1] =  self.n_6[0]* c_c2f_avg_6  / ((2 * mu_1_d + rw_6) * self.n_6_nrm)
-        bound_displacement_solid_pressure_cell[3, 1] =  self.n_6[1]* c_c2f_avg_6 / ((2 * mu_1_d + rw_6) * self.n_6_nrm)
+        bound_displacement_solid_pressure_cell[0, 0] = (
+            -self.n_0[0] * c_c2f_avg_0_x / ((2 * mu_0_d + rw_0_x) * self.n_0_nrm)
+        )
+        bound_displacement_solid_pressure_cell[1, 0] = (
+            -self.n_0[1] * c_c2f_avg_0_y / ((2 * mu_0_d + rw_0_y) * self.n_0_nrm)
+        )
+        bound_displacement_solid_pressure_cell[2, 1] = (
+            self.n_6[0] * c_c2f_avg_6 / ((2 * mu_1_d + rw_6) * self.n_6_nrm)
+        )
+        bound_displacement_solid_pressure_cell[3, 1] = (
+            self.n_6[1] * c_c2f_avg_6 / ((2 * mu_1_d + rw_6) * self.n_6_nrm)
+        )
 
         known_values = {
             # The stress discretization is the same as in the Dirichlet case
@@ -601,7 +639,7 @@ class TestTpsaTailoredGrid:
             "bound_displacement_cell": bound_displacement_cell,
             "bound_displacement_face": bound_displacement_face,
             "bound_displacement_rotation_cell": bound_displacement_rotation_cell,
-            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,            
+            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,
         }
 
         compare_matrices(
@@ -623,8 +661,8 @@ class TestTpsaTailoredGrid:
 
 
 t = TestTpsaTailoredGrid()
-#t.setup()
-#t.test_neumann_bcs()
+# t.setup()
+# t.test_neumann_bcs()
 
 
 def test_no_cosserat():
@@ -1070,4 +1108,3 @@ def test_robin_neumann_dirichlet_consistency():
     parameter values, and that Robin is equivalent to Neumann for a zero value.
     """
     pass
-
