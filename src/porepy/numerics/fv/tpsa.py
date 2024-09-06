@@ -126,6 +126,121 @@ class Tpsa:
         arXiv:2405.10390.
 
     See in particular the apendix for the expressions of the discretization schemes.
+
+    Example (intended to show basic input and output functionality):
+        # Imports: 
+        >>> import numpy as np 
+        >>> import porepy as pp 
+        >>> import scipy.sparse as sps 
+        # Define geometry: 
+        >>> g = pp.CartGrid([3, 3]) 
+        >>> g.compute_geometry() 
+        >>> nf, nc = g.num_faces, g.num_cells 
+        # Boundary condition - all Dirichlet: 
+        >>> bf = g.get_all_boundary_faces() 
+        >>> bc = pp.BoundaryConditionVectorial(g, bf, bf.size * ['dir']) 
+        # Elastic moduli (expressed by Lame parameters): 
+        >>> mu = 1 + np.arange(nc) 
+        >>> lmbda = np.ones(nc) 
+        >>> C = pp.FourthOrderTensor(mu, lmbda)
+        # Gather information in a dict, also prepare for storing discretization
+        # matrices:
+        >>> key = 'mechanics' 
+        >>> data = {pp.PARAMETERS: {key: {'fourth_order_tensor': C, 'bc': bc}}} 
+        >>> data[pp.DISCRETIZATION_MATRICES] = {key: {}} 
+        # Construct discretization object, link it to the keyword 
+        >>> discr = pp.Tpsa(key) 
+        # Discretize: 
+        >>> discr.discretize(g, data)
+
+        # This will produce discretization matrices stored in 
+        #    data[pp.DISCRETIZATION_MATRICES][key]
+        # To assemble these and solve for the primary variables, do the following:
+
+        # Deal with rotation variable being 1d if g.dim == 2, 3d if g.dim == 3 
+        >>> nrf = nf if g.dim == 2 else 3 * nf 
+        >>> nrc = nc if g.dim == 2 else 3 * nc 
+        >>> div_scalar = pp.fvutils.scalar_divergence(g) 
+        >>> div_vector = pp.fvutils.vector_divergence(g) 
+        >>> div_rot = div_scalar if g.dim == 2 else div_vec
+
+        >>> matrices = data[pp.DISCRETIZATION_MATRICES][key]
+        
+        # Assemble matrix of face quantities: 
+        >>> flux = sps.block_array(
+                        [
+                            [
+                                matrices["stress"], matrices["stress_rotation"],
+                                matrices["stress_total_pressure"],
+                            ], [
+                                matrices["rotation_displacement"],
+                                matrices["rotation_diffusion"], sps.csr_array((nrf,
+                                nc)),
+                            ], [
+                                matrices["solid_mass_displacement"], sps.csr_array((nf,
+                                nrc)), matrices["solid_mass_total_pressure"],
+                            ],
+                        ],
+                    )
+        # Assemble divergence operator 
+        >>> div = sps.block_diag([div_vector, div_rot, div_scalar])  
+        # Matrix for imposing boundary conditions 
+        >>> rhs_matrix = sps.bmat(
+                    [
+                        [
+                            matrices["bound_stress"], sps.csr_array((nf * g.dim, nrf)),
+                        ], [
+                            matrices["bound_rotation_displacement"],
+                            sps.csr_matrix((nrf, nrf)),
+                        ], [
+                            matrices["bound_mass_displacement"], sps.csr_matrix((nf,
+                            nrf)),
+                        ],
+                    ]
+                )
+        # Boundary conditions for displacement is a vector of size nf * g.dim. 
+        # To keep track of indices and dimensions, it can be useful to do:
+        >>> bc = np.zeros((g.dim, nf))
+        # Set conditions in x-direction on boundary faces
+        >>> bc[0, bf] = np.arange(bf.size)
+        # Conditions in the y-direction are constant
+        >>> bc[1, bf] = 42
+        # Ravel. The vector contains the x-component of the first face, then the
+        # y-component etc.
+        >>> bc = bc.ravel('F')
+        # Boundary conditions for rotation: Should be zero here, since there is no
+        # rotation diffusion, thus the rotation is not an independent variable:
+        >>> bc_rot = np.zeros(nf)
+        # The full bc 
+        >>> bc_all = np.hstack((bc, bc_rot))
+        # Convert to right hand side
+        >>> b = - div @ rhs_matrix @ bc_all
+
+        # Accumulation terms
+        >>> accum = sps.block_diag(
+                [
+                    sps.csr_array((nc * g.dim, nc * g.dim)),
+                    sps.dia_array((1.0 / mu, 0), shape=(nrc, nrc)),
+                    sps.dia_array((1.0 / lmbda, 0), shape=(nrc, nrc)),
+                ],
+                format="csr",
+            )
+        # System matrix
+        >>> A = div @ flux + accum
+        # Solve
+        >>> x = sps.linalg.spsolve(A, b)
+        # Displacement variable:
+        >>> u = x[:g.dim * nc]
+        # X-component of the displacement
+        >>> ux = u[::g.dim]
+        # Rotation
+        >>> r = x[g.dim * nc: g.dim * nc + nrc]
+        # Solid pressure
+        >>> p = x[g.dim * nc + nrc:]
+
+        This example may be moved to a tutorial at a later point. Functionality to
+        integrate Tpsa into the multiphysics models of PorePy is in the works.
+
     """
 
     def __init__(self, keyword: str) -> None:
