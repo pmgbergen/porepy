@@ -8,10 +8,12 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.test_utils.models import MassBalance as MassBalance_
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.applications.test_utils.models import MassBalance as MassBalance_
+from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
+from porepy.models.momentum_balance import MomentumBalance
 
 
 class CustomBoundaryCondition(pp.BoundaryConditionMixin):
@@ -113,8 +115,8 @@ def test_boundary_condition_mixin(t_end: int):
 """Here follows mixins related to testing of Robin limit cases, and eventually the test itself. """
 
 
-class BCValuesLeftSide:
-    """Boundary values for primary variables on west and east boundary.
+class BCValuesDirichletIndices:
+    """Boundary values for primary variables on Dirichlet boundaries.
 
     Used for:
     * Momentum balance
@@ -122,37 +124,40 @@ class BCValuesLeftSide:
 
     """
 
-    def not_dir_inds(self, g):
+    def rob_inds(self, g) -> np.ndarray:
         """Indices for the non-Dirichlet boundaries for test.
 
-        The Robin limit case test tests setups with Dirichlet on west/east boundaries,
-        and Robin approximating Dirichlet on the north/south boundaries. This method
-        returns the indices of the north and south boundaries.
+        The Robin limit case test tests Robin approximating either Dirichlet or Neumann.
+        All test setups have Dirichlet on dir_inds (Dirichlet index) boundaries, and
+        Robin approximating Dirichlet or Neumann on the remaining ones. This method
+        returns the indices of the north and south boundaries, which are the Dirichlet
+        indices.
 
         """
         bounds = self.domain_boundary_sides(g)
         return bounds.north + bounds.south
 
-    def dir_inds(self, g):
+    def dir_inds(self, g) -> np.ndarray:
         """Indices for the Dirichlet boundaries for test.
 
-        The Robin limit case test tests setups with Dirichlet on west/east boundaries,
-        and Robin approximating Dirichlet on the north/south boundaries. This method
-        returns the indices of the east and west boundaries.
+        The Robin limit case test tests Robin approximating either Dirichlet or Neumann.
+        All test setups have Dirichlet on dir_inds (Dirichlet index) boundaries, and
+        Robin approximating Dirichlet or Neumann on the remaining ones. This method
+        returns the indices of the west and east boundaries, which are the Robin
+        indices.
 
         """
         bounds = self.domain_boundary_sides(g)
         return bounds.west + bounds.east
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns displacement values in the x-direction of the west and east
-        boundaries."""
+        """Assigns displacement values in the x-direction of the Dirichlet boundaries."""
         values = np.zeros((self.nd, bg.num_cells))
         values[0, self.dir_inds(bg)] = 42
         return values.ravel("F")
 
     def _bc_values_scalar(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns scalar values on the west and east boundaries."""
+        """Assigns scalar values on the Dirichlet boundaries."""
         values = np.zeros(bg.num_cells)
         values[self.dir_inds(bg)] = 42
         return values
@@ -169,17 +174,22 @@ class BCValuesLeftSide:
 class BCRobin:
     """Set Dirichlet and Robin for momentum balance and mass and energy balance.
 
-    Sets Dirichlet on the west and east boundaries, and Robin on the top and bottom
-    boundaries. The value of the Robin weight is determined from the parameter "alpha"
-    in the params dictionary. This class also sets Robin boundary values.
+    Sets Dirichlet on dir_inds-boundaries, and Robin on the remaining ones. The value of
+    the Robin weight is determined from the parameter "alpha" in the params dictionary.
+    This class also sets Robin boundary values.
 
-    This class is common for all the model classes that enters into testing Robin limit
+    This class is common for all the test classes that enters into testing Robin limit
     cases.
 
     """
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Sets Robin conditions for the test setup."""
+        """Sets Robin and Dirichlet conditions for the test setup.
+
+        Sets Dirichlet boundary condition type on the Dirichlet index-boundaries and
+        Robin on all others.
+
+        """
         bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "rob")
         bc.is_rob[:, self.dir_inds(sd)] = False
@@ -194,8 +204,8 @@ class BCRobin:
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Helper function for setting boundary conditions on scalar fields.
 
-        The function sets Dirichlet on the west and east boundary and Robin on all other
-        boundaries.
+        Sets Dirichlet boundary condition type on the Dirichlet index-boundaries and
+        Robin on all others.
 
         """
         bounds = self.domain_boundary_sides(sd)
@@ -214,25 +224,19 @@ class BCRobin:
 
 
 class BCNeumannReference:
-    """Set Dirichlet and Neumann for momentum balance and mass and energy balance.
-
-    Sets Dirichlet on the west and east boundaries, and Neumann on top and bottom.
-
-    """
+    """Set Dirichlet and Neumann for momentum balance and mass and energy balance."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Assigns Neumann and Dirichlet boundaries for the Neumann reference setup."""
         bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "neu")
-        bc.is_neu[:, self.dir_inds(sd)] = False
-        bc.is_dir[:, self.dir_inds(sd)] = True
+        bc = pp.BoundaryConditionVectorial(sd, self.dir_inds(sd), "dir")
         return bc
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Helper function for setting boundary conditions on scalar fields.
 
-        The function sets Dirichlet on the west boundary, and Neumann on all other
-        boundaries.
+        The function sets Dirichlet on the Dirichlet index boundaries, and Neumann on
+        all others.
 
         """
 
@@ -248,11 +252,11 @@ class BCNeumannReference:
 
 class BCValuesFlux:
     def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns Fourier flux values on top and bottom boundary."""
+        """Assigns Fourier flux values on Robin index boundaries."""
         return self._bc_values_scalar_flux(bg)
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns Darcy flux values on top and bottom boundary."""
+        """Assigns Darcy flux values on Robin index boundaries."""
         return self._bc_values_scalar_flux(bg)
 
     def _bc_values_scalar_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -265,9 +269,9 @@ class BCValuesFlux:
             # integrated flux (volume) and being compared to alpha * u, since the Robin
             # condition is on the form sigma * n + alpha * u = G and the first term is
             # negligible for large alpha.
-            volumes = bg.cell_volumes[self.not_dir_inds(bg)]
+            volumes = bg.cell_volumes[self.rob_inds(bg)]
             val *= volumes * self.params["alpha"]
-        values[self.not_dir_inds(bg)] = val
+        values[self.rob_inds(bg)] = val
         return values.ravel("F")
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -281,9 +285,9 @@ class BCValuesFlux:
             # integrated flux (volume) and being compared to alpha * u, since the Robin
             # condition is on the form sigma * n + alpha * u = G and the first term is
             # negligible for large alpha.
-            volumes = bg.cell_volumes[self.not_dir_inds(bg)]
+            volumes = bg.cell_volumes[self.rob_inds(bg)]
             val *= volumes * self.params["alpha"]
-        values[0, self.not_dir_inds(bg)] = val
+        values[0, self.rob_inds(bg)] = val
         return values.ravel("F")
 
 
@@ -307,11 +311,11 @@ class BCDirichletReference:
         return bc
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns displacement values in the x-direction of the top and bottom boundary
-        sides."""
+        """Assigns displacement values in the x-direction of the Robin index
+        boundaries."""
         values = super().bc_values_displacement(bg=bg)
         values = values.reshape((self.nd, bg.num_cells), order="F")
-        inds = self.not_dir_inds(bg)
+        inds = self.rob_inds(bg)
         values[0, inds] = 24
         return values.ravel("F")
 
@@ -327,15 +331,15 @@ class BCDirichletReference:
         """
         # Call super to get values for Dirichlet boundaries.
         values = super()._bc_values_scalar(bg)
-        values[self.not_dir_inds(bg)] = 24
+        values[self.rob_inds(bg)] = 24
         return values
 
 
 class CommonMassEnergyBalance(
     SquareDomainOrthogonalFractures,
-    BCValuesLeftSide,
+    BCValuesDirichletIndices,
     BCValuesFlux,
-    pp.models.mass_and_energy_balance.MassAndEnergyBalance,
+    MassAndEnergyBalance,
 ):
     """Base mass and energy balance setup.
 
@@ -347,14 +351,19 @@ class CommonMassEnergyBalance(
 
 
 class MassAndEnergyBalanceRobin(BCRobin, CommonMassEnergyBalance):
-    """Mass and energy balance with Robin conditions on top and bottom boundary."""
+    """Mass and energy balance with Robin and Dirichlet conditions.
+
+    The methods dir_inds and rob_inds determine which boundaries are Dirichlet and which
+    are Robin.
+
+    """
 
 
 class CommonMomentumBalance(
     SquareDomainOrthogonalFractures,
-    BCValuesLeftSide,
+    BCValuesDirichletIndices,
     BCValuesFlux,
-    pp.models.momentum_balance.MomentumBalance,
+    MomentumBalance,
 ):
     """Base momentum balance setup.
 
@@ -366,7 +375,12 @@ class CommonMomentumBalance(
 
 
 class MomentumBalanceRobin(BCRobin, CommonMomentumBalance):
-    """Momentum balance with Robin conditions on top and bottom boundary."""
+    """Momentum balance with Robin and Dirichlet conditions.
+
+    The methods dir_inds and rob_inds determine which boundaries are Dirichlet and which
+    are Robin.
+
+    """
 
 
 def run_model(balance_class, alpha):
@@ -381,10 +395,10 @@ def run_model(balance_class, alpha):
     pp.run_time_dependent_model(instance, params)
     sd = instance.mdg.subdomains(dim=2)[0]
 
-    try:
+    if isinstance(instance, MomentumBalance):
         displacement = instance.displacement([sd]).value(instance.equation_system)
         return {"displacement": displacement}
-    except AttributeError:
+    elif isinstance(instance, MassAndEnergyBalance):
         pressure = instance.pressure([sd]).value(instance.equation_system)
         temperature = instance.temperature([sd]).value(instance.equation_system)
         return {"temperature": temperature, "pressure": pressure}
@@ -411,7 +425,7 @@ def test_robin_limit_case(rob_class, reference_class, alpha):
     We test this for momentum balance and mass and energy balance.
 
     Common for all model setups is that all of them have Dirichlet conditions on the
-    west an east boundaries.
+    boundaries returned by the method dir_inds.
 
     The model class setups with documentation are further up in this document.
 
