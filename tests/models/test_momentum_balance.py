@@ -360,6 +360,10 @@ def verify_elastoplastic_deformation(
 
 
     """
+    # Get the indices of the tangential components in global coordinates. Hardcoded
+    # based on the assumption that the fracture has constant y-coordinate.
+    fracture_ind = 1
+    tang_ind = np.setdiff1d(np.arange(nd), fracture_ind)
     nd = setup.nd  # Shorthand for number of dimensions.
     matrix = setup.mdg.subdomains(dim=nd)[0]
     fractures = setup.mdg.subdomains(dim=nd - 1)
@@ -392,7 +396,7 @@ def verify_elastoplastic_deformation(
         .value(setup.equation_system)
         .reshape((nd, -1), order="F")
     )
-    u_top = u_domain[:, matrix.cell_centers[1] > 0.5]
+    u_top = u_domain[:, matrix.cell_centers[fracture_ind] > 0.5]
     # Compare the computed values to the expected values.
     if compare_means:
         assert np.allclose(np.mean(u_e, axis=1), u_e_expected, rtol=tols[0])
@@ -414,10 +418,8 @@ def verify_elastoplastic_deformation(
         expected = np.reshape(u_top_expected, (nd, 1))[mask_u]
         assert np.allclose(u_top[mask_u], expected, rtol=tols[2])
 
-    # Traction on the fracture. We check that the traction is zero for open cells and
-    # that tangential traction is equal to the normal traction times the tangential
-    # stiffness for closed cells.
-    open_cells = u_p[1] > 1e-10
+    # Traction on the fracture.
+    open_cells = u_p[fracture_ind] > 1e-10
     traction = (
         setup.characteristic_contact_traction([fracture])
         * setup.contact_traction([fracture])
@@ -425,12 +427,7 @@ def verify_elastoplastic_deformation(
     # Rotate to global coordinates.
     traction = rot @ traction
     traction = (sign * traction).reshape((nd, -1), order="F")
-    # Get the indices of the tangential components. Hardcoded based on the assumption
-    # that the fracture has constant y-coordinate.
-    if nd == 3:
-        tang_ind = np.array([0, 2])
-    else:
-        tang_ind = np.array([0])
+
     # The two next assertions should hold for all cells. Thus, we use a very low
     # tolerance and don't compare means.
     # Check that tangential part of traction and u_e are parallel and have relative
@@ -444,7 +441,6 @@ def verify_elastoplastic_deformation(
     assert np.allclose(traction[:, open_cells], 0, atol=1e-10)
     # Compare to expected values.
     assert np.allclose(traction, np.reshape(traction_expected, (nd, 1)), rtol=tols[3])
-
     return u_e, u_p, u_top, traction
 
 
@@ -476,8 +472,7 @@ def test_elastoplastic_2d_single_fracture(
             coordinates.
         u_p_expected: Expected values of the plastic displacement jump in global
             coordinates.
-        u_expected: Expected value of displacement in the x direction of cells above the
-            fracture.
+        u_expected: Expected value of displacement of cells above the fracture.
         traction_expected: Expected value of traction on the fracture in global
             coordinates.
 
@@ -490,7 +485,6 @@ def test_elastoplastic_2d_single_fracture(
         "material_constants": {"solid": solid},
         "u_north": u_north,
         "fracture_indices": [1],  # Single fracture with constant y coordinate.
-        # "meshing_arguments": {"cell_size": 0.2},
     }
 
     # Create model and run simulation.
@@ -572,13 +566,12 @@ def test_elastoplastic_3d_single_fracture(
         "material_constants": {"solid": solid},
         "fracture_indices": [1],
         "u_north": u_north,
-        # "nd": 3,
     }
 
     # Create model and run simulation
     setup = ElastoplasticModel3d(params)
     pp.run_time_dependent_model(setup, params)
-    *_, traction = verify_elastoplastic_deformation(
+    verify_elastoplastic_deformation(
         setup,
         u_e_expected,
         u_p_expected,
