@@ -3,20 +3,41 @@ import pytest
 import porepy as pp
 import numpy as np
 import scipy.sparse as sps
+from copy import deepcopy
 
-# module level keyword
+# module level keyword which identifies the placement of parameters and discretization
+# matrices in the dictionary.
 KEYWORD = "mechanics"
 
 
 def _discretize_get_matrices(grid: pp.Grid, d: dict):
     """Helper function to discretize with Tpsa and return the dictionary of
     discretization matrices.
+
+    Parameters:
+        grid: Grid to discretize.
+        d: Dictionary with parameters.
+
+    Returns:
+        Dictionary of discretization matrices.
+
     """
     discr = pp.Tpsa(KEYWORD)
     discr.discretize(grid, d)
     return d[pp.DISCRETIZATION_MATRICES][KEYWORD]
 
-def _set_uniform_bc(grid, d, bc_type, include_rot=True):
+def _set_uniform_bc(grid: pp.Grid, d: dict, bc_type: Literal['dir', 'neu', 'rob'],
+    include_rot: Optional[bool]=True):
+    """Set a uniform boundary condition on all faces of the grid.
+
+    Parameters:
+        grid: Grid to set boundary conditions on.
+        d: Dictionary with parameters. The boundary conditions objects are added to
+            this dictionary.
+        bc_type: Type of boundary condition. One of 'dir', 'neu', 'rob'.
+        include_rot: Whether to include a boundary condition for the rotation variable.
+
+    """
     face_ind = grid.get_all_boundary_faces()
     nf = face_ind.size
     match bc_type:
@@ -788,28 +809,6 @@ def test_cosserat_3d():
     assert np.allclose(bc_rot[:12].toarray(), known_values)
 
 
-def _set_uniform_bc_values(g: pp.Grid, bc_type: Literal['dir', 'neu']):
-    if g.dim == 2:
-        val = np.array([1, -2])
-    else:
-        val = np.array([1, -2, 3])
-
-    bc_values = np.zeros((g.dim, g.num_faces))
-    bf = g.get_boundary_faces()
-
-    sgn, _ = g.signs_and_cells_of_boundary_faces(bf)
-
-    # Unit normal vectors
-    n = g.face_normals / np.linalg.norm(g.face_normals, axis=0)
-    for d in range(g.dim):
-        if bc_type == "dir":
-            bc_values[d, bf] = val[d]
-        elif bc_type == "neu":
-            bc_values[d, bf] = val[d] * sgn * n[d, bf]
-
-    return bc_values, val
-
-
 def _set_uniform_parameters(g: pp.Grid) -> dict:
     """Set up a uniform parameter dictionary for the TPSA problem.
     """
@@ -912,6 +911,27 @@ def _assemble_matrices(matrices: dict, g: pp.Grid) -> tuple[sps.sparray, sps.spa
     )
 
     return flux, rhs_matrix, div, accum
+
+def _solve(flux: sps.sparray, rhs_matrix: sps.sparray, div: sps.sparray, accum: sps.sparray, bound_vec: np.ndarray) -> np.ndarray:
+    """Solve the TPSA problem.
+
+    Parameters:
+        flux: Discretization of the face terms as a block matrix.
+        rhs_matrix: Discretization of the boundary conditions.
+        div: Divergence matrix for the face terms.
+        accum: Accumulation matrix for the cell center terms.
+        bound_vec: Array of boundary condition values.
+
+    Returns:
+        np.ndarray: Array of cell center values.
+    """
+    b = -div @ rhs_matrix @ bound_vec
+
+    # Assemble and solve. The minus sign on accum follows from the definition of the
+    # governing equations in the paper.
+    A = div @ flux - accum
+    x = sps.linalg.spsolve(A, b)  
+    return x  
 
 
 def _set_bc_by_direction(
@@ -1058,12 +1078,7 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, extension: bool):
 
     # Boundary values, map to right-hand side
     bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
-    b = -div @ rhs_matrix @ bound_vec
-
-    # Assemble and solve. The minus sign on accum follows from the definition of the
-    # governing equations in the paper.
-    A = div @ flux - accum
-    x = sps.linalg.spsolve(A, b)
+    x = _solve(flux, rhs_matrix, div, accum, bound_vec)
 
     if extension:
         # Positive x-direction, negative y- (and z-) direction
@@ -1095,7 +1110,15 @@ def test_translation(g: pp.Grid):
 
     # Set type and values of boundary conditions. No rotation.
     _set_uniform_bc(g, d, "dir", include_rot=False)
-    bc_values, disp = _set_uniform_bc_values(g, "dir")
+    if g.dim == 2:
+        disp = np.array([1, -2])
+    else:
+        disp = np.array([1, -2, 3])
+
+    bc_values = np.zeros((g.dim, g.num_faces))
+    bf = g.get_boundary_faces()
+    for dim in range(g.dim):
+        bc_values[dim, bf] = disp[dim]
 
     # Discretize, assemble matrices
     matrices = _discretize_get_matrices(g, d)
@@ -1106,9 +1129,8 @@ def test_translation(g: pp.Grid):
     else:
         n_rot_face = g.num_faces * g.dim
 
-    # Boundary values, map to right-hand side
+    # Boundary values.
     bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
-    b = -div @ rhs_matrix @ bound_vec
 
     # Check: Uniform translation should result in a stress-free state on all faces. This
     # is not the case for rotation and solid mass, which are only zero when integrated
@@ -1123,9 +1145,7 @@ def test_translation(g: pp.Grid):
     )
     assert np.allclose(v, 0)
 
-    A = div @ flux - accum
-
-    x = sps.linalg.spsolve(A, b)
+    x = _solve(flux, rhs_matrix, div, accum, bound_vec)
 
     # Check that the displacement is as expected
     assert np.allclose(x[: g.dim * g.num_cells : g.dim], disp[0])
