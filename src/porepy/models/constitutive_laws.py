@@ -4405,6 +4405,9 @@ class ElastoPlasticFractureDeformation:
             Operator representing the elastic displacement jump.
 
         """
+        # The jumps are defined in local coordinates. Prepare to project the tangential
+        # and normal components of the displacement jump from (nd-1) and 1 dimensions,
+        # respectively, to nd dimensions.
         basis = self.basis(subdomains, dim=self.nd)  # type: ignore[call-arg]
         local_basis = self.basis(subdomains, dim=self.nd - 1)  # type: ignore[call-arg]
         tangential_to_nd = pp.ad.sum_operator_list(
@@ -4445,8 +4448,9 @@ class ElastoPlasticFractureDeformation:
 
         stiffness = self.fracture_tangential_stiffness(subdomains)
         stiffness_value = stiffness.value(self.equation_system)
-        if np.any(stiffness_value < 0):
-            # Negative stiffness indicates no elastic tangential deformation.
+        if np.any(np.isclose(stiffness_value, -1.0, atol=1e-12, rtol=1e-12)):
+            # Stiffness=-1 indicates no elastic tangential deformation. Small tolerances
+            # are used to avoid numerical issues, but allowing for a float value.
             num_cells = sum(sd.num_cells for sd in subdomains)
             zero_u_t = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
             zero_u_t.set_name("zero_elastic_tangential_fracture_deformation")
