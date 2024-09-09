@@ -4442,8 +4442,7 @@ class ElastoPlasticFractureDeformation:
         """
         nd_vec_to_tangential = self.tangential_component(subdomains)
         t_t = nd_vec_to_tangential @ self.contact_traction(subdomains)
-        # Since contact traction is nondimensional, the stiffness must be scaled by the
-        # characteristic contact traction.
+
         stiffness = self.fracture_tangential_stiffness(subdomains)
         stiffness_value = stiffness.value(self.equation_system)
         if np.any(stiffness_value < 0):
@@ -4452,6 +4451,8 @@ class ElastoPlasticFractureDeformation:
             zero_u_t = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
             zero_u_t.set_name("zero_elastic_tangential_fracture_deformation")
             return zero_u_t
+        # Since contact traction is nondimensional, the stiffness must be scaled by the
+        # characteristic contact traction.
         scaled_stiffness = stiffness / self.characteristic_contact_traction(subdomains)
         u_t = t_t / scaled_stiffness
         u_t.set_name("elastic_tangential_fracture_deformation")

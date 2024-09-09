@@ -170,7 +170,7 @@ def test_restart(solid_vals: dict, north_displacement: float):
     # Remove temporary visualization folder.
     shutil.rmtree(visualization_dir)
 
-    # Clean up the reference data/
+    # Clean up the reference data.
     for f in pvd_files + vtu_files + json_files:
         src = reference_dir / Path(f.stem + f.suffix)
         src.unlink()

@@ -236,6 +236,7 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
         sides = self.domain_boundary_sides(boundary_grid)
         values = np.zeros((self.nd, boundary_grid.num_cells))
         if boundary_grid.dim < self.nd - 1:
+            # No displacement is implemented on grids of co-dimension >= 2.
             return values.ravel("F")
 
         if "uy_north" in self.params or "uy_south" in self.params:
