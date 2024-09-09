@@ -1167,10 +1167,81 @@ def test_boundary_displacement_recovery():
     pass
 
 
-def test_robin_neumann_dirichlet_consistency():
-    """TODO: Placeholder test, to be implemented.
-
-    Test that a Robin boundary condition approaches the Dirichlet limit for large
+@pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
+def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
+    """Test that a Robin boundary condition approaches the Dirichlet limit for large
     parameter values, and that Robin is equivalent to Neumann for a zero value.
+
+    Parameters:
+        g: Grid object.
     """
-    pass
+    g.compute_geometry()
+
+    d = _set_uniform_parameters(g)
+
+    bf = g.get_all_boundary_faces()
+
+    bc_values = np.zeros((g.dim, g.num_faces))
+
+    vals = np.random.rand(g.dim, bf.size)
+
+    left = np.where(g.face_centers[0] == g.face_centers[0].min())[0]
+
+    bc_type = np.zeros(bf.size, dtype="object")
+    bc_type[:] = "dir"
+
+    bc_type_rob = bc_type.copy()
+    bc_type_rob[left] = "rob"
+
+    bc_type_neu = bc_type.copy()
+    bc_type_neu[left] = "neu"
+
+    bc_dir = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type)
+    bc_rob = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type_rob)
+    bc_neu = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type_neu)
+
+
+    bc_values_disp = np.zeros((g.dim, g.num_faces))
+    bc_values_disp[:, bf] = vals
+    bc_values_rot = np.zeros(g.num_faces) if g.dim == 2 else np.zeros(g.dim* g.num_faces)
+    bc_values = np.hstack((bc_values_disp.ravel("F"), bc_values_rot))
+
+    # Discretize, assemble matrices
+    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_dir
+    matrices_dir = deepcopy(_discretize_get_matrices(g, d))
+    flux_dir, rhs_matrix_dir, div, accum = _assemble_matrices(matrices_dir, g)
+    x_dir = _solve(flux_dir, rhs_matrix_dir, div, accum, bc_values)
+    # Set the Robin weight to a large value, such that the Robin condition approaches
+    # the Dirichlet condition.
+    high_weight = 1e12
+    bc_rob.robin_weight[0, 0] = high_weight
+    bc_rob.robin_weight[1, 1] = high_weight
+    if g.dim == 3:
+        bc_rob.robin_weight[2, 2] = high_weight
+
+    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_rob
+    matrices_high = deepcopy(_discretize_get_matrices(g, d))
+    flux_high, rhs_matrix_high, div, accum = _assemble_matrices(matrices_high, g)
+    x_rob_high = _solve(flux_high, rhs_matrix_high, div, accum, bc_values)
+    # The displacement should be close to the Dirichlet value
+    assert np.allclose(x_rob_high, x_dir, rtol=5e-3)
+
+    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_neu
+    matrices_neu = deepcopy(_discretize_get_matrices(g, d))
+    flux_neu, rhs_matrix_neu, div, accum = _assemble_matrices(matrices_neu, g)
+    x_neu = _solve(flux_neu, rhs_matrix_neu, div, accum, bc_values)
+
+    # Set the Robin weight to zero, such that the Robin condition approaches the Neumann
+    # condition
+    bc_rob.robin_weight[0, 0] = 0
+    bc_rob.robin_weight[1, 1] = 0
+    if g.dim == 3:
+        bc_rob.robin_weight[2, 2] = 0
+
+    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_rob
+    matrices = _discretize_get_matrices(g, d)
+    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
+    x_rob_low = _solve(flux, rhs_matrix, div, accum, bc_values)
+
+    # The displacement should be close to the Dirichlet value
+    assert np.allclose(x_rob_low, x_neu)
