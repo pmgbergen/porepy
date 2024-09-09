@@ -1,3 +1,11 @@
+"""Tests for the Tpsa discretization. Contains two sets of tests:
+    1. TestTpsaTailoredGrid is a clas that defines a cell of two grids and verifies the
+       discretization matrices for the Tpsa discretization. Both interior cells and all
+       types of boundary conditions are tested.
+    2. Various other tests that probe different aspects of the Tpsa discretization.
+       These are not grouped in a class, but are individual tests.
+
+"""
 from typing import Optional, Literal
 import pytest
 import porepy as pp
@@ -809,13 +817,233 @@ def test_cosserat_3d():
     assert np.allclose(bc_rot[:12].toarray(), known_values)
 
 
-def _set_uniform_parameters(g: pp.Grid) -> dict:
-    """Set up a uniform parameter dictionary for the TPSA problem.
+@pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
+@pytest.mark.parametrize("driving_bc_type", ["dir", "neu"])
+@pytest.mark.parametrize("extension", [False, True])
+def test_compression_tension(g: pp.Grid, driving_bc_type: str, extension: bool):
+    """Assign a compressive or tensile force, check that the resulting displacement is
+    in the correct direction, and that the total pressure is negative.
+
+    The foce is compressive on the south, east and (if 3d) bottom faces, the remaining
+    faces having neutral conditions. Check that this results in displacement in the
+    negative x-direction and positive y- (and z) direction. The total pressure should be
+    negative, while EK cannot surmise the correct sign of the rotation by physical
+    intuition. The grid is assumed to be Cartesian (or else the discretization is
+    inconsistent, and anything can happen), in which case the face normal vectors will
+    point into the domain on the south boundary, out of the domain on the east boundary.
+
+    Parameters:
+        g: Grid object.
+        driving_bc_type: Type of boundary condition to apply.
+        extension: If True, the boundary conditions are reversed, such that the force is
+            tensile, rather than compressive.
+
     """
     # EK note to self: For the 3d test of compression with a unit value for the elastic
     # moduli, there was an unexpected sign in the direction of the displacement, but
     # this changed when moving to a stiffer material. This does not sound unreasonable,
     # but is hereby noted for future reference.
+
+    g.compute_geometry()
+
+    d = _set_uniform_parameters(g)
+    if g.dim == 2:
+        dir_list = [driving_bc_type, driving_bc_type, "dir", "dir"]
+    else:
+        dir_list = [
+            driving_bc_type,
+            driving_bc_type,
+            "dir",
+            "dir",
+            driving_bc_type,
+            "dir",
+        ]
+    bc_values = _set_bc_by_direction(g, d, *dir_list)
+
+    # Tensile if requested.
+    if extension:
+        bc_values *= -1
+
+    # Discretize, assemble matrices
+    matrices = _discretize_get_matrices(g, d)
+    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
+
+    if g.dim == 2:
+        n_rot_face = g.num_faces
+        rot_dim = 1
+    else:
+        n_rot_face = g.num_faces * g.dim
+        rot_dim = g.dim
+
+    # Boundary values, map to right-hand side
+    bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
+    x = _solve(flux, rhs_matrix, div, accum, bound_vec)
+
+    if extension:
+        # Positive x-direction, negative y- (and z-) direction
+        assert np.all(x[: g.dim * g.num_cells : g.dim] > 0)
+        assert np.all(x[1 : g.dim * g.num_cells : g.dim] < 0)
+        if g.dim == 3:
+            assert np.all(x[2 : g.dim * g.num_cells : g.dim] < 0)
+
+        # Total pressure should be positive (expansion)
+        assert np.all(x[(g.dim + rot_dim) * g.num_cells :] > 0)
+    else:
+        assert np.all(x[: g.dim * g.num_cells : g.dim] < 0)
+        assert np.all(x[1 : g.dim * g.num_cells : g.dim] > 0)
+        if g.dim == 3:
+            assert np.all(x[2 : g.dim * g.num_cells : g.dim] > 0)
+
+        assert np.all(x[(g.dim + rot_dim) * g.num_cells :] < 0)
+
+
+@pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
+def test_translation(g: pp.Grid):
+    """Set boundary conditions that corresponds to a translation of the grid, check that
+    the interior cells follow the translation, and that the resulting system is
+    stress-free.
+    """
+    g.compute_geometry()
+
+    d = _set_uniform_parameters(g)
+
+    # Set type and values of boundary conditions. No rotation.
+    _set_uniform_bc(g, d, "dir", include_rot=False)
+    if g.dim == 2:
+        disp = np.array([1, -2])
+    else:
+        disp = np.array([1, -2, 3])
+
+    bc_values = np.zeros((g.dim, g.num_faces))
+    bf = g.get_boundary_faces()
+    for dim in range(g.dim):
+        bc_values[dim, bf] = disp[dim]
+
+    # Discretize, assemble matrices
+    matrices = _discretize_get_matrices(g, d)
+    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
+
+    if g.dim == 2:
+        n_rot_face = g.num_faces
+    else:
+        n_rot_face = g.num_faces * g.dim
+
+    # Boundary values.
+    bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
+
+    # Check: Uniform translation should result in a stress-free state on all faces. This
+    # is not the case for rotation and solid mass, which are only zero when integrated
+    # over individual cells.
+    disp_cells = np.zeros(g.num_cells * g.dim)
+    disp_cells[:: g.dim] = disp[0]
+    disp_cells[1 :: g.dim] = disp[1]
+    if g.dim == 3:
+        disp_cells[2 :: g.dim] = disp[2]
+    v = matrices["stress"] @ disp_cells + matrices["bound_stress"] @ bc_values.ravel(
+        "F"
+    )
+    assert np.allclose(v, 0)
+
+    x = _solve(flux, rhs_matrix, div, accum, bound_vec)
+
+    # Check that the displacement is as expected
+    assert np.allclose(x[: g.dim * g.num_cells : g.dim], disp[0])
+    assert np.allclose(x[1 : g.dim * g.num_cells : g.dim], disp[1])
+    if g.dim == 3:
+        assert np.allclose(x[2 : g.dim * g.num_cells : g.dim], disp[2])
+
+    # Both the rotation and the total pressure should be zero
+    assert np.allclose(x[g.dim * g.num_cells :], 0)
+
+
+@pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
+def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
+    """Test that a Robin boundary condition approaches the Dirichlet limit for large
+    parameter values, and that Robin is equivalent to Neumann for a zero value.
+
+    Parameters:
+        g: Grid object.
+    """
+    g.compute_geometry()
+
+    d = _set_uniform_parameters(g)
+
+    bf = g.get_all_boundary_faces()
+
+    bc_values = np.zeros((g.dim, g.num_faces))
+
+
+    left = np.where(g.face_centers[0] == g.face_centers[0].min())[0]
+
+    # Define three sets of boundary condition, with differing types on the left
+    # boundary.
+    bc_type = np.zeros(bf.size, dtype="object")
+    bc_type[:] = "dir"
+    bc_type_rob = bc_type.copy()
+    bc_type_rob[left] = "rob"
+    bc_type_neu = bc_type.copy()
+    bc_type_neu[left] = "neu"
+
+    bc_dir = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type)
+    bc_rob = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type_rob)
+    bc_neu = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type_neu)
+
+    # Random values for the boundary conditions
+    vals = np.random.rand(g.dim, bf.size)
+    bc_values_disp = np.zeros((g.dim, g.num_faces))
+    bc_values_disp[:, bf] = vals
+    bc_values_rot = np.zeros(g.num_faces) if g.dim == 2 else np.zeros(g.dim* g.num_faces)
+    bc_values = np.hstack((bc_values_disp.ravel("F"), bc_values_rot))
+
+    # Discretize, assemble matrices
+    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_dir
+    matrices_dir = deepcopy(_discretize_get_matrices(g, d))
+    flux_dir, rhs_matrix_dir, div, accum = _assemble_matrices(matrices_dir, g)
+    x_dir = _solve(flux_dir, rhs_matrix_dir, div, accum, bc_values)
+
+    # For future reference: EK has verified that, as the Robin weight is increased, the
+    # discretization matrices of the Dirichlet and Robin cases do converge. The rates
+    # seems to be faster for the matrices than for the solution, but this is not
+    # unreasonable.
+
+    # Set the Robin weight to a large value, such that the Robin condition approaches
+    # the Dirichlet condition.
+    high_weight = 1e15
+    bc_rob.robin_weight[0, 0] = high_weight
+    bc_rob.robin_weight[1, 1] = high_weight
+    if g.dim == 3:
+        bc_rob.robin_weight[2, 2] = high_weight
+
+    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_rob
+    matrices_high = deepcopy(_discretize_get_matrices(g, d))
+    flux_high, rhs_matrix_high, div, accum = _assemble_matrices(matrices_high, g)
+    x_rob_high = _solve(flux_high, rhs_matrix_high, div, accum, bc_values)
+    # The displacement should be close to the Dirichlet value
+    assert np.allclose(x_rob_high, x_dir, rtol=1e-2)
+
+    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_neu
+    matrices_neu = deepcopy(_discretize_get_matrices(g, d))
+    flux_neu, rhs_matrix_neu, div, accum = _assemble_matrices(matrices_neu, g)
+    x_neu = _solve(flux_neu, rhs_matrix_neu, div, accum, bc_values)
+
+    # Set the Robin weight to zero, such that the Robin condition approaches the Neumann
+    # condition
+    bc_rob.robin_weight[0, 0] = 0
+    bc_rob.robin_weight[1, 1] = 0
+    if g.dim == 3:
+        bc_rob.robin_weight[2, 2] = 0
+
+    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_rob
+    matrices = _discretize_get_matrices(g, d)
+    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
+    x_rob_low = _solve(flux, rhs_matrix, div, accum, bc_values)
+
+    # The displacement should be close to the Neumann value
+    assert np.allclose(x_rob_low, x_neu)
+
+def _set_uniform_parameters(g: pp.Grid) -> dict:
+    """Set up a uniform parameter dictionary for the TPSA problem.
+    """
     e = 100 * np.ones(g.num_cells)
     C = pp.FourthOrderTensor(e, e)
 
@@ -1022,226 +1250,3 @@ def _set_bc_by_direction(
     bc_val[:, face_ind] = values
     return bc_val
 
-
-@pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
-@pytest.mark.parametrize("driving_bc_type", ["dir", "neu"])
-@pytest.mark.parametrize("extension", [False, True])
-def test_compression_tension(g: pp.Grid, driving_bc_type: str, extension: bool):
-    """Assign a compressive or tensile force, check that the resulting displacement is
-    in the correct direction, and that the total pressure is negative.
-
-    The foce is compressive on the south, east and (if 3d) bottom faces, the remaining
-    faces having neutral conditions. Check that this results in displacement in the
-    negative x-direction and positive y- (and z) direction. The total pressure should be
-    negative, while EK cannot surmise the correct sign of the rotation by physical
-    intuition. The grid is assumed to be Cartesian (or else the discretization is
-    inconsistent, and anything can happen), in which case the face normal vectors will
-    point into the domain on the south boundary, out of the domain on the east boundary.
-
-    Parameters:
-        g: Grid object.
-        driving_bc_type: Type of boundary condition to apply.
-        extension: If True, the boundary conditions are reversed, such that the force is
-            tensile, rather than compressive.
-
-    """
-    g.compute_geometry()
-
-    d = _set_uniform_parameters(g)
-    if g.dim == 2:
-        dir_list = [driving_bc_type, driving_bc_type, "dir", "dir"]
-    else:
-        dir_list = [
-            driving_bc_type,
-            driving_bc_type,
-            "dir",
-            "dir",
-            driving_bc_type,
-            "dir",
-        ]
-    bc_values = _set_bc_by_direction(g, d, *dir_list)
-
-    # Tensile if requested.
-    if extension:
-        bc_values *= -1
-
-    # Discretize, assemble matrices
-    matrices = _discretize_get_matrices(g, d)
-    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
-
-    if g.dim == 2:
-        n_rot_face = g.num_faces
-        rot_dim = 1
-    else:
-        n_rot_face = g.num_faces * g.dim
-        rot_dim = g.dim
-
-    # Boundary values, map to right-hand side
-    bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
-    x = _solve(flux, rhs_matrix, div, accum, bound_vec)
-
-    if extension:
-        # Positive x-direction, negative y- (and z-) direction
-        assert np.all(x[: g.dim * g.num_cells : g.dim] > 0)
-        assert np.all(x[1 : g.dim * g.num_cells : g.dim] < 0)
-        if g.dim == 3:
-            assert np.all(x[2 : g.dim * g.num_cells : g.dim] < 0)
-
-        # Total pressure should be positive (expansion)
-        assert np.all(x[(g.dim + rot_dim) * g.num_cells :] > 0)
-    else:
-        assert np.all(x[: g.dim * g.num_cells : g.dim] < 0)
-        assert np.all(x[1 : g.dim * g.num_cells : g.dim] > 0)
-        if g.dim == 3:
-            assert np.all(x[2 : g.dim * g.num_cells : g.dim] > 0)
-
-        assert np.all(x[(g.dim + rot_dim) * g.num_cells :] < 0)
-
-
-@pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
-def test_translation(g: pp.Grid):
-    """Set boundary conditions that corresponds to a translation of the grid, check that
-    the interior cells follow the translation, and that the resulting system is
-    stress-free.
-    """
-    g.compute_geometry()
-
-    d = _set_uniform_parameters(g)
-
-    # Set type and values of boundary conditions. No rotation.
-    _set_uniform_bc(g, d, "dir", include_rot=False)
-    if g.dim == 2:
-        disp = np.array([1, -2])
-    else:
-        disp = np.array([1, -2, 3])
-
-    bc_values = np.zeros((g.dim, g.num_faces))
-    bf = g.get_boundary_faces()
-    for dim in range(g.dim):
-        bc_values[dim, bf] = disp[dim]
-
-    # Discretize, assemble matrices
-    matrices = _discretize_get_matrices(g, d)
-    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
-
-    if g.dim == 2:
-        n_rot_face = g.num_faces
-    else:
-        n_rot_face = g.num_faces * g.dim
-
-    # Boundary values.
-    bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
-
-    # Check: Uniform translation should result in a stress-free state on all faces. This
-    # is not the case for rotation and solid mass, which are only zero when integrated
-    # over individual cells.
-    disp_cells = np.zeros(g.num_cells * g.dim)
-    disp_cells[:: g.dim] = disp[0]
-    disp_cells[1 :: g.dim] = disp[1]
-    if g.dim == 3:
-        disp_cells[2 :: g.dim] = disp[2]
-    v = matrices["stress"] @ disp_cells + matrices["bound_stress"] @ bc_values.ravel(
-        "F"
-    )
-    assert np.allclose(v, 0)
-
-    x = _solve(flux, rhs_matrix, div, accum, bound_vec)
-
-    # Check that the displacement is as expected
-    assert np.allclose(x[: g.dim * g.num_cells : g.dim], disp[0])
-    assert np.allclose(x[1 : g.dim * g.num_cells : g.dim], disp[1])
-    if g.dim == 3:
-        assert np.allclose(x[2 : g.dim * g.num_cells : g.dim], disp[2])
-
-    # Both the rotation and the total pressure should be zero
-    assert np.allclose(x[g.dim * g.num_cells :], 0)
-
-
-def test_boundary_displacement_recovery():
-    """TODO: Placeholder test, to be implemented.
-
-    Verify that, for a numerically computed solution, displacement values at the
-    boundaries can be recovered. This test is most relevant for Dirichlet conditions, as
-    this is the case relevant for fractures, where the recovery functionality is needed.
-    """
-    pass
-
-
-@pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
-def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
-    """Test that a Robin boundary condition approaches the Dirichlet limit for large
-    parameter values, and that Robin is equivalent to Neumann for a zero value.
-
-    Parameters:
-        g: Grid object.
-    """
-    g.compute_geometry()
-
-    d = _set_uniform_parameters(g)
-
-    bf = g.get_all_boundary_faces()
-
-    bc_values = np.zeros((g.dim, g.num_faces))
-
-    vals = np.random.rand(g.dim, bf.size)
-
-    left = np.where(g.face_centers[0] == g.face_centers[0].min())[0]
-
-    bc_type = np.zeros(bf.size, dtype="object")
-    bc_type[:] = "dir"
-
-    bc_type_rob = bc_type.copy()
-    bc_type_rob[left] = "rob"
-
-    bc_type_neu = bc_type.copy()
-    bc_type_neu[left] = "neu"
-
-    bc_dir = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type)
-    bc_rob = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type_rob)
-    bc_neu = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type_neu)
-
-
-    bc_values_disp = np.zeros((g.dim, g.num_faces))
-    bc_values_disp[:, bf] = vals
-    bc_values_rot = np.zeros(g.num_faces) if g.dim == 2 else np.zeros(g.dim* g.num_faces)
-    bc_values = np.hstack((bc_values_disp.ravel("F"), bc_values_rot))
-
-    # Discretize, assemble matrices
-    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_dir
-    matrices_dir = deepcopy(_discretize_get_matrices(g, d))
-    flux_dir, rhs_matrix_dir, div, accum = _assemble_matrices(matrices_dir, g)
-    x_dir = _solve(flux_dir, rhs_matrix_dir, div, accum, bc_values)
-    # Set the Robin weight to a large value, such that the Robin condition approaches
-    # the Dirichlet condition.
-    high_weight = 1e12
-    bc_rob.robin_weight[0, 0] = high_weight
-    bc_rob.robin_weight[1, 1] = high_weight
-    if g.dim == 3:
-        bc_rob.robin_weight[2, 2] = high_weight
-
-    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_rob
-    matrices_high = deepcopy(_discretize_get_matrices(g, d))
-    flux_high, rhs_matrix_high, div, accum = _assemble_matrices(matrices_high, g)
-    x_rob_high = _solve(flux_high, rhs_matrix_high, div, accum, bc_values)
-    # The displacement should be close to the Dirichlet value
-    assert np.allclose(x_rob_high, x_dir, rtol=5e-3)
-
-    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_neu
-    matrices_neu = deepcopy(_discretize_get_matrices(g, d))
-    flux_neu, rhs_matrix_neu, div, accum = _assemble_matrices(matrices_neu, g)
-    x_neu = _solve(flux_neu, rhs_matrix_neu, div, accum, bc_values)
-
-    # Set the Robin weight to zero, such that the Robin condition approaches the Neumann
-    # condition
-    bc_rob.robin_weight[0, 0] = 0
-    bc_rob.robin_weight[1, 1] = 0
-    if g.dim == 3:
-        bc_rob.robin_weight[2, 2] = 0
-
-    d[pp.PARAMETERS][KEYWORD]["bc"] = bc_rob
-    matrices = _discretize_get_matrices(g, d)
-    flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
-    x_rob_low = _solve(flux, rhs_matrix, div, accum, bc_values)
-
-    # The displacement should be close to the Dirichlet value
-    assert np.allclose(x_rob_low, x_neu)
