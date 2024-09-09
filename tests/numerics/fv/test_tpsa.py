@@ -6,6 +6,7 @@
        These are not grouped in a class, but are individual tests.
 
 """
+
 from typing import Optional, Literal
 import pytest
 import porepy as pp
@@ -34,8 +35,13 @@ def _discretize_get_matrices(grid: pp.Grid, d: dict):
     discr.discretize(grid, d)
     return d[pp.DISCRETIZATION_MATRICES][KEYWORD]
 
-def _set_uniform_bc(grid: pp.Grid, d: dict, bc_type: Literal['dir', 'neu', 'rob'],
-    include_rot: Optional[bool]=True):
+
+def _set_uniform_bc(
+    grid: pp.Grid,
+    d: dict,
+    bc_type: Literal["dir", "neu", "rob"],
+    include_rot: Optional[bool] = True,
+):
     """Set a uniform boundary condition on all faces of the grid.
 
     Parameters:
@@ -142,10 +148,13 @@ class TestTpsaTailoredGrid:
         self.d_0_0 = 1
         self.d_1_6 = 3 / (2 * self.n_6_nrm)
 
-    def _compare_matrices(self, matrices: dict, known_values: dict,
+    def _compare_matrices(
+        self,
+        matrices: dict,
+        known_values: dict,
         target_faces_scalar: Optional[np.ndarray] = None,
-        target_faces_vector: Optional[np.ndarray] = None
-        ):
+        target_faces_vector: Optional[np.ndarray] = None,
+    ):
         """Helper function to compare a dict of matrices with known values. Target only
         specified faces of the grid.
         """
@@ -165,7 +174,7 @@ class TestTpsaTailoredGrid:
                 target_rows = target_faces_vector
             else:
                 target_rows = target_faces_scalar
-            assert np.allclose(computed[target_rows], known)        
+            assert np.allclose(computed[target_rows], known)
 
     def test_discretization_interior_cells(self):
         """Construct a tpsa discretization on a grid consisting of two cells, compare
@@ -224,15 +233,25 @@ class TestTpsaTailoredGrid:
             "bound_stress": np.zeros((2, 14)),
             # Definition follows the description of the paper
             "stress_rotation": -np.array(  # out minus sign consistent with paper
-                [[c_c2f_avg_0 * n[1], c_c2f_avg_1 * n[1]],
-                 [-c_c2f_avg_0 * n[0], -c_c2f_avg_1 * n[0]]]
+                [
+                    [c_c2f_avg_0 * n[1], c_c2f_avg_1 * n[1]],
+                    [-c_c2f_avg_0 * n[0], -c_c2f_avg_1 * n[0]],
+                ]
             ),
             # Definition follows the description of the paper.
             "stress_total_pressure": np.array(
-                [[c_c2f_avg_0 * n[0], c_c2f_avg_1 * n[0]], [c_c2f_avg_0 * n[1], c_c2f_avg_1 * n[1]]],
+                [
+                    [c_c2f_avg_0 * n[0], c_c2f_avg_1 * n[0]],
+                    [c_c2f_avg_0 * n[1], c_c2f_avg_1 * n[1]],
+                ],
             ),
             "rotation_displacement": -np.array(
-                [-c2f_avg_0 * n[1], c2f_avg_0 * n[0], -c2f_avg_1 * n[1], c2f_avg_1 * n[0]]
+                [
+                    -c2f_avg_0 * n[1],
+                    c2f_avg_0 * n[0],
+                    -c2f_avg_1 * n[1],
+                    c2f_avg_1 * n[0],
+                ]
             ),
             "bound_rotation_displacement": np.zeros((1, 14)),
             "rotation_diffusion": np.array([-cosserat, cosserat]),
@@ -241,19 +260,22 @@ class TestTpsaTailoredGrid:
                 [c2f_avg_0 * n[0], c2f_avg_0 * n[1], c2f_avg_1 * n[0], c2f_avg_1 * n[1]]
             ),
             "bound_mass_displacement": np.zeros((1, 14)),
-            "solid_mass_total_pressure": np.array([-1 / (2 * mu_w), 1 / (2 * mu_w)]) * n_nrm,
+            "solid_mass_total_pressure": np.array([-1 / (2 * mu_w), 1 / (2 * mu_w)])
+            * n_nrm,
             # This is an interior face, all displacment reconstruction matrices should
             # be empty.
             "bound_displacement_cell": np.zeros((2, 4)),
             "bound_displacement_face": np.zeros((2, 14)),
             "bound_displacement_rotation_cell": np.zeros((2, 2)),
-            "bound_displacement_solid_pressure_cell": np.zeros((2, 2)),            
+            "bound_displacement_solid_pressure_cell": np.zeros((2, 2)),
         }
         # Override default target faces
-        self._compare_matrices(matrices, known_values, target_faces_scalar, target_faces_vector)
+        self._compare_matrices(
+            matrices, known_values, target_faces_scalar, target_faces_vector
+        )
 
     def test_dirichlet_bcs(self):
-        """ Set Dirichlet boundary conditions on all faces, check that the
+        """Set Dirichlet boundary conditions on all faces, check that the
         implementation of the boundary conditions are correct.
         """
         _set_uniform_bc(self.g, self.data, "dir")
@@ -368,7 +390,7 @@ class TestTpsaTailoredGrid:
         self._compare_matrices(matrices, known_values)
 
     def test_neumann_bcs(self):
-        """ Set Neumann boundary conditions on all faces, check that the implementation 
+        """Set Neumann boundary conditions on all faces, check that the implementation
         of the boundary conditions are correct.
         """
         _set_uniform_bc(self.g, self.data, "neu")
@@ -498,7 +520,7 @@ class TestTpsaTailoredGrid:
         self._compare_matrices(matrices, known_values)
 
     def test_robin_bcs(self):
-        """ Set Robin boundary conditions on all faces, check that the discretization
+        """Set Robin boundary conditions on all faces, check that the discretization
         stencil for boundary faces, as well as the implementation of the boundary
         conditions are correct.
         """
@@ -719,7 +741,7 @@ class TestTpsaTailoredGrid:
         """Set mixed boundary conditions (e.g. type A in one direction, B in a different
         direction) on all faces, check that the discretization stencil for internal
         faces, as well as the implementation of the boundary conditions are correct.
-        
+
         Note that it is not necessary to consider interaction between different types of
         boundary conditions on different faces, since a two-point stencil does not allow
         for such interactions.
@@ -751,10 +773,9 @@ class TestTpsaTailoredGrid:
         c_c2f_avg_6_x = 1 - c2f_avg_6_x
 
         c2f_avg_0_y = 1
-        c2f_avg_6_y = 1        
+        c2f_avg_6_y = 1
         c_c2f_avg_0_y = 1 - c2f_avg_0_y
         c_c2f_avg_6_y = 1 - c2f_avg_6_y
-
 
         bound_stress = np.zeros((4, 14))
         bound_stress[0, 0] = -stress_0
@@ -816,7 +837,7 @@ class TestTpsaTailoredGrid:
         )
         bound_displacement_solid_pressure_cell[3, 1] = (
             self.d_1_6 * self.n_6[1] / (2 * self.mu_1 * self.n_6_nrm)
-        )        
+        )
 
         known_values = {
             # Positive sign on the first two rows, since the normal vector is pointing
@@ -865,7 +886,7 @@ class TestTpsaTailoredGrid:
                 ]
             ),
             "bound_rotation_diffusion": bound_rotation_diffusion,
-            "solid_mass_displacement":  np.array(
+            "solid_mass_displacement": np.array(
                 [
                     [0, c2f_avg_0_y * self.n_0[1], 0, 0],
                     [0, 0, 0, c2f_avg_6_y * self.n_6[1]],
@@ -879,7 +900,7 @@ class TestTpsaTailoredGrid:
             # out to be the x-direction for face 0, and the y-direction for face 6, and
             # these are therefore assigned the values of the Dirichlet and Neumann
             # condition, respectively.
-            "solid_mass_total_pressure":  np.array(
+            "solid_mass_total_pressure": np.array(
                 [
                     [0, 0],
                     [0, -self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm],
@@ -898,10 +919,9 @@ class TestTpsaTailoredGrid:
         self._compare_matrices(matrices, known_values)
 
 
-
-#t = TestTpsaTailoredGrid()
-#t.setup()
-#t.test_mixed_bcs()
+# t = TestTpsaTailoredGrid()
+# t.setup()
+# t.test_mixed_bcs()
 
 
 def test_no_cosserat():
@@ -925,8 +945,8 @@ def test_no_cosserat():
 
 
 def test_cosserat_3d():
-    """ Set up a 3d problem, check that the rotation diffusion matrix has the right
-    # dimension, and that the boundary conditions are correctly implemented. 
+    """Set up a 3d problem, check that the rotation diffusion matrix has the right
+    # dimension, and that the boundary conditions are correctly implemented.
     """
     g = pp.CartGrid([2, 1, 1])
     g.compute_geometry()
@@ -1138,14 +1158,13 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     Parameters:
         g: Grid object.
     """
+    np.random.seed(0)
+
     g.compute_geometry()
 
     d = _set_uniform_parameters(g)
 
     bf = g.get_all_boundary_faces()
-
-    bc_values = np.zeros((g.dim, g.num_faces))
-
 
     left = np.where(g.face_centers[0] == g.face_centers[0].min())[0]
 
@@ -1163,10 +1182,13 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     bc_neu = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type_neu)
 
     # Random values for the boundary conditions
+    bc_values = np.zeros((g.dim, g.num_faces))
     vals = np.random.rand(g.dim, bf.size)
     bc_values_disp = np.zeros((g.dim, g.num_faces))
     bc_values_disp[:, bf] = vals
-    bc_values_rot = np.zeros(g.num_faces) if g.dim == 2 else np.zeros(g.dim* g.num_faces)
+    bc_values_rot = (
+        np.zeros(g.num_faces) if g.dim == 2 else np.zeros(g.dim * g.num_faces)
+    )
     bc_values = np.hstack((bc_values_disp.ravel("F"), bc_values_rot))
 
     # Discretize, assemble matrices
@@ -1215,9 +1237,9 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     # The displacement should be close to the Neumann value
     assert np.allclose(x_rob_low, x_neu)
 
+
 def _set_uniform_parameters(g: pp.Grid) -> dict:
-    """Set up a uniform parameter dictionary for the TPSA problem.
-    """
+    """Set up a uniform parameter dictionary for the TPSA problem."""
     e = 100 * np.ones(g.num_cells)
     C = pp.FourthOrderTensor(e, e)
 
@@ -1228,12 +1250,14 @@ def _set_uniform_parameters(g: pp.Grid) -> dict:
     return d
 
 
-def _assemble_matrices(matrices: dict, g: pp.Grid) -> tuple[sps.sparray, sps.sparray, sps.sparray, sps.sparray]:
+def _assemble_matrices(
+    matrices: dict, g: pp.Grid
+) -> tuple[sps.sparray, sps.sparray, sps.sparray, sps.sparray]:
     """Helper method to assemble discretization matrices derived from a Tpsa
     discretization into global matrices.
 
     Parameters:
-        matrices: Dictionary containing the discretization matrices. 
+        matrices: Dictionary containing the discretization matrices.
         g: Grid object.
 
     Returns:
@@ -1314,7 +1338,14 @@ def _assemble_matrices(matrices: dict, g: pp.Grid) -> tuple[sps.sparray, sps.spa
 
     return flux, rhs_matrix, div, accum
 
-def _solve(flux: sps.sparray, rhs_matrix: sps.sparray, div: sps.sparray, accum: sps.sparray, bound_vec: np.ndarray) -> np.ndarray:
+
+def _solve(
+    flux: sps.sparray,
+    rhs_matrix: sps.sparray,
+    div: sps.sparray,
+    accum: sps.sparray,
+    bound_vec: np.ndarray,
+) -> np.ndarray:
     """Solve the TPSA problem.
 
     Parameters:
@@ -1332,17 +1363,19 @@ def _solve(flux: sps.sparray, rhs_matrix: sps.sparray, div: sps.sparray, accum: 
     # Assemble and solve. The minus sign on accum follows from the definition of the
     # governing equations in the paper.
     A = div @ flux - accum
-    x = sps.linalg.spsolve(A, b)  
-    return x  
+    x = sps.linalg.spsolve(A, b)
+    return x
 
 
 def _set_bc_by_direction(
-    g: pp.Grid, d: dict,
-    type_south: Literal['dir', 'neu'], 
-    type_east: Literal['dir', 'neu'], 
-    type_north: Literal['dir', 'neu'], 
-    type_west: Literal['dir', 'neu'], type_bottom: Optional[: Literal['dir', 'neu']]=None,
-    type_top: Optional[: Literal['dir', 'neu']]=None
+    g: pp.Grid,
+    d: dict,
+    type_south: Literal["dir", "neu"],
+    type_east: Literal["dir", "neu"],
+    type_north: Literal["dir", "neu"],
+    type_west: Literal["dir", "neu"],
+    type_bottom: Optional[: Literal["dir", "neu"]] = None,
+    type_top: Optional[: Literal["dir", "neu"]] = None,
 ) -> np.ndarray:
     """Set the boundary conditions on the grid, based on the types of boundary conditions
     given.
@@ -1423,4 +1456,3 @@ def _set_bc_by_direction(
     bc_val = np.zeros((g.dim, g.num_faces))
     bc_val[:, face_ind] = values
     return bc_val
-
