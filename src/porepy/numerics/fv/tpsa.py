@@ -225,8 +225,8 @@ class Tpsa:
                 ],
                 format="csr",
             )
-        # System matrix
-        >>> A = div @ flux + accum
+        # System matrix (the minus sign on accum corresponds to the sign in the paper)
+        >>> A = div @ flux - accum
         # Solve
         >>> x = sps.linalg.spsolve(A, b)
         # Displacement variable:
@@ -1243,12 +1243,28 @@ class Tpsa:
         numbering: _Numbering,
         b2f_rob_compl: np.ndarray,
     ) -> tuple[sps.spmatrix, sps.spmatrix]:
+        """Discritize the vector Laplacian by a two-point approximation.
 
-        nc, nf, nd = sd.num_cells, sd.num_faces, sd.dim
+        Parameters:
+            sd: Grid
+            trm_nd: Transmissibility coefficients, as computed from the harmonic average
+                of the shear modulus.
+            bnd: Boundary conditions
+            numbering: Bookkeeping structure
+            b2f_rob_compl: Complement of the Robin boundary conditions
+
+        Returns:
+            Discretization matrix for the vector Laplacian, and the boundary condition
+            matrix.
+
+        """
         # The linear stress due to cell center displacements is computed from the
         # harmonic average of the shear modulus, scaled by the face areas. The
         # transmissibility is the same for each dimension, implying that the
         # material is in a sense isotropic.
+
+        # Bookkeeping
+        nc, nf, nd = sd.num_cells, sd.num_faces, sd.dim
 
         # Get the types of boundary conditions.
         dir_faces = bnd.is_dir
@@ -1257,26 +1273,17 @@ class Tpsa:
 
         # Data structure for the discretization of the boundary conditions
         trm_bnd = np.zeros((nd, nf))
-        # On Dirichlet faces, the coefficient of the boundary condition is the same
-        # as weight of the nearby cell, but with the opposite sign (EITHER HERE OR
-        # IN THE MATRIX DEFINITION). Since the coefficient is multiplied with the
-        # sign on the internal dof, we need to multiply with the sign here as well.
+        # On Dirichlet faces, the coefficient of the boundary condition is the same as
+        # weight of the nearby cell, but with the opposite sign, as will be introduced
+        # in the construction of the discretization matrix.
         trm_bnd[dir_faces] = trm_nd[dir_faces]
-        # EK Note to self regarding implementation: The call 'trm_nd[dir_faces]' and
-        # similar, when made in an interpreter gives a 1d array, obtained raveling
-        # the 2d array using C-ordering. However, the line below really uses
-        # dir_faces to produce views of the 2d array, with trm_bnd being updated in
-        # place. In other words, everything is fine (EK has verified this by
-        # inspection).
-        # trm_bnd[dir_faces] = unique_sgn_nd[dir_faces] * trm_nd[dir_faces]
 
-        trm_bnd[dir_faces] = trm_nd[dir_faces]
         # On Neumann faces, the coefficient of the discretization itself is
         # zero, as the 'flux' through the boundary face is given by the boundary
         # condition.
         trm_nd[neu_faces] = 0
-        # The boundary condition should simply be imposed. Put a -1 to counteract
-        # the minus sign in the construction of the discretization matrix.
+
+        # The boundary condition should simply be imposed.
         # IMPLEMENTATION NOTE: Contrary to the tpfa implementation, the coefficients
         # of Neumann boundary conditions in tpsa are not multiplied with the sign of
         # the normal vector. This reflects that Neumann boundary values for
