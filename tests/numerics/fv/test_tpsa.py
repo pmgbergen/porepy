@@ -567,10 +567,10 @@ class TestTpsaTailoredGrid:
         bound_rotation_displacement[1, 13] = self.n_6[0] * (delta_6 - c2f_avg_6_bound)
 
         bound_mass_displacement = np.zeros((2, 14))
-        bound_mass_displacement[0, 0] = self.n_0[0] * delta_0_x
-        bound_mass_displacement[0, 1] = self.n_0[1] * delta_0_y
-        bound_mass_displacement[1, 12] = self.n_6[0] * delta_6
-        bound_mass_displacement[1, 13] = self.n_6[1] * delta_6
+        bound_mass_displacement[0, 0] = self.n_0[0] * (delta_0_x + c2f_avg_0_x_bound)
+        bound_mass_displacement[0, 1] = self.n_0[1] * (delta_0_y + c2f_avg_0_y_bound)
+        bound_mass_displacement[1, 12] = self.n_6[0] * (delta_6 + c2f_avg_6_bound)
+        bound_mass_displacement[1, 13] = self.n_6[1] * (delta_6 + c2f_avg_6_bound)
 
         # The contribution from cell center displacement to the boundary displacement.
         bound_displacement_cell = np.zeros((4, 4))
