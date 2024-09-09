@@ -716,18 +716,192 @@ class TestTpsaTailoredGrid:
         self._compare_matrices(matrices, known_values)
 
     def test_mixed_bcs(self):
-        # Set mixed boundary conditions (e.g. type A in one direction, B in a different
-        # direction) on all faces, check that the discretization stencil for internal faces,
-        # as well as the implementation of the boundary conditions are correct. Note that it
-        # is not necessary to consider interaction between different types of boundary
-        # conditions on different faces, since a two-point stencil does not allow for such
-        # interactions.
-        pass
+        """Set mixed boundary conditions (e.g. type A in one direction, B in a different
+        direction) on all faces, check that the discretization stencil for internal
+        faces, as well as the implementation of the boundary conditions are correct.
+        
+        Note that it is not necessary to consider interaction between different types of
+        boundary conditions on different faces, since a two-point stencil does not allow
+        for such interactions.
+        """
+        # The values here are mainly copied from the respective tests for Dirichlet and
+        # Neumann conditions. The only non-trivial part is the impact of total pressure
+        # on the solid mass conservation equation, see comment below and in the
+        # implementation.
+
+        # Dirichlet condition in x-direction, Neumann in y-direction.
+        _set_uniform_bc(self.g, self.data, "dir")
+        bc_disp = self.data[pp.PARAMETERS][KEYWORD]["bc"]
+        bc_disp.is_dir[1, :] = False
+        bc_disp.is_neu[1, :] = True
+
+        matrices = _discretize_get_matrices(self.g, self.data)
+
+        # The standard expression for Dirichlet conditions on Laplace problems.
+        stress_0 = 2 * self.mu_0 / self.d_0_0 * self.n_0_nrm
+        stress_6 = 2 * self.mu_1 / self.d_1_6 * self.n_6_nrm
+
+        # The values of the cell to face average for face for faces 0 and 6. Also the
+        # complements identified by suffix c_. On Dirichlet faces, the face value is
+        # imposed, thus the cell is asigned weight 0 (hence the complement has weight
+        # 1).
+        c2f_avg_0_x = 0
+        c2f_avg_6_x = 0
+        c_c2f_avg_0_x = 1 - c2f_avg_0_x
+        c_c2f_avg_6_x = 1 - c2f_avg_6_x
+
+        c2f_avg_0_y = 1
+        c2f_avg_6_y = 1        
+        c_c2f_avg_0_y = 1 - c2f_avg_0_y
+        c_c2f_avg_6_y = 1 - c2f_avg_6_y
 
 
-t = TestTpsaTailoredGrid()
-# t.setup()
-# t.test_neumann_bcs()
+        bound_stress = np.zeros((4, 14))
+        bound_stress[0, 0] = -stress_0
+        bound_stress[1, 1] = -1
+        bound_stress[2, 12] = stress_6
+        bound_stress[3, 13] = 1
+
+        # The boundary condition for the rotation diffusion problem is the standard
+        # expression for Dirichlet conditions on Laplace problems.
+        bound_rotation_diffusion = np.zeros((2, 7))
+        bound_rotation_diffusion[0, 0] = -self.cos_0 / self.d_0_0 * self.n_0_nrm
+        bound_rotation_diffusion[1, 6] = self.cos_1 / self.d_1_6 * self.n_6_nrm
+
+        bound_rotation_displacement = np.zeros((2, 14))
+        # From the definition of \bar{R}, we get [-n[1], n[0]]. The discretization is
+        # -\bar{R}, hence the sign change.
+        bound_rotation_displacement[0, 0] = c_c2f_avg_0_x * self.n_0[1]
+        bound_rotation_displacement[0, 1] = self.d_0_0 * self.n_0[0] / (2 * self.mu_0)
+        bound_rotation_displacement[1, 12] = c_c2f_avg_6_x * self.n_6[1]
+        bound_rotation_displacement[1, 13] = self.d_1_6 * self.n_6[0] / (2 * self.mu_1)
+
+        # On Dirichlet faces, the solid mass follows the displacement boundary
+        # condition.
+        bound_mass_displacement = np.zeros((2, 14))
+        bound_mass_displacement[0, 0] = c_c2f_avg_0_x * self.n_0[0]
+        bound_mass_displacement[0, 1] = self.d_0_0 * self.n_0[1] / (2 * self.mu_0)
+        bound_mass_displacement[1, 12] = c_c2f_avg_6_x * self.n_6[0]
+        bound_mass_displacement[1, 13] = self.d_1_6 * self.n_6[1] / (2 * self.mu_1)
+
+        # The contribution from cell center displacement to the boundary displacement
+        # has unit value in the cell neighboring the face.
+        bound_displacement_cell = np.zeros((4, 4))
+        bound_displacement_cell[1, 1] = 1
+        bound_displacement_cell[3, 3] = 1
+
+        # On Dirichlet faces, the boundary displacement is recovered from the boundary
+        # condition; all other reconstruction matrices are zero.
+        bound_displacement_face = np.zeros((4, 14))
+        bound_displacement_face[0, 0] = 1
+        bound_displacement_face[1, 1] = -self.d_0_0 / (2 * self.mu_0 * self.n_0_nrm)
+        bound_displacement_face[2, 12] = 1
+        bound_displacement_face[3, 13] = self.d_1_6 / (2 * self.mu_1 * self.n_6_nrm)
+
+        # The contribution from solid pressure. Multiply with -1 on face 0 since this
+        # has an inward pointing normal vector.
+        bound_displacement_rotation_cell = np.zeros((4, 2))
+        bound_displacement_rotation_cell[1, 0] = (
+            -self.d_0_0 * self.n_0[0] / (2 * self.mu_0 * self.n_0_nrm)
+        )
+        bound_displacement_rotation_cell[3, 1] = (
+            self.d_1_6 * self.n_6[0] / (2 * self.mu_1 * self.n_6_nrm)
+        )
+
+        # Contribution from solid pressure. Multiply with -1 on face 0 since this has an
+        # inward pointing normal vector.
+        bound_displacement_solid_pressure_cell = np.zeros((4, 2))
+        bound_displacement_solid_pressure_cell[1, 0] = (
+            -self.d_0_0 * self.n_0[1] / (2 * self.mu_0 * self.n_0_nrm)
+        )
+        bound_displacement_solid_pressure_cell[3, 1] = (
+            self.d_1_6 * self.n_6[1] / (2 * self.mu_1 * self.n_6_nrm)
+        )        
+
+        known_values = {
+            # Positive sign on the first two rows, since the normal vector is pointing
+            # into that cell. Oposite sign on the two last rows, as the normal vector is
+            # pointing out of the cell.
+            "stress": np.array(
+                [
+                    [stress_0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, -stress_6, 0],
+                    [0, 0, 0, 0],
+                ]
+            ),
+            "bound_stress": bound_stress,
+            # Minus sign for the full expression (see paper).
+            "stress_rotation": -np.array(
+                [
+                    [c_c2f_avg_0_x * self.n_0[1], 0],
+                    [0, 0],
+                    [0, c_c2f_avg_6_x * self.n_6[1]],
+                    [0, 0],
+                ]
+            ),
+            "stress_total_pressure": np.array(
+                [
+                    [c_c2f_avg_0_x * self.n_0[0], 0],
+                    [0, 0],
+                    [0, c_c2f_avg_6_x * self.n_6[0]],
+                    [0, 0],
+                ]
+            ),
+            # No contribution from the cell displacement to the boundary rotation
+            "rotation_displacement": -np.array(
+                [
+                    [0, c2f_avg_0_y * self.n_0[0], 0, 0],
+                    [0, 0, 0, c2f_avg_6_y * self.n_6[0]],
+                ]
+            ),
+            "bound_rotation_displacement": bound_rotation_displacement,
+            # Minus sign on the second face, since the normal vector is pointing out of
+            # the cell.
+            "rotation_diffusion": np.array(
+                [
+                    [self.cos_0 / self.d_0_0 * self.n_0_nrm, 0],
+                    [0, -self.cos_1 / self.d_1_6 * self.n_6_nrm],
+                ]
+            ),
+            "bound_rotation_diffusion": bound_rotation_diffusion,
+            "solid_mass_displacement":  np.array(
+                [
+                    [0, c2f_avg_0_y * self.n_0[1], 0, 0],
+                    [0, 0, 0, c2f_avg_6_y * self.n_6[1]],
+                ]
+            ),
+            "bound_mass_displacement": bound_mass_displacement,
+            # This is the only non-trivial term, since it involves only scalar
+            # quantities, and the boundary condition is stated on the (vector)
+            # displacement. As discussed in the implementation, we pick the boundary
+            # condition in the direction which is closest to the face normal. This turns
+            # out to be the x-direction for face 0, and the y-direction for face 6, and
+            # these are therefore assigned the values of the Dirichlet and Neumann
+            # condition, respectively.
+            "solid_mass_total_pressure":  np.array(
+                [
+                    [0, 0],
+                    [0, -self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm],
+                ]
+            ),
+            # No contribution from cell center values to the boundary displacement
+            "bound_displacement_cell": bound_displacement_cell,
+            # The boundary displacement is the boundary condition
+            "bound_displacement_face": bound_displacement_face,
+            # Neither the rotation variable nor the solid pressure contribute to the
+            # boundary displacement for Dirichlet faces
+            "bound_displacement_rotation_cell": bound_displacement_rotation_cell,
+            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,
+        }
+
+        self._compare_matrices(matrices, known_values)
+
+
+
+#t = TestTpsaTailoredGrid()
+#t.setup()
+#t.test_mixed_bcs()
 
 
 def test_no_cosserat():
