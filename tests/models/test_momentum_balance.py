@@ -360,11 +360,11 @@ def verify_elastoplastic_deformation(
 
 
     """
+    nd = setup.nd  # Shorthand for number of dimensions.
     # Get the indices of the tangential components in global coordinates. Hardcoded
     # based on the assumption that the fracture has constant y-coordinate.
     fracture_ind = 1
     tang_ind = np.setdiff1d(np.arange(nd), fracture_ind)
-    nd = setup.nd  # Shorthand for number of dimensions.
     matrix = setup.mdg.subdomains(dim=nd)[0]
     fractures = setup.mdg.subdomains(dim=nd - 1)
     assert len(fractures) == 1  # Below code assumes a single fracture.
