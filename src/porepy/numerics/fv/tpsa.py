@@ -872,7 +872,7 @@ class Tpsa:
         # coordinate axes, and with rolling boundary conditions, but EK does not know
         # what to do there).
         bound_mass_displacement = normal_vector_nd @ (
-            filters.neu_rob_pass_nd @ inv_mu_face + filters.dir_pass_nd
+            filters.neu_rob_pass_nd @ inv_mu_face + filters.dir_pass_nd + c2f_maps.b2f_rob
         )
 
         # Fields related to reconstruction of displacements on the boundary. These are
