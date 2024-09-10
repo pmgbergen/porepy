@@ -16,6 +16,119 @@ Scalar = pp.ad.Scalar
 ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
 
 
+class DisplacementJump:
+    """Displacement jump on fractures.
+
+    The displacement jump is the difference between the displacement on the two sides of
+    a fracture. It is defined in the local coordinate system of the fracture, and is
+    expressed as a vector of length nd, where nd is the ambient dimension of the
+    problem. The jump is split into an elastic and a plastic component, where the
+    elastic component reverts if the tractions are removed, while the plastic component
+    remains.
+
+    """
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model."""
+    nd: int
+    """Ambient dimension of the problem."""
+    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
+    """Map from subdomains to the adjacent interfaces."""
+    interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Operator giving the displacement on interfaces."""
+    local_coordinates: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the local coordinates of the subdomains."""
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
+    """Basis for the local coordinate system."""
+    elastic_normal_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the normal component of the elastic fracture deformation."""
+    elastic_tangential_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the tangential component of the elastic fracture deformation."""
+
+    def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Displacement jump on fracture-matrix interfaces.
+
+        Parameters:
+            subdomains: List of subdomains where the displacement jump is defined.
+                Should be a fracture subdomain.
+
+        Returns:
+            Operator for the displacement jump.
+
+        Raises:
+             AssertionError: If the subdomains are not fractures, i.e. have dimension
+                `nd - 1`.
+
+        """
+        if not all([sd.dim == self.nd - 1 for sd in subdomains]):
+            raise ValueError("Displacement jump only defined on fractures")
+
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        # Only use matrix-fracture interfaces
+        interfaces = [intf for intf in interfaces if intf.dim == self.nd - 1]
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, self.nd
+        )
+        # The displacement jmup is expressed in the local coordinates of the fracture.
+        # First use the sign of the mortar sides to get a difference, then map first
+        # from the interface to the fracture, and finally to the local coordinates.
+        rotated_jumps: pp.ad.Operator = (
+            self.local_coordinates(subdomains)
+            @ mortar_projection.mortar_to_secondary_avg
+            @ mortar_projection.sign_of_mortar_sides
+            @ self.interface_displacement(interfaces)
+        )
+        rotated_jumps.set_name("Rotated_displacement_jump")
+        return rotated_jumps
+
+    def elastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The elastic component of the displacement jump [m].
+
+        The elastic displacement jump is composed of a tangential and normal component,
+        each implementing a relation between displacement jumps, contact tractions and
+        stiffness. The relation may or may not be linear.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the elastic displacement jump.
+
+        """
+        # The jumps are defined in local coordinates. Prepare to project the tangential
+        # and normal components of the displacement jump from (nd-1) and 1 dimensions,
+        # respectively, to nd dimensions.
+        basis = self.basis(subdomains, dim=self.nd)  # type: ignore[call-arg]
+        local_basis = self.basis(subdomains, dim=self.nd - 1)  # type: ignore[call-arg]
+        tangential_to_nd = pp.ad.sum_operator_list(
+            [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
+        )
+        normal_to_nd = basis[-1]
+
+        u_t = self.elastic_tangential_fracture_deformation(subdomains)
+        u_n = self.elastic_normal_fracture_deformation(subdomains)
+        return tangential_to_nd @ u_t + normal_to_nd @ u_n
+
+    def plastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The plastic component of the displacement jump.
+
+        The plastic displacement jump is the difference between the total displacement
+        jump and the elastic displacement jump.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the plastic displacement jump.
+
+        """
+        total_jump = self.displacement_jump(subdomains)
+        elastic_jump = self.elastic_displacement_jump(subdomains)
+        u_p = total_jump - elastic_jump
+        u_p.set_name("plastic_displacement_jump")
+        return u_p
+
+
 class DimensionReduction:
     """Apertures and specific volumes."""
 
@@ -208,7 +321,7 @@ class DisplacementJumpAperture(DimensionReduction):
     """
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    mixin instance of :class:`~porepy.models.constitutive_laws.DisplacementJump`.
 
     """
     mdg: pp.MixedDimensionalGrid
@@ -4344,18 +4457,34 @@ class FractureGap(BartonBandis, ShearDilation):
         return Scalar(self.solid.fracture_gap(), "reference_fracture_gap")
 
 
-class ElastoPlasticFractureDeformation:
-    """TODO: Move/rename? Fix docstrings of class vars once that's been decided."""
+class ElasticTangentialFractureDeformation:
+    """Constitutive relation for elastic tangential deformation.
 
-    solid: pp.SolidConstants
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
-    nd: int
-    equation_system: pp.ad.EquationSystem
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    The elastic tangential deformation is the tangential component of the displacement
+    jump. Here, we impose a linear relation between the tangential component of the
+    contact traction and the tangential deformation. The relation is given by
+
+    .. math::
+        u_t = \frac{t_t}{K_t},
+
+    where :math:`u_t` is the elastic tangential deformation, :math:`t_t` is the
+    tangential component of the contact traction, and :math:`K_t` is the tangential
+    stiffness of the fracture.
+
+    """
+
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    elastic_normal_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction."""
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable."""
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model."""
+    nd: int
+    """Ambient dimension of the problem."""
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities."""
     tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the tangential component of vectors."""
 
     def fracture_tangential_stiffness(
         self, subdomains: list[pp.Grid]
@@ -4371,34 +4500,6 @@ class ElastoPlasticFractureDeformation:
         """
         stiffness = self.solid.fracture_tangential_stiffness()
         return Scalar(stiffness, "fracture_tangential_stiffness")
-
-    def elastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """The elastic component of the displacement jump [m].
-
-        The elastic displacement jump is composed of a tangential and normal component,
-        each implementing a relation between displacement jumps, contact tractions and
-        stiffness. The relation may or may not be linear.
-
-        Parameters:
-            subdomains: List of fracture subdomains.
-
-        Returns:
-            Operator representing the elastic displacement jump.
-
-        """
-        # The jumps are defined in local coordinates. Prepare to project the tangential
-        # and normal components of the displacement jump from (nd-1) and 1 dimensions,
-        # respectively, to nd dimensions.
-        basis = self.basis(subdomains, dim=self.nd)  # type: ignore[call-arg]
-        local_basis = self.basis(subdomains, dim=self.nd - 1)  # type: ignore[call-arg]
-        tangential_to_nd = pp.ad.sum_operator_list(
-            [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
-        )
-        normal_to_nd = basis[-1]
-
-        u_t = self.elastic_tangential_fracture_deformation(subdomains)
-        u_n = self.elastic_normal_fracture_deformation(subdomains)
-        return tangential_to_nd @ u_t + normal_to_nd @ u_n
 
     def elastic_tangential_fracture_deformation(
         self, subdomains: list[pp.Grid]
@@ -4445,25 +4546,6 @@ class ElastoPlasticFractureDeformation:
         u_t = t_t / scaled_stiffness
         u_t.set_name("elastic_tangential_fracture_deformation")
         return u_t
-
-    def plastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """The plastic component of the displacement jump.
-
-        The plastic displacement jump is the difference between the total displacement
-        jump and the elastic displacement jump.
-
-        Parameters:
-            subdomains: List of fracture subdomains.
-
-        Returns:
-            Operator representing the plastic displacement jump.
-
-        """
-        total_jump = self.displacement_jump(subdomains)
-        elastic_jump = self.elastic_displacement_jump(subdomains)
-        u_p = total_jump - elastic_jump
-        u_p.set_name("plastic_displacement_jump")
-        return u_p
 
 
 class BiotCoefficient:

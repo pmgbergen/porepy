@@ -3,7 +3,6 @@
 The positive fracture gap value ensures positive aperture for all simulation. This is
 needed to avoid degenerate mass and energy balance equations in the fracture.
 
-TODO: Clean up.
 """
 
 from __future__ import annotations

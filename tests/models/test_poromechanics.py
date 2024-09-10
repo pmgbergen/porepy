@@ -1,9 +1,8 @@
 """Tests for poromechanics.
 
-The positive fracture gap value of 0.042 ensures positive aperture for all simulation.
-This is needed to avoid degenerate mass balance equation in fracture.
+The positive fracture gap value ensures positive aperture for all simulation. This is
+needed to avoid degenerate mass balance equation in fracture.
 
-TODO: Clean up.
 """
 
 from __future__ import annotations
@@ -82,7 +81,9 @@ class NonzeroFractureGapPoromechanics:
 
             # Set mortar displacement to zero on bottom and fracture gap value on top
             vals = np.zeros((self.nd, intf.num_cells))
-            vals[1, top_cells] = self.solid.fracture_gap()
+            vals[1, top_cells] = (
+                self.solid.fracture_gap() + self.solid.maximum_fracture_closure()
+            )
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.interface_displacement_variable],
