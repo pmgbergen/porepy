@@ -39,7 +39,7 @@ solid_values = pp.solid_values.granite
 solid_values.update(
     {
         "fracture_normal_stiffness": 1.9e8,
-        "maximum_fracture_closure": 1e-4,
+        "maximum_elastic_fracture_opening": 1e-4,
         "fracture_gap": 1e-4,
         "residual_aperture": 0.01,
     }

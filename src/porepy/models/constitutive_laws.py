@@ -4274,7 +4274,7 @@ class BartonBandis:
     The Barton-Bandis equation is defined in
     :meth:``elastic_normal_fracture_deformation`` while the two parameters
     :math:``\Delta u_n^{max}`` and :math:``K_n`` can be set by the methods
-    :meth:``maximum_fracture_closure`` and :meth:``fracture_normal_stiffness``.
+    :meth:``maximum_elastic_fracture_opening`` and :meth:``fracture_normal_stiffness``.
 
     """
 
@@ -4314,7 +4314,7 @@ class BartonBandis:
         contact traction and material constants as elaborated in the class documentation.
 
         The returned value depends on the value of the solid constant
-        maximum_fracture_closure. If its value is zero, the Barton-Bandis model is void,
+        maximum_elastic_fracture_opening. If its value is zero, the Barton-Bandis model is void,
         and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero division.
         Otherwise, an operator which implements the Barton-Bandis model is returned. The
         special treatment ammounts to a continuous extension in the limit of zero
@@ -4340,7 +4340,7 @@ class BartonBandis:
 
         """
         # The maximum closure of the fracture.
-        maximum_closure = self.maximum_fracture_closure(subdomains)
+        maximum_closure = self.maximum_elastic_fracture_opening(subdomains)
 
         # If the maximum closure is zero, the Barton-Bandis model is not valid in the
         # case of zero normal traction. In this case, we return an empty operator.
@@ -4378,7 +4378,9 @@ class BartonBandis:
         elastic_opening.set_name("Barton-Bandis_elastic_opening")
         return elastic_opening
 
-    def maximum_fracture_closure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def maximum_elastic_fracture_opening(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
         """The maximum closure of a fracture [m].
 
         Used in the Barton-Bandis model for normal elastic fracture deformation.
@@ -4390,8 +4392,8 @@ class BartonBandis:
             The maximum allowed decrease in fracture opening.
 
         """
-        max_closure = self.solid.maximum_fracture_closure()
-        return Scalar(max_closure, "maximum_fracture_closure")
+        max_closure = self.solid.maximum_elastic_fracture_opening()
+        return Scalar(max_closure, "maximum_elastic_fracture_opening")
 
     def fracture_normal_stiffness(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The normal stiffness of a fracture [Pa*m^-1].
