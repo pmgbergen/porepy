@@ -4147,12 +4147,13 @@ class BartonBandis:
     deformation.
 
     The Barton-Bandis model represents a non-linear elastic deformation in the normal
-    direction of a fracture. Specifically, the decrease in normal opening,
+    direction of a fracture. Specifically, the increase in normal opening,
     :math:``\Delta u_n`` under a force :math:``\sigma_n`` given as
 
     .. math::
 
-        \Delta u_n =  \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n + \sigma_n}
+        \Delta u_n = \Delta u_n^{max}
+            - \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n + \sigma_n}
 
     where :math:``\Delta u_n^{max}`` is the maximum fracture closure and the material
     constant :math:``K_n`` is known as the fracture normal stiffness.
@@ -4196,17 +4197,15 @@ class BartonBandis:
     ) -> pp.ad.Operator:
         """Barton-Bandis model for elastic normal deformation of a fracture [m].
 
-        The model computes a *decrease* in the normal opening as a function of the
-        contact traction and material constants. See comments in the class documentation
-        for how to include the Barton-Bandis effect in the model for fracture
-        deformation.
+        The model computes an increase in the normal opening as a function of the
+        contact traction and material constants as elaborated in the class documentation.
 
         The returned value depends on the value of the solid constant
-        maximum_fracture_closure. If its value is zero, the Barton-Bandis model is
-        void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
-        division. Otherwise, an operator which implements the Barton-Bandis model is
-        returned. The special treatment ammounts to a continuous extension in the limit
-        of zero maximum fracture closure.
+        maximum_fracture_closure. If its value is zero, the Barton-Bandis model is void,
+        and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero division.
+        Otherwise, an operator which implements the Barton-Bandis model is returned. The
+        special treatment ammounts to a continuous extension in the limit of zero
+        maximum fracture closure.
 
         The implementation is based on the paper
 
@@ -4224,7 +4223,7 @@ class BartonBandis:
             ValueError: If the maximum fracture closure is negative.
 
         Returns:
-            The decrease in fracture opening, as computed by the Barton-Bandis model.
+            The elastic fracture opening, as computed by the Barton-Bandis model.
 
         """
         # The maximum closure of the fracture.
@@ -4242,32 +4241,29 @@ class BartonBandis:
 
         nd_vec_to_normal = self.normal_component(subdomains)
 
-        # The scaled effective contact traction [-].
-        # The papers by Barton and Bandis assumes positive traction in contact, thus we
-        # need to switch the sign.
+        # The scaled effective contact traction [-]. The papers by Barton and Bandis
+        # assumes positive traction in contact, thus we need to switch the sign.
         contact_traction = Scalar(-1) * self.contact_traction(subdomains)
 
         # Normal component of the traction.
         normal_traction = nd_vec_to_normal @ contact_traction
 
-        # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m
+        # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m.
         normal_stiffness = self.fracture_normal_stiffness(subdomains)
-        # Rescale, since contact traction is dimensionless. TODO: Decide if this should
-        # be done here or in the fracture_normal_stiffness method.
+        # Rescale, since contact traction is dimensionless.
         scaled_stiffness = normal_stiffness / self.characteristic_contact_traction(
             subdomains
         )
 
-        # The openening is found from the 1983 paper.
+        # The opening is found from the 1983 paper.
         opening_decrease = (
             normal_traction
             * maximum_closure
             / (scaled_stiffness * maximum_closure + normal_traction)
         )
-
-        opening_decrease.set_name("Barton-Bandis_closure")
-
-        return opening_decrease
+        elastic_opening = maximum_closure - opening_decrease
+        elastic_opening.set_name("Barton-Bandis_elastic_opening")
+        return elastic_opening
 
     def maximum_fracture_closure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The maximum closure of a fracture [m].
@@ -4322,31 +4318,16 @@ class FractureGap(BartonBandis, ShearDilation):
         Parameters:
             subdomains: List of subdomains where the gap is defined.
 
-        Raises:
-            ValueError: If the reference fracture gap is smaller than the maximum
-                fracture closure. This can lead to negative openings from the
-                Barton-Bandis model.
-
         Returns:
             Cell-wise fracture gap operator.
 
         """
-        barton_bandis_closure = self.elastic_normal_fracture_deformation(subdomains)
 
-        dilation = self.shear_dilation_gap(subdomains)
-
-        gap = self.reference_fracture_gap(subdomains) + dilation - barton_bandis_closure
-        val = (
+        gap = (
             self.reference_fracture_gap(subdomains)
-            - self.maximum_fracture_closure(subdomains)
-        ).value(self.equation_system)
-
-        if np.any(val < 0):
-            msg = (
-                "The reference fracture gap must be larger"
-                " than the maximum fracture closure."
-            )
-            raise ValueError(msg)
+            + self.shear_dilation_gap(subdomains)
+            + self.elastic_normal_fracture_deformation(subdomains)
+        )
         gap.set_name("fracture_gap")
         return gap
 
