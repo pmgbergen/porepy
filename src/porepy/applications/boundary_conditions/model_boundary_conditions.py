@@ -266,8 +266,11 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
     def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Displacement values.
 
-        Initial value is u_y = self.solid.fracture_gap() at north boundary. Adding
-        it on the boundary ensures a stress-free initial state. For positive times,
+        Initial value is u_y = self.solid.fracture_gap() +
+        self.solid.maximum_fracture_closure() at north boundary. Adding it on the
+        boundary ensures a stress-free initial state, as it compensates for those two
+        values corresponding to zero traction contact according to the class
+        :class:`~porepy.models.constitutive_laws.FractureGap`. For positive times,
         uy_north and uy_south are fetched from parameter dictionary and added,
         defaulting to 0.
 
@@ -283,7 +286,7 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         values = np.zeros((self.nd, boundary_grid.num_cells))
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
-            frac_val = self.solid.fracture_gap()
+            frac_val = self.solid.fracture_gap() + self.solid.maximum_fracture_closure()
         else:
             frac_val = 0
         values[1, domain_sides.north] = frac_val
