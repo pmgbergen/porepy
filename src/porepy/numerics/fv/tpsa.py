@@ -588,16 +588,24 @@ class Tpsa:
 
         # BoundaryConditionVectorial has an attribute 'basis', to be used with Robin
         # boundary conditions (see mpsa.py). This is not implemented for tpsa.
-        if (
-            np.linalg.norm(
-                np.array([bnd_disp.basis[:, :, i] - np.eye(nd) for i in range(nf)])
+        if np.logical_or.reduce(
+            (
+                np.any(bnd_disp.basis[0, 1:, :] > 0),
+                np.any(bnd_disp.basis[1, 0, :] > 0),
+                np.any(bnd_disp.basis[1, 2:, :] > 0),
+                np.any(bnd_disp.basis[2:, :2, :] > 0),
+                np.any(bnd_disp.basis[0, 0, :] != 1),
+                np.any(bnd_disp.basis[1, 1, :] != 1),
+
             )
-            > 0
-        ):
+        ):            
             raise NotImplementedError(
                 "Have not implemented Robin conditions with a non-trivial basis"
             )
-
+        if nd == 3 and np.any(bnd_disp.basis[2, 2] != 1):
+            raise NotImplementedError(
+                "Have not implemented Robin conditions with a non-trivial basis"
+            )            
         # The Robin weight will be an nd x nd x nf array, with nd={2, 3}. For the
         # implementation to be valid in both cases, we use slices ([2:]) instead of
         # indexing ([2]), as the former will work also if the array has less than three
