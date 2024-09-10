@@ -4447,8 +4447,9 @@ class ElastoPlasticFractureDeformation:
         t_t = nd_vec_to_tangential @ self.contact_traction(subdomains)
 
         stiffness = self.fracture_tangential_stiffness(subdomains)
-        stiffness_value = stiffness.value(self.equation_system)
-        if np.any(np.isclose(stiffness_value, -1.0, atol=1e-12, rtol=1e-12)):
+        # Retrieve the *unscaled* stiffness value for the check below.
+        stiffness_value = self.solid.fracture_tangential_stiffness()
+        if np.isclose(stiffness_value, -1.0, atol=1e-12, rtol=1e-12):
             # Stiffness=-1 indicates no elastic tangential deformation. Small tolerances
             # are used to avoid numerical issues, but allowing for a float value.
             num_cells = sum(sd.num_cells for sd in subdomains)
