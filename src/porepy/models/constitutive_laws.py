@@ -4314,11 +4314,11 @@ class BartonBandis:
         contact traction and material constants as elaborated in the class documentation.
 
         The returned value depends on the value of the solid constant
-        maximum_elastic_fracture_opening. If its value is zero, the Barton-Bandis model is void,
-        and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero division.
-        Otherwise, an operator which implements the Barton-Bandis model is returned. The
-        special treatment ammounts to a continuous extension in the limit of zero
-        maximum fracture closure.
+        maximum_elastic_fracture_opening. If its value is zero, the Barton-Bandis model
+        is void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
+        division. Otherwise, an operator which implements the Barton-Bandis model is
+        returned. The special treatment ammounts to a continuous extension in the limit
+        of zero maximum fracture closure.
 
         The implementation is based on the paper
 
