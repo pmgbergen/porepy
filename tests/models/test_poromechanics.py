@@ -82,7 +82,8 @@ class NonzeroFractureGapPoromechanics:
             # Set mortar displacement to zero on bottom and fracture gap value on top
             vals = np.zeros((self.nd, intf.num_cells))
             vals[1, top_cells] = (
-                self.solid.fracture_gap() + self.solid.maximum_fracture_closure()
+                self.solid.fracture_gap()
+                + self.solid.maximum_elastic_fracture_opening()
             )
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
