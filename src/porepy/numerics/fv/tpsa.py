@@ -12,16 +12,19 @@ helper classes that are really just containers for data needed for the discretiz
 """
 
 from __future__ import annotations
+
+import warnings
+from dataclasses import dataclass
+from typing import Any
+
 import numpy as np
 import scipy.sparse as sps
 
-from porepy.numerics.fv import fvutils
+import porepy as pp
 from porepy.grids.grid import Grid
+from porepy.numerics.fv import fvutils
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.params.tensor import FourthOrderTensor
-import porepy as pp
-import warnings
-from dataclasses import dataclass
 
 
 @dataclass
@@ -128,45 +131,45 @@ class Tpsa:
     See in particular the apendix for the expressions of the discretization schemes.
 
     Example (intended to show basic input and output functionality):
-        # Imports: 
-        >>> import numpy as np 
-        >>> import porepy as pp 
-        >>> import scipy.sparse as sps 
-        # Define geometry: 
-        >>> g = pp.CartGrid([3, 3]) 
-        >>> g.compute_geometry() 
-        >>> nf, nc = g.num_faces, g.num_cells 
-        # Boundary condition - all Dirichlet: 
-        >>> bf = g.get_all_boundary_faces() 
-        >>> bc = pp.BoundaryConditionVectorial(g, bf, bf.size * ['dir']) 
-        # Elastic moduli (expressed by Lame parameters): 
-        >>> mu = 1 + np.arange(nc) 
-        >>> lmbda = np.ones(nc) 
+        # Imports:
+        >>> import numpy as np
+        >>> import porepy as pp
+        >>> import scipy.sparse as sps
+        # Define geometry:
+        >>> g = pp.CartGrid([3, 3])
+        >>> g.compute_geometry()
+        >>> nf, nc = g.num_faces, g.num_cells
+        # Boundary condition - all Dirichlet:
+        >>> bf = g.get_all_boundary_faces()
+        >>> bc = pp.BoundaryConditionVectorial(g, bf, bf.size * ['dir'])
+        # Elastic moduli (expressed by Lame parameters):
+        >>> mu = 1 + np.arange(nc)
+        >>> lmbda = np.ones(nc)
         >>> C = pp.FourthOrderTensor(mu, lmbda)
         # Gather information in a dict, also prepare for storing discretization
         # matrices:
-        >>> key = 'mechanics' 
-        >>> data = {pp.PARAMETERS: {key: {'fourth_order_tensor': C, 'bc': bc}}} 
-        >>> data[pp.DISCRETIZATION_MATRICES] = {key: {}} 
-        # Construct discretization object, link it to the keyword 
-        >>> discr = pp.Tpsa(key) 
-        # Discretize: 
+        >>> key = 'mechanics'
+        >>> data = {pp.PARAMETERS: {key: {'fourth_order_tensor': C, 'bc': bc}}}
+        >>> data[pp.DISCRETIZATION_MATRICES] = {key: {}}
+        # Construct discretization object, link it to the keyword
+        >>> discr = pp.Tpsa(key)
+        # Discretize:
         >>> discr.discretize(g, data)
 
-        # This will produce discretization matrices stored in 
+        # This will produce discretization matrices stored in
         #    data[pp.DISCRETIZATION_MATRICES][key]
         # To assemble these and solve for the primary variables, do the following:
 
-        # Deal with rotation variable being 1d if g.dim == 2, 3d if g.dim == 3 
-        >>> nrf = nf if g.dim == 2 else 3 * nf 
-        >>> nrc = nc if g.dim == 2 else 3 * nc 
-        >>> div_scalar = pp.fvutils.scalar_divergence(g) 
-        >>> div_vector = pp.fvutils.vector_divergence(g) 
+        # Deal with rotation variable being 1d if g.dim == 2, 3d if g.dim == 3
+        >>> nrf = nf if g.dim == 2 else 3 * nf
+        >>> nrc = nc if g.dim == 2 else 3 * nc
+        >>> div_scalar = pp.fvutils.scalar_divergence(g)
+        >>> div_vector = pp.fvutils.vector_divergence(g)
         >>> div_rot = div_scalar if g.dim == 2 else div_vec
 
         >>> matrices = data[pp.DISCRETIZATION_MATRICES][key]
-        
-        # Assemble matrix of face quantities: 
+
+        # Assemble matrix of face quantities:
         >>> flux = sps.block_array(
                         [
                             [
@@ -182,9 +185,9 @@ class Tpsa:
                             ],
                         ],
                     )
-        # Assemble divergence operator 
-        >>> div = sps.block_diag([div_vector, div_rot, div_scalar])  
-        # Matrix for imposing boundary conditions 
+        # Assemble divergence operator
+        >>> div = sps.block_diag([div_vector, div_rot, div_scalar])
+        # Matrix for imposing boundary conditions
         >>> rhs_matrix = sps.bmat(
                     [
                         [
@@ -198,7 +201,7 @@ class Tpsa:
                         ],
                     ]
                 )
-        # Boundary conditions for displacement is a vector of size nf * g.dim. 
+        # Boundary conditions for displacement is a vector of size nf * g.dim.
         # To keep track of indices and dimensions, it can be useful to do:
         >>> bc = np.zeros((g.dim, nf))
         # Set conditions in x-direction on boundary faces
@@ -211,7 +214,7 @@ class Tpsa:
         # Boundary conditions for rotation: Should be zero here, since there is no
         # rotation diffusion, thus the rotation is not an independent variable:
         >>> bc_rot = np.zeros(nf)
-        # The full bc 
+        # The full bc
         >>> bc_all = np.hstack((bc, bc_rot))
         # Convert to right hand side
         >>> b = - div @ rhs_matrix @ bc_all
@@ -260,10 +263,10 @@ class Tpsa:
         'stress_rotation'."""
         self.stress_total_pressure_matrix_key: str = "stress_total_pressure"
         """Keyword used to identify the discretization matrix for the solid mass
-        conservation generated by the cell center solid pressure. Defaults to 
+        conservation generated by the cell center solid pressure. Defaults to
         'stress_total_pressure'."""
         self.rotation_displacement_matrix_key: str = "rotation_displacement"
-        """Keyword used to identify the discretization matrix for the rotation 
+        """Keyword used to identify the discretization matrix for the rotation
         generated by the cell center displacements. Defaults to
         'rotation_displacement'."""
         self.rotation_diffusion_matrix_key: str = "rotation_diffusion"
@@ -583,14 +586,6 @@ class Tpsa:
         if cosserat_values is not None:
             cosserat_parameter = cosserat_values[numbering.ci]
 
-        # Bookkeeping of boundary conditions.
-        is_dir_nd = bnd_disp.is_dir
-        is_dir = is_dir_nd.ravel("F")
-        is_neu_nd = bnd_disp.is_neu
-        is_neu = is_neu_nd.ravel("F")
-        is_rob_nd = bnd_disp.is_rob
-        is_rob = is_rob_nd.ravel("F")
-
         # BoundaryConditionVectorial has an attribute 'basis', to be used with Robin
         # boundary conditions (see mpsa.py). This is not implemented for tpsa.
         if (
@@ -741,7 +736,7 @@ class Tpsa:
         # of the diffusion operators for the displacement and (if relevant) rotations.
         if nd == 3:
             # In this case, \hat{R}_k^n = \bar{R}_k^n is the 3x3 matrix given in the
-            # Tpsa paper, 
+            # Tpsa paper,
             #
             #    R^n = [[0, -n2, n0], [n2, 0, -n0], [-n1, n0, 0]]
             #
@@ -868,7 +863,9 @@ class Tpsa:
         # boundaries not aligned with the coordinate axes, and with rolling boundary
         # conditions, but EK does not know what to do there).
         bound_mass_displacement = normal_vector_nd @ (
-            filters.neu_rob_pass_nd @ inv_mu_face + filters.dir_pass_nd + c2f_maps.b2f_rob
+            filters.neu_rob_pass_nd @ inv_mu_face
+            + filters.dir_pass_nd
+            + c2f_maps.b2f_rob
         )
 
         # Fields related to reconstruction of displacements on the boundary. These are
@@ -996,7 +993,7 @@ class Tpsa:
             Container of filters for boundary conditions.
 
         """
-        nc, nf, nd = sd.num_cells, sd.num_faces, sd.dim
+        nf, nd = sd.num_faces, sd.dim
 
         is_dir = bnd_disp.is_dir.ravel("F")
         is_neu = bnd_disp.is_neu.ravel("F")
@@ -1076,7 +1073,6 @@ class Tpsa:
 
         # Handling of Dirichlet conditions
         is_dir_nd = bnd_disp.is_dir
-        is_rob_nd = bnd_disp.is_rob
         is_dir = is_dir_nd.ravel("F")
 
         # Mapping from cell to face, with a weighting of mu / dist. Only interior faces.
@@ -1171,7 +1167,7 @@ class Tpsa:
             Discretization coefficients for Robin boundary conditions.
 
         """
-        nc, nf, nd = sd.num_cells, sd.num_faces, sd.dim
+        nf, nd = sd.num_faces, sd.dim
         # Normal vectors in the face-wise ordering
         n_fi = sd.face_normals[:, numbering.fi]
         # Switch signs where relevant
@@ -1340,13 +1336,13 @@ class Tpsa:
 
         Parameters:
             sd: Grid
-        
+
         Returns:
             A container of quantities needed for bookkeeping.
 
         """
         # Bookkeeping
-        nc, nf, nd = sd.num_cells, sd.num_faces, sd.dim
+        nf, nd = sd.num_faces, sd.dim
 
         # The discretization matrices give generalized fluxes across faces in terms of
         # variables in the centers of adjacent cells. The discretization is based on a
