@@ -7,7 +7,7 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 from porepy.params.tensor import FourthOrderTensor
 
 
-class TPSA:
+class Tpsa:
 
     def __init__(self, keyword: str):
 
@@ -167,7 +167,7 @@ C = pp.FourthOrderTensor(mu, mu)
 data = {pp.PARAMETERS: {'mechanics': {'fourth_order_tensor': C, 'bc': pp.BoundaryConditionVectorial(g)}},
         pp.DISCRETIZATION_MATRICES: {'mechanics': {}}}
 
-tpsa = TPSA("mechanics")
+tpsa = T("mechanics")
 tpsa.discretize(g, data)
 
 matrix_dictionary = data[pp.DISCRETIZATION_MATRICES]['mechanics']
