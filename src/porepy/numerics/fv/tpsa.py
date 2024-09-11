@@ -14,7 +14,6 @@ class Tpsa:
 
         self.keyword: str = keyword
 
-        self.bound_stress_matrix_key: str = "bound_stress"
 
         self.stress_displacement_matrix_key: str = "stress"
         self.stress_rotation_matrix_key: str = "stress_rotation"
@@ -28,11 +27,22 @@ class Tpsa:
         # compression, but in a shorter form?
         self.mass_displacement_matrix_key = "displacement_pressure"
 
+        # Boundary conditions
+        self.bound_stress_matrix_key: str = "bound_stress"
+        self.bound_mass_displacement_matrix_key = "bound_mass_displacement"
+        self.bound_rotation_diffusion_matrix_key = "bound_rotation_diffusion"
+        self.bound_rotation_displacement_matrix_key = "bound_rotation_displacement"
+
+
     def discretize(self, sd: Grid, data: dict) -> None:
         parameter_dictionary: dict[str, Any] = data[pp.PARAMETERS][self.keyword]
         matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
             self.keyword
         ]
+
+        nf = sd.num_faces
+        nc = sd.num_cells
+        nd = sd.dim
 
         stiffness: FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
         cosserat_values = parameter_dictionary["cosserat_parameter"]
@@ -79,6 +89,12 @@ class Tpsa:
             )
         )
 
+        face_area_diag_matrix = sps.dia_matrix((sd.face_areas, 0),shape=(nf, nf))
+        face_area_diag_matrix_nd = sps.dia_matrix(
+                (np.repeat(sd.face_areas, sd.dim), 0),
+                shape=(sd.num_faces * sd.dim, sd.num_faces * sd.dim),
+            )
+
         # The vector difference operator over a face is simply a Kronecker product of
         # the standard cell-face map.
         cell_to_face_difference = sps.kron(sd.cell_faces, sps.eye(sd.dim)).tocsr()
@@ -119,20 +135,23 @@ class Tpsa:
             sps.eye(sd.dim),
         ).tocsr()
 
+        dir_filter = sps.dia_matrix((dir_scalar.astype(int), 0), shape=(nf, nf))
+        dir_filter_nd = sps.dia_matrix((np.repeat(dir_scalar.astype(int), nd), 0), shape=(nf*nd, nf*nd))
+
         # Stress due to displacements
         row = fvutils.expand_indices_nd(fi, sd.dim)
         col = fvutils.expand_indices_nd(ci, sd.dim)
         # Stress is scaled by the face area.
-        stress = -(
-            sps.dia_matrix(
-                (np.repeat(sd.face_areas, sd.dim), 0),
-                shape=(sd.num_faces * sd.dim, sd.num_faces * sd.dim),
-            )
-            @ sps.coo_matrix(  # Note minus sign
+        stress = -( face_area_diag_matrix_nd @ sps.coo_matrix(  # Note minus sign
                 (2 * t_shear[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, col)),
                 shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
             ).tocsr()
         )
+
+        bound_stress = -dir_filter_nd @ face_area_diag_matrix_nd @ sps.coo_matrix(
+                            (2 * t_shear[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, row)),
+                shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
+            ).tocsr()
 
         n = sd.face_normals
 
@@ -147,8 +166,8 @@ class Tpsa:
             )
             @ cell_to_face_average_complement
         )
-        mass_displacement = (
-            sps.csr_matrix(
+
+        normal_vector_fat_matrix = sps.csr_matrix(
                 (
                     n[: sd.dim].ravel("F"),
                     np.arange(sd.dim * sd.num_faces),
@@ -156,8 +175,10 @@ class Tpsa:
                 ),
                 shape=(sd.num_faces, sd.dim * sd.num_faces),
             )
-            @ cell_to_face_average_nd
+
+        mass_displacement = (normal_vector_fat_matrix @ cell_to_face_average_nd
         )
+        bound_mass_displacement = dir_filter @ normal_vector_fat_matrix
 
         mass_volumetric_strain = -(
             sps.dia_matrix(
@@ -187,11 +208,7 @@ class Tpsa:
             stress_rotation = -Rn_check @ cell_to_face_average_complement_nd
 
             rotation_diffusion = -(
-                sps.dia_matrix(
-                    (np.repeat(sd.face_areas, sd.dim), 0),
-                    shape=(sd.num_faces * sd.dim, sd.num_faces * sd.dim),
-                )
-                @ sps.coo_matrix(  # Note minus sign
+                face_area_diag_matrix_nd @ sps.coo_matrix(  # Note minus sign
                     (t_cosserat[np.repeat(fi, sd.dim)] * np.repeat(sgn, sd.dim), (row, col)),
                     shape=(sd.num_faces * sd.dim, sd.num_cells * sd.dim),
                     ).tocsr()
@@ -225,23 +242,19 @@ class Tpsa:
             stress_rotation = -Rn_hat @ cell_to_face_average_complement
 
             rotation_diffusion = -(
-                sps.dia_matrix((
-                    sd.face_areas, 0),
-                    shape=(sd.num_faces, sd.num_faces),
-                )
+                face_area_diag_matrix
                 @ sps.coo_matrix(  # Note minus sign
                     (t_cosserat[fi] * sgn, (fi, ci)),
                     shape=(sd.num_faces, sd.num_cells),
                     ).tocsr()
             )            
-
+            bound_rotation_diffusion = -dir_filter @ face_area_diag_matrix @ sps.coo_matrix(
+                    (t_cosserat[fi] * sgn, (fi, fi)),
+                    shape=(sd.num_faces, sd.num_cells),
+                    ).tocsr()
         rotation_displacement = -Rn_bar @ cell_to_face_average_nd
-        # TODO: Cosserat model
-        # Brute force way to set the Dirichlet boundary conditions (assuming the
-        # displacement is zero at the boundary): The 
-        rotation_displacement[dir_scalar] = 0
-        mass_displacement[dir_scalar] = 0
 
+        bound_rotation_displacement = dir_filter @ Rn_bar
 
 
         div = pp.fvutils.scalar_divergence(sd)
@@ -250,6 +263,9 @@ class Tpsa:
         dsr = div_vec @ stress_rotation
         drs = div @ rotation_displacement
 
+        ## Store the computed fields
+
+        # Discretization matrices
         matrix_dictionary[self.stress_displacement_matrix_key] = stress
         matrix_dictionary[self.stress_rotation_matrix_key] = stress_rotation
         matrix_dictionary[self.stress_volumetric_strain_matrix_key] = (
@@ -261,3 +277,9 @@ class Tpsa:
             mass_volumetric_strain
         )
         matrix_dictionary[self.mass_displacement_matrix_key] = mass_displacement
+
+        # Boundary conditions (NB: Only Dirichlet implemented for now)
+        matrix_dictionary[self.bound_stress_matrix_key] = bound_stress
+        matrix_dictionary[self.bound_mass_displacement_matrix_key] = bound_mass_displacement
+        matrix_dictionary[self.bound_rotation_diffusion_matrix_key] = bound_rotation_diffusion
+        matrix_dictionary[self.bound_rotation_displacement_matrix_key] = bound_rotation_displacement
