@@ -17,12 +17,12 @@ class Tpsa:
 
         self.stress_displacement_matrix_key: str = "stress"
         self.stress_rotation_matrix_key: str = "stress_rotation"
-        self.stress_volumetric_strain_matrix_key: str = "pressure_stress"
+        self.stress_solid_pressure_matrix_key: str = "pressure_stress"
 
         self.rotation_displacement_matrix_key: str = "rotation_displacement"
         self.rotation_diffusion_matrix_key: str = "rotation_diffusion"
 
-        self.mass_volumetric_strain_matrix_key = "pressure_pressure"
+        self.mass_solid_pressure_matrix_key = "pressure_pressure"
         # TODO: Need a name for the equaiton for the (solid) pressure. Volumetric
         # compression, but in a shorter form?
         self.mass_displacement_matrix_key = "displacement_pressure"
@@ -158,7 +158,7 @@ class Tpsa:
 
         n = sd.face_normals
 
-        stress_volumetric_strain = (
+        stress_solid_pressure = (
             sps.csc_matrix(
                 (
                     n[: sd.dim].ravel("F"),
@@ -183,7 +183,7 @@ class Tpsa:
         )
         bound_mass_displacement = dir_filter @ normal_vector_fat_matrix
 
-        mass_volumetric_strain = -dir_nopass_filter @ (
+        mass_solid_pressure = -dir_nopass_filter @ (
             sps.dia_matrix(
                 (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
                 shape=(sd.num_faces, sd.num_faces),
@@ -275,13 +275,13 @@ class Tpsa:
         # Discretization matrices
         matrix_dictionary[self.stress_displacement_matrix_key] = stress
         matrix_dictionary[self.stress_rotation_matrix_key] = stress_rotation
-        matrix_dictionary[self.stress_volumetric_strain_matrix_key] = (
-            stress_volumetric_strain
+        matrix_dictionary[self.stress_solid_pressure_matrix_key] = (
+            stress_solid_pressure
         )
         matrix_dictionary[self.rotation_displacement_matrix_key] = rotation_displacement
         matrix_dictionary[self.rotation_diffusion_matrix_key] = rotation_diffusion
-        matrix_dictionary[self.mass_volumetric_strain_matrix_key] = (
-            mass_volumetric_strain
+        matrix_dictionary[self.mass_solid_pressure_matrix_key] = (
+            mass_solid_pressure
         )
         matrix_dictionary[self.mass_displacement_matrix_key] = mass_displacement
 
