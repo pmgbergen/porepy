@@ -568,12 +568,12 @@ class SolidConstants(MaterialConstants):
         )
 
     def maximum_elastic_fracture_opening(self) -> number:
-        """The maximum closure of a fracture [m].
+        """The maximum opening of a fracture [m].
 
         Intended use is in Barton-Bandis-type models for elastic fracture deformation.
 
         Returns:
-            The maximal closure of a fracture.
+            The maximal opening of a fracture.
 
         """
         return self.convert_units(
