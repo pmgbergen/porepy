@@ -1,5 +1,5 @@
 """Tests for the Tpsa discretization. Contains two sets of tests:
-    1. TestTpsaTailoredGrid is a clas that defines a cell of two grids and verifies the
+    1. TestTpsaTailoredGrid is a class that defines a cell of two grids and verifies the
        discretization matrices for the Tpsa discretization. Both interior cells and all
        types of boundary conditions are tested.
     2. Various other tests that probe different aspects of the Tpsa discretization.
@@ -14,9 +14,9 @@ import numpy as np
 import scipy.sparse as sps
 from copy import deepcopy
 
-# module level keyword which identifies the placement of parameters and discretization
-# matrices in the dictionary.
 KEYWORD = "mechanics"
+"""Module level keyword which identifies the placement of parameters and discretization
+matrices in the dictionary."""
 
 
 def _discretize_get_matrices(grid: pp.Grid, d: dict):
@@ -132,7 +132,7 @@ class TestTpsaTailoredGrid:
 
         # We test the discretization on face 6, as this has two non-trivial components
         # of the normal vector, and in the vector from cell to face center. These values
-        # will be overriden for the test of the internal face.
+        # will be overridden for the test of the internal face.
         self.target_faces_scalar = np.array([0, 6])
         self.target_faces_vector = np.array([0, 1, 12, 13])
 
@@ -178,7 +178,7 @@ class TestTpsaTailoredGrid:
 
     def test_discretization_interior_cells(self):
         """Construct a tpsa discretization on a grid consisting of two cells, compare
-        the computed coefficients with hanrcoded values. This test is for the internal
+        the computed coefficients with hardcoded values. This test is for the internal
         face.
         """
 
@@ -188,20 +188,20 @@ class TestTpsaTailoredGrid:
         _set_uniform_bc(self.g, self.data, "dir")
         matrices = _discretize_get_matrices(self.g, self.data)
 
-        # Normal vector and its length
+        # Normal vector and its length.
         n = np.array([2, 1])
         n_nrm = np.sqrt(5)
 
-        # Target the only interior face
+        # Target the only interior face.
         target_faces_scalar = np.array([1])
         target_faces_vector = np.array([2, 3])
 
         # The distance from cell center to face center, projected onto the normal, is
-        #   3 / (2 * sqrt(5)) for both cells.
+        # 3 / (2 * sqrt(5)) for both cells.
         d_0_1 = 3 / (2 * n_nrm)
         d_1_1 = 3 / (2 * n_nrm)
 
-        # Weighted sum of the shear moduli
+        # Weighted sum of the shear moduli.
         mu_w = self.mu_0 / d_0_1 + self.mu_1 / d_1_1
 
         # The stress coefficient is twice the harmonic average of the two shear moduli.
@@ -218,20 +218,20 @@ class TestTpsaTailoredGrid:
             * n_nrm
         )
 
-        # Weight of the cell-to-face averaging operator for cell 0
+        # Weight of the cell-to-face averaging operator for cell 0.
         c2f_avg_0 = self.mu_0 / d_0_1 / mu_w
         c2f_avg_1 = self.mu_1 / d_1_1 / mu_w
-        # Complement operators
+        # Complement operators.
         c_c2f_avg_0 = 1 - c2f_avg_0
         c_c2f_avg_1 = 1 - c2f_avg_1
 
         known_values = {
             # The stress is negative for the face with outward pointing normal vector
-            # (check: this should be oposite of Darcy, which has a minus sign).
+            # (check: this should be opposite of Darcy, which has a minus sign).
             "stress": np.array([[-stress, 0, stress, 0], [0, -stress, 0, stress]]),
-            # No boundary effects
+            # No boundary effects.
             "bound_stress": np.zeros((2, 14)),
-            # Definition follows the description of the paper
+            # Definition follows the description of the paper.
             "stress_rotation": -np.array(  # out minus sign consistent with paper
                 [
                     [c_c2f_avg_0 * n[1], c_c2f_avg_1 * n[1]],
@@ -275,8 +275,8 @@ class TestTpsaTailoredGrid:
         )
 
     def test_dirichlet_bcs(self):
-        """Set Dirichlet boundary conditions on all faces, check that the
-        implementation of the boundary conditions are correct.
+        """Set Dirichlet boundary conditions on all faces, check that the implementation
+        of the boundary conditions are correct.
         """
         _set_uniform_bc(self.g, self.data, "dir")
         matrices = _discretize_get_matrices(self.g, self.data)
@@ -285,10 +285,9 @@ class TestTpsaTailoredGrid:
         stress_0 = 2 * self.mu_0 / self.d_0_0 * self.n_0_nrm
         stress_6 = 2 * self.mu_1 / self.d_1_6 * self.n_6_nrm
 
-        # The values of the cell to face average for face for faces 0 and 6. Also the
-        # complements identified by suffix c_. On Dirichlet faces, the face value is
-        # imposed, thus the cell is asigned weight 0 (hence the complement has weight
-        # 1).
+        # The values of the cell to face average for faces 0 and 6. Also the complements
+        # identified by prefix c_. On Dirichlet faces, the face value is imposed, thus
+        # the cell is asigned weight 0 (hence the complement has weight 1).
         c2f_avg_0 = 0
         c2f_avg_6 = 0
         c_c2f_avg_0 = 1 - c2f_avg_0
@@ -362,7 +361,7 @@ class TestTpsaTailoredGrid:
                     [0, c_c2f_avg_6 * self.n_6[1]],
                 ]
             ),
-            # No contribution from the cell displacement to the boundary rotation
+            # No contribution from the cell displacement to the boundary rotation.
             "rotation_displacement": np.zeros((2, 4)),
             "bound_rotation_displacement": bound_rotation_displacement,
             # Minus sign on the second face, since the normal vector is pointing out of
@@ -556,7 +555,7 @@ class TestTpsaTailoredGrid:
         d_0_y_bound = rw_0_y
         d_6_bound = rw_6
 
-        # Short hand for the shear modulus divided by the cell to face distance.
+        # Shorthand for the shear modulus divided by the cell to face distance.
         mu_0_d = self.mu_0 / self.d_0_0
         mu_1_d = self.mu_1 / self.d_1_6
 
@@ -583,7 +582,7 @@ class TestTpsaTailoredGrid:
         delta_0_y = 1 / (2 * mu_0_d + rw_0_y)
         delta_6 = 1 / (2 * mu_1_d + rw_6)
 
-        # Stress discretization, use distances that incorporate the Robin condition
+        # Stress discretization, use distances that incorporate the Robin condition.
         stress_0_x = 2 * self.n_0_nrm * (mu_0_d * rw_0_x) / (mu_0_d + rw_0_x)
         stress_0_y = 2 * self.n_0_nrm * (mu_0_d * rw_0_y) / (mu_0_d + rw_0_y)
         stress_6 = 2 * self.n_6_nrm * (mu_1_d * rw_6) / (mu_1_d + rw_6)
@@ -599,7 +598,7 @@ class TestTpsaTailoredGrid:
 
         # The boundary condition for the rotation diffusion problem is set to Neumann
         # conditions (see top of this method), so copy these conditions from the
-        # relevant test
+        # relevant test.
         bound_rotation_diffusion = np.zeros((2, 7))
         bound_rotation_diffusion[0, 0] = -1
         bound_rotation_diffusion[1, 6] = 1
@@ -677,7 +676,7 @@ class TestTpsaTailoredGrid:
         )
 
         known_values = {
-            # The stress discretization is the same as in the Dirichlet case
+            # The stress discretization is the same as in the Dirichlet case.
             "stress": np.array(
                 [
                     [stress_0_x, 0, 0, 0],
@@ -740,7 +739,7 @@ class TestTpsaTailoredGrid:
     def test_mixed_bcs(self):
         """Set mixed boundary conditions (e.g. type A in one direction, B in a different
         direction) on all faces, check that the discretization stencil for internal
-        faces, as well as the implementation of the boundary conditions are correct.
+        faces, as well as the implementation of the boundary conditions, are correct.
 
         Note that it is not necessary to consider interaction between different types of
         boundary conditions on different faces, since a two-point stencil does not allow
@@ -764,8 +763,8 @@ class TestTpsaTailoredGrid:
         stress_6 = 2 * self.mu_1 / self.d_1_6 * self.n_6_nrm
 
         # The values of the cell to face average for face for faces 0 and 6. Also the
-        # complements identified by suffix c_. On Dirichlet faces, the face value is
-        # imposed, thus the cell is asigned weight 0 (hence the complement has weight
+        # complements identified by prefix c_. On Dirichlet faces, the face value is
+        # imposed, thus the cell is assigned weight 0 (hence the complement has weight
         # 1).
         c2f_avg_0_x = 0
         c2f_avg_6_x = 0
@@ -869,7 +868,7 @@ class TestTpsaTailoredGrid:
                     [0, 0],
                 ]
             ),
-            # No contribution from the cell displacement to the boundary rotation
+            # No contribution from the cell displacement to the boundary rotation.
             "rotation_displacement": -np.array(
                 [
                     [0, c2f_avg_0_y * self.n_0[0], 0, 0],
@@ -906,22 +905,17 @@ class TestTpsaTailoredGrid:
                     [0, -self.d_1_6 / (2 * self.mu_1) * self.n_6_nrm],
                 ]
             ),
-            # No contribution from cell center values to the boundary displacement
+            # No contribution from cell center values to the boundary displacement.
             "bound_displacement_cell": bound_displacement_cell,
-            # The boundary displacement is the boundary condition
+            # The boundary displacement is the boundary condition.
             "bound_displacement_face": bound_displacement_face,
             # Neither the rotation variable nor the solid pressure contribute to the
-            # boundary displacement for Dirichlet faces
+            # boundary displacement for Dirichlet faces.
             "bound_displacement_rotation_cell": bound_displacement_rotation_cell,
             "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,
         }
 
         self._compare_matrices(matrices, known_values)
-
-
-# t = TestTpsaTailoredGrid()
-# t.setup()
-# t.test_mixed_bcs()
 
 
 def test_no_cosserat():
@@ -937,7 +931,7 @@ def test_no_cosserat():
         g, faces=bf, cond=bf.size * ["dir"]
     )
 
-    # Discretize, assemble matrices
+    # Discretize, assemble matrices.
     matrices = _discretize_get_matrices(g, d)
 
     assert np.allclose(matrices["rotation_diffusion"].toarray(), 0)
@@ -946,7 +940,7 @@ def test_no_cosserat():
 
 def test_cosserat_3d():
     """Set up a 3d problem, check that the rotation diffusion matrix has the right
-    # dimension, and that the boundary conditions are correctly implemented.
+    dimension, and that the boundary conditions are correctly implemented.
     """
     g = pp.CartGrid([2, 1, 1])
     g.compute_geometry()
@@ -973,20 +967,20 @@ def test_cosserat_3d():
 
     known_values = np.zeros((12, 6))
 
-    # Face 0 has a Neumann condition, thus the coefficients are zero
-    # Check coefficients on the inner face
+    # Face 0 has a Neumann condition, thus the coefficients are zero. Check coefficients
+    # on the inner face.
     known_values[3, 0] = -1
     known_values[4, 1] = -1
     known_values[5, 2] = -1
     known_values[3, 3] = 1
     known_values[4, 4] = 1
     known_values[5, 5] = 1
-    # Check coefficients on face 2, which has a Dirichlet condition
+    # Check coefficients on face 2, which has a Dirichlet condition.
     known_values[6, 3] = -2
     known_values[7, 4] = -2
     known_values[8, 5] = -2
-    # Face 3 has a Dirichlet condition, but with inwards pointing normal vector, thus the
-    # coefficients should have negative sign.
+    # Face 3 has a Dirichlet condition, but with inwards pointing normal vector, thus
+    # the coefficients should have negative sign.
     known_values[9, 0] = 2
     known_values[10, 1] = 2
     known_values[11, 2] = 2
@@ -995,15 +989,15 @@ def test_cosserat_3d():
 
     bc_rot = matrices["bound_rotation_diffusion"]
     known_values = np.zeros((12, 33))
-    # Neumann condition on face 0
+    # Neumann condition on face 0.
     known_values[0, 0] = -1
     known_values[1, 1] = -1
     known_values[2, 2] = -1
-    # Dirichlet condition, outwards pointing normal vector on face 2
+    # Dirichlet condition, outwards pointing normal vector on face 2.
     known_values[6, 6] = 2
     known_values[7, 7] = 2
     known_values[8, 8] = 2
-    # Dirichlet condition, inwards pointing normal vector on face 3
+    # Dirichlet condition, inwards pointing normal vector on face 3.
     known_values[9, 9] = -2
     known_values[10, 10] = -2
     known_values[11, 11] = -2
@@ -1018,7 +1012,7 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, extension: bool):
     """Assign a compressive or tensile force, check that the resulting displacement is
     in the correct direction, and that the total pressure is negative.
 
-    The foce is compressive on the south, east and (if 3d) bottom faces, the remaining
+    The force is compressive on the south, east and (if 3d) bottom faces, the remaining
     faces having neutral conditions. Check that this results in displacement in the
     negative x-direction and positive y- (and z) direction. The total pressure should be
     negative, while EK cannot surmise the correct sign of the rotation by physical
@@ -1058,7 +1052,7 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, extension: bool):
     if extension:
         bc_values *= -1
 
-    # Discretize, assemble matrices
+    # Discretize, assemble matrices.
     matrices = _discretize_get_matrices(g, d)
     flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
 
@@ -1069,18 +1063,18 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, extension: bool):
         n_rot_face = g.num_faces * g.dim
         rot_dim = g.dim
 
-    # Boundary values, map to right-hand side
+    # Boundary values, map to right-hand side.
     bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
     x = _solve(flux, rhs_matrix, div, accum, bound_vec)
 
     if extension:
-        # Positive x-direction, negative y- (and z-) direction
+        # Positive x-direction, negative y- (and z-) direction.
         assert np.all(x[: g.dim * g.num_cells : g.dim] > 0)
         assert np.all(x[1 : g.dim * g.num_cells : g.dim] < 0)
         if g.dim == 3:
             assert np.all(x[2 : g.dim * g.num_cells : g.dim] < 0)
 
-        # Total pressure should be positive (expansion)
+        # Total pressure should be positive (expansion).
         assert np.all(x[(g.dim + rot_dim) * g.num_cells :] > 0)
     else:
         assert np.all(x[: g.dim * g.num_cells : g.dim] < 0)
@@ -1093,7 +1087,7 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, extension: bool):
 
 @pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
 def test_translation(g: pp.Grid):
-    """Set boundary conditions that corresponds to a translation of the grid, check that
+    """Set boundary conditions that correspond to a translation of the grid, check that
     the interior cells follow the translation, and that the resulting system is
     stress-free.
     """
@@ -1113,7 +1107,7 @@ def test_translation(g: pp.Grid):
     for dim in range(g.dim):
         bc_values[dim, bf] = disp[dim]
 
-    # Discretize, assemble matrices
+    # Discretize, assemble matrices.
     matrices = _discretize_get_matrices(g, d)
     flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
 
@@ -1140,13 +1134,13 @@ def test_translation(g: pp.Grid):
 
     x = _solve(flux, rhs_matrix, div, accum, bound_vec)
 
-    # Check that the displacement is as expected
+    # Check that the displacement is as expected.
     assert np.allclose(x[: g.dim * g.num_cells : g.dim], disp[0])
     assert np.allclose(x[1 : g.dim * g.num_cells : g.dim], disp[1])
     if g.dim == 3:
         assert np.allclose(x[2 : g.dim * g.num_cells : g.dim], disp[2])
 
-    # Both the rotation and the total pressure should be zero
+    # Both the rotation and the total pressure should be zero.
     assert np.allclose(x[g.dim * g.num_cells :], 0)
 
 
@@ -1181,7 +1175,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     bc_rob = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type_rob)
     bc_neu = pp.BoundaryConditionVectorial(g, faces=bf, cond=bc_type_neu)
 
-    # Random values for the boundary conditions
+    # Random values for the boundary conditions.
     bc_values = np.zeros((g.dim, g.num_faces))
     vals = np.random.rand(g.dim, bf.size)
     bc_values_disp = np.zeros((g.dim, g.num_faces))
@@ -1191,7 +1185,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     )
     bc_values = np.hstack((bc_values_disp.ravel("F"), bc_values_rot))
 
-    # Discretize, assemble matrices
+    # Discretize, assemble matrices.
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_dir
     matrices_dir = deepcopy(_discretize_get_matrices(g, d))
     flux_dir, rhs_matrix_dir, div, accum = _assemble_matrices(matrices_dir, g)
@@ -1199,7 +1193,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
 
     # For future reference: EK has verified that, as the Robin weight is increased, the
     # discretization matrices of the Dirichlet and Robin cases do converge. The rates
-    # seems to be faster for the matrices than for the solution, but this is not
+    # seem to be faster for the matrices than for the solution, but this is not
     # unreasonable.
 
     # Set the Robin weight to a large value, such that the Robin condition approaches
@@ -1214,7 +1208,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     matrices_high = deepcopy(_discretize_get_matrices(g, d))
     flux_high, rhs_matrix_high, div, accum = _assemble_matrices(matrices_high, g)
     x_rob_high = _solve(flux_high, rhs_matrix_high, div, accum, bc_values)
-    # The displacement should be close to the Dirichlet value
+    # The displacement should be close to the Dirichlet value.
     assert np.allclose(x_rob_high, x_dir, rtol=1e-2)
 
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_neu
@@ -1223,7 +1217,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     x_neu = _solve(flux_neu, rhs_matrix_neu, div, accum, bc_values)
 
     # Set the Robin weight to zero, such that the Robin condition approaches the Neumann
-    # condition
+    # condition.
     bc_rob.robin_weight[0, 0] = 0
     bc_rob.robin_weight[1, 1] = 0
     if g.dim == 3:
@@ -1234,7 +1228,7 @@ def test_robin_neumann_dirichlet_consistency(g: pp.Grid):
     flux, rhs_matrix, div, accum = _assemble_matrices(matrices, g)
     x_rob_low = _solve(flux, rhs_matrix, div, accum, bc_values)
 
-    # The displacement should be close to the Neumann value
+    # The displacement should be close to the Neumann value.
     assert np.allclose(x_rob_low, x_neu)
 
 
@@ -1377,8 +1371,8 @@ def _set_bc_by_direction(
     type_bottom: Optional[Literal["dir", "neu"]] = None,
     type_top: Optional[Literal["dir", "neu"]] = None,
 ) -> np.ndarray:
-    """Set the boundary conditions on the grid, based on the types of boundary conditions
-    given.
+    """Set the boundary conditions on the grid, based on the types of boundary
+    conditions given.
 
     The boundary condition has value 0.1 on the south face, -0.1 on the east face, and
     0.1 on the bottom face (if 3d). The remaining faces have homogeneous conditions.
@@ -1405,7 +1399,7 @@ def _set_bc_by_direction(
     face_ind = g.get_all_boundary_faces()
     nf = face_ind.size
 
-    # Find the faces on the boundary in each direction
+    # Find the faces on the boundary in each direction.
     min_coord, max_coord = pp.domain.grid_minmax_coordinates(g)
     south = np.where(g.face_centers[1, face_ind] == min_coord[1])
     east = np.where(g.face_centers[0, face_ind] == max_coord[0])
