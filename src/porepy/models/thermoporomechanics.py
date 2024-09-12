@@ -23,6 +23,7 @@ from __future__ import annotations
 from typing import Callable, Union
 
 import porepy as pp
+from porepy.models.protocol import PoromechanicsCouplingProtocol
 
 from . import energy_balance as energy
 from . import fluid_mass_balance as mass
@@ -143,6 +144,7 @@ class SolutionStrategyThermoporomechanics(
     energy.SolutionStrategyEnergyBalance,
     mass.SolutionStrategySinglePhaseFlow,
     momentum.SolutionStrategyMomentumBalance,
+    PoromechanicsCouplingProtocol,
 ):
     """Combines mass and momentum balance solution strategies.
 
@@ -150,14 +152,6 @@ class SolutionStrategyThermoporomechanics(
     inherit from :class:`~porepy.models.solution_strategy.SolutionStrategy`. The user
     should be aware of this and take method resolution order into account when defining
     new methods.
-
-    """
-
-    darcy_flux_discretization: Callable[
-        [list[pp.Grid]], Union[pp.ad.TpfaAd, pp.ad.MpfaAd]
-    ]
-    """Discretization of the Darcy flux. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
     """
     fourier_flux_discretization: Callable[
@@ -170,10 +164,6 @@ class SolutionStrategyThermoporomechanics(
     temperature_variable: str
     """Name of the temperature variable. Normally set by a mixin instance of
     :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
-    """
-    biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that defines the Biot tensor. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
     """
     solid_thermal_expansion_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Thermal expansion coefficient. Normally defined in a mixin instance of

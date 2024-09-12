@@ -685,11 +685,13 @@ class DataSavingProtocol(Protocol):
 
         """
 
+
 class SolutionStrategyMBProtocol(Protocol):
     """This is a class that specifies methods that a momentum balance model must
     implement to be compatible with the linearization and time stepping methods.
 
     """
+
     displacement_variable: str = "u"
     """Name of the displacement variable."""
 
@@ -724,7 +726,6 @@ class SolutionStrategyMBProtocol(Protocol):
 
         """
 
-
     def contact_mechanics_open_state_characteristic(
         self, subdomains: list["pp.Grid"]
     ) -> "pp.ad.Operator":
@@ -750,6 +751,7 @@ class SolutionStrategyMBProtocol(Protocol):
             characteristic: Characteristic function.
 
         """
+
 
 class BoundaryConditionMBProtocol(Protocol):
     def bc_type_mechanics(self, sd: "pp.Grid") -> "pp.BoundaryConditionVectorial":
@@ -847,6 +849,7 @@ class VariablesMBProtocol(Protocol):
 
         """
 
+
 class ConstitutiveLawsMBProtocol(Protocol):
 
     def mechanical_stress(self, domains: "pp.SubdomainsOrBoundaries") -> "pp.ad.Operator":
@@ -874,7 +877,6 @@ class ConstitutiveLawsMBProtocol(Protocol):
 
     def fracture_stress(self, interfaces: list["pp.MortarGrid"]) -> "pp.ad.Operator":
         """Fracture stress on interfaces [Pa]."""
-
 
     def friction_bound(self, subdomains: list["pp.Grid"]) -> "pp.ad.Operator":
         """Friction bound [-].
@@ -923,8 +925,9 @@ class ConstitutiveLawsMBProtocol(Protocol):
 
         """
 
-    def characteristic_displacement(self, subdomains: list["pp.Grid"]) -> \
-            "pp.ad.Operator":
+    def characteristic_displacement(
+        self, subdomains: list["pp.Grid"]
+    ) -> "pp.ad.Operator":
         """Characteristic displacement [m].
 
         The value is fetched from the solid constants. See also the method
@@ -986,12 +989,16 @@ class ConstitutiveLawsMBProtocol(Protocol):
 
         """
 
-class MomentumBalanceProtocol(SolutionStrategyMBProtocol,
-                              VariablesMBProtocol,
-                              ConstitutiveLawsMBProtocol,
-                              BoundaryConditionMBProtocol,
-                              Protocol):
+
+class MomentumBalanceProtocol(
+    SolutionStrategyMBProtocol,
+    VariablesMBProtocol,
+    ConstitutiveLawsMBProtocol,
+    BoundaryConditionMBProtocol,
+    Protocol,
+):
     """Protocol for the momentum balance model"""
+
 
 class PorePyModel(
     BoundaryConditionProtocol,
@@ -1254,6 +1261,17 @@ class DarcyFluxProtocol(PressureProtocol, Protocol):
             The combined Darcy flux boundary operator.
 
         """
+    
+    def darcy_flux_discretization(self, subdomains: list["pp.Grid"]) -> "pp.ad.MpfaAd":
+        """Discretization object for the Darcy flux term.
+
+        Parameters:
+            subdomains: List of subdomains where the Darcy flux is defined.
+
+        Returns:
+            Discretization of the Darcy flux.
+
+        """
 
 
 class FluidMassBalanceProtocol(
@@ -1379,6 +1397,33 @@ class FluidMassBalanceProtocol(
 
         Returns:
             Operator for fluid viscosity [Pa * s], represented as an Ad operator.
+
+        """
+
+
+class PoromechanicsCouplingProtocol(Protocol):
+    def biot_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """A coefficient for volumetric changes due to pressure perturbations in Biot's
+        equations.
+
+        Parameters:
+            subdomains: List of subdomains where the Biot coefficient is defined.
+
+        Returns:
+            Biot coefficient operator, units [-].
+
+        """
+
+    def biot_tensor(self, subdomains: list[pp.Grid]) -> pp.SecondOrderTensor:
+        """Second-order tensor representing the force caused by a pressure perturbation
+        in Biot's equations.
+
+        Parameters:
+            subdomains: List of subdomains where the Biot tensor is defined.
+
+        Returns:
+            Cell-wise Biot isotropic tensor, units: [-]. The value is set equal to the
+            Biot coefficient in the solid constants.
 
         """
 

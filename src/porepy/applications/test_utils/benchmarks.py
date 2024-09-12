@@ -7,52 +7,17 @@ from typing import Callable, Union
 import numpy as np
 
 import porepy as pp
+from porepy.models.protocol import (
+    PorePyModel,
+    FluidMassBalanceProtocol,
+    MixedDimensionalProtocol,
+)
 
 
-class EffectivePermeability:
+class EffectivePermeability(
+    PorePyModel, FluidMassBalanceProtocol, MixedDimensionalProtocol
+):
     """Mixin that contains the computation of effective permeabilities."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    darcy_keyword: str
-    """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
-    instance of
-    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
-
-    """
-
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-
-    """Function that returns the specific volume of a subdomain or interface.
-
-    Normally provided by a mixin of instance
-    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
-
-    aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Aperture. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
-
-    """
-
-    normal_permeability: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-    """Nomral permeability. Normally definied in a mixin instance of
-    :class:`~porepy.models.constituve_laws.ConstantPermeability` or a subclass thereof.
-
-    """
 
     def effective_tangential_permeability(
         self, subdomains: list[pp.Grid]

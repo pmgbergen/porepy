@@ -12,13 +12,12 @@ References:
 
 """
 
-from typing import Callable, Union
-
 import numpy as np
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.models.constitutive_laws import DimensionDependentPermeability
+from porepy.models.protocol import PorePyModel, MixedDimensionalProtocol
 
 
 class FractureSolidConstants(pp.SolidConstants):
@@ -52,7 +51,7 @@ solid_constants_blocking_fractures = FractureSolidConstants(
 )
 
 
-class Geometry:
+class Geometry(PorePyModel):
     """Geometry specification for Case 1 of the 2D flow benchmark."""
 
     def set_fractures(self) -> None:
@@ -60,36 +59,10 @@ class Geometry:
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_1()
 
 
-class BoundaryConditions:
+class BoundaryConditions(PorePyModel, MixedDimensionalProtocol):
     """Boundary conditions for Case 1 of the 2D flow benchmark.
 
     Inflow on west (left) and prescribed pressure on east (right).
-
-    """
-
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Defined by a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Function that returns the specific volume of a subdomain or interface.
-
-    Normally provided by a mixin of instance
-    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
 
     """
 
@@ -142,15 +115,7 @@ class Permeability(DimensionDependentPermeability):
 
     """
 
-    params: dict
-    """Dictionary of parameters."""
-    solid: FractureSolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-
-    Tailored to the current model with the additional parameter
-    `fracture_permeability`.
-
-    """
+    solid: FractureSolidConstants  # A specific subtype of SolidConstants is required.
 
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability of fractures.

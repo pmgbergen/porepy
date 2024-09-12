@@ -16,11 +16,12 @@ Suggested references (TODO: add more, e.g. Inga's in prep):
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Union
+from typing import Optional
 
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as momentum
+from porepy.models.protocol import PoromechanicsCouplingProtocol
 
 
 class ConstitutiveLawsPoromechanics(
@@ -122,27 +123,13 @@ class BoundaryConditionsPoromechanics(
 class SolutionStrategyPoromechanics(
     mass.SolutionStrategySinglePhaseFlow,
     momentum.SolutionStrategyMomentumBalance,
+    PoromechanicsCouplingProtocol,
 ):
     """Combines mass and momentum balance solution strategies.
 
     This class has a diamond structure inheritance. The user should be aware of this
     and take method resolution order into account when defining new methods.
 
-    """
-
-    darcy_flux_discretization: Callable[
-        [list[pp.Grid]], Union[pp.ad.TpfaAd, pp.ad.MpfaAd]
-    ]
-    """Discretization of the Darcy flux. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
-
-    """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid."""
-
-    biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that defines the Biot tensor. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
     """
 
     def __init__(self, params: Optional[dict] = None) -> None:

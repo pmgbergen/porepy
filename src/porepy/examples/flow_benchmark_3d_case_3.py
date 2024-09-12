@@ -28,6 +28,7 @@ from porepy.examples.flow_benchmark_2d_case_1 import (
     Permeability,
 )
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.models.protocol import PorePyModel
 
 solid_constants = FractureSolidConstants(
     {
@@ -92,21 +93,8 @@ class IntersectionPermeability(Permeability):
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
 
-class BoundaryConditions:
+class BoundaryConditions(PorePyModel):
     """Define inlet and outlet boundary conditions as specified by the benchmark."""
-
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Defined by a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign Dirichlet to the top and bottom  part of the north (y=y_max)

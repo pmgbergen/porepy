@@ -47,6 +47,7 @@ import porepy as pp
 import porepy.models.fluid_mass_balance as mass
 import porepy.models.momentum_balance as mechanics
 import porepy.models.poromechanics as poromechanics
+from porepy.models.protocol import FluidMassBalanceProtocol
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.derived_models.biot import BiotPoromechanics
 from porepy.utils.examples_utils import VerificationUtils
@@ -100,7 +101,7 @@ class TerzaghiSaveData:
     """Current simulation time."""
 
 
-class TerzaghiDataSaving(VerificationDataSaving):
+class TerzaghiDataSaving(VerificationDataSaving, FluidMassBalanceProtocol):
     """Mixin class to save relevant data."""
 
     exact_sol: TerzaghiExactSolution
@@ -109,12 +110,6 @@ class TerzaghiDataSaving(VerificationDataSaving):
     displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
 

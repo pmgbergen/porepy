@@ -37,6 +37,7 @@ import porepy.models.momentum_balance as momentum_balance
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.derived_models.biot import BiotPoromechanics
+from porepy.models.protocol import PorePyModel, FluidMassBalanceProtocol
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
@@ -117,14 +118,8 @@ class MandelSaveData:
     """Current simulation time."""
 
 
-class MandelDataSaving(VerificationDataSaving):
+class MandelDataSaving(VerificationDataSaving, FluidMassBalanceProtocol):
     """Mixin class to save relevant data."""
-
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`~porepy.models.fluid_mass_balance.DarcysLaw`.
-
-    """
 
     displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
@@ -135,21 +130,8 @@ class MandelDataSaving(VerificationDataSaving):
     exact_sol: MandelExactSolution
     """Exact solution object."""
 
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of storing and scaling numerical values
-    representing fluid-related quantities. Normally, this is set by an instance of
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
     numerical_consolidation_degree: Callable[[], tuple[number, number]]
     """Numerical degree of consolidation in the horizontal and vertical directions."""
-
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Pressure variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
-    """
 
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the (integrated) poroelastic stress in the form of an Ad
@@ -636,15 +618,6 @@ class MandelExactSolution:
 # -----> Utilities
 class MandelUtils(VerificationUtils):
     """Mixin class that provides useful utility methods for the verification setup."""
-
-    domain: pp.Domain
-    """Domain specification. Set by an instance of :class:`~MandelGeometry`."""
-
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Defined by a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
 
     exact_sol: MandelExactSolution
     """Exact solution object. Normally set by an instance of
