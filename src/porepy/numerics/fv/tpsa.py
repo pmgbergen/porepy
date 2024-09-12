@@ -1132,7 +1132,7 @@ class Tpsa:
         # explicit zeros to construct the complement map below. Hence we enforce the
         # zeros by manipulating the data array.
         c2f_rows, *_ = sps.find(c2f_scalar_2_nd)
-        c2f_rows_is_dir = np.in1d(c2f_rows, np.where(is_dir))
+        c2f_rows_is_dir = np.isin(c2f_rows, np.where(is_dir))
         c2f_scalar_2_nd.data[c2f_rows_is_dir] = 0
         # Complement map.
         c2f_compl_scalar_2_nd = sps.csr_array(
