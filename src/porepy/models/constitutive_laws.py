@@ -16,6 +16,119 @@ Scalar = pp.ad.Scalar
 ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
 
 
+class DisplacementJump:
+    """Displacement jump on fractures.
+
+    The displacement jump is the difference between the displacement on the two sides of
+    a fracture. It is defined in the local coordinate system of the fracture, and is
+    expressed as a vector of length nd, where nd is the ambient dimension of the
+    problem. The jump is split into an elastic and a plastic component, where the
+    elastic component reverts if the tractions are removed, while the plastic component
+    remains.
+
+    """
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model."""
+    nd: int
+    """Ambient dimension of the problem."""
+    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
+    """Map from subdomains to the adjacent interfaces."""
+    interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Operator giving the displacement on interfaces."""
+    local_coordinates: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the local coordinates of the subdomains."""
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
+    """Basis for the local coordinate system."""
+    elastic_normal_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the normal component of the elastic fracture deformation."""
+    elastic_tangential_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the tangential component of the elastic fracture deformation."""
+
+    def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Displacement jump on fracture-matrix interfaces.
+
+        Parameters:
+            subdomains: List of subdomains where the displacement jump is defined.
+                Should be a fracture subdomain.
+
+        Returns:
+            Operator for the displacement jump.
+
+        Raises:
+             AssertionError: If the subdomains are not fractures, i.e. have dimension
+                `nd - 1`.
+
+        """
+        if not all([sd.dim == self.nd - 1 for sd in subdomains]):
+            raise ValueError("Displacement jump only defined on fractures")
+
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        # Only use matrix-fracture interfaces
+        interfaces = [intf for intf in interfaces if intf.dim == self.nd - 1]
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, self.nd
+        )
+        # The displacement jmup is expressed in the local coordinates of the fracture.
+        # First use the sign of the mortar sides to get a difference, then map first
+        # from the interface to the fracture, and finally to the local coordinates.
+        rotated_jumps: pp.ad.Operator = (
+            self.local_coordinates(subdomains)
+            @ mortar_projection.mortar_to_secondary_avg
+            @ mortar_projection.sign_of_mortar_sides
+            @ self.interface_displacement(interfaces)
+        )
+        rotated_jumps.set_name("Rotated_displacement_jump")
+        return rotated_jumps
+
+    def elastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The elastic component of the displacement jump [m].
+
+        The elastic displacement jump is composed of a tangential and normal component,
+        each implementing a relation between displacement jumps, contact tractions and
+        stiffness. The relation may or may not be linear.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the elastic displacement jump.
+
+        """
+        # The jumps are defined in local coordinates. Prepare to project the tangential
+        # and normal components of the displacement jump from (nd-1) and 1 dimensions,
+        # respectively, to nd dimensions.
+        basis = self.basis(subdomains, dim=self.nd)  # type: ignore[call-arg]
+        local_basis = self.basis(subdomains, dim=self.nd - 1)  # type: ignore[call-arg]
+        tangential_to_nd = pp.ad.sum_operator_list(
+            [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
+        )
+        normal_to_nd = basis[-1]
+
+        u_t = self.elastic_tangential_fracture_deformation(subdomains)
+        u_n = self.elastic_normal_fracture_deformation(subdomains)
+        return tangential_to_nd @ u_t + normal_to_nd @ u_n
+
+    def plastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The plastic component of the displacement jump.
+
+        The plastic displacement jump is the difference between the total displacement
+        jump and the elastic displacement jump.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the plastic displacement jump.
+
+        """
+        total_jump = self.displacement_jump(subdomains)
+        elastic_jump = self.elastic_displacement_jump(subdomains)
+        u_p = total_jump - elastic_jump
+        u_p.set_name("plastic_displacement_jump")
+        return u_p
+
+
 class DimensionReduction:
     """Apertures and specific volumes."""
 
@@ -208,7 +321,7 @@ class DisplacementJumpAperture(DimensionReduction):
     """
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    mixin instance of :class:`~porepy.models.constitutive_laws.DisplacementJump`.
 
     """
     mdg: pp.MixedDimensionalGrid
@@ -261,7 +374,7 @@ class DisplacementJumpAperture(DimensionReduction):
         # Subdomains of the top dimension
         nd_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
 
-        num_cells_nd_subdomains = sum([sd.num_cells for sd in nd_subdomains])
+        num_cells_nd_subdomains = sum(sd.num_cells for sd in nd_subdomains)
         one = pp.wrap_as_dense_ad_array(1, size=num_cells_nd_subdomains, name="one")
         # Start with nd, where aperture is one.
         apertures = projection.cell_prolongation(nd_subdomains) @ one
@@ -2523,7 +2636,7 @@ class ThermalConductivityLTE:
             # for displacement_divergence which has not yet been computed.
             phi = self.reference_porosity(subdomains)
         if isinstance(phi, Scalar):
-            size = sum([sd.num_cells for sd in subdomains])
+            size = sum(sd.num_cells for sd in subdomains)
             phi = phi * pp.wrap_as_dense_ad_array(1, size)
         conductivity = phi * self.fluid_thermal_conductivity(subdomains) + (
             Scalar(1) - phi
@@ -2830,7 +2943,7 @@ class FouriersLaw:
 
         """
         val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
-        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        size = int(sum(g.num_cells for g in grids) * self.nd)
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
 
@@ -2849,7 +2962,7 @@ class FouriersLaw:
 
         """
         val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
-        size = int(np.sum([g.num_cells for g in interfaces]))
+        size = int(sum(g.num_cells for g in interfaces))
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
 
@@ -3296,7 +3409,7 @@ class GravityForce:
 
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
-        size = np.sum([g.num_cells for g in grids]).astype(int)
+        size = int(sum(g.num_cells for g in grids))
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
 
@@ -3345,7 +3458,7 @@ class ZeroGravityForce:
             Cell-wise nd-vector representing the gravity force.
 
         """
-        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        size = int(sum(g.num_cells for g in grids) * self.nd)
         return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
 
 
@@ -3379,7 +3492,7 @@ class LinearElasticMechanicalStress:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
@@ -4093,9 +4206,10 @@ class ShearDilation:
     instance of :class:`~porepy.models.models.ModelGeometry`.
 
     """
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElastoPlasticFractureDeformation`.
 
     """
     solid: pp.SolidConstants
@@ -4121,7 +4235,8 @@ class ShearDilation:
         )
         f_tan = pp.ad.Function(pp.ad.functions.tan, "tan_function")
         shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
-            self.tangential_component(subdomains) @ self.displacement_jump(subdomains)
+            self.tangential_component(subdomains)
+            @ self.plastic_displacement_jump(subdomains)
         )
 
         shear_dilation.set_name("shear_dilation")
@@ -4145,20 +4260,22 @@ class BartonBandis:
     deformation.
 
     The Barton-Bandis model represents a non-linear elastic deformation in the normal
-    direction of a fracture. Specifically, the decrease in normal opening,
-    :math:``\Delta u_n`` under a force :math:``\sigma_n`` given as
+    direction of a fracture. Specifically, the increase in normal opening,
+    :math:``\Delta u_n``, under a force :math:``\sigma_n`` (negative for compression),
+    is given as
 
     .. math::
 
-        \Delta u_n =  \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n + \sigma_n}
+        \Delta u_n = \Delta u_n^{max}
+            + \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n - \sigma_n}
 
-    where :math:``\Delta u_n^{max}`` is the maximum fracture closure and the material
+    where :math:``\Delta u_n^{max}`` is the maximum fracture opening and the material
     constant :math:``K_n`` is known as the fracture normal stiffness.
 
     The Barton-Bandis equation is defined in
     :meth:``elastic_normal_fracture_deformation`` while the two parameters
     :math:``\Delta u_n^{max}`` and :math:``K_n`` can be set by the methods
-    :meth:``maximum_fracture_closure`` and :meth:``fracture_normal_stiffness``.
+    :meth:``maximum_elastic_fracture_opening`` and :meth:``fracture_normal_stiffness``.
 
     """
 
@@ -4194,17 +4311,15 @@ class BartonBandis:
     ) -> pp.ad.Operator:
         """Barton-Bandis model for elastic normal deformation of a fracture [m].
 
-        The model computes a *decrease* in the normal opening as a function of the
-        contact traction and material constants. See comments in the class documentation
-        for how to include the Barton-Bandis effect in the model for fracture
-        deformation.
+        The model computes an increase in the normal opening as a function of the
+        contact traction and material constants as elaborated in the class documentation.
 
         The returned value depends on the value of the solid constant
-        maximum_fracture_closure. If its value is zero, the Barton-Bandis model is
-        void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
+        maximum_elastic_fracture_opening. If its value is zero, the Barton-Bandis model
+        is void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
         division. Otherwise, an operator which implements the Barton-Bandis model is
         returned. The special treatment ammounts to a continuous extension in the limit
-        of zero maximum fracture closure.
+        of zero maximum fracture opening.
 
         The implementation is based on the paper
 
@@ -4219,55 +4334,55 @@ class BartonBandis:
             subdomains: List of fracture subdomains.
 
         Raises:
-            ValueError: If the maximum fracture closure is negative.
+            ValueError: If the maximum fracture opening is negative.
 
         Returns:
-            The decrease in fracture opening, as computed by the Barton-Bandis model.
+            The elastic fracture opening, as computed by the Barton-Bandis model.
 
         """
-        # The maximum closure of the fracture.
-        maximum_closure = self.maximum_fracture_closure(subdomains)
+        # The maximum opening of the fracture.
+        maximum_opening = self.maximum_elastic_fracture_opening(subdomains)
 
-        # If the maximum closure is zero, the Barton-Bandis model is not valid in the
+        # If the maximum opening is zero, the Barton-Bandis model is not valid in the
         # case of zero normal traction. In this case, we return an empty operator.
-        #  If the maximum closure is negative, an error is raised.
-        val = maximum_closure.value(self.equation_system)
+        # If the maximum opening is negative, an error is raised.
+        val = maximum_opening.value(self.equation_system)
         if np.any(val == 0):
-            return Scalar(0)
+            num_cells = sum(sd.num_cells for sd in subdomains)
+            return pp.ad.DenseArray(np.zeros(num_cells), "zero_Barton-Bandis_opening")
         elif np.any(val < 0):
-            raise ValueError("The maximum closure must be non-negative.")
+            raise ValueError("The maximum opening must be non-negative.")
 
         nd_vec_to_normal = self.normal_component(subdomains)
 
-        # The scaled effective contact traction [-].
-        # The papers by Barton and Bandis assumes positive traction in contact, thus we
-        # need to switch the sign.
+        # The scaled effective contact traction [-]. The papers by Barton and Bandis
+        # assumes positive traction in contact, thus we need to switch the sign.
         contact_traction = Scalar(-1) * self.contact_traction(subdomains)
 
         # Normal component of the traction.
         normal_traction = nd_vec_to_normal @ contact_traction
 
-        # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m
+        # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m.
         normal_stiffness = self.fracture_normal_stiffness(subdomains)
-        # Rescale, since contact traction is dimensionless. TODO: Decide if this should
-        # be done here or in the fracture_normal_stiffness method.
+        # Rescale, since contact traction is dimensionless.
         scaled_stiffness = normal_stiffness / self.characteristic_contact_traction(
             subdomains
         )
 
-        # The openening is found from the 1983 paper.
+        # The opening is found from the 1983 paper.
         opening_decrease = (
             normal_traction
-            * maximum_closure
-            / (scaled_stiffness * maximum_closure + normal_traction)
+            * maximum_opening
+            / (scaled_stiffness * maximum_opening + normal_traction)
         )
+        elastic_opening = maximum_opening - opening_decrease
+        elastic_opening.set_name("Barton-Bandis_elastic_opening")
+        return elastic_opening
 
-        opening_decrease.set_name("Barton-Bandis_closure")
-
-        return opening_decrease
-
-    def maximum_fracture_closure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """The maximum closure of a fracture [m].
+    def maximum_elastic_fracture_opening(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The maximum opening of a fracture [m].
 
         Used in the Barton-Bandis model for normal elastic fracture deformation.
 
@@ -4275,11 +4390,11 @@ class BartonBandis:
             subdomains: List of fracture subdomains.
 
         Returns:
-            The maximum allowed decrease in fracture opening.
+            The maximum allowed increase in fracture opening.
 
         """
-        max_closure = self.solid.maximum_fracture_closure()
-        return Scalar(max_closure, "maximum_fracture_closure")
+        max_opening = self.solid.maximum_elastic_fracture_opening()
+        return Scalar(max_opening, "maximum_elastic_fracture_opening")
 
     def fracture_normal_stiffness(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The normal stiffness of a fracture [Pa*m^-1].
@@ -4319,31 +4434,16 @@ class FractureGap(BartonBandis, ShearDilation):
         Parameters:
             subdomains: List of subdomains where the gap is defined.
 
-        Raises:
-            ValueError: If the reference fracture gap is smaller than the maximum
-                fracture closure. This can lead to negative openings from the
-                Barton-Bandis model.
-
         Returns:
             Cell-wise fracture gap operator.
 
         """
-        barton_bandis_closure = self.elastic_normal_fracture_deformation(subdomains)
 
-        dilation = self.shear_dilation_gap(subdomains)
-
-        gap = self.reference_fracture_gap(subdomains) + dilation - barton_bandis_closure
-        val = (
+        gap = (
             self.reference_fracture_gap(subdomains)
-            - self.maximum_fracture_closure(subdomains)
-        ).value(self.equation_system)
-
-        if np.any(val < 0):
-            msg = (
-                "The reference fracture gap must be larger"
-                " than the maximum fracture closure."
-            )
-            raise ValueError(msg)
+            + self.shear_dilation_gap(subdomains)
+            + self.elastic_normal_fracture_deformation(subdomains)
+        )
         gap.set_name("fracture_gap")
         return gap
 
@@ -4358,6 +4458,97 @@ class FractureGap(BartonBandis, ShearDilation):
 
         """
         return Scalar(self.solid.fracture_gap(), "reference_fracture_gap")
+
+
+class ElasticTangentialFractureDeformation:
+    """Constitutive relation for elastic tangential deformation.
+
+    The elastic tangential deformation is the tangential component of the displacement
+    jump. Here, we impose a linear relation between the tangential component of the
+    contact traction and the tangential deformation. The relation is given by
+
+    .. math::
+        u_t = \frac{t_t}{K_t},
+
+    where :math:`u_t` is the elastic tangential deformation, :math:`t_t` is the
+    tangential component of the contact traction, and :math:`K_t` is the tangential
+    stiffness of the fracture.
+
+    """
+
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction."""
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable."""
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model."""
+    nd: int
+    """Ambient dimension of the problem."""
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities."""
+    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the tangential component of vectors."""
+
+    def fracture_tangential_stiffness(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The tangential stiffness of a fracture [Pa*m^-1].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The fracture tangential stiffness.
+
+        """
+        stiffness = self.solid.fracture_tangential_stiffness()
+        return Scalar(stiffness, "fracture_tangential_stiffness")
+
+    def elastic_tangential_fracture_deformation(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The elastic tangential fracture deformation [m].
+
+        The elastic tangential fracture deformation is the tangential component of the
+        displacement jump, which is the solution to the contact mechanics problem in the
+        absence of plastic deformation.
+
+        The elastic tangential deformation is given by
+        .. math::
+            u_t = \frac{t_t}{K_t},
+        where :math:`t_t` is the tangential component of the contact traction and
+        :math:`K_t` is the tangential stiffness. If the stiffness is negative, the
+        deformation is set to zero, thus avoiding using :math:`K_t->inf` to represent
+        no tangential deformation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the elastic tangential fracture deformation.
+
+        """
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+        t_t = nd_vec_to_tangential @ self.contact_traction(subdomains)
+
+        stiffness = self.fracture_tangential_stiffness(subdomains)
+        # Retrieve the *unscaled* stiffness value for the check below.
+        stiffness_value = self.solid.convert_units(
+            stiffness.value(self.equation_system), "Pa*m^-1", to_si=True
+        )
+        if np.any(np.isclose(stiffness_value, -1.0, atol=1e-12, rtol=1e-12)):
+            # Stiffness=-1 indicates no elastic tangential deformation. Small tolerances
+            # are used to avoid numerical issues, but allowing for a float value.
+            num_cells = sum(sd.num_cells for sd in subdomains)
+            zero_u_t = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
+            zero_u_t.set_name("zero_elastic_tangential_fracture_deformation")
+            return zero_u_t
+        # Since contact traction is nondimensional, the stiffness must be scaled by the
+        # characteristic contact traction.
+        scaled_stiffness = stiffness / self.characteristic_contact_traction(subdomains)
+        u_t = t_t / scaled_stiffness
+        u_t.set_name("elastic_tangential_fracture_deformation")
+        return u_t
 
 
 class BiotCoefficient:
@@ -4572,7 +4763,7 @@ class PoroMechanicsPorosity:
         subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd]
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         # Constant unitary porosity in fractures and intersections
-        size = sum([sd.num_cells for sd in subdomains_lower])
+        size = sum(sd.num_cells for sd in subdomains_lower)
         one = pp.wrap_as_dense_ad_array(1, size=size, name="one")
         rho_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
             subdomains_nd

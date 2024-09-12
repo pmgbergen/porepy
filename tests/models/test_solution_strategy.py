@@ -77,7 +77,7 @@ def create_restart_model(
         ({"porosity": 0.5}, 0.1),
     ],
 )
-def test_restart(solid_vals, north_displacement):
+def test_restart(solid_vals: dict, north_displacement: float):
     """Restart version of .test_poromechanics.test_2d_single_fracture.
 
     Provided the exported data from a previous time step, restart the simulaton,
@@ -88,11 +88,9 @@ def test_restart(solid_vals, north_displacement):
     practical situation.
 
     Parameters:
-        solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
-            and corresponding values.
-        north_displacement (float): Value of displacement on the north boundary.
-        expected_x_y (tuple): Expected values of the displacement in the x and y.
-            directions. The values are used to infer sign of displacement solution.
+        solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants` and
+            corresponding values.
+        north_displacement: Value of displacement on the north boundary.
 
     """
     # Setup and run model for full time interval. With this generate reference files
@@ -112,10 +110,10 @@ def test_restart(solid_vals, north_displacement):
 
     # Now use the reference data to restart the simulation. Note, the restart
     # capabilities of the models automatically use the last available time step for
-    # restart, here the restart files contain information on the initial and first
-    # time step. Thus, the simulation is restarted from the first time step.
-    # Recompute the second time step which will serve as foundation for the comparison
-    # to the above computed reference files.
+    # restart, here the restart files contain information on the initial and first time
+    # step. Thus, the simulation is restarted from the first time step. Recompute the
+    # second time step which will serve as foundation for the comparison to the above
+    # computed reference files.
     setup = create_restart_model(solid_vals, {}, north_displacement, restart=True)
     pp.run_time_dependent_model(setup, {})
 
@@ -169,10 +167,10 @@ def test_restart(solid_vals, north_displacement):
     restarted_times_json.close()
     reference_times_json.close()
 
-    # Remove temporary visualization folder
+    # Remove temporary visualization folder.
     shutil.rmtree(visualization_dir)
 
-    # Clean up the reference data
+    # Clean up the reference data.
     for f in pvd_files + vtu_files + json_files:
         src = reference_dir / Path(f.stem + f.suffix)
         src.unlink()
@@ -336,8 +334,8 @@ def test_parse_equations(
     """Test that equation parsing works as expected.
 
     Currently tested are the relevant equations in the mass balance and momentum balance
-    models. To add a new model, add a new class in setup_utils.py and expand the
-    test parameterization accordingly.
+    models. To add a new model, add a new class in setup_utils.py and expand the test
+    parameterization accordingly.
 
     Parameters:
         model_type: Type of model to test. Currently supported are "mass_balance" and
