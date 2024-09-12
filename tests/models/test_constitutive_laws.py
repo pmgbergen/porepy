@@ -340,10 +340,12 @@ def test_evaluated_values(
     # test.
     # Assign non-trivial values to the parameters to avoid masking errors.
     solid = pp.SolidConstants(solid_values)
+    num_params = pp.NumericalParameters()
+
     fluid = pp.FluidConstants(pp.fluid_values.water)
     params = {
-        "material_constants": {"solid": solid, "fluid": fluid},
-        "fracture_indices": [0, 1],
+        "material_constants": {"solid": solid, "fluid": fluid, "numerics": num_params},
+        "fracture_indices": [0, 1]
     }
 
     setup = model(params)

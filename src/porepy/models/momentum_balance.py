@@ -717,6 +717,12 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+    
+    num_param: pp.NumericalParameters 
+    """
+
+    """
+    
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
@@ -838,7 +844,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # The scaling factor should not be too large, otherwise the contact problem
         # may be discretized wrongly. I therefore introduce a safety factor here; its
         # value is somewhat arbitrary.
-        softening_factor = pp.ad.Scalar(self.solid.contact_mechanics_scaling())
+        softening_factor = pp.ad.Scalar(self.num_param.contact_mechanics_scaling())
 
         constant = softening_factor / self.characteristic_displacement(subdomains)
         constant.set_name("Contact_mechanics_numerical_constant")
