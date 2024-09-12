@@ -400,16 +400,16 @@ class TimeManager:
         self._iters: Union[int, None] = None
 
         # Book keeping of saved time steps for restarting purposes.
-        self.dt_history: list[pp.number] = []
+        self.exported_dt: list[pp.number] = []
         """A list of time steps for the simulation states that were saved on disk with
         `write_time_information` for restarting purposes. Completeness and lack of
         duplication are NOT guaranteed.
 
-        NOTE: This property cannot be inferred from `time_history`, consider the case
+        NOTE: This property cannot be inferred from `exported_times`, consider the case
         when not every time step is saved.
 
         """
-        self.time_history: list[pp.number] = []
+        self.exported_times: list[pp.number] = []
         """A list of time points for the simulation states that were saved on disk with
         `write_time_information` for restarting purposes. Completeness and lack of
         duplication are NOT guaranteed.
@@ -736,10 +736,10 @@ class TimeManager:
         """
 
         # Book keeping
-        self.time_history.append(
+        self.exported_times.append(
             int(self.time) if isinstance(self.time, np.integer) else float(self.time)
         )
-        self.dt_history.append(
+        self.exported_dt.append(
             int(self.dt) if isinstance(self.dt, np.integer) else float(self.dt)
         )
 
@@ -749,7 +749,7 @@ class TimeManager:
 
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as out_file:
-            json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
+            json.dump({"time": self.exported_times, "dt": self.exported_dt}, out_file)
 
     def load_time_information(self, path: Optional[Path] = None) -> None:
         """Keep track of history of time and time step size and store.
@@ -764,12 +764,11 @@ class TimeManager:
         default_path = Path("visualization") / Path("times.json")
         with open(path if path is not None else default_path) as in_file:
             data = json.load(in_file)
-            self.time_history = data["time"]
-            self.dt_history = data["dt"]
+            self.exported_times = data["time"]
+            self.exported_dt = data["dt"]
 
-    def set_from_history(self, time_index: int = -1) -> None:
-        """Load previous visited history for resuming, and cut-off afterward
-        history.
+    def set_time_and_dt_from_exported_steps(self, time_index: int = -1) -> None:
+        """Load time and dt (time step) and cut off all later times and time steps.
 
         NOTE: This method by itself does NOT update the simulation state arrays.
 
@@ -784,14 +783,14 @@ class TimeManager:
             ValueError
 
         """
-        if not hasattr(self, "time_history") or not hasattr(self, "dt_history"):
+        if not hasattr(self, "exported_times") or not hasattr(self, "exported_dt"):
             raise ValueError(
                 """The time manager does not hold information on previously used time
                 and dt."""
             )
 
-        self.time = self.time_history[time_index]
-        self.dt = self.dt_history[time_index]
+        self.time = self.exported_times[time_index]
+        self.dt = self.exported_dt[time_index]
 
-        self.time_history = self.time_history[:time_index]
-        self.dt_history = self.dt_history[:time_index]
+        self.exported_times = self.exported_times[:time_index]
+        self.exported_dt = self.exported_dt[:time_index]

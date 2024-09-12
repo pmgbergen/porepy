@@ -723,8 +723,8 @@ class TestTimeControl:
             time_manager.increase_time()
 
         # Check if the history is generated correctly.
-        assert np.all(np.isclose(time_manager.time_history, np.linspace(0, 0.9, 10)))
-        assert np.all(np.isclose(time_manager.dt_history, 10 * [0.1]))
+        assert np.all(np.isclose(time_manager.exported_times, np.linspace(0, 0.9, 10)))
+        assert np.all(np.isclose(time_manager.exported_dt, 10 * [0.1]))
 
         # Check if entirely fetched history of time and dt is loaded correctly.
         new_time_manager = pp.TimeManager(
@@ -732,25 +732,25 @@ class TestTimeControl:
         )
         new_time_manager.load_time_information(pth)
         assert np.all(
-            np.isclose(new_time_manager.time_history, np.linspace(0, 0.9, 10))
+            np.isclose(new_time_manager.exported_times, np.linspace(0, 0.9, 10))
         )
-        assert np.all(np.isclose(new_time_manager.dt_history, 10 * [0.1]))
+        assert np.all(np.isclose(new_time_manager.exported_dt, 10 * [0.1]))
 
         # Check if single-chosen time and dt are picked correctly.
-        new_time_manager.set_from_history(5)
+        new_time_manager.set_time_and_dt_from_exported_steps(5)
         assert np.isclose(new_time_manager.time, 0.5)
         assert np.isclose(new_time_manager.dt, 0.1)
 
         # Check if history has been cut-off correctly.
         assert np.all(
             np.isclose(
-                np.array(new_time_manager.time_history),
+                np.array(new_time_manager.exported_times),
                 np.array([0, 0.1, 0.2, 0.3, 0.4]),
             )
         )
         assert np.all(
             np.isclose(
-                np.array(new_time_manager.dt_history),
+                np.array(new_time_manager.exported_dt),
                 np.array([0.1, 0.1, 0.1, 0.1, 0.1]),
             )
         )
@@ -860,7 +860,7 @@ MAX_NONLINEAR_ITER = 10
             "time_step_converged": [False, True, "unreachable"] + [True] * 5,
             # Time step magnitudes to compare with. These are known values produced with
             # the settings of the TimeStepper found in the test function below.
-            "dt_history_expected": [1, 0.3, 0.6, 0.18, 0.36, 0.36, 0.144, 0.006],
+            "exported_dt_expected": [1, 0.3, 0.6, 0.18, 0.36, 0.36, 0.144, 0.006],
         },
         # Case 2: constant_dt. Should fail after nonlinear divergence.
         {
@@ -868,7 +868,7 @@ MAX_NONLINEAR_ITER = 10
             "should_fail": True,
             "num_nonlinear_iterations": [2, 3],
             "time_step_converged": [True, False],
-            "dt_history_expected": [1, 1],
+            "exported_dt_expected": [1, 1],
         },
         # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
         # minimal time step and failed.
@@ -876,14 +876,14 @@ MAX_NONLINEAR_ITER = 10
             "should_fail": True,
             "num_nonlinear_iterations": [1, 1, 1],
             "time_step_converged": [False, False, False],
-            "dt_history_expected": [1, 0.3, 0.1],
+            "exported_dt_expected": [1, 0.3, 0.1],
         },
         # Case 4: The time step fails right before the schedule point. Expected to
         # decrease dt and meet the schedule regardless.
         {
             "num_nonlinear_iterations": [1, 1, 1, 1, 1],
             "time_step_converged": [True, False, True, True, True],
-            "dt_history_expected": [1, 0.35, 0.105, 0.21, 0.035],
+            "exported_dt_expected": [1, 0.35, 0.105, 0.21, 0.035],
         },
     ],
 )
@@ -893,7 +893,7 @@ def test_model_time_step_control(params: dict):
     should_fail = params.get("should_fail", False)
     num_nonlinear_iterations = params["num_nonlinear_iterations"]
     time_step_converged = params["time_step_converged"]
-    dt_history_expected = params["dt_history_expected"]
+    exported_dt_expected = params["exported_dt_expected"]
 
     schedule_end = 2 if constant_dt else 1.35
     time_manager = pp.TimeManager(
@@ -920,4 +920,4 @@ def test_model_time_step_control(params: dict):
     else:
         pp.run_time_dependent_model(model, {"max_iterations": MAX_NONLINEAR_ITER})
 
-    assert np.allclose(model.time_step_history, dt_history_expected)
+    assert np.allclose(model.time_step_history, exported_dt_expected)
