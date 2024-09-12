@@ -332,9 +332,10 @@ class SolidConstants(MaterialConstants):
             "dilation_angle": 0,
             "fracture_gap": 0,
             "fracture_normal_stiffness": 1,
+            "fracture_tangential_stiffness": -1.0,
             "friction_coefficient": 1,
             "lame_lambda": 1,
-            "maximum_fracture_closure": 0,
+            "maximum_elastic_fracture_opening": 0,
             "normal_permeability": 1,
             "permeability": 1,
             "porosity": 0.1,
@@ -551,16 +552,33 @@ class SolidConstants(MaterialConstants):
             self.constants["fracture_normal_stiffness"], "Pa*m^-1"
         )
 
-    def maximum_fracture_closure(self) -> number:
-        """The maximum closure of a fracture [m].
+    def fracture_tangential_stiffness(self) -> number:
+        """The tangential stiffness of a fracture [Pa * m^-1].
+
+        Note: The current default value is -1.0, with the convention that negative
+        values correspond to a fracture that does not deform elastically in the
+        tangential direction.
+
+        Returns:
+            The fracture tangential stiffness in converted units.
+
+        """
+        return self.convert_units(
+            self.constants["fracture_tangential_stiffness"], "Pa*m^-1"
+        )
+
+    def maximum_elastic_fracture_opening(self) -> number:
+        """The maximum opening of a fracture [m].
 
         Intended use is in Barton-Bandis-type models for elastic fracture deformation.
 
         Returns:
-            The maximal closure of a fracture.
+            The maximal opening of a fracture.
 
         """
-        return self.convert_units(self.constants["maximum_fracture_closure"], "m")
+        return self.convert_units(
+            self.constants["maximum_elastic_fracture_opening"], "m"
+        )
 
     def open_state_tolerance(self) -> number:
         """Tolerance parameter for the tangential characteristic contact mechanics [-].
