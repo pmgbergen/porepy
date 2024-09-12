@@ -1374,8 +1374,8 @@ def _set_bc_by_direction(
     type_east: Literal["dir", "neu"],
     type_north: Literal["dir", "neu"],
     type_west: Literal["dir", "neu"],
-    type_bottom: Optional[: Literal["dir", "neu"]] = None,
-    type_top: Optional[: Literal["dir", "neu"]] = None,
+    type_bottom: Optional[Literal["dir", "neu"]] = None,
+    type_top: Optional[Literal["dir", "neu"]] = None,
 ) -> np.ndarray:
     """Set the boundary conditions on the grid, based on the types of boundary conditions
     given.
