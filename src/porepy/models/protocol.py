@@ -526,7 +526,7 @@ class BoundaryConditionProtocol(Protocol):
         robin_operator: Optional[
             Union[None, Callable[[Sequence["pp.BoundaryGrid"]], "pp.ad.Operator"]]
         ],
-        bc_type: Callable[["pp.Grid"], "pp.BoundaryCondition"],
+        bc_type: Callable[["pp.Grid"], "pp.AbstractBoundaryCondition"],
         name: str,
         dim: int = 1,
     ) -> "pp.ad.Operator":
@@ -764,8 +764,62 @@ class BoundaryConditionMBProtocol(Protocol):
 
         """
 
+    def combine_boundary_operators_mechanical_stress(
+        self, subdomains: list["pp.Grid"]
+    ) -> "pp.ad.Operator":
+        """Combine mechanical stress boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.mechanical_stress is passed
+        to robin_operator in the default setup.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined mechanical stress boundary operator.
+
+        """
+
 class VariablesMBProtocol(Protocol):
-    def contact_traction(self, subdomains: list["pp.Grid"]) -> "pp.ad.Variable":
+    def displacement(self, domains: "pp.SubdomainsOrBoundaries") -> "pp.ad.Operator":
+        """Displacement in the matrix.
+
+        Parameters:
+            domains: List of subdomains or interface grids where the displacement is
+                defined. Should be the matrix subdomains.
+
+        Returns:
+            Variable for the displacement.
+
+        Raises:
+            ValueError: If the dimension of the subdomains is not equal to the ambient
+                dimension of the problem.
+            ValueError: If the method is called on a mixture of grids and boundary
+                grids
+
+        """
+
+    def interface_displacement(self, interfaces: list["pp.MortarGrid"]) -> "pp.ad.Operator":
+        """Displacement on fracture-matrix interfaces.
+
+        Parameters:
+            interfaces: List of interface grids where the displacement is defined.
+                Should be between the matrix and fractures.
+
+        Returns:
+            Variable for the displacement.
+
+        Raises:
+            ValueError: If the dimension of the interfaces is not equal to the ambient
+                dimension of the problem minus one.
+
+        """
+
+    def contact_traction(self, subdomains: list["pp.Grid"]) -> "pp.ad.Operator":
         """Fracture contact traction [-].
 
         Parameters:
@@ -794,6 +848,29 @@ class VariablesMBProtocol(Protocol):
         """
 
 class ConstitutiveLawsMBProtocol(Protocol):
+
+    def mechanical_stress(self, domains: "pp.SubdomainsOrBoundaries") -> "pp.ad.Operator":
+        """Linear elastic mechanical stress.
+
+        .. note::
+            The below discretization assumes the stress is discretized with a Mpsa
+            finite volume discretization. Other discretizations may be possible, but are
+            not available in PorePy at the moment, and would likely require changes to
+            this method.
+
+        Parameters:
+            grids: List of subdomains or boundary grids. If subdomains, should be of
+                co-dimension 0.
+
+        Raises:
+            ValueError: If any grid is not of co-dimension 0.
+            ValueError: If any the method is called with a mixture of subdomains and
+                boundary grids.
+
+        Returns:
+            Ad operator representing the mechanical stress on the faces of the grids.
+
+        """
 
     def fracture_stress(self, interfaces: list["pp.MortarGrid"]) -> "pp.ad.Operator":
         """Fracture stress on interfaces [Pa]."""
@@ -859,6 +936,25 @@ class ConstitutiveLawsMBProtocol(Protocol):
 
         Returns:
             Scalar operator representing the characteristic displacement.
+
+        """
+
+    def characteristic_contact_traction(
+        self, subdomains: list["pp.Grid"]
+    ) -> "pp.ad.Operator":
+        """Characteristic traction [Pa].
+
+        The value is computed from the solid constants and the characteristic
+        displacement. Inversion of this relationship, i.e.,
+        u_char=u_char(t_char), can be done in a mixin overriding the
+        characteristic sizes. This may be beneficial if the characteristic
+        traction is easier to estimate than the characteristic displacement.
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic traction is defined.
+
+        Returns:
+            Scalar operator representing the characteristic traction.
 
         """
 

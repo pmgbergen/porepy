@@ -17,6 +17,7 @@ from porepy.models.protocol import (
     PorousMediaProtocol,
     PressureProtocol,
     TensorProtocol,
+    MomentumBalanceProtocol
 )
 
 number = pp.number
@@ -165,11 +166,8 @@ class DimensionReduction(PorePyModel):
         return v
 
 
-class DisplacementJumpAperture(DimensionReduction):
+class DisplacementJumpAperture(DimensionReduction, MomentumBalanceProtocol):
     """Fracture aperture from displacement jump."""
-
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Implemented in momentum balance"""
 
     def residual_aperture(self, subdomains: list[pp.Grid]) -> Scalar:
         """Residual aperture [m].
@@ -2741,43 +2739,12 @@ class ZeroGravityForce(PorePyModel):
         return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
 
 
-class LinearElasticMechanicalStress(PorePyModel):
+class LinearElasticMechanicalStress(PorePyModel, MomentumBalanceProtocol):
     """Linear elastic stress tensor.
 
     To be used in mechanical problems, e.g. force balance.
 
     """
-
-    stress_keyword: str
-    """Keyword used to identify the stress discretization. Normally set by a mixin
-    instance of
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
-    """Displacement variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    interface_displacement: Callable[
-        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
-    ]
-    """Displacement variable on interfaces. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic contact traction. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
-
-    """
-
-    bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryCondition]
 
     def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Linear elastic mechanical stress.
@@ -2950,17 +2917,6 @@ class PressureStress(LinearElasticMechanicalStress, PressureProtocol):
 
     """
 
-    stress_keyword: str
-    """Keyword used to identify the stress discretization. Normally set by a mixin
-    instance of
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic contact traction. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
-
-    """
     darcy_keyword: str
     """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
     instance of
@@ -3123,12 +3079,7 @@ class ThermoPressureStress(PressureStress):
     :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
 
     """
-    stress_keyword: str
-    """Keyword used to identify the stress discretization. Normally set by a mixin
-    instance of
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
-    """
     enthalpy_keyword: str
     """Keyword used to identify the enthalpy flux discretization. Normally"
      set by an instance of
@@ -3291,16 +3242,10 @@ class ElasticModuli(PorePyModel):
         return u_char
 
 
-class CoulombFrictionBound(PorePyModel):
+class CoulombFrictionBound(PorePyModel, MomentumBalanceProtocol):
     """Friction bound for fracture deformation.
 
     This class is intended for use with fracture deformation models.
-    """
-
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
     """
 
     def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -3347,16 +3292,10 @@ class CoulombFrictionBound(PorePyModel):
         )
 
 
-class ShearDilation(PorePyModel):
+class ShearDilation(PorePyModel, MomentumBalanceProtocol):
     """Class for calculating fracture dilation due to tangential shearing.
 
     The main method of the class is :meth:`shear_dilation_gap`.
-
-    """
-
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
 
     """
 
@@ -3395,7 +3334,7 @@ class ShearDilation(PorePyModel):
         return Scalar(self.solid.dilation_angle(), "dilation_angle")
 
 
-class BartonBandis(PorePyModel):
+class BartonBandis(PorePyModel, MomentumBalanceProtocol):
     r"""Implementation of the Barton-Bandis model for elastic fracture normal
     deformation.
 
@@ -3414,17 +3353,6 @@ class BartonBandis(PorePyModel):
     :meth:``elastic_normal_fracture_deformation`` while the two parameters
     :math:``\Delta u_n^{max}`` and :math:``K_n`` can be set by the methods
     :meth:``maximum_fracture_closure`` and :meth:``fracture_normal_stiffness``.
-
-    """
-
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic contact traction. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
 
@@ -3669,7 +3597,7 @@ class ConstantPorosity(PorePyModel):
         return Scalar(self.solid.porosity(), "porosity")
 
 
-class PoroMechanicsPorosity(PorePyModel, PressureProtocol):
+class PoroMechanicsPorosity(PorePyModel, PressureProtocol, MomentumBalanceProtocol):
     r"""Porosity for poromechanical models.
 
     Note:
@@ -3693,38 +3621,12 @@ class PoroMechanicsPorosity(PorePyModel, PressureProtocol):
     :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
-    stress_keyword: str
-    """Keyword used to identify the stress discretization. Normally set by a mixin
-    instance of
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-
-    """
     darcy_keyword: str
     """Keyword used to identify the Darcy flux discretization. Normally set by a mixin
     instance of
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
-    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
-
-    """Displacement variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    interface_displacement: Callable[
-        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
-    ]
-    """Displacement variable on interfaces. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryCondition]
-
-    combine_boundary_operators_mechanical_stress: Callable[
-        [Sequence[pp.Grid]], pp.ad.Operator
-    ]
-
-    mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity.
@@ -3993,12 +3895,6 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
     solid_thermal_expansion_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Thermal expansion coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalExpansion`.
-    """
-    stress_keyword: str
-    """Keyword used to identify the stress discretization. Normally set by a mixin
-    instance of
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-
     """
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Biot coefficient. Normally defined in a mixin instance of
