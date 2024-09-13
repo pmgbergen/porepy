@@ -465,3 +465,35 @@ def grid_minmax_coordinates(sd: pp.Grid) -> tuple[np.ndarray, np.ndarray]:
         coords = sd.nodes
 
     return np.amin(coords, axis=1), np.amax(coords, axis=1)
+
+
+def domain_sides_from_grid(sd: pp.Grid) -> DomainSides:
+    """Get the domain sides from a grid.
+
+    It is assumed that the grid is a box aligned with the coordinate axes.
+
+    Parameters:
+        sd: The grid for which the domain sides will be computed.
+
+    Returns:
+        A :obj:`~porepy.geometry.domain.DomainSides` named tuple containing the boundary
+        faces of the grid.
+
+    """
+    min_coords, max_coords = grid_minmax_coordinates(sd)
+
+    east = np.abs(sd.face_centers[0] - max_coords[0]) < 1e-10
+    west = np.abs(sd.face_centers[0] - min_coords[0]) < 1e-10
+    north = np.abs(sd.face_centers[1] - max_coords[1]) < 1e-10
+    south = np.abs(sd.face_centers[1] - min_coords[1]) < 1e-10
+
+    if sd.dim == 3:
+        top = np.abs(sd.face_centers[2] - max_coords[2]) < 1e-10
+        bottom = np.abs(sd.face_centers[2] - min_coords[2]) < 1e-10
+    else:
+        top = bottom = np.zeros(sd.num_faces, dtype=bool)
+
+    all_bf = sd.get_all_boundary_faces()
+
+    return DomainSides(all_bf, east, west, north, south, top, bottom)
+
