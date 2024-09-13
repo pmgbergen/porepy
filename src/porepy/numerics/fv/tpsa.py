@@ -57,13 +57,13 @@ class _BoundaryFilters:
 
     dir_pass_nd: sps.sparray
     """Filter that only lets through boundary faces with Dirichlet conditions."""
-    dir_nopass: sps.sparray
+    dir_notpass: sps.sparray
     """Filter that removes Dirichlet conditions."""
-    dir_nopass_nd: sps.sparray
+    dir_notpass_nd: sps.sparray
     """Filter that removes boundary faces with Dirichlet conditions."""
     neu_pass_nd: sps.sparray
     """Filter that only lets through boundary faces with Neumann conditions."""
-    neu_nopass_nd: sps.sparray
+    neu_notpass_nd: sps.sparray
     """Filter that removes boundary faces with Neumann conditions."""
     neu_rob_pass_nd: sps.sparray
     """Filter that only lets through boundary faces with Neumann or Robin conditions."""
@@ -104,7 +104,12 @@ class _CellToFaceMaps:
 @dataclass
 class _Distances:
     """Helper class to store various distance-related quantities needed in the
-    discretization."""
+    discretization.
+
+    As can be seen from the Tpsa paper, the discretization coefficients are often on the
+    form mu/d, where mu is the shear modulus and d is a distance measure (this also
+    holds for the Robin boundary condition), hence such quantities are stored here.
+    """
 
     dist_fc_cc: np.ndarray
     """Distance from face to cell centers. Follows the fi/ci ordering defined in
@@ -118,7 +123,10 @@ class _Distances:
     inv_mu_by_dist_array: sps.dia_array
     """Diagonal array of the inverse of mu_by_dist_fc_cc_bound."""
     rob_weight: np.ndarray
-    """Robin weights, extracted from the displacement boundary conditions."""
+    """Robin weights, extracted from the displacement boundary conditions. Included in
+    this container since, in the description of Tpsa, the weights of the Robin condition
+    is in part given the interpretation of a distance measure.
+    """
 
 
 class Tpsa:
@@ -161,8 +169,8 @@ class Tpsa:
         # To assemble these and solve for the primary variables, do the following:
 
         # Deal with rotation variable being 1d if g.dim == 2, 3d if g.dim == 3
-        >>> nrf = nf if g.dim == 2 else 3 * nf
-        >>> nrc = nc if g.dim == 2 else 3 * nc
+        >>> num_rot_face = nf if g.dim == 2 else 3 * nf
+        >>> num_rot_cell = nc if g.dim == 2 else 3 * nc
         >>> div_scalar = pp.fvutils.scalar_divergence(g)
         >>> div_vector = pp.fvutils.vector_divergence(g)
         >>> div_rot = div_scalar if g.dim == 2 else div_vec
@@ -170,18 +178,19 @@ class Tpsa:
         >>> matrices = data[pp.DISCRETIZATION_MATRICES][key]
 
         # Assemble matrix of face quantities:
-        >>> flux = sps.block_array(
+        >>> face_discr = sps.block_array(
                         [
                             [
                                 matrices["stress"], matrices["stress_rotation"],
                                 matrices["stress_total_pressure"],
                             ], [
                                 matrices["rotation_displacement"],
-                                matrices["rotation_diffusion"], sps.csr_array((nrf,
-                                nc)),
+                                matrices["rotation_diffusion"], sps.csr_array(
+                                    (num_rot_face, nc)),
                             ], [
-                                matrices["solid_mass_displacement"], sps.csr_array((nf,
-                                nrc)), matrices["solid_mass_total_pressure"],
+                                matrices["solid_mass_displacement"], sps.csr_array(
+                                    (nf, num_rot_cell)),
+                                matrices["solid_mass_total_pressure"],
                             ],
                         ],
                     )
@@ -191,13 +200,14 @@ class Tpsa:
         >>> rhs_matrix = sps.bmat(
                     [
                         [
-                            matrices["bound_stress"], sps.csr_array((nf * g.dim, nrf)),
+                            matrices["bound_stress"],
+                            sps.csr_array((nf * g.dim, num_rot_face)),
                         ], [
                             matrices["bound_rotation_displacement"],
-                            sps.csr_matrix((nrf, nrf)),
+                            sps.csr_matrix((num_rot_face, num_rot_face)),
                         ], [
                             matrices["bound_mass_displacement"], sps.csr_matrix((nf,
-                            nrf)),
+                            num_rot_face)),
                         ],
                     ]
                 )
@@ -223,13 +233,13 @@ class Tpsa:
         >>> accum = sps.block_diag(
                 [
                     sps.csr_array((nc * g.dim, nc * g.dim)),
-                    sps.dia_array((1.0 / mu, 0), shape=(nrc, nrc)),
-                    sps.dia_array((1.0 / lmbda, 0), shape=(nrc, nrc)),
+                    sps.dia_array((1.0 / mu, 0), shape=(num_rot_cell, num_rot_cell)),
+                    sps.dia_array((1.0 / lmbda, 0), shape=(num_rot_cell, num_rot_cell)),
                 ],
                 format="csr",
             )
         # System matrix (the minus sign on accum corresponds to the sign in the paper)
-        >>> A = div @ flux - accum
+        >>> A = div @ face_discr - accum
         # Solve
         >>> x = sps.linalg.spsolve(A, b)
         # Displacement variable:
@@ -237,9 +247,9 @@ class Tpsa:
         # X-component of the displacement
         >>> ux = u[::g.dim]
         # Rotation
-        >>> r = x[g.dim * nc: g.dim * nc + nrc]
+        >>> r = x[g.dim * nc: g.dim * nc + num_rot_cell]
         # Solid pressure
-        >>> p = x[g.dim * nc + nrc:]
+        >>> p = x[g.dim * nc + num_rot_cell:]
 
         This example may be moved to a tutorial at a later point. Functionality to
         integrate Tpsa into the multiphysics models of PorePy is in the works.
@@ -262,9 +272,8 @@ class Tpsa:
         generated by the cell center rotational stress. Defaults to
         'stress_rotation'."""
         self.stress_total_pressure_matrix_key: str = "stress_total_pressure"
-        """Keyword used to identify the discretization matrix for the solid mass
-        conservation generated by the cell center solid pressure. Defaults to
-        'stress_total_pressure'."""
+        """Keyword used to identify the discretization matrix for the stress generated
+        by the cell center solid pressure. Defaults to 'stress_total_pressure'."""
         self.rotation_displacement_matrix_key: str = "rotation_displacement"
         """Keyword used to identify the discretization matrix for the rotation
         generated by the cell center displacements. Defaults to
@@ -359,59 +368,60 @@ class Tpsa:
                 Cosserat parameter is set to zero.
 
         matrix_dictionary will be updated with the following entries:
-            - ``stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
-                stress discretization, cell center contribution
-            - ``bound_stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim *
-                sd.num_faces)`` stress discretization, face contribution.
-            - ``rotation_displacement: sps.csc_matrix
-                    (sd.dim * sd.num_faces, sd.dim * sd.num_cells) (3d) or (sd.dim *
-                    sd.num_faces, sd.num_cells) (2d)``
+            - stress: ``sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
+                Stress discretization, cell center contribution
+            - bound_stress:
+                ``sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_faces)``
+                Stress discretization, face contribution.
+            - rotation_displacement: ``sps.csc_matrix``
+                     (sd.dim * sd.num_faces, sd.dim * sd.num_cells) (3d)``
+                or ``(sd.dim * sd.num_faces, sd.num_cells) (2d)``
                 Rotation generated by displacement discretization, cell center
                 contribution.
-            - ``bound_rotation_displacement: sps.csc_matrix
-                    (sd.dim * sd.num_faces, sd.dim * sd.num_faces) (3d) or (sd.dim *
-                    sd.num_faces, sd.num_faces) (2d)``
+            - bound_rotation_displacement: ``sps.csc_matrix``
+                     ``(sd.dim * sd.num_faces, sd.dim * sd.num_faces) (3d)``
+                or   ``(sd.dim * sd.num_faces, sd.num_faces) (2d)``
                 Rotation generated by displacement discretization, boundary face
                 contribution.
-            - ``rotation_diffusion: sps.csc_matrix
-                    (sd.dim * sd.num_faces, sd.dim * sd.num_cells) (3d) or (sd.dim *
-                    sd.num_faces, sd.num_cells) (2d)``
+            - rotation_diffusion: ``sps.csc_matrix``
+                     ``(sd.dim * sd.num_faces, sd.dim * sd.num_cells) (3d)``
+                or   ``(sd.dim * sd.num_faces, sd.num_cells) (2d)``
                 Rotation diffusion discretization, cell center contribution.
-            - ``bound_rotation_diffusion: sps.csc_matrix
-                    (sd.dim * sd.num_faces, sd.dim * sd.num_faces) (3d) or (sd.dim *
-                    sd.num_faces, sd.num_faces) (2d)``
+            - bound_rotation_diffusion: ``sps.csc_matrix``
+                     ``(sd.dim * sd.num_faces, sd.dim * sd.num_faces) (3d)``
+                or ``(sd.dim * sd.num_faces, sd.num_faces) (2d)``
                 Rotation diffusion discretization, boundary face contribution.
-            - ``stress_total_pressure: sps.csc_matrix (sd.dim * sd.num_faces,
+            - stress_total_pressure: ``sps.csc_matrix (sd.dim * sd.num_faces,
                                                        sd.num_cells)``
                 Stress generated by total pressure discretization.
-            - ``bound_rotation_diffusion: sps.csc_matrix
-                    (sd.dim * sd.num_faces, sd.dim * sd.num_faces) (3d) or (sd.dim *
-                    sd.num_faces, sd.num_faces) (2d)``
+            - bound_rotation_diffusion: ``sps.csc_matrix``
+                     ``(sd.dim * sd.num_faces, sd.dim * sd.num_faces) (3d)
+                or ``(sd.dim * sd.num_faces, sd.num_faces) (2d)``
                 Rotation diffusion discretization, boundary face contribution
-            - ``mass_total_pressure: sps.csc_matrix (sd.num_faces, sd.num_faces)``
+            - mass_total_pressure: ``sps.csc_matrix (sd.num_faces, sd.num_faces)``
                 Solid mass movement generated by total pressure.
-            - ``mass_displacement: sps.csc_matrix (sd.num_faces,
-                                                   sd.num_cells * sd.dim)``
+            - mass_displacement:
+                ``sps.csc_matrix (sd.num_faces, sd.num_cells * sd.dim)``
                 Solid mass movement generated by displacement. Cell center contribution.
-            - ``bound_mass_displacement: sps.csc_matrix (sd.num_faces,
-                                                   sd.num_cells * sd.dim)``
+            - bound_mass_displacement:
+                ``sps.csc_matrix (sd.num_faces, sd.num_cells * sd.dim)``
                 Solid mass movement generated by displacement. Boundary face
                 contribution.
-            - ``bound_displacement_cell: sps.csc_matrix (sd.dim * sd.num_faces,
-                                                         sd.dim * sd.num_cells)``
+            - bound_displacement_cell:
+                ``sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
                 Operator for reconstructing the displacement trace. Cell center
                 displacement contribution.
-            - ``bound_displacement_face: sps.csc_matrix (sd.dim * sd.num_faces,
-                                                         sd.dim * sd.num_faces)``
+            - bound_displacement_face:
+                ``sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_faces)``
                 Operator for reconstructing the displacement trace. Boundary condition
                 contribution.
-            - ``bound_displacement_rotation_cell: sps.csc_matrix
-                    (sd.dim * sd.num_faces, sd.dim * sd.num_cells) (3d) or
-                    (sd.dim * sd.num_faces, sd.num_cells)`` (2d)
+            - bound_displacement_rotation_cell: ``sps.csc_matrix``
+                   ``(sd.dim * sd.num_faces, sd.dim * sd.num_cells)`` (3d)
+                or ``(sd.dim * sd.num_faces, sd.num_cells)`` (2d)
                 Operator for reconstructing the displacement trace. Cell center
                 rotation contribution.
-            - ``bound_displacement_solid_pressure_cell:
-                    sps.csc_matrix (sd.dim * sd.num_faces, sd.num_cells)``
+            - bound_displacement_solid_pressure_cell:
+                    ``sps.csc_matrix (sd.dim * sd.num_faces, sd.num_cells)``
                 Operator for reconstructing the displacement trace. Cell center solid
                 pressure contribution.
 
@@ -456,11 +466,13 @@ class Tpsa:
         #       b(\sigma_k * n_k - g^u) = 2\mu (g^u - u_k).
         #
         # Here, b is considered a length scale and is also denoted \delta_k^j (see the
-        # bottom of page 10 in the arXiv version of the paper, link above). It is
-        # understood that b = 0 gives a Dirichlet condition, b = infinity gives a
-        # Neumann condition, and other values (positive and negative) form the Robin
-        # case. In PorePy, Dirichlet and Neumann conditions are set separately, while
-        # the Robin parameter, \alpha, is interpreted to be on the form
+        # bottom of page 10 in the arXiv version of the paper, link above). The
+        # superscript on g^u is used in the paper to mark the boundary condition for the
+        # displacement variable (and not the rotation). It is understood that b = 0
+        # gives a Dirichlet condition, b = infinity gives a Neumann condition, and other
+        # values (positive and negative) form the Robin case. In PorePy, Dirichlet and
+        # Neumann conditions are set separately, while the Robin parameter, \alpha, is
+        # interpreted to be on the form
         #
         #       \sigma_k * n_k + \alpha u = g^u
         #
@@ -475,13 +487,13 @@ class Tpsa:
         # 2. Boundary conditions are implemented through a combination of filtering and
         #    average maps. This is in contrast to the tpsa paper, which presents a
         #    unified implementation of all types of boundary conditions based on the
-        #    average maps. While this approach likely could have been followed to a
-        #    larger degree, the more explicit treatment herein was preferred partly for
-        #    ease of implementation and interpretation, and (honestly) partly for
-        #    reasons of exhaustion on EK's part. For future reference, the most natural
-        #    alternative approach is to introduce one weight each for Dirichlet and
-        #    Neumann boundaries and let Robin be an average. The first step would be to
-        #    verify that this does not introduce division by zero somewhere.
+        #    average maps. While this approach in EK's assessment would not be too
+        #    difficult to follow, the more explicit treatment herein was preferred
+        #    partly for ease of implementation and interpretation, and (honestly) partly
+        #    for reasons of exhaustion on EK's part. For future reference, the most
+        #    natural alternative approach is to introduce one weight each for Dirichlet
+        #    and Neumann boundaries and let Robin be an average. The first step would be
+        #    to verify that this does not introduce division by zero somewhere.
         #
         # Known shortcomings and known unknowns:
         # 1. The implementation of boundary conditions for the rotation variable covers
@@ -568,9 +580,6 @@ class Tpsa:
         # Sanity check: If the Cosserat parameter is None, the boundary conditions for
         # the rotation variable are not relevant.
         if bnd_rot is not None and cosserat_values is None:
-            # TODO: Should this be a warning, an error, or just ignored? The latter
-            # allows for a more unified implementation of the pure elasticity and
-            # Cosserat cases on the client side.
             warnings.warn(
                 "Boundary conditions for rotations are only relevant if the Cosserat "
                 "parameter is non-zero."
@@ -633,32 +642,44 @@ class Tpsa:
         filters = self._create_filters(bnd_disp, numbering, sd)
 
         # Compute various distance measures, and also the discretization coefficients
-        # for Robin boundary conditions.
+        # for Robin boundary conditions. The suffix shear indicates that the
+        # coefficients relate to the shear modulus.
         dist, t_shear_rob = self._compute_distances(sd, numbering, mu, bnd_disp)
 
         # Construct various maps from cell to face quantities.
         c2f_maps = self._create_cell_to_face_maps(
-            sd, numbering, filters, bnd_disp, sd.get_all_boundary_faces(), dist
+            sd, numbering, filters, bnd_disp, dist
         )
 
         #################
         # Start construction of discretization matrices.
 
-        # Compute t_shear as the sum of the contribution from the interior faces
-        # (computed here) and the Robin boundary conditions (represented in t_shear_rob,
-        # computed previously). Since the Robin conditions are already handled, we use
-        # mu_by_dist_fc_cc, not mu_by_dist_fc_cc_bound.
+        # Compute t_shear (e.g., stress related to the shear modulus) as the sum of the
+        # contribution from the interior faces (computed here) and the Robin boundary
+        # conditions (represented in t_shear_rob, computed previously). Since the Robin
+        # conditions are already summed up, we use mu_by_dist_fc_cc, not
+        # mu_by_dist_fc_cc_bound. The operation results in an nd x nf array, where each
+        # row contains the discretization coefficients for one dimension of all the
+        # faces (internal and boundary, though the boundary term will be modified in the
+        # subsequent call to _vector_laplace_matrices).
         t_shear_nd = (
-            2
-            * np.repeat(sd.face_areas, nd)
-            / (
+            2  # The factor 2 in Hook's law.
+            * np.repeat(sd.face_areas, nd)  # Scaling with face areas.
+            / (  # Sum up the contributions from the cells sharing the face. There will
+                # be two cotnributions on internal faces, and one on boundary faces.
                 np.bincount(
-                    numbering.fi_expanded,
+                    numbering.fi_expanded,  # Use the nd version of the face indices.
+                    # The discretization coefficients are the shear modulus divided by
+                    # the distance. The coefficient is the same in all directions
+                    # (isotropy is assumed/imposed, this is in the nature of the tpsa
+                    # approximation), thus we repeat the coefficient nd times.
                     weights=1.0 / np.repeat(dist.mu_by_dist_fc_cc, nd),
                 )
-                + t_shear_rob
+                + t_shear_rob  # Contribution from Robin boundary conditions.
             )
-        ).reshape((nd, nf), order="F")
+        ).reshape(
+            (nd, nf), order="F"
+        )  #
 
         # Discretize the stress-displacement relation.
         stress, bound_stress = self._vector_laplace_matrices(
@@ -668,8 +689,7 @@ class Tpsa:
         # Face normals.
         n = sd.face_normals
 
-        # Diagonal representation of the face normal vectors. This will be needed in a
-        # few places.
+        # Diagonal representation of the face normal vectors.
         normal_vector_diag = sps.dia_array(
             (n[:nd].ravel("F"), 0), shape=(nf * nd, nf * nd)
         )
@@ -678,7 +698,7 @@ class Tpsa:
         # correct scaling with the face area. Explicitly filter Neumann boundary
         # conditions, these do not contribute.
         stress_total_pressure = (
-            filters.neu_nopass_nd @ normal_vector_diag @ c2f_maps.c2f_compl_scalar_2_nd
+            filters.neu_notpass_nd @ normal_vector_diag @ c2f_maps.c2f_compl_scalar_2_nd
         )
 
         # The solid mass conservation equation is discretized by taking the average
@@ -714,7 +734,7 @@ class Tpsa:
             minlength=nf,
         )
         # Following the paper, we filter away Dirichlet boundary conditions.
-        mass_total_pressure = -filters.dir_nopass @ (
+        mass_total_pressure = -filters.dir_notpass @ (
             sps.dia_matrix(
                 (sd.face_areas / (2 * arithmetic_average_shear_modulus), 0),
                 shape=(nf, nf),
@@ -770,7 +790,7 @@ class Tpsa:
 
             # Discretization of the stress generated by cell center rotations. No
             # contribution from Neumann boundaries.
-            stress_rotation = -filters.neu_nopass_nd @ Rn_hat @ c2f_maps.c2f_compl
+            stress_rotation = -filters.neu_notpass_nd @ Rn_hat @ c2f_maps.c2f_compl
 
             # We know that the boundary condition for the rotation variable is a
             # vectorial condition.
@@ -815,9 +835,9 @@ class Tpsa:
             Rn_hat = sps.dia_matrix(
                 (normal_vector_data.ravel("F"), 0), shape=(nf * nd, nf * nd)
             )
-            # # Discretization of the stress generated by cell center rotations.
+            # Discretization of the stress generated by cell center rotations.
             stress_rotation = (
-                -filters.neu_nopass_nd @ Rn_hat @ c2f_maps.c2f_compl_scalar_2_nd
+                -filters.neu_notpass_nd @ Rn_hat @ c2f_maps.c2f_compl_scalar_2_nd
             )
 
             # Diffusion operator on the rotation if relevant.
@@ -868,11 +888,7 @@ class Tpsa:
             - c2f_maps.b2f_rob
         )
 
-        # Boundary condition for the mass conservation equation. There should be no
-        # contribution from Dofs which are assigned a Dirichlet condition, so filter out
-        # these variables (this is likely not fully consistent for domains with
-        # boundaries not aligned with the coordinate axes, and with rolling boundary
-        # conditions, but EK does not know what to do there).
+        # Boundary condition for the mass conservation equation.
         bound_mass_displacement = normal_vector_nd @ (
             filters.neu_rob_pass_nd @ inv_mu_face
             + filters.dir_pass_nd
@@ -907,7 +923,7 @@ class Tpsa:
         # reconstruction can be seen as having two parts: The cell center value
         # (bound_displacement_cell) and the difference between face and cell, generated
         # by the different sources of stress and converted to a displacement through an
-        # inversion of Hook's law (the other variables).
+        # inversion of Hook's law (rotation and total pressure variables).
         bound_displacement_cell = filters.neu_rob_pass_nd @ c2f_maps.c2f
 
         # Contrbution from the face, that is the boundary condition. For Dirichlet
@@ -1013,13 +1029,13 @@ class Tpsa:
 
         dir_nd = sps.dia_matrix((is_dir.astype(int), 0), shape=(nf * nd, nf * nd))
 
-        dir_nopass_nd = sps.dia_matrix(
+        dir_notpass_nd = sps.dia_matrix(
             (np.logical_or.reduce((is_neu, is_rob, is_internal)).astype(int), 0),
             shape=(nf * nd, nf * nd),
         )
         neu_pass_nd = sps.dia_matrix((is_neu.astype(int), 0), shape=(nf * nd, nf * nd))
 
-        neu_nopass_nd = sps.dia_matrix(
+        neu_notpass_nd = sps.dia_matrix(
             (np.logical_or.reduce((is_dir, is_rob, is_internal)).astype(int), 0),
             shape=(nf * nd, nf * nd),
         )
@@ -1041,16 +1057,16 @@ class Tpsa:
         # question how this will work for rotated domains.
         max_ind = np.argmax(np.abs(sd.face_normals), axis=0)
         dir_scalar = bnd_disp.is_dir[max_ind, np.arange(nf)]
-        dir_nopass = sps.dia_matrix(
+        dir_notpass = sps.dia_matrix(
             (np.logical_not(dir_scalar).astype(int), 0), shape=(nf, nf)
         )
 
         return _BoundaryFilters(
             dir_nd,
-            dir_nopass,
-            dir_nopass_nd,
+            dir_notpass,
+            dir_notpass_nd,
             neu_pass_nd,
-            neu_nopass_nd,
+            neu_notpass_nd,
             neu_rob_pass_nd,
             rob_nd,
         )
@@ -1061,7 +1077,6 @@ class Tpsa:
         numbering: _Numbering,
         filters: _BoundaryFilters,
         bnd_disp: pp.BoundaryConditionVectorial,
-        boundary_faces: np.ndarray,
         dist: _Distances,
     ):
         """Helper method to construct mappings from cells, and boundary conditions, to
@@ -1072,8 +1087,7 @@ class Tpsa:
             numbering: Container of quantities needed for bookkeeping.
             filters: Necessary filters for imposing boundary conditions.
             bnd_disp: Boundary condition object for the displacement variable.
-            mu_by_dist_fc_cc: The first Lame parameter, mu, divided by the distance
-                between cell and face centers. Expanded to nd.
+            dist: Container for distance measures.
 
         Returns:
             Container of maps from cells to faces.
@@ -1098,7 +1112,7 @@ class Tpsa:
         # and filter away Dirichlet boundary conditions (these will be enforced
         # elsewhere in the code).
         c2f = (
-            filters.dir_nopass_nd
+            filters.dir_notpass_nd
             @ dist.inv_mu_by_dist_array
             @ sps.kron(cell_to_face, sps.eye(nd), format="csr")
         )
@@ -1127,7 +1141,7 @@ class Tpsa:
         )
         # Specifically set a zero value for faces that have Dirichlet conditions, as
         # these will draw their values from the boundary condition. While this could
-        # have been realized by multiplication with filters.dir_nopass_nd, this would
+        # have been realized by multiplication with filters.dir_notpass_nd, this would
         # have left implicit (not represented) zeros at the boundaries, whereas we need
         # explicit zeros to construct the complement map below. Hence we enforce the
         # zeros by manipulating the data array.
@@ -1174,8 +1188,13 @@ class Tpsa:
             bnd_disp: Boundary condition for the displacement variable.
 
         Returns:
-            Various distance measures needed in the discretization.
-            Discretization coefficients for Robin boundary conditions.
+            Tuple of two objects:
+
+            _Dist:
+                Various distance measures needed in the discretization.
+
+            np.ndarray:
+                Discretization coefficients for Robin boundary conditions.
 
         """
         nf, nd = sd.num_faces, sd.dim
@@ -1277,8 +1296,13 @@ class Tpsa:
             b2f_rob_compl: Complement of the Robin boundary conditions.
 
         Returns:
-            Discretization matrix for the vector Laplacian, and the boundary condition
-            matrix.
+            Tuple of two objects:
+
+            sps.sparray:
+                Discretization matrix for the vector Laplacian.
+
+            sps.sparray:
+                Discretization matrix for the boundary condition.
 
         """
         # The linear stress due to cell center displacements is computed from the
@@ -1296,9 +1320,10 @@ class Tpsa:
 
         # Data structure for the discretization of the boundary conditions.
         trm_bnd = np.zeros((nd, nf))
-        # On Dirichlet faces, the coefficient of the boundary condition is the same as
-        # weight of the nearby cell, but with the opposite sign, as will be introduced
-        # in the construction of the discretization matrix.
+        # On Dirichlet faces, the discretization coefficient of the boundary condition
+        # is the same as that of the adjacent cell. The sign of the coefficient are
+        # different for the cell and the boundary condition, this is introduced in the
+        # construction of the discretization matrix.
         trm_bnd[dir_faces] = trm_nd[dir_faces]
 
         # On Neumann faces, the coefficient of the discretization itself is zero, as the
