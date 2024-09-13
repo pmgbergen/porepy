@@ -496,4 +496,3 @@ def domain_sides_from_grid(sd: pp.Grid) -> DomainSides:
     all_bf = sd.get_all_boundary_faces()
 
     return DomainSides(all_bf, east, west, north, south, top, bottom)
-
