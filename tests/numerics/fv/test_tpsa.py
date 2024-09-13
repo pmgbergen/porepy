@@ -79,7 +79,7 @@ def _set_uniform_bc(
 
 
 class TestTpsaTailoredGrid:
-    """Define a cell of two grids, one internal face. Verify that the discretization
+    """Define a grid of two cells, one internal face. Verify that the discretization
     matrices are constructed correctly for the internal face, as well as two boundary
     faces for Dirichlet, Neumann and Robin conditions.
 
@@ -131,8 +131,10 @@ class TestTpsaTailoredGrid:
         }
 
         # We test the discretization on face 6, as this has two non-trivial components
-        # of the normal vector, and in the vector from cell to face center. These values
-        # will be overridden for the test of the internal face.
+        # of the normal vector, moreover the vector between cell and face center has
+        # non-unitary values and is of non-unit length, the effect of both will show up
+        # in the discretization scheme. These values will be overridden for the test of
+        # the internal face.
         self.target_faces_scalar = np.array([0, 6])
         self.target_faces_vector = np.array([0, 1, 12, 13])
 
@@ -293,8 +295,7 @@ class TestTpsaTailoredGrid:
         c_c2f_avg_0 = 1 - c2f_avg_0
         c_c2f_avg_6 = 1 - c2f_avg_6
 
-        # EK note to self: The coefficients in bound_stress should be negative those of
-        # the stress matrix so that translation results in a stress-free configuration.
+        # Discretization of the boundary condition. 
         bound_stress = np.zeros((4, 14))
         bound_stress[0, 0] = -stress_0
         bound_stress[1, 1] = -stress_0
@@ -550,7 +551,7 @@ class TestTpsaTailoredGrid:
 
         matrices = _discretize_get_matrices(self.g, self.data)
 
-        # The Robin condition translated to 'distances' as is used in the paper.
+        # 
         d_0_x_bound = rw_0_x
         d_0_y_bound = rw_0_y
         d_6_bound = rw_6
@@ -559,7 +560,8 @@ class TestTpsaTailoredGrid:
         mu_0_d = self.mu_0 / self.d_0_0
         mu_1_d = self.mu_1 / self.d_1_6
 
-        # Averaging coefficient for the interior cell.
+        # Averaging coefficient for the interior cell. The Robin condition manifest as
+        # an elastic modulus divided by a distance.
         c2f_avg_0_x = 2 * mu_0_d / (2 * mu_0_d + rw_0_x)
         c2f_avg_0_y = 2 * mu_0_d / (2 * mu_0_d + rw_0_y)
         c2f_avg_6 = 2 * mu_1_d / (2 * mu_1_d + rw_6)
@@ -773,8 +775,6 @@ class TestTpsaTailoredGrid:
 
         c2f_avg_0_y = 1
         c2f_avg_6_y = 1
-        c_c2f_avg_0_y = 1 - c2f_avg_0_y
-        c_c2f_avg_6_y = 1 - c2f_avg_6_y
 
         bound_stress = np.zeros((4, 14))
         bound_stress[0, 0] = -stress_0
@@ -1007,23 +1007,25 @@ def test_cosserat_3d():
 
 @pytest.mark.parametrize("g", [pp.CartGrid([2, 2]), pp.CartGrid([2, 2, 2])])
 @pytest.mark.parametrize("driving_bc_type", ["dir", "neu"])
-@pytest.mark.parametrize("extension", [False, True])
-def test_compression_tension(g: pp.Grid, driving_bc_type: str, extension: bool):
+@pytest.mark.parametrize("tensile", [False, True])
+def test_compression_tension(g: pp.Grid, driving_bc_type: str, tensile: bool):
     """Assign a compressive or tensile force, check that the resulting displacement is
     in the correct direction, and that the total pressure is negative.
 
-    The force is compressive on the south, east and (if 3d) bottom faces, the remaining
-    faces having neutral conditions. Check that this results in displacement in the
-    negative x-direction and positive y- (and z) direction. The total pressure should be
+    The logic of the tets is as follows (assuming a compressive regime, tensile=False,
+    if not, statements about positive and negative signs should be reversed): The force
+    is compressive on the south, east and (if 3d) bottom faces, the remaining faces
+    having neutral conditions. Check that this results in displacement in the negative
+    x-direction and positive y- (and z) direction. The total pressure should be
     negative, while EK cannot surmise the correct sign of the rotation by physical
     intuition. The grid is assumed to be Cartesian (or else the discretization is
     inconsistent, and anything can happen), in which case the face normal vectors will
-    point into the domain on the south boundary, out of the domain on the east boundary.
+    point into the domain on the south (and bottom) boundary, out of the domain on the
+    east boundary.
 
     Parameters:
-        g: Grid object.
-        driving_bc_type: Type of boundary condition to apply.
-        extension: If True, the boundary conditions are reversed, such that the force is
+        g: Grid object. driving_bc_type: Type of boundary condition to apply. tensile:
+        If True, the boundary conditions are reversed, such that the force is
             tensile, rather than compressive.
 
     """
@@ -1049,7 +1051,7 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, extension: bool):
     bc_values = _set_bc_by_direction(g, d, *dir_list)
 
     # Tensile if requested.
-    if extension:
+    if tensile:
         bc_values *= -1
 
     # Discretize, assemble matrices.
@@ -1067,7 +1069,7 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, extension: bool):
     bound_vec = np.hstack((bc_values.ravel("F"), np.zeros(n_rot_face)))
     x = _solve(flux, rhs_matrix, div, accum, bound_vec)
 
-    if extension:
+    if tensile:
         # Positive x-direction, negative y- (and z-) direction.
         assert np.all(x[: g.dim * g.num_cells : g.dim] > 0)
         assert np.all(x[1 : g.dim * g.num_cells : g.dim] < 0)
