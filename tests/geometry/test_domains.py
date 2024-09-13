@@ -143,3 +143,52 @@ def test_domain_contains_point(dim):
 
     for p, i in zip(points, is_in):
         assert (p in domain) == i
+
+
+@pytest.mark.parametrize("g,known", [
+    # A 2d grid, cells have unit size.
+    (pp.CartGrid([2, 2]),
+        {"west": np.array([0, 3]),
+        "east": np.array([2, 5]),
+        "south": np.array([6, 7]),
+        "north": np.array([10, 11]),
+        "bottom": np.array([], dtype=int),
+        "top": np.array([], dtype=int)        
+        }
+    ),
+    # A 2d grid with 2x2 cells, the full domain has unit size.
+    (pp.CartGrid([2, 2], physdims=[1, 1]),
+        {"west": np.array([0, 3]),
+        "east": np.array([2, 5]),
+        "south": np.array([6, 7]),
+        "north": np.array([10, 11]),
+        "bottom": np.array([], dtype=int),
+        "top": np.array([], dtype=int)
+        }
+    ),
+    # A 3d grid.
+    (pp.CartGrid([2, 2, 2]),
+        {"west": np.array([0, 3, 6, 9]),
+        "east": np.array([2, 5, 8, 11]),
+        "south": np.array([12, 13, 18, 19]),
+        "north": np.array([16, 17, 22, 23]),
+        "bottom": np.array([24, 25, 26, 27]),
+        "top": np.array([32, 33, 34, 35])
+        }
+    )
+])
+def test_domain_sides_from_grid(g: pp.Grid, known: dict):
+    """Test the Domain.sides_from_grid method.
+
+    Parameters:
+        g: The grid to test.
+        known: Dictionary with keys "west", "east", "south", "north", "bottom", "top",
+            and values being the indices of the faces in the grid that are on the
+            corresponding side of the domain.
+
+    """
+    g.compute_geometry()
+    # Get the sides from the function to be tested, and check that they are correct.
+    sides = pp.domain.domain_sides_from_grid(g)
+    for key, val in known.items():
+        assert np.all(np.where(getattr(sides, key))[0] == val)
