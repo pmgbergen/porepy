@@ -399,7 +399,7 @@ class TimeManager:
         self._recomp_sol: bool = False
         self._iters: Union[int, None] = None
 
-        # Book keeping of saved time steps for restarting purposes.
+        # Bookkeeping of saved time steps for restarting purposes.
         self.exported_dt: list[pp.number] = []
         """A list of time steps for the simulation states that were saved on disk with
         `write_time_information` for restarting purposes. Completeness and lack of
@@ -735,7 +735,7 @@ class TimeManager:
 
         """
 
-        # Book keeping
+        # Bookkeeping
         self.exported_times.append(
             int(self.time) if isinstance(self.time, np.integer) else float(self.time)
         )
