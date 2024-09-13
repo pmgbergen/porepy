@@ -551,7 +551,6 @@ class TestTpsaTailoredGrid:
 
         matrices = _discretize_get_matrices(self.g, self.data)
 
-        # 
         d_0_x_bound = rw_0_x
         d_0_y_bound = rw_0_y
         d_6_bound = rw_6
@@ -1012,8 +1011,7 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, tensile: bool):
     """Assign a compressive or tensile force, check that the resulting displacement is
     in the correct direction, and that the total pressure is negative.
 
-    The logic of the tets is as follows (assuming a compressive regime, tensile=False,
-    if not, statements about positive and negative signs should be reversed): The force
+    The logic of the test is as follows (assuming a compressive regime, tensile=False,
     is compressive on the south, east and (if 3d) bottom faces, the remaining faces
     having neutral conditions. Check that this results in displacement in the negative
     x-direction and positive y- (and z) direction. The total pressure should be
@@ -1024,8 +1022,8 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, tensile: bool):
     east boundary.
 
     Parameters:
-        g: Grid object. driving_bc_type: Type of boundary condition to apply. tensile:
-        If True, the boundary conditions are reversed, such that the force is
+        g: Grid object. driving_bc_type: Type of boundary condition to apply. 
+        tensile: If True, the boundary conditions are reversed, such that the force is
             tensile, rather than compressive.
 
     """
