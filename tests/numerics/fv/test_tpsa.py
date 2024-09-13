@@ -1400,27 +1400,19 @@ def _set_bc_by_direction(
     nf = face_ind.size
 
     # Find the faces on the boundary in each direction.
-    min_coord, max_coord = pp.domain.grid_minmax_coordinates(g)
-    south = np.where(g.face_centers[1, face_ind] == min_coord[1])
-    east = np.where(g.face_centers[0, face_ind] == max_coord[0])
-    north = np.where(g.face_centers[1, face_ind] == max_coord[1])
-    west = np.where(g.face_centers[0, face_ind] == min_coord[0])
-    if g.dim == 3:
-        bottom = np.where(g.face_centers[2, face_ind] == min_coord[2])
-        top = np.where(g.face_centers[2, face_ind] == max_coord[2])
-
+    domain = pp.domain.domain_sides_from_grid(g)
     # Represent the array of boundary conditions as a numpy array for now, this makes it
     # easy to insert values in the correct order.
-    bc_str = np.zeros(nf, dtype="object")
+    bc_str = np.zeros(g.num_faces, dtype="object")
 
-    directions = [south, east, north, west]
+    directions = ['south', 'east', 'north', 'west']
     types = [type_south, type_east, type_north, type_west]
     if g.dim == 3:
-        directions += [bottom, top]
+        directions += ['bottom', 'top']
         types += [type_bottom, type_top]
 
-    for fi, bc_type in zip(directions, types):
-
+    for direction, bc_type in zip(directions, types):
+        fi = np.where(getattr(domain, direction))[0]
         match bc_type:
             case "dir":
                 bc_str[fi] = "dir"
@@ -1430,7 +1422,7 @@ def _set_bc_by_direction(
                 raise ValueError(f"Unknown boundary condition type {bc_type}")
 
     # Convert to list, which is the format expected by the BoundaryCondition object.
-    bc_list = bc_str.tolist()
+    bc_list = bc_str[face_ind].tolist()
 
     bc_disp = pp.BoundaryConditionVectorial(g, faces=face_ind, cond=bc_list)
     if g.dim == 2:
@@ -1441,12 +1433,10 @@ def _set_bc_by_direction(
     d[pp.PARAMETERS][KEYWORD]["bc"] = bc_disp
     d[pp.PARAMETERS][KEYWORD]["bc_rot"] = bc_rot
 
-    values = np.zeros((g.dim, nf))
-    values[1, south] = 0.1
-    values[0, east] = -0.1
-    if g.dim == 3:
-        values[2, bottom] = 0.1
-
     bc_val = np.zeros((g.dim, g.num_faces))
-    bc_val[:, face_ind] = values
+    bc_val[1, np.where(getattr(domain, 'south'))[0]] = 0.1
+    bc_val[0, np.where(getattr(domain, 'east'))[0]] = -0.1
+    if g.dim == 3:
+        bc_val[2, np.where(getattr(domain, 'bottom'))[0]] = 0.1
+
     return bc_val
