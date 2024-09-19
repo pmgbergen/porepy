@@ -108,7 +108,7 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float):
     """
 
     # Create model and run simulation
-    setup = create_fractured_setup(solid_vals, {}, {"uy_north": uy_north})
+    setup = create_fractured_setup(solid_vals, {}, {"u_north": [0.0, uy_north]})
     pp.run_time_dependent_model(setup)
 
     # Check that the pressure is linear
@@ -184,7 +184,7 @@ def test_thermoporomechanics_model_no_modification():
 
 def test_pull_north_positive_opening():
 
-    setup = create_fractured_setup({}, {}, {"uy_north": 0.001})
+    setup = create_fractured_setup({}, {}, {"u_north": [0.0, 0.001]})
     pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
 
@@ -207,7 +207,7 @@ def test_pull_north_positive_opening():
 
 def test_pull_south_positive_opening():
 
-    setup = create_fractured_setup({}, {}, {"uy_south": -0.001})
+    setup = create_fractured_setup({}, {}, {"u_south": [0.0, -0.001]})
     pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
 
@@ -230,7 +230,7 @@ def test_pull_south_positive_opening():
 
 def test_push_north_zero_opening():
 
-    setup = create_fractured_setup({}, {}, {"uy_north": -0.001})
+    setup = create_fractured_setup({}, {}, {"u_north": [0.0, -0.001]})
     pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
 
