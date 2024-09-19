@@ -18,7 +18,6 @@ The functionality is invoked by specifying the solver in the solver parameters, 
         LineSearchNewtonSolver,
     ):
         pass
- 
     solver_params["nonlinear_solver"] = ConstraintLineSearchNonlinearSolver
     Pass 'solver_params' to a solver model, e.g.:
     pp.run_time_dependent_model(model, solver_params)
