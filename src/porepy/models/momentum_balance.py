@@ -83,10 +83,15 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     """
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    mixin instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the plastic displacement jump on fracture grids. Normally defined
+    in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
+    """
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
@@ -382,10 +387,12 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             [e_i for e_i in tangential_basis]
         )
 
-        # Variables: The tangential component of the contact traction and the
-        # displacement jump
+        # Variables: The tangential component of the contact traction and the plastic
+        # displacement jump.
         t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
-        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
+        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
+            subdomains
+        )
         # The time increment of the tangential displacement jump
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
@@ -469,10 +476,12 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 class ConstitutiveLawsMomentumBalance(
     constitutive_laws.ZeroGravityForce,
     constitutive_laws.ElasticModuli,
+    constitutive_laws.ElasticTangentialFractureDeformation,
     constitutive_laws.LinearElasticMechanicalStress,
     constitutive_laws.ConstantSolidDensity,
     constitutive_laws.FractureGap,
     constitutive_laws.CoulombFrictionBound,
+    constitutive_laws.DisplacementJump,
     constitutive_laws.DimensionReduction,
 ):
     """Class for constitutive equations for momentum balance equations."""
@@ -494,8 +503,10 @@ class ConstitutiveLawsMomentumBalance(
 class VariablesMomentumBalance:
     """Variables for mixed-dimensional deformation.
 
-    Displacement in matrix and on fracture-matrix interfaces. Fracture contact
-    traction.
+    The variables are:
+        - Displacement in matrix
+        - Displacement on fracture-matrix interfaces
+        - Fracture contact traction.
 
     """
 
@@ -527,19 +538,9 @@ class VariablesMomentumBalance:
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
-
-    """
-    local_coordinates: Callable[[list[pp.Grid]], pp.ad.SparseArray]
-    """Mapping to local coordinates. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
     create_boundary_operator: Callable[
@@ -657,42 +658,6 @@ class VariablesMomentumBalance:
         return self.equation_system.md_variable(
             self.contact_traction_variable, subdomains
         )
-
-    def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Displacement jump on fracture-matrix interfaces.
-
-        Parameters:
-            subdomains: List of subdomains where the displacement jump is defined.
-                Should be a fracture subdomain.
-
-        Returns:
-            Operator for the displacement jump.
-
-        Raises:
-             AssertionError: If the subdomains are not fractures, i.e. have dimension
-                `nd - 1`.
-
-        """
-        if not all([sd.dim == self.nd - 1 for sd in subdomains]):
-            raise ValueError("Displacement jump only defined on fractures")
-
-        interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        # Only use matrix-fracture interfaces
-        interfaces = [intf for intf in interfaces if intf.dim == self.nd - 1]
-        mortar_projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, self.nd
-        )
-        # The displacement jmup is expressed in the local coordinates of the fracture.
-        # First use the sign of the mortar sides to get a difference, then map first
-        # from the interface to the fracture, and finally to the local coordinates.
-        rotated_jumps: pp.ad.Operator = (
-            self.local_coordinates(subdomains)
-            @ mortar_projection.mortar_to_secondary_avg
-            @ mortar_projection.sign_of_mortar_sides
-            @ self.interface_displacement(interfaces)
-        )
-        rotated_jumps.set_name("Rotated_displacement_jump")
-        return rotated_jumps
 
 
 class SolutionStrategyMomentumBalance(pp.SolutionStrategy):

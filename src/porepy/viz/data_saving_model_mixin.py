@@ -217,7 +217,7 @@ class DataSavingMixin:
 
         # Load time and time step size
         self.time_manager.load_time_information(times_file)
-        self.time_manager.set_from_history(time_index)
+        self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
 
     def load_data_from_pvd(
@@ -251,7 +251,7 @@ class DataSavingMixin:
 
         # Load time and time step size
         self.time_manager.load_time_information(times_file)
-        self.time_manager.set_from_history(time_index)
+        self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
 
 

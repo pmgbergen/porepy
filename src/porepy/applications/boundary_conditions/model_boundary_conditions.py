@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import numpy as np
@@ -221,8 +222,8 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
         """Boundary values for the mechanics problem as a numpy array.
 
         Values for north and south faces are set to zero unless otherwise specified
-        through items ux_north, uy_north, ux_south, uy_south in the parameter dictionary
-        passed on model initialization.
+        through items u_north and u_south in the parameter dictionary passed on model
+        initialization.
 
         Parameters:
             boundary_grid: Boundary grid for which boundary values are to be returned.
@@ -232,20 +233,26 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
                 domain, for each face in the subdomain.
 
         """
-        domain_sides = self.domain_boundary_sides(boundary_grid)
+        sides = self.domain_boundary_sides(boundary_grid)
         values = np.zeros((self.nd, boundary_grid.num_cells))
-        values[1, domain_sides.north] = self.solid.convert_units(
-            self.params.get("uy_north", 0), "m"
-        )
-        values[1, domain_sides.south] = self.solid.convert_units(
-            self.params.get("uy_south", 0), "m"
-        )
-        values[0, domain_sides.north] = self.solid.convert_units(
-            self.params.get("ux_north", 0), "m"
-        )
-        values[0, domain_sides.south] = self.solid.convert_units(
-            self.params.get("ux_south", 0), "m"
-        )
+        if boundary_grid.dim < self.nd - 1:
+            # No displacement is implemented on grids of co-dimension >= 2.
+            return values.ravel("F")
+
+        if "uy_north" in self.params or "uy_south" in self.params:
+            warnings.warn(
+                "uy_north and uy_south are deprecated. Use u_north and u_south instead."
+            )
+        # Wrap as array for convert_units. Thus, the passed values can be scalar or
+        # list. Then tile for correct broadcasting below.
+        u_n = np.tile(
+            self.params.get("u_north", np.zeros(self.nd)), (boundary_grid.num_cells, 1)
+        ).T
+        u_s = np.tile(
+            self.params.get("u_south", np.zeros(self.nd)), (boundary_grid.num_cells, 1)
+        ).T
+        values[:, sides.north] = self.solid.convert_units(u_n, "m")[:, sides.north]
+        values[:, sides.south] = self.solid.convert_units(u_s, "m")[:, sides.south]
         return values.ravel("F")
 
 
@@ -259,9 +266,11 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
     def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Displacement values.
 
-        Initial value is u_y = 0.042 at north boundary. This is a hard-coded value
-        corresponding to aperture of horizontal fracture used in various tests. Adding
-        it on the boundary ensures a stress-free initial state. For positive times,
+        Initial value is u_y = self.solid.fracture_gap() +
+        self.solid.maximum_elastic_fracture_opening() at north boundary. Adding it on
+        the boundary ensures a stress-free initial state, as it compensates for those
+        two values corresponding to zero traction contact according to the class
+        :class:`~porepy.models.constitutive_laws.FractureGap`. For positive times,
         uy_north and uy_south are fetched from parameter dictionary and added,
         defaulting to 0.
 
@@ -277,15 +286,14 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         values = np.zeros((self.nd, boundary_grid.num_cells))
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
-            frac_val = self.solid.convert_units(0.042, "m")
+            frac_val = (
+                self.solid.fracture_gap()
+                + self.solid.maximum_elastic_fracture_opening()
+            )
         else:
             frac_val = 0
         values[1, domain_sides.north] = frac_val
         if self.time_manager.time > 1e-5:
-            values[1, domain_sides.north] += self.solid.convert_units(
-                self.params.get("uy_north", 0), "m"
-            )
-            values[1, domain_sides.south] += self.solid.convert_units(
-                self.params.get("uy_south", 0), "m"
-            )
-        return values.ravel("F")
+            return values.ravel("F") + super().bc_values_displacement(boundary_grid)
+        else:
+            return values.ravel("F")
