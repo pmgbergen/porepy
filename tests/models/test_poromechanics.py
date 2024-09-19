@@ -402,7 +402,6 @@ def test_pull_south_positive_opening():
     assert np.all(np.abs(traction) < 1.0e-7)
 
     # Check that the dilation of the fracture yields a negative fracture pressure
-    print(p_frac)
     assert np.all(p_frac < -1.0e-7)
 
 
