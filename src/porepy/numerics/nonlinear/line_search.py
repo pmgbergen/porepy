@@ -9,7 +9,7 @@ Main active classes, combined in the NonlinearSolver class:
 - ConstraintLineSearch - implements a line search based on constraint functions for
     contact mechanics.
 
-The functionality is invoked by specifying the solver in the model parameters, e.g.:
+The functionality is invoked by specifying the solver in the solver parameters, e.g.:
 
     ```python
     class ConstraintLineSearchNonlinearSolver(
@@ -18,10 +18,13 @@ The functionality is invoked by specifying the solver in the model parameters, e
         LineSearchNewtonSolver,
     ):
         pass
+ 
     solver_params["nonlinear_solver"] = ConstraintLineSearchNonlinearSolver
+    Pass 'solver_params' to a solver model, e.g.:
+    pp.run_time_dependent_model(model, solver_params)
     ```
 
-The solver can be further customized by specifying parameters in the model parameters.
+The solver can be further customized by specifying parameters in the solver parameters.
 Using the tailored line search also requires implementation of the constraint functions
 in the model as methods called "opening_indicator" and "sliding_indicator", see
 model_setup.ContactIndicators.
