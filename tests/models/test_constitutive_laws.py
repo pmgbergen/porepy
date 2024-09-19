@@ -39,7 +39,7 @@ solid_values = pp.solid_values.granite
 solid_values.update(
     {
         "fracture_normal_stiffness": 1.9e8,
-        "maximum_fracture_closure": 1e-4,
+        "maximum_elastic_fracture_opening": 1e-4,
         "fracture_gap": 1e-4,
         "residual_aperture": 0.01,
     }
@@ -268,11 +268,13 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         (
             models.MomentumBalance,
             "elastic_normal_fracture_deformation",
-            # (-normal_traction) * maximum_closure /
-            #    (normal_stiffness / characteristic_traction * maximum_closure + (-normal_traction))
+            # maximum_opening + normal_traction * maximum_opening / (
+            #   normal_stiffness / characteristic_traction * maximum_opening
+            #   - normal_traction
+            # )
             # Here, characteristic_traction = Young's modulus (see implementation of
             # elastic_normal_fracture_deformation in constitutive_laws.py)
-            (1 * 1e-4) / (1.9e8 / youngs * 1e-4 + 1),
+            1e-4 - (1 * 1e-4) / (1.9e8 / youngs * 1e-4 + 1),
             1,
         ),
         (

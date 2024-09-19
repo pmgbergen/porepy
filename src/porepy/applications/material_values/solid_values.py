@@ -176,7 +176,7 @@ extended_granite_values_for_testing.update(
         "dilation_angle": 0.1,  # [rad]
         "fracture_gap": 1e-3,  # [m]
         "fracture_normal_stiffness": 1.1e8,  # [Pa m^-1]
-        "maximum_fracture_closure": 1e-3,  # [m]
+        "maximum_elastic_fracture_opening": 1e-3,  # [m]
         "normal_permeability": 5.0e-15,  # [m^2]
         "residual_aperture": 1e-3,  # [m]
         "skin_factor": 37,  # [-]

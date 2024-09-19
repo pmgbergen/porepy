@@ -1,9 +1,8 @@
 """Tests for poromechanics.
 
-The hardcoded fracture gap value of 0.042 ensures positive aperture for all simulation.
-This is needed to avoid degenerate mass balance equation in fracture.
+The positive fracture gap value ensures positive aperture for all simulation. This is
+needed to avoid degenerate mass balance equation in fracture.
 
-TODO: Clean up.
 """
 
 from __future__ import annotations
@@ -39,9 +38,9 @@ class NonzeroFractureGapPoromechanics:
     def initial_condition(self):
         """Set initial condition.
 
-        Set initial displacement compatible with fracture gap of 0.042 for matrix
-        subdomain and matrix-fracture interface. Also initialize boundary conditions
-        to 0.042 on top side.
+        Set initial displacement compatible with fracture gap for matrix subdomain and
+        matrix-fracture interface. Also initialize boundary conditions to fracture gap
+        value on top half of the matrix.
 
         """
         super().initial_condition()
@@ -57,7 +56,7 @@ class NonzeroFractureGapPoromechanics:
         if len(self.mdg.subdomains()) > 1:
             top_cells = sd.cell_centers[1] > self.fluid.convert_units(0.5, "m")
             vals = np.zeros((self.nd, sd.num_cells))
-            vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
+            vals[1, top_cells] = self.solid.fracture_gap()
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.displacement_variable],
@@ -80,9 +79,12 @@ class NonzeroFractureGapPoromechanics:
             intf_normals = normals[:, faces_primary]
             top_cells = intf_normals[1, :] < 0
 
-            # Set mortar displacement to zero on bottom and 0.042 on top
+            # Set mortar displacement to zero on bottom and fracture gap value on top
             vals = np.zeros((self.nd, intf.num_cells))
-            vals[1, top_cells] = self.fluid.convert_units(0.042, "m")
+            vals[1, top_cells] = (
+                self.solid.fracture_gap()
+                + self.solid.maximum_elastic_fracture_opening()
+            )
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.interface_displacement_variable],
@@ -155,15 +157,15 @@ class TailoredPoromechanics(
     pass
 
 
-def create_fractured_setup(solid_vals, fluid_vals, uy_north):
+def create_fractured_setup(solid_vals: dict, fluid_vals: dict, uy_north: float):
     """Create a setup for a fractured domain.
 
     The domain is a unit square with two intersecting fractures.
 
     Parameters:
-        solid_vals (dict): Parameters for the solid mechanics model.
-        fluid_vals (dict): Parameters for the fluid mechanics model.
-        uy_north (float): Displacement in y-direction on the north boundary.
+        solid_vals: Parameters for the solid mechanics model.
+        fluid_vals: Parameters for the fluid mechanics model.
+        uy_north: Displacement in y-direction on the north boundary.
 
     Returns:
         TailoredPoromechanics: A setup for a fractured domain.
@@ -180,7 +182,7 @@ def create_fractured_setup(solid_vals, fluid_vals, uy_north):
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
-        "uy_north": uy_north,
+        "u_north": [0, uy_north],  # Note: List of length nd. Extend if used in 3d.
         "max_iterations": 20,
     }
     setup = TailoredPoromechanics(model_params)
@@ -270,7 +272,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         assert np.allclose(u_vals[:, bottom], 0)
         # Zero x and nonzero y displacement in top
         assert np.allclose(u_vals[0, top], 0)
-        assert np.allclose(u_vals[1, top], 0.042)
+        assert np.allclose(u_vals[1, top], setup.solid.fracture_gap())
         # Zero displacement relative to initial value implies zero pressure
         assert np.allclose(p_vals, 0)
     elif north_displacement < 0.0:
@@ -306,7 +308,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     else:
         # Displacement jump should be equal to initial displacement.
         assert np.allclose(jump[0], 0.0)
-        assert np.allclose(jump[1], 0.042)
+        assert np.allclose(jump[1], setup.solid.fracture_gap())
         # Normal traction should be non-positive. Zero if north_displacement equals
         # initial gap, negative otherwise.
         if north_displacement < 0.0:
@@ -331,7 +333,7 @@ def test_without_fracture(biot_coefficient):
     params = {
         "fracture_indices": [],
         "material_constants": {"fluid": fluid, "solid": solid},
-        "uy_north": 0.001,
+        "u_north": [0, 0.001],
         "cartesian": True,
     }
     m = TailoredPoromechanics(params)
@@ -380,7 +382,7 @@ def test_pull_north_positive_opening():
 
 def test_pull_south_positive_opening():
     """Check solution for a pull on the south side with one horizontal fracture."""
-
+    
     setup = create_fractured_setup({}, {}, 0)
     setup.params["uy_south"] = -0.001
     pp.run_time_dependent_model(setup)
@@ -408,7 +410,7 @@ def test_push_north_zero_opening():
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
 
     # All components should be closed in the normal direction
-    assert np.allclose(jump[1], 0.042)
+    assert np.allclose(jump[1], setup.solid.fracture_gap())
 
     # Contact force in normal direction should be negative
     assert np.all(traction[1] < 0)
@@ -418,13 +420,13 @@ def test_push_north_zero_opening():
 
 
 def test_positive_p_frac_positive_opening():
-    setup = create_fractured_setup({}, {}, 0)
+    setup = create_fractured_setup({}, {}, 0.0)
     setup.params["fracture_source_value"] = 0.001
     pp.run_time_dependent_model(setup)
     _, _, p_frac, jump, traction = get_variables(setup)
 
     # All components should be open in the normal direction
-    assert np.all(jump[1] > 0.042)
+    assert np.all(jump[1] > setup.solid.fracture_gap())
 
     # By symmetry (reasonable to expect from this grid), the jump in tangential
     # deformation should be zero.
@@ -442,7 +444,7 @@ def test_positive_p_frac_positive_opening():
 
 def test_pull_south_positive_reference_pressure():
     """Compare with and without nonzero reference (and initial) solution."""
-    setup_ref = create_fractured_setup({}, {}, 0)
+    setup_ref = create_fractured_setup({}, {}, 0.0)
     setup_ref.subtract_p_frac = False
     setup_ref.params["uy_south"] = -0.001
     pp.run_time_dependent_model(setup_ref)
@@ -450,7 +452,7 @@ def test_pull_south_positive_reference_pressure():
         setup_ref
     )
 
-    setup = create_fractured_setup({}, {"pressure": 1}, 0)
+    setup = create_fractured_setup({}, {"pressure": 1}, 0.0)
     setup.subtract_p_frac = False
     setup.params["uy_south"] = -0.001
     pp.run_time_dependent_model(setup)
@@ -485,7 +487,7 @@ def test_unit_conversion(units):
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,
-        "uy_north": 1e-5,
+        "u_north": [0.0, 1e-5],
         "material_constants": {"solid": solid, "fluid": fluid},
     }
     model_reference_params = copy.deepcopy(model_params)
