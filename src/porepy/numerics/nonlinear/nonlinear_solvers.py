@@ -70,6 +70,7 @@ class NewtonSolver:
         iteration_counter = 0
 
         residual_norm = np.inf
+        residual = None
         nonlinear_increment_norm = np.inf
         is_converged = False
         is_diverged = False
@@ -87,6 +88,7 @@ class NewtonSolver:
             nonlocal nonlinear_increment
             nonlocal reference_residual
             nonlocal residual_norm
+            nonlocal residual
             nonlocal nonlinear_increment_norm
             nonlocal is_converged
             nonlocal is_diverged
@@ -103,9 +105,11 @@ class NewtonSolver:
             nonlinear_increment = self.iteration(model)
 
             model.after_nonlinear_iteration(nonlinear_increment)
-            # Note: The residual is extracted after the solution has been updated by the
-            # after_nonlinear_iteration() method.
-            residual = model.equation_system.assemble(evaluate_jacobian=False)
+            if self.params["nl_convergence_tol_res"] is not np.inf:
+                # Note: The residual is extracted after the solution has been updated by the
+                # after_nonlinear_iteration() method. This is only required if the residual
+                # is used to check convergence, i.e., the tolerance is not np.inf.
+                residual = model.equation_system.assemble(evaluate_jacobian=False)
 
             residual_norm, nonlinear_increment_norm, is_converged, is_diverged = (
                 model.check_convergence(
