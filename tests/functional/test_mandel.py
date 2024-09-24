@@ -38,12 +38,12 @@ def results() -> list[MandelSaveData]:
         "solid": pp.SolidConstants(mandel_solid_constants),
     }
     time_manager = pp.TimeManager([0, 25, 50], 25, True)
-    params = {
+    model_params = {
         "material_constants": material_constants,
         "time_manager": time_manager,
     }
-    setup = MandelSetup(params)
-    pp.run_time_dependent_model(setup, params)
+    setup = MandelSetup(model_params)
+    pp.run_time_dependent_model(setup)
     return setup.results
 
 
@@ -150,12 +150,12 @@ def test_scaled_vs_unscaled_systems():
         "solid": pp.SolidConstants(mandel_solid_constants),
     }
     time_manager_unscaled = pp.TimeManager([0, 10], 10, True)
-    params_unscaled = {
+    model_params_unscaled = {
         "material_constants": material_constants_unscaled,
         "time_manager": time_manager_unscaled,
     }
-    unscaled = MandelSetup(params=params_unscaled)
-    pp.run_time_dependent_model(model=unscaled, params=params_unscaled)
+    model_unscaled = MandelSetup(params=model_params_unscaled)
+    pp.run_time_dependent_model(model_unscaled)
 
     # The scaled problem
     material_constants_scaled = {
@@ -165,22 +165,22 @@ def test_scaled_vs_unscaled_systems():
     time_manager_scaled = pp.TimeManager([0, 10], 10, True)
     scaling = {"m": 1e-3, "kg": 1e-3}  # length in millimeters and mass in grams
     units = pp.Units(**scaling)
-    params_scaled = {
+    model_params_scaled = {
         "material_constants": material_constants_scaled,
         "time_manager": time_manager_scaled,
         "units": units,
     }
-    scaled = MandelSetup(params=params_scaled)
-    pp.run_time_dependent_model(model=scaled, params=params_scaled)
+    scaled_model = MandelSetup(params=model_params_scaled)
+    pp.run_time_dependent_model(model=scaled_model)
 
     # Compare results
     np.testing.assert_almost_equal(
-        unscaled.results[-1].error_pressure,
-        scaled.results[-1].error_pressure,
+        model_unscaled.results[-1].error_pressure,
+        scaled_model.results[-1].error_pressure,
         decimal=5,
     )
     np.testing.assert_almost_equal(
-        unscaled.results[-1].error_displacement,
-        scaled.results[-1].error_displacement,
+        model_unscaled.results[-1].error_displacement,
+        scaled_model.results[-1].error_displacement,
         decimal=5,
     )

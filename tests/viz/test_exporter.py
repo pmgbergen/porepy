@@ -709,7 +709,7 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "temperature": 2,  # [K]
         }
 
-        params = {
+        model_params = {
             "suppress_export": False,
             "units": units,
             "file_name": file_name,
@@ -719,8 +719,8 @@ def test_rescaled_export(setup: ExporterTestSetup):
                 "fluid": pp.FluidConstants(nontrivial_fluid),
             },
         }
-        model = TailoredThermoporomechanics(params=params)
-        pp.run_time_dependent_model(model, {})
+        model = TailoredThermoporomechanics(params=model_params)
+        pp.run_time_dependent_model(model)
 
     units_scaled = pp.Units(m=3.14, kg=42.0, K=3.79)
     units_unscaled = pp.Units()

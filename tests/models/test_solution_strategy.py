@@ -97,7 +97,7 @@ def test_restart(solid_vals: dict, north_displacement: float):
     # for comparison with a restarted simulation. At the same time, this generates the
     # restart files.
     setup = create_restart_model(solid_vals, {}, north_displacement, restart=False)
-    pp.run_time_dependent_model(setup, {})
+    pp.run_time_dependent_model(setup)
 
     # The run generates data for initial and the first two time steps. In order to use
     # the data as restart and reference data, move it to a reference folder.
@@ -115,7 +115,7 @@ def test_restart(solid_vals: dict, north_displacement: float):
     # second time step which will serve as foundation for the comparison to the above
     # computed reference files.
     setup = create_restart_model(solid_vals, {}, north_displacement, restart=True)
-    pp.run_time_dependent_model(setup, {})
+    pp.run_time_dependent_model(setup)
 
     # To verify the restart capabilities, perform five tests.
 
@@ -257,25 +257,26 @@ model_classes = [
 @pytest.mark.parametrize("model_class", model_classes)
 def test_targeted_rediscretization(model_class):
     """Test that targeted rediscretization yields same results as full discretization."""
-    params_full = {
-        "full_rediscretization": True,
-        "fracture_indices": [0, 1],
+    model_params = {
+        "fracture_indices": [0, 1],  
+        "full_rediscretization": True, 
         "cartesian": True,
         # Make flow problem non-linear:
-        "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})},
+        "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})}
     }
+    # {"fracture_indices": [0, 1]}
     # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = models._add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.
-    model_full = rediscretization_model_class(params_full)
-    pp.run_time_dependent_model(model_full, params_full)
+    model_full = rediscretization_model_class(model_params)
+    pp.run_time_dependent_model(model_full)
 
     # A model object with targeted rediscretization.
-    params_targeted = params_full.copy()
-    params_targeted["full_rediscretization"] = False
+    model_params_targeted = model_params.copy()
+    model_params_targeted["full_rediscretization"] = False
     # Set up the model.
-    model_targeted = rediscretization_model_class(params_targeted)
-    pp.run_time_dependent_model(model_targeted, params_targeted)
+    model_targeted = rediscretization_model_class(model_params_targeted)
+    pp.run_time_dependent_model(model_targeted)
 
     # Check that the linear systems are the same.
     assert len(model_full.stored_linear_system) == 2

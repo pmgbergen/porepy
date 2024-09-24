@@ -374,13 +374,13 @@ class TestParameterInputs:
             constant_dt=True,
         )
 
-        params = {
+        model_params = {
             "time_manager": time_manager,
             "times_to_export": [],
         }
 
-        model = SinglePhaseFlow(params)
-        pp.run_time_dependent_model(model, params)
+        model = SinglePhaseFlow(model_params)
+        pp.run_time_dependent_model(model)
         performed_time_steps = model.time_manager.time_index
 
         assert performed_time_steps == num_time_steps
