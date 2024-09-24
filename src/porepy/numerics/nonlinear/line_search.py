@@ -9,7 +9,7 @@ Main active classes, combined in the NonlinearSolver class:
 - ConstraintLineSearch - implements a line search based on constraint functions for
     contact mechanics.
 
-The functionality is invoked by specifying the solver in the model parameters, e.g.:
+The functionality is invoked by specifying the solver in the solver parameters, e.g.:
 
     ```python
     class ConstraintLineSearchNonlinearSolver(
@@ -18,10 +18,12 @@ The functionality is invoked by specifying the solver in the model parameters, e
         LineSearchNewtonSolver,
     ):
         pass
-    model.params["nonlinear_solver"] = ConstraintLineSearchNonlinearSolver
+    solver_params["nonlinear_solver"] = ConstraintLineSearchNonlinearSolver
+    Pass 'solver_params' to a solver model, e.g.:
+    pp.run_time_dependent_model(model, solver_params)
     ```
 
-The solver can be further customized by specifying parameters in the model parameters.
+The solver can be further customized by specifying parameters in the solver parameters.
 Using the tailored line search also requires implementation of the constraint functions
 in the model as methods called "opening_indicator" and "sliding_indicator", see
 model_setup.ContactIndicators.
@@ -46,6 +48,9 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
     line search based on the residual norm.
 
     """
+
+    params: dict[str, Any]
+    """Solver parameters."""
 
     @property
     def min_line_search_weight(self):
@@ -101,7 +106,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
             The step length vector, one value for each degree of freedom.
 
         """
-        if not model.params.get("Global_line_search", False):
+        if not self.params.get("Global_line_search", False):
             return np.ones_like(dx)
 
         def objective_function(weight):
@@ -127,7 +132,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
         # is consistent with the relative residual criterion used in check_convergence
         # in :class:`~porepy.models.solution_strategy.SolutionStrategy`.
         relative_residual = f_1 / np.linalg.norm(dx.size)
-        if relative_residual < model.params["nl_convergence_tol_res"]:
+        if relative_residual < self.params["nl_convergence_tol_res"]:
             # The objective function is sufficiently small at the full nonlinear step.
             # This means that the nonlinear step is a minimum of the objective function.
             # We can use the update without any relaxation.
@@ -523,6 +528,9 @@ class ConstraintLineSearch:
 
     """
 
+    params: dict[str, Any]
+    """Solver parameters."""
+
     compute_constraint_weights: Callable[..., float]
     """Method for computing the constraint weights.
 
@@ -552,7 +560,7 @@ class ConstraintLineSearch:
 
         """
         residual_weight = self.residual_line_search(model, dx)
-        if model.params.get("Local_line_search", False):
+        if self.params.get("Local_line_search", False):
             return self.constraint_line_search(model, dx, residual_weight.min())
         else:
             return residual_weight
@@ -639,8 +647,8 @@ class ConstraintLineSearch:
         # If the sign of the function defining the regions has not changed, we use
         # unitary relaxation factors.
         x_0 = model.equation_system.get_variable_values(iterate_index=0)
-        violation_tol = model.params.get("constraint_violation_tolerance", 3e-1)
-        relative_cell_tol = model.params.get(
+        violation_tol = self.params.get("constraint_violation_tolerance", 3e-1)
+        relative_cell_tol = self.params.get(
             "relative_constraint_transition_tolerance", 2e-1
         )
         # Compute the constraint function at the maximum weights. Specify that return

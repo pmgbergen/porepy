@@ -55,7 +55,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
 
     # Create model and run simulation
     setup = LinearModel(params)
-    pp.run_time_dependent_model(setup, params)
+    pp.run_time_dependent_model(setup)
 
     # Check that the pressure is linear
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
@@ -137,12 +137,12 @@ def test_unit_conversion(units: dict, uy_north: float):
     reference_params = copy.deepcopy(params)
     # Create model and run simulation.
     setup_0 = LinearModel(reference_params)
-    pp.run_time_dependent_model(setup_0, reference_params)
+    pp.run_time_dependent_model(setup_0)
 
     params["units"] = pp.Units(**units)
     setup_1 = LinearModel(params)
 
-    pp.run_time_dependent_model(setup_1, params)
+    pp.run_time_dependent_model(setup_1)
     variables = [
         setup_1.displacement_variable,
         setup_1.interface_displacement_variable,

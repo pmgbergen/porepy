@@ -82,7 +82,7 @@ def test_boundary_condition_mixin(t_end: int):
     setup = MassBalance()
     setup.time_manager.dt = 1
     setup.time_manager.time_final = t_end
-    pp.run_time_dependent_model(setup, params={})
+    pp.run_time_dependent_model(setup)
 
     subdomains = setup.mdg.subdomains()
 
@@ -382,7 +382,7 @@ class MomentumBalanceRobin(BCRobin, CommonMomentumBalance):
 
     """
 
-
+    
 def run_model(balance_class, alpha):
     params = {
         "times_to_export": [],
@@ -392,7 +392,7 @@ def run_model(balance_class, alpha):
 
     params["alpha"] = alpha
     instance = balance_class(params)
-    pp.run_time_dependent_model(instance, params)
+    pp.run_time_dependent_model(instance)
     sd = instance.mdg.subdomains(dim=2)[0]
 
     if isinstance(instance, MomentumBalance):
