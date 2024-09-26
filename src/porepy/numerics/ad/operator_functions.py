@@ -303,10 +303,10 @@ class Function(AbstractFunction):
 
     """
 
-    def __init__(self, func: Callable[Any, FloatType], name: str) -> None:
+    def __init__(self, func: Callable[..., FloatType], name: str) -> None:
         super().__init__(name=name)
 
-        self._func: Callable[Any, float | np.ndarray | AdArray] = func
+        self._func: Callable[..., float | np.ndarray | AdArray] = func
         """Reference to the callable passed at instantiation."""
 
     def func(self, *args: FloatType) -> float | np.ndarray | AdArray:

@@ -4,6 +4,7 @@ from typing import Callable, Optional, Sequence, Union
 import numpy as np
 
 import porepy as pp
+from porepy.params.bc import AbstractBoundaryCondition
 from porepy.models.protocol import PorePyModel
 
 
@@ -77,7 +78,7 @@ class BoundaryConditionMixin(PorePyModel):
         robin_operator: Optional[
             Union[None, Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]]
         ],
-        bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
+        bc_type: Callable[[pp.Grid], AbstractBoundaryCondition],
         name: str,
         dim: int = 1,
     ) -> pp.ad.Operator:

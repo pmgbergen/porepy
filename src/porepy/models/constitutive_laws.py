@@ -17,7 +17,7 @@ from porepy.models.protocol import (
     PorousMediaProtocol,
     PressureProtocol,
     TensorProtocol,
-    MomentumBalanceProtocol
+    MomentumBalanceProtocol,
 )
 
 number = pp.number
@@ -2739,7 +2739,8 @@ class ZeroGravityForce(PorePyModel):
         return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
 
 
-class LinearElasticMechanicalStress(PorePyModel, MomentumBalanceProtocol):
+class LinearElasticMechanicalStress(
+    PorePyModel, MomentumBalanceProtocol):
     """Linear elastic stress tensor.
 
     To be used in mechanical problems, e.g. force balance.
@@ -3597,7 +3598,11 @@ class ConstantPorosity(PorePyModel):
         return Scalar(self.solid.porosity(), "porosity")
 
 
-class PoroMechanicsPorosity(PorePyModel, PressureProtocol, MomentumBalanceProtocol):
+class PoroMechanicsPorosity(
+    PorePyModel,
+    PressureProtocol,
+    MomentumBalanceProtocol,
+):
     r"""Porosity for poromechanical models.
 
     Note:

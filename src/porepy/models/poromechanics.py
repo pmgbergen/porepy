@@ -27,6 +27,7 @@ from porepy.models.protocol import PoromechanicsCouplingProtocol
 class ConstitutiveLawsPoromechanics(
     # Combined effects
     pp.constitutive_laws.DisplacementJumpAperture,
+    pp.constitutive_laws.DimensionReduction,
     pp.constitutive_laws.BiotCoefficient,
     pp.constitutive_laws.PressureStress,
     pp.constitutive_laws.PoroMechanicsPorosity,

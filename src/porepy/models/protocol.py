@@ -7,6 +7,7 @@ import scipy.sparse as sps
 # The following is the way to avoid circular importing.
 if TYPE_CHECKING:
     import porepy as pp
+    from porepy.params.bc import AbstractBoundaryCondition
 # TODO: It is either this, which requires to annotate all the porepy types with
 # quotation marks, or:
 # if not TYPE_CHECKING:
@@ -526,7 +527,7 @@ class BoundaryConditionProtocol(Protocol):
         robin_operator: Optional[
             Union[None, Callable[[Sequence["pp.BoundaryGrid"]], "pp.ad.Operator"]]
         ],
-        bc_type: Callable[["pp.Grid"], "pp.AbstractBoundaryCondition"],
+        bc_type: Callable[["pp.Grid"], "AbstractBoundaryCondition"],
         name: str,
         dim: int = 1,
     ) -> "pp.ad.Operator":
