@@ -460,21 +460,19 @@ class SolutionStrategy(abc.ABC):
         )
         self.nonlinear_solver_statistics.num_iteration += 1
 
-    def after_nonlinear_convergence(self, iteration_counter: int) -> None:
+    def after_nonlinear_convergence(self) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
-
-        Parameters:
-            iteration_counter: Number of nonlinear solver iterations before convergence.
-                Used for time step adaptation.
 
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
 
         # Update the time step magnitude if the dynamic scheme is used.
         if not self.time_manager.is_constant:
-            self.time_manager.compute_time_step(iterations=iteration_counter)
+            self.time_manager.compute_time_step(
+                iterations=self.nonlinear_solver_statistics.num_iteration
+            )
 
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
@@ -514,7 +512,7 @@ class SolutionStrategy(abc.ABC):
         residual: np.ndarray,
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
-    ) -> tuple[float, float, bool, bool]:
+    ) -> tuple[bool, bool]:
         """Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
@@ -530,10 +528,6 @@ class SolutionStrategy(abc.ABC):
         Returns:
             The method returns the following tuple:
 
-            float:
-                Residual norm, computed to the norm in question.
-            float:
-                Increment norm, computed to the norm in question.
             boolean:
                 True if the solution is converged according to the test implemented by
                 this method.
@@ -554,7 +548,7 @@ class SolutionStrategy(abc.ABC):
             # First a simple check for nan values.
             if np.any(np.isnan(nonlinear_increment)):
                 # If the solution contains nan values, we have diverged.
-                return np.nan, np.nan, False, True
+                return False, True
 
             # nonlinear_increment based norm
             nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
@@ -577,7 +571,7 @@ class SolutionStrategy(abc.ABC):
             nonlinear_increment_norm, residual_norm
         )
 
-        return residual_norm, nonlinear_increment_norm, converged, diverged
+        return converged, diverged
 
     def compute_residual_norm(
         self, residual: np.ndarray, reference_residual: np.ndarray
