@@ -752,12 +752,13 @@ class Tpsa:
         # A rotation in 2d has a single degree of freedom, while a 3d rotation has 3
         # degrees of freedom. This necessitates (or at least is most easily realized) by
         # a split into a 2d and a 3d code. In the below implementation, we refer to two
-        # rotation matrices Rn_hat and Rn_bar, which are identical (and equal to the
-        # matrix R used to describe Tpsa in the paper), but differ in 2d where Rn_hat
-        # takes scalars to 2d vectors, while Rn_bar maps 2d vectors back to scalars.
-        # These matrices are constructed in the below if-else; moreover, some additional
-        # operations that differ in 2d and 3d are undertaken, including discretization
-        # of the diffusion operators for the displacement and (if relevant) rotations.
+        # rotation matrices Rn_hat and Rn_bar, which are identical in 3d (and equal to
+        # the matrix R used to describe Tpsa in the paper), but differ in 2d where
+        # Rn_hat takes scalars to 2d vectors, while Rn_bar maps 2d vectors back to
+        # scalars. These matrices are constructed in the below if-else; moreover, some
+        # additional operations that differ in 2d and 3d are undertaken, including
+        # discretization of the diffusion operators for the displacement and (if
+        # relevant) rotations.
         if nd == 3:
             # In this case, \hat{R}_k^n = \bar{R}_k^n is the 3x3 matrix given in the
             # Tpsa paper,
