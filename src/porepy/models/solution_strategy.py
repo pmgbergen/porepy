@@ -185,26 +185,10 @@ class SolutionStrategy(abc.ABC, PorePyModel):
 
     @property
     def time_step_indices(self) -> np.ndarray:
-        """Indices for storing time step solutions.
-
-        Note:
-            (Previous) Time step indices should start with 1.
-
-        Returns:
-            An array of the indices of which time step solutions will be stored, counting
-            from 0. Defaults to storing the most recently computed solution only.
-
-        """
         return np.array([0])
 
     @property
     def iterate_indices(self) -> np.ndarray:
-        """Indices for storing iterate solutions.
-
-        Returns:
-            An array of the indices of which iterate solutions will be stored.
-
-        """
         return np.array([0])
 
     def reset_state_from_file(self) -> None:

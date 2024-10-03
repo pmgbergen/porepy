@@ -528,8 +528,13 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     """
 
     def create_variables(self) -> None:
-        """Assign primary variables to subdomains and interfaces of the
-        mixed-dimensional grid.
+        """Set variables for the subdomains and interfaces.
+
+        The following variables are set:
+            - Pressure on all subdomains.
+            - Darcy flux on co-dimension one interfaces.
+            - Well flux on co-dimension two interfaces.
+        See individual variable methods for details.
 
         """
         self.equation_system.create_variables(
