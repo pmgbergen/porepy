@@ -25,6 +25,7 @@ import json
 import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -258,11 +259,11 @@ model_classes = [
 def test_targeted_rediscretization(model_class):
     """Test that targeted rediscretization yields same results as full discretization."""
     model_params = {
-        "fracture_indices": [0, 1],  
-        "full_rediscretization": True, 
+        "fracture_indices": [0, 1],
+        "full_rediscretization": True,
         "cartesian": True,
         # Make flow problem non-linear:
-        "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})}
+        "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})},
     }
     # {"fracture_indices": [0, 1]}
     # Finalize the model class by adding the rediscretization mixin.
@@ -384,3 +385,51 @@ def test_parse_equations(
     # terms and factors (e.g., grids, parameters, variables, other methods etc.) to form
     # an Ad operator object.
     setup.equation_system.assemble({equation_name: domains})
+
+
+class CheckConvergenceTest(pp.SolutionStrategy):
+    """Class to ."""
+
+    def __init__(self, params: dict):
+        super().__init__(params)
+        self.nonlinear_solver_statistics = pp.SolverStatistics()
+
+
+@pytest.fixture
+def solution_strategy_with_statistics() -> CheckConvergenceTest:
+    return CheckConvergenceTest({})
+
+
+@pytest.mark.parametrize(
+    "nonlinear_increment,residual,expected",
+    [
+        # Case 1: Both increment and residual are below tolerance.
+        (np.array([1e-6, 1e-6]), np.array([1e-6]), (True, False)),
+        # Case 2: Increment is above tolerance.
+        (np.array([1e-6, 1]), np.array([1e-6]), (False, False)),
+        # Case 3: Residual is above tolerance.
+        (np.array([1e-6, 1e-6]), np.array([1]), (False, False)),
+        # Case 4: Increment is nan.
+        (np.array([np.nan, 0.1]), np.array([1e-6]), (False, True)),
+    ],
+)
+def test_check_convergence(
+    nonlinear_increment: np.ndarray,
+    residual: np.ndarray,
+    expected: tuple[bool, bool],
+    solution_strategy_with_statistics: CheckConvergenceTest,
+):
+    """Test that ``SolutionStrategy.check_convergence`` returns the right
+    diverged/converged values.
+
+    """
+    # ``reference_residual`` is not used by ``check_convergence``. We pass a zero
+    # arrray.
+    nl_params: dict[str, Any] = {
+        "nl_convergence_tol": 1e-5,
+        "nl_convergence_tol_res": 1e-5,
+    }
+    converged, diverged = solution_strategy_with_statistics.check_convergence(
+        nonlinear_increment, residual, np.zeros(1), nl_params
+    )
+    assert (converged, diverged) == expected
