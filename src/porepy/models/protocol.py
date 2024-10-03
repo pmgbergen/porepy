@@ -5,7 +5,7 @@ found in various classes within the models directiory.
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal, Optional, Protocol, Sequence, Union
+from typing import TYPE_CHECKING, Callable, Literal, Optional, Protocol, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -25,7 +25,8 @@ else:
     import porepy as pp
 
     class ModelGeometryProtocol(Protocol):
-        """This protocol provides geometry related methods and information for a model."""
+        """This protocol provides the declarations of the methods and the properties,
+        typically defined in ModelGeometry."""
 
         fracture_network: pp.fracture_network
         """Representation of fracture network including intersections."""
@@ -165,7 +166,8 @@ else:
                     discretizations).
 
             Returns:
-                class:`porepy.numerics.ad.DenseArray`: `(shape=(dim * num_cells_in_grids,))`
+                class:`porepy.numerics.ad.DenseArray`: `(shape=(dim *
+                    num_cells_in_grids,))`
 
                     The property wrapped as a single ad vector. The values are arranged
                     according to the order of the grids in the list, optionally
@@ -291,7 +293,8 @@ else:
             """Ad wrapper around tangential_normal_projections for fractures.
 
             Parameters:
-                subdomains: List of subdomains for which to compute the local coordinates.
+                subdomains: List of subdomains for which to compute the local
+                coordinates.
 
             Returns:
                 Local coordinates as a pp.ad.SparseArray.
@@ -301,11 +304,11 @@ else:
         def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
             """Return the projection operators for all subdomains in md-grid.
 
-            The projection operators restrict or prolong a dim-dimensional quantity from the
-            full set of subdomains to any subset. Projection operators are constructed once
-            and then stored. If you need to use projection operators based on a different
-            set of subdomains, please construct them yourself. Alternatively, compose a
-            projection from subset A to subset B as
+            The projection operators restrict or prolong a dim-dimensional quantity
+            from the full set of subdomains to any subset. Projection operators are
+            constructed once and then stored. If you need to use projection operators
+            based on a different set of subdomains, please construct them yourself.
+            Alternatively, compose a projection from subset A to subset B as
                 P_A_to_B = P_full_to_B * P_A_to_full.
 
             Parameters:
@@ -321,27 +324,32 @@ else:
         ) -> pp.domain.DomainSides:
             """Obtain indices of the faces lying on the sides of the domain boundaries.
 
-            The method is primarily intended for box-shaped domains. However, it can also be
-            applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)
-            provided `tol` is tuned accordingly.
+            The method is primarily intended for box-shaped domains. However, it can
+            also be applied to non-box-shaped domains (e.g., domains with perturbed
+            boundary nodes) provided `tol` is tuned accordingly.
 
             Parameters:
                 domain: Subdomain or boundary grid.
-                tol: Tolerance used to determine whether a face center lies on a boundary
-                    side.
+                tol: Tolerance used to determine whether a face center lies on a
+                    boundary side.
 
             Returns:
-                NamedTuple containing the domain boundary sides. Available attributes are:
+                NamedTuple containing the domain boundary sides. Available attributes
+                are:
 
                     - all_bf (np.ndarray of int): indices of the boundary faces.
-                    - east (np.ndarray of bool): flags of the faces lying on the East side.
-                    - west (np.ndarray of bool): flags of the faces lying on the West side.
+                    - east (np.ndarray of bool): flags of the faces lying on the East
+                        side.
+                    - west (np.ndarray of bool): flags of the faces lying on the West
+                        side.
                     - north (np.ndarray of bool): flags of the faces lying on the North
                         side.
                     - south (np.ndarray of bool): flags of the faces lying on the South
                         side.
-                    - top (np.ndarray of bool): flags of the faces lying on the Top side.
-                    - bottom (np.ndarray of bool): flags of the faces lying on Bottom side.
+                    - top (np.ndarray of bool): flags of the faces lying on the Top
+                        side.
+                    - bottom (np.ndarray of bool): flags of the faces lying on Bottom
+                        side.
 
             Examples:
 
@@ -367,16 +375,17 @@ else:
             """Obtain a vector for flipping normal vectors on internal boundaries.
 
             For a list of subdomains, check if the normal vector on internal boundaries
-            point into the internal interface (e.g., into the fracture), and if so, flip the
-            normal vector. The flipping takes the form of an operator that multiplies the
-            normal vectors of all faces on fractures, leaves internal faces (internal to the
-            subdomain proper, that is) unchanged, but flips the relevant normal vectors on
-            subdomain faces that are part of an internal boundary.
+            point into the internal interface (e.g., into the fracture), and if so, flip
+            the normal vector. The flipping takes the form of an operator that
+            multiplies the normal vectors of all faces on fractures, leaves internal
+            faces (internal to the subdomain proper, that is) unchanged, but flips the
+            relevant normal vectors on subdomain faces that are part of an internal
+            boundary.
 
             Currently, this is a helper method for the computation of outward normals in
             :meth:`outwards_internal_boundary_normals`. Other usage is allowed, but one
-            is adviced to carefully consider subdomain lists when combining this with other
-            operators.
+            is adviced to carefully consider subdomain lists when combining this with
+            other operators.
 
             Parameters:
                 subdomains: List of subdomains.
@@ -399,15 +408,15 @@ else:
                 unitary: If True, return unit vectors, i.e. normalize by face area.
 
             Returns:
-                Operator computing outward normal vectors on internal boundaries; in effect,
-                this is a matrix. Evaluated shape `(num_intf_cells * dim,
+                Operator computing outward normal vectors on internal boundaries; in
+                effect, this is a matrix. Evaluated shape `(num_intf_cells * dim,
                 num_intf_cells * dim)`.
 
             """
 
     class SolutionStrategyProtocol(Protocol):
-        """TODO This protocol provides access to the methods that a model must implement to be
-        compatible with the linearization and time stepping methods."""
+        """This protocol provides the declarations of the methods and the properties,
+        typically defined in SolutionStrategy."""
 
         convergence_status: bool
         """Whether the non-linear iteration has converged."""
@@ -479,13 +488,16 @@ else:
             """
 
     class VariableProtocol(Protocol):
+        """This protocol provides the declarations of the methods and the properties,
+        typically defined in VariableMixin."""
+
         def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
             """Perturbation of a variable from its reference value.
 
             The parameter :code:`variable_name` should be the name of a variable so that
             :code:`self.variable_name()` and `self.reference_variable_name()` are valid
-            calls. These methods will be provided by mixin classes; normally this will be a
-            subclass of :class:`VariableMixin`.
+            calls. These methods will be provided by mixin classes; normally this will
+            be a subclass of :class:`VariableMixin`.
 
             The returned operator will be of the form
             :code:`self.variable_name(grids) - self.reference_variable_name(grids)`.
@@ -505,19 +517,16 @@ else:
             dimensional grid."""
 
     class BoundaryConditionProtocol(Protocol):
-        """Mixin class for boundary conditions.
-
-        This class is intended to be used together with the other model classes
-        providing generic functionality for boundary conditions.
-
-        """
+        """This protocol provides the declarations of the methods and the properties,
+        typically defined in BoundaryConditionMixin."""
 
         def create_boundary_operator(
             self, name: str, domains: Sequence[pp.BoundaryGrid]
         ) -> pp.ad.TimeDependentDenseArray:
             """
             Parameters:
-                name: Name of the variable or operator to be represented on the boundary.
+                name: Name of the variable or operator to be represented on the
+                    boundary.
                 domains: A sequence of boundary grids on which the operator is defined.
 
             Raises:
@@ -536,7 +545,7 @@ else:
             dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             robin_operator: Optional[
-                Union[None, Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]]
+                None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]
             ],
             bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
             name: str,
@@ -547,12 +556,12 @@ else:
 
             Parameters:
                 subdomains: List of subdomains.
-                dirichlet_operator: Function that returns the Dirichlet boundary condition
-                    operator.
+                dirichlet_operator: Function that returns the Dirichlet boundary
+                    condition operator.
                 neumann_operator: Function that returns the Neumann boundary condition
                     operator.
-                robin_operator: Function that returns the Robin boundary condition operator.
-                    Expected to be None for e.g. advective fluxes.
+                robin_operator: Function that returns the Robin boundary condition
+                    operator. Expected to be None for e.g. advective fluxes.
                 dim: Dimension of the equation. Defaults to 1.
                 name: Name of the resulting operator. Must be unique for an operator.
 
@@ -576,21 +585,13 @@ else:
             """
 
     class EquationProtocol(Protocol):
-        """Generic class for vector balance equations.
-
-        In the only known use case, the balance equation is the momentum balance equation,
-
-            d_t(momentum) + div(stress) - source = 0,
-
-        with momentum frequently being zero. All terms need to be specified in order to
-        define an equation.
-
-        """
+        """This protocol provides the declarations of the methods and the properties,
+        typically defined in BalanceEquationMixin."""
 
         def volume_integral(
             self,
             integrand: pp.ad.Operator,
-            grids: Union[list[pp.Grid], list[pp.MortarGrid]],
+            grids: list[pp.Grid] | list[pp.MortarGrid],
             dim: int,
         ) -> pp.ad.Operator:
             """Numerical volume integral over subdomain or interface cells.
@@ -598,11 +599,11 @@ else:
             Includes cell volumes and specific volume.
 
             Parameters:
-                integrand: Operator for the integrand. Assumed to be a cell-wise scalar or
-                    vector quantity, cf. :code:`dim` argument.
+                integrand: Operator for the integrand. Assumed to be a cell-wise scalar
+                    or vector quantity, cf. :code:`dim` argument.
                 grids: List of subdomains or interfaces to be integrated over.
-                dim: Spatial dimension of the integrand. dim = 1 for scalar problems, dim >
-                    1 for vector problems.
+                dim: Spatial dimension of the integrand. dim = 1 for scalar problems,
+                    dim > 1 for vector problems.
 
             Returns:
                 Operator for the volume integral.
@@ -616,12 +617,8 @@ else:
             """Set equations for the subdomains and interfaces."""
 
     class DataSavingProtocol(Protocol):
-        """Class for saving data from a simulation model.
-
-        Contract with other classes:
-            The model should/may call save_data_time_step() at the end of each time step.
-
-        """
+        """This protocol provides the declarations of the methods and the properties,
+        typically defined in DataSavingMixin."""
 
         exporter: pp.Exporter
         """Exporter for visualization."""
@@ -630,9 +627,9 @@ else:
             """Export the model state at a given time step, and log time.
 
             The options for exporting times are:
-                * None: All time steps are exported
-                * list: Export if time is in the list. If the list is empty, then no times
-                are exported.
+                * `None`: All time steps are exported
+                * `list`: Export if time is in the list. If the list is empty, then no
+                times are exported.
 
             In addition, save the solver statistics to file if the option is set.
 
@@ -641,21 +638,21 @@ else:
         def initialize_data_saving(self) -> None:
             """Initialize data saving.
 
-            This method is called by :meth:`prepare_simulation` to initialize the exporter,
-            and any other data saving functionality (e.g., empty data containers to be
-            appended in :meth:`save_data_time_step`).
+            This method is called by :meth:`prepare_simulation` to initialize the
+            exporter, and any other data saving functionality (e.g., empty data
+            containers to be appended in :meth:`save_data_time_step`).
 
-            In addition, set path for storing solver statistics data to file for each time
-            step.
+            In addition, set path for storing solver statistics data to file for each
+            time step.
 
             """
 
         def load_data_from_vtu(
             self,
-            vtu_files: Union[Path, list[Path]],
+            vtu_files: Path | list[Path],
             time_index: int,
             times_file: Optional[Path] = None,
-            keys: Optional[Union[str, list[str]]] = None,
+            keys: Optional[str | list[str]] = None,
             **kwargs,
         ) -> None:
             """Initialize data in the model by reading from a pvd file.
@@ -663,8 +660,8 @@ else:
             Parameters:
                 vtu_files: path(s) to vtu file(s)
                 keys: keywords addressing cell data to be transferred. If 'None', the
-                    mixed-dimensional grid is checked for keywords corresponding to primary
-                    variables identified through pp.TIME_STEP_SOLUTIONS.
+                    mixed-dimensional grid is checked for keywords corresponding to
+                    primary variables identified through pp.TIME_STEP_SOLUTIONS.
                 keyword arguments: see documentation of
                     :meth:`porepy.viz.exporter.Exporter.import_state_from_vtu`
 
@@ -678,18 +675,19 @@ else:
             pvd_file: Path,
             is_mdg_pvd: bool = False,
             times_file: Optional[Path] = None,
-            keys: Optional[Union[str, list[str]]] = None,
+            keys: Optional[str | list[str]] = None,
         ) -> None:
             """Initialize data in the model by reading from a pvd file.
 
             Parameters:
                 pvd_file: path to pvd file with exported vtu files.
-                is_mdg_pvd: flag controlling whether pvd file is a mdg file, i.e., generated
-                    with Exporter._export_mdg_pvd() or Exporter.write_pvd().
-                times_file: path to json file storing history of time and time step size.
+                is_mdg_pvd: flag controlling whether pvd file is a mdg file, i.e.,
+                    generated with Exporter._export_mdg_pvd() or Exporter.write_pvd().
+                times_file: path to json file storing history of time and time step
+                    size.
                 keys: keywords addressing cell data to be transferred. If 'None', the
-                    mixed-dimensional grid is checked for keywords corresponding to primary
-                    variables identified through pp.TIME_STEP_SOLUTIONS.
+                    mixed-dimensional grid is checked for keywords corresponding to
+                    primary variables identified through pp.TIME_STEP_SOLUTIONS.
 
             Raises:
                 ValueError: if incompatible file type provided.
@@ -709,9 +707,9 @@ else:
         a porepy model.
 
         The main purpose of the protocol is to provide type hints for countless model
-        mixins, so mypy can properly verify the inter-mixin method calls, and an IDE
-        such as VSCode can properly autocomplete them. You must either inherit from this
-        class or provide it as a type annotation for the PorePy model object.
+        mixins, so mypy can properly verify the inter-mixin method calls, and an IDEt
+        such as VSCode can properly autocomplete these hints. You must either inherit
+        from this class or provide it as a type annotation for the PorePy model object.
 
         Note:
             This can also be considered the list of the functionality which must be
@@ -719,6 +717,3 @@ else:
             runtime, since it is not an abstract base class.
 
         """
-
-
-# TODO: Try to remove all reduntant type: ignore

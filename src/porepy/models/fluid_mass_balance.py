@@ -830,7 +830,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 # which should be types as Callable[[int, int], None], cannot be parsed by mypy.
 # For this reason, we ignore the error here, and rely on the tests to catch any
 # inconsistencies.
-# TODO: Remove type ignore after done with protocols
 class SinglePhaseFlow(  # type: ignore[misc]
     MassBalanceEquations,
     VariablesSinglePhaseFlow,

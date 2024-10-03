@@ -21,18 +21,7 @@ class ModelGeometry(PorePyModel):
     model."""
 
     _domain: pp.Domain
-
-    fracture_network: pp.fracture_network
-    """Representation of fracture network including intersections."""
-
-    well_network: pp.WellNetwork3d
-    """Well network."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`."""
-
-    nd: int
-    """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
+    _fractures: list
 
     def set_geometry(self) -> None:
         # Create the geometry through domain amd fracture set.
@@ -86,7 +75,7 @@ class ModelGeometry(PorePyModel):
         Override this method to define a geometry with fractures.
 
         """
-        self._fractures: list = []
+        self._fractures = []
 
     def set_well_network(self) -> None:
         """Assign well network class."""
