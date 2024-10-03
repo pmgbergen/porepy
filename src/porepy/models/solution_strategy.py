@@ -519,8 +519,8 @@ class SolutionStrategy(abc.ABC):
             nonlinear_increment: Newly obtained solution increment vector
             residual: Residual vector of non-linear system, evaluated at the newly
             obtained solution vector.
-            reference_residual: Reference residual vector of non-linear system, evaluated
-                for the initial guess at current time step.
+            reference_residual: Reference residual vector of non-linear system,
+                evaluated for the initial guess at current time step.
             nl_params: Dictionary of parameters used for the convergence check.
                 Which items are required will depend on the convergence test to be
                 implemented.
