@@ -48,7 +48,7 @@ class NewtonSolver:
         # loop or inside a stationary problem (default).
         self.progress_bar_position: int = params.get("progress_bar_position", 0)
 
-    def solve(self, model) -> tuple[bool, int]:
+    def solve(self, model) -> bool:
         """Solve the nonlinear problem.
 
         Parameters:
@@ -59,8 +59,6 @@ class NewtonSolver:
 
             bool:
                 True if the solution is converged.
-            int:
-                Number of iterations used.
 
         """
         model.before_nonlinear_loop()
@@ -142,7 +140,6 @@ class NewtonSolver:
                         "Newton iteration number "
                         + f"{model.nonlinear_solver_statistics.num_iteration + 1} of \t"
                         + f"{self.params['max_iterations']}"
-                        ""
                     )
                     newton_step()
 
@@ -167,7 +164,7 @@ class NewtonSolver:
         if not is_converged:
             model.after_nonlinear_failure()
 
-        return is_converged, model.nonlinear_solver_statistics.num_iteration
+        return is_converged
 
     def iteration(self, model) -> np.ndarray:
         """A single nonlinear iteration.
