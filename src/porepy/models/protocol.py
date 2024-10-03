@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Callable, Literal, Optional, Protocol, Sequenc
 import numpy as np
 import scipy.sparse as sps
 
-
 # Conditional importing ensures that the protocols do not mess with the runtime
 # definitions, e.g., the protocol empty method is accidentally called as a proper method
 # and returns None

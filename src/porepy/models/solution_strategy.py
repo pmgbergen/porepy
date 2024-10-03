@@ -749,7 +749,7 @@ class ContactIndicators(PorePyModel):
             ind = ind / pp.ad.Scalar(scale)
         return ind * h_oi
 
-    def contact_traction_estimate(self, subdomains):
+    def contact_traction_estimate(self, subdomains: list[pp.Grid]):
         """Estimate the magnitude of contact traction.
 
         Parameters:

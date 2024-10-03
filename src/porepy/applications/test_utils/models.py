@@ -37,7 +37,8 @@ class NoPhysics(  # type: ignore[misc]
 class MassBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
     pp.fluid_mass_balance.SinglePhaseFlow,
-): ...
+):
+    ...
 
 
 class MomentumBalance(  # type: ignore[misc]

@@ -268,21 +268,6 @@ class DisplacementJumpAperture(DimensionReduction):
     mixin instance of :class:`~porepy.models.constitutive_laws.DisplacementJump`.
 
     """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
-    is_well: Callable[[pp.Grid | pp.MortarGrid], bool]
-    """Check if a grid is a well. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
 
     def residual_aperture(self, subdomains: list[pp.Grid]) -> Scalar:
         """Residual aperture [m].
@@ -3648,21 +3633,16 @@ class ShearDilation(PorePyModel):
 
     """
 
-    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the tangential component of vectors. Normally defined in a mixin
-    instance of :class:`~porepy.models.models.ModelGeometry`.
-
-    """
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the displacement jump on fracture grids. Normally defined in a
     mixin instance of
     :class:`~porepy.models.constitutive_laws.ElastoPlasticFractureDeformation`.
 
     """
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The plastic component of the displacement jump. Normally defined in a mixin
+    instance of
+    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
 
     """
 
@@ -3904,90 +3884,7 @@ class ElasticTangentialFractureDeformation(PorePyModel):
     """Characteristic contact traction."""
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable."""
-    
-    def fracture_tangential_stiffness(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """The tangential stiffness of a fracture [Pa*m^-1].
 
-        Parameters:
-            subdomains: List of fracture subdomains.
-
-        Returns:
-            The fracture tangential stiffness.
-
-        """
-        stiffness = self.solid.fracture_tangential_stiffness()
-        return Scalar(stiffness, "fracture_tangential_stiffness")
-
-    def elastic_tangential_fracture_deformation(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """The elastic tangential fracture deformation [m].
-
-        The elastic tangential fracture deformation is the tangential component of the
-        displacement jump, which is the solution to the contact mechanics problem in the
-        absence of plastic deformation.
-
-        The elastic tangential deformation is given by
-        .. math::
-            u_t = \frac{t_t}{K_t},
-        where :math:`t_t` is the tangential component of the contact traction and
-        :math:`K_t` is the tangential stiffness. If the stiffness is negative, the
-        deformation is set to zero, thus avoiding using :math:`K_t->inf` to represent
-        no tangential deformation.
-
-        Parameters:
-            subdomains: List of fracture subdomains.
-
-        Returns:
-            Operator representing the elastic tangential fracture deformation.
-
-        """
-        nd_vec_to_tangential = self.tangential_component(subdomains)
-        t_t = nd_vec_to_tangential @ self.contact_traction(subdomains)
-
-        stiffness = self.fracture_tangential_stiffness(subdomains)
-        # Retrieve the *unscaled* stiffness value for the check below.
-        stiffness_value = self.solid.convert_units(
-            stiffness.value(self.equation_system), "Pa*m^-1", to_si=True
-        )
-        if np.any(np.isclose(stiffness_value, -1.0, atol=1e-12, rtol=1e-12)):
-            # Stiffness=-1 indicates no elastic tangential deformation. Small tolerances
-            # are used to avoid numerical issues, but allowing for a float value.
-            num_cells = sum(sd.num_cells for sd in subdomains)
-            zero_u_t = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
-            zero_u_t.set_name("zero_elastic_tangential_fracture_deformation")
-            return zero_u_t
-        # Since contact traction is nondimensional, the stiffness must be scaled by the
-        # characteristic contact traction.
-        scaled_stiffness = stiffness / self.characteristic_contact_traction(subdomains)
-        u_t = t_t / scaled_stiffness
-        u_t.set_name("elastic_tangential_fracture_deformation")
-        return u_t
-
-
-class ElasticTangentialFractureDeformation(PorePyModel):
-    """Constitutive relation for elastic tangential deformation.
-
-    The elastic tangential deformation is the tangential component of the displacement
-    jump. Here, we impose a linear relation between the tangential component of the
-    contact traction and the tangential deformation. The relation is given by
-
-    .. math::
-        u_t = \frac{t_t}{K_t},
-
-    where :math:`u_t` is the elastic tangential deformation, :math:`t_t` is the
-    tangential component of the contact traction, and :math:`K_t` is the tangential
-    stiffness of the fracture.
-
-    """
-
-    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic contact traction."""
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Contact traction variable."""
-    
     def fracture_tangential_stiffness(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
