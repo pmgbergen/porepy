@@ -13,7 +13,7 @@ models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBala
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Sequence, Union, cast
+from typing import Callable, Optional, Sequence, Union, cast
 
 import numpy as np
 
