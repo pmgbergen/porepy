@@ -52,7 +52,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     """
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    mixin instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
     plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]

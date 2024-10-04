@@ -137,8 +137,11 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
     """
 
-    interface_fourier_flux_equation: Any
-    # TODO
+    interface_fourier_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Discrete Fourier flux on interfaces. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.FouriersLaw`.
+
+    """
 
     bc_type_enthalpy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
 

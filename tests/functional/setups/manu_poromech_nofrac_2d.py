@@ -123,7 +123,6 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
     """
 
     displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
-
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
