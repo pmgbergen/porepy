@@ -9,10 +9,6 @@ class NonlinearSinglePhaseFlow(SinglePhaseFlow):
     """Class setup which forces a set number of nonlinear iterations to be run for
     testing."""
 
-    def _is_nonlinear_problem(self):
-        """Method for stating that the problem is nonlinear."""
-        return True
-
     def check_convergence(
         self,
         nonlinear_increment: np.ndarray,
@@ -36,12 +32,6 @@ class NonlinearSinglePhaseFlow(SinglePhaseFlow):
         converged = True
         return converged, diverged
 
-    def after_nonlinear_failure(self) -> None:
-        """Method which is called if the non-linear solver fails to converge."""
-        self.save_data_time_step()
-        prev_solution = self.equation_system.get_variable_values(time_step_index=0)
-        self.equation_system.set_variable_values(prev_solution, iterate_index=0)
-
 
 def test_nonlinear_iteration_count():
     """Test for checking if the nonlinear iterations are counted as expected.
@@ -52,7 +42,7 @@ def test_nonlinear_iteration_count():
     """
     params = {"max_iterations": 96}
     model = NonlinearSinglePhaseFlow()
-    model.expected_number_of_iterations = 13
+    model.expected_number_of_iterations = 3
     pp.run_time_dependent_model(model, params)
 
     assert (
