@@ -165,12 +165,7 @@ class FluidConstants(MaterialConstants):
 
     Parameters:
         constants (dict): Dictionary of constants. Only keys corresponding to a constant
-            in the class will be used. The permissible keys are:
-                - ``thermal_expansion``: Thermal expansion coefficient [1/K].
-                - ``density``: Density [kg/m^3].
-                - ``viscosity``: Viscosity [Pa s].
-                - ``compressibility``: Compressibility [1/Pa].
-            If not specified, default values are used.
+            in the class will be used. If not specified, default values are used.
 
     """
 
@@ -204,7 +199,7 @@ class FluidConstants(MaterialConstants):
         return default_constants
 
     def compressibility(self) -> number:
-        """Compressibility [1/Pa].
+        """Compressibility [Pa^-1].
 
         Returns:
             Compressibility array in converted pressure units.
@@ -213,7 +208,7 @@ class FluidConstants(MaterialConstants):
         return self.convert_units(self.constants["compressibility"], "Pa^-1")
 
     def density(self) -> number:
-        """Density [kg/m^3].
+        """Density [kg * m^-3].
 
         Returns:
             Density in converted mass and length units.
@@ -222,7 +217,7 @@ class FluidConstants(MaterialConstants):
         return self.convert_units(self.constants["density"], "kg * m^-3")
 
     def normal_thermal_conductivity(self) -> number:
-        """Normal thermal conductivity [W/m/K].
+        """Normal thermal conductivity [W * m^-1 * K^-1].
 
         Resides in fluid, not solid, because of the assumption of open fractures.
 
@@ -247,7 +242,7 @@ class FluidConstants(MaterialConstants):
         return self.convert_units(self.constants["pressure"], "Pa")
 
     def specific_heat_capacity(self) -> number:
-        """Specific heat [J/kg/K].
+        """Specific heat [J * kg^-1 * K^-1].
 
         Returns:
             Specific heat in converted mass, temperature and time units.
@@ -269,7 +264,7 @@ class FluidConstants(MaterialConstants):
         return self.convert_units(self.constants["temperature"], "K")
 
     def thermal_conductivity(self) -> number:
-        """Thermal conductivity [W/m/K].
+        """Thermal conductivity [W * m^-1 * K^-1].
 
         Returns:
             Thermal conductivity in converted mass, length and temperature units.
@@ -280,7 +275,7 @@ class FluidConstants(MaterialConstants):
         )
 
     def thermal_expansion(self) -> number:
-        """Thermal expansion coefficient [1/K].
+        """Thermal expansion coefficient [K^-1].
 
         Returns:
             Thermal expansion coefficient in converted temperature units.
@@ -289,7 +284,7 @@ class FluidConstants(MaterialConstants):
         return self.convert_units(self.constants["thermal_expansion"], "K^-1")
 
     def viscosity(self) -> number:
-        """Viscosity [Pa s].
+        """Viscosity [Pa * s].
 
         Returns:
             Viscosity array in converted pressure and time units.
@@ -328,15 +323,19 @@ class SolidConstants(MaterialConstants):
         """
         # Default values, sorted alphabetically
         # TODO: Numerical method parameters may find a better home soon.
+        # TODO: Same goes for characteristic sizes.
         default_constants = {
             "biot_coefficient": 1,
+            "characteristic_displacement": 1,
+            "characteristic_contact_traction": 1,
             "density": 1,
             "dilation_angle": 0,
             "fracture_gap": 0,
             "fracture_normal_stiffness": 1,
+            "fracture_tangential_stiffness": -1.0,
             "friction_coefficient": 1,
             "lame_lambda": 1,
-            "maximum_fracture_closure": 0,
+            "maximum_elastic_fracture_opening": 0,
             "normal_permeability": 1,
             "permeability": 1,
             "porosity": 0.1,
@@ -363,8 +362,28 @@ class SolidConstants(MaterialConstants):
         """
         return self.constants["biot_coefficient"]
 
+    def characteristic_displacement(self) -> number:
+        """Characteristic displacement [m].
+
+        Returns:
+            Characteristic displacement in converted length units.
+
+        """
+        return self.convert_units(self.constants["characteristic_displacement"], "m")
+
+    def characteristic_contact_traction(self) -> number:
+        """Characteristic traction [Pa].
+
+        Returns:
+            Characteristic traction in converted pressure units.
+
+        """
+        return self.convert_units(
+            self.constants["characteristic_contact_traction"], "Pa"
+        )
+
     def density(self) -> number:
-        """Density [kg/m^3].
+        """Density [kg * m^-3].
 
         Returns:
             Density in converted mass and length units.
@@ -373,7 +392,7 @@ class SolidConstants(MaterialConstants):
         return self.convert_units(self.constants["density"], "kg * m^-3")
 
     def thermal_expansion(self) -> number:
-        """Thermal expansion coefficient [1/K].
+        """Thermal expansion coefficient [K^-1].
 
         Returns:
             Thermal expansion coefficient in converted temperature units.
@@ -382,7 +401,7 @@ class SolidConstants(MaterialConstants):
         return self.convert_units(self.constants["thermal_expansion"], "K^-1")
 
     def specific_heat_capacity(self) -> number:
-        """Specific heat [energy / (mass * temperature)].
+        """Specific heat [J * kg^-1 * K^-1].
 
         Returns:
             Specific heat in converted energy, mass and temperature units.
@@ -402,7 +421,7 @@ class SolidConstants(MaterialConstants):
         return self.convert_units(self.constants["normal_permeability"], "m^2")
 
     def thermal_conductivity(self) -> number:
-        """Thermal conductivity [W/m/K].
+        """Thermal conductivity [W * m^-1 * K^-1].
 
         Returns:
             Thermal conductivity in converted energy, length and temperature units.
@@ -449,7 +468,7 @@ class SolidConstants(MaterialConstants):
         return self.convert_units(self.constants["shear_modulus"], "Pa")
 
     def specific_storage(self) -> number:
-        """Specific storage [1/Pa].
+        """Specific storage [Pa^-1].
 
         Returns:
             Specific storage in converted pressure units.
@@ -485,7 +504,7 @@ class SolidConstants(MaterialConstants):
         return self.constants["friction_coefficient"]
 
     def dilation_angle(self) -> number:
-        """Dilation angle.
+        """Dilation angle [rad].
 
         Returns:
             Dilation angle in converted angle units.
@@ -533,16 +552,33 @@ class SolidConstants(MaterialConstants):
             self.constants["fracture_normal_stiffness"], "Pa*m^-1"
         )
 
-    def maximum_fracture_closure(self) -> number:
-        """The maximum closure of a fracture [m].
+    def fracture_tangential_stiffness(self) -> number:
+        """The tangential stiffness of a fracture [Pa * m^-1].
+
+        Note: The current default value is -1.0, with the convention that negative
+        values correspond to a fracture that does not deform elastically in the
+        tangential direction.
+
+        Returns:
+            The fracture tangential stiffness in converted units.
+
+        """
+        return self.convert_units(
+            self.constants["fracture_tangential_stiffness"], "Pa*m^-1"
+        )
+
+    def maximum_elastic_fracture_opening(self) -> number:
+        """The maximum opening of a fracture [m].
 
         Intended use is in Barton-Bandis-type models for elastic fracture deformation.
 
         Returns:
-            The maximal closure of a fracture.
+            The maximal opening of a fracture.
 
         """
-        return self.convert_units(self.constants["maximum_fracture_closure"], "m")
+        return self.convert_units(
+            self.constants["maximum_elastic_fracture_opening"], "m"
+        )
 
     def open_state_tolerance(self) -> number:
         """Tolerance parameter for the tangential characteristic contact mechanics [-].

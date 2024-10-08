@@ -11,6 +11,7 @@ import abc
 import logging
 import time
 import warnings
+from functools import partial
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -68,6 +69,8 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.viz.exporter.Exporter`.
 
     """
+    nonlinear_solver_statistics: pp.SolverStatistics
+    """Solver statistics for the nonlinear solver."""
     update_all_boundary_conditions: Callable[[], None]
     """Set the values of the boundary conditions for the new time step.
     Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
@@ -183,9 +186,7 @@ class SolutionStrategy(abc.ABC):
         is adjusted during simulation. See :meth:`before_nonlinear_loop`.
 
         """
-
-        self.nonlinear_solver_statistics = pp.SolverStatistics()
-        """Statistics object for non-linear solver loop."""
+        self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
@@ -227,6 +228,31 @@ class SolutionStrategy(abc.ABC):
         the permeability, the porosity, etc.
 
         """
+
+    def set_solver_statistics(self) -> None:
+        """Set the solver statistics object.
+
+        This method is called at initialization. It is intended to be used to
+        set the solver statistics object(s). Currently, the solver statistics
+        object is related to nonlinearity only. Statistics on other parts of the
+        solution process, such as linear solvers, may be added in the future.
+
+        Raises:
+            ValueError: If the solver statistics object is not a subclass of
+                pp.SolverStatistics.
+
+        """
+        # Retrieve the value with a default of pp.SolverStatistics
+        statistics = self.params.get("nonlinear_solver_statistics", pp.SolverStatistics)
+        # Explicitly check if the retrieved value is a class and a subclass of
+        # pp.SolverStatistics for type checking.
+        if isinstance(statistics, type) and issubclass(statistics, pp.SolverStatistics):
+            self.nonlinear_solver_statistics = statistics()
+
+        else:
+            raise ValueError(
+                f"Expected a subclass of pp.SolverStatistics, got {statistics}."
+            )
 
     def initial_condition(self) -> None:
         """Set the initial condition for the problem.
@@ -434,21 +460,19 @@ class SolutionStrategy(abc.ABC):
         )
         self.nonlinear_solver_statistics.num_iteration += 1
 
-    def after_nonlinear_convergence(self, iteration_counter: int) -> None:
+    def after_nonlinear_convergence(self) -> None:
         """Method to be called after every non-linear iteration.
 
         Possible usage is to distribute information on the solution, visualization, etc.
-
-        Parameters:
-            iteration_counter: Number of nonlinear solver iterations before convergence.
-                Used for time step adaptation.
 
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
 
         # Update the time step magnitude if the dynamic scheme is used.
         if not self.time_manager.is_constant:
-            self.time_manager.compute_time_step(iterations=iteration_counter)
+            self.time_manager.compute_time_step(
+                iterations=self.nonlinear_solver_statistics.num_iteration
+            )
 
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
@@ -473,6 +497,11 @@ class SolutionStrategy(abc.ABC):
             # Note: It will also raise a ValueError if the minimal time step is reached.
             self.time_manager.compute_time_step(recompute_solution=True)
 
+            # Reset the iterate values. This ensures that the initial guess for an
+            # unknown time step equals the known time step.
+            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
+
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
         pass
@@ -483,15 +512,15 @@ class SolutionStrategy(abc.ABC):
         residual: np.ndarray,
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
-    ) -> tuple[float, float, bool, bool]:
+    ) -> tuple[bool, bool]:
         """Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
             nonlinear_increment: Newly obtained solution increment vector
             residual: Residual vector of non-linear system, evaluated at the newly
             obtained solution vector.
-            reference_residual: Reference residual vector of non-linear system, evaluated
-                for the initial guess at current time step.
+            reference_residual: Reference residual vector of non-linear system,
+                evaluated for the initial guess at current time step.
             nl_params: Dictionary of parameters used for the convergence check.
                 Which items are required will depend on the convergence test to be
                 implemented.
@@ -499,10 +528,6 @@ class SolutionStrategy(abc.ABC):
         Returns:
             The method returns the following tuple:
 
-            float:
-                Residual norm, computed to the norm in question.
-            float:
-                Increment norm, computed to the norm in question.
             boolean:
                 True if the solution is converged according to the test implemented by
                 this method.
@@ -523,7 +548,7 @@ class SolutionStrategy(abc.ABC):
             # First a simple check for nan values.
             if np.any(np.isnan(nonlinear_increment)):
                 # If the solution contains nan values, we have diverged.
-                return np.nan, np.nan, False, True
+                return False, True
 
             # nonlinear_increment based norm
             nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
@@ -546,7 +571,7 @@ class SolutionStrategy(abc.ABC):
             nonlinear_increment_norm, residual_norm
         )
 
-        return residual_norm, nonlinear_increment_norm, converged, diverged
+        return converged, diverged
 
     def compute_residual_norm(
         self, residual: np.ndarray, reference_residual: np.ndarray
@@ -694,3 +719,194 @@ class SolutionStrategy(abc.ABC):
 
         """
         self.update_all_boundary_conditions()
+
+
+class ContactIndicators:
+    """Class for computing contact indicators used for tailored line search.
+
+    This functionality is experimental and may be subject to change.
+
+    The class is a mixin for the solution strategy classes for models with contact
+    mechanics. The class provides methods for computing the opening and sliding
+    indicators, which are used for tailored line search as defined in the class
+    :class:`~porepy.numerics.nonlinear.line_search.ConstraintLineSearch`.
+
+    By specifying the parameter `adaptive_indicator_scaling` in the model
+    parameters, the indicators can be scaled adaptively by the characteristic
+    fracture traction estimate based on the most recent iteration value.
+
+    """
+
+    basis: Callable[[list[pp.Grid], int], list[pp.ad.SparseArray]]
+    """Basis vector operator."""
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction operator."""
+
+    contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact mechanics numerical constant."""
+
+    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Displacement jump operator."""
+
+    equation_system: pp.ad.EquationSystem
+    """Equation system manager."""
+
+    fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Fracture gap operator."""
+
+    friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Friction bound operator."""
+
+    normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Normal component operator for vectors defined on fracture subdomains."""
+
+    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Tangential component operator for vectors defined on fracture subdomains."""
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed-dimensional grid."""
+
+    nd: int
+    """Ambient dimension of the problem."""
+
+    params: dict[str, Any]
+    """Dictionary of parameters."""
+
+    def opening_indicator(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Function describing the state of the opening constraint.
+
+        The function is a linear combination of the two arguments of the max function of
+        the normal fracture deformation equation. Arbitrary sign convention: Negative
+        for open fractures, positive for closed ones.
+
+        The parameter `adaptive_indicator_scaling` scales the indicator by the contact
+        traction estimate.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            opening_indicator: Opening indicator operator.
+
+        """
+        nd_vec_to_normal = self.normal_component(subdomains)
+        # The normal component of the contact traction and the displacement jump.
+        t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
+        u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
+        c_num = self.contact_mechanics_numerical_constant(subdomains)
+        max_arg_1 = pp.ad.Scalar(-1.0) * t_n
+        max_arg_2 = c_num * (u_n - self.fracture_gap(subdomains))
+        ind = max_arg_1 - max_arg_2
+        if self.params.get("adaptive_indicator_scaling", False):
+            # Scale adaptively based on the contact traction estimate.
+            # Base variable values from all fracture subdomains.
+            all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
+            scale_op = self.contact_traction_estimate(all_subdomains)
+            scale = self.compute_traction_norm(scale_op.value(self.equation_system))
+            ind = ind / pp.ad.Scalar(scale)
+        return ind
+
+    def sliding_indicator(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Function describing the state of the sliding constraint.
+
+        The function is a linear combination of the two arguments of the max function of
+        the tangential fracture deformation equation. Sign convention: Negative for
+        sticking, positive for sliding:  ||T_t+c_t u_t||-b_p
+
+        The parameter `adaptive_indicator_scaling` scales the indicator by the contact
+        traction estimate.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            sliding_indicator: Sliding indicator operator.
+
+        """
+
+        # Basis vector combinations
+        num_cells = sum([sd.num_cells for sd in subdomains])
+        # Mapping from a full vector to the tangential component
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+
+        tangential_basis: list[pp.ad.SparseArray] = self.basis(
+            subdomains, dim=self.nd - 1  # type: ignore[call-arg]
+        )
+
+        # Variables: The tangential component of the contact traction and the
+        # displacement jump
+        t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
+        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
+        # The time increment of the tangential displacement jump
+        u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
+        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
+
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
+        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        # Heaviside function. The 0 as the second argument to partial() implies
+        # f_heaviside(0)=0, a choice that is not expected to affect the result in this
+        # context.
+        f_heaviside = pp.ad.Function(partial(pp.ad.heaviside, 0), "heaviside_function")
+
+        c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
+
+        c_num = pp.ad.sum_operator_list(
+            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
+        )
+        tangential_sum = t_t + c_num @ u_t_increment
+
+        max_arg_1 = f_norm(tangential_sum)
+        max_arg_1.set_name("norm_tangential")
+
+        max_arg_2 = f_max(self.friction_bound(subdomains), zeros_frac)
+        max_arg_2.set_name("b_p")
+
+        h_oi = f_heaviside(self.opening_indicator(subdomains))
+        ind = max_arg_1 - max_arg_2
+
+        if self.params.get("adaptive_indicator_scaling", False):
+            # Base on all fracture subdomains
+            all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
+            scale_op = self.contact_traction_estimate(all_subdomains)
+            scale = self.compute_traction_norm(scale_op.value(self.equation_system))
+            ind = ind / pp.ad.Scalar(scale)
+        return ind * h_oi
+
+    def contact_traction_estimate(self, subdomains):
+        """Estimate the magnitude of contact traction.
+
+        Parameters:
+            subdomains: List of subdomains where the contact traction is defined.
+
+        Returns:
+            Characteristic fracture traction estimate.
+
+        """
+        t: pp.ad.Operator = self.contact_traction(subdomains)
+        e_n = self.e_i(subdomains, dim=self.nd, i=self.nd - 1)
+
+        u = self.displacement_jump(subdomains) - e_n @ self.fracture_gap(subdomains)
+        c_num = self.contact_mechanics_numerical_constant(subdomains)
+        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd), "norm_function")
+        return f_norm(t) + f_norm(c_num * u)
+
+    def compute_traction_norm(self, val: np.ndarray) -> float:
+        """Compute a norm of the traction estimate from the vector-valued traction.
+
+        The scalar traction is computed as the p norm of the traction vector.
+
+        Parameters:
+            val: Vector-valued traction.
+
+        Returns:
+            Scalar traction.
+
+        """
+        val = val.clip(1e-8, 1e8)
+        p = self.params.get("traction_estimate_p_mean", 5.0)
+        p_mean = np.mean(val**p, axis=0) ** (1 / p)
+        return float(p_mean)

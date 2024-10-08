@@ -374,35 +374,43 @@ class TestParameterInputs:
             constant_dt=True,
         )
 
-        params = {
+        model_params = {
             "time_manager": time_manager,
             "times_to_export": [],
         }
 
-        model = SinglePhaseFlow(params)
-        pp.run_time_dependent_model(model, params)
+        model = SinglePhaseFlow(model_params)
+        pp.run_time_dependent_model(model)
         performed_time_steps = model.time_manager.time_index
 
         assert performed_time_steps == num_time_steps
 
 
 class TestTimeControl:
-    """The following tests are written to check the overall behavior of the time-stepping
-    algorithm"""
+    """The following tests are written to check the overall behavior of the
+    time-stepping algorithm"""
 
-    def test_final_simulation_time(self):
-        """Test if final simulation time returns None, irrespectively of parameters
-        passed in next_time_step()."""
+    @pytest.mark.parametrize("recompute_solution", [False, True])
+    @pytest.mark.parametrize(
+        "time",
+        [
+            1,  # We reach the final time
+            2,  # We are above the final time
+        ],
+    )
+    def test_final_simulation_time(self, recompute_solution: bool, time: int):
+        """Test if final simulation time returns None if we do not ask to recompute the
+        solution"""
         # Assume we reach the final time
         time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1)
-        time_manager.time = 1
-        dt = time_manager.compute_time_step(iterations=1000, recompute_solution=True)
-        assert dt is None
-        # Now, assume we are above the final time
-        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1)
-        time_manager.time = 2
-        dt = time_manager.compute_time_step(iterations=0, recompute_solution=False)
-        assert dt is None
+        time_manager.time = time
+        dt = time_manager.compute_time_step(
+            iterations=1000, recompute_solution=recompute_solution
+        )
+        if recompute_solution:
+            assert dt is not None
+        else:
+            assert dt is None
 
     @pytest.mark.parametrize(
         "schedule, dt_init, time, time_index, iters, recomp_sol",
@@ -715,8 +723,8 @@ class TestTimeControl:
             time_manager.increase_time()
 
         # Check if the history is generated correctly.
-        assert np.all(np.isclose(time_manager.time_history, np.linspace(0, 0.9, 10)))
-        assert np.all(np.isclose(time_manager.dt_history, 10 * [0.1]))
+        assert np.all(np.isclose(time_manager.exported_times, np.linspace(0, 0.9, 10)))
+        assert np.all(np.isclose(time_manager.exported_dt, 10 * [0.1]))
 
         # Check if entirely fetched history of time and dt is loaded correctly.
         new_time_manager = pp.TimeManager(
@@ -724,25 +732,25 @@ class TestTimeControl:
         )
         new_time_manager.load_time_information(pth)
         assert np.all(
-            np.isclose(new_time_manager.time_history, np.linspace(0, 0.9, 10))
+            np.isclose(new_time_manager.exported_times, np.linspace(0, 0.9, 10))
         )
-        assert np.all(np.isclose(new_time_manager.dt_history, 10 * [0.1]))
+        assert np.all(np.isclose(new_time_manager.exported_dt, 10 * [0.1]))
 
         # Check if single-chosen time and dt are picked correctly.
-        new_time_manager.set_from_history(5)
+        new_time_manager.set_time_and_dt_from_exported_steps(5)
         assert np.isclose(new_time_manager.time, 0.5)
         assert np.isclose(new_time_manager.dt, 0.1)
 
         # Check if history has been cut-off correctly.
         assert np.all(
             np.isclose(
-                np.array(new_time_manager.time_history),
+                np.array(new_time_manager.exported_times),
                 np.array([0, 0.1, 0.2, 0.3, 0.4]),
             )
         )
         assert np.all(
             np.isclose(
-                np.array(new_time_manager.dt_history),
+                np.array(new_time_manager.exported_dt),
                 np.array([0.1, 0.1, 0.1, 0.1, 0.1]),
             )
         )
@@ -766,7 +774,7 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
     ):
         super().__init__(params)
         self.time_step_idx: int = -1
-        self.nonlinear_iter_idx: int = 0
+        self.num_nonlinear_iters: int = 0
         self.num_nonlinear_iterations: list[int] = num_nonlinear_iterations
         self.time_step_converged: list = time_step_converged
         self.time_step_history: list = []
@@ -774,16 +782,27 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()  # The AD time step is expected to update here.
         self.time_step_idx += 1
-        self.nonlinear_iter_idx = -1
+        self.num_nonlinear_iters = 0
         self.time_step_history.append(self.time_manager.dt)
 
     def before_nonlinear_iteration(self):
         super().before_nonlinear_iteration()
-        self.nonlinear_iter_idx += 1
+
         # The AD time step should not change throughout the Newton iterations.
         assert (
             self.ad_time_step.value(self.equation_system) == self.time_manager.dt
         ), "The AD time step value conflicts with the value from the time_manager."
+
+        # The initial guess for the unknown time step values should be equal to the
+        # known time step values. See https://github.com/pmgbergen/porepy/issues/1205.
+        if self.num_nonlinear_iters == 0:
+            iterate_values = self.equation_system.get_variable_values(iterate_index=0)
+            state_values = self.equation_system.get_variable_values(time_step_index=0)
+            assert np.all(
+                iterate_values == state_values
+            ), "Likely, 'iterate' was not reset after the unsuccessful time step."
+
+        self.num_nonlinear_iters += 1
 
     def _is_nonlinear_problem(self):
         return True
@@ -794,16 +813,16 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         residual: np.ndarray,
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
-    ) -> tuple[float, float, bool, bool]:
-        if self.nonlinear_iter_idx < self.num_nonlinear_iterations[self.time_step_idx]:
+    ) -> tuple[bool, bool]:
+        if self.num_nonlinear_iters < self.num_nonlinear_iterations[self.time_step_idx]:
             # Neither converged nor diverged
-            return 0.5, 0.5, False, False
+            return False, False
         if self.time_step_converged[self.time_step_idx] is True:
             # Converged
-            return 0, 0.5, True, False
+            return True, False
         if self.time_step_converged[self.time_step_idx] is False:
             # Diverged
-            return 1, 0.5, False, True
+            return False, True
         assert (
             False
         ), "Nonlinear solver did not stop iterating after the iteration limit."
@@ -830,17 +849,18 @@ MAX_NONLINEAR_ITER = 10
         # - increase the time step due to few nonlinear iterations
         # - keep the time step due to expected number of nonlinear iterations
         # - decrease the time step due to many nonlinear iterations (after convergence)
+        # - decrease the time step to meet the schedule (last time step)
         {
             # Below reads as: time step 0 takes 4 nonlinear iterations, time step 1
             # takes 3 nonlinear iterations, etc.
-            "num_nonlinear_iterations": [4, 3, MAX_NONLINEAR_ITER + 1, 1, 5, 9, 1, 1],
+            "num_nonlinear_iterations": [4, 3, MAX_NONLINEAR_ITER + 2, 1, 6, 9, 1, 1],
             # Time step 0 diverged after 4 iterations, time step 1 converged after 3
             # iterations, etc. "unreachable" means that the convergence check should not
             # be called due to exceeding the iteration limit.
             "time_step_converged": [False, True, "unreachable"] + [True] * 5,
             # Time step magnitudes to compare with. These are known values produced with
             # the settings of the TimeStepper found in the test function below.
-            "dt_history_expected": [1, 0.3, 0.6, 0.18, 0.36, 0.36, 0.144, 0.006],
+            "exported_dt_expected": [1, 0.3, 0.6, 0.18, 0.36, 0.36, 0.144, 0.006],
         },
         # Case 2: constant_dt. Should fail after nonlinear divergence.
         {
@@ -848,7 +868,7 @@ MAX_NONLINEAR_ITER = 10
             "should_fail": True,
             "num_nonlinear_iterations": [2, 3],
             "time_step_converged": [True, False],
-            "dt_history_expected": [1, 1],
+            "exported_dt_expected": [1, 1],
         },
         # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
         # minimal time step and failed.
@@ -856,7 +876,14 @@ MAX_NONLINEAR_ITER = 10
             "should_fail": True,
             "num_nonlinear_iterations": [1, 1, 1],
             "time_step_converged": [False, False, False],
-            "dt_history_expected": [1, 0.3, 0.1],
+            "exported_dt_expected": [1, 0.3, 0.1],
+        },
+        # Case 4: The time step fails right before the schedule point. Expected to
+        # decrease dt and meet the schedule regardless.
+        {
+            "num_nonlinear_iterations": [1, 1, 1, 1, 1],
+            "time_step_converged": [True, False, True, True, True],
+            "exported_dt_expected": [1, 0.35, 0.105, 0.21, 0.035],
         },
     ],
 )
@@ -866,7 +893,7 @@ def test_model_time_step_control(params: dict):
     should_fail = params.get("should_fail", False)
     num_nonlinear_iterations = params["num_nonlinear_iterations"]
     time_step_converged = params["time_step_converged"]
-    dt_history_expected = params["dt_history_expected"]
+    exported_dt_expected = params["exported_dt_expected"]
 
     schedule_end = 2 if constant_dt else 1.35
     time_manager = pp.TimeManager(
@@ -881,7 +908,10 @@ def test_model_time_step_control(params: dict):
     model = DynamicTimeStepTestCaseModel(
         num_nonlinear_iterations=num_nonlinear_iterations,
         time_step_converged=time_step_converged,
-        params={"time_manager": time_manager},
+        params={
+            "time_manager": time_manager,
+            "times_to_export": [],  # Suspends export
+        },
     )
 
     if should_fail:
@@ -890,4 +920,4 @@ def test_model_time_step_control(params: dict):
     else:
         pp.run_time_dependent_model(model, {"max_iterations": MAX_NONLINEAR_ITER})
 
-    assert np.allclose(model.time_step_history, dt_history_expected)
+    assert np.allclose(model.time_step_history, exported_dt_expected)

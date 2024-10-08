@@ -76,7 +76,7 @@ def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
     """
 
     # Define model parameters (same for 2d and 3d).
-    params = {
+    model_params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.25},
@@ -88,7 +88,7 @@ def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
     for model in [ManuThermoPoroMechSetup2d, ManuThermoPoroMechSetup3d]:
-        setup = model(deepcopy(params))  # Make deep copy of params to avoid nasty bugs.
+        setup = model(deepcopy(model_params))  # Make deep copy of params to avoid nasty bugs.
         pp.run_time_dependent_model(setup, {})
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.

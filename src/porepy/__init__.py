@@ -124,6 +124,7 @@ from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
+from porepy.numerics.fv.tpsa import Tpsa
 from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot
 

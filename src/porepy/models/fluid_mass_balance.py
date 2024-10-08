@@ -265,11 +265,12 @@ class MassBalanceEquations(pp.BalanceEquation):
         discr = self.mobility_discretization(domains)
         mob_rho = self.mobility_rho(domains)
 
-        # )
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=domains,
             dirichlet_operator=self.mobility_rho,
             neumann_operator=self.fluid_flux,
+            # Robin operator is not relevant for advective fluxes
+            robin_operator=None,
             bc_type=self.bc_type_fluid_flux,
             name="bc_values_fluid_flux",
         )
@@ -693,11 +694,6 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             Operator representing the reference pressure [Pa].
 
         """
-        # TODO: Confirm that this is the right place for this method. # IS: Definitely
-        # not a Material. Most closely related to the constitutive laws. # Perhaps
-        # create a reference values class that is a mixin to the constitutive laws? #
-        # Could have values in the init and methods returning operators just as # this
-        # method.
         p_ref = self.fluid.pressure()
         size = sum([sd.num_cells for sd in subdomains])
         return pp.wrap_as_dense_ad_array(p_ref, size, name="reference_pressure")

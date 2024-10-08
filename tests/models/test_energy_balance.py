@@ -139,14 +139,14 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
     # Instantiate constants and store in params.
     fluid = pp.FluidConstants(fluid_vals)
     solid = pp.SolidConstants(solid_vals)
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"fluid": fluid, "solid": solid},
     }
 
     # Create model and run simulation
-    setup = EnergyBalanceTailoredBCs(params)
-    pp.run_time_dependent_model(setup, params)
+    setup = EnergyBalanceTailoredBCs(model_params)
+    pp.run_time_dependent_model(setup)
 
     if solid_vals["thermal_conductivity"] > 1:
         # Diffusion dominated case.
@@ -225,7 +225,7 @@ def test_unit_conversion(units):
 
     # Non-unitary time step needed for convergence
     dt = 1e5
-    params = {
+    model_params = {
         "times_to_export": [],
         "fracture_indices": [0, 1],
         "cartesian": True,
@@ -234,15 +234,15 @@ def test_unit_conversion(units):
     }
 
     # Create model and run simulation
-    reference_params = copy.deepcopy(params)
-    reference_params["file_name"] = "unit_conversion_reference"
-    reference_setup = Model(reference_params)
-    pp.run_time_dependent_model(reference_setup, reference_params)
+    model_reference_params = copy.deepcopy(model_params)
+    model_reference_params["file_name"] = "unit_conversion_reference"
+    reference_setup = Model(model_reference_params)
+    pp.run_time_dependent_model(reference_setup)
 
-    params["units"] = pp.Units(**units)
-    setup = Model(params)
+    model_params["units"] = pp.Units(**units)
+    setup = Model(model_params)
 
-    pp.run_time_dependent_model(setup, params)
+    pp.run_time_dependent_model(setup)
     variable_names = [
         setup.temperature_variable,
         setup.pressure_variable,
@@ -281,7 +281,7 @@ def test_energy_conservation():
     """
     # We want low pressures, to ensure energy is not dominated by -p in fluid part.
     dt = 1e-4
-    params = {
+    model_params = {
         # Set impermeable matrix
         "material_constants": {
             "solid": pp.SolidConstants(
@@ -308,8 +308,8 @@ def test_energy_conservation():
         "grid_type": "cartesian",
     }
 
-    setup = MassAndEnergyWellModel(params)
-    pp.run_time_dependent_model(setup, params)
+    setup = MassAndEnergyWellModel(model_params)
+    pp.run_time_dependent_model(setup)
     # Check that the total enthalpy equals the injected one.
     in_val = 1e7
     u_expected = in_val * dt

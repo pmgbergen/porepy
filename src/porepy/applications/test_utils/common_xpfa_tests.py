@@ -140,7 +140,7 @@ def _test_laplacian_stencil_cart_2d(discr_matrices_func):
     g, perm, bound = _setup_cart_2d(nx, dir_faces)
     div, flux, bound_flux, _ = discr_matrices_func(g, perm, bound)
     A = div * flux
-    b = -(div * bound_flux).A
+    b = -(div * bound_flux).toarray()
 
     # Checks on interior cell
     mid = 4
@@ -183,7 +183,7 @@ def _test_laplacian_stensil_cart_2d_periodic_bcs(discr_matrices_func):
     bound = pp.BoundaryCondition(g)
     div, flux, bound_flux, _ = discr_matrices_func(g, perm, bound)
     a = div * flux
-    b = -(div * bound_flux).A
+    b = -(div * bound_flux).toarray()
 
     # Create laplace matrix
     A_lap = np.array(
@@ -199,7 +199,7 @@ def _test_laplacian_stensil_cart_2d_periodic_bcs(discr_matrices_func):
             [0.0, 0.0, -1.0, 0.0, 0.0, -1.0, -1.0, -1.0, 4.0],
         ]
     )
-    assert np.allclose(a.A, A_lap)
+    assert np.allclose(a.toarray(), A_lap)
     assert np.allclose(b, 0)
 
 
@@ -604,8 +604,8 @@ def _test_gravity_2d_horizontal_periodic_ambient_dim_2(method):
         )
     )
 
-    assert np.allclose(A.A, A_known)
-    assert np.allclose(vector_source_discr.A, vct_src_known)
+    assert np.allclose(A.toarray(), A_known)
+    assert np.allclose(vector_source_discr.toarray(), vct_src_known)
 
 
 class XpfaBoundaryPressureTests:
@@ -941,8 +941,9 @@ def test_split_discretization_into_subproblems(
                     # stored in a dictionary, compare the individual matrices.
                     for sub_key in data_with:
                         assert np.allclose(
-                            data_with[sub_key].A, data_without[sub_key].A
+                            data_with[sub_key].toarray(),
+                            data_without[sub_key].toarray(),
                         )
                 else:
                     # The matrices are stored directly in the data dictionary.
-                    assert np.allclose(data_with.A, data_without.A)
+                    assert np.allclose(data_with.toarray(), data_without.toarray())
