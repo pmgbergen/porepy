@@ -13,6 +13,17 @@ class VTKSampler:
         self.__build_search_space()
 
     @property
+    def mutex_state(self):
+        if hasattr(self, "_mutex_state"):
+            return self._mutex_state
+        else:
+            return False  # Able to modify
+
+    @mutex_state.setter
+    def mutex_state(self, mutex_state):
+        self._mutex_state = mutex_state
+
+    @property
     def conversion_factors(self):
         if hasattr(self, "_conversion_factors"):
             return self._conversion_factors
@@ -22,6 +33,18 @@ class VTKSampler:
     @conversion_factors.setter
     def conversion_factors(self, conversion_factors):
         self._conversion_factors = conversion_factors
+
+
+    @property
+    def translation_factors(self):
+        if hasattr(self, "_translation_factors"):
+            return self._translation_factors
+        else:
+            return (0.0, 0.0, 0.0)  # No translation
+
+    @translation_factors.setter
+    def translation_factors(self, translation_factors):
+        self._translation_factors = translation_factors
 
     @property
     def file_name(self):
@@ -36,8 +59,8 @@ class VTKSampler:
         return self._search_space
 
     @property
-    def bc_surface(self):
-        return self._bc_surface
+    def boundary_surface(self):
+        return self._boundary_surface
 
     @property
     def sampled_could(self):
@@ -46,35 +69,56 @@ class VTKSampler:
         else:
             return None
 
+    @property
+    def constant_extended_fields(self):
+        if hasattr(self, "_constant_extended_fields"):
+            return self._constant_extended_fields
+        else:
+            return []
+
+    @constant_extended_fields.setter
+    def constant_extended_fields(self, constant_extended_fields):
+        self._constant_extended_fields = constant_extended_fields
+
     @sampled_could.setter
     def sampled_could(self, sampled_could):
         if hasattr(self, "_sampled_could"):
-            self._sampled_could.clear_data()
-        self._sampled_could = sampled_could.copy()
+            self._sampled_could.clean()
+            self._sampled_could.copy_from(sampled_could, deep=True)
+        else:
+            self._sampled_could = sampled_could.copy(deep=True)
+        del sampled_could
 
     def sample_at(self, points):
-        # tb = time.time()
-        points = self._apply_conversion_factor(points)
+        if self.mutex_state and self.sampled_could is not None:
+            return
+        x_par = points.copy()
+        self._apply_conversion_factor(x_par)
+        self._apply_translation_factor(x_par)
 
-        point_cloud = pyvista.PolyData(points)
+        point_cloud = pyvista.PolyData(x_par)
         self.sampled_could = point_cloud.sample(self._search_space)
         check_enclosed_points = point_cloud.select_enclosed_points(
-            self.bc_surface, check_surface=False
+            self.boundary_surface, check_surface=False
         )
         external_idx = np.logical_not(
             check_enclosed_points.point_data["SelectedPoints"]
         )
+        self.__release_memory_of(point_cloud)
+        self.__release_memory_of(check_enclosed_points)
         if self.taylor_extended_q:
-            self.__taylor_expansion(points, external_idx)
+            self.__taylor_expansion(x_par, external_idx)
 
         self._apply_conversion_factor_on_gradients()
-        # te = time.time()
-        # print("VTKSampler:: Sampled n_points: ", len(points))
-        # print("VTKSampler:: Time for sampling: ", te - tb)
 
     def _apply_conversion_factor(self, points):
         for i, scale in enumerate(self.conversion_factors):
             points[:, i] *= scale
+        return points
+
+    def _apply_translation_factor(self, points):
+        for i, translation in enumerate(self.translation_factors):
+            points[:, i] += translation
         return points
 
     def _apply_conversion_factor_on_gradients(self):
@@ -84,10 +128,18 @@ class VTKSampler:
                     grad[:, i] *= scale
         return
 
+    def __release_memory_of(self, point_cloud):
+        point_cloud.clean()
+        del point_cloud
+
+    def release_memory(self):
+        self.__release_memory_of(self._search_space)
+        self.__release_memory_of(self._boundary_surface)
+
     def __build_search_space(self):
         tb = time.time()
         self._search_space = pyvista.read(self.file_name)
-        self._bc_surface = self._search_space.extract_surface()
+        self._boundary_surface = self._search_space.extract_surface(pass_pointid=False, pass_cellid=False, nonlinear_subdivision=0)
         te = time.time()
         print("VTKSampler:: Time for loading interpolation space: ", te - tb)
 
@@ -106,6 +158,8 @@ class VTKSampler:
         zmax -= eps
 
         # detect regions
+
+        # facets predicates
         w_q = cp.w_predicate(*xv.T, bounds)
         e_q = cp.e_predicate(*xv.T, bounds)
         s_q = cp.s_predicate(*xv.T, bounds)
@@ -113,19 +167,19 @@ class VTKSampler:
         b_q = cp.b_predicate(*xv.T, bounds)
         t_q = cp.t_predicate(*xv.T, bounds)
 
-        # x range
+        # x range: edges parallel to x axis
         sb_q = cp.sb_predicate(*xv.T, bounds)
         nb_q = cp.nb_predicate(*xv.T, bounds)
         st_q = cp.st_predicate(*xv.T, bounds)
         nt_q = cp.nt_predicate(*xv.T, bounds)
 
-        # y range
+        # y range: edges parallel to y axis
         wb_q = cp.wb_predicate(*xv.T, bounds)
         eb_q = cp.eb_predicate(*xv.T, bounds)
         wt_q = cp.wt_predicate(*xv.T, bounds)
         et_q = cp.et_predicate(*xv.T, bounds)
 
-        # z range
+        # z range: edges parallel to z axis
         ws_q = cp.ws_predicate(*xv.T, bounds)
         es_q = cp.es_predicate(*xv.T, bounds)
         wn_q = cp.wn_predicate(*xv.T, bounds)
@@ -228,7 +282,10 @@ class VTKSampler:
             if grad_field_name.startswith("grad_"):
                 field_name = grad_field_name.lstrip("grad_")
                 fv = sampled_could[field_name]
-                grad_fv = sampled_could[grad_field_name]
+                if field_name in self.constant_extended_fields:
+                    grad_fv = np.zeros_like(sampled_could[grad_field_name])
+                else:
+                    grad_fv = sampled_could[grad_field_name]
 
                 # taylor expansion all at once
                 f_extrapolated = fv + np.sum(grad_fv * (x - xv), axis=1)
