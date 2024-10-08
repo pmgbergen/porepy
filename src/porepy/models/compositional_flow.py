@@ -835,6 +835,7 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
                 subdomains=domains,
                 dirichlet_operator=self.advective_weight_enthalpy_flux,
                 neumann_operator=self.enthalpy_flux,
+                robin_operator=None,
                 bc_type=self.bc_type_advective_flux,
                 name="bc_values_enthalpy_flux",
             )
@@ -967,6 +968,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Optional[Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -1143,6 +1145,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             subdomains=domains,
             dirichlet_operator=weight_inlet_bc,
             neumann_operator=fluid_flux_neumann_bc,
+            robin_operator=None,
             bc_type=self.bc_type_advective_flux,
             name=f"bc_values_component_flux_{component.name}",
         )
@@ -2870,9 +2873,9 @@ class SolutionStrategyCF(
         # After updating the fluid properties, update discretizations
         self.update_discretizations()
 
-    def after_nonlinear_convergence(self, iteration_counter: int) -> None:
+    def after_nonlinear_convergence(self) -> None:
         """Calls :meth:`progress_thermodynamic_properties_in_time` at the end."""
-        super().after_nonlinear_convergence(iteration_counter)
+        super().after_nonlinear_convergence()
         self.progress_secondary_quantities_in_time()
 
     def assemble_linear_system(self) -> None:
