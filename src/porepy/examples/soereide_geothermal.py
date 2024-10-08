@@ -25,7 +25,7 @@ import os
 import pathlib
 import time
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 compile_time = 0.0
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.INFO)
@@ -41,8 +41,6 @@ import porepy.compositional as ppc
 import porepy.compositional.peng_robinson as ppcpr
 
 compile_time += time.time() - t_0
-from matplotlib import pyplot as plt
-from matplotlib.ticker import FormatStrFormatter, MaxNLocator
 
 import porepy.models.compositional_flow_with_equilibrium as cfle
 from porepy.applications.md_grids.domains import nd_cube_domain
@@ -67,7 +65,7 @@ class SoereideMixture:
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
         eos = ppcpr.PengRobinsonCompiler(components)
-        return [(eos, 0, "L"), (eos, 1, "G")]
+        return [(eos, ppc.PhysicalState.liquid, "L"), (eos, ppc.PhysicalState.gas, "G")]
 
 
 class CompiledFlash(ppc.FlashMixin):
@@ -94,11 +92,11 @@ class CompiledFlash(ppc.FlashMixin):
         flash.armijo_parameters["rho"] = 0.99
         flash.armijo_parameters["kappa"] = 0.4
         flash.armijo_parameters["max_iter"] = (
-            50 if self.equilibrium_type == "p-T" else 30
+            50 if "p-T" in self.equilibrium_type else 30
         )
         flash.npipm_parameters["u1"] = 10.0
         flash.npipm_parameters["u2"] = (
-            10.0  # if self.equilibrium_type == "p-T" else 1.0
+            10.0  # if 'p-T' in self.equilibrium_type else 1.0
         )
         flash.npipm_parameters["eta"] = 0.5
         flash.initialization_parameters["N1"] = 3
@@ -111,7 +109,7 @@ class CompiledFlash(ppc.FlashMixin):
 
     def get_fluid_state(
         self, subdomains: Sequence[pp.Grid], state: np.ndarray | None = None
-    ) -> ppc.FluidState:
+    ) -> ppc.FluidProperties:
         """Method to pre-process the evaluated fractions. Normalizes the extended
         fractions where they violate the unity constraint."""
         fluid_state = super().get_fluid_state(subdomains, state)
@@ -174,9 +172,9 @@ class CompiledFlash(ppc.FlashMixin):
 
         return fluid_state
 
-    def postprocess_failures(
-        self, subdomain: pp.Grid, fluid_state: ppc.FluidState, success: np.ndarray
-    ) -> ppc.FluidState:
+    def postprocess_flash(
+        self, subdomain: pp.Grid, fluid_state: ppc.FluidProperties, success: np.ndarray
+    ) -> ppc.FluidProperties:
         """A post-processing where the flash is again attempted where not succesful.
 
         1. Where not successful, it re-attempts the flash from scratch, with
@@ -209,9 +207,9 @@ class CompiledFlash(ppc.FlashMixin):
                 "parameters": self.flash_params,
             }
 
-            if self.equilibrium_type == "p-h":
+            if "p-h" in self.equilibrium_type:
                 flash_kwargs["h"] = h
-            elif self.equilibrium_type == "p-T":
+            elif "p-T" in self.equilibrium_type:
                 flash_kwargs["T"] = T
 
             sub_state, sub_success, _ = self.flash.flash(**flash_kwargs)
@@ -254,15 +252,15 @@ class CompiledFlash(ppc.FlashMixin):
                 fluid_state.phases[j].dphis[:, :, failure] = sub_state.phases[j].dphis
 
         # Parent method performs a check that everything is successful.
-        return super().postprocess_failures(subdomain, fluid_state, success)
+        return super().postprocess_flash(subdomain, fluid_state, success)
 
     def fall_back(
         self,
         grid: pp.Grid,
-        sub_state: ppc.FluidState,
+        sub_state: ppc.FluidProperties,
         failed_idx: np.ndarray,
         fallback_idx: np.ndarray,
-    ) -> ppc.FluidState:
+    ) -> ppc.FluidProperties:
         """Falls back to previous iterate values for the fluid state, on given
         grid."""
         sds = [grid]
@@ -408,9 +406,6 @@ class BoundaryConditions:
     """
 
     mdg: pp.MixedDimensionalGrid
-
-    has_time_dependent_boundary_equilibrium = False
-    """Constant BC for primary variables, hence constant BC for all other."""
 
     _p_INIT: float
     _T_INIT: float
@@ -603,13 +598,15 @@ material_constants = {"solid": solid_constants}
 restart_options = {
     "restart": True,
     "is_mdg_pvd": True,
-    "pdv_file": pathlib.Path("./visualization/data.pvd"),
+    "pvd_file": pathlib.Path("./visualization/data.pvd"),
 }
 
 # Model setup:
 # eliminate reference phase fractions  and reference component.
 params = {
     "material_constants": material_constants,
+    "equilibrium_type": "unified-p-h",
+    "has_time_dependent_boundary_equilibrium": False,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
@@ -625,8 +622,6 @@ params = {
 }
 model = GeothermalFlow(params)
 
-model.equilibrium_type = "p-h"
-
 t_0 = time.time()
 model.prepare_simulation()
 prep_sim_time = time.time() - t_0
@@ -636,281 +631,3 @@ pp.run_time_dependent_model(model, params)
 sim_time = time.time() - t_0
 print(f"Finished prepare_simulation in {prep_sim_time} seconds.")
 print(f"Finished simulation in {sim_time} seconds.")
-
-# region stat plots
-N = len(model._stats)
-tx = np.linspace(0, T_end, N, endpoint=True)
-
-# values per time step
-num_iter = list()
-# residuals before flash, max, avg, min
-res_bf_max = list()
-res_bf_med = list()
-res_bf_min = list()
-# residuals after flash, max avg min
-res_af_max = list()
-res_af_med = list()
-res_af_min = list()
-# residuals at assembly, max avg min
-res_aa_max = list()
-res_aa_med = list()
-res_aa_min = list()
-# averages over iterations per time step
-time_assembly_avg = list()
-time_linsolve_avg = list()
-time_flash_avg = list()
-
-for t in range(N):
-    stats = model._stats[t]
-    ni = len(stats)
-    num_iter.append(ni)
-
-    time_assembly = list()
-    time_linsolve = list()
-    time_flash = list()
-    res_bf = list()
-    res_af = list()
-    res_aa = list()
-
-    for i in range(ni):
-        si = stats[i]
-        if "time_assembly" in si:
-            time_assembly.append(si["time_assembly"])
-        if "time_linsolve" in si:
-            time_linsolve.append(si["time_linsolve"])
-        if "time_flash" in si:
-            if i == 0 and t == 0:
-                # adding this time to compile time, because first call of p-h flash
-                compile_time += si["time_flash"]
-            else:
-                time_flash.append(si["time_flash"])
-        if "residual_before_flash" in si:
-            res_bf.append(si["residual_before_flash"])
-        if "residual_after_flash" in si:
-            res_af.append(si["residual_after_flash"])
-        if "residual_at_assembly" in si:
-            res_aa.append(si["residual_at_assembly"])
-
-    time_assembly_avg.append(np.average(time_assembly))
-    time_linsolve_avg.append(np.average(time_linsolve))
-    time_flash_avg.append(np.average(time_flash))
-
-    if len(res_bf) > 0:
-        res_bf_max.append(np.max(res_bf))
-        res_bf_med.append(np.median(res_bf))
-        res_bf_min.append(np.min(res_bf))
-    if len(res_af) > 0:
-        res_af_max.append(np.max(res_af))
-        res_af_med.append(np.median(res_af))
-        res_af_min.append(np.min(res_af))
-    if len(res_aa) > 0:
-        res_aa_max.append(np.max(res_aa))
-        res_aa_med.append(np.median(res_aa))
-        res_aa_min.append(np.min(res_aa))
-
-print(f"Estimated compile time: {compile_time} (s)")
-
-num_iter = np.array(num_iter)
-res_bf_max = np.array(res_bf_max)
-res_bf_med = np.array(res_bf_med)
-res_bf_min = np.array(res_bf_min)
-res_af_max = np.array(res_af_max)
-res_af_med = np.array(res_af_med)
-res_af_min = np.array(res_af_min)
-res_aa_max = np.array(res_aa_max)
-res_aa_med = np.array(res_aa_med)
-res_aa_min = np.array(res_aa_min)
-time_assembly_avg = np.array(time_assembly_avg)
-time_linsolve_avg = np.array(time_linsolve_avg)
-time_flash_avg = np.array(time_flash_avg)
-
-num_iter.tofile(pathlib.Path("./visualization/num_iter.csv", sep=";"))
-res_bf_max.tofile(pathlib.Path("./visualization/res_bf_max.csv", sep=";"))
-res_bf_med.tofile(pathlib.Path("./visualization/res_bf_med.csv", sep=";"))
-res_bf_min.tofile(pathlib.Path("./visualization/res_bf_min.csv", sep=";"))
-res_af_max.tofile(pathlib.Path("./visualization/res_af_max.csv", sep=";"))
-res_af_med.tofile(pathlib.Path("./visualization/res_af_med.csv", sep=";"))
-res_af_min.tofile(pathlib.Path("./visualization/res_af_min.csv", sep=";"))
-res_aa_max.tofile(pathlib.Path("./visualization/res_aa_max.csv", sep=";"))
-res_aa_med.tofile(pathlib.Path("./visualization/res_aa_med.csv", sep=";"))
-res_aa_min.tofile(pathlib.Path("./visualization/res_aa_min.csv", sep=";"))
-time_assembly_avg.tofile(pathlib.Path("./visualization/time_assembly_avg.csv", sep=";"))
-time_linsolve_avg.tofile(pathlib.Path("./visualization/time_linsolve_avg.csv", sep=";"))
-time_flash_avg.tofile(pathlib.Path("./visualization/time_flash_avg.csv", sep=";"))
-
-font_size = 20
-plt.rc("font", size=font_size)  # controls default text size
-plt.rc("axes", titlesize=font_size)  # fontsize of the title
-plt.rc("axes", labelsize=font_size)  # fontsize of the x and y labels
-plt.rc("xtick", labelsize=font_size)  # fontsize of the x tick labels
-plt.rc("ytick", labelsize=font_size)  # fontsize of the y tick labels
-plt.rc("legend", fontsize=17)  # fontsize of the legend
-
-# region Num iter and time
-fig = plt.figure(figsize=(2 * 8.0, 8.0))
-axis = fig.add_subplot(1, 2, 1)
-axis.set_box_aspect(1)
-axis.set_xlabel("Simulation time")
-axis.set_ylabel("Number of iterations")
-axis.xaxis.set_major_formatter(FormatStrFormatter("%.3f"))
-axis.yaxis.set_major_locator(MaxNLocator(integer=True))
-
-img = axis.plot(tx, num_iter, linestyle="solid", color="black", linewidth=3)
-axis.set_ylim((1, np.max(num_iter)))
-
-axis = fig.add_subplot(1, 2, 2)
-axis.set_box_aspect(1)
-axis.set_xlabel("Simulation time")
-axis.set_ylabel("Avg. computational time")
-axis.xaxis.set_major_formatter(FormatStrFormatter("%.3f"))
-axis.set_yscale("log")
-
-img_1 = axis.plot(tx, time_flash_avg, linestyle="solid", color="red", linewidth=3)
-img_2 = axis.plot(tx, time_assembly_avg, linestyle="solid", color="blue", linewidth=3)
-img_3 = axis.plot(tx, time_linsolve_avg, linestyle="solid", color="black", linewidth=3)
-
-axis.legend(
-    img_1 + img_2 + img_3,
-    ["cell-wise flash", "assembly", "lin-solve"],
-    loc="upper right",
-    markerscale=3,
-)
-
-fig.tight_layout(pad=0.05, h_pad=0.05, w_pad=1)
-fig.savefig(
-    str(pathlib.Path("./visualization/iter_and_time.png").resolve()),
-    format="png",
-    dpi=400,
-)
-
-# endregion
-
-# region Whole plot residual
-
-fig = plt.figure(figsize=(2 * 8.0, 8.0))
-axis = fig.add_subplot(1, 1, 1)
-axis.set_box_aspect(0.5)
-axis.set_xlabel("Simulation time")
-axis.set_ylabel("l2-norm residual")
-axis.xaxis.set_major_formatter(FormatStrFormatter("%.3f"))
-axis.set_yscale("log")
-
-img_1 = axis.plot(tx, res_bf_med, linestyle="solid", color="blue", linewidth=3)
-img_1f = axis.fill_between(tx, res_bf_max, res_bf_min, alpha=0.2, color="blue")
-img_2 = axis.plot(tx, res_af_med, linestyle="solid", color="red", linewidth=3)
-img_2f = axis.fill_between(tx, res_af_max, res_af_min, alpha=0.2, color="red")
-img_3 = axis.plot(tx, res_aa_med, linestyle="solid", color="black", linewidth=3)
-img_3f = axis.fill_between(
-    tx, res_aa_max, res_aa_min, alpha=0.2, color="black", facecolor="grey", hatch="/"
-)
-r = axis.get_ylim()
-axis.set_ylim((r[0] * 1e-1, r[1]))
-
-axis.legend(
-    img_1 + [img_1f] + img_2 + [img_2f] + img_3 + [img_3f],
-    [
-        "med. before flash",
-        "range bf",
-        "med. after flash",
-        "range af",
-        "med. after re-discr.",
-        "range ad",
-    ],
-    loc="upper center",
-    bbox_to_anchor=(0.5, 1.1),
-    ncol=3,
-    fancybox=True,
-    shadow=True,
-    markerscale=3,
-)
-axis.hlines(
-    y=newton_tol, xmin=0, xmax=T_end, linewidth=3, color="black", linestyles="dashed"
-)
-axis.text(T_end, newton_tol, "tol")
-# endregion
-
-# region broken axis residual
-
-# fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(2 * 8., 8.))
-# fig.subplots_adjust(hspace=0.05)  # adjust space between Axes
-# ax2.set_xlabel("Simulation time")
-# ax1.set_ylabel("l2-norm residual")
-# ax2.xaxis.set_major_formatter(FormatStrFormatter('%.3f'))
-# ax1.set_yscale('log')
-# ax2.set_yscale('log')
-
-# # plot the same data on both Axes
-# img_1 = ax1.plot(
-#     tx, np.array(res_bf_avg), linestyle="solid", color="blue", linewidth=3
-# )
-# img_1f = ax1.fill_between(
-#     tx, np.array(res_bf_max), np.array(res_bf_min), alpha=0.2, color='blue'
-# )
-# img_2 = ax1.plot(
-#     tx, np.array(res_af_avg), linestyle="solid", color="red", linewidth=3
-# )
-# img_2f = ax1.fill_between(
-#     tx, np.array(res_af_max), np.array(res_af_min), alpha=0.2, color='red'
-# )
-# img_3 = ax1.plot(
-#     tx, np.array(res_aa_avg), linestyle="solid", color="black", linewidth=3
-# )
-# img_3f = ax1.fill_between(
-#     tx, np.array(res_aa_max), np.array(res_aa_min), alpha=0.2, color='black', facecolor='grey', hatch='/'
-# )
-# ax1.legend(
-#     img_1 + [img_1f] + img_2 + [img_2f] + img_3 + [img_3f],
-#     ['avg before flash', 'range bf', 'avg after flash', 'range af', 'avg at assembly', 'range aa'],
-#     loc='upper center',
-#     bbox_to_anchor=(0.5, 1.1),
-#     ncol=3,
-#     fancybox=True,
-#     shadow=True,
-#     markerscale=3
-# )
-
-# img_1 = ax2.plot(
-#     tx, np.array(res_bf_avg), linestyle="solid", color="blue", linewidth=3
-# )
-# img_1f = ax2.fill_between(
-#     tx, np.array(res_bf_max), np.array(res_bf_min), alpha=0.2, color='blue'
-# )
-# img_2 = ax2.plot(
-#     tx, np.array(res_af_avg), linestyle="solid", color="red", linewidth=3
-# )
-# img_2f = ax2.fill_between(
-#     tx, np.array(res_af_max), np.array(res_af_min), alpha=0.2, color='red'
-# )
-# img_3 = ax2.plot(
-#     tx, np.array(res_aa_avg), linestyle="solid", color="black", linewidth=3
-# )
-# img_3f = ax2.fill_between(
-#     tx, np.array(res_aa_max), np.array(res_aa_min), alpha=0.2, color='black', facecolor='grey', hatch='/'
-# )
-
-# # zoom-in / limit the view to different portions of the data
-# ax1.set_ylim((10e2, 40e6))
-# ax2.set_ylim((newton_tol, 10e-4))
-
-# # hide the spines between ax and ax2
-# ax1.spines.bottom.set_visible(False)
-# ax2.spines.top.set_visible(False)
-# ax1.xaxis.tick_top()
-# ax1.tick_params(labeltop=False)  # don't put tick labels at the top
-# ax2.xaxis.tick_bottom()
-
-# d = .5  # proportion of vertical to horizontal extent of the slanted line
-# kwargs = dict(marker=[(-1, -d), (1, d)], markersize=12,
-#               linestyle="none", color='k', mec='k', mew=1, clip_on=False)
-# ax1.plot([0, 1], [0, 0], transform=ax1.transAxes, **kwargs)
-# ax2.plot([0, 1], [1, 1], transform=ax2.transAxes, **kwargs)
-
-# endregion
-
-fig.tight_layout(pad=0.05, w_pad=1)
-fig.savefig(
-    str(pathlib.Path("./visualization/residuals.png").resolve()),
-    format="png",
-    dpi=400,
-)
-# endregion

@@ -13,8 +13,6 @@ import numpy as np
 from ._core import NUMBA_CACHE, NUMBA_FAST_MATH
 from .uniflash_utils_c import parse_xyz
 
-# region NPIPM related functions
-
 
 @numba.njit(
     "float64(float64[:],float64[:],float64,float64,float64,float64)",
@@ -273,8 +271,6 @@ def _npipm_extend_and_regularize_jac(
     return df_npipm
 
 
-# endregion
-
 # TODO The solver method need a static signature, once typing for functions as
 # arguments is available in numba
 
@@ -313,18 +309,23 @@ def solver(
     Intended use is for the unified flash problem.
     See :data:`~porepy.compositional.uniflash_c.SOLVERS` for more information.
 
-    The required parameters are:
+    The required solver parameters are:
 
      - ``'f_dim'``: Dimension of system (number of equations and unknowns).
         The last ``f_dim`` entries of the generic argument ``X0`` are assumed to
         be the unknowns.
     - ``'tol'``: Residual tolerance as stopping criterion.
     - ``'max_iter'``: Maximal number of iterations.
+    - ``'num_phases'``: Number of phases.
+    - ``'num_comp'``: Number of components.
     - ``'npnc'``: 2-tuple containing the number of phases and components.
     - ``'u1'``: See :func:`slack_equation_res`. Required for regularization.
-    - ``'rho_0'``: Initial step size for (Armijo) line search.
+    - ``'u2'``: See :func:`slack_equation_res`. Required for regularization.
+    - ``'eta'``: See :func:`slack_equation_res`. Required for regularization.
+    - ``'rho'``: Initial step size for (Armijo) line search.
     - ``'kappa'``: Slope for line search.
     - ``'max_iter_armijo'``: Maximal number of iterations for line search.
+    - ``'hbm'``: Flag (1/0) to use the heavy ball momentum descend.
 
     """
     # default return values
@@ -413,7 +414,7 @@ def solver(
                     # NOTE Here we allow the residual evaluation to fail and skip the
                     # line search step, as this might happen when dealing with
                     # non-smooth F.
-                    # By continuing we the step size comes closer to the old iterate
+                    # By continuing the step size comes closer to the old iterate
                     # making the line search more robust, but slowing the overall
                     # progress
                     continue

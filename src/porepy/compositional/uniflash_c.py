@@ -1,4 +1,4 @@
-"""Module containing implementation of the unified flash using (parallel) compiled
+"""Module containing an implementation of the unified flash using (parallel) compiled
 functions created with numba.
 
 The flash system, including a non-parametric interior point method, is assembled and
@@ -30,12 +30,12 @@ import numpy as np
 from numba.core import types as nbtypes
 from numba.typed import Dict as nbdict
 
-from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, R_IDEAL_MOL
+from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, R_IDEAL_MOL
 from .base import FluidMixture
 from .eos_compiler import EoSCompiler
 from .flash import Flash
 from .npipm_c import solver as npipmsolver
-from .states import FluidState
+from .states import FluidProperties, PhysicalState
 from .uniflash_utils_c import (
     insert_pT,
     insert_sat,
@@ -46,8 +46,8 @@ from .uniflash_utils_c import (
     parse_xyz,
 )
 from .utils import (
+    _chainrule_fractional_derivatives,
     _compute_saturations,
-    _extend_fractional_derivatives,
     normalize_rows,
     safe_sum,
 )
@@ -126,7 +126,7 @@ The success flag should be one of the following values:
 - 2: NAN or infty detected in update (aborted)
 - 3: failure in the evaluation of the residual
 - 4: failure in the evaluation of the Jacobian
-- 5: Any other failure (raised by linear mode solver)
+- 5: Any other failure (raised by parallel mode solver)
 
 The returned result should contain the value of the last iterate
 (independent of success).
@@ -135,7 +135,7 @@ The returned result should contain the value of the last iterate
 
 
 @numba.njit(
-    parallel=True,
+    parallel=NUMBA_PARALLEL,
 )
 def parallel_solver(
     X0: np.ndarray,
@@ -303,8 +303,6 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
 
     """
     return np.sum(-z * np.log(np.abs(_rr_poles(y, K))))
-    # F = [-np.log(np.abs(_rr_pole(i, y, K))) * z[i] for i in range(len(z))]
-    # return np.sum(F)
 
 
 def _convert_solver_parameters(params: SOLVER_PARAMETERS) -> nbdict:
@@ -317,9 +315,6 @@ def _convert_solver_parameters(params: SOLVER_PARAMETERS) -> nbdict:
     Note:
         Numba dicts must have precise types, so any value is converted to a float.
         If a parameter is an integer, the solver must convert it back to int.
-
-    Raises:
-        KeyError: If any of the expected parameters is missing.
 
     """
 
@@ -351,19 +346,17 @@ def mass_conservation_res(x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.nda
 
     Number of phases and components is determined from the chape of ``x``.
 
-    NJIT-ed function with signature
-    ``(float64[:,:], float64[:], float64[:]) -> float64[:]``.
-
     Note:
-        See :func:`parse_xyz` for obtaining the properly formatted arguments ``x,y,z``.
+        See :func:`~porepy.compositional.uniflash_utils_c.parse_xyz` for obtaining the
+        properly formatted arguments ``x,y,z``.
 
     Parameters:
         x: ``shape=(num_phase, num_comp)``
 
-            Phase compositions
+            Phase compositions.
         y: ``shape=(num_phase,)``
 
-            Molar phase fractions.
+            Phase fractions.
         z: ``shape=(num_comp,)``
 
             Overall fractions per component.
@@ -388,13 +381,10 @@ def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     :func:`mass_conservation_res`
 
     The Jacobian is of shape ``(num_comp - 1, num_phase - 1 + num_phase * num_comp)``.
-    The derivatives (columns) are taken w.r.t. to each independent molar fraction,
-    except feed fractions.
+    The derivatives (columns) are taken w.r.t. to phase fractions and extended
+    fractions.
 
     The order of derivatives w.r.t. phase compositions is in phase-major order.
-
-    NJIT-ed function with signature
-    ``(float64[:,:], float64[:]) -> float64[:,:]``.
 
     Note:
         The Jacobian does not depend on the overall fractions ``z``, since they are
@@ -432,11 +422,9 @@ def complementary_conditions_res(x: np.ndarray, y: np.ndarray) -> np.ndarray:
 
     Number of phases and components is determined from the chape of ``x``.
 
-    NJIT-ed function with signature
-    ``(float64[:,:], float64[:]) -> float64[:]``.
-
     Note:
-        See :func:`parse_xyz` for obtaining the properly formatted arguments ``x,y``.
+        See :func:`~porepy.compositional.uniflash_utils_c.parse_xyz` for obtaining the
+        properly formatted arguments ``x,y,z``.
 
     Parameters:
         x: ``shape=(num_phase, num_comp)``
@@ -462,13 +450,10 @@ def complementary_conditions_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     :func:`complementary_conditions_res`
 
     The Jacobian is of shape ``(num_phase, num_phase - 1 + num_phase * num_comp)``.
-    The derivatives (columns) are taken w.r.t. to each independent molar fraction,
-    except feed fractions.
+    The derivatives (columns) are taken w.r.t. to phase fractions and extended
+    fractions.
 
     The order of derivatives w.r.t. phase compositions is in phase-major order.
-
-    NJIT-ed function with signature
-    ``(float64[:,:], float64[:]) -> float64[:,:]``.
 
     """
     nphase, ncomp = x.shape
@@ -561,10 +546,12 @@ class CompiledUnifiedFlash(Flash):
         """A list containing critical volumes per component in ``mixture``."""
         self._omegas: list[float] = [comp.omega for comp in mixture.components]
         """A list containing acentric factors per component in ``mixture``."""
-        self._phasetypes: np.ndarray = np.array(
-            [phase.type for phase in mixture.phases], dtype=np.int32
-        )
-        """An array containing the phase types per phase in ``mixture``."""
+        self._phasestates: Sequence[PhysicalState] = [
+            phase.state for phase in mixture.phases
+        ]
+        """A sequence containing the physical phase state per phase in ``mixture``."""
+        self._gas_phase_index: Optional[int] = mixture.gas_phase_index
+        """The index of the gas phase. None if gas not existent."""
 
         self.eos_compiler: EoSCompiler = eos_compiler
         """Assembler and compiler of EoS-related expressions equation.
@@ -658,15 +645,15 @@ class CompiledUnifiedFlash(Flash):
 
         """
 
-        self.heavy_ball_momentum: bool
+        self.heavy_ball_momentum: bool = False
         """Flag to use the have ball momentum descend. Used in some solvers."""
 
     def _parse_and_complete_results(
         self,
         results: np.ndarray,
         flash_type: Literal["p-T", "p-h", "v-h"],
-        fluid_state: FluidState,
-    ) -> FluidState:
+        fluid_state: FluidProperties,
+    ) -> FluidProperties:
         """Helper function to fill a fluid state with the results from the flash.
 
         Modifies and returns the passed state structur containing flash
@@ -722,8 +709,8 @@ class CompiledUnifiedFlash(Flash):
         fluid_state.phases = list()
         for j in range(nphase):
             fluid_state.phases.append(
-                self.eos_compiler.compute_phase_state(
-                    self._phasetypes[j], fluid_state.p, fluid_state.T, x[j]
+                self.eos_compiler.compute_phase_properties(
+                    self._phasestates[j], fluid_state.p, fluid_state.T, x[j]
                 )
             )
 
@@ -751,14 +738,10 @@ class CompiledUnifiedFlash(Flash):
         self._solver_params["u1"] = self.npipm_parameters["u1"]
         self._solver_params["u2"] = self.npipm_parameters["u2"]
         self._solver_params["eta"] = self.npipm_parameters["eta"]
-        if hasattr(self, "heavy_ball_momentum"):
-            self._solver_params["hbm"] = float(self.heavy_ball_momentum)
-        else:
-            self._solver_params["hbm"] = 0.0
+        self._solver_params["hbm"] = float(self.heavy_ball_momentum)
 
     def compile(self) -> None:
-        """Triggers the assembly and compilation of equilibrium equations, including
-        the NPIPM approach.
+        """Triggers the assembly and compilation of equilibrium equations.
 
         The order of equations is always as follows:
 
@@ -766,9 +749,8 @@ class CompiledUnifiedFlash(Flash):
         2. ``(num_phase -1) * num_comp`` isofugacity constraints
         3. state constraints (1 for each)
         4. ``num_phase`` complementarity conditions
-        5. 1 NPIPM slack equation
 
-        Important:
+        Note:
             This takes a considerable amount of time.
             The compilation is therefore separated from the instantiation of this class.
 
@@ -776,14 +758,17 @@ class CompiledUnifiedFlash(Flash):
 
         nphase, ncomp = self.npnc
         npnc = self.npnc
-        phasetypes = self._phasetypes
+        phasestates = np.array(
+            [state.value for state in self._phasestates], dtype=np.int32
+        )
 
-        if 1 in phasetypes:
-            # NOTE only 1 expected (first)
-            # gas_index = phasetypes.tolist().index(1)
-            has_gas = True
-        else:
-            has_gas = False
+        # NOTE the functions here still use a hard-coded gas phase index -1.
+        # Consider changing to use the mixture's gas index property.
+        # if 1 in phasestates:
+        #     has_gas = True
+        # else:
+        #     has_gas = False
+        gas_phase_index = self._gas_phase_index
 
         ## dimension of flash systems, excluding NPIPM
         # number of equations for the pT system
@@ -831,22 +816,22 @@ class CompiledUnifiedFlash(Flash):
             """Helper function to compute the prearguments for the residual for all
             phases"""
 
-            p_0 = prearg_val_c(phasetypes[0], p, T, xn[0])
+            p_0 = prearg_val_c(phasestates[0], p, T, xn[0])
             prearg = np.empty((nphase, p_0.shape[0]), dtype=np.float64)
             prearg[0] = p_0
             for j in range(1, nphase):
-                prearg[j] = prearg_val_c(phasetypes[j], p, T, xn[j])
+                prearg[j] = prearg_val_c(phasestates[j], p, T, xn[j])
             return prearg
 
         @numba.njit("float64[:,:](float64,float64,float64[:,:])")
         def get_prearg_jac(p: float, T: float, xn: np.ndarray) -> np.ndarray:
             """Helper function to compute the prearguments for the Jacobian for all
             phases"""
-            p_0 = prearg_jac_c(phasetypes[0], p, T, xn[0])
+            p_0 = prearg_jac_c(phasestates[0], p, T, xn[0])
             prearg = np.empty((nphase, p_0.shape[0]), dtype=np.float64)
             prearg[0] = p_0
             for j in range(1, nphase):
-                prearg[j] = prearg_jac_c(phasetypes[j], p, T, xn[j])
+                prearg[j] = prearg_jac_c(phasestates[j], p, T, xn[j])
             return prearg
 
         logger.debug("Compiling flash equations: isofugacity constraints")
@@ -899,7 +884,7 @@ class CompiledUnifiedFlash(Flash):
             # NOTE phi depends on normalized fractions
             # extending derivatives from normalized fractions to extended ones
             for i in range(ncomp):
-                d_phi_j[i] = _extend_fractional_derivatives(d_phi_j[i], X)
+                d_phi_j[i] = _chainrule_fractional_derivatives(d_phi_j[i], X)
 
             # product rule: x * dphi
             d_xphi_j = (d_phi_j.T * X).T
@@ -1008,7 +993,7 @@ class CompiledUnifiedFlash(Flash):
             # enthalpy and its gradient of the reference phase
             h_0 = h_c(prearg_res[0], p, T, xn[0])
             # gradient of h_0 w.r.t to extended fraction
-            d_h_0 = _extend_fractional_derivatives(
+            d_h_0 = _chainrule_fractional_derivatives(
                 d_h_c(prearg_res[0], prearg_jac[0], p, T, xn[0]), x[0]
             )
             # contribution to p- and T-derivative of reference phase
@@ -1019,7 +1004,7 @@ class CompiledUnifiedFlash(Flash):
 
             for j in range(1, nphase):
                 h_j = h_c(prearg_res[j], p, T, xn[j])
-                d_h_j = _extend_fractional_derivatives(
+                d_h_j = _chainrule_fractional_derivatives(
                     d_h_c(prearg_res[j], prearg_jac[j], p, T, xn[j]), x[j]
                 )
                 # contribution to p- and T-derivative of phase j
@@ -1094,7 +1079,7 @@ class CompiledUnifiedFlash(Flash):
 
             for j in range(nphase):
                 rho_j[j] = rho_c(prearg_res[j], p, T, xn[j])
-                d_rho_j[j] = _extend_fractional_derivatives(
+                d_rho_j[j] = _chainrule_fractional_derivatives(
                     d_rho_c(prearg_res[j], prearg_jac[j], p, T, xn[j]), x[j]
                 )
                 dpT_rho_mix += sat[j] * d_rho_j[j, :2]
@@ -1556,8 +1541,8 @@ class CompiledUnifiedFlash(Flash):
                     dT *= 1 - np.abs(dT) / T
                     # correction if gas phase is present and mixture enthalpy is too low
                     # to avoid overshooting T update
-                    if has_gas:
-                        if h_mix < h and y[-1] > 1e-3:
+                    if gas_phase_index is not None:
+                        if h_mix < h and y[gas_phase_index] > 1e-3:
                             dT *= 0.4
                     T += dT
 
@@ -1605,8 +1590,8 @@ class CompiledUnifiedFlash(Flash):
             x, y, _ = parse_xyz(X_gen, npnc)
             xn = normalize_rows(x)
             v, h = parse_target_state(X_gen, npnc)
-            if has_gas:
-                y_g = y[-1]
+            if gas_phase_index is not None:
+                y_g = y[gas_phase_index]
             else:
                 y_g = 0.0
 
@@ -1724,9 +1709,9 @@ class CompiledUnifiedFlash(Flash):
                 xf = insert_pT(xf, p, T, npnc)
                 xf = guess_fractions(xf, 3, 1)
 
-                if has_gas:
+                if gas_phase_index is not None:
                     _, y, _ = parse_xyz(xf, npnc)
-                    y_g = y[-1]
+                    y_g = y[gas_phase_index]
                 else:
                     y_g = 0.0
                 if y_g < 1e-3:  # correction if no gas present
@@ -1754,7 +1739,7 @@ class CompiledUnifiedFlash(Flash):
                 rho = np.empty(nphase, dtype=np.float64)
                 for j in range(nphase):
                     rho[j] = rho_c(
-                        prearg_val_c(phasetypes[j], p, T, xn[j]), p, T, xn[j]
+                        prearg_val_c(phasestates[j], p, T, xn[j]), p, T, xn[j]
                     )
                 sat = _compute_saturations(y, rho, 1e-10)
                 X_gen[f] = insert_sat(xf, sat[1:], npnc)
@@ -1781,9 +1766,9 @@ class CompiledUnifiedFlash(Flash):
         T: Optional[np.ndarray] = None,
         h: Optional[np.ndarray] = None,
         v: Optional[np.ndarray] = None,
-        initial_state: Optional[FluidState] = None,
+        initial_state: Optional[FluidProperties] = None,
         parameters: dict = dict(),
-    ) -> tuple[FluidState, np.ndarray, np.ndarray]:
+    ) -> tuple[FluidProperties, np.ndarray, np.ndarray]:
         """Performes the flash for given feed fractions and state definition.
 
         Assumes the first fraction
@@ -1931,16 +1916,6 @@ class CompiledUnifiedFlash(Flash):
             + f"Diverged: {np.sum(success == 2)} / {NF}; "
             + f"Other failures: {np.sum(success > 2)} / {NF}"
         )
-
-        self.last_flash_stats = {
-            "type": flash_type,
-            "init_time": init_time,
-            "minim_time": minim_time,
-            "num_flash": NF,
-            "num_max_iter": int(np.sum(success == 1)),
-            "num_failure": int(np.sum(success == 2) + np.sum(success == 3)),
-            "num_diverged": int(np.sum(success == 4)),
-        }
 
         return (
             self._parse_and_complete_results(results, flash_type, fluid_state),

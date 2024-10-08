@@ -7,7 +7,7 @@ argument is a specially sorted array, containing unknowns, but also parameters.
 Parameters include foremostly the thermodynamic target state (pressure values in the pT
 flash for example.)
 
-The convention in the compiled flash is as follows:
+The order in the generic argument is as follows:
 
 1. ``num_comp - 1`` values for independent feed fractions.
 2. 2 values for target equilibrium state (p-T, h-p, v-h) defining the flash procedure.
