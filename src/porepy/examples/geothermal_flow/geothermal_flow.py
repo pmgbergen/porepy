@@ -1,33 +1,20 @@
 """Example implementing a multi-phase multi component flow of H2O-NaCl using Driesner
-correlations and a tracer-like as constitutive descriptions.
+correlations.
 
-This model uses pressure, specific fluid mixture enthalpy and NaCl overall fraction as
-primary variables.
+The model relies on pressure (P), specific fluid mixture enthalpy (H), and NaCl overall
+composition (z_NaCl) as primary variables.
 
-No equilibrium calculations included.
+Equilibrium calculations are included in the correlations. As a result, they contain
+expressions for saturation, partial fractions, and temperature based on primary variables.
 
-Ergo, the user must close the model to provide expressions for saturation, partial
-fractions and temperature, depending on primary variables.
-
-Note:
-    With some additional work, it is straight forward to implement a model without
-    h as the primary variable, but T.
-
-    What needs to change is:
-
-    1. Overwrite
-       porepy.models.compositional_flow.VariablesCF
-       mixin s.t. it does not create a h variable.
-    2. Modify accumulation term in
-       porepy.models.compositional_flow.TotalEnergyBalanceEquation_h
-       to use T, not h.
-    3. H20_NaCl_brine.dependencies_of_phase_properties: Use T instead of h.
+The correlations are interpolated with VTK using a standalone object (VTKSampler). Two
+instances of that object provide functions and their gradients within the product spaces
+(z_NaCl, xi, P) in R^3, where xi in {H,T}.
 
 """
 
 from __future__ import annotations
-import os
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+
 import time
 
 import numpy as np
@@ -39,8 +26,8 @@ from vtk_sampler import VTKSampler
 import porepy as pp
 
 day = 86400
-tf = 0.05 * day
-dt = 0.00025 * day
+tf = 0.00005 * day # final time
+dt = 0.000025 * day # time step size
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -75,17 +62,11 @@ params = {
 class GeothermalFlowModel(FlowModel):
 
     def after_nonlinear_convergence(self, iteration_counter) -> None:
-        tb = time.time()
-        _, residual = self.equation_system.assemble(evaluate_jacobian=True)
-        res_norm = np.linalg.norm(residual)
-        te = time.time()
-        print("Elapsed time assemble: ", te - tb)
-        print("Time step converged with residual norm: ", res_norm)
+        super().after_nonlinear_convergence(iteration_counter)
         print("Number of iterations: ", iteration_counter)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
-        super().after_nonlinear_convergence(iteration_counter)
 
     def after_simulation(self):
         self.exporter.write_pvd()
@@ -96,12 +77,21 @@ model = GeothermalFlowModel(params)
 
 parametric_space_ref_level = 2
 file_name_prefix = "model_configuration/constitutive_description/driesner_vtk_files/"
-file_name = (
+file_name_phz = (
     file_name_prefix + "XHP_l" + str(parametric_space_ref_level) + "_modified.vtk"
 )
-brine_sampler = VTKSampler(file_name)
-brine_sampler.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
-model.vtk_sampler = brine_sampler
+file_name_ptz = (
+    file_name_prefix + "XTP_l" + str(parametric_space_ref_level) + "_modified.vtk"
+)
+
+brine_sampler_phz = VTKSampler(file_name_phz)
+brine_sampler_phz.conversion_factors = (1.0, 1.0e-3, 1.0e-5)  # (z,h,p)
+model.vtk_sampler = brine_sampler_phz
+
+brine_sampler_ptz = VTKSampler(file_name_ptz)
+brine_sampler_ptz.conversion_factors = (1.0, 1.0, 1.0e-5)  # (z,t,p)
+brine_sampler_ptz.translation_factors = (0.0, -273.15, 0.0)  # (z,t,p)
+model.vtk_sampler_ptz = brine_sampler_ptz
 
 
 tb = time.time()
@@ -130,9 +120,3 @@ mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
 inlet_idx, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])
 print("Inflow values : ", mn[inlet_idx])
 print("Outflow values : ", mn[outlet_idx])
-
-# Check conservation of overall mass across boundaries
-# external_bc_idx = bc_sides.all_bf
-# assert np.isclose(np.sum(mn[external_bc_idx]), 0.0, atol=1.0e-10)
-
-
