@@ -38,26 +38,37 @@ class EquationsCFLE_ph(
     conditions.
 
     Due to saturations and molar fractions being independent variables, the model is
-    closed with local density relations.
+    closed with local phase mass conservation equations.
+
+    Note:
+        Using an independent fluid enthalpy variable, these model equations are suitable
+        for both, isenthalpic and isothermal flash procedures.
 
     """
 
+    has_independent_fraction: Callable[[ppc.Phase], bool]
+    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
+
     def set_equations(self):
         """Assembles primary balance equations, local equilibrium equations and
-        local phase density relations, in that order."""
+        local phase mass conservation, in that order."""
         cf.PrimaryEquationsCF.set_equations(self)
         ppc.Unified_ph_Equilibrium.set_equations(self)
-        self.set_density_relations_for_phases()
+        self.set_mass_conservations_for_phases()
 
-    def set_density_relations_for_phases(self) -> None:
-        """Method setting the density relation for each independent phase."""
-        rphase = self.fluid_mixture.reference_phase
+    def set_mass_conservations_for_phases(self) -> None:
+        """Method setting the local mass conservation equation for each phase which has
+        an independent fraction variable.
+
+        The phase fraction variable usually appears in equilibrium formulations.
+        Since saturations are variables as well, the system must be closed by relating
+        those two phase-related quantities to each other.
+
+        """
         subdomains = self.mdg.subdomains()
-        if self.fluid_mixture.num_phases > 1:
-            for phase in self.fluid_mixture.phases:
-                if phase == rphase and self.eliminate_reference_phase:
-                    continue
-                equ = self.density_relation_for_phase(phase, subdomains)
+        for phase in self.fluid_mixture.phases:
+            if self.has_independent_fraction(phase):
+                equ = self.mass_constraint_for_phase(phase, subdomains)
                 self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
 
@@ -70,41 +81,31 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
     The 'boundary flash' needs to be performed once by the
     :class:`SolutionStrategyCFLE` during initialization.
 
-    If the BC are not constant, the user needs to flag this and this class will
-    perform the boundary flash in every time step to update respective values.
-
-    """
-
-    has_time_dependent_boundary_equilibrium: bool = False
-    """A bool indicating whether Dirichlet BC for pressure, temperature or
-    feed fractions are time-dependent.
-
-    If True, the boundary equilibrium will be re-computed at the beginning of every
-    time step. This is required to provide e.g., values of the advective weights on
-    the boundary for upwinding.
-
-    Cannot be True if :attr:`SolutionStrategyCFLE.equilibrium_type` is set to None
-    (and hence no flash method was introduced).
-
-    Defaults to False.
+    If the BC are not constant, the user needs to flag this in the model parameters and
+    this class will perform the boundary flash in every time step to update respective
+    values.
 
     """
 
     flash: ppc.Flash
-    """Provided by :class:`~porepy.compositional.equilibrium_mixins.FlashMixin`."""
+    """See :class:`~porepy.compositional.flash.FlashMixin`."""
     flash_params: dict
-    """Provided by :class:`~porepy.compositional.equilibrium_mixins.FlashMixin`."""
+    """See :class:`~porepy.compositional.flash.FlashMixin`."""
+
+    has_independent_saturation: Callable[[ppc.Phase], bool]
+    has_independent_partial_fraction: Callable[[ppc.Component, ppc.Phase], bool]
+    has_independent_extended_fraction: Callable[[ppc.Component, ppc.Phase], bool]
 
     def update_boundary_values_phase_properties(self) -> None:
         """Instead of performing the update using underlying EoS, a flash is performed
         to compute the updates for phase properties, as well as for (extended) partial
         fractions and saturations.
 
-        Calls :meth:`boundary_flash` if :attr:`has_time_dependent_boundary_equilibrium`
-        is True.
+        Calls :meth:`boundary_flash` if the model parameters contains
+        ``params['has_time_dependent_boundary_equilibrium'] == True``.
 
         """
-        if self.has_time_dependent_boundary_equilibrium:
+        if self.params.get("has_time_dependent_boundary_equilibrium", False):
             self.boundary_flash()
 
     def boundary_flash(self) -> None:
@@ -142,7 +143,7 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
             logger.debug(f"Computing equilibrium on boundary {bg.id}")
 
             # populate fractional values with default value of zero
-            phase_states: list[ppc.PhaseState] = list()
+            phase_states: list[ppc.PhaseProperties] = list()
             fracs_on_bgs[bg] = dict()
 
             # NOTE IMPORTANT: Indicator for boundary cells, where is_dir indicates
@@ -156,7 +157,7 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
                 for phase in self.fluid_mixture.phases:
                     # default values of properties are zero-sized arrays.
                     # So this will not raise an error since bg.num_cells == 0
-                    state_j = ppc.PhaseState()
+                    state_j = ppc.PhaseProperties()
                     # NOTE ones to avoid division by zero. Cancelled out anyways.
                     # NOTE I also don't know why numpy is performing the operation on
                     # empty arrays
@@ -170,7 +171,7 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
                         # NOTE trace amounts to avoid division by zero errors when
                         # evaluationg partial fractions by normalization
                         fracs_on_bgs[bg][
-                            self._relative_fraction_variable(comp, phase)
+                            self._partial_fraction_variable(comp, phase)
                         ] = (np.ones(bg.num_cells) * 1e-16)
             else:
                 assert np.all(dir_bc), "Missing logic in BC conditions for flash"
@@ -204,7 +205,7 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
                     # Update for relative fractions
                     for k, comp in enumerate(phase.components):
                         fracs_on_bgs[bg][
-                            self._relative_fraction_variable(comp, phase)
+                            self._partial_fraction_variable(comp, phase)
                         ] = state_j.x[k]
 
                     phase_states.append(state_j)
@@ -223,22 +224,23 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
         # update_boundary_condition itself loops over all boundaries
         for phase in self.fluid_mixture.phases:
 
-            if (
-                self.eliminate_reference_phase
-                and phase == self.fluid_mixture.reference_phase
-            ):
-                pass
-            else:
+            # BC values for saturations are required in mobility terms.
+            if self.has_independent_saturation(phase):
                 var_name = self._saturation_variable(phase)
                 s_j_bc = lambda bg: fracs_on_bgs[bg][var_name]
                 s_j_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], s_j_bc)
                 self.update_boundary_condition(var_name, s_j_bc)
 
+            # BC values for fractions in phase (extended or partial, one of them is
+            # independent), are also required for the mobility terms on the BC
             for k, comp in enumerate(phase.components):
-                var_name = self._relative_fraction_variable(comp, phase)
-                x_ij_bc = lambda bg: fracs_on_bgs[bg][var_name]
-                x_ij_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], x_ij_bc)
-                self.update_boundary_condition(var_name, x_ij_bc)
+                if self.has_independent_extended_fraction(
+                    comp, phase
+                ) or self.has_independent_partial_fraction(comp, phase):
+                    var_name = self._partial_fraction_variable(comp, phase)
+                    x_ij_bc = lambda bg: fracs_on_bgs[bg][var_name]
+                    x_ij_bc = cast(Callable[[pp.BoundaryGrid], np.ndarray], x_ij_bc)
+                    self.update_boundary_condition(var_name, x_ij_bc)
 
 
 class InitialConditionsCFLE(cf.InitialConditionsCF):
@@ -257,12 +259,15 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
     """
 
     flash: ppc.Flash
-    """Provided by :class:`~porepy.compositional.equilibrium_mixins.FlashMixin`."""
+    """See :class:`~porepy.compositional.flash.FlashMixin`."""
     flash_params: dict
-    """Provided by :class:`~porepy.compositional.equilibrium_mixins.FlashMixin`."""
+    """See :class:`~porepy.compositional.flash.FlashMixin`."""
 
-    _relative_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
-    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
+    _has_unified_equilibrium: bool
+    has_independent_saturation: Callable[[ppc.Phase], bool]
+    has_independent_fraction: Callable[[ppc.Phase], bool]
+    has_independent_partial_fraction: Callable[[ppc.Component, ppc.Phase], bool]
+    has_independent_extended_fraction: Callable[[ppc.Component, ppc.Phase], bool]
 
     def set_intial_values_phase_properties(self) -> None:
         """Instead of computing the initial values using the underlying EoS, it performs
@@ -308,26 +313,30 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
 
             # setting initial values for all fractional variables and phase properties
             for j, phase in enumerate(self.fluid_mixture.phases):
-                # phase fractions and saturations
-                if (
-                    phase == self.fluid_mixture.reference_phase
-                    and self.eliminate_reference_phase
-                ):
-                    pass  # y and s of ref phase are dependent operators
-                else:
+                if self.has_independent_fraction(phase):
                     self.equation_system.set_variable_values(
                         state.y[j], [phase.fraction([sd])], iterate_index=0
                     )
+                if self.has_independent_saturation(phase):
                     self.equation_system.set_variable_values(
                         state.sat[j], [phase.saturation([sd])], iterate_index=0
                     )
-                # extended fractions
+
+                # fractions of component in phase
                 for k, comp in enumerate(phase.components):
-                    self.equation_system.set_variable_values(
-                        state.phases[j].x[k],
-                        [phase.extended_fraction_of[comp]([sd])],
-                        iterate_index=0,
-                    )
+                    # Extended or partial, one of them is independent
+                    if self.has_independent_extended_fraction(comp, phase):
+                        self.equation_system.set_variable_values(
+                            state.phases[j].x[k],
+                            [phase.extended_fraction_of[comp]([sd])],
+                            iterate_index=0,
+                        )
+                    elif self.has_independent_partial_fraction(comp, phase):
+                        self.equation_system.set_variable_values(
+                            state.phases[j].x[k],
+                            [phase.partial_fraction_of[comp]([sd])],
+                            iterate_index=0,
+                        )
 
                 # progress iterates values to all indices
                 for _ in self.iterate_indices:
@@ -343,26 +352,48 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                     phase.conductivity.progress_iterate_values_on_grid(
                         state.phases[j].kappa, sd, depth=ni
                     )
-                # progress derivative values only once (current iterate)
-                # extend derivatives from partial to extended fractions.
-                # NOTE This revers the hack performed by the composite mixins when creating
-                # secondary expressions which depend on extended fractions (independent)
-                # quantities, but should actually depend on partial fractions (dependent).
-                phase.density.progress_iterate_derivatives_on_grid(
-                    state.phases[j].drho_ext, sd
+                # Set the derivative values for the current iterate
+                # Extend derivatives from partial to extended fractions, in the case of
+                # unified equilibrium formulations.
+                phase.density.set_derivatives_on_grid(
+                    (
+                        state.phases[j].drho_ext
+                        if self._has_unified_equilibrium
+                        else state.phases[j].drho
+                    ),
+                    sd,
                 )
-                phase.specific_enthalpy.progress_iterate_derivatives_on_grid(
-                    state.phases[j].dh_ext, sd
+                phase.specific_enthalpy.set_derivatives_on_grid(
+                    (
+                        state.phases[j].dh_ext
+                        if self._has_unified_equilibrium
+                        else state.phases[j].dh
+                    ),
+                    sd,
                 )
-                phase.viscosity.progress_iterate_derivatives_on_grid(
-                    state.phases[j].dmu_ext, sd
+                phase.viscosity.set_derivatives_on_grid(
+                    (
+                        state.phases[j].dmu_ext
+                        if self._has_unified_equilibrium
+                        else state.phases[j].dmu
+                    ),
+                    sd,
                 )
-                phase.conductivity.progress_iterate_derivatives_on_grid(
-                    state.phases[j].dkappa_ext, sd
+                phase.conductivity.set_derivatives_on_grid(
+                    (
+                        state.phases[j].dkappa_ext
+                        if self._has_unified_equilibrium
+                        else state.phases[j].dkappa
+                    ),
+                    sd,
                 )
 
                 # fugacities
-                dphis_ext = state.phases[j].dphis_ext
+                dphis = (
+                    state.phases[j].dphis_ext
+                    if self._has_unified_equilibrium
+                    else state.phases[j].dphis
+                )
                 for k, comp in enumerate(phase.components):
                     for _ in self.iterate_indices:
                         phase.fugacity_coefficient_of[
@@ -370,9 +401,9 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                         ].progress_iterate_values_on_grid(
                             state.phases[j].phis[k], sd, depth=ni
                         )
-                    phase.fugacity_coefficient_of[
-                        comp
-                    ].progress_iterate_derivatives_on_grid(dphis_ext[k], sd)
+                    phase.fugacity_coefficient_of[comp].set_derivatives_on_grid(
+                        dphis[k], sd
+                    )
 
         # progress property values in time on subdomain
         for phase in self.fluid_mixture.phases:
@@ -382,7 +413,8 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
 
 
 class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
-    """A solution strategy for compositional flow with local equilibrium conditions.
+    """A solution strategy for compositional flow with local equilibrium conditions in
+    the unified setting.
 
     Updates of secondary variables and expressions (thermodynamic properties) are
     performed using the provided flash instance.
@@ -399,34 +431,47 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
         Hence no secondary variable (as defined by the base variable mixin for CF) is
         eliminated by some constitutive expression.
 
+    New model parameters introduced for instantiation:
+
+    - ``'has_time_dependent_boundary_equilibrium'``: Defaults to False.
+      A bool indicating whether Dirichlet BC for pressure, temperature or
+      feed fractions are time-dependent.
+
+      If True, the boundary equilibrium will be re-computed at the beginning of every
+      time step. This is required to provide e.g., values of the advective weights on
+      the boundary for upwinding.
+
+      Cannot be True if :attr:`SolutionStrategyCFLE.equilibrium_type` is set to None
+      (and hence no flash method was introduced).
+
     """
 
     boundary_flash: Callable[[], None]
-    """Provided by :class:`BoundaryConditionsCF`"""
+    """See :class:`BoundaryConditionsCF`"""
     initial_flash: Callable[[], None]
-    """Provided by :class:`InitialConditionsCF`."""
+    """See :class:`InitialConditionsCF`."""
 
-    _phase_fraction_variable: Callable[[ppc.Phase], str]
-    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
-    _saturation_variable: Callable[[ppc.Phase], str]
-    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
-    _relative_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
-    """Provided by :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
+    has_independent_saturation: Callable[[ppc.Phase], bool]
+    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
+    has_independent_fraction: Callable[[ppc.Phase], bool]
+    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
+    has_independent_partial_fraction: Callable[[ppc.Component, ppc.Phase], bool]
+    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
+    has_independent_extended_fraction: Callable[[ppc.Component, ppc.Phase], bool]
+    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
-    has_time_dependent_boundary_equilibrium: bool
-    """Provided by :class:`BoundaryConditionsCF`"""
+    _has_unified_equilibrium: bool
+    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     def __init__(self, params: dict | None = None) -> None:
+
         super().__init__(params)
 
         # Input validation for set-up
-        if (
-            self.equilibrium_type is None
-            and self.has_time_dependent_boundary_equilibrium
-        ):
+        if self.equilibrium_type is None:
             raise ppc.CompositionalModellingError(
-                f"Conflicting model set-up: Time-dependent boundary flash calculations"
-                + f" requested but no equilibrium type defined."
+                "Using the solution-strategy for CFLE without providing a specification"
+                + " of the local equilibrium type."
             )
 
     def initial_condition(self) -> None:
@@ -452,24 +497,25 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
         properites of phases, as well as secondary variables based on the
         flash results.
 
-        Hence, this turns the strategy into a non-linear Schur elimination, where
-        secondary quantities and variables recieve an intermediate update by
-        solving the local equilibrium problem with fixed primary variables.
+        This splits the solution strategy into two parts, by resolving the instantaneous
+        equilibrium time scale and giving secondary quantities and variables an
+        intermediate update by solving the local equilibrium problem with fixed primary
+        variables.
+
+        Note:
+            The update performed here is not an update in the iterative sense.
+            It is an update to the values of the current iterate.
 
         """
-        self._log_res("before flash")
+
         logger.info(
             f"Updating thermodynamic state of fluid with {self.equilibrium_type} flash."
         )
-        res = self.equation_system.assemble(evaluate_jacobian=False)
-        self._stats[-1][-1]["residual_before_flash"] = np.linalg.norm(res) / np.sqrt(
-            res.size
-        )
-        t_0 = time.time()
+
         for sd in self.mdg.subdomains():
             logger.debug(f"Flashing on grid {sd.id}")
             start = time.time()
-            fluid = self.postprocess_failures(
+            fluid = self.postprocess_flash(
                 sd,
                 *self.equilibriate_fluid([sd], None, self.get_fluid_state([sd], None)),
             )
@@ -480,27 +526,28 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
 
             ### Updating variables which are unknown to the specific equilibrium type
             for j, phase in enumerate(self.fluid_mixture.phases):
-                if (
-                    phase == self.fluid_mixture.reference_phase
-                    and self.eliminate_reference_phase
-                ):
-                    pass
-                else:
-                    self.equation_system.set_variable_values(
-                        fluid.sat[j],
-                        [phase.saturation([sd])],
-                        iterate_index=0,
-                    )
+                if self.has_independent_fraction(phase):
                     self.equation_system.set_variable_values(
                         fluid.y[j], [phase.fraction([sd])], iterate_index=0
                     )
+                if self.has_independent_saturation(phase):
+                    self.equation_system.set_variable_values(
+                        fluid.sat[j], [phase.saturation([sd])], iterate_index=0
+                    )
 
                 for i, comp in enumerate(phase.components):
-                    self.equation_system.set_variable_values(
-                        fluid.phases[j].x[i],
-                        [phase.extended_fraction_of[comp]([sd])],
-                        iterate_index=0,
-                    )
+                    if self.has_independent_extended_fraction(comp, phase):
+                        self.equation_system.set_variable_values(
+                            fluid.phases[j].x[i],
+                            [phase.extended_fraction_of[comp]([sd])],
+                            iterate_index=0,
+                        )
+                    elif self.has_independent_partial_fraction(comp, phase):
+                        self.equation_system.set_variable_values(
+                            fluid.phases[j].x[i],
+                            [phase.partial_fraction_of[comp]([sd])],
+                            iterate_index=0,
+                        )
 
             # setting state function values, depending on equilibrium definition
             if "T" not in self.equilibrium_type:
@@ -515,8 +562,6 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
                 self.equation_system.set_variable_values(
                     fluid.p, [self.pressure([sd])], iterate_index=0
                 )
-            # TODO THis update is not an iterative progress, but replaces the values
-            # of the current iterate
 
             ### update dependen quantities/ secondary expressions
             for phase, state in zip(self.fluid_mixture.phases, fluid.phases):
@@ -527,37 +572,28 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
                 # NOTE also, that the progress_* methods with depth 0, don't shift
                 # the iterate values, but overwrite only the current one at iterate
                 # index 0
-                phase.density.progress_iterate_values_on_grid(state.rho, sd)
-                phase.specific_enthalpy.progress_iterate_values_on_grid(state.h, sd)
-                phase.viscosity.progress_iterate_values_on_grid(state.mu, sd)
-                phase.conductivity.progress_iterate_values_on_grid(state.kappa, sd)
-
-                phase.density.progress_iterate_derivatives_on_grid(state.drho_ext, sd)
-                phase.specific_enthalpy.progress_iterate_derivatives_on_grid(
-                    state.dh_ext, sd
-                )
-                phase.viscosity.progress_iterate_derivatives_on_grid(state.dmu_ext, sd)
-                phase.conductivity.progress_iterate_derivatives_on_grid(
-                    state.dkappa_ext, sd
+                cf.update_phase_properties(
+                    sd,
+                    phase,
+                    state,
+                    0,
+                    update_derivatives=True,
+                    use_extended_derivatives=self._has_unified_equilibrium,
                 )
 
-                dphis_ext = state.dphis_ext
+                # The update of fugacity coefficients is done only in the equilibrium
+                # model, hence it is not part of the routine `update_phase_properties`
+                dphis = (
+                    state.dphis_ext if self._has_unified_equilibrium else state.dphis
+                )
 
                 for k, comp in enumerate(phase.components):
                     phase.fugacity_coefficient_of[comp].progress_iterate_values_on_grid(
                         state.phis[k], sd
                     )
-                    phase.fugacity_coefficient_of[
-                        comp
-                    ].progress_iterate_derivatives_on_grid(dphis_ext[k], sd)
-
-        t_1 = time.time()
-        self._stats[-1][-1]["time_flash"] = t_1 - t_0
-        self._log_res("after flash")
-        res = self.equation_system.assemble(evaluate_jacobian=False)
-        self._stats[-1][-1]["residual_after_flash"] = np.linalg.norm(res) / np.sqrt(
-            res.size
-        )
+                    phase.fugacity_coefficient_of[comp].set_derivatives_on_grid(
+                        dphis[k], sd
+                    )
 
 
 class CFLEModelMixin_ph(

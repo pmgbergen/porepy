@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import abc
 import logging
-from typing import Any, Literal, Optional, Sequence
+from typing import Callable, Literal, Optional, Sequence
 
 import numpy as np
 
 import porepy as pp
 import porepy.compositional as ppc
 
-from .states import FluidState
-from .utils import safe_sum
+from .base import FluidMixture
+from .states import FluidProperties
+from .utils import CompositionalModellingError, safe_sum
 
-__all__ = ["Flash"]
+__all__ = ["Flash", "FlashMixin"]
 
 logger = logging.getLogger(__name__)
 
@@ -47,37 +48,6 @@ class Flash(abc.ABC):
         self.max_iter: int = 150
         """Maximal number of iterations for the flash algorithms. Defaults to 150."""
 
-        self.last_flash_stats: dict[str, Any] = dict()
-        """Dictionary to store some information about the last flash procedure called.
-
-        Can be filled at the end of :meth:`flash` and is printed by
-        :meth:`log_last_flash`.
-
-        Examples:
-
-            - ``'type'``: String. Type of the flash (p-T, p-h,...)
-            - ``'init_time'``: Float. Real time taken to compute initial guess in
-              seconds.
-            - ``'minim_time'``: Float. Real time taken to solve the minimization problem
-              in seconds.
-            - ``'num_flash'``: Int. Number of flash problems solved
-              (if vectorized input)
-            - ``'num_max_iter'``: Int. Number of flash procedures which reached the
-              prescribed number of iterations.
-            - ``'num_failure'``: Int. Number of failed flash procedures
-              (failure in evaluation of residual or Jacobian).
-            - ``'num_diverged'``: Int. Number of flash procedures which diverged.
-
-        """
-
-    def log_last_flash(self):
-        """Prints statistics found in :attr:`last_flash_stats` in the console."""
-        msg = "Last flash overview:\n"
-        for k, v in self.last_flash_stats.items():
-            msg += f"---\t{k}: {v}\n"
-        msg += "\n"
-        print(msg)
-
     def parse_flash_input(
         self,
         z: Sequence[np.ndarray | pp.number],
@@ -85,9 +55,9 @@ class Flash(abc.ABC):
         T: Optional[np.ndarray | pp.number] = None,
         h: Optional[np.ndarray | pp.number] = None,
         v: Optional[np.ndarray | pp.number] = None,
-        initial_state: Optional[FluidState] = None,
+        initial_state: Optional[FluidProperties] = None,
     ) -> tuple[
-        FluidState,
+        FluidProperties,
         Literal["p-T", "p-h", "v-T", "v-h"],
         int,
         int,
@@ -97,7 +67,7 @@ class Flash(abc.ABC):
 
         The parameters are described in :meth:`flash`.
 
-        Determines also the equilibrium definition, the size of the (local) flash
+        Determins also the equilibrium definition, the size of the (local) flash
         problem and the number of values for vectorized input.
 
         Hint:
@@ -119,7 +89,7 @@ class Flash(abc.ABC):
             1. The fluid state consisting of feed fractions and equilibrium state.
                If ``initial_state`` is not none, it includes the values.
             2. A string denoting the equilibrium type.
-            3. A number denoting the size of the locall equilibrium problem (dofs)
+            3. A number denoting the size of the locall equilibrium problem (dofs).
             4. A number denoting the size of the input after uniformization.
 
         """
@@ -131,14 +101,14 @@ class Flash(abc.ABC):
         for i, z_ in enumerate(z):
             if np.any(z_ <= 0) or np.any(z_ >= 1):
                 raise ValueError(
-                    f"Violation of strict bound (0, 1) for feed fraction {i + 1}."
+                    f"Violation of bound [0, 1] for feed fraction {i + 1}."
                 )
 
         z_sum = safe_sum(z)
         assert np.all(z_sum == 1.0), "Feed fractions violate unity."
 
         # Declaring output
-        fluid_state: FluidState
+        fluid_state: FluidProperties
         flash_type: Literal["p-T", "p-h", "v-T", "v-h"]
         f_dim: int  # Dimension of flash system (unknowns & equations including NPIPM)
         NF: int  # number of vectorized target states
@@ -180,7 +150,7 @@ class Flash(abc.ABC):
                 + f"state_2={type(state_2)} "
             )
 
-        if isinstance(initial_state, FluidState):
+        if isinstance(initial_state, FluidProperties):
             n = len(initial_state.y)
             assert n == nphase, f"Expecting {nphase} phase fractions, {n} provided."
             assert np.allclose(
@@ -207,7 +177,7 @@ class Flash(abc.ABC):
                 ), f"Initial phase saturations violate strong unity constraint."
             fluid_state = initial_state
         else:
-            fluid_state = FluidState()
+            fluid_state = FluidProperties()
 
         # Uniformization of state values
         try:
@@ -248,11 +218,11 @@ class Flash(abc.ABC):
             fluid_state.rho = 1.0 / s_1
             fluid_state.h = s_2
         else:
-            # alert developers if sth missing, error should be catched above
+            # alert developers if something is missing, error should be catched above
             assert False, "Missing parsing of fluid input state"
 
         # uniformization of initial values if provided
-        if isinstance(initial_state, FluidState):
+        if isinstance(initial_state, FluidProperties):
             try:
                 # molar fractions
                 Y = list()
@@ -303,12 +273,12 @@ class Flash(abc.ABC):
         T: Optional[np.ndarray] = None,
         h: Optional[np.ndarray] = None,
         v: Optional[np.ndarray] = None,
-        initial_state: Optional[FluidState] = None,
+        initial_state: Optional[FluidProperties] = None,
         parameters: dict = dict(),
-    ) -> tuple[FluidState, np.ndarray, np.ndarray]:
+    ) -> tuple[FluidProperties, np.ndarray, np.ndarray]:
         """Abstract method for performing a flash procedure.
 
-        Exactly 2 thermodynamic state must be defined in terms of ``p, T, h`` or ``v``
+        Exactly 2 thermodynamic states must be defined in terms of ``p, T, h`` or ``v``
         for an equilibrium problem to be well-defined.
 
         One state must relate to pressure or volume.
@@ -334,7 +304,7 @@ class Flash(abc.ABC):
 
                 It must have additionally values for pressure and saturations, for
                 state definitions where pressure is not known at equilibrium.
-            params: ``default={}``
+            parameters: ``default={}``
 
                 Optional dictionary containing anything else required for custom flash
                 classes.
@@ -353,3 +323,210 @@ class Flash(abc.ABC):
 
         """
         ...
+
+
+class FlashMixin:
+    """Mixin class to introduce the unified flash procedure into the solution strategy.
+
+    Main ideas of the FlashMixin:
+
+    1. Instantiation of Flash object and make it available for other mixins.
+       :meth:`set_up_flasher`.
+    2. Convenience methods to equilibriate the fluid.
+    3. Abstraction to enable customization.
+
+    """
+
+    flash: Flash
+    """A flasher object able to compute the fluid phase equilibrium for a mixture
+    defined in the mixture mixin.
+
+    This object should be created here during :meth:`set_up_flasher`.
+
+    """
+
+    flash_params: dict = dict()
+    """The dictionary to be passed to a flash algorithm, whenever it is called."""
+
+    mdg: pp.MixedDimensionalGrid
+    """See :class:`~porepy.models.geometry.ModelGeometry`."""
+    equation_system: pp.ad.EquationSystem
+    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
+    fluid_mixture: FluidMixture
+    """See :class:`FluidMixtureMixin`."""
+
+    fractional_state_from_vector: Callable[
+        [Sequence[pp.Grid], Optional[np.ndarray]], FluidProperties
+    ]
+    """See :class:`~porepy.compositional.compositional_mixins.CompositionalVariables`.
+    """
+
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
+    """
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.compositional_flow.VariablesCF`."""
+    volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """See :class:`~porepy.models.compositional_flow.SolidSkeletonCF`."""
+
+    equilibrium_type: Optional[str]
+    """See :class:`~porepy.models.compositional_flow.SolutionStrategyCF`"""
+
+    def set_up_flasher(self) -> None:
+        """Method to introduce the flash class, if an equilibrium is defined.
+
+        This method is called by the solution strategy after the model is set up.
+
+        """
+        raise CompositionalModellingError(
+            "Call to mixin method. No flash object defined."
+        )
+
+    def get_fluid_state(
+        self, subdomains: Sequence[pp.Grid], state: Optional[np.ndarray] = None
+    ) -> FluidProperties:
+        """Method to assemble a fluid state in the iterative procedure, which
+        should be passed to :meth:`equilibriate_fluid`.
+
+        This method provides room to pre-process data before the flash is called with
+        the returned fluid state as the initial guess.
+
+        Parameters:
+            subdomains: Subdomains for which the state functions should be evaluated
+            state: ``default=None``
+
+                Global state vector to be passed to the Ad framework when evaluating the
+                current state (fractions, pressure, temperature, enthalpy,..)
+
+        Returns:
+            The base method returns a fluid state containing the current iterate value
+            of the unknowns of respective flash subproblem (p-T, p-h,...).
+
+        """
+
+        # Extracting the current, iterative state to use as initial guess for the flash
+        fluid_state = self.fractional_state_from_vector(subdomains, state)
+
+        # Evaluate temperature as initial guess, if not fixed in equilibrium type
+        if "T" not in self.equilibrium_type:
+            # initial guess for T from iterate
+            fluid_state.T = self.temperature(subdomains).value(
+                self.equation_system, state
+            )
+        # evaluate pressure, if volume is fixed. NOTE saturations are also fractions
+        # and already included
+        if "v" in self.equilibrium_type:
+            fluid_state.p = self.pressure(subdomains).value(self.equation_system, state)
+
+        return fluid_state
+
+    def equilibriate_fluid(
+        self,
+        subdomains: Sequence[pp.Grid],
+        state: Optional[np.ndarray] = None,
+        initial_fluid_state: Optional[FluidProperties] = None,
+    ) -> tuple[FluidProperties, np.ndarray]:
+        """Convenience method perform the flash based on model specifications.
+
+        This method is called in
+        :meth:`~porepy.models.compositional_flow.SolutionStrategyCF.
+        before_nonlinear_iteration` to use the flash as a predictor during nonlinear
+        iterations.
+
+        Parameters:
+            subdomains: Subdomains on which to evaluate the target state functions.
+            state: ``default=None``
+
+                Global state vector to be passed to the Ad framework when evaluating the
+                state functions.
+            initial_fluid_state: ``default=None``
+
+                Initial guess passed to :meth:`~porepy.compositional.flash.Flash.flash`.
+                Note that if None, the flash computes the initial guess itself.
+
+        Returns:
+            The equilibriated state of the fluid and an indicator where the flash was
+            successful (or not).
+
+            For more information on the `success`-indicators, see respective flash
+            object.
+
+        """
+
+        if initial_fluid_state is None:
+            z = np.array(
+                [
+                    comp.fraction(subdomains).value(self.equation_system)
+                    for comp in self.fluid_mixture.components
+                ]
+            )
+        else:
+            z = initial_fluid_state.z
+
+        flash_kwargs = {
+            "z": z,
+            "initial_state": initial_fluid_state,
+            "parameters": self.flash_params,
+        }
+
+        if "p-T" in self.equilibrium_type:
+            flash_kwargs.update(
+                {
+                    "p": self.pressure(subdomains).value(self.equation_system, state),
+                    "T": self.temperature(subdomains).value(
+                        self.equation_system, state
+                    ),
+                }
+            )
+        elif "p-h" in self.equilibrium_type:
+            flash_kwargs.update(
+                {
+                    "p": self.pressure(subdomains).value(self.equation_system, state),
+                    "h": self.enthalpy(subdomains).value(self.equation_system, state),
+                }
+            )
+        elif "v-h" in self.equilibrium_type:
+            flash_kwargs.update(
+                {
+                    "v": self.volume(subdomains).value(self.equation_system, state),
+                    "h": self.enthalpy(subdomains).value(self.equation_system, state),
+                }
+            )
+        else:
+            raise CompositionalModellingError(
+                "Attempting to equilibriate fluid with uncovered equilibrium type"
+                + f" {self.equilibrium_type}."
+            )
+
+        result_state, succes, _ = self.flash.flash(**flash_kwargs)
+
+        return result_state, succes
+
+    def postprocess_flash(
+        self, subdomain: pp.Grid, fluid_state: FluidProperties, success: np.ndarray
+    ) -> FluidProperties:
+        """A method called after :meth:`equilibriate_fluid` to post-process failures if
+        any.
+
+        The base method asserts that ``success`` is zero everywhere.
+
+        Parameters:
+            subdomain: A grid for which ``fluid_state`` contains the values.
+            fluid_state: Fluid state returned from :meth:`equilibriate_fluid`.
+            success: Success flags returned along the fluid state.
+
+        Returns:
+            A final fluid state, with treatment of values where the flash did not
+            succeed.
+
+        """
+        # nothing to do if everything successful
+        if np.all(success == 0):
+            return fluid_state
+        else:
+            raise ValueError(
+                "Flash strategy did not succeed in"
+                + f" {(success > 0).sum()} / {len(success)} cases."
+            )

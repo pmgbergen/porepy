@@ -10,8 +10,9 @@ from typing import Callable, Optional, Sequence
 import numba
 import numpy as np
 
+from ._core import NUMBA_PARALLEL, PhysicalState
 from .base import AbstractEoS, Component
-from .states import PhaseState
+from .states import PhaseProperties
 from .utils import normalize_rows
 
 __all__ = [
@@ -27,7 +28,10 @@ def _compile_vectorized_prearg(
     """Helper function implementing the parallelized, compiled computation of
     pre-argument functions ``func_c``, which is called element-wise."""
 
-    @numba.njit("float64[:,:](int32,float64[:],float64[:],float64[:,:])", parallel=True)
+    @numba.njit(
+        "float64[:,:](int32,float64[:],float64[:],float64[:,:])",
+        parallel=NUMBA_PARALLEL,
+    )
     def inner(phasetype: int, p: np.ndarray, T: np.ndarray, xn: np.ndarray):
         # the dimension of the prearg is unknown, run the first one to get it
         _, N = xn.shape
@@ -56,7 +60,8 @@ def _compile_vectorized_fugacity_coeffs(
     """
 
     @numba.njit(
-        "float64[:,:](float64[:,:],float64[:],float64[:],float64[:,:])", parallel=True
+        "float64[:,:](float64[:,:],float64[:],float64[:],float64[:,:])",
+        parallel=NUMBA_PARALLEL,
     )
     def inner(prearg: np.ndarray, p: np.ndarray, T: np.ndarray, xn: np.ndarray):
         ncomp, N = xn.shape
@@ -87,7 +92,7 @@ def _compile_vectorized_fugacity_coeff_derivatives(
 
     @numba.njit(
         "float64[:,:,:](float64[:,:],float64[:,:],float64[:],float64[:],float64[:,:])",
-        parallel=True,
+        parallel=NUMBA_PARALLEL,
     )
     def inner(
         prearg_res: np.ndarray,
@@ -115,7 +120,8 @@ def _compile_vectorized_property(
     properties given by ``func_c`` element-wise."""
 
     @numba.njit(
-        "float64[:](float64[:,:],float64[:],float64[:],float64[:,:])", parallel=True
+        "float64[:](float64[:,:],float64[:],float64[:],float64[:,:])",
+        parallel=NUMBA_PARALLEL,
     )
     def inner(prearg: np.ndarray, p: np.ndarray, T: np.ndarray, xn: np.ndarray):
         _, N = xn.shape
@@ -142,7 +148,7 @@ def _compile_vectorized_property_derivatives(
 
     @numba.njit(
         "float64[:,:](float64[:,:],float64[:,:],float64[:],float64[:],float64[:,:])",
-        parallel=True,
+        parallel=NUMBA_PARALLEL,
     )
     def inner(
         prearg_val: np.ndarray,
@@ -194,7 +200,7 @@ class EoSCompiler(AbstractEoS):
 
     The function for the ``prearg`` computation must have the signature:
 
-    ``(phasetype: int, p: float, T: float, xn: np.ndarray)``
+    ``(phase_state: int, p: float, T: float, xn: np.ndarray)``
 
     where ``xn`` contains normalized fractions,
 
@@ -226,8 +232,8 @@ class EoSCompiler(AbstractEoS):
 
     Parameters:
         components: Sequence of components for which the EoS should be compiled.
-            The class :class:`~porepy.compositional.base.Component` is used as a storage for
-            physical properties, the only relevant information for the EoS.
+            The class :class:`~porepy.compositional.base.Component` is used as a storage
+            for physical properties, the only relevant information for the EoS.
 
     """
 
@@ -808,13 +814,13 @@ class EoSCompiler(AbstractEoS):
         )
         # endregion
 
-    def compute_phase_state(
+    def compute_phase_properties(
         self,
-        phasetype: int,
+        phase_state: PhysicalState,
         p: np.ndarray,
         T: np.ndarray,
         x: Sequence[np.ndarray],
-    ) -> PhaseState:
+    ) -> PhaseProperties:
         """This method must only be called after the vectorized computations have been
         compiled (see :meth:`compile`).
 
@@ -849,11 +855,11 @@ class EoSCompiler(AbstractEoS):
             x = np.array(x)
         xn = normalize_rows(x.T).T
 
-        prearg_val = self.gufuncs["prearg_val"](phasetype, p, T, xn)
-        prearg_jac = self.gufuncs["prearg_jac"](phasetype, p, T, xn)
+        prearg_val = self.gufuncs["prearg_val"](phase_state.value, p, T, xn)
+        prearg_jac = self.gufuncs["prearg_jac"](phase_state.value, p, T, xn)
 
-        state = PhaseState(
-            phasetype=phasetype,
+        state = PhaseProperties(
+            state=phase_state,
             x=x,
             h=self.gufuncs["h"](prearg_val, p, T, xn),
             rho=self.gufuncs["rho"](prearg_val, p, T, xn),
