@@ -19,12 +19,29 @@ AQAAAACAAABgAAAAKAAAAA==eJxjYoAAFijNBqU5oDQXlOaB0nxQWgBKC0FpESgtBqUloDQAFyAAnQ==
 AQAAAACAAABgAAAADgAAAA==eJxjZoAAZhrRAAewACU=
 </DataArray>
 </Cells>
+<PointData>
+<DataArray type="Float64" Name="dummy_scalar_pt" format="binary">
+AQAAAACAAACgAAAADAAAAA==eJxjYBjcAAAAoAAB
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector_pt" NumberOfComponents="3" format="binary">
+AQAAAACAAADgAQAADgAAAA==eJxjYBgFwxkAAAHgAAE=
+</DataArray>
+<DataArray type="Int64" Name="node_id" format="binary">
+AQAAAACAAACgAAAAKwAAAA==eJxjYIAARijNBKWZoTQLlGaF0mxQmp0BFZCrnwNKc0JpLijNDaUBFrAAXw==
+</DataArray>
+<DataArray type="Float64" Name="unique_dummy_scalar_pt" format="binary">
+AQAAAACAAACgAAAADAAAAA==eJxjYBjcAAAAoAAB
+</DataArray>
+</PointData>
 <CellData>
 <DataArray type="Int64" Name="cell_id" format="binary">
 AQAAAACAAABgAAAAIQAAAA==eJxjYIAARijNBKWZGVABLnkWKM0KpdmgNDuUBgAE0AAj
 </DataArray>
 <DataArray type="Float64" Name="dummy_scalar" format="binary">
 AQAAAACAAABgAAAADAAAAA==eJxjYKAtAAAAYAAB
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector" NumberOfComponents="3" format="binary">
+AQAAAACAAAAgAQAADQAAAA==eJxjYBgF+AAAASAAAQ==
 </DataArray>
 <DataArray type="Int64" Name="grid_dim" format="binary">
 AQAAAACAAABgAAAADgAAAA==eJxjZIAARhrRAALQAA0=

@@ -17,7 +17,9 @@ def dummyeos():
     class DummyEos(composit.AbstractEoS):
 
         def compute_phase_properties(
-            self, phase_type: int, *thermodynamic_input: ndarray
+            self, 
+            phase_type: int, 
+            *thermodynamic_input: ndarray
         ) -> composit.PhaseProperties:
             pass
 

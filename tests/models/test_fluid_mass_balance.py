@@ -23,12 +23,12 @@ import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models, well_models
-from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
@@ -171,6 +171,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
     "method_name, expected_value, dimension_restriction",
     [
         ("aperture", np.array([1, 1, 1, 1, 0.01, 0.01, 0.01, 0.01, 0.01]), None),
+        ("combine_boundary_operators_darcy_flux", np.zeros(24), None),
         # Darcy fluxes (with unitary values for the viscosity).
         (
             "darcy_flux",
@@ -391,7 +392,7 @@ def test_ad_operator_methods_single_phase_flow(
     val = operator.value(model_setup.equation_system)
 
     if isinstance(val, sps.bsr_matrix):  # needed for `tangential_component`
-        val = val.A
+        val = val.toarray()
 
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
@@ -431,20 +432,23 @@ def test_unit_conversion(units):
         "fracture_indices": [0, 1],
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid},
+    }
+    solver_params = {
         "nl_convergence_tol_res": 1e-12,
         "nl_convergence_tol": 1,
     }
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"
+    reference_solver_params = copy.deepcopy(solver_params)
 
     # Create model and run simulation
     setup_0 = Model(reference_params)
-    pp.run_time_dependent_model(setup_0, reference_params)
+    pp.run_time_dependent_model(setup_0, reference_solver_params)
 
     params["units"] = pp.Units(**units)
     setup_1 = Model(params)
 
-    pp.run_time_dependent_model(setup_1, params)
+    pp.run_time_dependent_model(setup_1, solver_params)
     variables = [setup_1.pressure_variable, setup_1.interface_darcy_flux_variable]
     variable_units = ["Pa", "Pa * m^2 * s^-1"]
     models.compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
@@ -484,7 +488,7 @@ def test_well_incompressible_pressure_values():
     }
 
     setup = WellModel(params)
-    pp.run_time_dependent_model(setup, params)
+    pp.run_time_dependent_model(setup)
     # Check that the matrix pressure is close to linear in z
     matrix = setup.mdg.subdomains(dim=3)[0]
     matrix_pressure = setup.pressure([matrix]).value(setup.equation_system)

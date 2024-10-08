@@ -97,6 +97,8 @@ from typing import Optional, Union
 import numpy as np
 from numpy.typing import ArrayLike
 
+import porepy as pp
+
 __all__ = ["TimeManager"]
 
 
@@ -343,6 +345,9 @@ class TimeManager:
         self.schedule = schedule
         self.time_init = schedule[0]
         self.time_final = schedule[-1]
+        self._is_about_to_hit_schedule: bool = False
+        """This flag indicates that we expect the current time step to step over the
+        schedule point. Used to step back in the schedule if we did not converge."""
 
         # Initial time step
         self.dt_init = dt_init
@@ -393,6 +398,23 @@ class TimeManager:
         # Keep track of recomputed solutions and current number of iterations
         self._recomp_sol: bool = False
         self._iters: Union[int, None] = None
+
+        # Bookkeeping of saved time steps for restarting purposes.
+        self.exported_dt: list[pp.number] = []
+        """A list of time steps for the simulation states that were saved on disk with
+        `write_time_information` for restarting purposes. Completeness and lack of
+        duplication are NOT guaranteed.
+
+        NOTE: This property cannot be inferred from `exported_times`, consider the case
+        when not every time step is saved.
+
+        """
+        self.exported_times: list[pp.number] = []
+        """A list of time points for the simulation states that were saved on disk with
+        `write_time_information` for restarting purposes. Completeness and lack of
+        duplication are NOT guaranteed.
+
+        """
 
     def __repr__(self) -> str:
         s = "Time-stepping control object with attributes:\n"
@@ -445,8 +467,8 @@ class TimeManager:
         self._recomp_sol = recompute_solution
         self._iters = iterations
 
-        # First, check if we reach final simulation time
-        if self.final_time_reached():
+        # First, check if we reach final simulation time with a valid solution
+        if not recompute_solution and self.final_time_reached():
             return None
 
         # If the time step is constant, always return that value
@@ -570,6 +592,8 @@ class TimeManager:
             #   (S3) Decrease time step multiplying it by the recomputing factor < 1.
             #   (S4) Increase counter that keeps track of the number of times the
             #        solution was recomputed.
+            #   (S5) Step back in the schedule if we expected to meet the next schedule
+            #        point.
 
             # Note that iterations is not really used here. So, as long as
             # recompute_solution = True and recomputation_attempts <
@@ -582,6 +606,9 @@ class TimeManager:
             self.time_index -= 1  # (S2)
             self.dt *= self.recomp_factor  # (S3)
             self._recomp_num += 1  # (S4)
+            if self._is_about_to_hit_schedule:  # (S5)
+                self._scheduled_idx -= 1
+
             if self._print_info:
                 msg = (
                     "Solution did not converge and will be recomputed."
@@ -620,7 +647,11 @@ class TimeManager:
     def _correction_based_on_schedule(self) -> None:
         """Correct time step if time + dt > scheduled_time."""
         schedule_time = self.schedule[self._scheduled_idx]
+
+        self._is_about_to_hit_schedule = False
+
         if self.time + self.dt > schedule_time:
+            self._is_about_to_hit_schedule = True
             self._scheduled_idx += 1  # Increase index to catch next scheduled time.
 
             if np.isclose(self.time, schedule_time, rtol=self.rtol, atol=self.atol):
@@ -703,19 +734,12 @@ class TimeManager:
                 a default path within the default 'visualization' folder is used.
 
         """
-        # Initialization
-        if not hasattr(self, "time_history"):
-            self.time_history = []
-            """Collection of all visited physical times."""
-        if not hasattr(self, "dt_history"):
-            self.dt_history = []
-            """Collection of all used time step sizes."""
 
-        # Book keeping
-        self.time_history.append(
+        # Bookkeeping
+        self.exported_times.append(
             int(self.time) if isinstance(self.time, np.integer) else float(self.time)
         )
-        self.dt_history.append(
+        self.exported_dt.append(
             int(self.dt) if isinstance(self.dt, np.integer) else float(self.dt)
         )
 
@@ -725,7 +749,7 @@ class TimeManager:
 
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as out_file:
-            json.dump({"time": self.time_history, "dt": self.dt_history}, out_file)
+            json.dump({"time": self.exported_times, "dt": self.exported_dt}, out_file)
 
     def load_time_information(self, path: Optional[Path] = None) -> None:
         """Keep track of history of time and time step size and store.
@@ -740,12 +764,13 @@ class TimeManager:
         default_path = Path("visualization") / Path("times.json")
         with open(path if path is not None else default_path) as in_file:
             data = json.load(in_file)
-            self.time_history = data["time"]
-            self.dt_history = data["dt"]
+            self.exported_times = data["time"]
+            self.exported_dt = data["dt"]
 
-    def set_from_history(self, time_index: int = -1) -> None:
-        """Load previous visited history for resuming, and cut-off afterward
-        history.
+    def set_time_and_dt_from_exported_steps(self, time_index: int = -1) -> None:
+        """Load time and dt (time step) and cut off all later times and time steps.
+
+        NOTE: This method by itself does NOT update the simulation state arrays.
 
         NOTE: It is implicitly assumed that the first entry of the history corresponds
         to the initial solution.
@@ -758,14 +783,14 @@ class TimeManager:
             ValueError
 
         """
-        if not hasattr(self, "time_history") or not hasattr(self, "dt_history"):
+        if not hasattr(self, "exported_times") or not hasattr(self, "exported_dt"):
             raise ValueError(
                 """The time manager does not hold information on previously used time
                 and dt."""
             )
 
-        self.time = self.time_history[time_index]
-        self.dt = self.dt_history[time_index]
+        self.time = self.exported_times[time_index]
+        self.dt = self.exported_dt[time_index]
 
-        self.time_history = self.time_history[:time_index]
-        self.dt_history = self.dt_history[:time_index]
+        self.exported_times = self.exported_times[:time_index]
+        self.exported_dt = self.exported_dt[:time_index]
