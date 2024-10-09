@@ -2437,10 +2437,10 @@ class InitialConditionsCF:
                     phase.conductivity.progress_iterate_values_on_grid(
                         phase_props.kappa, grid, depth=ni
                     )
-        # Copy values to all time step indices
-        for _ in self.time_step_indices:
-            phase.density.progress_values_in_time(subdomains, depth=nt)
-            phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
+                # Copy values to all time step indices
+                for _ in self.time_step_indices:
+                    phase.density.progress_values_in_time([grid], depth=nt)
+                    phase.specific_enthalpy.progress_values_in_time([grid], depth=nt)
 
     ### IC for primary variables which need to be given by the user in any case.
 

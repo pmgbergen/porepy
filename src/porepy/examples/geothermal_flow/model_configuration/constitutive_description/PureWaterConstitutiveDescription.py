@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Callable, Sequence
 
 import numpy as np
@@ -5,26 +7,29 @@ import numpy as np
 import porepy as pp
 import porepy.compositional as ppc
 from porepy.models.compositional_flow import SecondaryEquationsMixin
-from vtk_sampler import VTKSampler
+
+from ...vtk_sampler import VTKSampler
+
 
 class LiquidDriesnerCorrelations(ppc.AbstractEoS):
-    """ Class implementing the calculation of thermodynamic properties of liquid phases
-        using the DriesnerCorrelation
+    """Class implementing the calculation of thermodynamic properties of liquid phases
+    using the DriesnerCorrelation
     """
-    _vtk_sampler: 'VTKSampler'  # Type hinting for the private attribute
-    
+
+    _vtk_sampler: VTKSampler  # Type hinting for the private attribute
+
     @property
-    def vtk_sampler(self):
+    def vtk_sampler(self) -> VTKSampler:
         return self._vtk_sampler
 
     @vtk_sampler.setter
-    def vtk_sampler(self, vtk_sampler:VTKSampler):
+    def vtk_sampler(self, vtk_sampler: VTKSampler) -> None:
         self._vtk_sampler = vtk_sampler
 
     def kappa(
         self,
         *thermodynamic_dependencies: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]: # value, jacobian
+    ) -> tuple[np.ndarray, np.ndarray]:  # value, jacobian
 
         nc = len(thermodynamic_dependencies[0])
         vals = (0.5) * np.ones(nc)
@@ -32,11 +37,9 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def compute_phase_state(
-        self, 
-        phase_type: int, 
-        *thermodynamic_input: np.ndarray
-    ) -> ppc.PhaseState:
+    def compute_phase_properties(
+        self, phase_state: ppc.PhysicalState, *thermodynamic_input: np.ndarray
+    ) -> ppc.PhaseProperties:
         """Function will be called to compute the values for a phase.
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
         ``thermodynamic_dependencies`` are as defined by the user.
@@ -83,8 +86,8 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
             (2, 3, n)
         )  # (2, 3, n)  array (2 components, 3 dependencies, n cells)
 
-        return ppc.PhaseState(
-            phasetype=phase_type,
+        return ppc.PhaseProperties(
+            state=phase_state,
             rho=rho,
             drho=drho,
             h=h,
@@ -101,11 +104,11 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
 class GasDriesnerCorrelations(ppc.AbstractEoS):
 
     @property
-    def vtk_sampler(self):
+    def vtk_sampler(self) -> VTKSampler:
         return self._vtk_sampler
 
     @vtk_sampler.setter
-    def vtk_sampler(self, vtk_sampler):
+    def vtk_sampler(self, vtk_sampler: VTKSampler) -> None:
         self._vtk_sampler = vtk_sampler
 
     def kappa(
@@ -119,9 +122,9 @@ class GasDriesnerCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def compute_phase_state(
-        self, phase_type: int, *thermodynamic_input: np.ndarray
-    ) -> ppc.PhaseState:
+    def compute_phase_properties(
+        self, phase_state: ppc.PhysicalState, *thermodynamic_input: np.ndarray
+    ) -> ppc.PhaseProperties:
         """Function will be called to compute the values for a phase.
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
         ``thermodynamic_dependencies`` are as defined by the user.
@@ -169,8 +172,8 @@ class GasDriesnerCorrelations(ppc.AbstractEoS):
             (2, 3, n)
         )  # (2, 3, n)  array (2 components, 3 dependencies, n cells)
 
-        return ppc.PhaseState(
-            phasetype=phase_type,
+        return ppc.PhaseProperties(
+            state=phase_state,
             rho=rho,
             drho=drho,
             h=h,
@@ -190,9 +193,9 @@ class FluidMixture(ppc.FluidMixtureMixin):
     enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Provided by :class:`~porepy.models.compositional_flow.VariablesEnergyBalance`."""
 
-    vtk_sampler:VTKSampler
+    vtk_sampler: VTKSampler
     """provided by :class:`~model_configuration.DriesnerBrineFlowModel´"""
-    
+
     def get_components(self) -> Sequence[ppc.Component]:
         """Setting H20 as first component in Sequence makes it the reference component.
         z_H20 will be eliminated."""
@@ -202,13 +205,16 @@ class FluidMixture(ppc.FluidMixtureMixin):
 
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
-    ) -> Sequence[tuple[ppc.AbstractEoS, int, str]]:
+    ) -> Sequence[tuple[ppc.AbstractEoS, ppc.PhysicalState, str]]:
         eos_L = LiquidDriesnerCorrelations(components)
         eos_G = GasDriesnerCorrelations(components)
         # assign common vtk_sampler object
-        eos_L.vtk_sampler = self.vtk_sampler # TODO: why this line
-        eos_G.vtk_sampler = self.vtk_sampler # TODO: why this line
-        return [(eos_L, 0, "liq"), (eos_G, 1, "gas")]
+        eos_L.vtk_sampler = self.vtk_sampler  # TODO: why this line
+        eos_G.vtk_sampler = self.vtk_sampler  # TODO: why this line
+        return [
+            (eos_L, ppc.PhysicalState.liquid, "liq"),
+            (eos_G, ppc.PhysicalState.gas, "gas"),
+        ]
 
     def dependencies_of_phase_properties(
         self, phase: ppc.Phase
@@ -248,6 +254,11 @@ class SecondaryEquations(SecondaryEquationsMixin):
     temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
+    vtk_sampler: VTKSampler
+
+    has_independent_partial_fraction: Callable[[ppc.Component, ppc.Phase], bool]
+    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
+
     def gas_saturation_func(
         self,
         *thermodynamic_dependencies: np.ndarray,
@@ -277,7 +288,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self.vtk_sampler.sample_at(par_points)
 
         # Overall temperature
-        T = self.vtk_sampler.sampled_could.point_data["Temperature"] # [K]
+        T = self.vtk_sampler.sampled_could.point_data["Temperature"]  # [K]
         dTdz = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 0]
         dTdH = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 1]
         dTdp = self.vtk_sampler.sampled_could.point_data["grad_Temperature"][:, 2]
@@ -385,12 +396,13 @@ class SecondaryEquations(SecondaryEquationsMixin):
         ### Providing constitutive laws for partial fractions based on correlations
         for phase in self.fluid_mixture.phases:
             for comp in phase:
-                self.eliminate_by_constitutive_law(
-                    phase.partial_fraction_of[comp],
-                    self.dependencies_of_phase_properties(phase),
-                    chi_functions_map[comp.name + "_" + phase.name],
-                    subdomains + matrix_boundary,
-                )
+                if self.has_independent_partial_fraction(comp, phase):
+                    self.eliminate_by_constitutive_law(
+                        phase.partial_fraction_of[comp],
+                        self.dependencies_of_phase_properties(phase),
+                        chi_functions_map[comp.name + "_" + phase.name],
+                        subdomains + matrix_boundary,
+                    )
 
         ### Provide constitutive law for temperature
         self.eliminate_by_constitutive_law(

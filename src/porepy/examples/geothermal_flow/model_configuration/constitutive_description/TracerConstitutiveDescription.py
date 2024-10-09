@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Callable, Sequence
 
 import numpy as np
@@ -159,9 +161,9 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def compute_phase_state(
-        self, phase_type: int, *thermodynamic_input: np.ndarray
-    ) -> ppc.PhaseState:
+    def compute_phase_properties(
+        self, phase_state: ppc.PhysicalState, *thermodynamic_input: np.ndarray
+    ) -> ppc.PhaseProperties:
         """Function will be called to compute the values for a phase.
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
         ``thermodynamic_dependencies`` are as defined by the user.
@@ -190,8 +192,8 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
             (2, 3, nc)
         )  # (2, 3, n)  array (2 components, 3 dependencies, n cells)
 
-        return ppc.PhaseState(
-            phasetype=phase_type,
+        return ppc.PhaseProperties(
+            state=phase_state,
             rho=rho,
             drho=drho,
             h=h,
@@ -262,9 +264,9 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
 
-    def compute_phase_state(
-        self, phase_type: int, *thermodynamic_input: np.ndarray
-    ) -> ppc.PhaseState:
+    def compute_phase_properties(
+        self, phase_state: ppc.PhysicalState, *thermodynamic_input: np.ndarray
+    ) -> ppc.PhaseProperties:
         """Function will be called to compute the values for a phase.
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
         ``thermodynamic_dependencies`` are as defined by the user.
@@ -292,8 +294,8 @@ class GasLikeCorrelations(ppc.AbstractEoS):
             (2, 3, nc)
         )  # (2, 3, n)  array (2 components, 3 dependencies, n cells)
 
-        return ppc.PhaseState(
-            phasetype=phase_type,
+        return ppc.PhaseProperties(
+            state=phase_state,
             rho=rho,
             drho=drho,
             h=h,
@@ -322,10 +324,13 @@ class FluidMixture(ppc.FluidMixtureMixin):
 
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
-    ) -> Sequence[tuple[ppc.AbstractEoS, int, str]]:
+    ) -> Sequence[tuple[ppc.AbstractEoS, ppc.PhysicalState, str]]:
         eos_L = LiquidLikeCorrelations(components)
         eos_G = GasLikeCorrelations(components)
-        return [(eos_L, 0, "liq"), (eos_G, 1, "gas")]
+        return [
+            (eos_L, ppc.PhysicalState.liquid, "liq"),
+            (eos_G, ppc.PhysicalState.gas, "gas"),
+        ]
 
     def dependencies_of_phase_properties(
         self, phase: ppc.Phase
@@ -365,6 +370,9 @@ class SecondaryEquations(SecondaryEquationsMixin):
     temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
+    has_independent_partial_fraction: Callable[[ppc.Component, ppc.Phase], bool]
+    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
+
     def set_equations(self) -> None:
         subdomains = self.mdg.subdomains()
 
@@ -391,12 +399,13 @@ class SecondaryEquations(SecondaryEquationsMixin):
         ### Providing constitutive laws for partial fractions based on correlations
         for phase in self.fluid_mixture.phases:
             for comp in phase:
-                self.eliminate_by_constitutive_law(
-                    phase.partial_fraction_of[comp],
-                    self.dependencies_of_phase_properties(phase),
-                    chi_functions_map[comp.name + "_" + phase.name],
-                    subdomains + matrix_boundary,
-                )
+                if self.has_independent_partial_fraction(comp, phase):
+                    self.eliminate_by_constitutive_law(
+                        phase.partial_fraction_of[comp],
+                        self.dependencies_of_phase_properties(phase),
+                        chi_functions_map[comp.name + "_" + phase.name],
+                        subdomains + matrix_boundary,
+                    )
 
         ### Provide constitutive law for temperature
         self.eliminate_by_constitutive_law(

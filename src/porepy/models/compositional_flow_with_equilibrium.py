@@ -287,13 +287,13 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
         nt = self.time_step_indices.size
         ni = self.iterate_indices.size
 
-        for sd in subdomains:
-            logger.debug(f"Computing initial equilibrium on grid {sd.id}")
+        for grid in subdomains:
+            logger.debug(f"Computing initial equilibrium on grid {grid.id}")
             # pressure, temperature and overall fractions
-            p = self.initial_pressure(sd)
-            T = self.initial_temperature(sd)
+            p = self.initial_pressure(grid)
+            T = self.initial_temperature(grid)
             z = [
-                self.initial_overall_fraction(comp, sd)
+                self.initial_overall_fraction(comp, grid)
                 for comp in self.fluid_mixture.components
             ]
 
@@ -303,23 +303,23 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
             )
 
             if not np.all(success == 0):
-                raise ValueError(f"Initial equilibriam not successful on grid {sd}")
+                raise ValueError(f"Initial equilibriam not successful on grid {grid}")
 
             # setting initial values for enthalpy
             # NOTE that in the initialization, h is dependent compared to p, T, z
             self.equation_system.set_variable_values(
-                state.h, [self.enthalpy([sd])], iterate_index=0
+                state.h, [self.enthalpy([grid])], iterate_index=0
             )
 
             # setting initial values for all fractional variables and phase properties
             for j, phase in enumerate(self.fluid_mixture.phases):
                 if self.has_independent_fraction(phase):
                     self.equation_system.set_variable_values(
-                        state.y[j], [phase.fraction([sd])], iterate_index=0
+                        state.y[j], [phase.fraction([grid])], iterate_index=0
                     )
                 if self.has_independent_saturation(phase):
                     self.equation_system.set_variable_values(
-                        state.sat[j], [phase.saturation([sd])], iterate_index=0
+                        state.sat[j], [phase.saturation([grid])], iterate_index=0
                     )
 
                 # fractions of component in phase
@@ -328,67 +328,44 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                     if self.has_independent_extended_fraction(comp, phase):
                         self.equation_system.set_variable_values(
                             state.phases[j].x[k],
-                            [phase.extended_fraction_of[comp]([sd])],
+                            [phase.extended_fraction_of[comp]([grid])],
                             iterate_index=0,
                         )
                     elif self.has_independent_partial_fraction(comp, phase):
                         self.equation_system.set_variable_values(
                             state.phases[j].x[k],
-                            [phase.partial_fraction_of[comp]([sd])],
+                            [phase.partial_fraction_of[comp]([grid])],
                             iterate_index=0,
                         )
+
+                # Update values and derivatives for current iterate
+                # Extend derivatives from partial to extended fractions, in the case of
+                # unified equilibrium formulations.
+                cf.update_phase_properties(
+                    grid,
+                    phase,
+                    state.phases[j],
+                    ni,
+                    update_derivatives=True,
+                    use_extended_derivatives=self._has_unified_equilibrium,
+                )
 
                 # progress iterates values to all indices
                 for _ in self.iterate_indices:
                     phase.density.progress_iterate_values_on_grid(
-                        state.phases[j].rho, sd, depth=ni
+                        state.phases[j].rho, grid, depth=ni
                     )
                     phase.specific_enthalpy.progress_iterate_values_on_grid(
-                        state.phases[j].h, sd, depth=ni
+                        state.phases[j].h, grid, depth=ni
                     )
                     phase.viscosity.progress_iterate_values_on_grid(
-                        state.phases[j].mu, sd, depth=ni
+                        state.phases[j].mu, grid, depth=ni
                     )
                     phase.conductivity.progress_iterate_values_on_grid(
-                        state.phases[j].kappa, sd, depth=ni
+                        state.phases[j].kappa, grid, depth=ni
                     )
-                # Set the derivative values for the current iterate
-                # Extend derivatives from partial to extended fractions, in the case of
-                # unified equilibrium formulations.
-                phase.density.set_derivatives_on_grid(
-                    (
-                        state.phases[j].drho_ext
-                        if self._has_unified_equilibrium
-                        else state.phases[j].drho
-                    ),
-                    sd,
-                )
-                phase.specific_enthalpy.set_derivatives_on_grid(
-                    (
-                        state.phases[j].dh_ext
-                        if self._has_unified_equilibrium
-                        else state.phases[j].dh
-                    ),
-                    sd,
-                )
-                phase.viscosity.set_derivatives_on_grid(
-                    (
-                        state.phases[j].dmu_ext
-                        if self._has_unified_equilibrium
-                        else state.phases[j].dmu
-                    ),
-                    sd,
-                )
-                phase.conductivity.set_derivatives_on_grid(
-                    (
-                        state.phases[j].dkappa_ext
-                        if self._has_unified_equilibrium
-                        else state.phases[j].dkappa
-                    ),
-                    sd,
-                )
 
-                # fugacities
+                # fugacities are not covered by update_phase_properties
                 dphis = (
                     state.phases[j].dphis_ext
                     if self._has_unified_equilibrium
@@ -399,17 +376,16 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                         phase.fugacity_coefficient_of[
                             comp
                         ].progress_iterate_values_on_grid(
-                            state.phases[j].phis[k], sd, depth=ni
+                            state.phases[j].phis[k], grid, depth=ni
                         )
                     phase.fugacity_coefficient_of[comp].set_derivatives_on_grid(
-                        dphis[k], sd
+                        dphis[k], grid
                     )
 
-        # progress property values in time on subdomain
-        for phase in self.fluid_mixture.phases:
-            for _ in self.time_step_indices:
-                phase.density.progress_values_in_time(subdomains, depth=nt)
-                phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
+                # progress property values in time on subdomain
+                for _ in self.time_step_indices:
+                    phase.density.progress_values_in_time([grid], depth=nt)
+                    phase.specific_enthalpy.progress_values_in_time([grid], depth=nt)
 
 
 class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):

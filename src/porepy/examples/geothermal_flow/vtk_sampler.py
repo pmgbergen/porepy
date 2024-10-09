@@ -1,8 +1,9 @@
 import time
 
-import classify_points as cp
 import numpy as np
 import pyvista
+
+from . import classify_points as cp
 
 
 class VTKSampler:
@@ -33,7 +34,6 @@ class VTKSampler:
     @conversion_factors.setter
     def conversion_factors(self, conversion_factors):
         self._conversion_factors = conversion_factors
-
 
     @property
     def translation_factors(self):
@@ -139,7 +139,9 @@ class VTKSampler:
     def __build_search_space(self):
         tb = time.time()
         self._search_space = pyvista.read(self.file_name)
-        self._boundary_surface = self._search_space.extract_surface(pass_pointid=False, pass_cellid=False, nonlinear_subdivision=0)
+        self._boundary_surface = self._search_space.extract_surface(
+            pass_pointid=False, pass_cellid=False, nonlinear_subdivision=0
+        )
         te = time.time()
         print("VTKSampler:: Time for loading interpolation space: ", te - tb)
 
