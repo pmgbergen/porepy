@@ -272,7 +272,7 @@ class MobilityCF:
         frac_mob.set_name(name)
         return frac_mob
 
-    def mobility_discretization(self, subdomains: Sequence[pp.Grid]) -> pp.ad.UpwindAd:
+    def mobility_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
         """Discretization of mobility terms, to be based on the total mass flux.
 
         Hence the upwinding matrices are the same for all non-linear weights in any
@@ -289,7 +289,7 @@ class MobilityCF:
         return pp.ad.UpwindAd(self.mobility_keyword, subdomains)
 
     def interface_mobility_discretization(
-        self, interfaces: Sequence[pp.MortarGrid]
+        self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.UpwindCouplingAd:
         """Discretization of mobility terms based on the (total) interface Darcy flux.
 
@@ -783,12 +783,14 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
 
         """
 
+        op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
+
         if self.uses_fractional_flow_bc and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_energy_key,
-                domains,
+                cast(Sequence[pp.BoundaryGrid], domains),
             )
         else:
             # TODO is it worth reducing the operator tree size, by pulling the division
@@ -945,7 +947,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     ]
     """See :class:`~porepy.models.constitutive_laws.AdvectiveFlux`."""
 
-    fractional_component_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    fractional_component_mobility: Callable[
+        [ppc.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
     """See :class:`MobilityCF`."""
 
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
@@ -1080,11 +1084,15 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         used.
 
         """
+
+        op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
+
         if self.uses_fractional_flow_bc and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
-                self.bc_data_fractional_flow_component_key(component), domains
+                self.bc_data_fractional_flow_component_key(component),
+                cast(Sequence[pp.BoundaryGrid], domains),
             )
         else:
             op = self.fractional_component_mobility(component, domains)
@@ -1122,21 +1130,17 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
         # Use a partially evaluated function call to functions to mimic
         # functions solely depend on a sequence of grids
-        weight_inlet_bc = partial(self.advective_weight_component_flux, component)
         weight_inlet_bc = cast(
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            weight_inlet_bc,
+            partial(self.advective_weight_component_flux, component),
         )
-
-        fluid_flux_neumann_bc = partial(self.fluid_flux_for_component, component)
         fluid_flux_neumann_bc = cast(
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            fluid_flux_neumann_bc,
+            partial(self.fluid_flux_for_component, component),
         )
-        interface_flux = partial(self.interface_flux_for_component, component)
         interface_flux = cast(
             Callable[[list[pp.MortarGrid]], pp.ad.Operator],
-            interface_flux,
+            partial(self.interface_flux_for_component, component),
         )
 
         # NOTE Boundary conditions are different from the pressure equation
@@ -1238,7 +1242,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
 
     """
 
-    has_independent_tracer_fraction: Callable[[ppc.ChemicalSpecies, ppc.Compound], True]
+    has_independent_tracer_fraction: Callable[[ppc.ChemicalSpecies, ppc.Compound], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     def _tracer_transport_equation_name(
@@ -1405,9 +1409,11 @@ class SecondaryEquationsMixin:
 
     def eliminate_by_constitutive_law(
         self,
-        independent_quantity: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable],
+        independent_quantity: Callable[
+            [pp.GridLikeSequence], pp.ad.MixedDimensionalVariable
+        ],
         dependencies: Sequence[
-            Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+            Callable[[pp.GridLikeSequence], pp.ad.MixedDimensionalVariable]
         ],
         func: Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
         domains: pp.GridLikeSequence,
@@ -1464,7 +1470,10 @@ class SecondaryEquationsMixin:
         """
         # separate these two because Boundary values for independent quantities are
         # stored differently
-        non_boundaries = [g for g in domains if isinstance(g, (pp.Grid, pp.MortarGrid))]
+        non_boundaries = cast(
+            pp.GridLikeSequence,
+            [g for g in domains if isinstance(g, (pp.Grid, pp.MortarGrid))],
+        )
 
         sec_var = independent_quantity(non_boundaries)
         g_ids = [d.id for d in non_boundaries]
@@ -1477,7 +1486,9 @@ class SecondaryEquationsMixin:
 
         local_equ = sec_var - sec_expr(non_boundaries)
         local_equ.set_name(f"elimination_of_{sec_var.name}_on_grids_{g_ids}")
-        self.equation_system.set_equation(local_equ, non_boundaries, dofs)
+        self.equation_system.set_equation(
+            local_equ, cast(list[pp.Grid] | list[pp.MortarGrid], non_boundaries), dofs
+        )
 
         self.add_constitutive_expression(sec_var, sec_expr, func, domains)
 
@@ -1707,8 +1718,8 @@ class ConstitutiveLawsCF(
         tuple[
             pp.ad.MixedDimensionalVariable,
             pp.ad.SurrogateFactory,
-            Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
-            Sequence[pp.Grid | pp.MortarGrid],
+            Callable[..., tuple[np.ndarray, np.ndarray]],
+            Sequence[pp.Grid] | Sequence[pp.MortarGrid],
             Sequence[pp.BoundaryGrid],
         ],
     ]
@@ -1743,7 +1754,10 @@ class ConstitutiveLawsCF(
 
         """
         boundaries = [g for g in grids if isinstance(g, pp.BoundaryGrid)]
-        domains = [g for g in grids if isinstance(g, (pp.Grid, pp.MortarGrid))]
+        domains = cast(
+            list[pp.Grid] | list[pp.MortarGrid],
+            [g for g in grids if isinstance(g, (pp.Grid, pp.MortarGrid))],
+        )
         self._constitutive_eliminations.update(
             {expression.name: (primary, expression, func, domains, boundaries)}
         )
@@ -1762,7 +1776,12 @@ class ConstitutiveLawsCF(
         ni = self.iterate_indices.size
         for _, expr, func, domains, _ in self._constitutive_eliminations.values():
             for g in domains:
-                X = [x([g]).value(self.equation_system) for x in expr._dependencies]
+                X = [
+                    x(cast(list[pp.Grid] | list[pp.MortarGrid], [g])).value(
+                        self.equation_system
+                    )
+                    for x in expr._dependencies
+                ]
 
                 vals, diffs = func(*X)
 
@@ -1874,8 +1893,8 @@ class BoundaryConditionsCF(
         tuple[
             pp.ad.MixedDimensionalVariable,
             pp.ad.SurrogateFactory,
-            Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
-            Sequence[pp.Grid | pp.MortarGrid],
+            Callable[..., tuple[np.ndarray, np.ndarray]],
+            Sequence[pp.Grid] | Sequence[pp.MortarGrid],
             Sequence[pp.BoundaryGrid],
         ],
     ]
@@ -1985,8 +2004,10 @@ class BoundaryConditionsCF(
             # Update of tracer fractions on Dirichlet boundary
             if isinstance(component, ppc.Compound):
                 for tracer in component.active_tracers:
-                    bc_vals = partial(self.bc_values_tracer_fraction, tracer, component)
-                    bc_vals = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_vals)
+                    bc_vals = cast(
+                        Callable[[pp.BoundaryGrid], np.ndarray],
+                        partial(self.bc_values_tracer_fraction, tracer, component),
+                    )
                     self.update_boundary_condition(
                         self._tracer_fraction_variable(tracer, component),
                         function=bc_vals,
@@ -1994,9 +2015,10 @@ class BoundaryConditionsCF(
 
             # Update of independent overall fractions on Dirichlet boundary
             if self.has_independent_fraction(component):
-
-                bc_vals = partial(self.bc_values_overall_fraction, component)
-                bc_vals = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_vals)
+                bc_vals = cast(
+                    Callable[[pp.BoundaryGrid], np.ndarray],
+                    partial(self.bc_values_overall_fraction, component),
+                )
                 self.update_boundary_condition(
                     name=self._overall_fraction_variable(component),
                     function=bc_vals,
@@ -2079,7 +2101,7 @@ class BoundaryConditionsCF(
                         d([bg]).value(self.equation_system)
                         for d in self.dependencies_of_phase_properties(phase)
                     ]
-                    state = phase.compute_properties(*dep_vals)
+                    state = phase.compute_properties(*cast(list[np.ndarray], dep_vals))
                     rho_bc = state.rho
                     h_bc = state.h
                     mu_bc = state.mu
@@ -2103,9 +2125,10 @@ class BoundaryConditionsCF(
             # never used in any equation, since it's mass balance is not part of the
             # model equations
             if self.has_independent_fraction(component):
-
-                bc_func = partial(self.bc_values_fractional_flow_component, component)
-                bc_func = cast(Callable[[pp.BoundaryGrid], np.ndarray], bc_func)
+                bc_func = cast(
+                    Callable[[pp.BoundaryGrid], np.ndarray],
+                    partial(self.bc_values_fractional_flow_component, component),
+                )
 
                 self.update_boundary_condition(
                     name=self.bc_data_fractional_flow_component_key(component),
@@ -2247,23 +2270,18 @@ class InitialConditionsCF:
     iterate_indices: np.ndarray
     """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """See :class:`VariablesCF`."""
 
     has_independent_fraction: Callable[[ppc.Component | ppc.Phase], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
-    has_independent_tracer_fraction: Callable[[ppc.ChemicalSpecies, ppc.Compound], True]
+    has_independent_tracer_fraction: Callable[[ppc.ChemicalSpecies, ppc.Compound], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
-
-    time_step_indices: np.ndarray
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
-    iterate_indices: np.ndarray
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
 
     dependencies_of_phase_properties: Callable[
         [ppc.Phase], Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]
@@ -2275,8 +2293,8 @@ class InitialConditionsCF:
         tuple[
             pp.ad.MixedDimensionalVariable,
             pp.ad.SurrogateFactory,
-            Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
-            Sequence[pp.Grid | pp.MortarGrid],
+            Callable[..., tuple[np.ndarray, np.ndarray]],
+            Sequence[pp.Grid] | Sequence[pp.MortarGrid],
             Sequence[pp.BoundaryGrid],
         ],
     ]
@@ -2345,7 +2363,11 @@ class InitialConditionsCF:
                 if self.has_independent_fraction(component):
                     self.equation_system.set_variable_values(
                         self.initial_overall_fraction(component, sd),
-                        [component.fraction([sd])],
+                        [
+                            cast(
+                                pp.ad.MixedDimensionalVariable, component.fraction([sd])
+                            )
+                        ],
                         iterate_index=0,
                     )
 
@@ -2355,7 +2377,12 @@ class InitialConditionsCF:
                         if self.has_independent_tracer_fraction(tracer, component):
                             self.equation_system.set_variable_values(
                                 self.initial_tracer_fraction(tracer, component, sd),
-                                [component.tracer_fraction_of[tracer](sd)],
+                                [
+                                    cast(
+                                        pp.ad.MixedDimensionalVariable,
+                                        component.tracer_fraction_of[tracer]([sd]),
+                                    )
+                                ],
                                 iterate_index=0,
                             )
 
@@ -2385,7 +2412,10 @@ class InitialConditionsCF:
             # for the secondary expression
             for grid in domains:
                 dep_vals_g = [
-                    d([grid]).value(self.equation_system) for d in expr._dependencies
+                    d(cast(list[pp.Grid] | list[pp.MortarGrid], [grid])).value(
+                        self.equation_system
+                    )
+                    for d in expr._dependencies
                 ]
                 val, diff = f(*dep_vals_g)
                 # values for each iterate index
@@ -2418,7 +2448,9 @@ class InitialConditionsCF:
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
 
-                phase_props = phase.compute_properties(*dep_vals)
+                phase_props = phase.compute_properties(
+                    *cast(list[np.ndarray], dep_vals)
+                )
 
                 # Set values and derivative values for current current index
                 update_phase_properties(grid, phase, phase_props, ni)
@@ -2599,15 +2631,15 @@ class SolutionStrategyCF(
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
 
-        self._nonlinear_flux_discretizations = list()
+        self._nonlinear_flux_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
 
         self._constitutive_eliminations: dict[
             str,
             tuple[
                 pp.ad.MixedDimensionalVariable,
                 pp.ad.SurrogateFactory,
-                Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
-                Sequence[pp.Grid, pp.MortarGrid],
+                Callable[..., tuple[np.ndarray, np.ndarray]],
+                Sequence[pp.Grid] | Sequence[pp.MortarGrid],
                 Sequence[pp.BoundaryGrid],
             ],
         ] = dict()
@@ -2760,7 +2792,9 @@ class SolutionStrategyCF(
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
 
-                phase_props = phase.compute_properties(*dep_vals)
+                phase_props = phase.compute_properties(
+                    *cast(list[np.ndarray], dep_vals)
+                )
 
                 # Set current iterate indices of values and derivatives
                 update_phase_properties(grid, phase, phase_props, ni)
