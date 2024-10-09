@@ -2,10 +2,11 @@
 flow (CF).
 
 Provides means to formulate pressure equation, mass balance equations per component
-and a total energy equation, using a fractional flow formulation with molar quantities.
+and a total energy equation, using a fractional flow formulation with molar or massic
+quantities.
 
 Primary variables are pressure, specific fluid enthalpy and overall fractions,
-as well as solute fractions for purely transpored solutes.
+as well as tracer fractions for purely transported tracers.
 
 By default, the model is not closed, since saturations and temperature are dangling
 variables.
@@ -86,7 +87,7 @@ def update_phase_properties(
 
 class MobilityCF:
     """Mixin class defining mobilities for the balance equations in the CF setting, and
-    which discretization to be used for the non-linear weights in advective fluxes.
+    the discretization to be used for the non-linear weights in advective fluxes.
 
     Flux discretizations are handled by respective constitutive laws.
 
@@ -100,7 +101,6 @@ class MobilityCF:
         implemented by the user in :class:`BoundaryConditionsCF`.
         Those values are then consequently multiplied with boundary flux values in
         respective balance equations.
-        TODO
 
     """
 
@@ -117,8 +117,8 @@ class MobilityCF:
     """
 
     mobility_keyword: str
-    """Provided by
-    :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`."""
+    """See :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+    """
 
     def total_mobility(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         r"""Total mobility of the fluid mixture, by summing :meth:`phase_mobility`
@@ -385,6 +385,9 @@ class SolidSkeletonCF(
     the :meth:`volume` which is used for isochoric flash calculations.
 
     TODO Is this the right place to implement :meth:`volume`?
+    TODO Omar noted that relative permeabilities depend in general on all saturation
+    variables, not only on the saturation for which phase it is meant. This requires
+    re-evaluationg the signature.
 
     """
 
@@ -419,7 +422,8 @@ class SolidSkeletonCF(
         return pp.ad.Scalar(self.solid.porosity(), "reference_porosity")
 
     def diffusive_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """
+        """Required by constitutive laws implementing differentiable MPFA/TPFA.
+
         Important:
             This implementation does not cover absolute permeabilities which are not
             constant.
@@ -496,7 +500,7 @@ class SolidSkeletonCF(
 
         Note:
             This must override the definition of solid internal energy which is
-            (for some reasons) defined in the basic energy balance equation.
+            (for some reasons) defined in the basic energy balance equation. TODO
 
         Parameters:
             subdomains: List of subdomains.
@@ -858,7 +862,7 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
     def interface_enthalpy_flux_equation(
         self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
-        """Uses the enthalpy mobility and the custom discretization implemented by
+        """Uses the enthalpy mobility and the discretization implemented by
         :class:`MobilityCF`."""
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
@@ -876,7 +880,7 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
     def well_enthalpy_flux_equation(
         self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
-        """Uses the enthalpy mobility and the custom discretization implemented by
+        """Uses the enthalpy mobility and the discretization implemented by
         :class:`MobilityCF`."""
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
@@ -1052,7 +1056,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     ) -> pp.ad.Operator:
         r"""Returns the accumulation term in a ``component``'s mass balance equation
         using the :attr:`~porepy.compositional.base.FluidMixture.density` of the fluid
-        mixture and the component's :attr:`~porepy.compositional.base.Component.fraction`
+        mixture and the component's
+        :attr:`~porepy.compositional.base.Component.fraction`
 
         .. math::
 
@@ -1373,7 +1378,8 @@ class SecondaryEquationsMixin:
     """
 
     fluid_mixture: ppc.FluidMixture
-    """Provided by: class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
+    """Provided by
+    :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     mdg: pp.MixedDimensionalGrid
     """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
@@ -1420,7 +1426,7 @@ class SecondaryEquationsMixin:
         dofs: dict = {"cells": 1},
     ) -> None:
         """Method to add a secondary equation eliminating a secondary variable by some
-        constitutive law dependeng on **primary variables**.
+        constitutive law depending on **primary variables**.
 
         Secondary variables are assumed to be formally independent quantities in the
         AD sense.
@@ -1429,17 +1435,9 @@ class SecondaryEquationsMixin:
         a secondary equation :math:`\\varphi - \\hat{\\varphi}(x) = 0`, with :math:`x`
         denoting the ``dependencies``.
 
-        It uses :class:`~porepy.compositional.utils.SecondaryExpression` to
+        It uses :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory` to
         provide AD representations of :math:`\\hat{\\varphi}` and to update its values
         and derivatives using ``func`` in the solutionstrategy.
-
-        Note:
-            Keep the limitations of
-            :class:`~porepy.compositional.utils.SecondaryExpression` in mind,
-            especially with regards to ``dofs``.
-
-            Time step depth and iteration depth are assigned according to the numbers
-            of indices in the solution strategy.
 
         Parameters:
             independent_quantity: AD representation :math:`\\varphi`, callable on some
@@ -1591,8 +1589,8 @@ class VariablesCF(
 
         1. pressure,
         2. overall fractions,
-        3. solute fractions,
-        4. fluid enthalpy.
+        3. tracer fractions,
+        4. specific fluid enthalpy.
 
         Primary variable names are used to define the primary block in the Schur
         elimination in the solution strategy.
@@ -1997,7 +1995,7 @@ class BoundaryConditionsCF(
         """Method updating BC values of primary variables on Dirichlet boundary,
         and values of fractional weights in advective fluxes on Neumann boundary.
 
-        This is separated, because the order matters: Must be first update.
+        This is separated, because the order matters: Must be first updated.
 
         """
         for component in self.fluid_mixture.components:
@@ -2034,7 +2032,7 @@ class BoundaryConditionsCF(
         formerly independent quantities, which were eliminated on some boundaries.
 
         Uses the parent method :meth:`update_boundary_condition` assuming that the
-        quantity is used correspondingly
+        quantity is used correspondingly.
 
         """
 
@@ -2149,7 +2147,7 @@ class BoundaryConditionsCF(
 
         Important:
             Though strictly speaking not appearing in the flux terms, this method
-            are required for completeness reasons.
+            is required for completeness reasons.
             E.g., for cases where phase properties depend enthalpies.
             Phase properties **need** values on the Dirichlet boundary, to compute
             fractional weights in the advective fluxes.
@@ -2341,7 +2339,7 @@ class InitialConditionsCF:
         - temperature,
         - fluid enthalpy,
         - independent overall fractions
-        - solute fractions.
+        - tracer fractions.
 
         """
 
@@ -2807,10 +2805,11 @@ class SolutionStrategyCF(
         are updated.
 
         """
-        # re-discretize
+        # re-discretize fluxes, after updating the diffusive part of the tensor
         self.update_discretization_parameters()
         self.rediscretize_fluxes()
 
+        # store flux values in data dictionaries for upwind discretization
         for sd, data in self.mdg.subdomains(return_data=True):
             # Computing Darcy flux and updating it in the mobility dicts for pressure
             # and energy equtaion
@@ -2837,8 +2836,6 @@ class SolutionStrategyCF(
 
         It does the same for the pressure equation, where total mobility is evaluated
         and multiplied with absolute permeability.
-
-        Might need more work when using DarcysLawAd and FouriersLawAd.
 
         """
         # NOTE The non-linear MPFA discretization for the Conductive flux in the heat
@@ -2882,13 +2879,10 @@ class SolutionStrategyCF(
         expressions.
 
         Note:
-            The derivatives are not updated in time, since not required here.
-
-            It also progresses only properties in time, which are expected in the
+            It progresses only properties in time, which are expected in the
             accumulation terms:
 
             - phase density
-            - phase volume
             - phase enthalpy
 
         """
@@ -2945,24 +2939,6 @@ class SolutionStrategyCF(
             sol = self.equation_system.expand_schur_complement_solution(sol)
         return sol
 
-    # def _log_res(self, loc: str = ""):
-    #     all_res = list()
-    #     msg = "Residuals per equation:\n"
-    #     eq_names = list(self.equation_system.equations.keys())
-    #     for i, name in enumerate(eq_names):
-    #         eq = self.equation_system.equations[name]
-    #         res = eq.value(self.equation_system)
-    #         all_res.append(res)
-    #         if i == (len(eq_names) - 1):  # last equation without line break
-    #             msg += f"{name}: {np.linalg.norm(res)}"
-    #         else:
-    #             msg += f"{name}: {np.linalg.norm(res)}\n"
-    #     all_res = np.hstack(all_res)
-    #     logger.info(
-    #         f"\nResidual {loc}: {np.linalg.norm(all_res) / np.sqrt(all_res.size)}"
-    #     )
-    #     logger.debug(msg)
-
 
 # endregion
 
@@ -2978,28 +2954,27 @@ class CFModelMixin(  # type: ignore[misc]
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
-    """Generic class for setting up a multiphase multi-component flow model.
+    """Generic class for setting up a multi-phase multi-component flow model.
 
     The primary, transportable variables are:
 
     - pressure
-    - (specific molar) enthalpy of the mixture
-    - ``num_comp - 1 `` overall fractions per independent component
+    - specific enthalpy of the mixture
+    - overall fractions per independent component
     - tracer fractions for pure transport without equilibrium (if any)
 
     The secondary, local variables are:
 
-    - ``num_phases - 1`` saturations per independent phase
-    - ``num_phases - 1`` molar phase fractions per independent phase
-    - ``num_phases * num_comp`` relative fractions of components in phases
-      (extended or partial)
+    - saturations per independent phase
+    - phase fractions per independent phase (if any, related to equilibrium formulation)
+    - relative fractions of components in phases (extended or partial)
     - temperature
 
     The primary block of equations consists of:
 
     - pressure equation / transport of total mass
     - energy balance / transport of total energy
-    - ``num_comp - 1`` transport equations for each independent component
+    - transport equations for each independent component
     - tracer transport equations
 
     The secondary block of equations must be provided using constitutive relations
