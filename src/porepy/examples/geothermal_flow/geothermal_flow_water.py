@@ -4,16 +4,15 @@ import time
 
 import numpy as np
 
-from model_configuration.DConfigWaterSinglePhase import (
+import porepy as pp
+from porepy.examples.geothermal_flow.model_configuration.DConfigWaterSinglePhase import (
     DriesnerWaterFlowModel as FlowModel,
 )
-from vtk_sampler import VTKSampler
-
-import porepy as pp
+from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 day = 86400
-tf = 91250.0 * day # final time [750 years]
-dt = 912.50 * day # time step size [75 years]
+tf = 91250.0 * day  # final time [750 years]
+dt = 912.50 * day  # time step size [75 years]
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -47,9 +46,9 @@ params = {
 
 class GeothermalWaterFlowModel(FlowModel):
 
-    def after_nonlinear_convergence(self, iteration_counter) -> None:
-        super().after_nonlinear_convergence(iteration_counter)
-        print("Number of iterations: ", iteration_counter)
+    def after_nonlinear_convergence(self) -> None:
+        super().after_nonlinear_convergence()
+        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
@@ -58,12 +57,14 @@ class GeothermalWaterFlowModel(FlowModel):
         self.exporter.write_pvd()
 
 
-
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
 
 parametric_space_ref_level = 2
-file_name_prefix = "model_configuration/constitutive_description/driesner_vtk_files/"
+file_name_prefix = (
+    "src/porepy/examples/geothermal_flow/"
+    + "model_configuration/constitutive_description/driesner_vtk_files/"
+)
 file_name_phz = (
     file_name_prefix + "XHP_l" + str(parametric_space_ref_level) + "_modified.vtk"
 )

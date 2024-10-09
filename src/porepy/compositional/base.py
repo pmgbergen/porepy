@@ -348,7 +348,7 @@ class AbstractEoS(abc.ABC):
         are encouraged to focus on thermodynamic consistency.
 
         Phase properties are defined as secondary expressions, and the framework is
-        able to pick up the dependencies and call :meth:`compute_phase_state` with
+        able to pick up the dependencies and call :meth:`compute_phase_properties` with
         the right values.
 
         For more information on this, see
@@ -674,7 +674,7 @@ class Phase:
 
     def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseProperties:
         """Shortcut to compute the properties calling
-        :meth:`AbstractEoS.compute_phase_state` of :attr:`eos` with :attr:`type` as
+        :meth:`AbstractEoS.compute_phase_properties` of :attr:`eos` with :attr:`type` as
         argument."""
         return self.eos.compute_phase_properties(self.state, *thermodynamic_input)
 

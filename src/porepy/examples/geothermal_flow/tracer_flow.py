@@ -22,9 +22,11 @@ from __future__ import annotations
 import time
 
 import numpy as np
-from model_configuration.TracerModelConfiguration import TracerFlowModel as FlowModel
 
 import porepy as pp
+from porepy.examples.geothermal_flow.model_configuration.TracerModelConfiguration import (
+    TracerFlowModel as FlowModel,
+)
 
 day = 86400
 t_scale = 1.0
@@ -63,9 +65,9 @@ params = {
 
 class TracerLikeFlowModel(FlowModel):
 
-    def after_nonlinear_convergence(self, iteration_counter) -> None:
-        super().after_nonlinear_convergence(iteration_counter)
-        print("Number of iterations: ", iteration_counter)
+    def after_nonlinear_convergence(self) -> None:
+        super().after_nonlinear_convergence()
+        print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
         print("")
