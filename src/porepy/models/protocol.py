@@ -414,13 +414,13 @@ else:
             """
 
         def specific_volume(
-            self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
+            self, grids: list[pp.Grid] | list[pp.MortarGrid]
         ) -> pp.ad.Operator:
             """Specific volume [m^(nd-d)].
 
-            For subdomains, the specific volume is the cross-sectional area/volume of the
-            cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the specific
-            volume is inherited from the higher-dimensional subdomain neighbor.
+            For subdomains, the specific volume is the cross-sectional area/volume of
+            the cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the
+            specific volume is inherited from the higher-dimensional subdomain neighbor.
 
             See also:
                 :meth:aperture.
@@ -436,8 +436,8 @@ else:
         def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
             """Aperture [m].
 
-            Aperture is a characteristic thickness of a cell, with units [m]. It's value is
-            1 in matrix, thickness of fractures and "side length" of cross-sectional
+            Aperture is a characteristic thickness of a cell, with units [m]. It's value
+            is 1 in matrix, thickness of fractures and "side length" of cross-sectional
             area/volume (or "specific volume") for intersections of dimension 1 and 0.
 
             See also:
@@ -461,9 +461,9 @@ else:
 
             Returns:
                 3d isotropic permeability, with nonzero values on the diagonal and zero
-                values elsewhere. K is a second order tensor having 3^2 entries per cell,
-                represented as an array of length 9*nc. The values are ordered as
-                    Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
+                values elsewhere. K is a second order tensor having 3^2 entries per
+                cell, represented as an array of length 9*nc. The values are ordered as
+                Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
 
             """
 

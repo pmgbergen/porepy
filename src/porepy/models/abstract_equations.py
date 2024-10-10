@@ -7,7 +7,7 @@ Contains:
 
 from __future__ import annotations
 
-from typing import Callable, Union
+from typing import Union
 
 import porepy as pp
 from porepy.models.protocol import PorePyModel
