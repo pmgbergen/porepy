@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 
@@ -12,7 +12,9 @@ from porepy.models.geometry import ModelGeometry
 class Geometry(ModelGeometry):
 
     @abstractmethod
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
         pass
 
     @staticmethod
@@ -27,7 +29,7 @@ class Benchmark2DC1(Geometry):
     def set_fractures(self) -> None:
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_1()
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
@@ -35,7 +37,9 @@ class Benchmark2DC1(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
 
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
@@ -64,7 +68,7 @@ class Benchmark2DC3(Geometry):
     def set_fractures(self) -> None:
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_3()
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
@@ -72,7 +76,9 @@ class Benchmark2DC3(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
 
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
@@ -125,7 +131,9 @@ class Benchmark3DC3(Geometry):
             # grid along with these grids' new interfaces to fractures.
             self.well_network.mesh(self.mdg)
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
 
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
@@ -164,7 +172,7 @@ class SimpleGeometry(Geometry):
             box.update({"zmax": size_z})
         self._domain = pp.Domain(box)
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
@@ -172,7 +180,9 @@ class SimpleGeometry(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
 
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
@@ -215,7 +225,7 @@ class SimpleGeometry1D(Geometry):
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
@@ -223,7 +233,9 @@ class SimpleGeometry1D(Geometry):
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
         if isinstance(sd, pp.Grid):
             face_centers = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):

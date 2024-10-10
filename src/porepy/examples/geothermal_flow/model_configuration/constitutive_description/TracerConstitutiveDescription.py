@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Sequence
+from typing import Callable, Sequence, cast
 
 import numpy as np
 
@@ -312,10 +312,10 @@ class GasLikeCorrelations(ppc.AbstractEoS):
 class FluidMixture(ppc.FluidMixtureMixin):
     """Mixture mixin creating the brine mixture with two components."""
 
-    enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Provided by :class:`~porepy.models.compositional_flow.VariablesEnergyBalance`."""
 
-    def get_components(self) -> Sequence[ppc.Component]:
+    def get_components(self) -> list[ppc.Component]:
         """Setting H20 as first component in Sequence makes it the reference component.
         z_H20 will be eliminated."""
         species = ppc.load_species(["H2O", "NaCl"])
@@ -334,13 +334,17 @@ class FluidMixture(ppc.FluidMixtureMixin):
 
     def dependencies_of_phase_properties(
         self, phase: ppc.Phase
-    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]:
+    ) -> list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         z_NaCl = [
             comp.fraction
             for comp in self.fluid_mixture.components
             if comp != self.fluid_mixture.reference_component
         ]
-        return [self.pressure, self.enthalpy] + z_NaCl
+        dependencies = cast(
+            list[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
+            [self.pressure, self.enthalpy] + z_NaCl,
+        )
+        return dependencies
 
     def set_components_in_phases(
         self, components: Sequence[ppc.Component], phases: Sequence[ppc.Phase]
@@ -362,12 +366,12 @@ class SecondaryEquations(SecondaryEquationsMixin):
 
     """
 
-    dependencies_of_phase_properties: Sequence[
-        Callable[[pp.GridLikeSequence], pp.ad.Operator]
+    dependencies_of_phase_properties: Callable[
+        [ppc.Phase], list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
     ]
     """Defined in the Brine mixture mixin."""
 
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
     has_independent_partial_fraction: Callable[[ppc.Component, ppc.Phase], bool]
@@ -375,14 +379,17 @@ class SecondaryEquations(SecondaryEquationsMixin):
 
     def set_equations(self) -> None:
         subdomains = self.mdg.subdomains()
-
         matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
-        matrix_boundary = [self.mdg.subdomain_to_boundary_grid(matrix)]
 
         ### Providing constitutive law for gas saturation based on correlation
         rphase = self.fluid_mixture.reference_phase  # liquid phase
         # gas phase is independent
         independent_phases = [p for p in self.fluid_mixture.phases if p != rphase]
+
+        # domains on which to eliminate are all subdomains and the matrix boundary
+        on_domains: list[pp.Grid | pp.BoundaryGrid] = subdomains + [
+            cast(pp.BoundaryGrid, self.mdg.subdomain_to_boundary_grid(matrix))
+        ]
 
         for phase in independent_phases:
             self.eliminate_by_constitutive_law(
@@ -391,8 +398,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                     phase
                 ),  # callables giving primary variables on subdoains
                 gas_saturation_func,  # numerical function implementing correlation
-                subdomains
-                + matrix_boundary,  # all subdomains on which to eliminate s_gas
+                on_domains,  # all subdomains on which to eliminate s_gas
                 # dofs = {'cells': 1},  # default value
             )
 
@@ -404,7 +410,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                         phase.partial_fraction_of[comp],
                         self.dependencies_of_phase_properties(phase),
                         chi_functions_map[comp.name + "_" + phase.name],
-                        subdomains + matrix_boundary,
+                        on_domains,
                     )
 
         ### Provide constitutive law for temperature
@@ -412,5 +418,5 @@ class SecondaryEquations(SecondaryEquationsMixin):
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
             temperature_func,
-            subdomains + matrix_boundary,
+            on_domains,
         )

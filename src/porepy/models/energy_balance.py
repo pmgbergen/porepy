@@ -52,7 +52,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fluid density. Defined in a mixin class with a suitable constitutive relation.
     """
-    fluid_enthalpy: Callable[[list[pp.Grid]], pp.ad.Operator]
+    fluid_enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fluid enthalpy. Defined in a mixin class with a suitable constitutive relation.
     """
     solid_enthalpy: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -61,7 +61,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     solid_density: Callable[[list[pp.Grid]], pp.ad.Scalar]
     """Solid density. Defined in a mixin class with a suitable constitutive relation.
     """
-    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
@@ -71,12 +71,12 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
     """
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
-    fourier_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    fourier_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fourier flux. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.FouriersLaw`.
 
@@ -106,11 +106,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     ]
     """Ad operator representing the advective flux. Normally provided by a mixin
     instance of :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
-
-    """
-    bc_values_enthalpy_flux: Callable[[list[pp.Grid]], pp.ad.DenseArray]
-    """Boundary condition for enthalpy flux. Normally defined in a mixin instance
-    of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
     """
     interface_advective_flux: Callable[
@@ -169,7 +164,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Optional[Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]],
+            None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,

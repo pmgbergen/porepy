@@ -1074,7 +1074,7 @@ class FluidMixtureMixin:
     """See :class:`_MixtureDOFHandler`."""
     has_independent_extended_fraction: Callable[[Component, Phase], bool]
     """See :class:`_MixtureDOFHandler`."""
-    has_independent_fraction: Callable[[Component], bool]
+    has_independent_fraction: Callable[[Phase | Component], bool]
     """See :class:`_MixtureDOFHandler`."""
 
     def create_mixture(self) -> None:
@@ -1210,7 +1210,7 @@ class FluidMixtureMixin:
 
     def dependencies_of_phase_properties(
         self, phase: Phase
-    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+    ) -> list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         """Method to define the signature of phase properties, which are dependent
         quantities.
 
@@ -1248,9 +1248,7 @@ class FluidMixtureMixin:
         # casting to include mortar grids and variables as return types.
         # This is used as an argument for Surrogate factories, so we must have the
         # mortars as well
-        return cast(
-            Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]], dependencies
-        )
+        return cast(list[Callable[[pp.GridLikeSequence], pp.ad.Variable]], dependencies)
 
     def fluid_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Returns an operaror by calling phase saturations and densities, and

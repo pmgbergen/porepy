@@ -570,7 +570,7 @@ class TotalMassBalanceEquation(pp.BalanceEquation):
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
-    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """See :class:`SolidSkeletonCF`."""
 
     interface_darcy_flux: Callable[
@@ -709,7 +709,7 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
     fluid_mixture: ppc.FluidMixture
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
-    enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`VariablesCF`."""
 
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -926,7 +926,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     fluid_mixture: ppc.FluidMixture
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
-    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """See :class:`SolidSkeletonCF`."""
 
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -976,7 +976,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Optional[Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]],
+            None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -995,7 +995,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     ]
     """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`."""
 
-    has_independent_fraction: Callable[[ppc.Component | ppc.Phase], bool]
+    has_independent_fraction: Callable[[ppc.Phase | ppc.Component], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     def _mass_balance_equation_name(self, component: ppc.Component) -> str:
@@ -1415,14 +1415,10 @@ class SecondaryEquationsMixin:
 
     def eliminate_by_constitutive_law(
         self,
-        independent_quantity: Callable[
-            [pp.GridLikeSequence], pp.ad.MixedDimensionalVariable
-        ],
-        dependencies: Sequence[
-            Callable[[pp.GridLikeSequence], pp.ad.MixedDimensionalVariable]
-        ],
-        func: Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
-        domains: pp.GridLikeSequence,
+        independent_quantity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator],
+        dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
+        func: Callable[..., tuple[np.ndarray, np.ndarray]],
+        domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
         dofs: dict = {"cells": 1},
     ) -> None:
         """Method to add a secondary equation eliminating a secondary variable by some
@@ -1469,11 +1465,15 @@ class SecondaryEquationsMixin:
         # separate these two because Boundary values for independent quantities are
         # stored differently
         non_boundaries = cast(
-            pp.GridLikeSequence,
+            pp.SubdomainsOrBoundaries,
             [g for g in domains if isinstance(g, (pp.Grid, pp.MortarGrid))],
         )
 
-        sec_var = independent_quantity(non_boundaries)
+        # cast to Variable, because most models have functions returning variables
+        # like pressure and temperature, typed as returning Operator
+        sec_var = cast(
+            pp.ad.MixedDimensionalVariable, independent_quantity(non_boundaries)
+        )
         g_ids = [d.id for d in non_boundaries]
 
         sec_expr = pp.ad.SurrogateFactory(
@@ -1488,7 +1488,9 @@ class SecondaryEquationsMixin:
             local_equ, cast(list[pp.Grid] | list[pp.MortarGrid], non_boundaries), dofs
         )
 
-        self.add_constitutive_expression(sec_var, sec_expr, func, domains)
+        self.add_constitutive_expression(
+            sec_var, sec_expr, func, cast(pp.GridLikeSequence, domains)
+        )
 
 
 class PrimaryEquationsCF(
@@ -1865,7 +1867,7 @@ class BoundaryConditionsCF(
     """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
     dependencies_of_phase_properties: Callable[
-        [ppc.Phase], Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]
+        [ppc.Phase], list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
     ]
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
@@ -1874,7 +1876,7 @@ class BoundaryConditionsCF(
     params: dict
     """See :class:`SolutionStrategyCF`."""
 
-    has_independent_fraction: Callable[[ppc.Component | ppc.Phase], bool]
+    has_independent_fraction: Callable[[ppc.Phase | ppc.Component], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     _overall_fraction_variable: Callable[[ppc.Component], str]
@@ -2268,21 +2270,21 @@ class InitialConditionsCF:
     iterate_indices: np.ndarray
     """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
-    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
-    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`VariablesCF`."""
 
-    has_independent_fraction: Callable[[ppc.Component | ppc.Phase], bool]
+    has_independent_fraction: Callable[[ppc.Phase | ppc.Component], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
     has_independent_tracer_fraction: Callable[[ppc.ChemicalSpecies, ppc.Compound], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     dependencies_of_phase_properties: Callable[
-        [ppc.Phase], Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]
+        [ppc.Phase], list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
     ]
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
@@ -2345,14 +2347,21 @@ class InitialConditionsCF:
 
         for sd in self.mdg.subdomains():
             # setting pressure and temperature per domain
+            # Need to cast the return value to variable, because it is types as operator
             self.equation_system.set_variable_values(
-                self.initial_pressure(sd), [self.pressure([sd])], iterate_index=0
+                self.initial_pressure(sd),
+                [cast(pp.ad.Variable, self.pressure([sd]))],
+                iterate_index=0,
             )
             self.equation_system.set_variable_values(
-                self.initial_temperature(sd), [self.temperature([sd])], iterate_index=0
+                self.initial_temperature(sd),
+                [cast(pp.ad.Variable, self.temperature([sd]))],
+                iterate_index=0,
             )
             self.equation_system.set_variable_values(
-                self.initial_enthalpy(sd), [self.enthalpy([sd])], iterate_index=0
+                self.initial_enthalpy(sd),
+                [cast(pp.ad.Variable, self.enthalpy([sd]))],
+                iterate_index=0,
             )
 
             # Setting overall fractions and tracer fractions
@@ -2361,11 +2370,7 @@ class InitialConditionsCF:
                 if self.has_independent_fraction(component):
                     self.equation_system.set_variable_values(
                         self.initial_overall_fraction(component, sd),
-                        [
-                            cast(
-                                pp.ad.MixedDimensionalVariable, component.fraction([sd])
-                            )
-                        ],
+                        [cast(pp.ad.Variable, component.fraction([sd]))],
                         iterate_index=0,
                     )
 
@@ -2377,7 +2382,7 @@ class InitialConditionsCF:
                                 self.initial_tracer_fraction(tracer, component, sd),
                                 [
                                     cast(
-                                        pp.ad.MixedDimensionalVariable,
+                                        pp.ad.Variable,
                                         component.tracer_fraction_of[tracer]([sd]),
                                     )
                                 ],
@@ -2593,9 +2598,9 @@ class SolutionStrategyCF(
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
 
-    fourier_flux_discretization: Callable[[Sequence[pp.Grid]], pp.ad.MpfaAd]
+    fourier_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
     """See :class:`~porepy.models.constitutive_laws.FouriersLaw`."""
-    darcy_flux_discretization: Callable[[Sequence[pp.Grid]], pp.ad.MpfaAd]
+    darcy_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
     create_mixture: Callable[[], None]
@@ -2609,7 +2614,7 @@ class SolutionStrategyCF(
     update_all_constitutive_expressions: Callable[[], None]
     """See :class:`ConstitutiveLawsCF`."""
     dependencies_of_phase_properties: Callable[
-        [ppc.Phase], Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]
+        [ppc.Phase], list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
     ]
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 

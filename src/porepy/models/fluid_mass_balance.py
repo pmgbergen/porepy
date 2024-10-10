@@ -54,7 +54,7 @@ class MassBalanceEquations(pp.BalanceEquation):
     fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fluid density. Defined in a mixin class with a suitable constitutive relation.
     """
-    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
@@ -143,7 +143,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Optional[Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]],
+            None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
