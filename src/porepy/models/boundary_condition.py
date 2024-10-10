@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Sequence
 
 import numpy as np
 
@@ -133,9 +133,7 @@ class BoundaryConditionMixin:
         subdomains: Sequence[pp.Grid],
         dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-        robin_operator: Optional[
-            Union[None, Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]]
-        ],
+        robin_operator: None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
         name: str,
         dim: int = 1,

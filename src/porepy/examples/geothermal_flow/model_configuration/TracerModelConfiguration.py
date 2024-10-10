@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Callable
+
 import numpy as np
 
 import porepy as pp
@@ -18,6 +22,10 @@ from .geometry_description.geometry_market import SimpleGeometry as ModelGeometr
 
 class BoundaryConditions(BoundaryConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))

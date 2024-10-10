@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Callable
+
 import numpy as np
 
 import porepy as pp
@@ -9,6 +13,7 @@ from porepy.models.compositional_flow import (
     PrimaryEquationsCF,
 )
 
+from ..vtk_sampler import VTKSampler
 from .constitutive_description.PureWaterConstitutiveDescription import (
     FluidMixture,
     SecondaryEquations,
@@ -19,6 +24,12 @@ from .geometry_description.geometry_market import SimpleGeometry1D as ModelGeome
 ## Bc to simulate pure-water with single liquid phase flow.
 class BoundaryConditions(BoundaryConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+
+    vtk_sampler_ptz: VTKSampler
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
@@ -79,6 +90,9 @@ class BoundaryConditions(BoundaryConditionsCF):
 
 
 class InitialConditions(InitialConditionsCF):
+
+    vtk_sampler_ptz: VTKSampler
+
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Define an initial pressure distribution that varies linearly from
         the inlet to the outlet of the domain.

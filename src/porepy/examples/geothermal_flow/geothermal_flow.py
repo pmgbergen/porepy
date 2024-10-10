@@ -16,6 +16,7 @@ instances of that object provide functions and their gradients within the produc
 from __future__ import annotations
 
 import time
+from typing import cast
 
 import numpy as np
 
@@ -119,6 +120,7 @@ bc_sides = model.domain_boundary_sides(grid)
 
 # Integrated overall mass flux on all facets
 mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
+mn = cast(np.ndarray, mn)
 
 inlet_idx, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])
 print("Inflow values : ", mn[inlet_idx])

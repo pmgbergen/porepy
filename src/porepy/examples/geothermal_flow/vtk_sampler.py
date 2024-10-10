@@ -1,7 +1,7 @@
 import time
 
 import numpy as np
-import pyvista
+import pyvista  # type: ignore
 
 from . import classify_points as cp
 
@@ -69,6 +69,15 @@ class VTKSampler:
         else:
             return None
 
+    @sampled_could.setter
+    def sampled_could(self, sampled_could):
+        if hasattr(self, "_sampled_could"):
+            self._sampled_could.clean()
+            self._sampled_could.copy_from(sampled_could, deep=True)
+        else:
+            self._sampled_could = sampled_could.copy(deep=True)
+        del sampled_could
+
     @property
     def constant_extended_fields(self):
         if hasattr(self, "_constant_extended_fields"):
@@ -79,15 +88,6 @@ class VTKSampler:
     @constant_extended_fields.setter
     def constant_extended_fields(self, constant_extended_fields):
         self._constant_extended_fields = constant_extended_fields
-
-    @sampled_could.setter
-    def sampled_could(self, sampled_could):
-        if hasattr(self, "_sampled_could"):
-            self._sampled_could.clean()
-            self._sampled_could.copy_from(sampled_could, deep=True)
-        else:
-            self._sampled_could = sampled_could.copy(deep=True)
-        del sampled_could
 
     def sample_at(self, points):
         if self.mutex_state and self.sampled_could is not None:
