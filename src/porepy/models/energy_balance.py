@@ -784,13 +784,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
     """
 
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Function that returns the specific volume of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
     thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Thermal conductivity. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.

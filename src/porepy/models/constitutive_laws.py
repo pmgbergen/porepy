@@ -692,13 +692,6 @@ class ConstantViscosity(PorePyModel):
 
 
 class SecondOrderTensorUtils(PorePyModel):
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Function that returns the specific volume of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
 
     def isotropic_second_order_tensor(
         self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
@@ -780,14 +773,6 @@ class SecondOrderTensorUtils(PorePyModel):
 
 class ConstantPermeability(PorePyModel):
     """A spatially homogeneous permeability field."""
-
-    isotropic_second_order_tensor: Callable[
-        [list[pp.Grid], pp.ad.Operator], pp.ad.Operator
-    ]
-    """Basis for the local coordinate system. Normally set by a mixin instance of
-    :class:`porepy.models.constitutive_laws.SecondOrderTensorUtils`.
-
-    """
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2].
@@ -921,19 +906,6 @@ class CubicLawPermeability(DimensionDependentPermeability):
 
     """
 
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Function that returns the specific volume of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
-    aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Function that returns the aperture of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
-
     def cubic_law_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Cubic law permeability for fractures or intersections.
 
@@ -1014,18 +986,7 @@ class DarcysLaw(PorePyModel):
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
     """
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Specific volume. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
 
-    """
-    aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Aperture. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
-
-    """
     gravity_force: Callable[
         [Union[list[pp.Grid], list[pp.MortarGrid]], Literal["fluid", "solid"]],
         pp.ad.Operator,
@@ -1306,16 +1267,6 @@ class AdTpfaFlux(PorePyModel):
         "darcy_flux" or "fourier_flux"). The same goes for "inteface_" + flux_name and
         flux_name + "_discretization". These conventions are used to simplify the
         implementation of the class' methods. TODO: Consider making this more explicit.
-
-    """
-
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Function that returns the specific volume of a subdomain or interface.
-
-    Normally provided by a mixin of instance
-    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
 
     """
 
@@ -2247,13 +2198,6 @@ class ThermalConductivityLTE(PorePyModel):
     :class:`~porepy.models.constitutive_laws.PoroMechanicsPorosity`.
 
     """
-    isotropic_second_order_tensor: Callable[
-        [list[pp.Grid], pp.ad.Operator], pp.ad.Operator
-    ]
-    """Basis for the local coordinate system. Normally set by a mixin instance of
-    :class:`porepy.models.constitutive_laws.SecondOrderTensorUtils`.
-
-    """
 
     def fluid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fluid thermal conductivity [W / (m K)].
@@ -2368,19 +2312,6 @@ class FouriersLaw(PorePyModel):
     """Function that returns the boundary condition type for the Fourier flux. Normally
     defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
-
-    """
-
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Specific volume. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
-
-    """
-    aperture: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Aperture. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DimensionReduction` or a subclass thereof.
 
     """
 

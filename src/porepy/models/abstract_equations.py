@@ -25,16 +25,6 @@ class BalanceEquation(PorePyModel):
 
     """
 
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Function that returns the specific volume of a subdomain or interface.
-
-    Normally provided by a mixin of instance
-    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
-
     def balance_equation(
         self,
         subdomains: list[pp.Grid],
