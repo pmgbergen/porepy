@@ -10,7 +10,7 @@ or to a file format other than vtu.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 
