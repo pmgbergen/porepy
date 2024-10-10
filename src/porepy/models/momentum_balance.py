@@ -31,13 +31,6 @@ logger = logging.getLogger(__name__)
 class MomentumBalanceEquations(pp.BalanceEquation):
     """Class for momentum balance equations and fracture deformation equations."""
 
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Stress on the grid faces. Provided by a suitable mixin class that specifies the
     physical laws governing the stress.
@@ -88,12 +81,6 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     Can be interpreted as an indicator of the fracture cells in the open state.
     Normally provided by a mixin instance of
     :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
 
     """
     gravity_force: Callable[[list[pp.Grid] | list[pp.MortarGrid], str], pp.ad.Operator]
@@ -623,17 +610,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     """
 
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
     stiffness_tensor: Callable[[pp.Grid], pp.FourthOrderTensor]
     """Function that returns the stiffness tensor of a subdomain. Normally provided by a
     mixin of instance :class:`~porepy.models.constitutive_laws.ElasticModuli`.

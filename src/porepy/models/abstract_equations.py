@@ -79,7 +79,6 @@ class BalanceEquation(PorePyModel):
         ), "Grids must be either all subdomains or all interfaces."
 
         # First account for cell volumes.
-        # Ignore mypy complaint about unexpected keyword arguments.
         cell_volumes = self.wrap_grid_attribute(grids, "cell_volumes", dim=1)
 
         # Next, include the effects of reduced dimensions, expressed as specific

@@ -624,12 +624,15 @@ class FluidMobility(PorePyModel):
 
     fluid_viscosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Function that returns the fluid viscosity. Normally provided by a mixin of
-    instance TODO.
+    instance :class:`~porepy.models.constitutive_laws.ConstantViscosity`.
 
     """
 
     mobility_keyword: str
-    """TODO"""
+    """Keyword for mobility factor. Normally provided by a mixin of
+    instance :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
+
+    """
 
     def mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mobility of the fluid flux.
@@ -1006,7 +1009,11 @@ class DarcysLaw(PorePyModel):
 
     """
     bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
+    """Function that returns the boundary condition type for the Darcy flux. Normally
+    provided by a mixin instance of
+    :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
 
+    """
     specific_volume: Callable[
         [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
     ]
@@ -1354,7 +1361,7 @@ class AdTpfaFlux(PorePyModel):
                 name=flux_name,
                 domains=domains,
             )
-        domains = list(cast(Sequence[pp.Grid], domains))
+        domains = cast(list[pp.Grid], domains)
 
         # Check that the subdomains are grids.
         if not all([isinstance(g, pp.Grid) for g in domains]):
@@ -3047,6 +3054,11 @@ class LinearElasticMechanicalStress(PorePyModel):
     """
 
     bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryCondition]
+    """Function that returns the boundary condition type for the momentum problem.
+    Normally provided by a mixin instance of
+    :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.
+
+    """
 
     def mechanical_stress(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Linear elastic mechanical stress.
@@ -3633,12 +3645,6 @@ class ShearDilation(PorePyModel):
 
     """
 
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElastoPlasticFractureDeformation`.
-
-    """
     plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """The plastic component of the displacement jump. Normally defined in a mixin
     instance of
@@ -4084,6 +4090,11 @@ class PoroMechanicsPorosity(PorePyModel):
     """
 
     bc_type_mechanics: Callable[[pp.Grid], pp.BoundaryCondition]
+    """Function that returns the boundary condition type for the momentum problem.
+    Normally provided by a mixin instance of
+    :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.
+
+    """
 
     combine_boundary_operators_mechanical_stress: Callable[
         [Sequence[pp.Grid]], pp.ad.Operator
