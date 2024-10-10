@@ -592,11 +592,6 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         return True
 
     def _is_time_dependent(self) -> bool:
-        """Specifies whether the Model problem is time-dependent.
-
-        Returns:
-            bool: True if the problem is time-dependent, False otherwise.
-        """
         return True
 
     def update_time_dependent_ad_arrays(self) -> None:

@@ -540,6 +540,13 @@ else:
 
             """
 
+        def _is_time_dependent(self) -> bool:
+            """Spec ifies whether the Model problem is time-dependent.
+
+            Returns:
+                bool: True if the problem is time-dependent, False otherwise.
+            """
+
     class VariableProtocol(Protocol):
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""

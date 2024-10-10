@@ -192,12 +192,6 @@ class DataSavingMixin(PorePyModel):
 class VerificationDataSaving(DataSavingMixin):
     """Class to store relevant data for a generic verification setup."""
 
-    nonlinear_solver_statistics: pp.SolverStatistics
-    """Non-linear solver statistics, also keeping track of the number of iterations."""
-
-    _is_time_dependent: Callable[[], bool]
-    """Whether the problem is time-dependent."""
-
     results: list
     """List of objects containing the results of the verification."""
 
