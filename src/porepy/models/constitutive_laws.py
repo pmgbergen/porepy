@@ -89,8 +89,8 @@ class DisplacementJump(PorePyModel):
         # The jumps are defined in local coordinates. Prepare to project the tangential
         # and normal components of the displacement jump from (nd-1) and 1 dimensions,
         # respectively, to nd dimensions.
-        basis = self.basis(subdomains, dim=self.nd)  # type: ignore[call-arg]
-        local_basis = self.basis(subdomains, dim=self.nd - 1)  # type: ignore[call-arg]
+        basis = self.basis(subdomains, dim=self.nd)
+        local_basis = self.basis(subdomains, dim=self.nd - 1)
         tangential_to_nd = pp.ad.sum_operator_list(
             [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
         )
@@ -1209,9 +1209,7 @@ class DarcysLaw(PorePyModel):
         """
         # Account for sign of boundary face normals.
         # No scaling with interface cell volumes.
-        normals = self.outwards_internal_boundary_normals(
-            interfaces, unitary=True  # type: ignore[call-arg]
-        )
+        normals = self.outwards_internal_boundary_normals(interfaces, unitary=True)
         # Project vector source from lower-dimensional neighbors to the interfaces.
         # This allows including pressure and temperature dependent density, which would
         # not be defined on the interface.
@@ -1231,7 +1229,7 @@ class DarcysLaw(PorePyModel):
         # Then sum over the nd dimensions. We need to surpress mypy complaints on  basis
         # having keyword-only arguments. The result will in effect be a matrix.
         nd_to_scalar_sum = pp.ad.sum_operator_list(
-            [e.T for e in self.basis(interfaces, dim=self.nd)]  # type: ignore[call-arg]
+            [e.T for e in self.basis(interfaces, dim=self.nd)]
         )
         # Finally, the dot product between normal vectors and the vector source. This
         # must be implemented as a matrix-vector product (yes, this is confusing).
@@ -1624,7 +1622,7 @@ class AdTpfaFlux(PorePyModel):
         # The cell-wise permeability tensor is represented as an Ad operator which
         # evaluates to an AdArray with 9 * n_cells entries. Also scale with specific
         # volume.
-        basis = self.basis(subdomains, dim=9)  # type: ignore[call-arg]
+        basis = self.basis(subdomains, dim=9)
         volumes = pp.ad.sum_operator_list(
             [e @ self.specific_volume(subdomains) for e in basis]
         )
@@ -1989,7 +1987,7 @@ class PeacemanWellFlux(PorePyModel):
         f_log = pp.ad.Function(pp.ad.functions.log, "log_function_Piecmann")
 
         # We assume isotropic permeability and extract xx component.
-        e_i = self.e_i(subdomains, i=0, dim=9).T  # type: ignore[call-arg]
+        e_i = self.e_i(subdomains, i=0, dim=9).T
 
         # To get a transmissivity, we multiply the permeability with the length of the
         # well within one cell. For a 0d-2d coupling, this will be the aperture of the
@@ -3269,17 +3267,13 @@ class PressureStress(LinearElasticMechanicalStress):
         # Note the unitary scaling here, we will scale the pressure with the area
         # of the interface (equivalently face area in the matrix subdomains) elsewhere.
         outwards_normal = self.outwards_internal_boundary_normals(
-            interfaces, unitary=True  # type: ignore[call-arg]
+            interfaces, unitary=True
         )
 
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
-        # Mypy seems to believe that sum always returns a scalar. Ignore errors.
-        scalar_to_nd: pp.ad.Operator = pp.ad.sum_operator_list(  # type: ignore[assignment]
-            [
-                e_i  # type: ignore[misc]
-                for e_i in self.basis(interfaces, dim=self.nd)  # type: ignore[call-arg]
-            ]
+        scalar_to_nd = pp.ad.sum_operator_list(
+            [e_i for e_i in self.basis(interfaces, dim=self.nd)]
         )
         # Spelled out, from the right: Project the pressure from the fracture to the
         # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
@@ -4203,7 +4197,7 @@ class PoroMechanicsPorosity(PorePyModel):
         # discretization contains a volume integral. Since this is used here together
         # with intensive quantities, we need to divide by cell volumes.
         cell_volumes_inv = Scalar(1) / self.wrap_grid_attribute(
-            subdomains, "cell_volumes", dim=1  # type: ignore[call-arg]
+            subdomains, "cell_volumes", dim=1
         )
         displacement_divergence = cell_volumes_inv * displacement_divergence_integrated
         displacement_divergence.set_name("displacement_divergence")
@@ -4248,7 +4242,7 @@ class PoroMechanicsPorosity(PorePyModel):
         # consistency term is used here together with intensive quantities, we need to
         # divide by cell volumes.
         cell_volumes_inverse = Scalar(1) / self.wrap_grid_attribute(
-            subdomains, "cell_volumes", dim=1  # type: ignore[call-arg]
+            subdomains, "cell_volumes", dim=1
         )
         consistency = cell_volumes_inverse * consistency_integrated
         consistency.set_name("mpsa_consistency")

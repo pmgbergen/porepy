@@ -140,24 +140,6 @@ class ModelGeometry(PorePyModel):
         *,
         dim: int,
     ) -> pp.ad.DenseArray:
-        # NOTE: The enforcement of keyword-only arguments, combined with this class
-        # being used as a mixin with other classes (thus this function represented as a
-        # Callable in the other classes) does not make mypy happy. The problem seems to
-        # be that a method specified as Callable must be called exactly as the type
-        # specification, thus when this method is called with arguments
-        #
-        #   self.wrap_grid_attribute(..., dim=some_integer, ...)
-        #
-        # mypy will react on the difference between the type specification (that did not
-        # include the dim argument) and the actual call. We also tried adding the *
-        # (indicating the start of keyword-only in the type specification), but while
-        # this made mypy happy, it is not vald syntax. The only viable solution (save
-        # from using typing protocols, which we really do not want to do, there are
-        # enough classes and inheritance in the mixin combination as it is) seems to be
-        # to add a # type: ignore[call-arg] comment where the method is called. By only
-        # ignoring call-args problems, we limit the risk of silencing other errors that
-        # mypy might find.
-
         if len(grids) > 0:
             # Check that all grids have the sought after attribute. We could have
             # avoided this loop by surrounding the getattr with a try-except, but this
@@ -192,10 +174,6 @@ class ModelGeometry(PorePyModel):
         return array
 
     def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.SparseArray]:
-        # NOTE: See self.wrap_grid_attribute for comments on typing when this method
-        # is used as a mixin, and the need to add type-ignore[call-arg] on use of this
-        # method.
-
         # Collect the basis functions for each dimension
         basis: list[pp.ad.SparseArray] = []
         for i in range(dim):
@@ -206,10 +184,6 @@ class ModelGeometry(PorePyModel):
     def e_i(
         self, grids: Sequence[pp.GridLike], *, i: int, dim: int
     ) -> pp.ad.SparseArray:
-        # NOTE: See self.wrap_grid_attribute for comments on typing when this method
-        # is used as a mixin, and the need to add type-ignore[call-arg] on use of this
-        # method.
-
         # TODO: Should we expand this to grids not aligned with the coordinate axes, and
         # possibly unify with ``porepy.utils.projections.TangentialNormalProjection``?
         # This is not a priority for the moment, though.
@@ -237,10 +211,10 @@ class ModelGeometry(PorePyModel):
         # component of the cell-wise vector v to be transformed. Then we want to express
         # it in the tangential basis. The two operations are combined in a single
         # operator composed right to left: v will be hit by first e_i.T (row vector) and
-        # secondly t_i (column vector). Ignore mypy keyword argument error.
+        # secondly t_i (column vector).
         op: pp.ad.Operator = pp.ad.sum_operator_list(
             [
-                self.e_i(subdomains, i=i, dim=self.nd - 1)  # type: ignore[arg-type]
+                self.e_i(subdomains, i=i, dim=self.nd - 1)
                 @ self.e_i(subdomains, i=i, dim=self.nd).T
                 for i in range(self.nd - 1)
             ]
@@ -368,10 +342,6 @@ class ModelGeometry(PorePyModel):
         *,
         unitary: bool,
     ) -> pp.ad.Operator:
-        # NOTE: See self.wrap_grid_attribute for comments on typing when this method
-        # is used as a mixin, and the need to add type-ignore[call-arg] on use of this
-        # method.
-
         if len(interfaces) == 0:
             # Special case if no interfaces.
             return pp.ad.DenseArray(np.zeros(0))
@@ -394,15 +364,13 @@ class ModelGeometry(PorePyModel):
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, primary_subdomains, interfaces, dim=self.nd
         )
-        # Ignore mypy complaint about unexpected keyword arguments.
         primary_face_normals = self.wrap_grid_attribute(
-            primary_subdomains, "face_normals", dim=self.nd  # type: ignore[call-arg]
+            primary_subdomains, "face_normals", dim=self.nd
         )
         # Account for sign of boundary face normals. This will give a matrix with a
         # shape equal to the total number of faces in all primary subdomains.
-        # Ignore mypy complaint about unexpected keyword arguments.
         flip = self.internal_boundary_normal_to_outwards(
-            primary_subdomains, dim=self.nd  # type: ignore[call-arg]
+            primary_subdomains, dim=self.nd
         )
         # Flip the normal vectors. Unravelled from the right: Restrict from faces on all
         # subdomains to the primary ones, multiply with the face normals, flip the
@@ -421,7 +389,7 @@ class ModelGeometry(PorePyModel):
             # 1 over cell volumes on the interfaces
             # Ignore mypy complaint about unexpected keyword arguments.
             cell_volumes_inv = pp.ad.Scalar(1) / self.wrap_grid_attribute(
-                interfaces, "cell_volumes", dim=self.nd  # type: ignore[call-arg]
+                interfaces, "cell_volumes", dim=self.nd
             )
 
             # Expand cell volumes to nd by multiplying from left by e_i and summing

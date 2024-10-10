@@ -215,7 +215,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             mortar_projection.primary_to_mortar_int
             @ proj.face_prolongation(matrix_subdomains)
             @ self.internal_boundary_normal_to_outwards(
-                matrix_subdomains, dim=self.nd  # type: ignore[call-arg]
+                matrix_subdomains, dim=self.nd
             )
             @ self.stress(matrix_subdomains)
         )
@@ -328,10 +328,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Basis vectors for the tangential components. This is a list of Ad matrices,
         # each of which represents a cell-wise basis vector which is non-zero in one
         # dimension (and this is known to be in the tangential plane of the subdomains).
-        # Ignore mypy complaint on unknown keyword argument
-        tangential_basis: list[pp.ad.SparseArray] = self.basis(
-            subdomains, dim=self.nd - 1  # type: ignore[call-arg]
-        )
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
         # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
@@ -756,10 +753,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # Basis vectors for the tangential components. This is a list of Ad matrices,
         # each of which represents a cell-wise basis vector which is non-zero in one
         # dimension (and this is known to be in the tangential plane of the subdomains).
-        # Ignore mypy complaint on unknown keyword argument
-        tangential_basis: list[pp.ad.SparseArray] = self.basis(
-            subdomains, dim=self.nd - 1  # type: ignore[call-arg]
-        )
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
         # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is

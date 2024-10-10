@@ -700,9 +700,7 @@ class ContactIndicators(PorePyModel):
         # Mapping from a full vector to the tangential component
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
-        tangential_basis: list[pp.ad.SparseArray] = self.basis(
-            subdomains, dim=self.nd - 1  # type: ignore[call-arg]
-        )
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # Variables: The tangential component of the contact traction and the
         # displacement jump
