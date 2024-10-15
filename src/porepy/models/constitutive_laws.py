@@ -1753,14 +1753,14 @@ class AdTpfaFlux:
             # the flux and one for the vector source.
 
             # Define the Ad function for the flux
-            flux_p = pp.ad.Function(  
+            flux_p = pp.ad.Function(
                 # Mypy raises an error here since functool.partial returns a 'partial',
                 # while pp.ad.Function expects a Callable. partial.__call__ is a
                 # Callable, and we know this is the way the function will be evaluated
                 # in ad parsing, so we ignore the error.
                 partial(  # type: ignore[arg-type]
                     self.__mpfa_flux_discretization, base_discr
-                ),  
+                ),
                 "differentiable_mpfa",
             )(t_f, potential_difference, potential(domains))
 
@@ -1872,7 +1872,7 @@ class AdTpfaFlux:
                 # ignore is needed.
                 partial(  # type: ignore[arg-type]
                     self.__mpfa_bound_pressure_discretization, base_discr
-                    ),
+                ),
                 "differentiable_mpfa",
             )(
                 bound_pressure_face_discr,
