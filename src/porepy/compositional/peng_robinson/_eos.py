@@ -19,8 +19,6 @@ import porepy as pp
 from .._core import R_IDEAL_MOL
 from ..base import Component
 from ..utils import safe_sum
-from .pr_bip import load_bip
-from .pr_components import ComponentPR
 
 __all__ = [
     "PhaseProperties_cubic",
@@ -2508,7 +2506,7 @@ class _PengRobinson(AbstractEoS):
             )
 
     @property
-    def components(self) -> list[ComponentPR]:
+    def components(self) -> list[pp.compositional.Component]:
         """The child class setter calculates EoS specific values per set component.
 
         Values like critical cohesion and covolume values, corrective parameters and
@@ -2538,7 +2536,7 @@ class _PengRobinson(AbstractEoS):
         return AbstractEoS.components.fget(self)
 
     @components.setter
-    def components(self, components: list[ComponentPR]) -> None:
+    def components(self, components: list[pp.compositional.Component]) -> None:
         a_crits: list[float] = list()
         bs: list[float] = list()
         a_cors: list[float] = list()

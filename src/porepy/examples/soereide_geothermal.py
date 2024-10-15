@@ -25,7 +25,7 @@ import os
 import pathlib
 import time
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 compile_time = 0.0
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.INFO)
@@ -39,6 +39,11 @@ import porepy as pp
 t_0 = time.time()
 import porepy.compositional as ppc
 import porepy.compositional.peng_robinson as ppcpr
+from porepy.compositional.peng_robinson.pr_utils import (
+    get_bip_matrix,
+    h_ideal_CO2,
+    h_ideal_H2O,
+)
 
 compile_time += time.time() - t_0
 
@@ -53,18 +58,19 @@ class SoereideMixture:
     NaCl brine with CO2, H2S and N2."""
 
     def get_components(self) -> Sequence[ppc.Component]:
-        chems = ["H2O", "CO2"]
-        species = ppc.load_species(chems)
         components = [
-            ppcpr.H2O.from_species(species[0]),
-            ppcpr.CO2.from_species(species[1]),
+            ppc.Component.from_species(s) for s in ppc.load_species(["H2O", "CO2"])
         ]
         return components
 
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
-        eos = ppcpr.PengRobinsonCompiler(components)
+
+        eos = ppcpr.PengRobinsonCompiler(
+            components, [h_ideal_H2O, h_ideal_CO2], get_bip_matrix(components)
+        )
+
         return [(eos, ppc.PhysicalState.liquid, "L"), (eos, ppc.PhysicalState.gas, "G")]
 
 
