@@ -118,6 +118,9 @@ class _MixtureDOFHandler:
     ]
     """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`."""
 
+    equilibrium_type: Optional[str]
+    """See :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
+
     # Logic methods determining existence of DOFs
 
     @property
@@ -137,9 +140,7 @@ class _MixtureDOFHandler:
         """Helper method to access the model parameters and check if the
         equilibrium type is defined. Defaults to False."""
 
-        equilibrium_type = self.params.get("equilibrium_type", None)
-
-        if equilibrium_type is None:
+        if self.equilibrium_type is None:
             return False
         else:
             return True
@@ -150,7 +151,7 @@ class _MixtureDOFHandler:
         equilibrium type is defined and if it is unified."""
         if self._has_equilibrium:
             # NOTE _has_equilibrium already checks that the value is not none.
-            if "unified" in str(self.params["equilibrium_type"]):
+            if "unified" in str(self.equilibrium_type):
                 return True
             else:
                 return False
@@ -1073,7 +1074,7 @@ class FluidMixtureMixin:
     """See :class:`_MixtureDOFHandler`."""
     has_independent_extended_fraction: Callable[[Component, Phase], bool]
     """See :class:`_MixtureDOFHandler`."""
-    has_independent_fraction: Callable[[Component], bool]
+    has_independent_fraction: Callable[[Phase | Component], bool]
     """See :class:`_MixtureDOFHandler`."""
 
     def create_mixture(self) -> None:
@@ -1209,7 +1210,7 @@ class FluidMixtureMixin:
 
     def dependencies_of_phase_properties(
         self, phase: Phase
-    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+    ) -> list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         """Method to define the signature of phase properties, which are dependent
         quantities.
 
@@ -1247,9 +1248,7 @@ class FluidMixtureMixin:
         # casting to include mortar grids and variables as return types.
         # This is used as an argument for Surrogate factories, so we must have the
         # mortars as well
-        return cast(
-            Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]], dependencies
-        )
+        return cast(list[Callable[[pp.GridLikeSequence], pp.ad.Variable]], dependencies)
 
     def fluid_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Returns an operaror by calling phase saturations and densities, and
@@ -1279,8 +1278,8 @@ class FluidMixtureMixin:
         performing a weighed sum.
 
         Raises:
-            CompositeModellingError: If :attr:`equilibrium_type` is None, and hence no
-                phase fractions were introduced by :class:`CompositionalVariables`.
+            CompositeModellingError: If the model has no equilibrium defined, and hence
+                no phase fractions were introduced by :class:`CompositionalVariables`.
                 The consistent definition of the specific molar enthalpy of a fluid
                 mixture always depends on phase fractions.
 
