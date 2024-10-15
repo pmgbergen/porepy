@@ -68,9 +68,9 @@ import sympy as sp
 
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from .._core import R_IDEAL_MOL
+from ..base import Component
 from ..utils import safe_sum
-from .pr_bip import load_bip
-from .pr_components import ComponentPR
+from .pr_utils import thd_function_type
 
 __all__ = [
     "A_CRIT",
@@ -545,7 +545,7 @@ def VanDerWaals_covolume(X: Sequence[Any], b: Sequence[Any]) -> Any:
 def VanDerWaals_cohesion(
     x: Sequence[Any],
     a: Sequence[Any],
-    bip: Sequence[Sequence[Any]],
+    bip: np.ndarray,
     sqrt_of_any: Optional[Callable[[Any], Any]] = sp.sqrt,
 ) -> Any:
     r"""
@@ -553,9 +553,9 @@ def VanDerWaals_cohesion(
         x: A sequence of fractions.
         a: A sequence of component cohesion values, with the same length and order as
             ``X``.
-        bip: A nested sequence of binary interaction parameters where ``bip[i][j]`` is
+        bip: A 2D array of binary interaction parameters where ``bip[i][j]`` is
             the parameter between components ``i`` and ``j``.
-            Symmetric, but does upper triangle of this 2D matrix is sufficient.
+            Symmetric, but the upper triangle of this 2D matrix is sufficient.
         sqrt_func: ``default=``:func:`sympy.sqrt`
 
             A function representing the square root applicable to the input type.
@@ -595,12 +595,20 @@ class PengRobinsonSymbolic:
         The functions are generated using :func:`sympy.lambdify` and are *sourceless*.
 
     Parameters:
-        components: A sequence of ``num_comp`` components which are compatible
-            with the Peng-Robinson EoS.
+        components: A sequence of ``num_comp`` components.
+        ideal_enthalpies: A list of ``num_comp`` callables representing the ideal
+            enthalpies of individual components in ``components``.
+        bip_matrix: A 2D array containing BIPs for ``components``. Note that only the
+            upper triangle of this matrix is used.
 
     """
 
-    def __init__(self, components: Sequence[ComponentPR]) -> None:
+    def __init__(
+        self,
+        components: list[Component],
+        ideal_enthalpies: list[thd_function_type],
+        bip_matrix: np.ndarray,
+    ) -> None:
         self.p_s: sp.Symbol = sp.Symbol(str(SYMBOLS["pressure"]))
         """Symbolic representation fo pressure."""
 
@@ -743,9 +751,7 @@ class PengRobinsonSymbolic:
         """List of cohesion values per component, including a correction involving
         the critical temperature and acentric factor."""
 
-        a_e: sp.Expr = VanDerWaals_cohesion(
-            self.x_in_j, ai_e, self._compute_bips(components)
-        )
+        a_e: sp.Expr = VanDerWaals_cohesion(self.x_in_j, ai_e, bip_matrix)
         """Mixed cohesion according to the Van der Waals mixing rule."""
         A_e: sp.Expr = a_e * self.p_s / (R_IDEAL_MOL**2 * self.T_s**2)
         """Non-dimensional, mixed cohesion created using :attr:`b_e`"""
@@ -818,10 +824,7 @@ class PengRobinsonSymbolic:
         :data:`A_s`, :data:`B_s`, :data:`Z_s`"""
 
         h_ideal_e: sp.Expr = safe_sum(
-            [
-                x * comp.h_ideal(self.p_s, self.T_s)
-                for x, comp in zip(self.x_in_j, components)
-            ]
+            [x * h_id(self.T_s) for x, h_id in zip(self.x_in_j, ideal_enthalpies)]
         )
         """Symbolic expression for the ideal enthalpy."""
 
@@ -849,87 +852,6 @@ class PengRobinsonSymbolic:
         self.rho_f = sp.lambdify([self.p_s, self.T_s, Z_s], rho_e)
         self.d_rho_f = sp.lambdify([self.p_s, self.T_s, Z_s], d_rho_e)
         # endregion
-
-    def _compute_bips(
-        self, components: Sequence[ComponentPR]
-    ) -> Sequence[Sequence[Any]]:
-        """Helper method to load the binary interaction parameters.
-
-        TODO: Call to custom bips in PR package needs to be generalized to be able to
-        handle a symbolic temperature as input.
-
-        Parameters:
-            components: A sequence of Peng-Robinson compatible components.
-
-        Returns:
-            A list of lists (2D-array-like), where per components ``i`` and ``j`` the
-            interaction parameter is stored as ``result[i][j]``.
-
-            ``result`` is strictly upper triangular, with zeros on main-diagonal and
-            below.
-
-        """
-
-        ncomp = len(components)
-
-        # BIP matrix, must be of shape = (ncomp, ncomp) at the end
-        bips: list[list[Any]] = []
-
-        for i in range(ncomp):
-            comp_i = components[i]
-            # start row by filling lower triangle part with zeros
-            # (including main diagonal)
-            bips_i = [0] * (i + 1)
-
-            # loop over upper triangle part
-            for j in range(i + 1, ncomp):
-                comp_j = components[j]
-                bip_ij = None
-                # check if comp i has custom implementations
-                if hasattr(comp_i, "bip_map"):
-                    bip_ij_f = comp_i.bip_map.get(comp_j.CASr_number, None)
-                    if bip_ij_f is not None:
-                        bip_ij = bip_ij_f(self.T_s)[0]
-
-                # check for other custom implementations
-                if hasattr(comp_j, "bip_map"):
-                    bip_ij_f = comp_j.bip_map.get(comp_i.CASr_number, None)
-                    if bip_ij_f is not None:
-                        # if the bip is still None so far, we chose the custome one
-                        # from comp j
-                        if bip_ij is None:
-                            bip_ij = bip_ij_f(self.T_s)[0]
-                        else:  # warn the user if a double implementation is detected
-                            logger.warning(
-                                "Detected double custom implementation of BIPs for"
-                                + f"{comp_i.name} and {comp_j.name}."
-                                + f"Chosing model from {comp_i.name}."
-                                + "\nA fix to the model components if recommended."
-                            )
-
-                # if no custom implementation found
-                if bip_ij is None:
-                    bip_ij = load_bip(comp_i.CASr_number, comp_j.CASr_number)
-                    # warn the user if a zero bip was loaded (likely missing data)
-                    if bip_ij == 0.0:
-                        logger.warning(
-                            "Loaded a BIP with zero value for"
-                            + f" components {comp_i.name} and {comp_j.name}."
-                        )
-
-                # If error in logic or loading of BIPs gives something unexpected
-                assert (
-                    bip_ij is not None
-                ), f"Failed to load/find BIP for components {comp_i.name} and {comp_j.name}"
-                bips_i.append(bip_ij)
-
-            # should never happen
-            assert len(bips_i) == ncomp
-            bips.append(bips_i)
-
-        # should never happen, but nevertheless asserting 2D-array-like structure
-        assert len(bips) == ncomp
-        return bips
 
     @staticmethod
     def a_correction_weight(omega: float) -> float:

@@ -40,6 +40,7 @@ import numba
 import numpy as np
 
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH
+from ..base import Component
 from ..eos_compiler import EoSCompiler
 from ..states import PhaseProperties, PhysicalState
 from ..utils import normalize_rows
@@ -66,7 +67,7 @@ from .eos_s import (
     d_Z_triple_f,
     discriminant,
 )
-from .pr_components import ComponentPR
+from .pr_utils import thd_function_type
 
 __all__ = [
     "characteristic_residual",
@@ -1230,15 +1231,31 @@ class PhasePropertiesCubic(PhaseProperties):
 
 class PengRobinsonCompiler(EoSCompiler):
     """Class providing compiled computations of thermodynamic quantities for the
-    Peng-Robinson EoS."""
+    Peng-Robinson EoS.
 
-    def __init__(self, components: list[ComponentPR]) -> None:
+    Parameters:
+        components: A list of ``num_comp`` component instances.
+        ideal_enthalpies: A list of ``num_comp`` callables representing the ideal
+            enthalpies of individual components in ``components``.
+        bip_matrix: A 2D array containing BIPs for ``components``. Note that only the
+            upper triangle of this matrix is used due to expected symmetry.
+
+    """
+
+    def __init__(
+        self,
+        components: list[Component],
+        ideal_enthalpies: list[thd_function_type],
+        bip_matrix: np.ndarray,
+    ) -> None:
         super().__init__(components)
 
         self._cfuncs: dict[str, Callable] = dict()
         """A collection of internally required, compiled callables"""
 
-        self.symbolic: PengRobinsonSymbolic = PengRobinsonSymbolic(components)
+        self.symbolic: PengRobinsonSymbolic = PengRobinsonSymbolic(
+            components, ideal_enthalpies, bip_matrix
+        )
 
     def compile(self) -> None:
         """Child method compiles essential functions from symbolic part before calling

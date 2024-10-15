@@ -27,20 +27,18 @@ if _NO_JIT:
 
 import porepy.compositional as ppc
 from porepy.compositional import peng_robinson as ppcpr
+from porepy.compositional.peng_robinson.pr_utils import h_ideal_H2O, h_ideal_CO2
 
 # NOTE Fixtures created here are expensive because of compilation
 # broadening the scope to have the value cached.
 
 @pytest.fixture(scope='module')
-def components() -> tuple[ppcpr.H2O, ppcpr.CO2]:
+def components() -> tuple[ppc.Component, ...]:
     """A 2-component mixture with Water and CO2"""
-    chems = ["H2O", "CO2"]
-    species = ppc.load_species(chems)
     components = [
-        ppcpr.H2O.from_species(species[0]),
-        ppcpr.CO2.from_species(species[1]),
+        ppc.Component.from_species(s)
+        for s in ppc.load_species(["H2O", "CO2"])
     ]
-
     return tuple(components)
 
 
@@ -48,7 +46,7 @@ def components() -> tuple[ppcpr.H2O, ppcpr.CO2]:
 def eos(components) -> ppcpr.PengRobinsonCompiler:
     """The fixture for this series of tests is a 2-component mixture with water and CO2."""
 
-    eos = ppcpr.PengRobinsonCompiler(list(components))
+    eos = ppcpr.PengRobinsonCompiler(list(components), [h_ideal_H2O, h_ideal_CO2])
     eos.compile()
     return eos
 

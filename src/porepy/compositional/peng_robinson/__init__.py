@@ -1,17 +1,16 @@
-"""Sub-package of ``porepy.compositional`` with implementations using the Peng-Robinson EoS.
+"""Sub-package of ``porepy.compositional`` with implementations using the Peng-Robinson
+EoS.
 
 The work here is largely based on below references.
 
 This subpackage implements the standard Peng-Robinson equation of state,
 including some mixing rules and model components.
 
-It provides an intermediate abstraction for model components
-:class:`~porepy.compositional.peng_robinson.pr_components.Component_PR`,
-such that custom implementations for some physical and chemical quantities can be done.
-
-The core of the module is its EoS class
-:class:`~porepy.compositional.peng_robinson.eos.PengRobinsonEoS`,
-which implements the calculation of physical properties.
+The core of the module are its EoS classes. One is a symbolic representation
+:class:`~porepy.compositional.peng_robinson.eos_s.PengRobinsonSymbolic`
+and the other is a numba-compiled representation, based on the functions obtained
+by the symbolic one
+:class:`~porepy.compositional.peng_robinson.eos_c.PengRobinsonCompiler`.
 
 It provides furthermore an interface to load binary interaction parameters from the
 package ``thermo``, as well as some mixing rules to obtain a mixture's cohesion and
@@ -32,13 +31,10 @@ References:
 
 __all__ = []
 
-from . import eos_c, eos_s, pr_bip, pr_components
+from . import eos_c, eos_s, pr_utils
 from .eos_c import *
 from .eos_s import *
-from .pr_bip import *
-from .pr_components import *
+from .pr_utils import *
 
-__all__.extend(pr_bip.__all__)
-__all__.extend(pr_components.__all__)
 __all__.extend(eos_c.__all__)
 __all__.extend(eos_s.__all__)
