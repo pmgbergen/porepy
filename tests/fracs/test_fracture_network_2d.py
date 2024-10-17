@@ -150,13 +150,6 @@ def test_get_points(points: np.ndarray, edges: np.ndarray, fracs: list[LineFract
     assert compare_arrays(end, points[:, 1].reshape((-1, 1)))
 
 
-def test_length(fracs: list[LineFracture]):
-    network = pp.create_fracture_network(fracs)
-    length = network.length()
-    known_length = np.array([2, 1])
-    assert np.allclose(length, known_length)
-
-
 def test_angle_0_pi():
     num_frac = 10
     start = np.zeros((2, num_frac))

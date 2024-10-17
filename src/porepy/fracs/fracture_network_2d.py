@@ -1306,43 +1306,6 @@ class FractureNetwork2d:
 
         return self.start_points(frac_index), self.end_points(frac_index)
 
-    def length(
-        self,
-        frac_index: Optional[Union[int, np.ndarray]] = None,
-    ) -> np.ndarray:
-        """Compute the length of all fractures, or a subset.
-
-        The output array has length ``numpy.unique(frac_index).size`` and is ordered
-        from the lower index to the higher index.
-
-        Parameters:
-            frac_index: ``default=None``
-
-                Index of fracture(s) where length should be computed. Can be given as
-                an integer (in the case of only one index) or a numpy array (in the
-                case of multiple indices). If not given, the length of all fractures
-                will be computed.
-
-        Returns:
-            Array of ``shape=(numpy.unique(frac_index).size,)`` containing the length of
-            each fracture.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        if frac_index is None:
-            frac_index = np.arange(self.num_frac())
-        frac_index = np.asarray(frac_index)
-
-        # compute the length for each segment
-        norm = lambda e0, e1: np.linalg.norm(self._pts[:, e0] - self._pts[:, e1])
-        length = np.array([norm(e[0], e[1]) for e in self._edges.T])
-
-        # compute the total length based on the fracture id
-        tot_l = lambda f: np.sum(length[np.isin(frac_index, f)])
-        return np.array([tot_l(f) for f in np.unique(frac_index)])
-
     def orientation(
         self,
         frac_index: Optional[Union[int, np.ndarray]] = None,
