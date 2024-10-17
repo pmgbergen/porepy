@@ -38,7 +38,6 @@ from .base import (
     Fluid,
     Phase,
 )
-from .chem_species import ChemicalSpecies
 from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
@@ -233,7 +232,7 @@ class _MixtureDOFHandler:
         return self.has_independent_fraction(phase)
 
     def has_independent_tracer_fraction(
-        self, tracer: ChemicalSpecies, compound: Compound
+        self, tracer: pp.FluidConstants, compound: Compound
     ) -> bool:
         """Checks if the :attr:`~porepy.compositional.base.Compound.tracer_fraction_of`
         a ``tracer`` in the ``compound`` is an independent variable.
@@ -396,7 +395,7 @@ class _MixtureDOFHandler:
         return f"{symbols['phase_saturation']}_{phase.name}"
 
     def _tracer_fraction_variable(
-        self, tracer: ChemicalSpecies, compound: Compound
+        self, tracer: pp.FluidConstants, compound: Compound
     ) -> str:
         """Returns the name of the tracer fraction variable assigned to tracer in a
         compound."""
@@ -751,7 +750,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         return fraction
 
     def tracer_fraction(
-        self, tracer: ChemicalSpecies, compound: Compound
+        self, tracer: pp.FluidConstants, compound: Compound
     ) -> DomainFunctionType:
         """Getter method to create a callable representing the tracer fraction of an
         active tracer in a compound, on a list of subdomains or boundaries.

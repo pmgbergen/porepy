@@ -1,5 +1,4 @@
-"""
-Storage classes for material constants.
+"""Storage classes for material constants.
 
 Materials are storage classes for values of physical properties. They are typically used
 when composing constitutive laws. A material is instantiated with a Units object, which
@@ -12,61 +11,175 @@ problems with scaling/rounding errors and condition numbers.
 
 from __future__ import annotations
 
-from typing import Optional, Union, overload
+from dataclasses import asdict, dataclass, field, is_dataclass
+from typing import ClassVar, Optional, Union, cast, overload
 
 import numpy as np
 
 import porepy as pp
 
+__all__ = [
+    "MaterialConstants",
+    "FluidConstants",
+    "SolidConstants",
+]
+
 number = pp.number
 
 
+class _HashableDict(dict):
+    """See https://stackoverflow.com/questions/1151658/python-hashable-dicts.
+
+    We require hashable dictionaries for the below material constant classes which
+    contain various constants and unit declarations, all in simple formats and per se
+    hashable.
+
+    """
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.items())))
+
+
+# The dataclass is frozen, since material parameters are not supposed to change, as well
+# as the units they are given in.
+# By using this in combination with keyword_only arguments for the construction of
+# materials, the user is forced to instantiate the constants with the right names of
+# constants, otherwise errors are raised (no separate checks required).
+# By providing default values to the fields, not every constant is required. The user
+# is expected to be aware which physics are used in the model.
+@dataclass(frozen=True, kw_only=True)
 class MaterialConstants:
     """Material property container and conversion class.
 
-    Modifications to parameter values should be done by subclassing. To set a different
-    constant value, simply define a new class attribute with the same name. If a
-    different value is needed for a specific subdomain or there is spatial heterogeneity
-    internal to a subdomain, the method should be overridden. The latter is assumed to
-    be most relevant for solids.
+    The base clase identifies a material using a given :attr:`name`.
+    To define material properties of some kind, derive a dataclass with this class
+    as its base (as frozen and keywords-only data class).
+
+    Material constants are declared as fields (float or int) with default values.
+
+    Derived classes must have a class attribute :attr:`SI_units` containing information
+    about the the physical unit of each declared constant.
+
+    If the user wants the material to be presented in other than SI units, a ``units=``
+    kw-argument can be passed to declare the target, non-SI units (f.e. MPa instead of
+    Pa). The base class functionality will take conversion
+
+    Important:
+        When instantiating a material constants data class, the constants must all
+        be strictly given in SI units. The conversion happens post-initialization for
+        the subsequent simulation.
+
+    Important:
+        Every derived class must have a class attribute :attr:`SI_units`, **annotated as
+        ClassVar**. This is to inform the base class about the used SI units.
+
+        For Examples, see :class:`FluidConstants`.
+        For instructions on how to write composed units, see :meth:`convert_units`
+
+    This class is intended for 1 species only. Different domains or fluids in the
+    mD-setting require each their own material constants instance in the case of
+    heterogenity.
+
     """
 
-    def __init__(self, constants: dict) -> None:
-        # Default units are SI
-        self._units: pp.Units
+    SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict()
+    """A dictionary containing the SI unit of every material constant defined by
+    a derived class.
 
-        """Units of the material."""
-        self._constants = constants
+    E.g., ``{'pressure': 'Pa'}``
 
-    @property
-    def units(self) -> pp.Units:
-        """Units of the material.
+    Every derived data class must have one implemented and annotated as a ``ClassVar``.
 
-        Returns:
-            Units object.
+    Note:
+        The ``ClassVar`` hints to ``dataclass`` that this field should not be part of
+        the dataclass mechanism, but a single attribute accessed by all instances.
+
+    """
+
+    name: str = ""
+    """Name of material given at instantiation."""
+
+    units: pp.Units = field(default_factory=lambda: pp.Units())
+    """Units of the species constants.
+
+    This defines the physical units used in the simulation for this species. Constants
+    with a physical dimension passed during instantiation will be converted to the
+    units defined here.
+
+    """
+
+    constants_in_SI: _HashableDict[str, number] = field(
+        init=False, default_factory=_HashableDict
+    )
+    """A dictionary containing the original constants in SI units, passed at the
+    instantiation of this class.
+
+    Dictionary keys are given by the field/parameter name as string.
+
+    Note:
+        This object is not given during instantiation of a material class, but populated
+        in the post-initialization procedure.
+
+    """
+
+    def __post_init__(self, *args, **kwargs) -> None:
+        """Post-initialization procedure to convert the given species parameters from
+        SI units to the units given by :attr:`units`.
+
+        The original constants in SI units are stored in :attr:`constants_in_SI`.
 
         """
-        return self._units
 
-    def set_units(self, units: pp.Units) -> None:
-        """Set units of the material.
+        # Get the material constants using the data class field, excluding utilities
+        constants = asdict(self)
+        constants.pop("name")
+        constants.pop("units")
+        constants.pop("constants_in_SI")
 
-        Parameters:
-            units: Units object.
+        # safety check if the user forgot to annotate the SI_units as a class variabel
+        # If yes, dataclass would declare it as a data field
+        if "SI_units" in constants:
+            raise AttributeError(
+                f"The attribute 'SI_units' in class {type(self)} must be annotated as"
+                + " SI_units: typing.ClassVar[dict[str,str]]."
+            )
 
-        """
-        # TODO: Should we use a @property setter here?
-        self._units = units
+        # by logic, what remains are constants as numbers
+        # storing original constants
+        self.constants_in_SI.update(
+            cast(_HashableDict[str, number], _HashableDict(constants))
+        )
 
-    @property
-    def constants(self) -> dict:
-        """Constants of the material.
+        # transform the constants to SI and store them in this instance
+        # Bypass the freezing of attributes https://stackoverflow.com/questions/
+        # 53756788/how-to-set-the-value-of-dataclass-field-in-post-init-when-frozen-true
+        for k, v in self.constants_in_SI.items():
+            # convert the value to SI if it has a physical unit
+            if k not in type(self).SI_units:
+                raise AttributeError(
+                    f"Material constant {k} requires a declaration of its physical unit"
+                    + f" in SI in {type(self)}.SI_units."
+                )
+            si_unit = self.SI_units[k]
+            v_in_custom_units = self.convert_units(v, si_unit)
+            object.__setattr__(self, k, v_in_custom_units)
 
-        Returns:
-            Dictionary of constants.
+    def __init_subclass__(cls) -> None:
+        """If a data-class inherits this class, the base class post-initialization
+        procedure must be inherited as well for the conversion from SI units
+        (at instantiation) to simulation :attr:`units`."""
 
-        """
-        return self._constants
+        if is_dataclass(cls):
+            if hasattr(cls, "__post_init__"):
+                if cls.__post_init__ != MaterialConstants.__post_init__:
+                    raise AttributeError(
+                        f"Data classes inheriting form {MaterialConstants} must not"
+                        + " have __post_init__ defined, but inherit it."
+                    )
+            else:
+                object.__setattr__(
+                    cls, "__post_init__", MaterialConstants.__post_init__
+                )
 
     @overload
     def convert_units(
@@ -96,14 +209,18 @@ class MaterialConstants:
 
         Parameters:
             value: Value to be converted.
-            units: Units of value defined as a string in
+            units: Units of ``value`` defined as a string in
                 the form of ``unit1 * unit2 * unit3^-1``, e.g., ``"Pa*m^3/kg"``.
-                Valid units are the attributes and properties of the Units class. Valid
-                operators are * and ^, including negative powers (e.g. m^-2). A
+
+                Valid units are the attributes and properties of the :attr:`units`
+                defined at instantiation.
+                Validoperators are * and ^, including negative powers (e.g. m^-2). A
                 dimensionless value can be specified by setting units to "", "1" or "-".
-            to_si: If True, the value is converted to SI units. If False, the value is
-                converted to the units specified by the user, which are the ones used in
-                the simulation.
+            to_si: ``default=False``
+
+                If True, the value is converted from given ``units`` to SI units.
+                If False, the value is assumed to be in SI units, andconverted to the
+                :attr:`units` specified by the user during instantiation.
 
         Returns:
             Value in the user specified units to be used in the simulation.
@@ -125,478 +242,176 @@ class MaterialConstants:
         for sub_unit in units.split("*"):
             if "^" in sub_unit:
                 sub_unit, power = sub_unit.split("^")
-                factor = getattr(self._units, sub_unit) ** float(power)
+                factor = getattr(self.units, sub_unit) ** float(power)
             else:
-                factor = getattr(self._units, sub_unit)
+                factor = getattr(self.units, sub_unit)
             if to_si:
                 value *= factor
             else:
                 value /= factor
         return value
 
-    def verify_constants(self, user_constants, default_constants):
-        """Verify that the user has specified valid constants.
 
-        Raises:
-            ValueError: If the user has specified invalid constants.
-
-        """
-        if user_constants is None:
-            return
-        # Identify any keys in constants that are not in default_constants
-        invalid_keys = set(user_constants.keys()) - set(default_constants.keys())
-        if invalid_keys:
-            raise ValueError(f"Invalid keys in constants: {invalid_keys}. ")
-
-
+@dataclass(frozen=True, kw_only=True)
 class FluidConstants(MaterialConstants):
-    """
-    Class giving scaled values of fluid parameters.
+    """Material data class for fluid species.
 
-    Each constant (class attribute) typically corresponds to exactly one method which
-    scales the value and broadcasts to relevant size, typically number of cells in the
-    specified subdomains or interfaces.
-
-    Note:
-        Return types are discussed in fluid_density and fluid_thermal_expansion.
-
-        Prefix fluid must be included if we decide for inheritance and not composition
-        for the material classes.
-
-    Parameters:
-        constants (dict): Dictionary of constants. Only keys corresponding to a constant
-            in the class will be used. If not specified, default values are used.
+    It declares fluid species parameters, which are expected of a fluid by the remaining
+    framework, especially flow & transport equations.
 
     """
 
-    def __init__(self, constants: Optional[dict[str, number]] = None):
-        default_constants = self.default_constants
-        self.verify_constants(constants, default_constants)
-        if constants is not None:
-            default_constants.update(constants)
-        super().__init__(default_constants)
-
-    @property
-    def default_constants(self) -> dict[str, number]:
-        """Default constants of the material.
-
-        Returns:
-            Dictionary of constants.
-
-        """
-        # Default values, sorted alphabetically
-        default_constants: dict[str, number] = {
-            "compressibility": 0,
-            "density": 1,
-            "normal_thermal_conductivity": 1,
-            "pressure": 0,
-            "specific_heat_capacity": 1,
-            "temperature": 0,
-            "thermal_conductivity": 1,
-            "thermal_expansion": 0,
-            "viscosity": 1,
+    SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict(
+        {
+            "density": "kg * m^-3",
+            "molar_mass": "kg * mol^-1",
+            "critical_pressure": "Pa",
+            "critical_temperature": "K",
+            "critical_specific_volume": "m^3 * kg^-1",
+            "pressure": "Pa",
+            "temperature": "K",
+            "compressibility": "Pa^-1",
+            "specific_heat_capacity": "J * kg^-1 * K^-1",
+            "thermal_expansion": "K^-1",
+            "viscosity": "Pa * s",
+            "thermal_conductivity": "W * m^-1 * K^-1",
+            "normal_thermal_conductivity": "W * m^-1 * K^-1",
         }
-        return default_constants
+    )
 
-    def compressibility(self) -> number:
-        """Compressibility [Pa^-1].
+    molar_mass: number = 1
 
-        Returns:
-            Compressibility array in converted pressure units.
+    critical_pressure: number = 1
 
-        """
-        return self.convert_units(self.constants["compressibility"], "Pa^-1")
+    critical_temperature: number = 1
 
-    def density(self) -> number:
-        """Density [kg * m^-3].
+    critical_specific_volume: number = 1
 
-        Returns:
-            Density in converted mass and length units.
+    density: number = 1
 
-        """
-        return self.convert_units(self.constants["density"], "kg * m^-3")
+    pressure: number = 0
 
-    def normal_thermal_conductivity(self) -> number:
-        """Normal thermal conductivity [W * m^-1 * K^-1].
+    temperature: number = 0
 
-        Resides in fluid, not solid, because of the assumption of open fractures.
+    compressibility: number = 0
 
-        Returns:
-            Normal thermal conductivity in converted energy, length and temperature
-            units.
+    specific_heat_capacity: number = 1
 
-        """
-        return self.convert_units(
-            self.constants["normal_thermal_conductivity"], "W * m^-1 * K^-1"
-        )
+    thermal_expansion: number = 0
 
-    def pressure(self) -> number:
-        """Pressure [Pa].
+    viscosity: number = 1
 
-        Intended usage: Reference pressure.
+    thermal_conductivity: number = 1
 
-        Returns:
-            Pressure in converted pressure units.
-
-        """
-        return self.convert_units(self.constants["pressure"], "Pa")
-
-    def specific_heat_capacity(self) -> number:
-        """Specific heat [J * kg^-1 * K^-1].
-
-        Returns:
-            Specific heat in converted mass, temperature and time units.
-
-        """
-        return self.convert_units(
-            self.constants["specific_heat_capacity"], "J * kg^-1 * K^-1"
-        )
-
-    def temperature(self) -> number:
-        """Temperature [K].
-
-        Intended usage: Reference temperature.
-
-        Returns:
-            Temperature in converted temperature units.
-
-        """
-        return self.convert_units(self.constants["temperature"], "K")
-
-    def thermal_conductivity(self) -> number:
-        """Thermal conductivity [W * m^-1 * K^-1].
-
-        Returns:
-            Thermal conductivity in converted mass, length and temperature units.
-
-        """
-        return self.convert_units(
-            self.constants["thermal_conductivity"], "W * m^-1 * K^-1"
-        )
-
-    def thermal_expansion(self) -> number:
-        """Thermal expansion coefficient [K^-1].
-
-        Returns:
-            Thermal expansion coefficient in converted temperature units.
-
-        """
-        return self.convert_units(self.constants["thermal_expansion"], "K^-1")
-
-    def viscosity(self) -> number:
-        """Viscosity [Pa * s].
-
-        Returns:
-            Viscosity array in converted pressure and time units.
-
-        """
-        return self.convert_units(self.constants["viscosity"], "Pa*s")
+    normal_thermal_conductivity: number = 1
 
 
+@dataclass(frozen=True, kw_only=True)
 class SolidConstants(MaterialConstants):
-    """Solid material with unit values.
+    """Material data class for solid species present in the porous medium.
 
-    Each constant (class attribute) typically corresponds to exactly one method which
-    scales the value and broadcasts to relevant size, typically number of cells in the
-    specified subdomains or interfaces.
+    It declares solid species parameters, which are expected of a solid by the remaining
+    framework, especially poro- & fracture-mechanics.
 
-    Parameters:
-        constants (dict): Dictionary of constants. Only keys corresponding to a constant
-            in the class will be used. If not specified, default values are used, mostly
-            0 or 1. See the soucre code for permissible keys and default values.
     """
 
-    def __init__(self, constants: Optional[dict] = None):
-        default_constants = self.default_constants
-        self.verify_constants(constants, default_constants)
-        if constants is not None:
-            default_constants.update(constants)
-        super().__init__(default_constants)
-
-    @property
-    def default_constants(self) -> dict[str, number]:
-        """Default constants of the material.
-
-        Returns:
-            Dictionary of constants.
-
-        """
-        # Default values, sorted alphabetically
-        # TODO: Numerical method parameters may find a better home soon.
-        # TODO: Same goes for characteristic sizes.
-        default_constants = {
-            "biot_coefficient": 1,
-            "characteristic_displacement": 1,
-            "characteristic_contact_traction": 1,
-            "density": 1,
-            "dilation_angle": 0,
-            "fracture_gap": 0,
-            "fracture_normal_stiffness": 1,
-            "fracture_tangential_stiffness": -1.0,
-            "friction_coefficient": 1,
-            "lame_lambda": 1,
-            "maximum_elastic_fracture_opening": 0,
-            "normal_permeability": 1,
-            "permeability": 1,
-            "porosity": 0.1,
-            "residual_aperture": 0.1,
-            "shear_modulus": 1,
-            "skin_factor": 0,
-            "specific_heat_capacity": 1,
-            "specific_storage": 1,
-            "temperature": 0,
-            "thermal_conductivity": 1,
-            "thermal_expansion": 0,
-            "well_radius": 0.1,
-            "open_state_tolerance": 1e-5,  # Numerical method parameter
-            "contact_mechanics_scaling": 1e-1,  # Numerical method parameter
+    SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict(
+        {
+            "density": "kg * m^-3",
+            "biot_coefficient": "-",
+            "characteristic_displacement": "m",
+            "characteristic_contact_traction": "Pa",
+            "dilation_angle": "rad",
+            "fracture_gap": "m",
+            "fracture_normal_stiffness": "Pa * m^-1",
+            "fracture_tangential_stiffness": "Pa * m^-1",
+            "friction_coefficient": "-",
+            "lame_lambda": "Pa",
+            "maximum_elastic_fracture_opening": "m",
+            "normal_permeability": "m^2",
+            "permeability": "m^2",
+            "porosity": "-",
+            "residual_aperture": "m",
+            "shear_modulus": "Pa",
+            "skin_factor": "-",
+            "specific_heat_capacity": "J * kg^-1 * K^-1",
+            "specific_storage": "Pa^-1",
+            "temperature": "K",
+            "thermal_conductivity": "W * m^-1 * K^-1",
+            "thermal_expansion": "K^-1",
+            "well_radius": "m",
+            "open_state_tolerance": "-",
+            "contact_mechanics_scaling": "-",
         }
-        return default_constants
+    )
 
-    def biot_coefficient(self) -> number:
-        """Biot coefficient [-].
+    density: number = 1
 
-        Returns:
-            Biot coefficient.
+    biot_coefficient: number = 1
 
-        """
-        return self.constants["biot_coefficient"]
+    characteristic_displacement: number = 1
 
-    def characteristic_displacement(self) -> number:
-        """Characteristic displacement [m].
+    characteristic_contact_traction: number = 1
 
-        Returns:
-            Characteristic displacement in converted length units.
+    dilation_angle: number = 0
 
-        """
-        return self.convert_units(self.constants["characteristic_displacement"], "m")
+    fracture_gap: number = 0
 
-    def characteristic_contact_traction(self) -> number:
-        """Characteristic traction [Pa].
+    fracture_normal_stiffness: number = 1
+    """Intended use is in Barton-Bandis-type models for elastic fracture deformation."""
 
-        Returns:
-            Characteristic traction in converted pressure units.
-
-        """
-        return self.convert_units(
-            self.constants["characteristic_contact_traction"], "Pa"
-        )
-
-    def density(self) -> number:
-        """Density [kg * m^-3].
-
-        Returns:
-            Density in converted mass and length units.
-
-        """
-        return self.convert_units(self.constants["density"], "kg * m^-3")
-
-    def thermal_expansion(self) -> number:
-        """Thermal expansion coefficient [K^-1].
-
-        Returns:
-            Thermal expansion coefficient in converted temperature units.
-
-        """
-        return self.convert_units(self.constants["thermal_expansion"], "K^-1")
-
-    def specific_heat_capacity(self) -> number:
-        """Specific heat [J * kg^-1 * K^-1].
-
-        Returns:
-            Specific heat in converted energy, mass and temperature units.
-
-        """
-        return self.convert_units(
-            self.constants["specific_heat_capacity"], "J * kg^-1 * K^-1"
-        )
-
-    def normal_permeability(self) -> number:
-        """Normal permeability [m^2].
-
-        Returns:
-            Normal permeability in converted length units.
-
-        """
-        return self.convert_units(self.constants["normal_permeability"], "m^2")
-
-    def thermal_conductivity(self) -> number:
-        """Thermal conductivity [W * m^-1 * K^-1].
-
-        Returns:
-            Thermal conductivity in converted energy, length and temperature units.
-
-        """
-        return self.convert_units(
-            self.constants["thermal_conductivity"], "W * m^-1 * K^-1"
-        )
-
-    def porosity(self) -> number:
-        """Porosity [-].
-
-        Returns:
-            Porosity.
-
-        """
-        return self.convert_units(self.constants["porosity"], "-")
-
-    def permeability(self) -> number:
-        """Permeability [m^2].
-
-        Returns:
-            Permeability in converted length units.
-
-        """
-        return self.convert_units(self.constants["permeability"], "m^2")
-
-    def residual_aperture(self) -> number:
-        """Residual aperture [m].
-
-        Returns:
-            Residual aperture.
-
-        """
-        return self.convert_units(self.constants["residual_aperture"], "m")
-
-    def shear_modulus(self) -> number:
-        """Shear modulus [Pa].
-
-        Returns:
-            Shear modulus in converted pressure units.
-
-        """
-        return self.convert_units(self.constants["shear_modulus"], "Pa")
-
-    def specific_storage(self) -> number:
-        """Specific storage [Pa^-1].
-
-        Returns:
-            Specific storage in converted pressure units.
-
-        """
-        return self.convert_units(self.constants["specific_storage"], "Pa^-1")
-
-    def lame_lambda(self) -> number:
-        """Lame's first parameter [Pa].
-
-        Returns:
-            Lame's first parameter in converted pressure units.
-
-        """
-        return self.convert_units(self.constants["lame_lambda"], "Pa")
-
-    def fracture_gap(self) -> number:
-        """Fracture gap [m].
-
-        Returns:
-            Fracture gap in converted length units.
-
-        """
-        return self.convert_units(self.constants["fracture_gap"], "m")
-
-    def friction_coefficient(self) -> number:
-        """Friction coefficient [-].
-
-        Returns:
-            Friction coefficient.
-
-        """
-        return self.constants["friction_coefficient"]
-
-    def dilation_angle(self) -> number:
-        """Dilation angle [rad].
-
-        Returns:
-            Dilation angle in converted angle units.
-
-        """
-        return self.convert_units(self.constants["dilation_angle"], "rad")
-
-    def skin_factor(self) -> number:
-        """Skin factor [-].
-
-        Returns:
-            Skin factor.
-
-        """
-        return self.constants["skin_factor"]
-
-    def temperature(self) -> number:
-        """Temperature [K].
-
-        Returns:
-            Temperature in converted temperature units.
-
-        """
-        return self.convert_units(self.constants["temperature"], "K")
-
-    def well_radius(self) -> number:
-        """Well radius [m].
-
-        Returns:
-            Well radius in converted length units.
-
-        """
-        return self.convert_units(self.constants["well_radius"], "m")
-
-    def fracture_normal_stiffness(self) -> number:
-        """The normal stiffness of a fracture [Pa * m^-1].
-
-        Intended use is in Barton-Bandis-type models for elastic fracture deformation.
-
-        Returns:
-            The fracture normal stiffness in converted units.
-
-        """
-        return self.convert_units(
-            self.constants["fracture_normal_stiffness"], "Pa*m^-1"
-        )
-
-    def fracture_tangential_stiffness(self) -> number:
-        """The tangential stiffness of a fracture [Pa * m^-1].
-
-        Note: The current default value is -1.0, with the convention that negative
+    fracture_tangential_stiffness: number = -1.0
+    """
+    Note:
+        The current default value is -1.0, with the convention that negative
         values correspond to a fracture that does not deform elastically in the
         tangential direction.
+    """
 
-        Returns:
-            The fracture tangential stiffness in converted units.
+    friction_coefficient: number = 1
 
-        """
-        return self.convert_units(
-            self.constants["fracture_tangential_stiffness"], "Pa*m^-1"
-        )
+    lame_lambda: number = 1
+    """Lame's first parameter"""
 
-    def maximum_elastic_fracture_opening(self) -> number:
-        """The maximum opening of a fracture [m].
+    maximum_elastic_fracture_opening: number = 0
+    """Intended use is in Barton-Bandis-type models for elastic fracture deformation."""
 
-        Intended use is in Barton-Bandis-type models for elastic fracture deformation.
+    normal_permeability: number = 1
 
-        Returns:
-            The maximal opening of a fracture.
+    permeability: number = 1
 
-        """
-        return self.convert_units(
-            self.constants["maximum_elastic_fracture_opening"], "m"
-        )
+    porosity: number = 0.1
 
-    def open_state_tolerance(self) -> number:
-        """Tolerance parameter for the tangential characteristic contact mechanics [-].
+    residual_aperture: number = 0.1
 
-        FIXME:
-            Revisit the tolerance.
+    shear_modulus: number = 1
 
-        Returns:
-            The tolerance parameter.
+    skin_factor: number = 0
 
-        """
-        return self.constants["open_state_tolerance"]
+    specific_heat_capacity: number = 1
 
-    def contact_mechanics_scaling(self) -> number:
-        """Safety scaling factor, making fractures softer than the matrix [-].
+    specific_storage: number = 1
 
-        Returns:
-            The softening factor.
+    temperature: number = 0
 
-        """
-        return self.constants["contact_mechanics_scaling"]
+    thermal_conductivity: number = 1
+
+    thermal_expansion: number = 0
+
+    well_radius: number = 0.1
+
+    open_state_tolerance: number = 1e-5
+    """Numerical method parameter.
+
+    Tolerance parameter for the tangential characteristic contact mechanics.
+
+    FIXME: Revisit the tolerance.
+
+    """
+
+    contact_mechanics_scaling: number = 1e-1
+    """Numerical method parameter
+
+    Safety scaling factor, making fractures softer than the matrix
+
+    """

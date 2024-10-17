@@ -50,7 +50,7 @@ Important:
 from __future__ import annotations
 
 import abc
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from typing import Callable, Generator, Sequence, Type, TypeVar, Union
 
 import numpy as np
@@ -59,7 +59,6 @@ import porepy as pp
 from porepy.numerics.ad.functions import FloatType
 
 from ._core import PhysicalState
-from .chem_species import ChemicalSpecies
 from .states import PhaseProperties
 from .utils import CompositionalModellingError, safe_sum
 
@@ -94,7 +93,7 @@ can be given by :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`
 accomodate externalized computations."""
 
 
-class Component(ChemicalSpecies):
+class Component(pp.FluidConstants):
     """Base class for components modelled inside a mixture.
 
     Components are chemical species inside a mixture, which can go through phase
@@ -116,11 +115,12 @@ class Component(ChemicalSpecies):
     """
 
     def __init__(self, **kwargs) -> None:
-        # NOTE Only for Python >= 3.10
-        # Filter away kwargs that will not be recognized by ChemicalSpecies
-        chem_species_kwargs = {
-            k: v for k, v in kwargs.items() if k in ChemicalSpecies.__match_args__
-        }
+
+        # Filter away kwargs that will not be recognized by base data class
+        constant_fields = tuple(
+            field.name for field in fields(pp.FluidConstants) if field.kw_only
+        )
+        chem_species_kwargs = {k: v for k, v in kwargs.items() if k in constant_fields}
         super().__init__(**chem_species_kwargs)
 
         # creating the overall molar fraction variable
@@ -141,21 +141,25 @@ class Component(ChemicalSpecies):
         """
 
     @classmethod
-    def from_species(
-        cls: Type[_ComponentLike], species: ChemicalSpecies
+    def from_fluid_constants(
+        cls: Type[_ComponentLike], fluid_constants: pp.FluidConstants
     ) -> _ComponentLike:
-        """Factory method for creating an instance of this class based on some chemical
+        """Factory method for creating an instance of this class based on some material
         data.
 
         Parameters:
-            species: Chemical species with constant parameters characterizing the
-                component.
+            fluid_constants: Fluid species data with constant parameters characterizing
+                the component.
 
         Returns:
             A component instance to be used in PorePy.
 
         """
-        return cls(**asdict(species))
+        constants = asdict(fluid_constants)
+        # filter out the field which is not in the init signature of the base class
+        if "constants_in_SI" in constants:
+            constants.pop("constants_in_SI")
+        return cls(**constants)
 
 
 _ComponentLike = TypeVar("_ComponentLike", bound=Component)
@@ -200,10 +204,10 @@ class Compound(Component):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
 
-        self._active_tracers: list[ChemicalSpecies] = []
+        self._active_tracers: list[pp.FluidConstants] = []
         """A list containing present tracers as species."""
 
-        self.tracer_fraction_of: dict[ChemicalSpecies, DomainFunctionType] = {}
+        self.tracer_fraction_of: dict[pp.FluidConstants, DomainFunctionType] = {}
         """A dictionary containing per present tracer (key) the tracer
         fraction of it with respect to the compound's overall fraction.
 
@@ -217,13 +221,13 @@ class Compound(Component):
 
         """
 
-    def __iter__(self) -> Generator[ChemicalSpecies, None, None]:
+    def __iter__(self) -> Generator[pp.FluidConstants, None, None]:
         """Iterator overload to iterate over present tracers."""
         for tracer in self._active_tracers:
             yield tracer
 
     @property
-    def active_tracers(self) -> list[ChemicalSpecies]:
+    def active_tracers(self) -> list[pp.FluidConstants]:
         """
         Important:
             Pseudo-components must be set before the compound is added to a mixture.
@@ -233,7 +237,7 @@ class Compound(Component):
                 tracers. Uniqueness of the species is enforced in the setter.
 
         Raises:
-            ValueError: If names or CASr numbers are not unique per tracer.
+            ValueError: If names are not unique per tracer.
 
         Returns:
             Active tracers present in this compound.
@@ -242,17 +246,13 @@ class Compound(Component):
         return [s for s in self._active_tracers]
 
     @active_tracers.setter
-    def active_tracers(self, tracers: list[ChemicalSpecies]) -> None:
+    def active_tracers(self, tracers: list[pp.FluidConstants]) -> None:
         # avoid double species
         double_names = []
-        double_casr = []
         self._active_tracers = []
         for s in tracers:
             double_names.append(s.name)
-            double_casr.append(s.CASr_number)
             self._active_tracers.append(s)
-        if len(set(double_casr)) < len(tracers):
-            raise ValueError("CASr numbers must be unique per species.")
         if len(set(double_names)) < len(tracers):
             raise ValueError("Names must be unique per species.")
 
@@ -736,7 +736,7 @@ class Fluid:
             - Any phase has no components in it.
         CompositionalModellingError: If there is 1 component, which is not in any phase.
         ValueError: If any two components or phases have the same name
-            (storage conflicts), or any two components have the same CASr number.
+            (storage conflicts).
 
     """
 
@@ -757,18 +757,13 @@ class Fluid:
 
         # a container holding names already added, to avoid storage conflicts
         double_names: list[str] = []
-        double_casr: list[str] = []
         # Lists of gas-like and other phases
         gaslike_phases: list[Phase] = []
         other_phases: list[Phase] = []
 
         for comp in components:
             double_names.append(comp.name)
-            double_casr.append(comp.CASr_number)
             self._components.append(comp)
-
-        if len(set(double_casr)) < len(self._components):
-            raise ValueError("CASr numbers must be unique per component.")
 
         for phase in phases:
             double_names.append(phase.name)

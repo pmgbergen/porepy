@@ -387,8 +387,8 @@ def test_unit_conversion(units):
 
     """
 
-    solid = pp.SolidConstants(pp.solid_values.extended_granite_values_for_testing)
-    fluid = pp.FluidConstants(pp.fluid_values.extended_water_values_for_testing)
+    solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
+    fluid = pp.FluidConstants(**pp.fluid_values.extended_water_values_for_testing)
 
     model_params = {
         "times_to_export": [],  # Suppress output for tests
