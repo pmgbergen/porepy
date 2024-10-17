@@ -26,7 +26,7 @@
    The phase has also physical properties (like density and enthalpy) which come into
    play when formulating more complex equilibrium models coupled with flow & transport.
 
-4. :class:`FluidMixture`:
+4. :class:`Fluid`:
     A basic representation of a mixture which is a collection of anticipated phases and
     present components, putting them into their contexts.
 
@@ -51,7 +51,7 @@ from __future__ import annotations
 
 import abc
 from dataclasses import asdict
-from typing import Callable, Generator, Sequence, Type, TypeVar
+from typing import Callable, Generator, Sequence, Type, TypeVar, Union
 
 import numpy as np
 
@@ -64,12 +64,34 @@ from .states import PhaseProperties
 from .utils import CompositionalModellingError, safe_sum
 
 __all__ = [
+    "DomainFunctionType",
     "Component",
     "Compound",
     "AbstractEoS",
     "Phase",
-    "FluidMixture",
+    "Fluid",
 ]
+
+
+DomainFunctionType = Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+"""Type alias to denote thermodynamic properties and variables which are defined on
+subdomains or boundaries, and return an AD-compatible representation.
+
+Motivated by PorePy's modelling framework, terms appearing in model equations are
+defined on some domain and represented as an AD operator.
+
+Notes:
+    1. Boundaries are included because the various terms can indeed be called with
+       boundary grids in the advective part.
+    2. Interfaces (mortar grids) are explicitly excluded, since this is part of the
+       constitutive modelling in mD and requires separate solutions.
+
+"""
+
+ExtendedDomainFunctionType = Union[DomainFunctionType, pp.ad.SurrogateFactory]
+"""Extending :data:`DomainFunctionType` to include primarely phase properties, which
+can be given by :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory` to
+accomodate externalized computations."""
 
 
 class Component(ChemicalSpecies):
@@ -81,7 +103,7 @@ class Component(ChemicalSpecies):
     belonging to the component.
 
     The fractions are assigned by the AD interface
-    :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`, once the
+    :class:`~porepy.compositional.compositional_mixins.FluidMixin`, once the
     component is added to a mixture context.
 
     Note:
@@ -102,7 +124,7 @@ class Component(ChemicalSpecies):
         super().__init__(**chem_species_kwargs)
 
         # creating the overall molar fraction variable
-        self.fraction: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+        self.fraction: DomainFunctionType
         """Overall fraction, or feed fraction, for this component, indicating how much
         of the total mass or moles belong to this component.
 
@@ -153,7 +175,7 @@ class Compound(Component):
     the :attr:`~Component.fraction` of the compound, i.e. the moles/mass of them are
     given by a product of mixture density, compound fraction and tracer fraction.
     :attr:`tracer_fraction_of` are assigned by the AD interface
-    :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`.
+    :class:`~porepy.compositional.compositional_mixins.FluidMixin`.
 
     Note:
         Due to the generalization, the solvent and individual tracers are not considered as
@@ -181,9 +203,7 @@ class Compound(Component):
         self._active_tracers: list[ChemicalSpecies] = []
         """A list containing present tracers as species."""
 
-        self.tracer_fraction_of: dict[
-            ChemicalSpecies, Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        ] = {}
+        self.tracer_fraction_of: dict[ChemicalSpecies, DomainFunctionType] = {}
         """A dictionary containing per present tracer (key) the tracer
         fraction of it with respect to the compound's overall fraction.
 
@@ -352,8 +372,8 @@ class AbstractEoS(abc.ABC):
         the right values.
 
         For more information on this, see
-        :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin` and
-        :meth:`~porepy.compositional.compositional_mixins.FluidMixtureMixin.
+        :class:`~porepy.compositional.compositional_mixins.FluidMixin` and
+        :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
         dependencies_of_phase_properties`.
 
     Parameters:
@@ -412,7 +432,7 @@ class Phase:
 
     Phases have physical properties, dependent on some thermodynamic input.
     They are usually assigned by an instance of
-    :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`, and include
+    :class:`~porepy.compositional.compositional_mixins.FluidMixin`, and include
     **only** properties relevant for flow & transport problems:
 
     - :attr:`density`
@@ -424,7 +444,7 @@ class Phase:
 
     Components must be modelled explicitly in a phase, by setting :attr:`components`.
     (see also :class:`~porepy.compositional.compositional_mixins.
-    FluidMixtureMixin.set_components_in_phases`).
+    FluidMixin.set_components_in_phases`).
 
     Important:
         The components must be set in a phase, before adding the two contexts into
@@ -484,7 +504,7 @@ class Phase:
         """A sequence of all components modelled in this phase.
 
         To be set by the user, or by some instance of
-        :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`
+        :class:`~porepy.compositional.compositional_mixins.FluidMixin`
 
         Once set, it should not be modified. Avoid multiple occurences of components.
 
@@ -499,14 +519,14 @@ class Phase:
         self.name: str = str(name)
         """Name given to the phase at instantiation."""
 
-        self.density: pp.ad.SurrogateFactory
+        self.density: ExtendedDomainFunctionType
         """Density of this phase.
 
         Scalar field with physical dimensions ``[mol / m^3]`` or ``[kg / m^3]``.
 
         """
 
-        self.specific_volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+        self.specific_volume: ExtendedDomainFunctionType
         """Specific volume of this phase.
 
         Scalar field with physical dimensions ``[m^3 / mol]`` or ``[m^3 / mol]``.
@@ -517,35 +537,35 @@ class Phase:
 
         """
 
-        self.specific_enthalpy: pp.ad.SurrogateFactory
+        self.specific_enthalpy: ExtendedDomainFunctionType
         """Specific enthalpy of this phase.
 
         Scalar field with physical dimensions ``[J / mol K]`` or ``[J / kg K]``.
 
         """
 
-        self.viscosity: pp.ad.SurrogateFactory
+        self.viscosity: ExtendedDomainFunctionType
         """Dynamic viscosity of this phase.
 
         Scalar field with physical dimensions``[kg / m / s]``.
 
         """
 
-        self.conductivity: pp.ad.SurrogateFactory
+        self.conductivity: ExtendedDomainFunctionType
         """Thermal conductivity of this phase.
 
         Scalar field with physical dimensions``[W / m / K]``.
 
         """
 
-        self.fugacity_coefficient_of: dict[Component, pp.ad.SurrogateFactory]
+        self.fugacity_coefficient_of: dict[Component, ExtendedDomainFunctionType]
         """Fugacitiy coefficients per component in this phase.
 
         Dimensionless, scalar field.
 
         """
 
-        self.fraction: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+        self.fraction: DomainFunctionType
         """Fraction of mass or moles in this phase, relative to the total amount.
 
         Dimensionless, scalar field bound to the interval ``[0, 1]``.
@@ -563,7 +583,7 @@ class Phase:
 
         """
 
-        self.saturation: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+        self.saturation: DomainFunctionType
         """Fraction of (pore) volume occupied by this phase.
 
         Dimensionless, scalar field bound to the interval ``[0, 1]``.
@@ -577,9 +597,7 @@ class Phase:
 
         """
 
-        self.extended_fraction_of: dict[
-            Component, Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        ]
+        self.extended_fraction_of: dict[Component, DomainFunctionType]
         """Extended molar fractions per component in a phase, used in the unified
         phase equilibrium formulation (see :attr:`partial_fraction_of`).
 
@@ -591,9 +609,7 @@ class Phase:
 
         """
 
-        self.partial_fraction_of: dict[
-            Component, Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        ]
+        self.partial_fraction_of: dict[Component, DomainFunctionType]
         """Partial (physical) fraction of a component, relative to the phase fraction.
 
         Dimensionless, scalar field bound to the interval ``[0, 1]``.
@@ -636,7 +652,7 @@ class Phase:
         """Returns the index of the component in :meth:`components`, which is designated
         as the reference component *in this phase*.
 
-        Not to be confused with :meth:`FluidMixture.reference_component_index`.
+        Not to be confused with :meth:`Fluid.reference_component_index`.
 
         By default, the first component (0) is designated as the reference component.
 
@@ -679,15 +695,15 @@ class Phase:
         return self.eos.compute_phase_properties(self.state, *thermodynamic_input)
 
 
-class FluidMixture:
-    """Basic fluid mixture class managing modelled components and phases.
+class Fluid:
+    """General fluid class managing modelled components and phases.
 
-    The mixture class serves as a container for components and phases and contains the
+    The fluid (mixture) serves as a container for components and phases and contains the
     specification of the reference component and phase.
 
     It also allocates attributes for some thermodynamic properites of a mixture, which
     are required by the remaining framework, which are assigned by an instance of
-    :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`.
+    :class:`~porepy.compositional.compositional_mixins.FluidMixin`.
 
     - :attr:`density`
     - :attr:`specific_enthalpy`
@@ -793,29 +809,6 @@ class FluidMixture:
         # NOTE by logic, length of gas-like phases can only be 1 at this point
         self._has_gas: bool = True if len(gaslike_phases) == 1 else False
         """Flag indicating if a gas-like phase is present."""
-        ### PUBLIC
-
-        self.density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        """Density of the fluid mixture.
-
-        Its thermodynamically consistent representation is
-        :math:`\\sum_j s_j \\rho_j`, with :math:`s_j` being :attr:`Phase.saturation`
-        and :math:`\\rho_j` being :attr:`Phase.density`
-
-        """
-
-        self.specific_volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        """The specific volume of the fluid mixture as the reciprocal of
-        :attr:`density`."""
-
-        self.specific_enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-        """Specific enthalpy of the fluid mixture.
-
-        Its thermodynamically consistent representation is
-        :math:`\\sum_j y_j h_j`, with :math:`y_j` being :attr:`Phase.fraction` and
-        :math:`h_j` being :attr:`Phase.specific_enthalpy`
-
-        """
 
     def __str__(self) -> str:
         """
@@ -957,3 +950,135 @@ class FluidMixture:
         """Returns the reference component as designated by
         :meth:`reference_component_index`."""
         return self._components[self.reference_component_index]
+
+    def density(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Density of the fluid in ``[kg / m^3]`` or ``[mol / m^3]``.
+
+        Its general, thermodynamically consistent representation is
+        :math:`\\sum_j s_j \\rho_j`, with :math:`s_j, \\rho_j` being the saturation
+        and density of a phase respectively.
+
+        For a single-phase, single-component fluid, it can be reduced to a single term
+        :math:`\\rho`.
+
+        Note:
+            Contrary to the :attr:`Phase.density`, which appears also on the boundary in
+            balance equations (advection), the fluid density is only expected in the
+            interior domain (accumulation). In the case of 1 phase, the (reference)
+            phase density equals the fluid density. And when using upwinding instead of
+            re-discretizing the flux, a the more general signature involving boundary
+            grids is required.
+
+        Parameters:
+            grids: A sequence of grids.
+
+        Returns:
+            Above expression by calling the phase saturations and densities.
+            In the case of only 1 phase, it returns the reference phase density.
+
+        """
+
+        if self.num_phases > 1:
+
+            op = pp.ad.sum_operator_list(
+                [
+                    phase.saturation(grids) * phase.density(grids)
+                    for phase in self.phases
+                ],
+                "fluid_density",
+            )
+
+        else:
+            op = self.reference_phase.density(grids)
+            op.set_name("fluid_density")
+
+        return op
+
+    def specific_volume(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Returns the reciprocal of :attr:`density`."""
+
+        op = self.density(grids) ** pp.ad.Scalar(-1)
+        op.set_name("fluid_specific_volume")
+        return op
+
+    def specific_enthalpy(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Specific enthalpy of the fluid in ``[J / kg]`` or ``[J / mol]``.
+
+        Its general, thermodynamically consistent representation is
+        :math:`\\sum_j y_j h_j`, with :math:`y_j, h_j` being the (molar) fraction and
+        specific enthalpy of a phase respectively.
+
+        For a single-phase, single-component fluid, it can be reduced to a single term
+        :math:`h`.
+
+        See Also:
+            :attr:`density` for a note on the signature.
+
+        Note:
+            To obtain the specific internal energy of the fluid, use the formula
+            :math:`u = h - \\frac{p}{\\rho}`. This cannot be implemented here since the
+            fluid mixture has no access to the pressure variable in the model.
+
+        Parameters:
+            grids: A sequence of grids.
+
+        Returns:
+            Above expression by calling the phase fraction and spec. enthalpies.
+            In the case of only 1 phase, it returns the specific enthalpy of the
+            reference phase.
+
+        """
+
+        if self.num_phases > 1:
+
+            op = pp.ad.sum_operator_list(
+                [
+                    phase.fraction(grids) * phase.specific_enthalpy(grids)
+                    for phase in self.phases
+                ],
+                "fluid_specific_enthalpy",
+            )
+
+        else:
+            op = self.reference_phase.specific_enthalpy(grids)
+            op.set_name("fluid_specific_enthalpy")
+
+        return op
+
+    def thermal_conductivity(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Thermal conductivity of the fluid in ``[W / m / K]``.
+
+        Its general, thermodynamically consistent representation is
+        :math:`\\sum_j s_j \\kappa_j`, with :math:`s_j, \\kappa_j` being the saturation
+        and thermal conductivity of a phase respectively.
+
+        For a single-phase, single-component fluid, it can be reduced to a single term
+        :math:`\\kappa`.
+
+        See Also:
+            :attr:`density` for a note on the signature.
+
+        Parameters:
+            grids: A sequence of grids.
+
+        Returns:
+            Above expression by calling the phase saturations and conductivities.
+            In the case of only 1 phase, it returns the reference phase conductivity.
+
+        """
+        if self.num_phases > 1:
+
+            op = pp.ad.sum_operator_list(
+                [
+                    phase.saturation(grids) * phase.conductivity(grids)
+                    for phase in self.phases
+                ],
+                "fluid_thermal_conductivity",
+            )
+
+        else:
+
+            op = self.reference_phase.conductivity(grids)
+            op.set_name("fluid_thermal_conductivity")
+
+        return op
