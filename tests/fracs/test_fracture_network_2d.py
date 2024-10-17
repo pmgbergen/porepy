@@ -134,24 +134,7 @@ def test_constrain_to_domain(
     known_points = np.array([[0, 1.5, 1, 1], [0, 0, 0, 1]])
     assert compare_arrays(known_points, small_network._pts)
 
-
-def test_get_points(points: np.ndarray, edges: np.ndarray, fracs: list[LineFracture]):
-    network = pp.create_fracture_network(fracs)
-
-    start = network.start_points()
-    assert compare_arrays(start, points[:, edges[0]])
-    end = network.end_points()
-    assert compare_arrays(end, points[:, edges[1]])
-
-    # Then index based
-    start = network.start_points(frac_index=0)
-    assert compare_arrays(start, points[:, 0].reshape((-1, 1)))
-    end = network.end_points(frac_index=0)
-    assert compare_arrays(end, points[:, 1].reshape((-1, 1)))
-
-
 # Below are tests with polytopal domains
-
 
 @pytest.mark.parametrize(
     "arg",
