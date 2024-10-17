@@ -578,7 +578,13 @@ class NumericalConstants(MaterialConstants):
             in the class will be used. If not specified, default values are used, mostly
             0 or 1. See the soucre code for permissible keys and default values.
     """
-
+    def __init__(self, constants: Optional[dict] = None):
+        default_constants = self.default_constants
+        self.verify_constants(constants, default_constants)
+        if constants is not None:
+            default_constants.update(constants)
+        super().__init__(default_constants)
+        
     @property
     def default_constants(self) -> dict[str, number]:
         """Default constants of the material.
@@ -594,3 +600,12 @@ class NumericalConstants(MaterialConstants):
             "contact_mechanics_scaling": 1e-1,  # Numerical method parameter
         }
         return default_constants
+    
+    def contact_mechanics_scaling(self) -> number:
+        """Safety scaling factor, making fractures softer than the matrix [-].
+
+        Returns:
+            The softening factor.
+
+        """
+        return self.constants["contact_mechanics_scaling"]
