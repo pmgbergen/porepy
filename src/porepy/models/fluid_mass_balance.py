@@ -532,8 +532,8 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
 
         The following variables are set:
             - Pressure on all subdomains.
-            - Darcy flux on co-dimension one interfaces.
-            - Well flux on co-dimension two interfaces.
+            - Darcy flux on interfaces between subdomains one dimension apart.
+            - Well flux on interfaces between subdomains two dimension apart.
         See individual variable methods for details.
 
         """

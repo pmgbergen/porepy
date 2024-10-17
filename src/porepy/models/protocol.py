@@ -11,7 +11,7 @@ import numpy as np
 import scipy.sparse as sps
 
 # Conditional importing ensures that the protocols do not mess with the runtime
-# definitions, e.g., the protocol empty method is accidentally called as a proper method
+# definitions, i.e., the protocol empty method is accidentally called as a proper method
 # and returns None.
 if not TYPE_CHECKING:
     # This branch is accessed in python runtime.
@@ -108,7 +108,7 @@ else:
             Parameters:
                 subdomains: Subdomains for which to find interfaces.
                 codims: Codimension of interfaces to return. The common option is [1],
-                i.e. only interfaces between subdomains one dimension apart.
+                    i.e. only interfaces between subdomains one dimension apart.
 
             Returns:
                 Unique list of all interfaces neighboring any of the subdomains.
@@ -136,6 +136,9 @@ else:
             self, subdomains: Sequence[pp.Grid]
         ) -> Sequence[pp.BoundaryGrid]:
             """Boundary grids of subdomains.
+
+            This is a 1-1 mapping between subdomains and their boundary grids. No
+            sorting is performed.
 
             Parameters:
                 subdomains: List of subdomains for which to find boundary grids.
@@ -243,7 +246,7 @@ else:
                 functions as columns.
 
             Raises:
-                ValueError: If i is larger than dim.
+                ValueError: If i is larger than dim - 1.
 
             """
 
@@ -509,9 +512,7 @@ else:
         time_manager: pp.TimeManager
         """Time manager for the simulation."""
         restart_options: dict
-        """Restart options for restart from pvd as expected restart routines within
-        :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin` The template is
-        provided in `SolutionStrategy.__init__`."""
+        """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         ad_time_step: pp.ad.Scalar
         """Time step as an automatic differentiation scalar."""
         nonlinear_solver_statistics: pp.SolverStatistics
@@ -577,8 +578,10 @@ else:
             dimensional grid."""
 
     class BoundaryConditionProtocol(Protocol):
-        """This protocol provides the declarations of the methods and the properties,
-        typically defined in BoundaryConditionMixin."""
+        """This protocol provides declarations of methods and properties related to
+        boundary conditions.
+
+        """
 
         def create_boundary_operator(
             self, name: str, domains: Sequence[pp.BoundaryGrid]
@@ -591,11 +594,11 @@ else:
 
             Raises:
                 ValueError: If the passed sequence of domains does not consist entirely
-                    of instances of boundary grid.
+                    of boundary grid.
 
             Returns:
-                An operator of given name representing time-dependent value on given
-                sequence of boundary grids.
+                An operator of given name representing value on given sequence of
+                boundary grids. Can possibly be time-dependent.
 
             """
 
@@ -634,10 +637,6 @@ else:
             """This method is called before a new time step to set the values of the
             boundary conditions.
 
-            This implementation updates only the filters for Dirichlet and Neumann
-            values. The specific boundary condition values should be updated in
-            overrides by models.
-
             Note:
                 One can use the convenience method `update_boundary_condition` for each
                 boundary condition value.
@@ -645,8 +644,10 @@ else:
             """
 
     class EquationProtocol(Protocol):
-        """This protocol provides the declarations of the methods and the properties,
-        typically defined in BalanceEquationMixin."""
+        """This protocol provides declarations of methods and properties related to
+        equations.
+
+        """
 
         def volume_integral(
             self,
