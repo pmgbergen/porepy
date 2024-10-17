@@ -126,7 +126,7 @@ class MandelDataSaving(VerificationDataSaving):
 
     """
 
-    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
@@ -1342,12 +1342,6 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
 
 
 class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the Darcy flux.
 

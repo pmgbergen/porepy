@@ -1,0 +1,63 @@
+# name: Update protocol docstrings
+
+# # Run this workflow on every push or pull request to the main branch
+# on:
+#   pull_request:
+#     branches:
+#       - develop
+
+# permissions:
+#     contents: write  
+
+# jobs:
+#   run-python-script:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       # Checkout the repository
+#       - name: Checkout repository
+#         uses: actions/checkout@v3
+#         with:
+#           token: ${{ secrets.PAT }}
+
+#       # Set up Python
+#       - name: Set up Python
+#         uses: actions/setup-python@v4
+#         with:
+#           python-version: '3.12.7'
+
+#       # Run the Python script
+#       - name: Run Python script
+#         run: python build_tools/protocol_docstrings_script.py
+
+#       # Configure Git to commit and push the changes
+#       - name: Set up Git user info
+#         run: |
+#             git config --global user.name 'GitHub Action'
+#             git config --global user.email 'action@github.com'
+
+#       # Check if there are any changes and commit them
+#       - name: Commit and push changes
+#         run: |
+          # touch test.txt
+          # git commit -am "Update files via Python script" || echo "No changes to commit"
+          # git push origin HEAD:${{ github.ref }}
+
+
+name: Push commit
+on: push
+permissions:
+  contents: write
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Commit report
+        run: |
+          touch report.txt
+          echo 12345 > report.txt
+          git config --global user.name 'Your Name'
+          git config --global user.email 'your-username@users.noreply.github.com'
+          git commit -a -m "Automated report"
+          git push
