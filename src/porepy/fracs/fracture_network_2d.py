@@ -1306,50 +1306,6 @@ class FractureNetwork2d:
 
         return self.start_points(frac_index), self.end_points(frac_index)
 
-    def orientation(
-        self,
-        frac_index: Optional[Union[int, np.ndarray]] = None,
-    ) -> np.ndarray:
-        """Compute the angle of the fractures relative to the x-axis.
-
-        Parameters:
-            frac_index: ``default=None``
-
-                Index of fracture(s) where the orientation should be computed. Can be
-                given as an integer (in the case of only one index) or a numpy array
-                (in the case of multiple indices). If not given, the length of all
-                fractures will be computed.
-
-        Returns:
-            Array of ``shape=(num_fracs,)`` with the orientation of each fracture,
-            relative to the x-axis. Measured in radians, will be a number in the
-            interval :math:`(0, \\pi)`.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        if frac_index is None:
-            frac_index = np.arange(self.num_frac())
-        frac_index = np.asarray(frac_index)
-
-        # compute the angle for each segment
-        alpha = lambda e0, e1: np.arctan2(
-            self._pts[1, e0] - self._pts[1, e1], self._pts[0, e0] - self._pts[0, e1]
-        )
-        a = np.array([alpha(e[0], e[1]) for e in self._edges.T])
-
-        # compute the mean angle based on the fracture id
-        mean_alpha = lambda f: np.mean(a[np.isin(frac_index, f)])
-        mean_a = np.array([mean_alpha(f) for f in np.unique(frac_index)])
-
-        # we want only angles in (0, pi)
-        mask = mean_a < 0
-        mean_a[mask] = np.pi - np.abs(mean_a[mask])
-        mean_a[mean_a > np.pi] -= np.pi
-
-        return mean_a
-
     def compute_center(
         self,
         pts: Optional[np.ndarray] = None,
