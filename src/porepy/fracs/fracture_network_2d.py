@@ -1214,66 +1214,6 @@ class FractureNetwork2d:
 
         return new_pts_id
 
-    def start_points(
-        self,
-        frac_index: Optional[Union[int, np.ndarray]] = None,
-    ):
-        """Get start points of all fractures, or a subset.
-
-        Parameters:
-            frac_index: ``default=None``
-
-                Index of the fractures for which the start point should be returned.
-                Either a numpy array, or a single integer. In case of multiple
-                indices, the points are returned in the order specified in
-                :attr:`frac_index`. If not specified, all start points will be
-                returned.
-
-        Returns:
-            Array of ``shape=(2, num_frac)`` containing the start coordinates of the
-            fractures.
-
-        """
-
-        if frac_index is None:
-            frac_index = np.arange(self.num_frac())
-
-        p = self._pts[:, self._edges[0, frac_index]]
-        # Always return a 2-d array
-        if p.size == 2:
-            p = p.reshape((-1, 1))
-        return p
-
-    def end_points(
-        self, frac_index: Optional[Union[int, np.ndarray]] = None
-    ) -> np.ndarray:
-        """Get end points of all fractures, or a subset.
-
-        Parameters:
-            frac_index: ``default=None``
-
-                Index of the fractures for which the end point should be returned.
-
-                Either a numpy array, or a single integer. In case of multiple indices,
-                the points are returned in the order specified in ``frac_index``.
-
-                If not specified, all end points will be returned.
-
-        Returns:
-            Array of ``shape=(2, num_frac)`` containing the end coordinates of the
-            fractures.
-
-        """
-        if frac_index is None:
-            frac_index = np.arange(self.num_frac())
-
-        p = self._pts[:, self._edges[1, frac_index]]
-        # Always return a 2-d array
-        if p.size == 2:
-            p = p.reshape((-1, 1))
-        return p
-
-
     def plot(self, **kwargs) -> None:
         """Plot the fracture network.
 
