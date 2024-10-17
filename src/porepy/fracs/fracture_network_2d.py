@@ -1273,38 +1273,6 @@ class FractureNetwork2d:
             p = p.reshape((-1, 1))
         return p
 
-    def get_points(
-        self,
-        frac_index: Optional[Union[int, np.ndarray]] = None,
-    ) -> tuple[np.ndarray, np.ndarray]:
-        """Get start and end points of all fractures, or a subset.
-
-        Parameters:
-            frac_index: ``default=None``
-
-                Index of the fractures for which the start/end point should be returned.
-
-                Either a numpy array, or a single integer. In case of multiple indices,
-                the points are returned in the order specified in ``frac_index``.
-
-                If not specified, all start/end points will be returned.
-
-        Returns:
-            Tuple with 2 elements
-
-            :obj:`~numpy.ndarray`: ``shape=(2, num_fracs)``
-
-                Coordinates of the start points of the fractures.
-
-            :obj:`~numpy.ndarray`: ``shape=(2, num_fracs)``
-
-                Coordinates of the end points of the fractures.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        return self.start_points(frac_index), self.end_points(frac_index)
 
     def plot(self, **kwargs) -> None:
         """Plot the fracture network.
