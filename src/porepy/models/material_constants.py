@@ -564,3 +564,33 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.constants["contact_mechanics_scaling"]
+
+
+class NumericalConstants(MaterialConstants):
+    """Solid material with unit values.
+
+    Each constant (class attribute) typically corresponds to exactly one method which
+    scales the value and broadcasts to relevant size, typically number of cells in the
+    specified subdomains or interfaces.
+
+    Parameters:
+        constants (dict): Dictionary of constants. Only keys corresponding to a constant
+            in the class will be used. If not specified, default values are used, mostly
+            0 or 1. See the soucre code for permissible keys and default values.
+    """
+
+    @property
+    def default_constants(self) -> dict[str, number]:
+        """Default constants of the material.
+
+        Returns:
+            Dictionary of constants.
+
+        """
+        # Default values, sorted alphabetically
+        # TODO: Numerical method parameters may find a better home soon.
+        default_constants = {
+            "open_state_tolerance": 1e-5,  # Numerical method parameter
+            "contact_mechanics_scaling": 1e-1,  # Numerical method parameter
+        }
+        return default_constants
