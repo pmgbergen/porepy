@@ -261,7 +261,7 @@ class FractureNetwork2d:
             do_snap: ``default=True``
 
                 Whether to snap lines to avoid small segments.
-            constraints: ``dtype=np.int8, default=None``
+            constraints: ``dtype=np.int32, default=None``
 
                 Indices of fractures that should not generate lower-dimensional
                 meshes, but only act as constraints in the meshing algorithm. Useful
@@ -391,7 +391,7 @@ class FractureNetwork2d:
             do_snap: ``default=True``
 
                 Whether to snap lines to avoid small segments.
-            constraints: ``dtype=np.int8, default=None``
+            constraints: ``dtype=np.int32, default=None``
 
                 Indices of fractures that should not generate lower-dimensional
                 meshes, but only act as constraints in the meshing algorithm.
@@ -501,7 +501,7 @@ class FractureNetwork2d:
 
         # map the constraint index
         index_map = np.where(np.logical_not(to_delete))[0]
-        mapped_constraints = np.arange(index_map.size)[np.in1d(index_map, constraints)]
+        mapped_constraints = np.arange(index_map.size)[np.isin(index_map, constraints)]
 
         # update the tags
         for key, value in self.tags.items():
@@ -593,7 +593,7 @@ class FractureNetwork2d:
         """Unified description of points and lines for domain and fractures.
 
         Parameters:
-            constraints: ``dtype=np.int8``
+            constraints: ``dtype=np.int32``
 
                 Indices of fractures which should be considered meshing constraints,
                 not as physical objects.
@@ -1296,7 +1296,7 @@ class FractureNetwork2d:
         to_keep[np.setdiff1d(all_pts_id, pts_id, assume_unique=True)] = False
 
         # create the map between the old and new
-        new_pts_id = -np.ones(all_pts_id.size, dtype=np.int8)
+        new_pts_id = -np.ones(all_pts_id.size, dtype=np.int32)
         new_pts_id[to_keep] = np.arange(pts_id.size)
 
         # update the edges numeration

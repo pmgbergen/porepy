@@ -19,6 +19,11 @@ AQAAAACAAABgAAAAKAAAAA==eJxjYoAAFijNBqU5oDQXlOaB0nxQWgBKC0FpESgtBqUloDQAFyAAnQ==
 AQAAAACAAABgAAAADgAAAA==eJxjZoAAZhrRAAewACU=
 </DataArray>
 </Cells>
+<PointData>
+<DataArray type="Int64" Name="node_id" format="binary">
+AQAAAACAAACgAAAAKwAAAA==eJxjYIAARijNBKWZoTQLlGaF0mxQmp0BFZCrnwNKc0JpLijNDaUBFrAAXw==
+</DataArray>
+</PointData>
 <CellData>
 <DataArray type="Int64" Name="cell_id" format="binary">
 AQAAAACAAABgAAAAIQAAAA==eJxjYIAARijNBKWZGVABLnkWKM0KpdmgNDuUBgAE0AAj
@@ -30,7 +35,7 @@ AQAAAACAAABgAAAADAAAAA==eJxjYKAtAAAAYAAB
 AQAAAACAAABgAAAADgAAAA==eJxjZIAARhrRAALQAA0=
 </DataArray>
 <DataArray type="Int64" Name="interface_id" format="binary">
-AQAAAACAAABgAAAADgAAAA==eJxjYMAPGCmkAQGAAAk=
+AQAAAACAAABgAAAAEQAAAA==eJxjYYAAFhw0K4U0AAtAADk=
 </DataArray>
 <DataArray type="Int64" Name="is_mortar" format="binary">
 AQAAAACAAABgAAAADgAAAA==eJxjZIAARhrRAALQAA0=

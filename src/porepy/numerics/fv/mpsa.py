@@ -310,7 +310,7 @@ class Mpsa(Discretization):
             # interaction regions may be structured so that some faces have previously
             # been partially discretized even if it has not been their turn until now)
             eliminate_face = np.where(
-                np.logical_not(np.in1d(l2g_faces, faces_in_subgrid))
+                np.logical_not(np.isin(l2g_faces, faces_in_subgrid))
             )[0]
             pp.fvutils.remove_nonlocal_contribution(
                 eliminate_face,
@@ -832,8 +832,23 @@ class Mpsa(Discretization):
         # have at least one internal face connected to the node you are should be safe.
         # For the Neumann faces we eliminate the asymetic part this does in fact lead to
         # an inconsistency.
-        self._eliminate_ncasym_neumann(
-            ncasym, subcell_topology, bound_exclusion, cell_node_blocks, nd
+        self._eliminate_ncasym(
+            ncasym=ncasym,
+            subcell_topology=subcell_topology,
+            bound_exclusion=bound_exclusion,
+            cell_node_blocks=cell_node_blocks,
+            nd=nd,
+            bc_type="neumann",
+        )
+
+        # Also eliminate for the Robin faces:
+        self._eliminate_ncasym(
+            ncasym=ncasym,
+            subcell_topology=subcell_topology,
+            bound_exclusion=bound_exclusion,
+            cell_node_blocks=cell_node_blocks,
+            nd=nd,
+            bc_type="robin",
         )
 
         # The final expression of Hook's law will involve deformation gradients on one
@@ -1902,13 +1917,14 @@ class Mpsa(Discretization):
             raise ValueError("axis must be 0 or 1")
         return P
 
-    def _eliminate_ncasym_neumann(
+    def _eliminate_ncasym(
         self,
         ncasym: np.ndarray,
         subcell_topology: pp.fvutils.SubcellTopology,
         bound_exclusion: pp.fvutils.ExcludeBoundaries,
         cell_node_blocks: np.ndarray,
         nd: int,
+        bc_type: Literal["robin", "neumann"],
     ) -> None:
         """Eliminate the asymetric part of the stress tensor such that the local systems
         are invertible.
@@ -1919,6 +1935,9 @@ class Mpsa(Discretization):
             bound_exclusion: Object containing information about excluded boundaries.
             cell_node_blocks: Pairs of node and cell indices that identify sub-cells.
             nd: Number of spatial dimensions.
+            bc_type: Faces that have a boundary condition corresponding to ``bc_type``
+                ("robin" or "neumann") will have the asymmetric part of the stress
+                tensor eliminated.
 
         """
         # We expand the node indices such that we get one indices for each vector
@@ -1932,18 +1951,31 @@ class Mpsa(Discretization):
         # assoiated with each node.
         _, num_sub_cells = np.unique(node_blocks_nd.ravel("C"), return_counts=True)
 
-        # Then we count the number how many Neumann subfaces there are for each node.
-        nno_neu = bound_exclusion.keep_neumann(nno_nd.ravel("C"), transform=False)
-        _, idx_neu, count_neu = np.unique(
-            nno_neu, return_inverse=True, return_counts=True
-        )
+        if bc_type == "neumann":
+            # Count number of Neumann subfaces for each node.
+            nno = bound_exclusion.keep_neumann(nno_nd.ravel("C"), transform=False)
+            _, indices, count_bc_type = np.unique(
+                nno, return_inverse=True, return_counts=True
+            )
 
-        # The local system is invertible if the number of sub_cells (remember there is
-        # one gradient for each subcell) is larger than the number of Neumann sub_faces.
-        # To obtain an invertible system we remove the asymetric part around these
-        # nodes.
-        count_neu = bound_exclusion.keep_neu.T * count_neu[idx_neu]
-        diff_count = num_sub_cells[nno_nd.ravel("C")] - count_neu
+            # The local system is invertible if the number of sub_cells (remember there
+            # is one gradient for each subcell) is larger than the number of Neumann
+            # sub_faces. To obtain an invertible system we remove the asymetric part
+            # around these nodes.
+            count_bc_type = bound_exclusion.keep_neu.T * count_bc_type[indices]
+        elif bc_type == "robin":
+            # Count number of Robin subfaces for each node.
+            nno = bound_exclusion.keep_robin(nno_nd.ravel("C"), transform=False)
+            _, indices, count_bc_type = np.unique(
+                nno, return_inverse=True, return_counts=True
+            )
+            # The local system is invertible if the number of sub_cells (remember there
+            # is one gradient for each subcell) is larger than the number of Neumann
+            # sub_faces. To obtain an invertible system we remove the asymetric part
+            # around these nodes.
+            count_bc_type = bound_exclusion.keep_rob.T * count_bc_type[indices]
+
+        diff_count = num_sub_cells[nno_nd.ravel("C")] - count_bc_type
         remove_singular = np.argwhere((diff_count < 0)).ravel()
 
         # remove_singular gives the indices of the subfaces. We now obtain the indices

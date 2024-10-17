@@ -19,6 +19,17 @@ AQAAAACAAAAwAAAAGAAAAA==eJxjYoAAFijNBqU5oDQXlOaB0gADsAAr
 AQAAAACAAAAwAAAADgAAAA==eJxjZoAAZiJpAAIoABM=
 </DataArray>
 </Cells>
+<PointData>
+<DataArray type="Float64" Name="dummy_scalar_pt" format="binary">
+AQAAAACAAABQAAAAEAAAAA==eJxjYACBD/YMVKIBv60L1w==
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector_pt" NumberOfComponents="3" format="binary">
+AQAAAACAAADwAAAAEQAAAA==eJxjYACBD/YMI4QGAFhqI4M=
+</DataArray>
+<DataArray type="Int64" Name="node_id" format="binary">
+AQAAAACAAABQAAAAGwAAAA==eJxjYIAARijNBKWZGVABLnkWKM0KpQEC2AAW
+</DataArray>
+</PointData>
 <CellData>
 <DataArray type="Int64" Name="cell_id" format="binary">
 AQAAAACAAAAwAAAAFgAAAA==eJxjYIAARgZUAOMzQWlmKA0AAKgACA==
@@ -39,7 +50,7 @@ AQAAAACAAAAwAAAADAAAAA==eJxjYCANAAAAMAAB
 AQAAAACAAAAwAAAADAAAAA==eJxjYCANAAAAMAAB
 </DataArray>
 <DataArray type="Int64" Name="subdomain_id" format="binary">
-AQAAAACAAAAwAAAAEQAAAA==eJxLZoCAZCidQoAGAEF4Alc=
+AQAAAACAAAAwAAAAEQAAAA==eJxjZIAARijNRIAGAAEoAAs=
 </DataArray>
 </CellData>
 </Piece>

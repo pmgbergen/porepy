@@ -218,7 +218,7 @@ def test_add_one_well_with_matrix(get_mdg) -> None:
         # compared.
         assert np.isclose(
             np.linalg.norm(known),
-            np.linalg.norm(intf.mortar_to_primary_int().A.flatten()),
+            np.linalg.norm(intf.mortar_to_primary_int().toarray().flatten()),
             rtol=1e-5,
             atol=1e-8,
         )

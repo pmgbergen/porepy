@@ -131,7 +131,7 @@ def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
     except ImportError:
         raise ImportError("Numba not available on the system")
 
-    @numba.njit("f8[:,:](i4[:,:])", cache=True)
+    @numba.njit("i4[:,:](i4[:,:])", cache=True)
     def _function_to_compile(lines):
         """
         Copy of pp.utils.sort_points.sort_point_pairs. This version is extended
@@ -145,12 +145,12 @@ def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
         num_chains = int(num_chains / 2)
 
         # Initialize array of sorted lines to be the final output
-        sorted_lines = np.zeros((2 * num_chains, chain_length))
+        sorted_lines = np.zeros((2 * num_chains, chain_length), dtype=np.int32)
         # Fix the first line segment for each chain and identify
         # it as in place regarding the sorting.
         sorted_lines[:, 0] = lines[:, 0]
         # Keep track of which lines have been fixed and which are still candidates
-        found = np.zeros(chain_length)
+        found = np.zeros(chain_length, dtype=np.int32)
         found[0] = 1
 
         # Loop over chains and consider each chain separately.

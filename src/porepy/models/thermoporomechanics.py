@@ -13,8 +13,8 @@ References:
 
     - Coussy, 2004, https://doi.org/10.1002/0470092718.
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
-    - Stefansson et al, 2021, https://doi.org/10.1016/j.cma.2021.114122
-    - TODO: add more, e.g. Inga's in prep, ppV2
+    - Stefansson et al., 2021, https://doi.org/10.1016/j.cma.2021.114122.
+    - Stefansson et al., 2024, https://doi.org/10.1016/j.rinam.2023.100428.
 
 """
 
@@ -54,10 +54,12 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.ElasticTangentialFractureDeformation,
     pp.constitutive_laws.LinearElasticMechanicalStress,
     pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FractureGap,
-    pp.constitutive_laws.FrictionBound,
+    pp.constitutive_laws.CoulombFrictionBound,
+    pp.constitutive_laws.DisplacementJump,
 ):
     """Class for the coupling of energy, mass and momentum balance to obtain
     thermoporomechanics equations.

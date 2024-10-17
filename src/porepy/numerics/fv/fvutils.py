@@ -256,7 +256,7 @@ def compute_dist_face_cell(sd, subcell_topology, eta, return_paired=True):
     elif np.asarray(eta).size == 1:
         eta_vec = eta * np.ones(subcell_topology.fno.size)
         # Set eta values to zero at the boundary
-        bnd = np.in1d(subcell_topology.fno, sd.get_all_boundary_faces())
+        bnd = np.isin(subcell_topology.fno, sd.get_all_boundary_faces())
         eta_vec[bnd] = 0
     else:
         raise ValueError("size of eta must either be 1 or number of subfaces")

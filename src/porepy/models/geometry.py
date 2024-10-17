@@ -471,7 +471,7 @@ class ModelGeometry:
 
         """
         # TODO: If we ever implement a mapping to reference space for all subdomains,
-        # the present method should be revisiting.
+        # the present method should be revisited.
 
         # For now, assert all subdomains are fractures, i.e. dim == nd - 1.
         # TODO: Extend to all subdomains, not only codimension 1?

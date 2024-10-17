@@ -322,7 +322,7 @@ class Glossary:
     friction_bound: Entry = Entry(
         type="Callable[[list[pp.Grid]], pp.ad.Operator]",
         docstring="Friction bound of a fracture. Normally provided by a mixin instance"
-        " of :class:`~porepy.models.constitutive_laws.FrictionBound`.",
+        " of :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.",
         name="friction_bound",
     )
 

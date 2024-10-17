@@ -50,13 +50,12 @@ def model(
         The solved model, an instance of `ModelWithEffectivePermeability`.
 
     """
-    model = ModelWithEffectivePermeability(
-        {
-            "material_constants": {"solid": solid_constants},
-            "flux_discretization": flux_discretization,
-        }
-    )
-    pp.run_time_dependent_model(model, {})
+    model_params = {
+        "material_constants": {"solid": solid_constants},
+        "flux_discretization": flux_discretization,
+    }
+    model = ModelWithEffectivePermeability(model_params)
+    pp.run_time_dependent_model(model)
     return model
 
 

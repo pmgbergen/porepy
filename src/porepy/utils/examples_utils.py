@@ -7,6 +7,7 @@ from typing import Callable, Sequence
 import numpy as np
 
 import porepy as pp
+from porepy.models.constitutive_laws import LinearElasticMechanicalStress
 
 
 class VerificationUtils:
@@ -89,6 +90,7 @@ class VerificationUtils:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -127,13 +129,9 @@ class VerificationUtils:
         discr_poromech = pp.ad.BiotAd(self.stress_keyword, [sd])
 
         # Boundary conditions
-        bc = self._combine_boundary_operators(  # type: ignore [call-arg]
+        bc = LinearElasticMechanicalStress.combine_boundary_operators_mechanical_stress(
+            self,  # type: ignore[arg-type]
             subdomains=[sd],
-            dirichlet_operator=self.displacement,
-            neumann_operator=self.mechanical_stress,
-            bc_type=self.bc_type_mechanics,
-            dim=self.nd,
-            name="bc_values_mechanics",
         )
 
         # Compute the pseudo-trace of the displacement

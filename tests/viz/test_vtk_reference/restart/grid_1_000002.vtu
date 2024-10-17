@@ -19,6 +19,11 @@ AQAAAACAAAAwAAAAGAAAAA==eJxjYoAAFijNBqU5oDQXlOaB0gADsAAr
 AQAAAACAAAAwAAAADgAAAA==eJxjZoAAZiJpAAIoABM=
 </DataArray>
 </Cells>
+<PointData>
+<DataArray type="Int64" Name="node_id" format="binary">
+AQAAAACAAABQAAAAGwAAAA==eJxjYIAARijNBKWZGVABLnkWKM0KpQEC2AAW
+</DataArray>
+</PointData>
 <CellData>
 <DataArray type="Int64" Name="cell_id" format="binary">
 AQAAAACAAAAwAAAAFgAAAA==eJxjYIAARgZUAOMzQWlmKA0AAKgACA==
@@ -39,7 +44,7 @@ AQAAAACAAAAwAAAADAAAAA==eJxjYCANAAAAMAAB
 AQAAAACAAAAwAAAADAAAAA==eJxjYCANAAAAMAAB
 </DataArray>
 <DataArray type="Int64" Name="subdomain_id" format="binary">
-AQAAAACAAAAwAAAAEQAAAA==eJxLZoCAZCidQoAGAEF4Alc=
+AQAAAACAAAAwAAAAEQAAAA==eJyTZIAASSgtRYAGABDoAJs=
 </DataArray>
 </CellData>
 </Piece>

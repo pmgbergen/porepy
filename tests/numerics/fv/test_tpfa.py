@@ -5,6 +5,7 @@ The tests fall into two categories:
     2) Tests of the differentiable TPFA discretization.
 
 """
+
 import pytest
 
 import scipy.sparse as sps
@@ -453,7 +454,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
             assert np.isclose(flux, computed_flux.val[fi])
 
         # Fetch the transmissibility from the base discretization.
-        diff = base_flux[fi].A.ravel()
+        diff = base_flux[fi].toarray().ravel()
         # Add tpfa-style contribution from the derivative of the transmissibility.
         diff[ci] += trm_diff * p
 
@@ -465,7 +466,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
         diff[ci] += projected_vs * trm_diff
 
-        assert np.allclose(diff, computed_flux.jac[fi].A.ravel())
+        assert np.allclose(diff, computed_flux.jac[fi].toarray().ravel())
 
     # On Neumann faces, the computed flux should equal the boundary condition. The
     # derivative should be zero.
@@ -473,7 +474,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
         computed_flux.val[model._neumann_face]
         == model._neumann_flux * div[1, model._neumann_face]
     )
-    assert np.allclose(computed_flux.jac[model._neumann_face].A, 0)
+    assert np.allclose(computed_flux.jac[model._neumann_face].toarray(), 0)
 
     # Test flux calculation on internal face. This is a bit more involved, as we need to
     # compute the harmonic mean of the two transmissibilities and its derivative.
@@ -501,7 +502,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     vs_diff = (projected_vs_1 - projected_vs_0) * div[1, fi]
 
     # Fetch the transmissibility from the base discretization.
-    trm_full = base_flux[fi].A.ravel()
+    trm_full = base_flux[fi].toarray().ravel()
     # The derivative of the full transmissibility with respect to the two cell center
     # pressures, by the product rule.
     trm_diff_p0 = (
@@ -527,12 +528,16 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     vector_source_diff = np.array(
         [trm_diff_p0 * vs_diff, -trm_diff_p1 * vs_diff]
     ).ravel()
-    assert np.allclose(trm_diff + vector_source_diff, computed_flux.jac[fi].A)
+    assert np.allclose(trm_diff + vector_source_diff, computed_flux.jac[fi].toarray())
 
     ####
     # Test the potential trace calculation
     potential_trace = model.potential_trace(
-        model.mdg.subdomains(), model.pressure, model.permeability, "darcy_flux"
+        model.mdg.subdomains(),
+        model.pressure,
+        model.permeability,
+        model.combine_boundary_operators_darcy_flux,
+        "darcy_flux",
     ).value_and_jacobian(model.equation_system)
 
     # Base discretization matrix for the potential trace reconstruction, and for the
@@ -574,12 +579,14 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
     # Check the derivative of the potential trace reconstruction: Fetch the cell
     # contribution from the base discretization.
-    cell_contribution = base_bound_pressure_cell[model._neumann_face].A.ravel()
+    cell_contribution = base_bound_pressure_cell[model._neumann_face].toarray().ravel()
     # For the cell next to the Neumann face, there is an extra contribution from the
     # derivative of the transmissibility.
     cell_contribution[ci] += dp_diff * model._neumann_flux
 
-    assert np.allclose(potential_trace.jac[model._neumann_face].A, cell_contribution)
+    assert np.allclose(
+        potential_trace.jac[model._neumann_face].toarray(), cell_contribution
+    )
 
     # On a Dirichlet face, the potential trace should be equal to the Dirichlet value.
     assert np.isclose(
@@ -588,7 +595,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     # The derivative of the potential trace with respect to the pressure should be zero,
     # as the potential trace is constant.
     assert np.allclose(
-        potential_trace.jac[model._nonzero_dirichlet_face].A, 0, atol=1e-15
+        potential_trace.jac[model._nonzero_dirichlet_face].toarray(), 0, atol=1e-15
     )
 
 
@@ -679,7 +686,11 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
     assert darcy_jac.shape == (num_faces, num_dofs)
 
     potential_trace = model.potential_trace(
-        model.mdg.subdomains(), model.pressure, model.permeability, "darcy_flux"
+        model.mdg.subdomains(),
+        model.pressure,
+        model.permeability,
+        model.combine_boundary_operators_darcy_flux,
+        "darcy_flux",
     )
     potential_value = potential_trace.value(model.equation_system)
     assert potential_value.size == num_faces
@@ -764,7 +775,7 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
         matrix.append(mod.linear_system[0])
         vector.append(mod.linear_system[1])
 
-    assert np.allclose(matrix[0].A, matrix[1].A)
+    assert np.allclose(matrix[0].toarray(), matrix[1].toarray())
     assert np.allclose(vector[0], vector[1])
 
 
@@ -861,14 +872,22 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
 
         # Check that the pressure trace is equal to the pressure in the adjacent cell.
         pressure_trace = model.potential_trace(
-            [sd], model.pressure, model.permeability, "darcy_flux"
+            [sd],
+            model.pressure,
+            model.permeability,
+            model.combine_boundary_operators_darcy_flux,
+            "darcy_flux",
         ).value(model.equation_system)
         p = model.pressure([sd]).value(model.equation_system)
         assert np.allclose(pressure_trace[tip_faces], p[tip_cells])
         # Check that the temperature trace is equal to the temperature in the adjacent
         # cell.
         temperature_trace = model.potential_trace(
-            [sd], model.temperature, model.thermal_conductivity, "fourier_flux"
+            [sd],
+            model.temperature,
+            model.thermal_conductivity,
+            model.combine_boundary_operators_fourier_flux,
+            "fourier_flux",
         ).value(model.equation_system)
         T = model.temperature([sd]).value(model.equation_system)
         assert np.allclose(temperature_trace[tip_faces], T[tip_cells])

@@ -16,6 +16,119 @@ Scalar = pp.ad.Scalar
 ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
 
 
+class DisplacementJump:
+    """Displacement jump on fractures.
+
+    The displacement jump is the difference between the displacement on the two sides of
+    a fracture. It is defined in the local coordinate system of the fracture, and is
+    expressed as a vector of length nd, where nd is the ambient dimension of the
+    problem. The jump is split into an elastic and a plastic component, where the
+    elastic component reverts if the tractions are removed, while the plastic component
+    remains.
+
+    """
+
+    mdg: pp.MixedDimensionalGrid
+    """Mixed dimensional grid for the current model."""
+    nd: int
+    """Ambient dimension of the problem."""
+    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
+    """Map from subdomains to the adjacent interfaces."""
+    interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Operator giving the displacement on interfaces."""
+    local_coordinates: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the local coordinates of the subdomains."""
+    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
+    """Basis for the local coordinate system."""
+    elastic_normal_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the normal component of the elastic fracture deformation."""
+    elastic_tangential_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the tangential component of the elastic fracture deformation."""
+
+    def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Displacement jump on fracture-matrix interfaces.
+
+        Parameters:
+            subdomains: List of subdomains where the displacement jump is defined.
+                Should be a fracture subdomain.
+
+        Returns:
+            Operator for the displacement jump.
+
+        Raises:
+             AssertionError: If the subdomains are not fractures, i.e. have dimension
+                `nd - 1`.
+
+        """
+        if not all([sd.dim == self.nd - 1 for sd in subdomains]):
+            raise ValueError("Displacement jump only defined on fractures")
+
+        interfaces = self.subdomains_to_interfaces(subdomains, [1])
+        # Only use matrix-fracture interfaces
+        interfaces = [intf for intf in interfaces if intf.dim == self.nd - 1]
+        mortar_projection = pp.ad.MortarProjections(
+            self.mdg, subdomains, interfaces, self.nd
+        )
+        # The displacement jmup is expressed in the local coordinates of the fracture.
+        # First use the sign of the mortar sides to get a difference, then map first
+        # from the interface to the fracture, and finally to the local coordinates.
+        rotated_jumps: pp.ad.Operator = (
+            self.local_coordinates(subdomains)
+            @ mortar_projection.mortar_to_secondary_avg
+            @ mortar_projection.sign_of_mortar_sides
+            @ self.interface_displacement(interfaces)
+        )
+        rotated_jumps.set_name("Rotated_displacement_jump")
+        return rotated_jumps
+
+    def elastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The elastic component of the displacement jump [m].
+
+        The elastic displacement jump is composed of a tangential and normal component,
+        each implementing a relation between displacement jumps, contact tractions and
+        stiffness. The relation may or may not be linear.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the elastic displacement jump.
+
+        """
+        # The jumps are defined in local coordinates. Prepare to project the tangential
+        # and normal components of the displacement jump from (nd-1) and 1 dimensions,
+        # respectively, to nd dimensions.
+        basis = self.basis(subdomains, dim=self.nd)  # type: ignore[call-arg]
+        local_basis = self.basis(subdomains, dim=self.nd - 1)  # type: ignore[call-arg]
+        tangential_to_nd = pp.ad.sum_operator_list(
+            [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
+        )
+        normal_to_nd = basis[-1]
+
+        u_t = self.elastic_tangential_fracture_deformation(subdomains)
+        u_n = self.elastic_normal_fracture_deformation(subdomains)
+        return tangential_to_nd @ u_t + normal_to_nd @ u_n
+
+    def plastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """The plastic component of the displacement jump.
+
+        The plastic displacement jump is the difference between the total displacement
+        jump and the elastic displacement jump.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the plastic displacement jump.
+
+        """
+        total_jump = self.displacement_jump(subdomains)
+        elastic_jump = self.elastic_displacement_jump(subdomains)
+        u_p = total_jump - elastic_jump
+        u_p.set_name("plastic_displacement_jump")
+        return u_p
+
+
 class DimensionReduction:
     """Apertures and specific volumes."""
 
@@ -208,7 +321,7 @@ class DisplacementJumpAperture(DimensionReduction):
     """
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    mixin instance of :class:`~porepy.models.constitutive_laws.DisplacementJump`.
 
     """
     mdg: pp.MixedDimensionalGrid
@@ -261,7 +374,7 @@ class DisplacementJumpAperture(DimensionReduction):
         # Subdomains of the top dimension
         nd_subdomains = [sd for sd in subdomains if sd.dim == self.nd]
 
-        num_cells_nd_subdomains = sum([sd.num_cells for sd in nd_subdomains])
+        num_cells_nd_subdomains = sum(sd.num_cells for sd in nd_subdomains)
         one = pp.wrap_as_dense_ad_array(1, size=num_cells_nd_subdomains, name="one")
         # Start with nd, where aperture is one.
         apertures = projection.cell_prolongation(nd_subdomains) @ one
@@ -1081,6 +1194,7 @@ class DarcysLaw:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -1160,12 +1274,8 @@ class DarcysLaw:
         # We know p is variable, since called on subdomains, not boundaries.
         p = cast(pp.ad.MixedDimensionalVariable, self.pressure(subdomains))
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=self.pressure,
-            neumann_operator=self.darcy_flux,
-            bc_type=self.bc_type_darcy_flux,
-            name="bc_values_darcy",
+        boundary_operator = self.combine_boundary_operators_darcy_flux(
+            subdomains=subdomains
         )
 
         pressure_trace = (
@@ -1220,12 +1330,8 @@ class DarcysLaw:
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(domains, [1])
         intf_projection = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=1)
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=self.pressure,
-            neumann_operator=self.darcy_flux,
-            bc_type=self.bc_type_darcy_flux,
-            name="bc_values_" + self.bc_data_darcy_flux_key,
+        boundary_operator = self.combine_boundary_operators_darcy_flux(
+            subdomains=domains
         )
 
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
@@ -1243,6 +1349,35 @@ class DarcysLaw:
         )
         flux.set_name("Darcy_flux")
         return flux
+
+    def combine_boundary_operators_darcy_flux(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine Darcy flux boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.darcy_flux is passed to
+        robin_operator in the default setup.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined Darcy flux boundary operator.
+
+        """
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=self.pressure,
+            neumann_operator=self.darcy_flux,
+            robin_operator=self.darcy_flux,
+            bc_type=self.bc_type_darcy_flux,
+            name="bc_values_" + self.bc_data_darcy_flux_key,
+        )
+        return op
 
     def interface_darcy_flux_equation(
         self, interfaces: list[pp.MortarGrid]
@@ -1429,14 +1564,15 @@ class AdTpfaFlux:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
         ],
         pp.ad.Operator,
     ]
-    """Combine Dirichlet and Neumann boundary conditions. Normally defined in a mixin
-    instance of :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+    """Combine Dirichlet, Neumann and Robin boundary conditions. Normally defined in a
+    mixin instance of :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
 
     """
     basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
@@ -1459,15 +1595,19 @@ class AdTpfaFlux:
         domains: pp.SubdomainsOrBoundaries,
         potential: Callable[[list[pp.Grid]], pp.ad.Operator],
         diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        boundary_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
         flux_name: str,
     ) -> pp.ad.Operator:
         """Discretization of a diffusive constitutive law.
 
         Parameters:
             domains: List of domains where the flux is defined.
-            diffusivity_tensor: Function returning the diffusivity tensor as an Ad
+            potential: Method returning the potential as an Ad operator.
+            diffusivity_tensor: Method returning the diffusivity tensor as an Ad
                 operator. For Darcy's and Fourier's law, this is the permeability and
                 thermal conductivity, respectively.
+            boundary_operator: Method returning the boundary operator as an Ad
+                operator.
 
         Raises:
             ValueError if the domains are a mixture of grids and boundary grids.
@@ -1641,13 +1781,7 @@ class AdTpfaFlux:
         flux_p = flux_p + pp.ad.Scalar(0) * base_discr.flux() @ potential(domains)
 
         # Get boundary condition values
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=potential,
-            neumann_operator=getattr(self, flux_name),
-            bc_type=getattr(self, "bc_type_" + flux_name),
-            name="bc_values_" + flux_name,
-        )
+        boundary_value_operator = boundary_operator(domains)
 
         # Compose the full discretization of the Darcy flux, which consists of three
         # terms: The flux due to pressure differences, the flux due to boundary
@@ -1656,7 +1790,7 @@ class AdTpfaFlux:
             flux_p
             + t_bnd
             * (
-                boundary_operator
+                boundary_value_operator
                 + intf_projection.mortar_to_primary_int
                 @ getattr(self, "interface_" + flux_name)(interfaces)
             )
@@ -1670,12 +1804,19 @@ class AdTpfaFlux:
         subdomains: list[pp.Grid],
         potential: Callable[[list[pp.Grid]], pp.ad.Operator],
         diffusivity_tensor: Callable[[list[pp.Grid]], pp.ad.Operator],
+        boundary_operator: Callable[[list[pp.Grid]], pp.ad.Operator],
         flux_name: str,
     ) -> pp.ad.Operator:
         """Pressure on the subdomain boundaries.
 
         Parameters:
             subdomains: List of subdomains where the pressure is defined.
+            potential: Method returning the potential as an Ad operator.
+            diffusivity_tensor: Method returning the diffusivity tensor as an Ad
+                operator. For Darcy's and Fourier's law, this is the permeability and
+                thermal conductivity, respectively.
+            boundary_operator: Method returning the boundary operator as an Ad
+                operator.
 
         Returns:
             Pressure on the subdomain boundaries. Parsing the operator will return a
@@ -1687,13 +1828,7 @@ class AdTpfaFlux:
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=potential,
-            neumann_operator=getattr(self, flux_name),
-            bc_type=getattr(self, "bc_type_" + flux_name),
-            name="bc_values_" + flux_name,
-        )
+        boundary_value_operator = boundary_operator(subdomains)
         base_discr = getattr(self, flux_name + "_discretization")(subdomains)
         # Obtain the transmissibilities in operator form. Ignore other outputs.
         t_f_full, *_ = self.__transmissibility_matrix(subdomains, diffusivity_tensor)
@@ -1730,7 +1865,7 @@ class AdTpfaFlux:
             )(
                 bound_pressure_face_discr,
                 projected_internal_flux,
-                boundary_operator,
+                boundary_value_operator,
             )
 
         else:
@@ -1738,7 +1873,7 @@ class AdTpfaFlux:
             # compose the discretization, treating internal and external boundaries
             # equally.
             boundary_value_contribution = bound_pressure_face_discr * (
-                projected_internal_flux + boundary_operator
+                projected_internal_flux + boundary_value_operator
             )
 
         # As the base discretization is only invoked inside a function, and then only by
@@ -2076,6 +2211,12 @@ class DarcysLawAd(AdTpfaFlux):
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
+    combine_boundary_operators_darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that combines boundary operators to a single operator. Normally defined
+    in a mixin instance of
+    :class:`~porepy.constitutive_laws.DarcysLaw`.
+
+    """
 
     def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Darcy's law.
@@ -2092,7 +2233,11 @@ class DarcysLawAd(AdTpfaFlux):
 
         """
         flux = self.diffusive_flux(
-            domains, self.pressure, self.permeability, "darcy_flux"
+            domains,
+            self.pressure,
+            self.permeability,
+            self.combine_boundary_operators_darcy_flux,
+            "darcy_flux",
         )
         return flux
 
@@ -2108,7 +2253,11 @@ class DarcysLawAd(AdTpfaFlux):
 
         """
         pressure_trace = self.potential_trace(
-            domains, self.pressure, self.permeability, "darcy_flux"
+            domains,
+            self.pressure,
+            self.permeability,
+            self.combine_boundary_operators_darcy_flux,
+            "darcy_flux",
         )
         pressure_trace.set_name("Differentiable pressure trace")
         return pressure_trace
@@ -2487,7 +2636,7 @@ class ThermalConductivityLTE:
             # for displacement_divergence which has not yet been computed.
             phi = self.reference_porosity(subdomains)
         if isinstance(phi, Scalar):
-            size = sum([sd.num_cells for sd in subdomains])
+            size = sum(sd.num_cells for sd in subdomains)
             phi = phi * pp.wrap_as_dense_ad_array(1, size)
         conductivity = phi * self.fluid_thermal_conductivity(subdomains) + (
             Scalar(1) - phi
@@ -2572,6 +2721,7 @@ class FouriersLaw:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -2642,14 +2792,8 @@ class FouriersLaw:
             subdomains
         )
 
-        boundary_operator_fourier = (
-            self._combine_boundary_operators(  # type: ignore[call-arg]
-                subdomains=subdomains,
-                dirichlet_operator=self.temperature,
-                neumann_operator=self.fourier_flux,
-                bc_type=self.bc_type_fourier_flux,
-                name="bc_values_fourier",
-            )
+        boundary_operator_fourier = self.combine_boundary_operators_fourier_flux(
+            subdomains=subdomains
         )
         # We know t is a variable, since method is called on subdomains, not boundaries.
         t = cast(pp.ad.MixedDimensionalVariable, self.temperature(subdomains))
@@ -2694,12 +2838,8 @@ class FouriersLaw:
             subdomains
         )
 
-        boundary_operator_fourier = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=self.temperature,
-            neumann_operator=self.fourier_flux,
-            bc_type=self.bc_type_fourier_flux,
-            name="bc_values_fourier",
+        boundary_operator_fourier = self.combine_boundary_operators_fourier_flux(
+            subdomains=subdomains
         )
 
         flux: pp.ad.Operator = (
@@ -2714,6 +2854,35 @@ class FouriersLaw:
         )
         flux.set_name("Fourier_flux")
         return flux
+
+    def combine_boundary_operators_fourier_flux(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine Fourier flux boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.fourier_flux is passed to
+        robin_operator in the default setup.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined Fourier flux boundary operator.
+
+        """
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=self.temperature,
+            neumann_operator=self.fourier_flux,
+            robin_operator=self.fourier_flux,
+            bc_type=self.bc_type_fourier_flux,
+            name="bc_values_" + self.bc_data_fourier_flux_key,
+        )
+        return op
 
     def interface_fourier_flux_equation(
         self, interfaces: list[pp.MortarGrid]
@@ -2774,7 +2943,7 @@ class FouriersLaw:
 
         """
         val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
-        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        size = int(sum(g.num_cells for g in grids) * self.nd)
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
 
@@ -2793,7 +2962,7 @@ class FouriersLaw:
 
         """
         val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
-        size = int(np.sum([g.num_cells for g in interfaces]))
+        size = int(sum(g.num_cells for g in interfaces))
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
 
@@ -2825,6 +2994,12 @@ class FouriersLawAd(AdTpfaFlux):
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
+    combine_boundary_operators_fourier_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that combines boundary operators to a single operator. Normally defined
+    in a mixin instance of
+    :class:`~porepy.constitutive_laws.FouriersLaw`.
+
+    """
 
     def fourier_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Fourier's law.
@@ -2841,7 +3016,11 @@ class FouriersLawAd(AdTpfaFlux):
 
         """
         flux = self.diffusive_flux(
-            domains, self.temperature, self.thermal_conductivity, "fourier_flux"
+            domains,
+            self.temperature,
+            self.thermal_conductivity,
+            self.combine_boundary_operators_fourier_flux,
+            "fourier_flux",
         )
         return flux
 
@@ -2857,7 +3036,11 @@ class FouriersLawAd(AdTpfaFlux):
 
         """
         temperature_trace = self.potential_trace(
-            domains, self.temperature, self.thermal_conductivity, "fourier_flux"
+            domains,
+            self.temperature,
+            self.thermal_conductivity,
+            self.combine_boundary_operators_fourier_flux,
+            "fourier_flux",
         )
         temperature_trace.set_name("Differentiable temperature trace")
         return temperature_trace
@@ -2929,12 +3112,12 @@ class AdvectiveFlux:
         )
         flux: pp.ad.Operator = (
             darcy_flux * (discr.upwind() @ advected_entity)
-            - discr.bound_transport_dir() @ (darcy_flux * bc_values)
+            + discr.bound_transport_dir() @ (darcy_flux * bc_values)
             # Advective flux coming from lower-dimensional subdomains
-            - discr.bound_transport_neu() @ bc_values
+            + discr.bound_transport_neu() @ bc_values
         )
         if interface_flux is not None:
-            flux -= (
+            flux += (
                 discr.bound_transport_neu()
                 @ mortar_projection.mortar_to_primary_int
                 @ interface_flux(interfaces)
@@ -3226,7 +3409,7 @@ class GravityForce:
 
         """
         val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
-        size = np.sum([g.num_cells for g in grids]).astype(int)
+        size = int(sum(g.num_cells for g in grids))
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
 
@@ -3275,7 +3458,7 @@ class ZeroGravityForce:
             Cell-wise nd-vector representing the gravity force.
 
         """
-        size = int(np.sum([g.num_cells for g in grids]) * self.nd)
+        size = int(sum(g.num_cells for g in grids) * self.nd)
         return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
 
 
@@ -3309,9 +3492,14 @@ class LinearElasticMechanicalStress:
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
     """
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
@@ -3346,6 +3534,7 @@ class LinearElasticMechanicalStress:
     _combine_boundary_operators: Callable[
         [
             Sequence[pp.Grid],
+            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
@@ -3403,15 +3592,7 @@ class LinearElasticMechanicalStress:
         interfaces = self.subdomains_to_interfaces(domains, [1])
 
         # Boundary conditions on external boundaries
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=self.displacement,
-            neumann_operator=self.mechanical_stress,
-            bc_type=self.bc_type_mechanics,
-            dim=self.nd,
-            name="bc_values_mechanics",
-        )
-
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
         proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
         # The stress in the subdomanis is the sum of the stress in the subdomain,
         # the stress on the external boundaries, and the stress on the interfaces.
@@ -3428,8 +3609,38 @@ class LinearElasticMechanicalStress:
         stress.set_name("mechanical_stress")
         return stress
 
+    def combine_boundary_operators_mechanical_stress(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Combine mechanical stress boundary operators.
+
+        Note that the default Robin operator is the same as that of Neumann. Override
+        this method to define and assign another boundary operator of your choice. The
+        new operator should then be passed as an argument to the
+        _combine_boundary_operators method, just like self.mechanical_stress is passed
+        to robin_operator in the default setup.
+
+        Parameters:
+            subdomains: List of the subdomains whose boundary operators are to be
+                combined.
+
+        Returns:
+            The combined mechanical stress boundary operator.
+
+        """
+        op = self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=subdomains,
+            dirichlet_operator=self.displacement,
+            neumann_operator=self.mechanical_stress,
+            robin_operator=self.mechanical_stress,
+            bc_type=self.bc_type_mechanics,
+            dim=self.nd,
+            name="bc_values_mechanics",
+        )
+        return op
+
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """Fracture stress on interfaces.
+        """Fracture stress on interfaces [Pa].
 
         Parameters:
             interfaces: List of interfaces where the stress is defined.
@@ -3461,12 +3672,16 @@ class LinearElasticMechanicalStress:
         # subdomains (the domain of definition for the mortar projections), projecting
         # to the interface, and switching the sign of the traction depending on the
         # sign of the mortar sides.
-        traction = (
+        nondim_traction = (
             mortar_projection.sign_of_mortar_sides
             @ mortar_projection.secondary_to_mortar_int
             @ subdomain_projection.cell_prolongation(fracture_subdomains)
             @ self.local_coordinates(fracture_subdomains).transpose()
             @ self.contact_traction(fracture_subdomains)
+        )
+        # Rescale to physical units from the scaled contact traction.
+        traction = nondim_traction * self.characteristic_contact_traction(
+            fracture_subdomains
         )
         traction.set_name("mechanical_fracture_stress")
         return traction
@@ -3540,6 +3755,11 @@ class PressureStress(LinearElasticMechanicalStress):
     basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
     """Basis for the local coordinate system. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
+
+    """
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     darcy_keyword: str
@@ -3784,6 +4004,11 @@ class ElasticModuli:
     FourthOrderTensor.
     """
 
+    domain: pp.Domain
+    """Domain object that carries information about the domain. Normally set by call to
+    :meth:`~porepy.models.geometry.ModelGeometry.set_domain` under simulation preparation.
+
+    """
     solid: pp.SolidConstants
     """Solid constant object that takes care of scaling of solid-related quantities.
     Normally, this is set by a mixin of instance
@@ -3854,8 +4079,50 @@ class ElasticModuli:
         mu = self.solid.shear_modulus() * np.ones(subdomain.num_cells)
         return pp.FourthOrderTensor(mu, lmbda)
 
+    def characteristic_contact_traction(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Characteristic traction [Pa].
 
-class FrictionBound:
+        The value is computed from the solid constants and the characteristic
+        displacement. Inversion of this relationship, i.e.,
+        u_char=u_char(t_char), can be done in a mixin overriding the
+        characteristic sizes. This may be beneficial if the characteristic
+        traction is easier to estimate than the characteristic displacement.
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic traction is defined.
+
+        Returns:
+            Scalar operator representing the characteristic traction.
+
+        """
+        size = Scalar(np.max(self.domain.side_lengths()))
+        strain = self.characteristic_displacement(subdomains) / size
+        t_char = strain * self.youngs_modulus(subdomains)
+        t_char.set_name("characteristic_contact_traction")
+        return t_char
+
+    def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Characteristic displacement [m].
+
+        The value is fetched from the solid constants. See also the method
+        :meth:`characteristic_contact_traction` and its documentation.
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic displacement is
+                defined.
+
+        Returns:
+            Scalar operator representing the characteristic displacement.
+
+        """
+        u_char = Scalar(self.solid.characteristic_displacement())
+        u_char.set_name("characteristic_displacement")
+        return u_char
+
+
+class CoulombFrictionBound:
     """Friction bound for fracture deformation.
 
     This class is intended for use with fracture deformation models.
@@ -3879,13 +4146,22 @@ class FrictionBound:
     """
 
     def friction_bound(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Friction bound [m].
+        """Friction bound [-].
+
+        Dimensionless, since fracture deformation equations consider non-dimensional
+        tractions. In this class, the bound is given by
+
+        .. math::
+            - F t_n
+
+        where :math:`F` is the friction coefficient and :math:`t_n` is the normal
+        component of the contact traction. TODO: Rename class to CoulombFrictionBound?
 
         Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
-            Cell-wise friction bound operator [Pa].
+            Cell-wise friction bound operator [-].
 
         """
         t_n: pp.ad.Operator = self.normal_component(subdomains) @ self.contact_traction(
@@ -3898,13 +4174,13 @@ class FrictionBound:
         return bound
 
     def friction_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Friction coefficient.
+        """Friction coefficient [-].
 
         Parameters:
             subdomains: List of fracture subdomains.
 
         Returns:
-            Cell-wise friction coefficient operator.
+            Friction coefficient operator.
 
         """
         return Scalar(
@@ -3930,9 +4206,10 @@ class ShearDilation:
     instance of :class:`~porepy.models.models.ModelGeometry`.
 
     """
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElastoPlasticFractureDeformation`.
 
     """
     solid: pp.SolidConstants
@@ -3958,7 +4235,8 @@ class ShearDilation:
         )
         f_tan = pp.ad.Function(pp.ad.functions.tan, "tan_function")
         shear_dilation: pp.ad.Operator = f_tan(angle) * f_norm(
-            self.tangential_component(subdomains) @ self.displacement_jump(subdomains)
+            self.tangential_component(subdomains)
+            @ self.plastic_displacement_jump(subdomains)
         )
 
         shear_dilation.set_name("shear_dilation")
@@ -3982,20 +4260,22 @@ class BartonBandis:
     deformation.
 
     The Barton-Bandis model represents a non-linear elastic deformation in the normal
-    direction of a fracture. Specifically, the decrease in normal opening,
-    :math:``\Delta u_n`` under a force :math:``\sigma_n`` given as
+    direction of a fracture. Specifically, the increase in normal opening,
+    :math:``\Delta u_n``, under a force :math:``\sigma_n`` (negative for compression),
+    is given as
 
     .. math::
 
-        \Delta u_n =  \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n + \sigma_n}
+        \Delta u_n = \Delta u_n^{max}
+            + \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n - \sigma_n}
 
-    where :math:``\Delta u_n^{max}`` is the maximum fracture closure and the material
+    where :math:``\Delta u_n^{max}`` is the maximum fracture opening and the material
     constant :math:``K_n`` is known as the fracture normal stiffness.
 
     The Barton-Bandis equation is defined in
     :meth:``elastic_normal_fracture_deformation`` while the two parameters
     :math:``\Delta u_n^{max}`` and :math:``K_n`` can be set by the methods
-    :meth:``maximum_fracture_closure`` and :meth:``fracture_normal_stiffness``.
+    :meth:``maximum_elastic_fracture_opening`` and :meth:``fracture_normal_stiffness``.
 
     """
 
@@ -4007,6 +4287,11 @@ class BartonBandis:
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+
+    """
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     equation_system: pp.ad.EquationSystem
@@ -4024,19 +4309,17 @@ class BartonBandis:
     def elastic_normal_fracture_deformation(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Barton-Bandis model for elastic normal deformation of a fracture.
+        """Barton-Bandis model for elastic normal deformation of a fracture [m].
 
-        The model computes a *decrease* in the normal opening as a function of the
-        contact traction and material constants. See comments in the class documentation
-        for how to include the Barton-Bandis effect in the model for fracture
-        deformation.
+        The model computes an increase in the normal opening as a function of the
+        contact traction and material constants as elaborated in the class documentation.
 
         The returned value depends on the value of the solid constant
-        maximum_fracture_closure. If its value is zero, the Barton-Bandis model is
-        void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
+        maximum_elastic_fracture_opening. If its value is zero, the Barton-Bandis model
+        is void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
         division. Otherwise, an operator which implements the Barton-Bandis model is
         returned. The special treatment ammounts to a continuous extension in the limit
-        of zero maximum fracture closure.
+        of zero maximum fracture opening.
 
         The implementation is based on the paper
 
@@ -4051,51 +4334,55 @@ class BartonBandis:
             subdomains: List of fracture subdomains.
 
         Raises:
-            ValueError: If the maximum fracture closure is negative.
+            ValueError: If the maximum fracture opening is negative.
 
         Returns:
-            The decrease in fracture opening, as computed by the Barton-Bandis model.
+            The elastic fracture opening, as computed by the Barton-Bandis model.
 
         """
-        # The maximum closure of the fracture.
-        maximum_closure = self.maximum_fracture_closure(subdomains)
+        # The maximum opening of the fracture.
+        maximum_opening = self.maximum_elastic_fracture_opening(subdomains)
 
-        # If the maximum closure is zero, the Barton-Bandis model is not valid in the
+        # If the maximum opening is zero, the Barton-Bandis model is not valid in the
         # case of zero normal traction. In this case, we return an empty operator.
-        #  If the maximum closure is negative, an error is raised.
-        val = maximum_closure.value(self.equation_system)
+        # If the maximum opening is negative, an error is raised.
+        val = maximum_opening.value(self.equation_system)
         if np.any(val == 0):
-            return Scalar(0)
+            num_cells = sum(sd.num_cells for sd in subdomains)
+            return pp.ad.DenseArray(np.zeros(num_cells), "zero_Barton-Bandis_opening")
         elif np.any(val < 0):
-            raise ValueError("The maximum closure must be non-negative.")
+            raise ValueError("The maximum opening must be non-negative.")
 
         nd_vec_to_normal = self.normal_component(subdomains)
 
-        # The effective contact traction. Units: Pa = N/m^(nd-1)
-        # The papers by Barton and Bandis assumes positive traction in contact, thus we
-        # need to switch the sign.
+        # The scaled effective contact traction [-]. The papers by Barton and Bandis
+        # assumes positive traction in contact, thus we need to switch the sign.
         contact_traction = Scalar(-1) * self.contact_traction(subdomains)
 
         # Normal component of the traction.
         normal_traction = nd_vec_to_normal @ contact_traction
 
-        # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m
+        # Normal stiffness (as per Barton-Bandis terminology). Units: Pa / m.
         normal_stiffness = self.fracture_normal_stiffness(subdomains)
-
-        # The openening is found from the 1983 paper.
-        # Units: Pa * m / Pa = m.
-        opening_decrease = (
-            normal_traction
-            * maximum_closure
-            / (normal_stiffness * maximum_closure + normal_traction)
+        # Rescale, since contact traction is dimensionless.
+        scaled_stiffness = normal_stiffness / self.characteristic_contact_traction(
+            subdomains
         )
 
-        opening_decrease.set_name("Barton-Bandis_closure")
+        # The opening is found from the 1983 paper.
+        opening_decrease = (
+            normal_traction
+            * maximum_opening
+            / (scaled_stiffness * maximum_opening + normal_traction)
+        )
+        elastic_opening = maximum_opening - opening_decrease
+        elastic_opening.set_name("Barton-Bandis_elastic_opening")
+        return elastic_opening
 
-        return opening_decrease
-
-    def maximum_fracture_closure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """The maximum closure of a fracture [m].
+    def maximum_elastic_fracture_opening(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The maximum opening of a fracture [m].
 
         Used in the Barton-Bandis model for normal elastic fracture deformation.
 
@@ -4103,11 +4390,11 @@ class BartonBandis:
             subdomains: List of fracture subdomains.
 
         Returns:
-            The maximum allowed decrease in fracture opening.
+            The maximum allowed increase in fracture opening.
 
         """
-        max_closure = self.solid.maximum_fracture_closure()
-        return Scalar(max_closure, "maximum_fracture_closure")
+        max_opening = self.solid.maximum_elastic_fracture_opening()
+        return Scalar(max_opening, "maximum_elastic_fracture_opening")
 
     def fracture_normal_stiffness(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The normal stiffness of a fracture [Pa*m^-1].
@@ -4147,31 +4434,16 @@ class FractureGap(BartonBandis, ShearDilation):
         Parameters:
             subdomains: List of subdomains where the gap is defined.
 
-        Raises:
-            ValueError: If the reference fracture gap is smaller than the maximum
-                fracture closure. This can lead to negative openings from the
-                Barton-Bandis model.
-
         Returns:
             Cell-wise fracture gap operator.
 
         """
-        barton_bandis_closure = self.elastic_normal_fracture_deformation(subdomains)
 
-        dilation = self.shear_dilation_gap(subdomains)
-
-        gap = self.reference_fracture_gap(subdomains) + dilation - barton_bandis_closure
-        val = (
+        gap = (
             self.reference_fracture_gap(subdomains)
-            - self.maximum_fracture_closure(subdomains)
-        ).value(self.equation_system)
-
-        if np.any(val < 0):
-            msg = (
-                "The reference fracture gap must be larger"
-                " than the maximum fracture closure."
-            )
-            raise ValueError(msg)
+            + self.shear_dilation_gap(subdomains)
+            + self.elastic_normal_fracture_deformation(subdomains)
+        )
         gap.set_name("fracture_gap")
         return gap
 
@@ -4186,6 +4458,97 @@ class FractureGap(BartonBandis, ShearDilation):
 
         """
         return Scalar(self.solid.fracture_gap(), "reference_fracture_gap")
+
+
+class ElasticTangentialFractureDeformation:
+    """Constitutive relation for elastic tangential deformation.
+
+    The elastic tangential deformation is the tangential component of the displacement
+    jump. Here, we impose a linear relation between the tangential component of the
+    contact traction and the tangential deformation. The relation is given by
+
+    .. math::
+        u_t = \frac{t_t}{K_t},
+
+    where :math:`u_t` is the elastic tangential deformation, :math:`t_t` is the
+    tangential component of the contact traction, and :math:`K_t` is the tangential
+    stiffness of the fracture.
+
+    """
+
+    characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic contact traction."""
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction variable."""
+    equation_system: pp.ad.EquationSystem
+    """EquationSystem object for the current model."""
+    nd: int
+    """Ambient dimension of the problem."""
+    solid: pp.SolidConstants
+    """Solid constant object that takes care of scaling of solid-related quantities."""
+    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the tangential component of vectors."""
+
+    def fracture_tangential_stiffness(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The tangential stiffness of a fracture [Pa*m^-1].
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            The fracture tangential stiffness.
+
+        """
+        stiffness = self.solid.fracture_tangential_stiffness()
+        return Scalar(stiffness, "fracture_tangential_stiffness")
+
+    def elastic_tangential_fracture_deformation(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """The elastic tangential fracture deformation [m].
+
+        The elastic tangential fracture deformation is the tangential component of the
+        displacement jump, which is the solution to the contact mechanics problem in the
+        absence of plastic deformation.
+
+        The elastic tangential deformation is given by
+        .. math::
+            u_t = \frac{t_t}{K_t},
+        where :math:`t_t` is the tangential component of the contact traction and
+        :math:`K_t` is the tangential stiffness. If the stiffness is negative, the
+        deformation is set to zero, thus avoiding using :math:`K_t->inf` to represent
+        no tangential deformation.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            Operator representing the elastic tangential fracture deformation.
+
+        """
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+        t_t = nd_vec_to_tangential @ self.contact_traction(subdomains)
+
+        stiffness = self.fracture_tangential_stiffness(subdomains)
+        # Retrieve the *unscaled* stiffness value for the check below.
+        stiffness_value = self.solid.convert_units(
+            stiffness.value(self.equation_system), "Pa*m^-1", to_si=True
+        )
+        if np.any(np.isclose(stiffness_value, -1.0, atol=1e-12, rtol=1e-12)):
+            # Stiffness=-1 indicates no elastic tangential deformation. Small tolerances
+            # are used to avoid numerical issues, but allowing for a float value.
+            num_cells = sum(sd.num_cells for sd in subdomains)
+            zero_u_t = pp.ad.DenseArray(np.zeros((self.nd - 1) * num_cells))
+            zero_u_t.set_name("zero_elastic_tangential_fracture_deformation")
+            return zero_u_t
+        # Since contact traction is nondimensional, the stiffness must be scaled by the
+        # characteristic contact traction.
+        scaled_stiffness = stiffness / self.characteristic_contact_traction(subdomains)
+        u_t = t_t / scaled_stiffness
+        u_t.set_name("elastic_tangential_fracture_deformation")
+        return u_t
 
 
 class BiotCoefficient:
@@ -4377,16 +4740,8 @@ class PoroMechanicsPorosity:
     """
     bc_type_mechanics: Callable[[pp.Grid], pp.ad.Operator]
 
-    _combine_boundary_operators: Callable[
-        [
-            Sequence[pp.Grid],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[pp.Grid], pp.BoundaryCondition],
-            str,
-            int,
-        ],
-        pp.ad.Operator,
+    combine_boundary_operators_mechanical_stress: Callable[
+        [Sequence[pp.Grid]], pp.ad.Operator
     ]
 
     mechanical_stress: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -4408,7 +4763,7 @@ class PoroMechanicsPorosity:
         subdomains_lower = [sd for sd in subdomains if sd.dim < self.nd]
         projection = pp.ad.SubdomainProjections(subdomains, dim=1)
         # Constant unitary porosity in fractures and intersections
-        size = sum([sd.num_cells for sd in subdomains_lower])
+        size = sum(sd.num_cells for sd in subdomains_lower)
         one = pp.wrap_as_dense_ad_array(1, size=size, name="one")
         rho_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
             subdomains_nd
@@ -4542,13 +4897,8 @@ class PoroMechanicsPorosity:
             self.mdg, subdomains, interfaces, dim=self.nd
         )
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=subdomains,
-            dirichlet_operator=self.displacement,
-            neumann_operator=self.mechanical_stress,
-            bc_type=self.bc_type_mechanics,
-            dim=self.nd,
-            name="bc_values_mechanics",
+        boundary_operator = self.combine_boundary_operators_mechanical_stress(
+            subdomains
         )
 
         # Compose operator.

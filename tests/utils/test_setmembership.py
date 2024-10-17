@@ -112,8 +112,8 @@ def test_unique_columns_tol_no_common_points():
     p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
 
     assert np.allclose(p, p_unique)
-    assert np.alltrue(old_2_new == np.arange(3))
-    assert np.alltrue(old_2_new == new_2_old)
+    assert np.all(old_2_new == np.arange(3))
+    assert np.all(old_2_new == new_2_old)
 
 
 def test_unique_columns_tol_remove_one_point():
@@ -121,8 +121,8 @@ def test_unique_columns_tol_remove_one_point():
     _, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
 
     assert np.allclose(p, np.ones((2, 1)))
-    assert np.alltrue(old_2_new == np.zeros(2))
-    assert np.alltrue(new_2_old == np.zeros(1))
+    assert np.all(old_2_new == np.zeros(2))
+    assert np.all(new_2_old == np.zeros(1))
 
 
 def test_unique_columns_tol_remove_one_of_tree():
@@ -133,11 +133,11 @@ def test_unique_columns_tol_remove_one_of_tree():
     # (see unique_columns_tol for the various options that may be applied).
     # Do a simple sort to ensure we're safe.
     if p_unique[0, 0] == 0:
-        assert np.alltrue(np.sort(old_2_new) == np.array([0, 1, 1]))
-        assert np.alltrue(np.sort(new_2_old) == np.array([0, 2]))
+        assert np.all(np.sort(old_2_new) == np.array([0, 1, 1]))
+        assert np.all(np.sort(new_2_old) == np.array([0, 2]))
     else:
-        assert np.alltrue(np.sort(old_2_new) == np.array([0, 0, 1]))
-        assert np.alltrue(np.sort(new_2_old) == np.array([0, 2]))
+        assert np.all(np.sort(old_2_new) == np.array([0, 0, 1]))
+        assert np.all(np.sort(new_2_old) == np.array([0, 2]))
 
     p_known = np.array([[0, 1], [0, 1]])
 

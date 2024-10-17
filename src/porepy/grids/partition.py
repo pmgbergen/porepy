@@ -637,7 +637,7 @@ def _extract_cells_from_faces_2d(
     cell_faces_indices = cell_nodes.indices
     data = -1 * cell_nodes.data
     _, ix = np.unique(cell_faces_indices, return_index=True)
-    data[ix] *= -1
+    data[ix.ravel()] *= -1
 
     cell_faces = sps.csc_matrix((data, cell_faces_indices, cell_nodes.indptr))
 
@@ -735,6 +735,7 @@ def _extract_cells_from_faces_3d(
     _, IA, IC = np.unique(
         face_nodes_sorted, return_index=True, return_inverse=True, axis=1
     )
+    IC = IC.ravel()
 
     face_nodes_indices = face_nodes_indices[:, IA].ravel("F")
     num_face_nodes = face_nodes_indices.size
@@ -749,7 +750,7 @@ def _extract_cells_from_faces_3d(
 
     data = np.ones(IC.shape)
     _, ix = np.unique(IC, return_index=True)
-    data[ix] *= -1
+    data[ix.ravel()] *= -1
 
     cell_faces = sps.coo_matrix((data, (IC, cell_idx))).tocsc()
 

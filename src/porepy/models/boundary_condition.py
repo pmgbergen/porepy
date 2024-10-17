@@ -1,6 +1,5 @@
-import warnings
 from functools import cached_property
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence, Union
 
 import numpy as np
 
@@ -45,6 +44,10 @@ class BoundaryConditionMixin:
     units: "pp.Units"
     """Units object, containing the scaling of base magnitudes."""
 
+    time_step_indices: np.ndarray
+    """See :meth:`~porepy.models.solution_strategy.SolutionStragey.time_step_indices`.
+    """
+
     def update_all_boundary_conditions(self) -> None:
         """This method is called before a new time step to set the values of the
         boundary conditions.
@@ -68,14 +71,10 @@ class BoundaryConditionMixin:
     ) -> None:
         """This method is the unified procedure of updating a boundary condition.
 
-        It moves the boundary condition values used on the previous time step from
-        iterate data (current time step) to previous time step data.
+        It shifts the boundary condition values in time and stores the current iterate
+        data (current time step) as the most recent previous time step data.
         Next, it evaluates the boundary condition values for the new time step and
         stores them in the iterate data.
-
-        Note:
-            This implementation assumes that only one time step and iterate layers are
-            used. Otherwise, it prints a warning.
 
         Parameters:
             name: Name of the operator defined on the boundary.
@@ -84,31 +83,29 @@ class BoundaryConditionMixin:
 
         """
         for bg, data in self.mdg.boundaries(return_data=True):
-            # Set the known time step values.
+            # Get the current time step values.
             if pp.ITERATE_SOLUTIONS in data and name in data[pp.ITERATE_SOLUTIONS]:
                 # Use the values at the unknown time step from the previous time step.
                 vals = pp.get_solution_values(name=name, data=data, iterate_index=0)
             else:
-                # No previous time step exists. The method was called during
-                # the initialization.
+                # No current value stored. The method was called during the
+                # initialization.
                 vals = function(bg)
+
+            # Before setting the new, most recent time step, shift the stored values
+            # backwards in time.
+            pp.shift_solution_values(
+                name=name,
+                data=data,
+                location=pp.TIME_STEP_SOLUTIONS,
+                max_index=len(self.time_step_indices),
+            )
+            # Set the values of current time to most recent previous time.
             pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
 
             # Set the unknown time step values.
             vals = function(bg)
             pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
-
-            # If more than one time step or iterate values are stored, the user should
-            # override this method to handle boundary data replacement properly.
-            max_steps_back = max(
-                len(data[pp.ITERATE_SOLUTIONS][name]),
-                len(data[pp.TIME_STEP_SOLUTIONS][name]),
-            )
-            if max_steps_back > 1:
-                warnings.warn(
-                    "The default implementation of update_boundary_condition does not"
-                    " consider having more than one time step or iterate data layers."
-                )
 
     def create_boundary_operator(
         self, name: str, domains: Sequence[pp.BoundaryGrid]
@@ -136,12 +133,15 @@ class BoundaryConditionMixin:
         subdomains: Sequence[pp.Grid],
         dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+        robin_operator: Optional[
+            Union[None, Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]]
+        ],
         bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
         name: str,
         dim: int = 1,
     ) -> pp.ad.Operator:
-        """Creates an operator representing Dirichlet and Neumann boundary conditions
-        and projects it to the subdomains from boundary grids.
+        """Creates an operator representing Dirichlet, Neumann and Robin boundary
+        conditions and projects it to the subdomains from boundary grids.
 
         Parameters:
             subdomains: List of subdomains.
@@ -149,6 +149,8 @@ class BoundaryConditionMixin:
                 operator.
             neumann_operator: Function that returns the Neumann boundary condition
                 operator.
+            robin_operator: Function that returns the Robin boundary condition operator.
+                Expected to be None for e.g. advective fluxes.
             dim: Dimension of the equation. Defaults to 1.
             name: Name of the resulting operator. Must be unique for an operator.
 
@@ -158,21 +160,32 @@ class BoundaryConditionMixin:
         """
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
 
-        # Creating the Dirichlet and Neumann AD expressions.
-        dirichlet = dirichlet_operator(boundary_grids)
-        neumann = neumann_operator(boundary_grids)
+        # Create dictionaries to hold the Dirichlet and Neumann operators and filters
+        operators = {
+            "dirichlet": dirichlet_operator(boundary_grids),
+            "neumann": neumann_operator(boundary_grids),
+        }
+        filters = {
+            "dirichlet": pp.ad.TimeDependentDenseArray(
+                name=(name + "_filter_dir"), domains=boundary_grids
+            ),
+            "neumann": pp.ad.TimeDependentDenseArray(
+                name=(name + "_filter_neu"), domains=boundary_grids
+            ),
+        }
+
+        # If the Robin operator is not None, it is also included in the operator and
+        # filter dictionaries
+        if robin_operator is not None:
+            operators["robin"] = robin_operator(boundary_grids)
+            filters["robin"] = pp.ad.TimeDependentDenseArray(
+                name=(name + "_filter_rob"), domains=boundary_grids
+            )
 
         # Adding bc_type function to local storage to evaluate it before every time step
         # in case if the type changes in the runtime.
         self.__bc_type_storage[name] = bc_type
-        # Creating the filters to ensure that Dirichlet and Neumann arrays do not
-        # intersect where we do not want it.
-        dir_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_dir"), domains=boundary_grids
-        )
-        neu_filter = pp.ad.TimeDependentDenseArray(
-            name=(name + "_filter_neu"), domains=boundary_grids
-        )
+
         # Setting the values of the filters for the first time.
         self._update_bc_type_filter(name=name, bc_type_callable=bc_type)
 
@@ -180,23 +193,29 @@ class BoundaryConditionMixin:
             self.mdg, subdomains=subdomains, dim=dim
         ).boundary_to_subdomain
 
-        # Ensure that the Dirichlet operator only assigns (non-zero)
-        # values to faces that are marked as having Dirichlet conditions.
-        dirichlet *= dir_filter
-        # Same with Neumann conditions.
-        neumann *= neu_filter
-        # Projecting from the boundary grid to the subdomain.
-        result = boundary_to_subdomain @ (dirichlet + neumann)
+        # Apply filters to the operators. This ensures that the Dirichlet operator only
+        # assigns (non-zero) values to faces that are marked as having Dirichlet
+        # conditions, that the Neumann operator assigns (non-zero) values only to
+        # Neumann faces, and that the Robin operator assigns (non-zero) values only to
+        # Robin faces.
+        for key in operators:
+            operators[key] *= filters[key]
+
+        # Combine the operators and project from the boundary grid to the subdomain.
+        values = [val for val in operators.values()]  # Get list of values from dict
+        combined_operator = pp.ad.sum_operator_list(values)
+        result = boundary_to_subdomain @ combined_operator
+
         result.set_name(name)
         return result
 
     def _update_bc_type_filter(
         self, name: str, bc_type_callable: Callable[[pp.Grid], pp.BoundaryCondition]
     ):
-        """Update the filters for Dirichlet and Neumann values.
+        """Update the filters for Dirichlet, Neumann and Robin values.
 
-        This is done to discard the data related to Dirichlet boundary condition in
-        cells where the ``bc_type`` is Neumann and vice versa.
+        This is done to discard the data related to Dirichlet and Robin boundary
+        condition in cells where the ``bc_type`` is Neumann and vice versa.
 
         """
 
@@ -214,8 +233,14 @@ class BoundaryConditionMixin:
             is_neu = bg.projection() @ is_neu
             return is_neu.T.ravel("F")
 
+        def robin(bg: pp.BoundaryGrid):
+            is_rob = bc_type_callable(bg.parent).is_rob.T
+            is_rob = bg.projection() @ is_rob
+            return is_rob.T.ravel("F")
+
         self.update_boundary_condition(name=(name + "_filter_dir"), function=dirichlet)
         self.update_boundary_condition(name=(name + "_filter_neu"), function=neumann)
+        self.update_boundary_condition(name=(name + "_filter_rob"), function=robin)
 
     @cached_property
     def __bc_type_storage(self) -> dict[str, Callable[[pp.Grid], pp.BoundaryCondition]]:

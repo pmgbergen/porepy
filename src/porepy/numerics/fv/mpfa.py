@@ -294,7 +294,7 @@ class Mpfa(pp.FVElliptic):
             # interaction regions may be structured so that some faces have previously
             # been partially discretized even if it has not been their turn until now)
             eliminate_face = np.where(
-                np.logical_not(np.in1d(l2g_faces, faces_in_subgrid))
+                np.logical_not(np.isin(l2g_faces, faces_in_subgrid))
             )[0]
             pp.fvutils.remove_nonlocal_contribution(eliminate_face, 1, *discr_fields)
 

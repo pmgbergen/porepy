@@ -145,8 +145,8 @@ def test_2d_domain_replace_2d_grid_with_coarse_grid():
     # Columns in integrated projection sum to either 0 or 1
     assert np.all(
         np.logical_or(
-            new_projection_int.A.sum(axis=0) == 1,
-            new_projection_int.A.sum(axis=0) == 0,
+            new_projection_int.toarray().sum(axis=0) == 1,
+            new_projection_int.toarray().sum(axis=0) == 0,
         ),
     )
 
@@ -189,8 +189,8 @@ def test_2d_domain_replace_2d_grid_with_fine_perturbed_grid():
     # Columns in integrated projection sum to either 0 or 1.
     assert np.all(
         np.logical_or(
-            new_projection_int.A.sum(axis=0) == 1,
-            new_projection_int.A.sum(axis=0) == 0,
+            new_projection_int.toarray().sum(axis=0) == 1,
+            new_projection_int.toarray().sum(axis=0) == 0,
         ),
     )
 
@@ -233,8 +233,8 @@ def test_2d_domain_replace_2d_grid_with_perturbed_grid():
     # Columns in integrated projection sum to either 0 or 1.
     assert np.all(
         np.logical_or(
-            new_projection_int.A.sum(axis=0) == 1,
-            new_projection_int.A.sum(axis=0) == 0,
+            new_projection_int.toarray().sum(axis=0) == 1,
+            new_projection_int.toarray().sum(axis=0) == 0,
         ),
     )
 
@@ -294,8 +294,8 @@ def test_2d_domain_replace_2d_grid_with_permuted_nodes():
     # Columns in integrated projection sum to either 0 or 1.
     assert np.all(
         np.logical_or(
-            new_projection_int.A.sum(axis=0) == 1,
-            new_projection_int.A.sum(axis=0) == 0,
+            new_projection_int.toarray().sum(axis=0) == 1,
+            new_projection_int.toarray().sum(axis=0) == 0,
         ),
     )
     fi = np.where(sd_new.face_centers[1] == 0.5)[0]
@@ -341,8 +341,8 @@ def test_2d_domain_replace_2d_grid_with_permuted_and_perturbed_nodes():
     # Columns in integrated projection sum to either 0 or 1.
     assert np.all(
         np.logical_or(
-            new_projection_int.A.sum(axis=0) == 1,
-            new_projection_int.A.sum(axis=0) == 0,
+            new_projection_int.toarray().sum(axis=0) == 1,
+            new_projection_int.toarray().sum(axis=0) == 0,
         ),
     )
 

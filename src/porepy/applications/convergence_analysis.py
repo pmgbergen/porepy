@@ -181,7 +181,7 @@ class ConvergenceAnalysis:
                 setattr(setup.results[-1], "cell_diameter", setup.mdg.diameter())
             else:
                 # Run time-dependent model
-                pp.run_time_dependent_model(setup, deepcopy(self.model_params[level]))
+                pp.run_time_dependent_model(setup)
                 # Complement information in results
                 setattr(setup.results[-1], "cell_diameter", setup.mdg.diameter())
                 setattr(setup.results[-1], "dt", setup.time_manager.dt)

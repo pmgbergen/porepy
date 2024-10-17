@@ -32,7 +32,7 @@ class Fracture(abc.ABC):
 
             Array containing the start- and end point/the corner points for
             line/plane fractures.
-        tags: ``shape=(num_tags, ), dtype=np.int8, default=None``
+        tags: ``shape=(num_tags, ), dtype=np.int32, default=None``
 
             All the tags of the fracture. A tag value of ``-1`` equals to the tag not
             existing at all.
@@ -107,9 +107,9 @@ class Fracture(abc.ABC):
 
         """
         if tags is None:
-            self.tags = np.full((0,), -1, dtype=np.int8)
+            self.tags = np.full((0,), -1, dtype=np.int32)
         else:
-            self.tags = np.asarray(tags, dtype=np.int8)
+            self.tags = np.asarray(tags, dtype=np.int32)
 
     def __repr__(self) -> str:
         """Representation is same as str-representation."""

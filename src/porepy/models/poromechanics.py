@@ -42,10 +42,12 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.ElasticTangentialFractureDeformation,
     pp.constitutive_laws.LinearElasticMechanicalStress,
     pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FractureGap,
-    pp.constitutive_laws.FrictionBound,
+    pp.constitutive_laws.CoulombFrictionBound,
+    pp.constitutive_laws.DisplacementJump,
 ):
     """Class for the coupling of mass and momentum balance to obtain poromechanics
     equations.

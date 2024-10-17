@@ -231,7 +231,7 @@ def network_2d_from_csv(
 
     Parameters:
         f_name: Path to the CSV file.
-        tagcols: ``dtype=np.int8, default=None``
+        tagcols: ``dtype=np.int32, default=None``
 
             Column index where fracture tags are stored. 0-offset. Defaults to no
             columns.

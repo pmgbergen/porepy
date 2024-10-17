@@ -9,16 +9,24 @@ AQAAAACAAACAAQAAPwAAAA==eJxjYMAOQsHgqj128acY4hDwAYc4pnkwPnbxpxjiMPOJdReq+ejiTzHE
 </DataArray>
 </Points>
 <Cells>
-<DataArray type="Int32" Name="connectivity" format="binary">
-AQAAAACAAADYAAAARwAAAA==eJxNiwEKgCAQBLcsNS37/287aYU5WBhuGEnaYqf+O8zzt8cyfPYvxQp8QXeZq3l1Db6h6/Ad3WO+zasb8APdCz/5A4D0AZY=
+<DataArray type="Int64" Name="connectivity" format="binary">
+AQAAAACAAACwAQAAUQAAAA==eJx1jUkOgDAMxMJWSoH2/7/l0MwBS5NLJGssR8xb8h/xvx1cuzV/MX7Bbst/Gl+cvQu8grPXjN+wU+82vjh7L/gDzl43fsdOvWF88Q8B9wGW
 </DataArray>
-<DataArray type="Int32" Name="offsets" format="binary">
-AQAAAACAAABIAAAAMgAAAA==eJwNw4EGgDAUAMBHRETEiDHGiDFG9P+ftjtui4jdw9PL2+RjtlhtvnaH08/fBTW4AgI=
+<DataArray type="Int64" Name="offsets" format="binary">
+AQAAAACAAACQAAAANgAAAA==eJwtxdEGwCAAAMARY8QYMSIiRkSM/f+n9bC7lwvbb/fh6NOXk29nF1c3P+4enn79eQFrcAIC
 </DataArray>
-<DataArray type="Int32" Name="types" format="binary">
-AQAAAACAAABIAAAADwAAAA==eJxjZWBgYKUCBgANpABb
+<DataArray type="Int64" Name="types" format="binary">
+AQAAAACAAACQAAAADwAAAA==eJxjZYAA1kFCAwAbSABb
 </DataArray>
 </Cells>
+<PointData>
+<DataArray type="Float64" Name="dummy_scalar_pt" format="binary">
+AQAAAACAAACAAAAADwAAAA==eJxjYAADB4YBogH0gAQB
+</DataArray>
+<DataArray type="Float64" Name="dummy_vector_pt" NumberOfComponents="3" format="binary">
+AQAAAACAAACAAQAAEQAAAA==eJxjYAADB4ZRekBoAN34DAE=
+</DataArray>
+</PointData>
 <CellData>
 <DataArray type="Float64" Name="dummy_scalar" format="binary">
 AQAAAACAAACQAAAAEAAAAA==eJxjYAADB4ZBQgMANx8EgQ==

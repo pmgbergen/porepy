@@ -31,7 +31,7 @@ class Graph:
         else:
             self.node_connections = node_connections
         self.regions = 0
-        self.color = np.array([np.NaN] * node_connections.shape[1])
+        self.color = np.array([np.nan] * node_connections.shape[1])
 
     def color_nodes(self):
         """

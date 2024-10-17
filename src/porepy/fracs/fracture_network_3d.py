@@ -253,7 +253,7 @@ class FractureNetwork3d(object):
 
                 Name of the output Gmsh file(s). If not given, ``gmsh_frac_file``
                 will be assigned.
-            constraints: ``dtype=np.int8, default=None``
+            constraints: ``dtype=np.int32, default=None``
 
                 Indices of fractures that should not generate lower-dimensional
                 meshes, but only act as constraints in the meshing algorithm. Useful
@@ -355,7 +355,7 @@ class FractureNetwork3d(object):
                 Whether the fracture network is of the DFN (Discrete Fracture Network)
                 type. If ``True``, a DFN mesh, where only the network (and not the
                 surrounding matrix) is created.
-            constraints: ``dtype=np.int8, default=None``
+            constraints: ``dtype=np.int32, default=None``
 
                 Indices of fractures that should not generate lower-dimensional
                 meshes, but only act as constraints in the meshing algorithm. Useful
@@ -522,13 +522,13 @@ class FractureNetwork3d(object):
             if has_boundary:
                 is_boundary = np.array(self.tags["boundary"])[unique_fracs]
                 is_frac = np.logical_not(
-                    np.logical_or(np.in1d(unique_fracs, constraints), is_boundary)
+                    np.logical_or(np.isin(unique_fracs, constraints), is_boundary)
                 )
                 is_frac_or_boundary = np.logical_not(
-                    np.in1d(unique_fracs, constraints),
+                    np.isin(unique_fracs, constraints),
                 )
             else:
-                is_frac = np.logical_not(np.in1d(unique_fracs, constraints))
+                is_frac = np.logical_not(np.isin(unique_fracs, constraints))
                 is_frac_or_boundary = is_frac
 
             # If more than one fracture share this point, it is an intersection
@@ -2041,7 +2041,7 @@ class FractureNetwork3d(object):
         Returns:
             Tuple with 3 elements.
 
-            :obj:`numpy.ndarray`: ``dtype=np.int8``
+            :obj:`numpy.ndarray`: ``dtype=np.int32``
 
                 Tag of the edges, using the values in GmshConstants. Note that
                 auxiliary points will not be tagged (these are also ignored in
@@ -2120,7 +2120,7 @@ class FractureNetwork3d(object):
         Returns:
             Tuple with two elements.
 
-            :obj:`numpy.ndarray`: ``dtype=np.int8``
+            :obj:`numpy.ndarray`: ``dtype=np.int32``
 
                 For all points in the decomposition, the value is ``0`` if the point
                 is in the interior, ``constants.FRACTURE_TAG`` if the point is on a
@@ -2128,7 +2128,7 @@ class FractureNetwork3d(object):
                 and ``constants.DOMAIN_BOUNDARY_TAG`` if the point is part of the
                 boundary specification.
 
-            :obj:`numpy.ndarray`: ``dtype=np.int8``
+            :obj:`numpy.ndarray`: ``dtype=np.int32``
 
                 For all edges in the decomposition, tags identifying the edge as on a
                 fracture or boundary.
@@ -2149,7 +2149,7 @@ class FractureNetwork3d(object):
         # Loop over edges, and the polygons to which the edge belongs
         for e, e2f in enumerate(edges_2_frac):
             # Check if the polygons are on the boundary
-            edge_of_domain_boundary = np.in1d(e2f, boundary_polygons)
+            edge_of_domain_boundary = np.isin(e2f, boundary_polygons)
 
             if any(edge_of_domain_boundary):
                 # If all associated polygons are boundary, this is simple
@@ -2253,7 +2253,7 @@ class FractureNetwork3d(object):
             Add description of **kwargs**.
 
         Parameters:
-            point_tags: ``dtype=np.int8``
+            point_tags: ``dtype=np.int32``
 
                 Tags of the points. Refers to values listed in ``GmshInterfaceTags``.
 
@@ -2895,7 +2895,7 @@ class FractureNetwork3d(object):
 
                     2D coordinates of fracture intersection points.
 
-                :obj:`numpy.ndarray`: ``shape=(2, num_intersection), dtype=np.int8``
+                :obj:`numpy.ndarray`: ``shape=(2, num_intersection), dtype=np.int32``
 
                     Index of the intersecting fractures.
 

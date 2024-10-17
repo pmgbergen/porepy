@@ -358,7 +358,7 @@ def _update_mortar_grid(
         # Pick those of the other faces that were not added during splitting
         old_other_faces = np.setdiff1d(other_faces, new_faces_h)
 
-        if np.any(np.in1d(old_other_faces, other_side_old)):
+        if np.any(np.isin(old_other_faces, other_side_old)):
             other_side_new = np.append(other_side_new, loc_faces[0])
         else:
             other_side_new = np.append(other_side_new, loc_faces[1])
@@ -684,7 +684,7 @@ def _update_connectivity_fracture_grid(
         # Faces that existed before the cell loop
         ind_in_original = existing_faces_l[are_in_original]
         # Index of these faces in cf_val_loc
-        indata_secondaryocal = np.in1d(all_local_faces, ind_in_original)
+        indata_secondaryocal = np.isin(all_local_faces, ind_in_original)
 
         if sd_secondary.cell_faces[ind_in_original].data.size != ind_in_original.size:
             # This situation can happen in 3d (perhaps also 2d).
@@ -704,7 +704,7 @@ def _update_connectivity_fracture_grid(
         # of the cell loop
         ind_not_in_original = existing_faces_l[~are_in_original]
         # Index of these faces in cf_val_loc
-        ind_not_local = np.in1d(all_local_faces, ind_not_in_original)
+        ind_not_local = np.isin(all_local_faces, ind_not_in_original)
         # These are assigned the value -1; since it was given +1 when first added
         # to cf_val (see call cf_val_loc[~exist] above)
         cf_val_loc[ind_not_local] = -1
@@ -780,7 +780,7 @@ def _update_nodes_fracture_grid(
     # Some of the nodes of the face to be split will be in sd_secondary already (as tip nodes)
     # Find which are present, and which should be added
     # NOTE: This comparison must be done in terms of global_point_ind
-    are_old_global_nodes_in_l = np.in1d(
+    are_old_global_nodes_in_l = np.isin(
         unique_global_nodes, sd_secondary.global_point_ind
     )
     are_new_global_nodes_in_l = np.logical_not(are_old_global_nodes_in_l)

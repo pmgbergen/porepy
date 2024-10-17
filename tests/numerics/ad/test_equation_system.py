@@ -60,6 +60,8 @@ def test_evaluate_variables():
             name=var_name, values=vals_sol, data=d, time_step_index=0
         )
         pp.set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=0)
+        # Provide values for previous iterate as well
+        pp.set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=1)
 
     # We only need to test a single variable, they should all be the same.
     single_variable = eq_system.variables[0]
@@ -75,7 +77,7 @@ def test_evaluate_variables():
         ad_array = var.value_and_jacobian(eq_system)
         assert isinstance(ad_array, pp.ad.AdArray)
         assert np.allclose(ad_array.val, 2)
-        assert np.allclose(ad_array.jac.A, known_jac)
+        assert np.allclose(ad_array.jac.toarray(), known_jac)
 
         # Now create the variable at the previous iterate. This should also give the
         # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield an AdArray.
@@ -83,7 +85,7 @@ def test_evaluate_variables():
         ad_array_prev_iter = var_prev_iter.value_and_jacobian(eq_system)
         assert isinstance(ad_array_prev_iter, pp.ad.AdArray)
         assert np.allclose(ad_array_prev_iter.val, 2)
-        assert np.allclose(ad_array_prev_iter.jac.A, np.zeros(known_jac.shape))
+        assert np.allclose(ad_array_prev_iter.jac.toarray(), np.zeros(known_jac.shape))
 
         # Create the variable at the previous time step. This should give the most
         # recent value in pp.TIME_STEP_SOLUTIONS.
@@ -91,7 +93,7 @@ def test_evaluate_variables():
         ad_array_prev_timestep = var_prev_timestep.value_and_jacobian(eq_system)
         assert isinstance(ad_array_prev_timestep, pp.ad.AdArray)
         assert np.allclose(ad_array_prev_timestep.val, 1)
-        assert np.allclose(ad_array_prev_timestep.jac.A, np.zeros(known_jac.shape))
+        assert np.allclose(ad_array_prev_timestep.jac.toarray(), np.zeros(known_jac.shape))
 
         # Use the ad machinery to define the difference between the current and previous
         # time step. This should give an AdArray with the same value as that obtained by
@@ -102,7 +104,7 @@ def test_evaluate_variables():
         assert np.allclose(
             ad_array_increment.val, ad_array.val - ad_array_prev_timestep.val
         )
-        assert np.allclose(ad_array_increment.jac.A, known_jac)
+        assert np.allclose(ad_array_increment.jac.toarray(), known_jac)
 
 
 def test_variable_creation():
@@ -602,7 +604,7 @@ def test_set_get_methods(
 
     """
 
-    sys_man = setup.sys_man
+    sys_man: pp.ad.EquationSystem = setup.sys_man
 
     np.random.seed(42)
 
@@ -732,15 +734,14 @@ def test_set_get_methods(
     vals_mat = np.array([vals0, vals1, vals2])
 
     # Test setting values at several indices and then gathering them
-    for i in solution_indices:
-        val = vals_mat[i].copy()
+    for i, val in zip(solution_indices, vals_mat):
         sys_man.set_variable_values(values=val, variables=variables, time_step_index=i)
 
     _retrieve_and_check_time_step([vals0, vals1, vals2])
 
     # Test functionality that shifts values to prepare setting of the most recent
     # solution values.
-    sys_man.shift_time_step_values()
+    sys_man.shift_time_step_values(max_index=len(solution_indices))
     # The expected result is that key 0 and 1 has the same values, and key 2 have the
     # values that were at key 1 before the values were shifted.
     _retrieve_and_check_time_step([vals0, vals0, vals1])
@@ -1336,7 +1337,7 @@ def test_schur_complement(eq_var_to_exclude):
             var for var in setup.all_variable_names if var not in var_to_exclude
         ]
 
-    inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.A))
+    inverter = lambda A: sps.csr_matrix(np.linalg.inv(A.toarray()))
 
     # Rows and columns to keep
     rows_keep = np.sort(np.hstack([setup.eq_ind(name) for name in eq_names]))
