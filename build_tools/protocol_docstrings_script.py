@@ -147,15 +147,15 @@ def update_protocol_docstrings(protocols_path: Path):
     )
 
     # Write the updated file
-    with open(protocols_path, "w", encoding="utf8") as f:
-        f.write("\n".join(updated_lines))
-    print(f"Updated docstrings in {protocols_path}.")
+    if len(autodoc_functions) > 0:
+        with open(protocols_path, "w", encoding="utf8") as f:
+            f.write("\n".join(updated_lines))
+        print(f"Updated docstrings in {protocols_path}.")
 
 
 if __name__ == "__main__":
     try:
         protocols_path = sys.argv[1]
     except IndexError:
-        print(f"Assuming protocols path: {PROTOCOLS_DEFAULT_PATH}.")
         protocols_path = PROTOCOLS_DEFAULT_PATH
     update_protocol_docstrings(protocols_path)
