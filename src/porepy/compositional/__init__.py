@@ -39,20 +39,18 @@ References:
 
 __all__ = []
 
-from . import _core, base, chem_species, compositional_mixins, states, utils
+from . import _core, base, compositional_mixins, states, utils
 
 # TODO flake8 complains about from . import * imports
 # Even though __all__ is defined in all packages
 # But it does not complain so for the AD subpackage??
 from ._core import *
 from .base import *
-from .chem_species import *
 from .compositional_mixins import *
 from .states import *
 from .utils import *
 
 __all__.extend(_core.__all__)
-__all__.extend(chem_species.__all__)
 __all__.extend(base.__all__)
 __all__.extend(utils.__all__)
 __all__.extend(compositional_mixins.__all__)

@@ -220,8 +220,8 @@ def test_unit_conversion(units):
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
-    solid = pp.SolidConstants(solid_vals)
-    fluid = pp.FluidConstants(fluid_vals)
+    solid = pp.SolidConstants(**solid_vals)
+    fluid = pp.FluidConstants(**fluid_vals)
 
     # Non-unitary time step needed for convergence
     dt = 1e5

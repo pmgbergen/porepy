@@ -30,11 +30,9 @@ from porepy.examples.flow_benchmark_2d_case_1 import (
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 solid_constants = FractureSolidConstants(
-    {
-        "residual_aperture": 1e-2,
-        "normal_permeability": 1e4,
-        "fracture_permeability": 1e4,
-    }
+    residual_aperture=1e-2,
+    normal_permeability=1e4,
+    fracture_permeability=1e4,
 )
 
 
@@ -87,7 +85,7 @@ class IntersectionPermeability(Permeability):
         # Use `fracture_permeability` as intersection permeability under the assumption
         # that they are equal. This is valid in the current benchmark case.
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.fracture_permeability(), size, name="intersection permeability"
+            self.solid.fracture_permeability, size, name="intersection permeability"
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 

@@ -341,8 +341,8 @@ def test_evaluated_values(
     # The thermoporoelastic model covers most constitutive laws, so we use it for the
     # test.
     # Assign non-trivial values to the parameters to avoid masking errors.
-    solid = pp.SolidConstants(solid_values)
-    fluid = pp.FluidConstants(pp.fluid_values.water)
+    solid = pp.SolidConstants(**solid_values)
+    fluid = pp.FluidConstants(**pp.fluid_values.water)
     params = {
         "material_constants": {"solid": solid, "fluid": fluid},
         "fracture_indices": [0, 1],

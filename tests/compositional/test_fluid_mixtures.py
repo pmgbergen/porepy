@@ -233,15 +233,9 @@ def test_mixture_member_assignment(
     }
     # Creating dummy components. Physical properties have no relevance for this test
 
-    comp1 = composit.Compound.from_species(
-        composit.ChemicalSpecies(name="H2O", CASr_number="1", **species_kwargs)
-    )
-    comp1.active_tracers = [
-        composit.ChemicalSpecies(name="NaCl", CASr_number="2", **species_kwargs)
-    ]
-    comp2 = composit.Component.from_species(
-        composit.ChemicalSpecies(name="CO2", CASr_number="3", **species_kwargs)
-    )
+    comp1 = composit.Compound.from_fluid_constants(pp.FluidConstants(name='H2O'))
+    comp1.active_tracers = [pp.FluidConstants(name='NaCl')]
+    comp2 = composit.Component.from_fluid_constants(pp.FluidConstants(name='CO2'))
     eos = dummyeos([comp1, comp2])
 
     mixin: MockModel = get_mock_model(
