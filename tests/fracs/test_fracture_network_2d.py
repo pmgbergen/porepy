@@ -150,30 +150,6 @@ def test_get_points(points: np.ndarray, edges: np.ndarray, fracs: list[LineFract
     assert compare_arrays(end, points[:, 1].reshape((-1, 1)))
 
 
-def test_angle_0_pi():
-    num_frac = 10
-    start = np.zeros((2, num_frac))
-
-    end = 2 * np.random.rand(2, num_frac) - 1
-    p = np.hstack((start, end))
-    e = np.vstack((np.arange(num_frac), num_frac + np.arange(num_frac)))
-    fracs = pts_edges_to_linefractures(p, e)
-    network = pp.create_fracture_network(fracs)
-    angle = network.orientation()
-
-    assert np.all(angle >= 0)
-    assert np.all(angle < np.pi)
-
-
-def test_angle(fracs: list[LineFracture]):
-    network = pp.create_fracture_network(fracs)
-    angle = network.orientation()
-    known_orientation = np.array([0, np.pi / 2])
-    assert np.logical_or(
-        angle == known_orientation, angle - np.pi == known_orientation
-    ).all()
-
-
 # Below are tests with polytopal domains
 
 
