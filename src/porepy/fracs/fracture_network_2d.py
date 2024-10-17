@@ -1306,42 +1306,6 @@ class FractureNetwork2d:
 
         return self.start_points(frac_index), self.end_points(frac_index)
 
-    def bounding_box_measure(
-        self,
-        bounding_box: Optional[dict[str, pp.number]] = None,
-    ) -> float:
-        """Get the measure (length or area) of a given bounding box.
-
-        The dimension of the domain is inferred from the dictionary fields.
-
-        Todo:
-            Consider moving this method to :class:`~porepy.geometry.domain.Domain`.
-
-        Parameters:
-            bounding_box: Should contain keys ``xmin`` and ``xmax``, specifying the
-                extension in the x-direction. If the domain is 2d, it should also
-                have keys ``ymin`` and ``ymax``. If no ``bounding_box`` is given,
-                the bounding box of the underlying
-                :class:`~porepy.geometry.domain.Domain` will be used.
-
-        Returns:
-            Measure of the bounding box.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        if bounding_box is None:
-            if self.domain is not None:
-                box = self.domain.bounding_box
-        else:
-            box = bounding_box
-
-        if "ymin" and "ymax" in box.keys():
-            return np.abs((box["xmax"] - box["xmin"]) * (box["ymax"] - box["ymin"]))
-        else:
-            return np.abs(box["xmax"] - box["xmin"])
-
     def plot(self, **kwargs) -> None:
         """Plot the fracture network.
 
