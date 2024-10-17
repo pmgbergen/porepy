@@ -327,7 +327,6 @@ class SolidConstants(MaterialConstants):
 
         """
         # Default values, sorted alphabetically
-        # TODO: Numerical method parameters may find a better home soon.
         default_constants = {
             "biot_coefficient": 1,
             "density": 1,
