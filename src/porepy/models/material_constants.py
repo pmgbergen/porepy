@@ -347,9 +347,7 @@ class SolidConstants(MaterialConstants):
             "temperature": 0,
             "thermal_conductivity": 1,
             "thermal_expansion": 0,
-            "well_radius": 0.1,
-            "open_state_tolerance": 1e-5,  # Numerical method parameter
-            "contact_mechanics_scaling": 1e-1,  # Numerical method parameter
+            "well_radius": 0.1
         }
         return default_constants
 
@@ -580,6 +578,50 @@ class SolidConstants(MaterialConstants):
             self.constants["maximum_elastic_fracture_opening"], "m"
         )
 
+
+
+class NumericalConstants(MaterialConstants):
+    """TODO: Write description
+
+   
+
+    Parameters:
+        constants (dict): Dictionary of constants. Only keys corresponding to a constant
+            in the class will be used. If not specified, default values are used, mostly
+            0 or 1. See the soucre code for permissible keys and default values.
+    """
+    def __init__(self, constants: Optional[dict] = None):
+        default_constants = self.default_constants
+        self.verify_constants(constants, default_constants)
+        if constants is not None:
+            default_constants.update(constants)
+        super().__init__(default_constants)
+        
+    @property
+    def default_constants(self) -> dict[str, number]:
+        """Default constants of the material.
+
+        Returns:
+            Dictionary of constants.
+
+        """
+        # Default values, sorted alphabetically
+        # TODO: Numerical method parameters may find a better home soon.
+        default_constants = {
+            "open_state_tolerance": 1e-5,  # Numerical method parameter
+            "contact_mechanics_scaling": 1e-1,  # Numerical method parameter
+        }
+        return default_constants
+    
+    def contact_mechanics_scaling(self) -> number:
+        """Safety scaling factor, making fractures softer than the matrix [-].
+
+        Returns:
+            The softening factor.
+
+        """
+        return self.constants["contact_mechanics_scaling"]
+    
     def open_state_tolerance(self) -> number:
         """Tolerance parameter for the tangential characteristic contact mechanics [-].
 
@@ -591,12 +633,3 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.constants["open_state_tolerance"]
-
-    def contact_mechanics_scaling(self) -> number:
-        """Safety scaling factor, making fractures softer than the matrix [-].
-
-        Returns:
-            The softening factor.
-
-        """
-        return self.constants["contact_mechanics_scaling"]
