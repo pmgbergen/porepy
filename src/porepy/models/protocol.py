@@ -12,9 +12,9 @@ import scipy.sparse as sps
 
 # Conditional importing ensures that the protocols do not mess with the runtime
 # definitions, e.g., the protocol empty method is accidentally called as a proper method
-# and returns None
+# and returns None.
 if not TYPE_CHECKING:
-    # This branch is accessed in python runtime
+    # This branch is accessed in python runtime.
     class PorePyModel(Protocol):
         """This is an empty placeholder of the protocol, used mainly for type hints."""
 
@@ -157,7 +157,7 @@ else:
             Parameters:
                 grids: List of grids on which the property is defined.
                 attr: Grid attribute to wrap. The attribute should be a ndarray and will
-                    be flattened if it is not already one dimensional.
+                    be flattened if it is not already one-dimensional.
                 dim: Dimensions to include for vector attributes. Intended use is to
                     limit the number of dimensions for a vector attribute, e.g. to
                     exclude the z-component of a vector attribute in 2d, to achieve
@@ -174,7 +174,7 @@ else:
 
             Raises:
                 ValueError: If one of the grids does not have the attribute.
-                ValueError: If the attribute is not a ndarray.
+                ValueError: If the attribute is not an ndarray.
 
             """
 
@@ -541,7 +541,7 @@ else:
             """
 
         def _is_time_dependent(self) -> bool:
-            """Spec ifies whether the Model problem is time-dependent.
+            """Specifies whether the Model problem is time-dependent.
 
             Returns:
                 bool: True if the problem is time-dependent, False otherwise.
@@ -684,7 +684,7 @@ else:
         """Exporter for visualization."""
 
         def save_data_time_step(self) -> None:
-            """Export the model state at a given time step, and log time.
+            """Export the model state at a given time step and log time.
 
             The options for exporting times are:
                 * `None`: All time steps are exported
@@ -699,7 +699,7 @@ else:
             """Initialize data saving.
 
             This method is called by :meth:`prepare_simulation` to initialize the
-            exporter, and any other data saving functionality (e.g., empty data
+            exporter and any other data saving functionality (e.g., empty data
             containers to be appended in :meth:`save_data_time_step`).
 
             In addition, set path for storing solver statistics data to file for each
@@ -718,7 +718,7 @@ else:
             """Initialize data in the model by reading from a pvd file.
 
             Parameters:
-                vtu_files: path(s) to vtu file(s)
+                vtu_files: path(s) to vtu file(s).
                 keys: keywords addressing cell data to be transferred. If 'None', the
                     mixed-dimensional grid is checked for keywords corresponding to
                     primary variables identified through pp.TIME_STEP_SOLUTIONS.
@@ -764,10 +764,10 @@ else:
         Protocol,
     ):
         """This protocol declares the core, physics-agnostic functionality of
-        a porepy model.
+        a PorePy model.
 
         The main purpose of the protocol is to provide type hints for countless model
-        mixins, so mypy can properly verify the inter-mixin method calls, and an IDEt
+        mixins, so mypy can properly verify the inter-mixin method calls, and an IDE
         such as VSCode can properly autocomplete these hints. You must either inherit
         from this class or provide it as a type annotation for the PorePy model object.
 
