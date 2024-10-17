@@ -1306,43 +1306,6 @@ class FractureNetwork2d:
 
         return self.start_points(frac_index), self.end_points(frac_index)
 
-    def compute_center(
-        self,
-        pts: Optional[np.ndarray] = None,
-        edges: Optional[np.ndarray] = None,
-    ) -> np.ndarray:
-        """Compute center points of a set of fractures.
-
-        Parameters:
-            pts: ``shape=(2, num_points), default=None``
-
-                Points used to describe the fractures. If not given, :attr:`_pts`
-                will be employed.
-            edges: ``shape=(2, num_frac), default=None``
-
-                Indices, referring to :attr:`_pts`, of the start and end points of
-                the fractures for which the centres should be computed. If not given,
-                :attr:`_edges` will be employed.
-
-        Returns:
-            Array of ``shape=(2, num_frac)``, containing the horizontal and vertical
-            coordinates of the centers of the fracture set.
-
-        """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warnings.warn(msg, DeprecationWarning)
-
-        if pts is None:
-            pts = self._pts
-        if edges is None:
-            edges = self._edges
-        # first compute the fracture centres and then generate them
-        avg = lambda e0, e1: 0.5 * (
-            np.atleast_2d(pts)[:, e0] + np.atleast_2d(pts)[:, e1]
-        )
-        pts_c = np.array([avg(e[0], e[1]) for e in edges.T]).T
-        return pts_c
-
     def bounding_box_measure(
         self,
         bounding_box: Optional[dict[str, pp.number]] = None,
