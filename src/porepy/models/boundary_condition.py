@@ -16,6 +16,14 @@ class BoundaryConditionMixin(PorePyModel):
     """
 
     def update_all_boundary_conditions(self) -> None:
+        """This method is called before a new time step to set the values of the
+        boundary conditions.
+
+        Note:
+            One can use the convenience method `update_boundary_condition` for each
+            boundary condition value.
+
+        """
         for name, bc_type_callable in self.__bc_type_storage.items():
             self._update_bc_type_filter(name=name, bc_type_callable=bc_type_callable)
 
@@ -65,6 +73,22 @@ class BoundaryConditionMixin(PorePyModel):
     def create_boundary_operator(
         self, name: str, domains: Sequence[pp.BoundaryGrid]
     ) -> pp.ad.TimeDependentDenseArray:
+        """Creates an operator on boundary grids.
+
+        Parameters:
+            name: Name of the variable or operator to be represented on the
+                boundary.
+            domains: A sequence of boundary grids on which the operator is defined.
+
+        Raises:
+            ValueError: If the passed sequence of domains does not consist entirely
+                of boundary grid.
+
+        Returns:
+            An operator of given name representing value on given sequence of
+            boundary grids. Can possibly be time-dependent.
+
+        """
         if not all(isinstance(x, pp.BoundaryGrid) for x in domains):
             raise ValueError("domains must consist entirely of the boundary grids.")
         return pp.ad.TimeDependentDenseArray(name=name, domains=domains)
@@ -81,6 +105,24 @@ class BoundaryConditionMixin(PorePyModel):
         name: str,
         dim: int = 1,
     ) -> pp.ad.Operator:
+        """Creates an operator representing Dirichlet, Neumann and Robin boundary
+        conditions and projects it to the subdomains from boundary grids.
+
+        Parameters:
+            subdomains: List of subdomains.
+            dirichlet_operator: Function that returns the Dirichlet boundary
+                condition operator.
+            neumann_operator: Function that returns the Neumann boundary condition
+                operator.
+            robin_operator: Function that returns the Robin boundary condition
+                operator. Expected to be None for e.g. advective fluxes.
+            dim: Dimension of the equation. Defaults to 1.
+            name: Name of the resulting operator. Must be unique for an operator.
+
+        Returns:
+            Boundary condition representation operator.
+
+        """
         boundary_grids = self.subdomains_to_boundary_grids(subdomains)
 
         # Create dictionaries to hold the Dirichlet and Neumann operators and filters

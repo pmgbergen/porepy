@@ -49,104 +49,51 @@ else:
 
         @property
         def domain(self) -> pp.Domain:
-            """Domain of the problem."""
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         @property
         def fractures(self) -> list[pp.LineFracture] | list[pp.PlaneFracture]:
-            """Fractures of the problem."""
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def set_geometry(self) -> None:
-            """Define geometry and create a mixed-dimensional grid.
-
-            The default values provided in set_domain, set_fractures, grid_type and
-            meshing_arguments produce a 2d unit square domain with no fractures and a
-            four Cartesian cells.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
-            """Check if a subdomain is a well.
-
-            Parameters:
-                sd: Subdomain to check.
-
-            Returns:
-                True if the subdomain is a well, False otherwise.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-            """Grid type for the mixed-dimensional grid.
-
-            Returns:
-                Grid type for the mixed-dimensional grid.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def meshing_arguments(self) -> dict[str, float]:
-            """Meshing arguments for mixed-dimensional grid generation.
-
-            Returns:
-                Meshing arguments compatible with
-                :meth:`~porepy.grids.mdg_generation.create_mdg`.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def meshing_kwargs(self) -> dict:
-            """Keyword arguments for md-grid creation.
-
-            Returns:
-                Keyword arguments compatible with pp.create_mdg() method.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def subdomains_to_interfaces(
             self, subdomains: list[pp.Grid], codims: list[int]
         ) -> list[pp.MortarGrid]:
-            """Interfaces neighbouring any of the subdomains.
-
-            Parameters:
-                subdomains: Subdomains for which to find interfaces.
-                codims: Codimension of interfaces to return. The common option is [1],
-                    i.e. only interfaces between subdomains one dimension apart.
-
-            Returns:
-                Unique list of all interfaces neighboring any of the subdomains.
-                Interfaces are sorted according to their index, as defined by the
-                mixed-dimensional grid.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def interfaces_to_subdomains(
             self, interfaces: list[pp.MortarGrid]
         ) -> list[pp.Grid]:
-            """Subdomain neighbours of interfaces.
-
-            Parameters:
-                interfaces: List of interfaces for which to find subdomains.
-
-            Returns:
-                Unique list of all subdomains neighbouring any of the interfaces. The
-                subdomains are sorted according to their index as defined by the
-                mixed-dimensional grid.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def subdomains_to_boundary_grids(
             self, subdomains: Sequence[pp.Grid]
         ) -> Sequence[pp.BoundaryGrid]:
-            """Boundary grids of subdomains.
-
-            This is a 1-1 mapping between subdomains and their boundary grids. No
-            sorting is performed.
-
-            Parameters:
-                subdomains: List of subdomains for which to find boundary grids.
-
-            Returns:
-                List of boundary grids associated with the provided subdomains.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def wrap_grid_attribute(
             self,
@@ -155,218 +102,43 @@ else:
             *,
             dim: int,
         ) -> pp.ad.DenseArray:
-            """Wrap a grid attribute as an ad matrix.
-
-            Parameters:
-                grids: List of grids on which the property is defined.
-                attr: Grid attribute to wrap. The attribute should be a ndarray and will
-                    be flattened if it is not already one-dimensional.
-                dim: Dimensions to include for vector attributes. Intended use is to
-                    limit the number of dimensions for a vector attribute, e.g. to
-                    exclude the z-component of a vector attribute in 2d, to achieve
-                    compatibility with code which is explicitly 2d (e.g. fv
-                    discretizations).
-
-            Returns:
-                class:`porepy.numerics.ad.DenseArray`: `(shape=(dim *
-                    num_cells_in_grids,))`
-
-                    The property wrapped as a single ad vector. The values are arranged
-                    according to the order of the grids in the list, optionally
-                    flattened if the attribute is a vector.
-
-            Raises:
-                ValueError: If one of the grids does not have the attribute.
-                ValueError: If the attribute is not an ndarray.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def basis(
             self, grids: Sequence[pp.GridLike], dim: int
         ) -> list[pp.ad.SparseArray]:
-            """Return a cell-wise basis for all subdomains.
-
-            The basis is represented as a list of matrices, each of which represents a
-            basis function. The individual matrices have shape ``Nc * dim, Nc`` where
-            ``Nc`` is the total number of cells in the subdomains.
-
-            Examples:
-                To extend a cell-wise scalar to a vector field, use
-                ``sum([e_i for e_i in basis(subdomains)])``. To restrict to a vector in
-                the tangential direction only, use
-                ``sum([e_i for e_i in basis(subdomains, dim=nd-1)])``
-
-            See also:
-                :meth:`e_i` for the construction of a single basis function.
-                :meth:`normal_component` for the construction of a restriction to the
-                    normal component of a vector only.
-                :meth:`tangential_component` for the construction of a restriction to
-                    the tangential component of a vector only.
-
-            Parameters:
-                grids: List of grids on which the basis is defined.
-                dim: Dimension of the basis.
-
-            Returns:
-                List of pp.ad.SparseArrayArray, each of which represents a basis
-                function.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def e_i(
             self, grids: Sequence[pp.GridLike], *, i: int, dim: int
         ) -> pp.ad.SparseArray:
-            """Return a cell-wise basis function in a specified dimension.
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
-            It is assumed that the grids are embedded in a space of dimension dim and
-            aligned with the coordinate axes, that is, the reference space of the grid.
-            Moreover, the grid is assumed to be planar.
-
-            Example:
-                For a grid with two cells, and with `i=1` and `dim=3`, the returned
-                basis will be (after conversion to a numpy array)
-                .. code-block:: python
-                    array([[0., 0.],
-                        [1., 0.],
-                        [0., 0.],
-                        [0., 0.],
-                        [0., 1.],
-                        [0., 0.]])
-
-            See also:
-                :meth:`basis` for the construction of a full basis.
-
-            Parameters:
-                grids: List of grids on which the basis vector is defined.
-                i: Index of the basis function. Note: Counts from 0.
-                dim: Dimension of the functions.
-
-            Returns:
-                pp.ad.SparseArray: Ad representation of a matrix with the basis
-                functions as columns.
-
-            Raises:
-                ValueError: If i is larger than dim - 1.
-
-            """
 
         def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-            """Compute the tangential component of a vector field.
-
-            The tangential space is defined according to the local coordinates of the
-            subdomains, with the tangential space defined by the first `self.nd`
-            components of the cell-wise vector. It is assumed that the components of the
-            vector are stored with a dimension-major ordering (the dimension varies
-            fastest).
-
-            Parameters:
-                subdomains: List of grids on which the vector field is defined.
-
-            Returns:
-                Operator extracting tangential component of the vector field and
-                expressing it in tangential basis.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
-            """Compute the normal component of a vector field.
-
-            The normal space is defined according to the local coordinates of the
-            subdomains, with the normal space defined by final component, e.g., number
-            `self.nd-1` (zero offset). of the cell-wise vector. It is assumed that the
-            components of a vector are stored with a dimension-major ordering (the
-            dimension varies fastest).
-
-            See also:
-                :meth:`e_i` for the definition of the basis functions.
-                :meth:`tangential_component` for the definition of the tangential space.
-
-            Parameters:
-                subdomains: List of grids on which the vector field is defined.
-
-            Returns:
-                Matrix extracting normal component of the vector field and expressing it
-                in normal basis. The size of the matrix is `(Nc, Nc * self.nd)`, where
-                `Nc` is the total number of cells in the subdomains.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
-            """Ad wrapper around tangential_normal_projections for fractures.
-
-            Parameters:
-                subdomains: List of subdomains for which to compute the local
-                coordinates.
-
-            Returns:
-                Local coordinates as a pp.ad.SparseArray.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
-            """Return the projection operators for all subdomains in md-grid.
-
-            The projection operators restrict or prolong a dim-dimensional quantity
-            from the full set of subdomains to any subset. Projection operators are
-            constructed once and then stored. If you need to use projection operators
-            based on a different set of subdomains, please construct them yourself.
-            Alternatively, compose a projection from subset A to subset B as
-                P_A_to_B = P_full_to_B * P_A_to_full.
-
-            Parameters:
-                dim: Dimension of the quantities to be projected.
-
-            Returns:
-                proj: Projection operator.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def domain_boundary_sides(
             self, domain: pp.Grid | pp.BoundaryGrid, tol: Optional[float] = 1e-10
         ) -> pp.domain.DomainSides:
-            """Obtain indices of the faces lying on the sides of the domain boundaries.
-
-            The method is primarily intended for box-shaped domains. However, it can
-            also be applied to non-box-shaped domains (e.g., domains with perturbed
-            boundary nodes) provided `tol` is tuned accordingly.
-
-            Parameters:
-                domain: Subdomain or boundary grid.
-                tol: Tolerance used to determine whether a face center lies on a
-                    boundary side.
-
-            Returns:
-                NamedTuple containing the domain boundary sides. Available attributes
-                are:
-
-                    - all_bf (np.ndarray of int): indices of the boundary faces.
-                    - east (np.ndarray of bool): flags of the faces lying on the East
-                        side.
-                    - west (np.ndarray of bool): flags of the faces lying on the West
-                        side.
-                    - north (np.ndarray of bool): flags of the faces lying on the North
-                        side.
-                    - south (np.ndarray of bool): flags of the faces lying on the South
-                        side.
-                    - top (np.ndarray of bool): flags of the faces lying on the Top
-                        side.
-                    - bottom (np.ndarray of bool): flags of the faces lying on Bottom
-                        side.
-
-            Examples:
-
-                .. code:: python
-
-                    model = pp.SinglePhaseFlow({})
-                    model.prepare_simulation()
-                    sd = model.mdg.subdomains()[0]
-                    sides = model.domain_boundary_sides(sd)
-                    # Access north faces using index or name is equivalent:
-                    north_by_index = sides[3]
-                    north_by_name = sides.north
-                    assert all(north_by_index == north_by_name)
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def internal_boundary_normal_to_outwards(
             self,
@@ -374,28 +146,8 @@ else:
             *,
             dim: int,
         ) -> pp.ad.Operator:
-            """Obtain a vector for flipping normal vectors on internal boundaries.
-
-            For a list of subdomains, check if the normal vector on internal boundaries
-            point into the internal interface (e.g., into the fracture), and if so, flip
-            the normal vector. The flipping takes the form of an operator that
-            multiplies the normal vectors of all faces on fractures, leaves internal
-            faces (internal to the subdomain proper, that is) unchanged, but flips the
-            relevant normal vectors on subdomain faces that are part of an internal
-            boundary.
-
-            Currently, this is a helper method for the computation of outward normals in
-            :meth:`outwards_internal_boundary_normals`. Other usage is allowed, but one
-            is adviced to carefully consider subdomain lists when combining this with
-            other operators.
-
-            Parameters:
-                subdomains: List of subdomains.
-
-            Returns:
-                Operator with flipped signs if normal vector points inwards.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def outwards_internal_boundary_normals(
             self,
@@ -403,38 +155,15 @@ else:
             *,
             unitary: bool,
         ) -> pp.ad.Operator:
-            """Compute outward normal vectors on internal boundaries.
-
-            Parameters:
-                interfaces: List of interfaces.
-                unitary: If True, return unit vectors, i.e. normalize by face area.
-
-            Returns:
-                Operator computing outward normal vectors on internal boundaries; in
-                effect, this is a matrix. Evaluated shape `(num_intf_cells * dim,
-                num_intf_cells * dim)`.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def specific_volume(
             self, grids: list[pp.Grid] | list[pp.MortarGrid]
         ) -> pp.ad.Operator:
-            """Specific volume [m^(nd-d)].
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
-            For subdomains, the specific volume is the cross-sectional area/volume of
-            the cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the
-            specific volume is inherited from the higher-dimensional subdomain neighbor.
-
-            See also:
-                :meth:aperture.
-
-            Parameters:
-                subdomains: List of subdomain or interface grids.
-
-            Returns:
-                Specific volume for each cell.
-
-            """
 
         def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
             """Aperture [m].
@@ -457,18 +186,8 @@ else:
         def isotropic_second_order_tensor(
             self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
         ) -> pp.ad.Operator:
-            """Isotropic permeability [m^2].
-
-            Parameters:
-                permeability: Permeability, scalar per cell.
-
-            Returns:
-                3d isotropic permeability, with nonzero values on the diagonal and zero
-                values elsewhere. K is a second order tensor having 3^2 entries per
-                cell, represented as an array of length 9*nc. The values are ordered as
-                Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
     class SolutionStrategyProtocol(Protocol):
         """This protocol provides the declarations of the methods and the properties,
@@ -520,58 +239,26 @@ else:
 
         @property
         def time_step_indices(self) -> np.ndarray:
-            """Indices for storing time step solutions.
-
-            Note:
-                (Previous) Time step indices should start with 1.
-
-            Returns:
-                An array of the indices of which time step solutions will be stored,
-                counting from 0. Defaults to storing the most recently computed solution
-                only.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         @property
         def iterate_indices(self) -> np.ndarray:
-            """Indices for storing iterate solutions.
-
-            Returns:
-                An array of the indices of which iterate solutions will be stored.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def _is_time_dependent(self) -> bool:
-            """Specifies whether the Model problem is time-dependent.
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
-            Returns:
-                bool: True if the problem is time-dependent, False otherwise.
-            """
 
     class VariableProtocol(Protocol):
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""
 
         def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
-            """Perturbation of a variable from its reference value.
-
-            The parameter :code:`variable_name` should be the name of a variable so that
-            :code:`self.variable_name()` and `self.reference_variable_name()` are valid
-            calls. These methods will be provided by mixin classes; normally this will
-            be a subclass of :class:`VariableMixin`.
-
-            The returned operator will be of the form
-            :code:`self.variable_name(grids) - self.reference_variable_name(grids)`.
-
-            Parameters:
-                variable_name: Name of the variable.
-                grids: List of subdomain or interface grids on which the variable is
-                    defined.
-
-            Returns:
-                Operator for the perturbation.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def create_variables(self) -> None:
             """Assign primary variables to subdomains and interfaces of the mixed-
@@ -586,21 +273,8 @@ else:
         def create_boundary_operator(
             self, name: str, domains: Sequence[pp.BoundaryGrid]
         ) -> pp.ad.TimeDependentDenseArray:
-            """
-            Parameters:
-                name: Name of the variable or operator to be represented on the
-                    boundary.
-                domains: A sequence of boundary grids on which the operator is defined.
-
-            Raises:
-                ValueError: If the passed sequence of domains does not consist entirely
-                    of boundary grid.
-
-            Returns:
-                An operator of given name representing value on given sequence of
-                boundary grids. Can possibly be time-dependent.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def _combine_boundary_operators(
             self,
@@ -614,24 +288,8 @@ else:
             name: str,
             dim: int = 1,
         ) -> pp.ad.Operator:
-            """Creates an operator representing Dirichlet, Neumann and Robin boundary
-            conditions and projects it to the subdomains from boundary grids.
-
-            Parameters:
-                subdomains: List of subdomains.
-                dirichlet_operator: Function that returns the Dirichlet boundary
-                    condition operator.
-                neumann_operator: Function that returns the Neumann boundary condition
-                    operator.
-                robin_operator: Function that returns the Robin boundary condition
-                    operator. Expected to be None for e.g. advective fluxes.
-                dim: Dimension of the equation. Defaults to 1.
-                name: Name of the resulting operator. Must be unique for an operator.
-
-            Returns:
-                Boundary condition representation operator.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def update_all_boundary_conditions(self) -> None:
             """This method is called before a new time step to set the values of the
@@ -655,24 +313,8 @@ else:
             grids: list[pp.Grid] | list[pp.MortarGrid],
             dim: int,
         ) -> pp.ad.Operator:
-            """Numerical volume integral over subdomain or interface cells.
-
-            Includes cell volumes and specific volume.
-
-            Parameters:
-                integrand: Operator for the integrand. Assumed to be a cell-wise scalar
-                    or vector quantity, cf. :code:`dim` argument.
-                grids: List of subdomains or interfaces to be integrated over.
-                dim: Spatial dimension of the integrand. dim = 1 for scalar problems,
-                    dim > 1 for vector problems.
-
-            Returns:
-                Operator for the volume integral.
-
-            Raises:
-                ValueError: If the grids are not all subdomains or all interfaces.
-
-            """
+            """"""
+            # AUTODOC: The implementation's docstring will fetch here automatically.
 
         def set_equations(self) -> None:
             """Set equations for the subdomains and interfaces."""
