@@ -39,6 +39,17 @@ class SolutionStrategy(abc.ABC):
     :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    create_fluid: Callable[[], None]
+    """"Sets the model fluid. Defined in
+    :class:`~porepy.compositional.compositional_mixins.FluidMixin`.
+
+    """
+    assign_thermodynamic_properties_to_phases: Callable[[], None]
+    """"Sets the fluid properties as callables, after the fluid and the variables were defined.
+
+    Provided by :class:`~porepy.compositional.compositional_mixins.FluidMixin`.
+
+    """
     initialize_data_saving: Callable[[], None]
     """Initialize data saving. Normally provided by a mixin instance of
     :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
@@ -203,6 +214,12 @@ class SolutionStrategy(abc.ABC):
         # Order of operations is important here.
         self.set_equation_system_manager()
         self.create_variables()
+        # After fluid and variables are defined, we can define the secondary quantities like
+        # fluid properties (which depend on variables).
+        # NOTE this is critical in the case where properties depend on some fractions.
+        # The callables for those are dynamically created during create_variables, as opposed
+        # to e.g., pressure or temperature.
+        self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
         self.reset_state_from_file()
         self.set_equations()
@@ -339,32 +356,48 @@ class SolutionStrategy(abc.ABC):
     def set_materials(self):
         """Set material parameters.
 
-        In addition to adjusting the units (see ::method::set_units), materials are
-        defined through ::class::pp.Material and the constants passed when initializing
-        the materials. For most purposes, a user needs only pass the desired parameter
-        values in params["material_constants"] when initializing a solution strategy,
-        and should not need to modify the material classes. However, if a user wishes to
-        modify to e.g. provide additional material parameters, this can be done by
-        passing modified material classes in params["fluid"] and params["solid"].
+        Searcher for entries in ``params['material_constatns']`` with keys ``'fluid'`` and
+        ``'solid'`` for respective material constant instances. If not found, default materials
+        are instantiated.
+
+        Provides the :attr:`solid` material constants as an attribute to the model, as well as
+        the :attr:`fluid` object by calling :attr:`create_fluid`.
+
+        By default, a 1-phase, 1-component fluid is created based on the fluid constants
+        provided in ``params['material_constatns']``.
 
         """
-        # Default values
-        constants = {}
-        constants.update(self.params.get("material_constants", {}))
-        # Use standard models for fluid and solid constants if not provided.
-        if "fluid" not in constants:
-            constants["fluid"] = pp.FluidConstants()
-        if "solid" not in constants:
-            constants["solid"] = pp.SolidConstants()
+        # User provided values, if any
+        constants: dict[str, pp.MaterialConstants] = self.params.get(
+            "material_constants", {}
+        )
 
-        # Loop over all constants objects (fluid, solid), and set units.
-        for name, const in constants.items():
-            # Check that the object is of the correct type
-            assert isinstance(const, pp.models.material_constants.MaterialConstants)
-            # Impose the units passed to initialization of the model.
-            const.set_units(self.units)
-            # This is where the constants (fluid, solid) are actually set as attributes
-            setattr(self, name, const)
+        # Use standard models for fluid and solid constants if not provided.
+        # Otherwise get the given constants.
+        solid: pp.SolidConstants = constants.get(
+            "solid", pp.SolidConstants(name="solid")
+        )
+        fluid: pp.FluidConstants = constants.get(
+            "fluid", pp.FluidConstants(name="fluid")
+        )
+
+        # Sanity check that users did not pass anything unexpected
+        assert isinstance(solid, pp.SolidConstants)
+        assert isinstance(fluid, pp.FluidConstants)
+
+        # converting to units of simulation
+        fluid = fluid.to_units(self.units)
+        solid = solid.to_units(self.units)
+
+        # Set the solid for the model
+        # NOTE this will change with the generalization of the solid
+        self.solid = solid
+
+        # Store the default fluid constants to be accessible by the compositional.Fluid
+        # TODO considering that there is a order in prepare_simulations, is there a better
+        # solution to transfer the fluid constants to the next step in prepare simulations?
+        self.params["_default_fluid_constants"] = fluid
+        self.create_fluid()
 
     def discretize(self) -> None:
         """Discretize all terms."""

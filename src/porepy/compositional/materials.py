@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import asdict, dataclass, field, is_dataclass
-from typing import ClassVar, Optional, Union, cast, overload
+from typing import ClassVar, Optional, TypeVar, Union, cast, overload
 
 import numpy as np
 
@@ -34,6 +34,10 @@ class _HashableDict(OrderedDict):
     We require hashable dictionaries for the below material constant classes which
     contain various constants and unit declarations in dicts, all in simple formats and per se
     hashable.
+
+    The need for hashable material constants arises when fluid constants are used as a base
+    class for components and tracers, which are dynamically created and themselves stored in
+    standard dictionaries at various points in ``porepy.compositional``.
 
     """
 
@@ -83,6 +87,8 @@ class MaterialConstants:
 
     """
 
+    # NOTE Annotating it as a ClassVar leads to the dataclasss decorator ignoring this in its
+    # machinery. The annotation must not be forgotten in derived classes.
     SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict()
     """A dictionary containing the SI unit of every material constant defined by
     a derived class.
@@ -109,6 +115,8 @@ class MaterialConstants:
 
     """
 
+    # NOTE init=False makes this a data class field, which is not in the constructor signature.
+    # Its value is computed in the post-initialization procedure.
     constants_in_SI: _HashableDict[str, number] = field(
         init=False, default_factory=_HashableDict
     )
@@ -251,6 +259,32 @@ class MaterialConstants:
             else:
                 value /= factor
         return value
+
+    def to_units(
+        self: _MaterialConstants, units: pp.Units = pp.Units()
+    ) -> _MaterialConstants:
+        """Utility to quickly convert material constants to new units.
+
+        Note:
+            When using units which are not defined in the standard
+            :class:`~porepy.models.units.Units`, the default value of ``units`` might not
+            be enough to convert to SI.
+
+        Parameters:
+            units: A new unit system. The default unit system is in SI.
+
+        Returns:
+            A new instance of of the data class using this method, with parameters converted
+            according to ``units``.
+
+        """
+        kwargs = dict(self.constants_in_SI)
+        kwargs["name"] = self.name
+        kwargs["units"] = units
+        return type(self)(**kwargs)
+
+
+_MaterialConstants = TypeVar("_MaterialConstants", bound=MaterialConstants)
 
 
 @dataclass(frozen=True, kw_only=True)
