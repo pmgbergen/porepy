@@ -98,12 +98,9 @@ class FractureNetwork2d:
 
         self.tags: dict[int | str, np.ndarray] = dict()
         """Tags for the fractures."""
-        # TODO: The current system of tags is a bit confusing, there is both self.tags
-        # and the tags located in self.edges. The latter is used for the Gmsh interface,
-        # and there may be inconsistencies in the transfer of information between the
-        # two systems.
-        for i, f in enumerate(self.fractures):
-            f.set_index(i)
+        # Note that self.tags is for internal usage, while there is a separate system
+        # used for the Gmsh interface, see self._edges. The whole thing works, but there
+        # may be inconsistencies between the two systems.
 
         self.bounding_box_imposed: bool = False
         """Flag indicating whether the bounding box has been imposed."""
@@ -113,6 +110,10 @@ class FractureNetwork2d:
 
         This will include intersection points identified.
         """
+
+        # Set the index of the fractures
+        for i, f in enumerate(self.fractures):
+            f.set_index(i)
 
         # Logging
         if self.fractures is not None:
@@ -581,9 +582,6 @@ class FractureNetwork2d:
         remove_line_ind = np.where(np.diff(lines_split[:2], axis=0)[0] == 0)[0]
         lines_split = np.delete(lines_split, remove_line_ind, axis=1)
 
-        # TODO: This operation may leave points that are not referenced by any
-        # lines. We should probably delete these.
-
         # We find the end points that are shared by more than one intersection
         intersections = self._find_intersection_points(lines_split)
 
@@ -1017,9 +1015,6 @@ class FractureNetwork2d:
         Fractures that cross the boundary of the domain will be cut to lay within the
         boundary. Fractures that lay completely outside the domain will be dropped
         from the constrained description.
-
-        Todo:
-            Consider also returning an index map from new to old fractures.
 
         Parameters:
             domain: ``default: None``
