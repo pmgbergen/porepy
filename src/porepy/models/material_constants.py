@@ -11,6 +11,7 @@ problems with scaling/rounding errors and condition numbers.
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import asdict, dataclass, field, is_dataclass
 from typing import ClassVar, Optional, Union, cast, overload
 
@@ -27,11 +28,11 @@ __all__ = [
 number = pp.number
 
 
-class _HashableDict(dict):
+class _HashableDict(OrderedDict):
     """See https://stackoverflow.com/questions/1151658/python-hashable-dicts.
 
     We require hashable dictionaries for the below material constant classes which
-    contain various constants and unit declarations, all in simple formats and per se
+    contain various constants and unit declarations in dicts, all in simple formats and per se
     hashable.
 
     """
