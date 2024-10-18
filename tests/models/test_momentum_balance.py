@@ -264,7 +264,7 @@ def test_lithostatic(dim: int):
 
     # Analytical displacement.
     g = model.solid.convert_units(pp.GRAVITY_ACCELERATION, "m * s^-2")
-    rho = model.solid.convert_units(model.solid.density(), "kg * m^-3")
+    rho = model.solid.convert_units(model.solid.density, "kg * m^-3")
     data = model.mdg.subdomain_data(sd)
     stiffness = data[pp.PARAMETERS][model.stress_keyword]["fourth_order_tensor"]
     E = 2 * stiffness.mu[0] + stiffness.lmbda[0]
@@ -605,7 +605,7 @@ class TimeDependentBCs(
 
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
-            frac_val = self.solid.fracture_gap()
+            frac_val = self.solid.fracture_gap
         else:
             frac_val = 0
         values[1, sides.north] = frac_val

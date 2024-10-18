@@ -31,8 +31,7 @@ class GeometryClassWithSolidConstants:
     """
 
     def __init__(self):
-        self.solid = pp.SolidConstants(units=pp.Units())
-        # self.solid.set_units(pp.Units())
+        self.solid = pp.SolidConstants()
 
 
 geometry_list = [

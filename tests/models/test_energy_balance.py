@@ -169,7 +169,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
             val = setup.enthalpy_flux([sd]).value(setup.equation_system)
             # Account for specific volume, default value of .01 in fractures.
             normals = np.abs(sd.face_normals[0]) * np.power(0.1, setup.nd - sd.dim)
-            k = setup.solid.permeability() / setup.fluid.viscosity()
+            k = setup.solid.permeability / setup.fluid.viscosity
             grad = 1 / setup.domain.bounding_box["xmax"]
             enth = setup.fluid.specific_heat_capacity() * normals * grad * k
             assert np.all(np.abs(val) < np.abs(enth) + 1e-10)
@@ -182,7 +182,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
             sds,
             dim=1,
         ).value(setup.equation_system)
-        expected = setup.fluid.specific_heat_capacity() * setup.solid.permeability() / 2
+        expected = setup.fluid.specific_heat_capacity * setup.solid.permeability / 2
         assert np.allclose(np.sum(total_energy), expected, rtol=1e-3)
 
 
@@ -285,14 +285,12 @@ def test_energy_conservation():
         # Set impermeable matrix
         "material_constants": {
             "solid": pp.SolidConstants(
-                {
-                    "specific_heat_capacity": 1e0,  # Ensure energy stays in domain.
-                    "well_radius": 0.02,
-                    "residual_aperture": 1.0,  # Ensure high permeability in fracture.
-                    "thermal_conductivity": 1e-6,
-                    "permeability": 1e4,  # Reduce pressure effect
-                    "normal_permeability": 1e4,
-                }
+                specific_heat_capacity=1e0,  # Ensure energy stays in domain.
+                well_radius=0.02,
+                residual_aperture=1.0,  # Ensure high permeability in fracture.
+                thermal_conductivity=1e-6,
+                permeability=1e4,  # Reduce pressure effect
+                normal_permeability=1e4,
             ),
             "fluid": pp.FluidConstants(
                 {

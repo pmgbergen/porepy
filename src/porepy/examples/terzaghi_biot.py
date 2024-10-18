@@ -307,8 +307,8 @@ class TerzaghiUtils(VerificationUtils):
             Confined compressibility.
 
         """
-        mu_s = self.solid.shear_modulus()  # scaled [Pa]
-        lambda_s = self.solid.lame_lambda()  # scaled [Pa]
+        mu_s = self.solid.shear_modulus  # scaled [Pa]
+        lambda_s = self.solid.lame_lambda  # scaled [Pa]
         m_v = 1 / (2 * mu_s + lambda_s)  # scaled [Pa^-1]
         return m_v
 
@@ -319,14 +319,14 @@ class TerzaghiUtils(VerificationUtils):
             Coefficient of consolidation.
 
         """
-        k = self.solid.permeability()  # scaled [m^2]
+        k = self.solid.permeability  # scaled [m^2]
         mu_f = self.fluid.viscosity()  # scaled [Pa * s]
         rho = self.fluid.density()  # scaled [kg * m^-3]
         g = self.gravity_acceleration()  # scaled [m * s^-2]
         gamma_f = rho * g  # specific weight in scaled [Pa * m^-1]
         hydraulic_conductivity = (k * gamma_f) / mu_f  # scaled [m * s^-1]
-        storage = self.solid.specific_storage()  # scaled [Pa^-1]
-        alpha_biot = self.solid.biot_coefficient()  # scaled [-]
+        storage = self.solid.specific_storage  # scaled [Pa^-1]
+        alpha_biot = self.solid.biot_coefficient  # scaled [-]
         m_v = self.confined_compressibility()  # scaled [Pa^-1]
         c_v = hydraulic_conductivity / (gamma_f * (storage + alpha_biot**2 * m_v))
 
@@ -674,10 +674,10 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         self.exact_sol = TerzaghiExactSolution(self)
 
         # Specific storage must be zero
-        assert self.solid.specific_storage() == 0
+        assert self.solid.specific_storage == 0
 
         # Biot's coefficient must be one
-        assert self.solid.biot_coefficient() == 1
+        assert self.solid.biot_coefficient == 1
 
     def initial_condition(self) -> None:
         """Set initial conditions.

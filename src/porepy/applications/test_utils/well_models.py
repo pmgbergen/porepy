@@ -43,8 +43,6 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
 
     fluid: pp.FluidConstants
 
-    solid: pp.SolidConstants
-
     params: dict[str, float]
     """Model parameters."""
 
