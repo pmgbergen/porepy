@@ -46,7 +46,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
 
     """
     # Instantiate constants and store in params.
-    solid = pp.SolidConstants(solid_vals)
+    solid = pp.SolidConstants(**solid_vals)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
@@ -121,11 +121,11 @@ def test_unit_conversion(units: dict, uy_north: float):
 
     Parameters:
         units: Dictionary with keys as those in
-            :class:`~pp.models.material_constants.MaterialConstants`.
+            :class:`~pp.compositional.materials.MaterialConstants`.
         uy_north: Value of y displacement on the north boundary.
 
     """
-    solid = pp.SolidConstants(pp.solid_values.extended_granite_values_for_testing)
+    solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
 
     params = {
         "times_to_export": [],  # Suppress output for tests
@@ -479,7 +479,7 @@ def test_elastoplastic_2d_single_fracture(
     """
     # Instantiate constants and store in params.
 
-    solid = pp.SolidConstants(solid_vals_elastoplastic)
+    solid = pp.SolidConstants(**solid_vals_elastoplastic)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
@@ -560,7 +560,7 @@ def test_elastoplastic_3d_single_fracture(
 
     """
     # Instantiate constants and store in params.
-    solid = pp.SolidConstants(solid_vals_elastoplastic)
+    solid = pp.SolidConstants(**solid_vals_elastoplastic)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
@@ -631,11 +631,9 @@ class ElastoplasticModelTimeDependentBCs(
 
 def test_time_dependent_bc():
     solid = pp.SolidConstants(
-        {
-            "fracture_tangential_stiffness": 1e-1,
-            "shear_modulus": 1e0,
-            "lame_lambda": 1e0,
-        }
+        fracture_tangential_stiffness=1e-1,
+        shear_modulus=1e0,
+        lame_lambda=1e0,
     )
     params = {
         "times_to_export": [],  # Suppress output for tests

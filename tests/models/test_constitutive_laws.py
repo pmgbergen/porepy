@@ -422,7 +422,7 @@ def test_dimension_reduction_values(
 
     """
     # Assign non-trivial values to the parameters to avoid masking errors.
-    solid = pp.SolidConstants({"residual_aperture": 0.02})
+    solid = pp.SolidConstants(residual_aperture=0.02)
     params = {"material_constants": {"solid": solid}, "num_fracs": 3}
     if geometry is models.RectangularDomainThreeFractures:
         params["fracture_indices"] = [0, 1]

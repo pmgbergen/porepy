@@ -263,7 +263,7 @@ def test_targeted_rediscretization(model_class):
         "full_rediscretization": True,
         "cartesian": True,
         # Make flow problem non-linear:
-        "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})},
+        "material_constants": {"fluid": pp.FluidConstants(compressibility=1)},
     }
     # {"fracture_indices": [0, 1]}
     # Finalize the model class by adding the rediscretization mixin.

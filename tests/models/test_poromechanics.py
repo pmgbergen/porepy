@@ -176,8 +176,8 @@ def create_fractured_setup(solid_vals: dict, fluid_vals: dict, uy_north: float):
     solid_vals["residual_aperture"] = 1e-10
     solid_vals["biot_coefficient"] = 1.0
     fluid_vals["compressibility"] = 1
-    solid = pp.SolidConstants(solid_vals)
-    fluid = pp.FluidConstants(fluid_vals)
+    solid = pp.SolidConstants(**solid_vals)
+    fluid = pp.FluidConstants(**fluid_vals)
 
     model_params = {
         "times_to_export": [],  # Suppress output for tests
@@ -477,7 +477,7 @@ def test_unit_conversion(units):
 
     Parameters:
         units (dict): Dictionary with keys as those in
-            :class:`~pp.models.material_constants.MaterialConstants`.
+            :class:`~pp.compositional.materials.MaterialConstants`.
 
     """
     solid_vals = pp.solid_values.extended_granite_values_for_testing

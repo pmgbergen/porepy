@@ -137,8 +137,8 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
     # Always use zero compressibility
     fluid_vals["compressibility"] = 0
     # Instantiate constants and store in params.
-    fluid = pp.FluidConstants(fluid_vals)
-    solid = pp.SolidConstants(solid_vals)
+    fluid = pp.FluidConstants(**fluid_vals)
+    solid = pp.SolidConstants(**solid_vals)
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"fluid": fluid, "solid": solid},
@@ -197,7 +197,7 @@ def test_unit_conversion(units):
 
     Parameters:
         units (dict): Dictionary with keys as those in
-            :class:`~pp.models.material_constants.MaterialConstants`.
+            :class:`~pp.compositional.materials.MaterialConstants`.
 
     """
 

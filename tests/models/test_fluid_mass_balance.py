@@ -61,8 +61,8 @@ def model_setup():
         """Single phase flow model in a domain with two intersecting fractures."""
 
     # Material constants
-    solid = pp.SolidConstants(models.granite_values)
-    fluid = pp.FluidConstants(models.water_values)
+    solid = pp.SolidConstants(**models.granite_values)
+    fluid = pp.FluidConstants(**models.water_values)
 
     # Declare model parameters
     params = {
@@ -409,7 +409,7 @@ def test_unit_conversion(units):
 
     Parameters:
         units (dict): Dictionary with keys as those in
-            :class:`~pp.models.material_constants.MaterialConstants`.
+            :class:`~pp.compositional.materials.MaterialConstants`.
 
     """
 
@@ -481,7 +481,7 @@ def test_well_incompressible_pressure_values():
     params = {
         # Set impermeable matrix
         "material_constants": {
-            "solid": pp.SolidConstants({"permeability": 1e-6 / 4, "well_radius": 0.01})
+            "solid": pp.SolidConstants(permeability=1e-6 / 4, well_radius=0.01)
         },
         # Use only the horizontal fracture of OrthogonalFractures3d
         "fracture_indices": [2],
@@ -608,9 +608,7 @@ def model_setup_gravity(
     }
     params.update(model_params)
     params["material_constants"] = {
-        "solid": pp.SolidConstants(
-            {"normal_permeability": kn, "residual_aperture": aperture}
-        )
+        "solid": pp.SolidConstants(normal_permeability=kn, residual_aperture=aperture)
     }
     if dimension == 2:
         Geometry = SquareDomainOrthogonalFractures
