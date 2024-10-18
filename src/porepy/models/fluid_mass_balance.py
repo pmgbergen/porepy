@@ -836,7 +836,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 {
                     "bc": self.bc_type_darcy_flux(sd),
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd, self.permeability([sd]), self.solid.permeability()
+                        sd, self.permeability([sd]), self.solid.permeability
                     ),
                     "ambient_dimension": self.nd,
                 },

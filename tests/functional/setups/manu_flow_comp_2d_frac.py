@@ -720,9 +720,9 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
 
         # Sanity checks
         assert self.fluid.viscosity() == 1
-        assert self.solid.permeability() == 1
-        assert self.solid.residual_aperture() == 1
-        assert self.solid.normal_permeability() == 0.5
+        assert self.solid.permeability == 1
+        assert self.solid.residual_aperture == 1
+        assert self.solid.normal_permeability == 0.5
 
         # Instantiate exact solution object
         self.exact_sol = ManuCompExactSolution2d(self)

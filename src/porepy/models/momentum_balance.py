@@ -676,12 +676,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     :class:`porepy.models.geometry.ModelGeometry`.
 
     """
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
     equation_system: pp.ad.EquationSystem
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
@@ -803,7 +797,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # The scaling factor should not be too large, otherwise the contact problem
         # may be discretized wrongly. I therefore introduce a safety factor here; its
         # value is somewhat arbitrary.
-        softening_factor = pp.ad.Scalar(self.solid.contact_mechanics_scaling())
+        softening_factor = pp.ad.Scalar(self.solid.contact_mechanics_scaling)
 
         constant = softening_factor / self.characteristic_displacement(subdomains)
         constant.set_name("Contact_mechanics_numerical_constant")
@@ -856,7 +850,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # to changes in state between sticking and sliding. To reduce the sensitivity to
         # round-off errors, we use a tolerance to allow for slight inaccuracies before
         # switching between the two cases.
-        tol = self.solid.open_state_tolerance()
+        tol = self.solid.open_state_tolerance
         # The characteristic function will evaluate to 1 if the argument is less than
         # the tolerance, and 0 otherwise.
         f_characteristic = pp.ad.Function(

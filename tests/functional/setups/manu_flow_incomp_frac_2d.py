@@ -758,9 +758,6 @@ class ManuIncompSolutionStrategy2d(
 
     """
 
-    solid: pp.SolidConstants
-    """Object containing the solid constants."""
-
     results: list[ManuIncompSaveData]
     """List of SaveData objects."""
 
@@ -783,9 +780,9 @@ class ManuIncompSolutionStrategy2d(
         assert self.fluid.density() == 1
         assert self.fluid.viscosity() == 1
         assert self.fluid.compressibility() == 0
-        assert self.solid.permeability() == 1
-        assert self.solid.residual_aperture() == 1
-        assert self.solid.normal_permeability() == 0.5
+        assert self.solid.permeability == 1
+        assert self.solid.residual_aperture == 1
+        assert self.solid.normal_permeability == 0.5
 
         # Instantiate exact solution object after materials have been set
         self.exact_sol = ManuIncompExactSolution2d()

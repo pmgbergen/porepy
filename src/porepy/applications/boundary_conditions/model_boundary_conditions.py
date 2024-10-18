@@ -287,8 +287,7 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
             frac_val = (
-                self.solid.fracture_gap()
-                + self.solid.maximum_elastic_fracture_opening()
+                self.solid.fracture_gap + self.solid.maximum_elastic_fracture_opening
             )
         else:
             frac_val = 0

@@ -673,8 +673,8 @@ class MandelUtils(VerificationUtils):
             Bulk modulus.
 
         """
-        mu_s = self.solid.shear_modulus()  # scaled [Pa]
-        lambda_s = self.solid.lame_lambda()  # scaled [Pa]
+        mu_s = self.solid.shear_modulus  # scaled [Pa]
+        lambda_s = self.solid.lame_lambda  # scaled [Pa]
         return (2 / 3) * mu_s + lambda_s
 
     def poisson_coefficient(self) -> number:
@@ -684,7 +684,7 @@ class MandelUtils(VerificationUtils):
             Poisson coefficient.
 
         """
-        mu_s = self.solid.shear_modulus()
+        mu_s = self.solid.shear_modulus
         K_s = self.bulk_modulus()
         return (3 * K_s - 2 * mu_s) / (2 * (3 * K_s + mu_s))
 
@@ -695,9 +695,9 @@ class MandelUtils(VerificationUtils):
             Undrained bulk modulus.
 
         """
-        alpha_biot = self.solid.biot_coefficient()  # [-]
+        alpha_biot = self.solid.biot_coefficient  # [-]
         K_s = self.bulk_modulus()  # scaled [Pa]
-        S_epsilon = self.solid.specific_storage()  # scaled [Pa^-1]
+        S_epsilon = self.solid.specific_storage  # scaled [Pa^-1]
         return K_s + (alpha_biot**2) / S_epsilon
 
     def skempton_coefficient(self) -> number:
@@ -707,9 +707,9 @@ class MandelUtils(VerificationUtils):
             Skempton's coefficent.
 
         """
-        alpha_biot = self.solid.biot_coefficient()  # [-]
+        alpha_biot = self.solid.biot_coefficient  # [-]
         K_u = self.undrained_bulk_modulus()  # scaled [Pa]
-        S_epsilon = self.solid.specific_storage()  # scaled [Pa^-1]
+        S_epsilon = self.solid.specific_storage  # scaled [Pa^-1]
         return alpha_biot / (S_epsilon * K_u)
 
     def undrained_poisson_coefficient(self) -> float:
@@ -733,9 +733,9 @@ class MandelUtils(VerificationUtils):
             Fluid diffusivity.
 
         """
-        k_s = self.solid.permeability()  # scaled [m^2]
+        k_s = self.solid.permeability  # scaled [m^2]
         B = self.skempton_coefficient()  # [-]
-        mu_s = self.solid.shear_modulus()  # scaled [Pa]
+        mu_s = self.solid.shear_modulus  # scaled [Pa]
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
         mu_f = self.fluid.viscosity()  # scaled [Pa * s]
@@ -813,7 +813,7 @@ class MandelUtils(VerificationUtils):
             ``shape=(num_points, )``.
 
         """
-        k = self.solid.permeability()  # scaled [m^2]
+        k = self.solid.permeability  # scaled [m^2]
         F = self.vertical_load()  # scaled [N * m^-1]
         mu = self.fluid.viscosity()  # scaled [Pa * s]
         a = self.domain.bounding_box["xmax"]  # scaled [m]
@@ -848,7 +848,7 @@ class MandelUtils(VerificationUtils):
         b = self.domain.bounding_box["ymax"]  # scaled [m]
 
         F = self.vertical_load()  # scaled [N * m^-1]
-        mu_s = self.solid.shear_modulus()  # scaled [Pa]
+        mu_s = self.solid.shear_modulus  # scaled [Pa]
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
 
@@ -1414,7 +1414,7 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         self.exact_sol = MandelExactSolution(self)
 
         # Biot's coefficient must be one
-        assert self.solid.biot_coefficient() == 1
+        assert self.solid.biot_coefficient == 1
 
     def initial_condition(self) -> None:
         """Set initial conditions.

@@ -673,8 +673,8 @@ class VariablesEnergyBalance:
                 Operator representing the reference temperature.
 
         """
-        t_ref = self.fluid.temperature()
-        assert t_ref == self.solid.temperature()
+        t_ref = self.fluid.temperature
+        assert t_ref == self.solid.temperature
         size = sum([sd.num_cells for sd in subdomains])
         return pp.wrap_as_dense_ad_array(t_ref, size, name="reference_temperature")
 

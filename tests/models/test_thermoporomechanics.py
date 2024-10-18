@@ -122,7 +122,7 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float):
         assert np.allclose(u_vals[:, bottom], 0)
         # Zero x and nonzero y displacement in top
         assert np.allclose(u_vals[0, top], 0)
-        assert np.allclose(u_vals[1, top], setup.solid.fracture_gap())
+        assert np.allclose(u_vals[1, top], setup.solid.fracture_gap)
         # Zero displacement relative to initial value implies zero pressure and
         # temperature
         assert np.allclose(p_vals, 0)
@@ -162,7 +162,7 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float):
     else:
         # Displacement jump should be equal to initial displacement.
         assert np.allclose(jump[0], 0.0)
-        assert np.allclose(jump[1], setup.solid.fracture_gap())
+        assert np.allclose(jump[1], setup.solid.fracture_gap)
         # Normal traction should be non-positive. Zero if uy_north equals
         # initial gap, negative otherwise.
         if uy_north < 0:
@@ -235,7 +235,7 @@ def test_push_north_zero_opening():
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
 
     # All components should be closed in the normal direction
-    assert np.allclose(jump[1], setup.solid.fracture_gap())
+    assert np.allclose(jump[1], setup.solid.fracture_gap)
 
     # Contact force in normal direction should be negative
     assert np.all(traction[1] < 0)
@@ -251,7 +251,7 @@ def test_positive_p_frac_positive_opening():
     _, _, p_frac, jump, traction, _, t_frac = get_variables(setup)
 
     # All components should be open in the normal direction.
-    assert np.all(jump[1] > setup.solid.fracture_gap())
+    assert np.all(jump[1] > setup.solid.fracture_gap)
 
     # By symmetry (reasonable to expect from this grid), the jump in tangential
     # deformation should be zero.
