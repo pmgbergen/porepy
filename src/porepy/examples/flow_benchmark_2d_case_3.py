@@ -14,8 +14,6 @@ References:
 
 """
 
-from typing import Callable
-
 import numpy as np
 
 import porepy as pp
@@ -63,24 +61,6 @@ class Case3bBoundaryConditions(BoundaryConditionsMassDirWestEast):
 
 class Permeability(DimensionDependentPermeability):
     """Tangential and normal permeability specification."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
 
     @property
     def fracture_permeabilities(self) -> np.ndarray:

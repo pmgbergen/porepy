@@ -8,6 +8,7 @@ Testing covers:
     Utility methods:
         domain_boundary_sides
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -157,17 +158,13 @@ def test_wrap_grid_attributes(
 
     # Test that an error is raised if the grid does not have such an attribute
     with pytest.raises(ValueError):
-        geometry.wrap_grid_attribute(
-            top_subdomain, "no_such_attribute", dim=1  # type: ignore[call-arg]
-        )
+        geometry.wrap_grid_attribute(top_subdomain, "no_such_attribute", dim=1)
 
     # Test that the an error is raised if we try to wrap a field which is not an
     # ndarray.
     with pytest.raises(ValueError):
         # This will return a string
-        geometry.wrap_grid_attribute(
-            top_subdomain, "name", dim=1  # type: ignore[call-arg]
-        )
+        geometry.wrap_grid_attribute(top_subdomain, "name", dim=1)
 
     # One loop for both subdomains and interfaces.
     for grids in test_subdomains + test_interfaces:
@@ -193,9 +190,9 @@ def test_wrap_grid_attributes(
         # Loop over attributes and corresponding dimensions.
         for attr, dim in zip(attr_list, dim_list):
             # Get hold of the wrapped attribute and the wrapping.
-            wrapped_value = geometry.wrap_grid_attribute(
-                grids, attr, dim=dim  # type: ignore[call-args]
-            ).value(eq_system)
+            wrapped_value = geometry.wrap_grid_attribute(grids, attr, dim=dim).value(
+                eq_system
+            )
 
             # Check that the wrapped attribute is a matrix
             assert isinstance(wrapped_value, np.ndarray)
@@ -337,9 +334,7 @@ def test_internal_boundary_normal_to_outwards(
             # Indices belonging to the current dimension
             dim_ind = np.arange(i, loc_size, dim)
             dim_vals = loc_vals[dim_ind]
-            assert np.allclose(
-                dim_vals[fracture_faces], cf_sum[fracture_faces].ravel()
-            )
+            assert np.allclose(dim_vals[fracture_faces], cf_sum[fracture_faces].ravel())
         # Update offset, needed to test for multiple subdomains.
         offset += sd.num_faces * dim
 
