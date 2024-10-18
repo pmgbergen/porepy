@@ -176,12 +176,6 @@ from porepy.models.abstract_equations import (
 from porepy.models.boundary_condition import BoundaryConditionMixin
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units
-from porepy.models.material_constants import (
-    FluidConstants,
-    SolidConstants,
-    MaterialConstants,
-)
-
 
 from porepy.viz.data_saving_model_mixin import DataSavingMixin
 from porepy.viz.diagnostics_mixin import DiagnosticsMixin
@@ -236,3 +230,8 @@ from porepy import applications
 
 # composite subpackage
 from . import compositional
+from porepy.compositional.materials import (
+    FluidConstants,
+    SolidConstants,
+    MaterialConstants,
+)

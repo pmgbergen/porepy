@@ -39,7 +39,7 @@ References:
 
 __all__ = []
 
-from . import _core, base, compositional_mixins, states, utils
+from . import _core, base, compositional_mixins, materials, states, utils
 
 # TODO flake8 complains about from . import * imports
 # Even though __all__ is defined in all packages
@@ -47,6 +47,7 @@ from . import _core, base, compositional_mixins, states, utils
 from ._core import *
 from .base import *
 from .compositional_mixins import *
+from .materials import *
 from .states import *
 from .utils import *
 
@@ -55,3 +56,4 @@ __all__.extend(base.__all__)
 __all__.extend(utils.__all__)
 __all__.extend(compositional_mixins.__all__)
 __all__.extend(states.__all__)
+__all__.extend(materials.__all__)
