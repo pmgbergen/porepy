@@ -24,7 +24,7 @@ from porepy.applications.boundary_conditions.model_boundary_conditions import (
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.models.constitutive_laws import DimensionDependentPermeability
 
-solid_constants = pp.SolidConstants({"residual_aperture": 1e-4})
+solid_constants = pp.SolidConstants(residual_aperture=1e-4)
 
 
 class Geometry:
