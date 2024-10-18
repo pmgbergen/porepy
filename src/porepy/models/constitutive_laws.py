@@ -1194,7 +1194,7 @@ class DarcysLaw:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -1564,7 +1564,7 @@ class AdTpfaFlux:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -2721,7 +2721,7 @@ class FouriersLaw:
     bc_data_fourier_flux_key`.
 
     """
-    bc_type_fourier_flux: Callable[[pp.Grid], pp.ad.Operator]
+    bc_type_fourier_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """Function that returns the boundary condition type for the Fourier flux. Normally
     defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
@@ -2733,7 +2733,7 @@ class FouriersLaw:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,
@@ -2822,7 +2822,7 @@ class FouriersLaw:
         )
         return temperature_trace
 
-    def fourier_flux(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def fourier_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discrete Fourier flux on subdomains.
 
         .. note::
@@ -2843,6 +2843,8 @@ class FouriersLaw:
             return self.create_boundary_operator(  # type: ignore[call-arg]
                 name=self.bc_data_fourier_flux_key, domains=subdomains
             )
+
+        subdomains = cast(list[pp.Grid], subdomains)  # for mypy
 
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
@@ -3548,7 +3550,7 @@ class LinearElasticMechanicalStress:
             Sequence[pp.Grid],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+            None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
             Callable[[pp.Grid], pp.BoundaryCondition],
             str,
             int,

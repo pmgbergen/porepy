@@ -63,6 +63,9 @@ def get_mock_model(
         composit.CompositionalVariables,
         pp.BoundaryConditionMixin,
     ):
+        @property
+        def equilibrium_type(self) -> str:
+            return self.params['equilibrium_type']
 
         def get_components(self) -> list[composit.Component]:
             return components
