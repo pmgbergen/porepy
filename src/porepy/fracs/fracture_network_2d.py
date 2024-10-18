@@ -110,7 +110,7 @@ class FractureNetwork2d:
         This will include intersection points identified.
         """
 
-        # Set the index of the fractures
+        # Set the index of the fractures.
         for i, f in enumerate(self.fractures):
             f.set_index(i)
 
