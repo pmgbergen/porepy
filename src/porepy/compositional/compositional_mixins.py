@@ -547,9 +547,6 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
     """
 
-    fluid: Fluid
-    """See :class:`FluidMixin`."""
-
     def fractional_state_from_vector(
         self,
         subdomains: Sequence[pp.Grid],
@@ -1075,7 +1072,7 @@ class FluidMixin:
 
     mdg: pp.MixedDimensionalGrid
     """See :class:`~porepy.models.geometry.ModelGeometry`."""
-    equation_system: pp.ad.EquationSystem
+    params: dict
     """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
 
     pressure: DomainFunctionType
@@ -1121,16 +1118,27 @@ class FluidMixin:
         self.fluid = Fluid(components, phases)
 
     def get_components(self) -> list[Component]:
-        """Method to return a list of modelled components."""
-        # TODO Create unit component based on species passed in params
-        raise CompositionalModellingError(
-            "Call to mixin method. Define components by overriding this method."
-        )
+        """Method to return a list of modelled components.
+
+        The default implementation takes the user-provided or default fluid constants found in
+        the model ``params`` and returns a single component.
+
+        Override this method via mixin to provide a more complex component context for the
+        :attr:`fluid`.
+
+        """
+        # Should be available after SolutionStrategy.set_materials()
+        fluid_constants: pp.FluidConstants = self.params["_default_fluid_constants"]
+        default_component = Component.from_fluid_constants(fluid_constants)
+        return [default_component]
 
     def get_phase_configuration(
         self, components: Sequence[Component]
     ) -> Sequence[tuple[AbstractEoS, PhysicalState, str]]:
         """Method to return a configuration of modelled phases.
+
+        The default implementation returns a liquid-like phase with an abstract EoS instance
+        (to be used in the standard set-up with heuristic fluid properties).
 
         Parameters:
             components: The list of components modelled by :meth:`get_components`.
@@ -1152,20 +1160,14 @@ class FluidMixin:
             :class:`~porepy.compositional.base.Phase`.
 
         """
-        # TODO default implementation returning a liquid-like phase with a dummy EoS
-        # returning the constant values from the reference component
-        # This is to accomodate the most widely used 1-phase,1-component case
-        raise CompositionalModellingError(
-            "Call to mixin method. Configure phases by overriding this method."
-        )
+        return [(AbstractEoS(components), PhysicalState.liquid, "liquid")]
 
     def set_components_in_phases(
         self, components: Sequence[Component], phases: Sequence[Phase]
     ) -> None:
         """Method to implement a strategy for which components are added to which phase.
 
-        By default, the unified assumption is applied: All phases contain all
-        components.
+        By default, the unified assumption is applied: All phases contain all components.
 
         Overwrite to do otherwise.
 
@@ -1183,9 +1185,6 @@ class FluidMixin:
 
     def assign_thermodynamic_properties_to_phases(self) -> None:
         """A method to create various thermodynamic properties of phases in AD form.
-
-        After that, it assignes properties to the :attr:`fluid` based on phase
-        properties.
 
         Will be called by the solution strategy after all variables have been created.
 

@@ -49,7 +49,6 @@ Important:
 
 from __future__ import annotations
 
-import abc
 from dataclasses import asdict, fields
 from typing import Callable, Generator, Sequence, Type, TypeVar, Union
 
@@ -357,24 +356,23 @@ class Compound(Component):
         return X
 
 
-class AbstractEoS(abc.ABC):
+class AbstractEoS:
     """Abstract EoS class defining the interface between thermodynamic input
     and resulting structure containing thermodynamic properties of a phase.
 
     Component properties required for computations can be extracted in the constructor.
 
     Note:
-        This class is called 'abstract EoS'. Users can implement any correlations but
-        are encouraged to focus on thermodynamic consistency.
+        This class is called 'abstract EoS', but is in fact not strictly abstract and can be
+        instantiated.
 
-        Phase properties are defined as secondary expressions, and the framework is
-        able to pick up the dependencies and call :meth:`compute_phase_state` with
-        the right values.
+        This is by intention such that phases can be created with the abstract EoS, in a
+        simulation setting which uses heuristics. The method :meth:`compute_phase_properties`
+        is not to be called in that case.
 
-        For more information on this, see
-        :class:`~porepy.compositional.compositional_mixins.FluidMixin` and
-        :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
-        dependencies_of_phase_properties`.
+        If used with an actual EoS though, above method is called with the input defined by
+        :meth:`porepy.compositional.compositional_mixins.FluidMixin.
+        dependencies_of_phase_properties`
 
     Parameters:
         components: A sequence of components for which the EoS is instantiated.
@@ -391,12 +389,13 @@ class AbstractEoS(abc.ABC):
         if self._nc == 0:
             raise CompositionalModellingError("Cannot create an EoS with no components")
 
-    @abc.abstractmethod
     def compute_phase_properties(
         self, phase_state: PhysicalState, *thermodynamic_input: np.ndarray
     ) -> PhaseProperties:
         """ "Abstract method to compute the properties of a phase based any
-        thermodynamic input.
+        thermodynamic input and a given physical state.
+
+        The base class method raises an :obj:`NotImplementedError`.
 
         Examples:
             1. For a single component mixture, the thermodynamic input may consist of
@@ -407,8 +406,8 @@ class AbstractEoS(abc.ABC):
                in a phase.
             3. For correlations which indirectly represent the solution of the
                fluid phase equilibrium problem, the signature might as well be
-               pressure, temperature and independent overall fractions.
-            4. For complex models, temperature can be replaced by enthalpy, for example.
+               pressure, temperature and independent overall fractions, or other primary
+               flow & transport variables.
 
         Parameters:
             phase_state: The physical phase state for which to compute values.
@@ -420,7 +419,7 @@ class AbstractEoS(abc.ABC):
             derivatives w.r.t. the dependencies (``thermodynamic_input``).
 
         """
-        ...
+        raise NotImplementedError("Call to abstract base class.")
 
 
 class Phase:
@@ -658,9 +657,7 @@ class Phase:
 
         Important:
             Changing the index of the reference component changes which partial fraction
-            is eliminated by unity of fractions.
-            Its representation will be by unity, and more importantly, it will reduce
-            the size of the system by 1.
+            is eliminated by unity of fractions (DOF eliminated).
 
         Parameters:
             index: A new index to be assigned.
@@ -690,7 +687,7 @@ class Phase:
 
     def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseProperties:
         """Shortcut to compute the properties calling
-        :meth:`AbstractEoS.compute_phase_state` of :attr:`eos` with :attr:`type` as
+        :meth:`AbstractEoS.compute_phase_state` of :attr:`eos` with :attr:`state` as
         argument."""
         return self.eos.compute_phase_properties(self.state, *thermodynamic_input)
 
@@ -701,9 +698,9 @@ class Fluid:
     The fluid (mixture) serves as a container for components and phases and contains the
     specification of the reference component and phase.
 
-    It also allocates attributes for some thermodynamic properites of a mixture, which
-    are required by the remaining framework, which are assigned by an instance of
-    :class:`~porepy.compositional.compositional_mixins.FluidMixin`.
+    It also provides general attributes for some thermodynamic properites of a fluid, which
+    are required by the remaining framework. Hence this class serves as an interface for e.g.,
+    PDE formulations.
 
     - :attr:`density`
     - :attr:`specific_enthalpy`
@@ -711,8 +708,6 @@ class Fluid:
 
     The mixture allows only one gas-like phase, and it must be modelled with at least
     1 component and 1 phase.
-
-    Flash algorithms are built around the mixture management utilities of this class.
 
     Important:
         Phases are re-ordered once passed as arguments according to the following rules:
@@ -730,13 +725,13 @@ class Fluid:
     Raises:
         CompositionalModellingError: If the model assumptions are violated.
 
-            - at most 1 gas phase must be modelled.
+            - At most 1 gas phase must be modelled.
             - At least 1 component must be present.
             - At least 1 phase must be modelled.
             - Any phase has no components in it.
+
         CompositionalModellingError: If there is 1 component, which is not in any phase.
-        ValueError: If any two components or phases have the same name
-            (storage conflicts).
+        ValueError: If any two components or phases have the same name (storage conflicts).
 
     """
 
@@ -801,7 +796,7 @@ class Fluid:
                     f"Component {comp.name} not in any phase."
                 )
 
-        # NOTE by logic, length of gas-like phases can only be 1 at this point
+        # NOTE by logic, length of gas-like phases can only be 1 or 0 at this point
         self._has_gas: bool = True if len(gaslike_phases) == 1 else False
         """Flag indicating if a gas-like phase is present."""
 
