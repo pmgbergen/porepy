@@ -6,8 +6,7 @@ import copy
 import csv
 import logging
 import time
-import warnings
-from typing import Optional, Union
+from typing import Optional
 
 import meshio
 import numpy as np
@@ -192,7 +191,7 @@ class FractureNetwork2d:
                 grids.
             remove_small_fractures: ``default=False``
 
-                Whether to remove small fractures.
+                DEPRECATED.
             write_geo: ``default=True``
 
                 Whether to generate to write the Gmsh configuration file. If ``True``,
@@ -287,9 +286,6 @@ class FractureNetwork2d:
              :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh` instead
              to get a usable mixed-dimensional grid.
 
-        Todo:
-            Expand description of ``remove_small_fractures``.
-
         Parameters:
             mesh_args: Arguments passed on to mesh size control. It should contain at
                 least the keyword ``mesh_size_frac``.
@@ -311,7 +307,7 @@ class FractureNetwork2d:
                 the surrounding matrix) is created.
             remove_small_fractures: ``default=False``
 
-                Whether to remove small fractures.
+                DEPRECATED.
 
         Returns:
             The data structure for gmsh in 2D.
@@ -342,12 +338,9 @@ class FractureNetwork2d:
 
         if remove_small_fractures:
             # fractures smaller than the prescribed tolerance are removed
-            to_delete = np.where(self.length() < tol)[0]
-            self._edges = np.delete(self._edges, to_delete, axis=1)
-
-            # remove also the fractures in the tags
-            for key, value in self.tags.items():
-                self.tags[key] = np.delete(value, to_delete)
+            s = "remove small fractures is deprecated."
+            s += "The operation should be done manually before calling prepare_for_gmsh"
+            raise TypeError(s)
 
         if not self.bounding_box_imposed:
             edges_kept, edges_deleted = self.impose_external_boundary(
