@@ -13,7 +13,6 @@ try:
     # Avoid some mypy trouble.
     from tqdm.autonotebook import trange  # type: ignore
 
-    # Only import this if needed
     from porepy.utils.ui_and_logging import (
         logging_redirect_tqdm_with_level as logging_redirect_tqdm,
     )
@@ -129,6 +128,7 @@ class NewtonSolver:
                     desc="Newton loop",
                     position=self.progress_bar_position,
                     leave=False,
+                    dynamic_ncols=True,
                 )
 
                 while (
@@ -138,8 +138,8 @@ class NewtonSolver:
                 ):
                     solver_progressbar.set_description_str(
                         "Newton iteration number "
-                        + f"{model.nonlinear_solver_statistics.num_iteration + 1} of \t"
-                        + f"{self.params['max_iterations']}"
+                        + f"{model.nonlinear_solver_statistics.num_iteration + 1} of"
+                        + f" {self.params['max_iterations']}"
                     )
                     newton_step()
 
