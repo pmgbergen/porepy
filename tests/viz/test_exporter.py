@@ -715,8 +715,8 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "file_name": file_name,
             "folder_name": setup.folder,
             "material_constants": {
-                "solid": pp.SolidConstants(nontrivial_solid),
-                "fluid": pp.FluidConstants(nontrivial_fluid),
+                "solid": pp.SolidConstants(**nontrivial_solid),
+                "fluid": pp.FluidConstants(**nontrivial_fluid),
             },
         }
         model = TailoredThermoporomechanics(params=model_params)

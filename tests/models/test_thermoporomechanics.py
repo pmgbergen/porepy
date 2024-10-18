@@ -59,8 +59,8 @@ def create_fractured_setup(
     solid_vals["thermal_expansion"] = 1e-1
     fluid_vals["compressibility"] = 1
     fluid_vals["thermal_expansion"] = 1e-1
-    solid = pp.SolidConstants(solid_vals)
-    fluid = pp.FluidConstants(fluid_vals)
+    solid = pp.SolidConstants(**solid_vals)
+    fluid = pp.FluidConstants(**fluid_vals)
 
     default = {
         "times_to_export": [],  # Suppress output for tests
@@ -383,7 +383,7 @@ def test_unit_conversion(units):
 
     Parameters:
         units: Dictionary with keys as those in
-            :class:`~pp.models.material_constants.MaterialConstants`.
+            :class:`~pp.compositional.materials.MaterialConstants`.
 
     """
 
