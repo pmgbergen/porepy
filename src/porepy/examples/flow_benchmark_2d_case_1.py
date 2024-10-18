@@ -13,21 +13,24 @@ References:
 """
 
 from dataclasses import dataclass
-from typing import Callable, Union
+from typing import Callable, ClassVar, Union
 
 import numpy as np
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
+from porepy.compositional.materials import SolidConstants, _HashableDict
 from porepy.models.constitutive_laws import DimensionDependentPermeability
 
 
 @dataclass(frozen=True, kw_only=True)
-class FractureSolidConstants(pp.SolidConstants):
+class FractureSolidConstants(SolidConstants):
     """Solid constants tailored to the current model."""
 
+    SI_units: ClassVar[_HashableDict[str, str]] = SolidConstants.SI_units
+    SI_units.update({"fracture_permeability": "m^2"})
+
     fracture_permeability: pp.number = 1.0
-    """[m^2]"""
 
 
 solid_constants_conductive_fractures = FractureSolidConstants(

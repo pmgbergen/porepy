@@ -58,6 +58,7 @@ import porepy as pp
 from porepy.numerics.ad.functions import FloatType
 
 from ._core import PhysicalState
+from .materials import FluidConstants
 from .states import PhaseProperties
 from .utils import CompositionalModellingError, safe_sum
 
@@ -92,7 +93,7 @@ can be given by :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`
 accomodate externalized computations."""
 
 
-class Component(pp.FluidConstants):
+class Component(FluidConstants):
     """Base class for components modelled inside a mixture.
 
     Components are chemical species inside a mixture, which can go through phase
