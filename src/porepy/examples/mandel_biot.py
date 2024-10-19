@@ -135,13 +135,6 @@ class MandelDataSaving(VerificationDataSaving):
     exact_sol: MandelExactSolution
     """Exact solution object."""
 
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of storing and scaling numerical values
-    representing fluid-related quantities. Normally, this is set by an instance of
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
     numerical_consolidation_degree: Callable[[], tuple[number, number]]
     """Numerical degree of consolidation in the horizontal and vertical directions."""
 
@@ -199,7 +192,7 @@ class MandelDataSaving(VerificationDataSaving):
 
         exact_flux = self.exact_sol.flux(sd, t)
         flux_ad = self.darcy_flux([sd])
-        mobility = 1 / self.fluid.viscosity()
+        mobility = 1 / self.fluid.reference_component.viscosity()
         approx_flux = mobility * flux_ad.value(self.equation_system)
         error_flux = ConvergenceAnalysis.l2_error(
             grid=sd,
@@ -738,7 +731,7 @@ class MandelUtils(VerificationUtils):
         mu_s = self.solid.shear_modulus  # scaled [Pa]
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
-        mu_f = self.fluid.viscosity()  # scaled [Pa * s]
+        mu_f = self.fluid.reference_component.viscosity  # scaled [Pa * s]
         c_f = (2 * k_s * (B**2) * mu_s * (1 - nu_s) * (1 + nu_u) ** 2) / (
             9 * mu_f * (1 - nu_u) * (nu_u - nu_s)
         )
@@ -815,7 +808,7 @@ class MandelUtils(VerificationUtils):
         """
         k = self.solid.permeability  # scaled [m^2]
         F = self.vertical_load()  # scaled [N * m^-1]
-        mu = self.fluid.viscosity()  # scaled [Pa * s]
+        mu = self.fluid.reference_component.viscosity  # scaled [Pa * s]
         a = self.domain.bounding_box["xmax"]  # scaled [m]
         factor = (F * k) / (mu * a**2)  # scaled [m * s^-1]
         return q_x / factor

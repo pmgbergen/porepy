@@ -418,9 +418,9 @@ def test_unit_conversion(units):
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
             """Ensure nontrivial solution."""
-            vals = self.fluid.pressure() * np.ones(boundary_grid.num_cells)
+            vals = self.fluid.reference_component.pressure * np.ones(boundary_grid.num_cells)
             faces = self.domain_boundary_sides(boundary_grid).east
-            vals[faces] += self.fluid.convert_units(1e5, "Pa")
+            vals[faces] += self.fluid.reference_component.convert_units(1e5, "Pa")
             return vals
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing

@@ -500,7 +500,7 @@ class VariablesEnergyBalance:
     defining the solution strategy.
 
     """
-    fluid: pp.FluidConstants
+    fluid: pp.compositional.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
@@ -673,7 +673,7 @@ class VariablesEnergyBalance:
                 Operator representing the reference temperature.
 
         """
-        t_ref = self.fluid.temperature
+        t_ref = self.fluid.reference_component.temperature
         assert t_ref == self.solid.temperature
         size = sum([sd.num_cells for sd in subdomains])
         return pp.wrap_as_dense_ad_array(t_ref, size, name="reference_temperature")
@@ -700,7 +700,7 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
 
     """
 
-    fluid: pp.FluidConstants
+    fluid: pp.compositional.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
@@ -781,7 +781,9 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
             values on the provided boundary grid.
 
         """
-        return self.fluid.temperature() * np.ones(boundary_grid.num_cells)
+        return self.fluid.reference_component.temperature * np.ones(
+            boundary_grid.num_cells
+        )
 
     def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """**Heat** flux values on the Neumann boundary to be used with Fourier's law.
@@ -962,7 +964,8 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
                         sd,
                         self.thermal_conductivity([sd]),
-                        self.fluid.thermal_conductivity(),
+                        # fallback to thermal conductivity of reference component
+                        self.fluid.reference_component.thermal_conductivity,
                     ),
                     "ambient_dimension": self.nd,
                 },

@@ -1034,9 +1034,6 @@ class ManuThermoPoroMechSolutionStrategy2d(
 ):
     """Solution strategy for the verification setup."""
 
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
-
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)

@@ -48,6 +48,7 @@ from porepy.applications.md_grids.domains import nd_cube_domain
 from tests.functional.setups.manu_thermoporomech_nofrac_2d import (
     ManuThermoPoroMechDataSaving,
     SourceTerms,
+    ManuThermoPoroMechSaveData,
 )
 
 
@@ -874,9 +875,6 @@ class ManuThermoPoroMechSolutionStrategy3d(
     pp.thermoporomechanics.SolutionStrategyThermoporomechanics
 ):
     """Solution strategy for the verification setup."""
-
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
 
     def __init__(self, params: dict):
         """Constructor for the class."""

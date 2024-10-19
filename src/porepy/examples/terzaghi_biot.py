@@ -320,8 +320,8 @@ class TerzaghiUtils(VerificationUtils):
 
         """
         k = self.solid.permeability  # scaled [m^2]
-        mu_f = self.fluid.viscosity()  # scaled [Pa * s]
-        rho = self.fluid.density()  # scaled [kg * m^-3]
+        mu_f = self.fluid.reference_component.viscosity  # scaled [Pa * s]
+        rho = self.fluid.reference_component.density  # scaled [kg * m^-3]
         g = self.gravity_acceleration()  # scaled [m * s^-2]
         gamma_f = rho * g  # specific weight in scaled [Pa * m^-1]
         hydraulic_conductivity = (k * gamma_f) / mu_f  # scaled [m * s^-1]

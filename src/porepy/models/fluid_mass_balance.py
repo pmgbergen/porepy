@@ -409,7 +409,7 @@ class ConstitutiveLawsSinglePhaseFlow(
 class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     """Boundary conditions for single-phase flow."""
 
-    fluid: pp.FluidConstants
+    fluid: pp.compositional.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
@@ -473,7 +473,9 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             values on the provided boundary grid.
 
         """
-        return self.fluid.pressure() * np.ones(boundary_grid.num_cells)
+        return self.fluid.reference_component.pressure * np.ones(
+            boundary_grid.num_cells
+        )
 
     def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """**Volumetric** Darcy flux values for the Neumann boundary condition.
@@ -561,7 +563,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    fluid: pp.FluidConstants
+    fluid: pp.compositional.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
@@ -694,7 +696,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             Operator representing the reference pressure [Pa].
 
         """
-        p_ref = self.fluid.pressure()
+        p_ref = self.fluid.reference_component.pressure
         size = sum([sd.num_cells for sd in subdomains])
         return pp.wrap_as_dense_ad_array(p_ref, size, name="reference_pressure")
 

@@ -92,7 +92,7 @@ def test_boundary_condition_mixin(t_end: int):
         bc_val = bc_operator.value(setup.equation_system)
 
         # Testing the Dirichlet values. They should be equal to the fluid density.
-        expected_val = setup.fluid.density()
+        expected_val = setup.fluid.reference_component.density
         assert np.allclose(bc_val[bc_type.is_dir], expected_val)
         assert not np.allclose(bc_val[bc_type.is_neu], expected_val)
 
