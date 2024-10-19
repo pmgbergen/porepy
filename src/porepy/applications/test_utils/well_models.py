@@ -41,7 +41,7 @@ class OneVerticalWell:
 class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
     """Boundary conditions for the well setup."""
 
-    fluid: pp.FluidConstants
+    fluid: pp.compositional.Fluid
 
     params: dict[str, float]
     """Model parameters."""
@@ -111,7 +111,7 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
             Boundary condition values array.
 
         """
-        value = self.fluid.convert_units(
+        value = self.fluid.reference_component.convert_units(
             self.params.get("well_flux", -1), "kg * m ^ 3 * s ^ -1"
         )
         return self._bc_values(boundary_grid, value)
@@ -142,7 +142,9 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
             Numeric enthalpy flux values for a Neumann-type BC.
 
         """
-        val = self.fluid.convert_units(self.params.get("well_enthalpy", 1e7), "K")
+        val = self.fluid.reference_component.convert_units(
+            self.params.get("well_enthalpy", 1e7), "K"
+        )
         return self._bc_values(boundary_grid, val)
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:

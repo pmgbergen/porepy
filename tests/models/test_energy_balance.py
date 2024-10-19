@@ -53,15 +53,16 @@ class BoundaryConditionLinearPressure(
 
         sides = self.domain_boundary_sides(boundary_grid)
         vals = np.zeros(boundary_grid.num_cells)
-        vals[sides.west] = self.fluid.convert_units(1, "Pa")
+        vals[sides.west] = self.fluid.reference_component.convert_units(1, "Pa")
         return vals
 
 
 class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance):
+
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
         vals = np.zeros(boundary_grid.num_cells)
-        vals[sides.west] = self.fluid.convert_units(1, "K")
+        vals[sides.west] = self.fluid.reference_component.convert_units(1, "K")
         return vals
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -169,9 +170,9 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
             val = setup.enthalpy_flux([sd]).value(setup.equation_system)
             # Account for specific volume, default value of .01 in fractures.
             normals = np.abs(sd.face_normals[0]) * np.power(0.1, setup.nd - sd.dim)
-            k = setup.solid.permeability / setup.fluid.viscosity
+            k = setup.solid.permeability / setup.fluid.reference_component.viscosity
             grad = 1 / setup.domain.bounding_box["xmax"]
-            enth = setup.fluid.specific_heat_capacity() * normals * grad * k
+            enth = setup.fluid.reference_component.specific_heat_capacity * normals * grad * k
             assert np.all(np.abs(val) < np.abs(enth) + 1e-10)
 
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
@@ -182,7 +183,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
             sds,
             dim=1,
         ).value(setup.equation_system)
-        expected = setup.fluid.specific_heat_capacity * setup.solid.permeability / 2
+        expected = setup.fluid.reference_component.specific_heat_capacity * setup.solid.permeability / 2
         assert np.allclose(np.sum(total_energy), expected, rtol=1e-3)
 
 
@@ -207,7 +208,7 @@ def test_unit_conversion(units):
 
             sides = self.domain_boundary_sides(boundary_grid)
             vals = np.zeros(boundary_grid.num_cells)
-            vals[sides.west] = self.fluid.convert_units(10.0, "K")
+            vals[sides.west] = self.fluid.reference_component.convert_units(10.0, "K")
             return vals
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -215,7 +216,7 @@ def test_unit_conversion(units):
 
             sides = self.domain_boundary_sides(boundary_grid)
             vals = np.zeros(boundary_grid.num_cells)
-            vals[sides.west] = self.fluid.convert_units(1e4, "Pa")
+            vals[sides.west] = self.fluid.reference_component.convert_units(1e4, "Pa")
             return vals
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing
@@ -293,11 +294,9 @@ def test_energy_conservation():
                 normal_permeability=1e4,
             ),
             "fluid": pp.FluidConstants(
-                {
-                    "specific_heat_capacity": 1e0,
-                    "thermal_conductivity": 1e-6,
-                    "normal_thermal_conductivity": 1e-6,
-                }
+                specific_heat_capacity=1e0,
+                thermal_conductivity=1e-6,
+                normal_thermal_conductivity=1e-6,
             ),
         },
         # Use only the horizontal fracture of OrthogonalFractures3d

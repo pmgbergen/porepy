@@ -707,9 +707,6 @@ class ManuPoroMechSolutionStrategy2d(poromechanics.SolutionStrategyPoromechanics
     exact_sol: ManuPoroMechExactSolution2d
     """Exact solution object."""
 
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
-
     plot_results: Callable
     """Method for plotting results. Usually provided by the mixin class
     :class:`SetupUtilities`.

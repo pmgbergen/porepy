@@ -430,7 +430,9 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             values on the provided boundary grid.
 
         """
-        return self.fluid.pressure() * np.ones(boundary_grid.num_cells)
+        return self.fluid.reference_component.pressure * np.ones(
+            boundary_grid.num_cells
+        )
 
     def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """**Volumetric** Darcy flux values for the Neumann boundary condition.
@@ -629,7 +631,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
             Operator representing the reference pressure [Pa].
 
         """
-        p_ref = self.fluid.pressure()
+        p_ref = self.fluid.reference_component.pressure
         size = sum([sd.num_cells for sd in subdomains])
         return pp.wrap_as_dense_ad_array(p_ref, size, name="reference_pressure")
 

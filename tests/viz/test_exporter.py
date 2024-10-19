@@ -17,6 +17,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Generator, Any
 
 import numpy as np
 import pytest
@@ -58,7 +59,7 @@ class SingleSubdomain:
 
 
 @pytest.fixture
-def setup() -> ExporterTestSetup:
+def setup() -> Generator[ExporterTestSetup, Any, Any]:
     """Method to deliver a setup to all tests, and remove any temporary directory."""
 
     # Setup

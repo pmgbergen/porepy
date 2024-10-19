@@ -30,7 +30,7 @@ class VerificationUtils:
 
     """
 
-    fluid: pp.FluidConstants
+    fluid: pp.compositional.Fluid
     """Fluid constant object that takes care of storing and scaling numerical values
     representing fluid-related quantities. Normally, this is set by an instance of
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.

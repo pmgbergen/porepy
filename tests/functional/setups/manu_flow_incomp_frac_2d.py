@@ -749,9 +749,6 @@ class ManuIncompSolutionStrategy2d(
     exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
 
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
-
     plot_results: Callable
     """Method to plot results of the verification setup. Usually provided by the
     mixin class :class:`SetupUtilities`.
@@ -777,9 +774,9 @@ class ManuIncompSolutionStrategy2d(
         super().set_materials()
 
         # Sanity checks to guarantee the validity of the manufactured solution
-        assert self.fluid.density() == 1
-        assert self.fluid.viscosity() == 1
-        assert self.fluid.compressibility() == 0
+        assert self.fluid.reference_component.density == 1
+        assert self.fluid.reference_component.viscosity == 1
+        assert self.fluid.reference_component.compressibility == 0
         assert self.solid.permeability == 1
         assert self.solid.residual_aperture == 1
         assert self.solid.normal_permeability == 0.5

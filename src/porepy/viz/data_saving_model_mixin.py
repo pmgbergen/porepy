@@ -74,7 +74,9 @@ class DataSavingMixin(PorePyModel):
                 variables=[var], time_step_index=0
             )
             units = var.tags["si_units"]
-            values = self.fluid.convert_units(scaled_values, units, to_si=True)
+            values = self.fluid.reference_component.convert_units(
+                scaled_values, units, to_si=True
+            )
             data.append((var.domain, var.name, values))
 
         # Add secondary variables/derived quantities.
@@ -126,7 +128,9 @@ class DataSavingMixin(PorePyModel):
 
         """
         vals_scaled = getattr(self, method_name)([grid]).value(self.equation_system)
-        vals = self.fluid.convert_units(vals_scaled, units, to_si=True)
+        vals = self.fluid.reference_component.convert_units(
+            vals_scaled, units, to_si=True
+        )
         return vals
 
     def initialize_data_saving(self) -> None:
