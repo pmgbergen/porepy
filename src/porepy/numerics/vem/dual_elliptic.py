@@ -326,7 +326,7 @@ class DualElliptic(Discretization):
         M: sps.csr_matrix,
         mass: sps.csr_matrix,
         bc_weight: Optional[float] = None,
-    ) -> tuple[sps.csr_matrix, np.ndarray]:
+    ) -> tuple[sps.csr_matrix, float]:
         """Impose Neumann boundary discretization on an already assembled
         system matrix.
 
