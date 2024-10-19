@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import asdict, dataclass, field, is_dataclass
-from typing import ClassVar, Optional, TypeVar, Union, cast, overload
+from typing import Callable, ClassVar, Optional, TypeVar, Union, cast, overload
 
 import numpy as np
 
@@ -23,6 +23,7 @@ __all__ = [
     "MaterialConstants",
     "FluidConstants",
     "SolidConstants",
+    "load_fluid_constants",
 ]
 
 number = pp.number
@@ -303,6 +304,7 @@ class FluidConstants(MaterialConstants):
             "critical_pressure": "Pa",
             "critical_temperature": "K",
             "critical_specific_volume": "m^3 * kg^-1",
+            "acentric_factor": "-",
             "pressure": "Pa",
             "temperature": "K",
             "compressibility": "Pa^-1",
@@ -321,6 +323,8 @@ class FluidConstants(MaterialConstants):
     critical_temperature: number = 1
 
     critical_specific_volume: number = 1
+
+    acentric_factor: number = 0.0
 
     density: number = 1
 
@@ -450,3 +454,80 @@ class SolidConstants(MaterialConstants):
     Safety scaling factor, making fractures softer than the matrix
 
     """
+
+
+def load_fluid_constants(
+    names: list[str], package: str = "chemicals"
+) -> list[FluidConstants]:
+    """Creates a fluid species, if identifiable by ``name`` in ``package``.
+
+    Utility function to extract parameters for a fluid, like critical values.
+
+    Important:
+        The ``name`` is passed directly to the package. There is no guarantee if the
+        returned values are correct, of if the third-party package will work without
+        throwing errors.
+
+    Parameters:
+        names: A list of names or chemical formulae to look up the chemical species.
+        package: ``default='chemicals'``
+
+            Name of one of the supported packages containing chemical databases.
+            Currently supported:
+
+            - chemicals
+
+    Raises:
+        NotImplementedError: If an unsupported package is passed as argument.
+        ModuleNotFoundError: If the ``package`` could not be imported.
+
+    Returns:
+        If the look-up was successful, extracts the relevant data and returns respective
+        data structure.
+
+    """
+
+    species: list[FluidConstants] = []
+
+    cas: str
+
+    cas_loader: Callable
+    mw_loader: Callable
+    pc_loader: Callable
+    Tc_loader: Callable
+    vc_loader: Callable
+    omega_loader: Callable
+
+    if package == "chemicals":
+        # will raise import error if not found
+        import chemicals  # type: ignore
+
+        cas_loader = chemicals.CAS_from_any
+        mw_loader = lambda x: chemicals.MW(x) * 1e-3  # molas mass in kg / mol
+        pc_loader = chemicals.Pc  # critical pressure in Pa
+        Tc_loader = chemicals.Tc  # critical temperature in K
+        vc_loader = chemicals.Vc  # critical volume in m^3 / mol
+        omega_loader = chemicals.acentric.omega  # acentric factor
+
+    else:
+        raise NotImplementedError(f"Unsupported package `{package}`.")
+
+    for name in names:
+        cas = str(cas_loader(name))
+
+        # critical volume is molar, need conversion
+        mm = float(mw_loader(cas))
+        v_crit = float(vc_loader(cas)) / mm
+
+        species.append(
+            FluidConstants(
+                name=name,
+                molar_mass=mm,
+                critical_pressure=float(pc_loader(cas)),
+                critical_temperature=float(Tc_loader(cas)),
+                critical_specific_volume=v_crit,
+                acentric_factor=float(omega_loader(cas)),
+            )
+        )
+
+    return species
