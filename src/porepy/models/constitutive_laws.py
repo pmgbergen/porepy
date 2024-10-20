@@ -3376,7 +3376,7 @@ class GravityForce:
 
     """
 
-    fluid: pp.FluidConstants
+    fluid: pp.compositional.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
@@ -3412,7 +3412,9 @@ class GravityForce:
             Cell-wise nd-vector representing the gravity force [kg*s^-2*m^-2].
 
         """
-        val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
+        val = self.fluid.reference_component.convert_units(
+            pp.GRAVITY_ACCELERATION, "m*s^-2"
+        )
         size = int(sum(g.num_cells for g in grids))
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)

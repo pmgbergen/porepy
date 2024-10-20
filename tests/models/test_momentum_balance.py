@@ -434,7 +434,7 @@ def verify_elastoplastic_deformation(
     # magnitudes equal to stiffness for closed cells.
     assert np.allclose(
         traction[tang_ind][:, ~open_cells] / u_e[tang_ind][:, ~open_cells],
-        setup.solid.fracture_tangential_stiffness(),
+        setup.solid.fracture_tangential_stiffness,
         atol=1e-10,
     )
     # Check that open cells have zero traction.
@@ -588,7 +588,7 @@ class TimeDependentBCs(
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Displacement values.
 
-        Initial value is u_y = self.solid.fracture_gap() at north boundary. Adding it on
+        Initial value is u_y = self.solid.fracture_gap at north boundary. Adding it on
         the boundary ensures a stress-free initial state. For positive times, a tailored
         displacement is imposed on the north boundary. The south boundary is fixed.
 

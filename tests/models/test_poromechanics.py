@@ -21,6 +21,8 @@ from porepy.applications.test_utils import models, well_models
 class NonzeroFractureGapPoromechanics:
     """Adjust bc values and initial condition."""
 
+    fluid: pp.compositional.Fluid
+
     domain_boundary_sides: Callable
     """Boundary sides of the domain. Normally defined in a mixin instance of
     :class:`~porepy.models.geometry.ModelGeometry`.
@@ -46,7 +48,7 @@ class NonzeroFractureGapPoromechanics:
         super().initial_condition()
         # Initial pressure equals reference pressure (defaults to zero).
         self.equation_system.set_variable_values(
-            self.fluid.pressure() * np.ones(self.mdg.num_subdomain_cells()),
+            self.fluid.reference_component.pressure * np.ones(self.mdg.num_subdomain_cells()),
             [self.pressure_variable],
             time_step_index=0,
             iterate_index=0,
@@ -56,7 +58,7 @@ class NonzeroFractureGapPoromechanics:
         if len(self.mdg.subdomains()) > 1:
             top_cells = sd.cell_centers[1] > self.fluid.convert_units(0.5, "m")
             vals = np.zeros((self.nd, sd.num_cells))
-            vals[1, top_cells] = self.solid.fracture_gap()
+            vals[1, top_cells] = self.solid.fracture_gap
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.displacement_variable],
@@ -82,8 +84,8 @@ class NonzeroFractureGapPoromechanics:
             # Set mortar displacement to zero on bottom and fracture gap value on top
             vals = np.zeros((self.nd, intf.num_cells))
             vals[1, top_cells] = (
-                self.solid.fracture_gap()
-                + self.solid.maximum_elastic_fracture_opening()
+                self.solid.fracture_gap
+                + self.solid.maximum_elastic_fracture_opening
             )
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
