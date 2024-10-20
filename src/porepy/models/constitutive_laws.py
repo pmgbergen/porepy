@@ -1157,12 +1157,6 @@ class DarcysLaw:
     class:`~porepy.models.constitutive_laws.ConstantPermeability`.
 
     """
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
     nd: int
     """Ambient dimension of the problem. Normally set by a mixin instance of
     :class:`porepy.models.geometry.ModelGeometry`.
@@ -2459,6 +2453,7 @@ class ThermalExpansion:
 
     """
 
+    # NOTE not used anywhere
     def fluid_thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Thermal expansion of the fluid [1/K].
 
@@ -3435,13 +3430,6 @@ class ZeroGravityForce:
     """Zero gravity force.
 
     To be used in fluid fluxes and as body force in the force/momentum balance equation.
-
-    """
-
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
