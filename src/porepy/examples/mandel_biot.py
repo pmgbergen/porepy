@@ -377,7 +377,7 @@ class MandelExactSolution:
         F = self.setup.vertical_load()  # scaled [N * m^-1]
         nu_s = self.setup.poisson_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
+        mu_s = self.setup.solid.shear_modulus  # scaled [Pa]
         c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
         a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
 
@@ -423,7 +423,7 @@ class MandelExactSolution:
         F = self.setup.vertical_load()  # scaled [N * m^-1]
         nu_s = self.setup.poisson_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
+        mu_s = self.setup.solid.shear_modulus  # scaled [Pa]
         c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
         a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
 
@@ -480,8 +480,8 @@ class MandelExactSolution:
         # Retrieve physical data
         F = self.setup.vertical_load()  # scaled [N * m^-1]
         B = self.setup.skempton_coefficient()  # [-]
-        k = self.setup.solid.permeability()  # scaled [m^2]
-        mu_f = self.setup.fluid.viscosity()  # scaled [Pa * s]
+        k = self.setup.solid.permeability  # scaled [m^2]
+        mu_f = self.setup.fluid.reference_component.viscosity  # scaled [Pa * s]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
         c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
         a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
@@ -606,7 +606,7 @@ class MandelExactSolution:
         # Retrieve physical and geometric data
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
         nu_s = self.setup.poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
+        mu_s = self.setup.solid.shear_modulus  # scaled [Pa]
         F = self.setup.vertical_load()  # scaled [N * m^-1]
         a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
         b = self.setup.domain.bounding_box["ymax"]  # scaled [m]

@@ -204,10 +204,10 @@ class ManuCompExactSolution2d:
         """Constructor of the class."""
 
         # Retrieve material constant from the setup
-        rho_0 = setup.fluid.density()  # [kg * m^-3]  Reference fluid density
-        p_0 = setup.fluid.pressure()  # [Pa] Reference fluid pressure
-        c_f = setup.fluid.compressibility()  # [Pa^-1]  Fluid compressibility
-        phi_0 = setup.solid.porosity()  # [-] Reference porosity
+        rho_0 = setup.fluid.reference_component.density  # [kg * m^-3]  Reference fluid density
+        p_0 = setup.fluid.reference_component.pressure  # [Pa] Reference fluid pressure
+        c_f = setup.fluid.reference_component.compressibility  # [Pa^-1]  Fluid compressibility
+        phi_0 = setup.solid.porosity  # [-] Reference porosity
 
         # Symbolic variables
         x, y, t = sym.symbols("x y t")

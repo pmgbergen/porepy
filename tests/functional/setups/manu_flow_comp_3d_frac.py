@@ -47,10 +47,10 @@ class ManuCompExactSolution3d:
         self.setup = setup
 
         # Retrieve material constant from the setup
-        rho_0 = self.setup.fluid.density()  # [kg * m^-3]  Reference fluid density
-        p_0 = self.setup.fluid.pressure()  # [Pa] Reference fluid pressure
-        c_f = self.setup.fluid.compressibility()  # [Pa^-1]  Fluid compressibility
-        phi_0 = self.setup.solid.porosity()  # [-] Reference porosity
+        rho_0 = self.setup.fluid.reference_component.density  # [kg * m^-3]  Reference fluid density
+        p_0 = self.setup.fluid.reference_component.pressure  # [Pa] Reference fluid pressure
+        c_f = self.setup.fluid.reference_component.compressibility  # [Pa^-1]  Fluid compressibility
+        phi_0 = self.setup.solid.porosity  # [-] Reference porosity
 
         # Symbolic variables
         x, y, z, t = sym.symbols("x y z t")

@@ -2898,6 +2898,29 @@ class GravityForce(PorePyModel):
 
     """
 
+<<<<<<< HEAD
+=======
+    fluid: pp.compositional.Fluid
+    """Fluid constant object that takes care of scaling of fluid-related quantities.
+    Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
+    e_i: Callable[[Union[list[pp.Grid], list[pp.MortarGrid]], int, int], pp.ad.Operator]
+    """Function that returns the unit vector in the i-th direction.
+
+    Normally provided by a mixin of instance
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+
+    nd: int
+    """Ambient dimension of the problem. Normally set by a mixin instance of
+    :class:`~porepy.models.geometry.ModelGeometry`.
+
+    """
+
+>>>>>>> c07a4d830 (MOD: Adapting some remaining, untyped usage of fluid and solid constants.)
     def gravity_force(
         self,
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
@@ -2914,7 +2937,9 @@ class GravityForce(PorePyModel):
             Cell-wise nd-vector representing the gravity force [kg*s^-2*m^-2].
 
         """
-        val = self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
+        val = self.fluid.reference_component.convert_units(
+            pp.GRAVITY_ACCELERATION, "m*s^-2"
+        )
         size = int(sum(g.num_cells for g in grids))
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
         rho = getattr(self, material + "_density")(grids)
