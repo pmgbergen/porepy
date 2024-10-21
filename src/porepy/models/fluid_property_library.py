@@ -11,7 +11,7 @@ refactor tests since their name space changed to model.fluid
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Sequence, cast
 
 import porepy as pp
 
@@ -40,7 +40,7 @@ class FluidDensityFromPressure:
 
     """
 
-    def fluid_compressibility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def fluid_compressibility(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
         """Fluid compressibility.
 
         Parameters:
@@ -80,7 +80,7 @@ class FluidDensityFromPressure:
             rho_ref = Scalar(
                 self.fluid.reference_component.density, "reference_fluid_density"
             )
-            rho_ = rho_ref * self.pressure_exponential(domains)
+            rho_ = rho_ref * self.pressure_exponential(cast(list[pp.Grid], domains))
             rho_.set_name("fluid_density")
             return rho_
 
@@ -125,7 +125,7 @@ class FluidDensityFromTemperature:
 
     """
 
-    def fluid_thermal_expansion(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+    def fluid_thermal_expansion(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
         """
         Parameters:
             subdomains: List of subdomains. Not used, but included for consistency with
@@ -158,7 +158,7 @@ class FluidDensityFromTemperature:
             rho_ref = Scalar(
                 self.fluid.reference_component.density, "reference_fluid_density"
             )
-            rho_ = rho_ref * self.temperature_exponential(domains)
+            rho_ = rho_ref * self.temperature_exponential(cast(list[pp.Grid], domains))
             rho_.set_name("fluid_density")
             return rho_
 
@@ -213,8 +213,8 @@ class FluidDensityFromPressureAndTemperature(
 
             rho_ = (
                 rho_ref
-                * self.pressure_exponential(domains)
-                * self.temperature_exponential(domains)
+                * self.pressure_exponential(cast(list[pp.Grid], domains))
+                * self.temperature_exponential(cast(list[pp.Grid], domains))
             )
             rho_.set_name("fluid_density_from_pressure_and_temperature")
             return rho_
@@ -365,8 +365,10 @@ class FluidEnthalpyFromTemperature:
         to provide a linear specific enthalpy for the fluid's phase."""
 
         def h(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            c = self.fluid_specific_heat_capacity(domains)
-            enthalpy = c * self.perturbation_from_reference("temperature", domains)
+            c = self.fluid_specific_heat_capacity(cast(list[pp.Grid], domains))
+            enthalpy = c * self.perturbation_from_reference(
+                "temperature", cast(list[pp.Grid], domains)
+            )
             enthalpy.set_name("fluid_enthalpy")
             return enthalpy
 
