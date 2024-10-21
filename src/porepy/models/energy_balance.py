@@ -265,20 +265,20 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux.set_name("interface_energy_flux")
         return flux
 
-    def mobility_rho_h(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def mobility_rho_h(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """ "Non-linear weight in the advective enthalpy flux.
 
         Parameters:
-            grids: A list of either subdomains or boundary grids.
+            domains: A list of either subdomains or boundary grids.
 
         Returns:
             The expression :math:`\\frac{\\rho h}{\\mu}` in operator form.
 
         """
         result = (
-            self.fluid.specific_enthalpy(grids)
-            * self.fluid.density(grids)
-            * self.mobility(grids)
+            self.fluid.specific_enthalpy(domains)
+            * self.fluid.density(domains)
+            * self.mobility(domains)
         )
         return result
 
