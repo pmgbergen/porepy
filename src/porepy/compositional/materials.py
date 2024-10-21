@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import asdict, dataclass, field, is_dataclass
-from typing import Callable, ClassVar, Optional, TypeVar, Union, cast, overload
+from typing import Callable, ClassVar, Generic, Optional, TypeVar, Union, cast, overload
 
 import numpy as np
 
@@ -28,8 +28,11 @@ __all__ = [
 
 number = pp.number
 
+_K = TypeVar("_K")
+_V = TypeVar("_V")
 
-class _HashableDict(OrderedDict):
+
+class _HashableDict(Generic[_K, _V], OrderedDict):
     """See https://stackoverflow.com/questions/1151658/python-hashable-dicts.
 
     We require hashable dictionaries for the below material constant classes which

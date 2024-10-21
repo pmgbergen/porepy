@@ -11,6 +11,12 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.models.protocol import PorePyModel
 
+from .fluid_property_library import *  # noqa: F403, F401
+from .fluid_property_library import (
+    ConstantFluidThermalConductivity,
+    FluidEnthalpyFromTemperature,
+)
+
 number = pp.number
 Scalar = pp.ad.Scalar
 
@@ -2918,9 +2924,10 @@ class GravityForce(PorePyModel):
             pp.GRAVITY_ACCELERATION, "m*s^-2"
         )
         size = int(sum(g.num_cells for g in grids))
+        gravity: pp.ad.Operator
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
         if material == "fluid":
-            rho = self.fluid.density(grids)
+            rho = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
         elif material == "solid":
             rho = self.solid_density(grids)
         else:
