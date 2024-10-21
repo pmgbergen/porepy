@@ -659,7 +659,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
 
         .. code:: python
 
-            rho = self.fluid_density(subdomains)
+            rho = self.fluid.density(subdomains)
             phi = self.volume_integral(self.porosity(subdomains), subdomains, dim=1)
             dt_op = pp.ad.time_derivatives.dt
             dt = pp.ad.Scalar(self.time_manager.dt, name="delta_t")

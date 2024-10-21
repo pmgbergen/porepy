@@ -26,7 +26,7 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
 
     custom_bc_neumann_key = "custom_bc_neumann"
 
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    fluid: pp.compositional.Fluid
 
     def update_all_boundary_conditions(self) -> None:
         super().update_all_boundary_conditions()
@@ -58,7 +58,7 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
         )
         return self._combine_boundary_operators(
             subdomains=subdomains,
-            dirichlet_operator=self.fluid_density,
+            dirichlet_operator=self.fluid.density,
             neumann_operator=op,
             robin_operator=op,
             bc_type=self.bc_type_dummy,

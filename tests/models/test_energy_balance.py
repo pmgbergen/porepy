@@ -313,7 +313,7 @@ def test_energy_conservation():
 
     sds = setup.mdg.subdomains()
     u = setup.volume_integral(setup.total_internal_energy(sds), sds, 1)
-    h_f = setup.fluid_enthalpy(sds) * setup.porosity(sds)
+    h_f = setup.fluid.specific_enthalpy(sds) * setup.porosity(sds)
     h_s = setup.solid_enthalpy(sds) * (pp.ad.Scalar(1) - setup.porosity(sds))
     h = setup.volume_integral(h_f + h_s, sds, 1)
     u_val = np.sum(u.value(setup.equation_system))
@@ -326,7 +326,7 @@ def test_energy_conservation():
         setup.equation_system
     )
     well_fluid_flux = setup.well_flux(well_intf).value(setup.equation_system)
-    h_well = setup.fluid_enthalpy(setup.mdg.subdomains(dim=0)).value(
+    h_well = setup.fluid.specific_enthalpy(setup.mdg.subdomains(dim=0)).value(
         setup.equation_system
     )
     # The well enthalpy flux should be equal to well enthalpy times well fluid flux

@@ -39,6 +39,8 @@ class MassBalanceEquations(pp.BalanceEquation):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
+    fluid: pp.compositional.Fluid
+    """"Fluid object. See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
@@ -50,9 +52,6 @@ class MassBalanceEquations(pp.BalanceEquation):
     """EquationSystem object for the current model. Normally defined in a mixin class
     defining the solution strategy.
 
-    """
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid density. Defined in a mixin class with a suitable constitutive relation.
     """
     porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
@@ -208,7 +207,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the cell-wise fluid mass.
 
         """
-        mass_density = self.fluid_density(subdomains) * self.porosity(subdomains)
+        mass_density = self.fluid.density(subdomains) * self.porosity(subdomains)
         mass = self.volume_integral(mass_density, subdomains, dim=1)
         mass.set_name("fluid_mass")
         return mass
@@ -225,7 +224,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid density times mobility [s * m^-2].
 
         """
-        return self.fluid_density(domains) * self.mobility(domains)
+        return self.fluid.density(domains) * self.mobility(domains)
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Fluid flux as Darcy flux times density and mobility.
@@ -306,7 +305,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
+        mob_rho = self.mobility_rho(subdomains)
         # Call to constitutive law for advective fluxes.
         flux: pp.ad.Operator = self.interface_advective_flux(interfaces, mob_rho, discr)
         flux.set_name("interface_fluid_flux")
@@ -324,7 +323,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
+        mob_rho = self.mobility_rho(subdomains)
         # Call to constitutive law for advective fluxes.
         flux: pp.ad.Operator = self.well_advective_flux(interfaces, mob_rho, discr)
         flux.set_name("well_fluid_flux")
