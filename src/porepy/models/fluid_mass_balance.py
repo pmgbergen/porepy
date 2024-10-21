@@ -907,6 +907,7 @@ class SinglePhaseFlow(  # type: ignore[misc]
     ConstitutiveLawsSinglePhaseFlow,
     BoundaryConditionsSinglePhaseFlow,
     SolutionStrategySinglePhaseFlow,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

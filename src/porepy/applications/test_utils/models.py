@@ -15,7 +15,11 @@ from porepy.applications.md_grids.model_geometries import (
 
 
 class NoPhysics(  # type: ignore[misc]
-    pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin, pp.BoundaryConditionMixin
+    pp.ModelGeometry,
+    pp.SolutionStrategy,
+    pp.DataSavingMixin,
+    pp.BoundaryConditionMixin,
+    pp.FluidMixin,
 ):
     """A model with no physics, for testing purposes.
 

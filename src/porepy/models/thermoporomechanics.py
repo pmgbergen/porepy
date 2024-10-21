@@ -230,6 +230,7 @@ class Thermoporomechanics(  # type: ignore[misc]
     VariablesThermoporomechanics,
     BoundaryConditionsThermoporomechanics,
     ConstitutiveLawsThermoporomechanics,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
