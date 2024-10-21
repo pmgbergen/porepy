@@ -56,7 +56,7 @@ class NonzeroFractureGapPoromechanics:
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
         # Initial displacement.
         if len(self.mdg.subdomains()) > 1:
-            top_cells = sd.cell_centers[1] > self.fluid.convert_units(0.5, "m")
+            top_cells = sd.cell_centers[1] > self.fluid.reference_component.convert_units(0.5, "m")
             vals = np.zeros((self.nd, sd.num_cells))
             vals[1, top_cells] = self.solid.fracture_gap
             self.equation_system.set_variable_values(
@@ -140,7 +140,7 @@ class NonzeroFractureGapPoromechanics:
             if sd.dim == self.nd:
                 vals.append(np.zeros(sd.num_cells))
             else:
-                val = self.fluid.convert_units(
+                val = self.fluid.reference_component.convert_units(
                     self.params["fracture_source_value"], "kg * s ^ -1"
                 )
                 vals.append(val * np.ones(sd.num_cells))

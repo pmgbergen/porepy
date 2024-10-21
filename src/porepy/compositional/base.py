@@ -49,7 +49,7 @@ Important:
 
 from __future__ import annotations
 
-from dataclasses import asdict, fields
+from dataclasses import fields
 from typing import Generator, Sequence, Type, TypeVar
 
 import numpy as np
@@ -138,10 +138,10 @@ class Component(FluidConstants):
             A component instance to be used in PorePy.
 
         """
-        constants = asdict(fluid_constants)
-        # filter out the field which is not in the init signature of the base class
-        if "constants_in_SI" in constants:
-            constants.pop("constants_in_SI")
+        # Start from SI units to avoid double-scaling using the given units
+        constants = dict(fluid_constants.constants_in_SI)
+        constants["name"] = fluid_constants.name
+        constants["units"] = fluid_constants.units
         return cls(**constants)
 
 
@@ -534,7 +534,7 @@ class Phase:
 
         """
 
-        self.conductivity: ExtendedDomainFunctionType
+        self.thermal_conductivity: ExtendedDomainFunctionType
         """Thermal conductivity of this phase.
 
         Scalar field with physical dimensions``[W / m / K]``.
@@ -1046,7 +1046,7 @@ class Fluid:
 
             op = pp.ad.sum_operator_list(
                 [
-                    phase.saturation(domains) * phase.conductivity(domains)
+                    phase.saturation(domains) * phase.thermal_conductivity(domains)
                     for phase in self.phases
                 ],
                 "fluid_thermal_conductivity",
@@ -1054,7 +1054,7 @@ class Fluid:
 
         else:
 
-            op = self.reference_phase.conductivity(domains)
+            op = self.reference_phase.thermal_conductivity(domains)
             op.set_name("fluid_thermal_conductivity")
 
         return op

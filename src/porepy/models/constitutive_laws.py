@@ -2996,6 +2996,9 @@ class GravityForce:
 
     """
 
+    solid_density: Callable[Union[list[pp.Grid], list[pp.MortarGrid]], pp.ad.Operator]
+    """Density of the solid in operator form. See e.g.,  :class:`ConstantSolidDensity`."""
+
     def gravity_force(
         self,
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
@@ -3017,7 +3020,12 @@ class GravityForce:
         )
         size = int(sum(g.num_cells for g in grids))
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
-        rho = getattr(self, material + "_density")(grids)
+        if material == "fluid":
+            rho = self.fluid.density(grids)
+        elif material == "solid":
+            rho = self.solid_density(grids)
+        else:
+            raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d). Ignore
         # type error, can't get mypy to understand keyword-only arguments in mixin.

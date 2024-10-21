@@ -459,4 +459,73 @@ def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
         ):
             testable_methods.append(method)
 
-    return testable_methods
+    # Appending testable methods of the fluid
+    fluid_methods = [
+        method for method in dir(model_setup.fluid) if not method.startswith("_")
+    ]
+    testable_fluid_methods: list[str] = []
+    # The basic flow model has no energy-related
+    skip_methods = ["specific_enthalpy", "thermal_conductivity"]
+    for method in fluid_methods:
+        if method in skip_methods:
+            continue
+        # Get method in callable form
+        callable_method = getattr(model_setup.fluid, method)
+
+        # Retrieve method signature via inspect
+        try:
+            signature = inspect.signature(callable_method)
+        except TypeError:
+            continue
+
+        # Append method to the `testable_methods` list if the conditions are met
+        if (
+            len(signature.parameters) == 1
+            and (
+                "subdomains" in signature.parameters
+                or "interfaces" in signature.parameters
+                or "domains" in signature.parameters
+            )
+            and (
+                "pp.ad.Operator" in signature.return_annotation
+                or "pp.ad.DenseArray" in signature.return_annotation
+            )
+        ):
+            testable_fluid_methods.append(f"fluid.{method}")
+
+    # The fluid is represented by a reference phase, whose saturation is 1
+    # I.e., it's thermodynamic properties are equal to the fluid properties
+    phase_methods = [
+        method
+        for method in dir(model_setup.fluid.reference_phase)
+        if not method.startswith("_")
+    ]
+    testable_phase_methods: list[str] = []
+    for method in phase_methods:
+        if method in skip_methods:
+            continue
+        # Get method in callable form
+        callable_method = getattr(model_setup.fluid.reference_phase, method)
+
+        # Retrieve method signature via inspect
+        try:
+            signature = inspect.signature(callable_method)
+        except TypeError:
+            continue
+
+        # Append method to the `testable_methods` list if the conditions are met
+        if (
+            len(signature.parameters) == 1
+            and (
+                "subdomains" in signature.parameters
+                or "interfaces" in signature.parameters
+                or "domains" in signature.parameters
+            )
+            and (
+                "pp.ad.Operator" in signature.return_annotation
+                or "pp.ad.DenseArray" in signature.return_annotation
+            )
+        ):
+            testable_phase_methods.append(f"fluid.reference_phase.{method}")
+
+    return testable_methods + testable_fluid_methods + testable_phase_methods

@@ -958,6 +958,7 @@ class MomentumBalance(  # type: ignore[misc]
     ConstitutiveLawsMomentumBalance,
     BoundaryConditionsMomentumBalance,
     SolutionStrategyMomentumBalance,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

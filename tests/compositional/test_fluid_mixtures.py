@@ -131,26 +131,17 @@ def test_mixture_contexts(
 
     nphase = len(phaseconfig)
     ncomp = len(species)
-
-    species_kwargs = {
-        "molar_mass": 1.0,
-        "p_crit": 1.0,
-        "T_crit": 1.0,
-        "V_crit": 1.0,
-        "omega": 1.0,
-    }
-
     # h2o = composit.Component.from_species(composit.load_species(["H2O"])[0])
     # Creating dummy components. Physical properties have no relevance for this test
 
     # 1 separate component for the dummy eos, just to instantiate it.
-    h2o = composit.Component(name="H2O", CASr_number="1", **species_kwargs)
+    h2o = composit.Component(name="H2O")
 
     # components: list[composit.Component] = [
     #     composit.Component.from_species(s) for s in composit.load_species(species)
     # ]
     components: list[composit.Component] = [
-        composit.Component(name=s, CASr_number=f"{i}", **species_kwargs)
+        composit.Component(name=s)
         for i, s in enumerate(species)
     ]
 
@@ -224,15 +215,7 @@ def test_mixture_member_assignment(
     fluid mixtures are assigned by the compositional mixins. Tested with and without
     independent reference component/phase fractions."""
 
-    species_kwargs = {
-        "molar_mass": 1.0,
-        "p_crit": 1.0,
-        "T_crit": 1.0,
-        "V_crit": 1.0,
-        "omega": 1.0,
-    }
     # Creating dummy components. Physical properties have no relevance for this test
-
     comp1 = composit.Compound.from_fluid_constants(pp.FluidConstants(name='H2O'))
     comp1.active_tracers = [pp.FluidConstants(name='NaCl')]
     comp2 = composit.Component.from_fluid_constants(pp.FluidConstants(name='CO2'))
@@ -291,7 +274,7 @@ def test_mixture_member_assignment(
         assert hasattr(phase, "specific_volume")
         assert hasattr(phase, "specific_enthalpy")
         assert hasattr(phase, "viscosity")
-        assert hasattr(phase, "conductivity")
+        assert hasattr(phase, "thermal_conductivity")
         assert hasattr(phase, "partial_fraction_of")
 
         # NOTE fraction and extended fractions are assigned in any case
@@ -399,14 +382,14 @@ def test_mixture_member_assignment(
         assert isinstance(phase.specific_enthalpy(sds), pp.ad.Operator)
         assert isinstance(phase.specific_volume(sds), pp.ad.Operator)
         assert isinstance(phase.viscosity(sds), pp.ad.Operator)
-        assert isinstance(phase.conductivity(sds), pp.ad.Operator)
+        assert isinstance(phase.thermal_conductivity(sds), pp.ad.Operator)
 
         assert isinstance(phase.density(bgs), pp.ad.TimeDependentDenseArray)
         assert isinstance(phase.specific_enthalpy(bgs), pp.ad.TimeDependentDenseArray)
         # NOTE Volume is taken as the reciprocal of density, hence a general operator
         assert isinstance(phase.specific_volume(bgs), pp.ad.Operator)
         assert isinstance(phase.viscosity(bgs), pp.ad.TimeDependentDenseArray)
-        assert isinstance(phase.conductivity(bgs), pp.ad.TimeDependentDenseArray)
+        assert isinstance(phase.thermal_conductivity(bgs), pp.ad.TimeDependentDenseArray)
 
         # Fugacities are always created as well
         for comp in phase:

@@ -353,8 +353,11 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ("well_flux_equation", 0, 2),  # use dim_restriction=2 to ignore well equation
         ("well_radius", 0.1, None),
         # Testing of methods with deeper namespace
-        ("fluid.reference_phase.viscosity", 0.001, None),
         ("fluid.density", 1000 * np.exp(4e-10 * 200 * pp.BAR), None),
+        ("fluid.specific_volume", 1. / (1000 * np.exp(4e-10 * 200 * pp.BAR)), None),
+        ("fluid.reference_phase.density", 1000 * np.exp(4e-10 * 200 * pp.BAR), None),
+        ("fluid.reference_phase.specific_volume", 1. / (1000 * np.exp(4e-10 * 200 * pp.BAR)), None),
+        ("fluid.reference_phase.viscosity", 0.001, None),
     ],
 )
 def test_ad_operator_methods_single_phase_flow(
