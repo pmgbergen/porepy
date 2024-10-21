@@ -207,7 +207,9 @@ class FluidDensityFromPressureAndTemperature(
         """
 
         def rho(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            rho_ref = Scalar(self.fluid.density(), "reference_fluid_density")
+            rho_ref = Scalar(
+                self.fluid.reference_component.density, "reference_fluid_density"
+            )
 
             rho_ = (
                 rho_ref
@@ -295,7 +297,9 @@ class ConstantFluidThermalConductivity:
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
 
     # NOTE replaces mixin fluid_thermal_conductivity
-    def conductivity_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
+    def thermal_conductivity_of_phase(
+        self, phase: pp.Phase
+    ) -> ExtendedDomainFunctionType:
         """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
         to provide a constant thermal conductivity for the fluid's phase."""
 

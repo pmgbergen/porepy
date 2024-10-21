@@ -192,7 +192,7 @@ class MandelDataSaving(VerificationDataSaving):
 
         exact_flux = self.exact_sol.flux(sd, t)
         flux_ad = self.darcy_flux([sd])
-        mobility = 1 / self.fluid.reference_component.viscosity()
+        mobility = 1 / self.fluid.reference_component.viscosity
         approx_flux = mobility * flux_ad.value(self.equation_system)
         error_flux = ConvergenceAnalysis.l2_error(
             grid=sd,

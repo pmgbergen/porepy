@@ -323,7 +323,7 @@ class ManuThermoPoroMechExactSolution2d:
         # Specific heat capacity of the fluid
         fluid_specific_heat = setup.fluid.reference_component.specific_heat_capacity
         # Specific heat capacity of the solid
-        solid_specific_heat = setup.solid.reference_component.specific_heat_capacity
+        solid_specific_heat = setup.solid.specific_heat_capacity
         # Reference pressure and temperature
         p_0 = setup.fluid.reference_component.pressure
         T_0 = setup.fluid.reference_component.temperature

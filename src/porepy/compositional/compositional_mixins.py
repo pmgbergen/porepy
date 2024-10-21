@@ -42,6 +42,25 @@ DomainFunctionType = pp.DomainFunctionType
 ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
+def _no_property_function(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    """ "Helper function to define missing phase property functions."""
+    raise NotImplementedError("Missing mixed-in constitutive laws.")
+
+
+def _get_surrogate_factory_as_property(
+    name: str,
+    mdg: pp.MixedDimensionalGrid,
+    dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
+) -> pp.ad.SurrogateFactory:
+    """Helper function to get a surrogate factory as a phase property, by providing
+    the name, the mD grid and the list of dependencies (like pressure, temperature)."""
+    return pp.ad.SurrogateFactory(
+        name,
+        mdg,
+        dependencies,
+    )
+
+
 class _MixtureDOFHandler:
     """A class to help resolve the independent fractional variables of an arbitrary
     mixture, and respectivly the DOFs.
@@ -1028,7 +1047,7 @@ class FluidMixin:
     - :meth:`specific_volume_of_phase`
     - :meth:`specific_enthalpy_of_phase`
     - :meth:`viscosity_of_phase`
-    - :meth:`conductivity_of_phase`
+    - :meth:`thermal_conductivity_of_phase`
     - :meth:`fugacity_coefficient`
 
     There is no need to modify the :attr:`fluid` itself.
@@ -1192,8 +1211,8 @@ class FluidMixin:
         - :meth:`specific_enthalpy_of_phase` to
           :attr:`~porepy.compositional.base.Phase.specific_enthalpy`
         - :meth:`viscosity_of_phase` to :attr:`~porepy.compositional.base.Phase.viscosity`
-        - :meth:`conductivity_of_phase` to
-          :attr:`~porepy.compositional.base.Phase.conductivity`
+        - :meth:`thermal_conductivity_of_phase` to
+          :attr:`~porepy.compositional.base.Phase.thermal_conductivity`
         - :meth:`fugacity_coefficient` to
           :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of`
           for each component in respective phase.
@@ -1209,7 +1228,7 @@ class FluidMixin:
             phase.specific_volume = self.specific_volume_of_phase(phase)
             phase.specific_enthalpy = self.specific_enthalpy_of_phase(phase)
             phase.viscosity = self.viscosity_of_phase(phase)
-            phase.conductivity = self.conductivity_of_phase(phase)
+            phase.thermal_conductivity = self.thermal_conductivity_of_phase(phase)
             phase.fugacity_coefficient_of = {}
             for comp in phase:
                 phase.fugacity_coefficient_of[comp] = self.fugacity_coefficient(
@@ -1231,50 +1250,67 @@ class FluidMixin:
         Otherwise they are depend on pressure, temperature and **independent** overall
         fractions.
 
+        Important:
+            This method must be overwritten in every flow problem which does not rely
+            on heuristics. The base method returns an empty list for reasons of compatibility
+            with pure mechanics models. Bewelow is an example to implement the logic explained
+            above.
+
+        Example:
+
+            .. code-block:: python
+
+                class MyMixin:
+
+                    def dependencies_of_phase_properties(
+                        self, phase: Phase
+                    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+
+                        dependencies = [self.pressure]
+                        if self._has_unified_equilibrium:
+
+                            dependencies +=  [self.temperature] + [
+                                phase.extended_fraction_of[component]
+                                for component in phase
+                                if self.has_independent_extended_fraction(component, phase)
+                            ]
+
+                        elif self._has_equilibrium:
+
+                            dependencies += [self.temperature] + [
+                                phase.partial_fraction_of[component]
+                                for component in phase
+                                if self.has_independent_partial_fraction(component, phase)
+                            ]
+
+                        else:
+
+                            dependencies += [
+                                component.fraction
+                                for component in self.fluid.components
+                                if self.has_independent_fraction(component)
+                            ]
+
+                        return dependencies
+
         """
-        dependencies = [self.pressure, self.temperature]
-        if self._has_unified_equilibrium:
-            dependencies += [
-                phase.extended_fraction_of[component]
-                for component in phase
-                if self.has_independent_extended_fraction(component, phase)
-            ]
-        elif self._has_equilibrium:
-            dependencies += [
-                phase.partial_fraction_of[component]
-                for component in phase
-                if self.has_independent_partial_fraction(component, phase)
-            ]
-        else:
-
-            dependencies += [
-                component.fraction
-                for component in self.fluid.components
-                if self.has_independent_fraction(component)
-            ]
-
-        # casting to include mortar grids and variables as return types.
-        # This is used as an argument for Surrogate factories, so we must have the
-        # mortars as well
-        return cast(
-            Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]], dependencies
-        )
+        return []
 
     def density_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
         """This base method returns the density of a ``phase`` as a
-        :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`.
-
-        It is populated by the solution strategy, depending on how
-        the equilibrium conditions and constitutive laws are implemented.
+        :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`,
+        if :meth:`dependencies_of_phase_properties`. Otherwise it returns an empty function,
+        raising an error when called (missing mixin of constitutive laws).
 
         The phase density (like all thermodynamic properties) is a dependent quantity.
 
         """
-        return pp.ad.SurrogateFactory(
-            f"phase_{phase.name}_density",
-            self.mdg,
-            self.dependencies_of_phase_properties(phase),
-        )
+        name = f"phase_{phase.name}_density"
+        dependencies = self.dependencies_of_phase_properties(phase)
+        if dependencies:
+            return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
+        else:
+            return _no_property_function
 
     def specific_volume_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
         """The specific volume of the phase is returned as a function calling the
@@ -1289,45 +1325,49 @@ class FluidMixin:
         return volume
 
     def specific_enthalpy_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
-        """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
-        the specific enthalpy of a ``phase``."""
-        return pp.ad.SurrogateFactory(
-            f"phase_{phase.name}_specific_enthalpy",
-            self.mdg,
-            self.dependencies_of_phase_properties(phase),
-        )
+        """Analogous to :meth:`density_of_phase`, but for
+        :attr:`~porepy.compositional.base.Phase.specific_enthalpy`."""
+        name = f"phase_{phase.name}_specific_enthalpy"
+        dependencies = self.dependencies_of_phase_properties(phase)
+        if dependencies:
+            return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
+        else:
+            return _no_property_function
 
     def viscosity_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
-        """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
-        the dynamic viscosity of a ``phase``."""
-        return pp.ad.SurrogateFactory(
-            f"phase_{phase.name}_viscosity",
-            self.mdg,
-            self.dependencies_of_phase_properties(phase),
-        )
+        """Analogous to :meth:`density_of_phase`,  but for
+        :attr:`~porepy.compositional.base.Phase.viscosity`."""
+        name = f"phase_{phase.name}_viscosity"
+        dependencies = self.dependencies_of_phase_properties(phase)
+        if dependencies:
+            return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
+        else:
+            return _no_property_function
 
-    def conductivity_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
-        """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
-        the thermal conductivity of a ``phase``."""
-        return pp.ad.SurrogateFactory(
-            f"phase_{phase.name}_conductivity",
-            self.mdg,
-            self.dependencies_of_phase_properties(phase),
-        )
+    def thermal_conductivity_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
+        """Analogous to :meth:`density_of_phase`, but for
+        :attr:`~porepy.compositional.base.Phase.thermal_conductivity`."""
+        name = f"phase_{phase.name}_conductivity"
+        dependencies = self.dependencies_of_phase_properties(phase)
+        if dependencies:
+            return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
+        else:
+            return _no_property_function
 
     def fugacity_coefficient(
         self, component: Component, phase: Phase
     ) -> ExtendedDomainFunctionType:
-        """Analogous to :meth:`density_of_phase`, creating a new surrogate factory for
-        the fugacity coefficient of a ``component`` in a ``phase``.
+        """Analogous to :meth:`density_of_phase`, but for
+        :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of`.
 
         Note:
             Fugacity coefficient appear only in the local equilibrium
             equation or other chemistry-related models, but not in flow and transport.
 
         """
-        return pp.ad.SurrogateFactory(
-            f"fugacity_coefficient_{component.name}_in_{phase.name}",
-            self.mdg,
-            self.dependencies_of_phase_properties(phase),
-        )
+        name = f"fugacity_coefficient_{component.name}_in_{phase.name}"
+        dependencies = self.dependencies_of_phase_properties(phase)
+        if dependencies:
+            return _get_surrogate_factory_as_property(name, self.mdg, dependencies)
+        else:
+            return _no_property_function
