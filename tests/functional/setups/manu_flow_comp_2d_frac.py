@@ -204,10 +204,10 @@ class ManuCompExactSolution2d:
         """Constructor of the class."""
 
         # Retrieve material constant from the setup
-        rho_0 = setup.fluid.density()  # [kg * m^-3]  Reference fluid density
-        p_0 = setup.fluid.pressure()  # [Pa] Reference fluid pressure
-        c_f = setup.fluid.compressibility()  # [Pa^-1]  Fluid compressibility
-        phi_0 = setup.solid.porosity()  # [-] Reference porosity
+        rho_0 = setup.fluid.reference_component.density  # [kg * m^-3]  Reference fluid density
+        p_0 = setup.fluid.reference_component.pressure  # [Pa] Reference fluid pressure
+        c_f = setup.fluid.reference_component.compressibility  # [Pa^-1]  Fluid compressibility
+        phi_0 = setup.solid.porosity  # [-] Reference porosity
 
         # Symbolic variables
         x, y, t = sym.symbols("x y t")
@@ -686,9 +686,6 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
     exact_sol: ManuCompExactSolution2d
     """Exact solution object."""
 
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
-
     plot_results: Callable
     """Method to plot results of the verification setup. Usually provided by the
     mixin class :class:`SetupUtilities`.
@@ -719,10 +716,10 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
         super().set_materials()
 
         # Sanity checks
-        assert self.fluid.viscosity() == 1
-        assert self.solid.permeability() == 1
-        assert self.solid.residual_aperture() == 1
-        assert self.solid.normal_permeability() == 0.5
+        assert self.fluid.reference_component.viscosity == 1
+        assert self.solid.permeability == 1
+        assert self.solid.residual_aperture == 1
+        assert self.solid.normal_permeability == 0.5
 
         # Instantiate exact solution object
         self.exact_sol = ManuCompExactSolution2d(self)

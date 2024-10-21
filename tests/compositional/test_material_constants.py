@@ -142,8 +142,7 @@ def test_convert_units(modify_dict, base_units, derived_units):
     # Assign the units to a material, which has a conversion method.
     # We need to pass a dictionary to the __init__ of the the MaterialConstant class,
     # but the values are not used in the test, so make the dict empty.
-    material = pp.MaterialConstants({})
-    material.set_units(units)
+    material = pp.MaterialConstants(units=units)
 
     # Test that the conversion works for base units
     for unit in base_units:

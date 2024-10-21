@@ -20,7 +20,7 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
 
     """
 
-    fluid: pp.FluidConstants
+    fluid: pp.Fluid
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
@@ -54,7 +54,9 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
         """
         domain_sides = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[domain_sides.west + domain_sides.east] = self.fluid.pressure()
+        values[domain_sides.west + domain_sides.east] = (
+            self.fluid.reference_component.pressure
+        )
         return values
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -84,7 +86,7 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
 
     """
 
-    fluid: pp.FluidConstants
+    fluid: pp.Fluid
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
@@ -118,7 +120,9 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
         """
         domain_sides = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[domain_sides.north + domain_sides.south] = self.fluid.pressure()
+        values[domain_sides.north + domain_sides.south] = (
+            self.fluid.reference_component.pressure
+        )
         return values
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -194,8 +198,6 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
     """Model parameters."""
     solid: pp.SolidConstants
     """Solid parameters."""
-    fluid: pp.FluidConstants
-    """Fluid parameters."""
     nd: int
     """Number of dimensions."""
 
@@ -266,8 +268,8 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
     def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Displacement values.
 
-        Initial value is u_y = self.solid.fracture_gap() +
-        self.solid.maximum_elastic_fracture_opening() at north boundary. Adding it on
+        Initial value is u_y = self.solid.fracture_gap +
+        self.solid.maximum_elastic_fracture_opening at north boundary. Adding it on
         the boundary ensures a stress-free initial state, as it compensates for those
         two values corresponding to zero traction contact according to the class
         :class:`~porepy.models.constitutive_laws.FractureGap`. For positive times,
@@ -287,8 +289,7 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
             frac_val = (
-                self.solid.fracture_gap()
-                + self.solid.maximum_elastic_fracture_opening()
+                self.solid.fracture_gap + self.solid.maximum_elastic_fracture_opening
             )
         else:
             frac_val = 0

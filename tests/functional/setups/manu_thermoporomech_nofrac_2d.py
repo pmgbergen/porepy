@@ -305,39 +305,39 @@ class ManuThermoPoroMechExactSolution2d:
         # expanded by the heterogeneity factor below
         #
         # Lamé parameters
-        lame_lmbda_base = setup.solid.lame_lambda()
-        lame_mu_base = setup.solid.shear_modulus()
+        lame_lmbda_base = setup.solid.lame_lambda
+        lame_mu_base = setup.solid.shear_modulus
         # Permeability
-        permeability_base = setup.solid.permeability()
+        permeability_base = setup.solid.permeability
 
         # Biot coefficient. Will be used to define the Biot tensor below.
-        alpha = setup.solid.biot_coefficient()
+        alpha = setup.solid.biot_coefficient
         # Reference density and compressibility for fluid.
-        reference_fluid_density = setup.fluid.density()
-        fluid_compressibility = setup.fluid.compressibility()
+        reference_fluid_density = setup.fluid.reference_component.density
+        fluid_compressibility = setup.fluid.reference_component.compressibility
         # Density of the solid.
-        solid_density = setup.solid.density()
+        solid_density = setup.solid.density
 
         # Reference porosity
-        phi_0 = setup.solid.porosity()
+        phi_0 = setup.solid.porosity
         # Specific heat capacity of the fluid
-        fluid_specific_heat = setup.fluid.specific_heat_capacity()
+        fluid_specific_heat = setup.fluid.reference_component.specific_heat_capacity
         # Specific heat capacity of the solid
-        solid_specific_heat = setup.solid.specific_heat_capacity()
+        solid_specific_heat = setup.solid.specific_heat_capacity
         # Reference pressure and temperature
-        p_0 = setup.fluid.pressure()
-        T_0 = setup.fluid.temperature()
+        p_0 = setup.fluid.reference_component.pressure
+        T_0 = setup.fluid.reference_component.temperature
 
         # Thermal expansion coefficients
-        fluid_thermal_expansion = setup.fluid.thermal_expansion()
-        solid_thermal_expansion = setup.solid.thermal_expansion()
+        fluid_thermal_expansion = setup.fluid.reference_component.thermal_expansion
+        solid_thermal_expansion = setup.solid.thermal_expansion
 
         # Conductivity for the fluid and solid
-        fluid_conductivity = setup.fluid.thermal_conductivity()
-        solid_conductivity = setup.solid.thermal_conductivity()
+        fluid_conductivity = setup.fluid.reference_component.thermal_conductivity
+        solid_conductivity = setup.solid.thermal_conductivity
 
         # Fluid viscosity
-        mu_f = setup.fluid.viscosity()
+        mu_f = setup.fluid.reference_component.viscosity
 
         ## Done with fetching constants. Now, introduce heterogeneities and define
         # the exact solutions for the primary variables.
@@ -1033,9 +1033,6 @@ class ManuThermoPoroMechSolutionStrategy2d(
     pp.thermoporomechanics.SolutionStrategyThermoporomechanics
 ):
     """Solution strategy for the verification setup."""
-
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
 
     def __init__(self, params: dict):
         """Constructor for the class."""

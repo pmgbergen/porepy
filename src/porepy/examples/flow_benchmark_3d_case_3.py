@@ -30,11 +30,9 @@ from porepy.examples.flow_benchmark_2d_case_1 import (
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 solid_constants = FractureSolidConstants(
-    {
-        "residual_aperture": 1e-2,
-        "normal_permeability": 1e4,
-        "fracture_permeability": 1e4,
-    }
+    residual_aperture=1e-2,
+    normal_permeability=1e4,
+    fracture_permeability=1e4,
 )
 
 
@@ -87,7 +85,7 @@ class IntersectionPermeability(Permeability):
         # Use `fracture_permeability` as intersection permeability under the assumption
         # that they are equal. This is valid in the current benchmark case.
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.fracture_permeability(), size, name="intersection permeability"
+            self.solid.fracture_permeability, size, name="intersection permeability"
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
@@ -95,7 +93,7 @@ class IntersectionPermeability(Permeability):
 class BoundaryConditions:
     """Define inlet and outlet boundary conditions as specified by the benchmark."""
 
-    fluid: pp.FluidConstants
+    fluid: pp.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
@@ -133,7 +131,7 @@ class BoundaryConditions:
             cc[2][bounds.south] > (1 / 3)
         )
         # Assign unitary flow. Negative since fluid is entering into the domain.
-        val = self.fluid.convert_units(-1, "m * s^-1")
+        val = self.fluid.reference_component.convert_units(-1, "m * s^-1")
         values = np.zeros(boundary_grid.num_cells)
         values[inlet_faces] = val * boundary_grid.cell_volumes[inlet_faces]
         return values

@@ -12,43 +12,36 @@ References:
 
 """
 
-from typing import Callable, Union
+from dataclasses import dataclass
+from typing import Callable, ClassVar, Union
 
 import numpy as np
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
+from porepy.compositional.materials import SolidConstants, _HashableDict
 from porepy.models.constitutive_laws import DimensionDependentPermeability
 
 
-class FractureSolidConstants(pp.SolidConstants):
+@dataclass(frozen=True, kw_only=True)
+class FractureSolidConstants(SolidConstants):
     """Solid constants tailored to the current model."""
 
-    @property
-    def default_constants(self):
-        """Add the additional parameter `fracture_permeability`."""
-        constants = super().default_constants
-        constants.update({"fracture_permeability": 1.0})
-        return constants
+    SI_units: ClassVar[_HashableDict[str, str]] = SolidConstants.SI_units
+    SI_units.update({"fracture_permeability": "m^2"})
 
-    def fracture_permeability(self) -> float:
-        """Permeability of fractures [m^2]."""
-        return self.convert_units(self.constants["fracture_permeability"], "m^2")
+    fracture_permeability: pp.number = 1.0
 
 
 solid_constants_conductive_fractures = FractureSolidConstants(
-    {
-        "residual_aperture": 1e-4,
-        "fracture_permeability": 1e4,
-        "normal_permeability": 1e4,
-    }
+    residual_aperture=1e-4,
+    fracture_permeability=1e4,
+    normal_permeability=1e4,
 )
 solid_constants_blocking_fractures = FractureSolidConstants(
-    {
-        "residual_aperture": 1e-4,
-        "fracture_permeability": 1e-4,
-        "normal_permeability": 1e-4,
-    }
+    residual_aperture=1e-4,
+    fracture_permeability=1e-4,
+    normal_permeability=1e-4,
 )
 
 
@@ -72,7 +65,7 @@ class BoundaryConditions:
     :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    fluid: pp.FluidConstants
+    fluid: pp.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
@@ -97,7 +90,7 @@ class BoundaryConditions:
         """Pressure value of 1 Pa on east side."""
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[bounds.east] = self.fluid.convert_units(1, "Pa")
+        values[bounds.east] = self.fluid.reference_component.convert_units(1, "Pa")
         return values
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -123,7 +116,7 @@ class BoundaryConditions:
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
         # Inflow on the west boundary. Sign as per PorePy convention.
-        val = self.fluid.convert_units(-1, "m * s^-1")
+        val = self.fluid.reference_component.convert_units(-1, "m * s^-1")
         # Integrate over the boundary cell volumes.
         values[bounds.west] = val * boundary_grid.cell_volumes[bounds.west]
         # Scale with specific volume.
@@ -164,7 +157,7 @@ class Permeability(DimensionDependentPermeability):
         """
         size = sum([sd.num_cells for sd in subdomains])
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.fracture_permeability(), size, name="fracture permeability"
+            self.solid.fracture_permeability, size, name="fracture permeability"
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 

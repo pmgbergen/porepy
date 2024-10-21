@@ -236,11 +236,6 @@ class FluidProperties(IntensiveProperties, ExtensiveProperties):
     as well as a collection of :class:`PhaseProperties` isntances characterizing individual
     phases.
 
-    Note:
-        The first phase is always assumed to be the reference phase
-        (see :class:`~porepy.compositional.base.FluidMixture`).
-        I.e., its fractional values are usually dependent by unity of fractions.
-
     Contrary to :class:`PhaseProperties`, this dataclass does not support derivatives of
     extensive properties on a mixture-level.
     Since the derivatives w.r.t. to phase fractions or saturations are trivially

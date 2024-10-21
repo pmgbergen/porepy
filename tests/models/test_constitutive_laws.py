@@ -50,10 +50,10 @@ solid_values.update(
     "model_type,method_name,only_codimension",
     [  # Fluid mass balance
         ("mass_balance", "mobility_rho", None),
-        ("mass_balance", "fluid_viscosity", None),
+        ("mass_balance", "fluid.reference_phase.viscosity", None),
         ("mass_balance", "fluid_source", None),
         ("mass_balance", "mobility", None),
-        ("mass_balance", "fluid_density", None),
+        ("mass_balance", "fluid.density", None),
         ("mass_balance", "aperture", None),
         ("mass_balance", "darcy_flux", None),
         ("mass_balance", "interface_fluid_flux", None),
@@ -159,8 +159,14 @@ def test_parse_constitutive_laws(
     # Set up an object of the prescribed model
     setup = models.model(model_type, domain_dim, num_fracs=num_fracs)
     # Fetch the relevant method of this model and extract the domains for which it is
-    # defined.
-    method = getattr(setup, method_name)
+    # defined. by looping top to bottom through the namespace
+    method_namespace = method_name.split('.')
+    owner = setup
+    for name in method_namespace:
+        method = getattr(owner, name)
+        owner = method
+    # method = getattr(setup, method_name)
+
     domains = models.subdomains_or_interfaces_from_method_name(
         setup.mdg, method, dimensions_to_assemble
     )
@@ -192,10 +198,10 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
 @pytest.mark.parametrize(
     "model, method_name, expected, dimension",
     [
-        (models.Poromechanics, "fluid_density", 998.2 * np.exp(4.559e-10 * 2), None),
+        (models.Poromechanics, "fluid.density", 998.2 * np.exp(4.559e-10 * 2), None),
         (
             models.Thermoporomechanics,
-            "fluid_density",
+            "fluid.density",
             # \rho = \rho_0 \exp(compressibility p - thermal_expansion T)
             998.2 * np.exp(4.559e-10 * 2 - 2.068e-4 * 3),
             None,
@@ -218,7 +224,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         ),
         (
             models.MassAndEnergyBalance,
-            "fluid_enthalpy",
+            "fluid.specific_enthalpy",
             # c_p T
             4182 * 3,
             None,
@@ -311,13 +317,13 @@ def test_evaluated_values(
         | Type[models.Thermoporomechanics]
         | Type[models.MassAndEnergyBalance]
         | Type[models.MomentumBalance]
-        | Type[_]
+        # | Type[_]
     ),  # noqa
     method_name: Literal[
-        "fluid_density",
+        "fluid.density",
         "thermal_conductivity",
         "solid_enthalpy",
-        "fluid_enthalpy",
+        "fluid.specific_enthalpy",
         "matrix_porosity",
         "bulk_modulus",
         "shear_modulus",
@@ -341,8 +347,8 @@ def test_evaluated_values(
     # The thermoporoelastic model covers most constitutive laws, so we use it for the
     # test.
     # Assign non-trivial values to the parameters to avoid masking errors.
-    solid = pp.SolidConstants(solid_values)
-    fluid = pp.FluidConstants(pp.fluid_values.water)
+    solid = pp.SolidConstants(**solid_values)
+    fluid = pp.FluidConstants(**pp.fluid_values.water)
     params = {
         "material_constants": {"solid": solid, "fluid": fluid},
         "fracture_indices": [0, 1],
@@ -365,7 +371,14 @@ def test_evaluated_values(
             [setup.temperature_variable],
             iterate_index=0,
         )
-    method = getattr(setup, method_name)
+
+    # Obtain the tested method by looping top to bottom through the namespace
+    method_namespace = method_name.split('.')
+    owner = setup
+    for name in method_namespace:
+        method = getattr(owner, name)
+        owner = method
+    # method = getattr(setup, method_name)
 
     # Call the method with the domain as argument. An error here will indicate that
     # something is wrong with the way the method combines terms and factors (e.g., grids
@@ -422,7 +435,7 @@ def test_dimension_reduction_values(
 
     """
     # Assign non-trivial values to the parameters to avoid masking errors.
-    solid = pp.SolidConstants({"residual_aperture": 0.02})
+    solid = pp.SolidConstants(residual_aperture=0.02)
     params = {"material_constants": {"solid": solid}, "num_fracs": 3}
     if geometry is models.RectangularDomainThreeFractures:
         params["fracture_indices"] = [0, 1]
