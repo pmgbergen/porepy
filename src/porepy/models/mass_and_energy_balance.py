@@ -101,6 +101,7 @@ class MassAndEnergyBalance(  # type: ignore
     ConstitutiveLawFluidMassAndEnergy,
     BoundaryConditionsFluidMassAndEnergy,
     SolutionStrategyFluidMassAndEnergy,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
