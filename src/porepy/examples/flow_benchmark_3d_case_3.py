@@ -93,7 +93,7 @@ class IntersectionPermeability(Permeability):
 class BoundaryConditions:
     """Define inlet and outlet boundary conditions as specified by the benchmark."""
 
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.

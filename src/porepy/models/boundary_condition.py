@@ -41,7 +41,7 @@ class BoundaryConditionMixin:
 
     """
 
-    units: pp.Units
+    units: "pp.Units"
     """Units object, containing the scaling of base magnitudes."""
 
     time_step_indices: np.ndarray

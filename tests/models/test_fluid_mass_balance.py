@@ -212,7 +212,6 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ),
         ("fluid_compressibility", 4e-10, None),
         # rho = rho_ref * exp(c_f * (p - p_ref))
-        ("fluid_density", 1000 * np.exp(4e-10 * 200 * pp.BAR), None),
         # Values of the mass fluxes (i.e., scaling with rho/mu is incorporated).
         (
             "fluid_flux",
@@ -284,7 +283,6 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        ("fluid_viscosity", 0.001, None),
         ("interface_darcy_flux_equation", 5e9, None),
         ("interface_fluid_flux", 1.00803209e-06, None),
         ("interface_flux_equation", 5e9, None),
@@ -354,6 +352,9 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ("well_fluid_flux", 0, 2),  # use dim_restriction=2 to ignore well flux
         ("well_flux_equation", 0, 2),  # use dim_restriction=2 to ignore well equation
         ("well_radius", 0.1, None),
+        # Testing of methods with deeper namespace
+        ("fluid.reference_phase.viscosity", 0.001, None),
+        ("fluid.density", 1000 * np.exp(4e-10 * 200 * pp.BAR), None),
     ],
 )
 def test_ad_operator_methods_single_phase_flow(
@@ -374,8 +375,15 @@ def test_ad_operator_methods_single_phase_flow(
             compactness, only tested in one dimension.
 
     """
-    # Get the method to be tested in callable form..
-    method: Callable = getattr(model_setup, method_name)
+    # processing name space
+    method_namespace = method_name.split('.')
+    owner = model_setup
+    # loop top to bottom through namespace to get to the actual method defined on some grids
+    # and returning an operator
+    for name in method_namespace:
+        method = getattr(owner, name)
+        owner = method
+    # method: Callable = getattr(model_setup, method_name)
 
     # Obtain list of subdomain or interface grids where the method is defined.
     domains = models.subdomains_or_interfaces_from_method_name(

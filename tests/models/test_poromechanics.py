@@ -21,7 +21,7 @@ from porepy.applications.test_utils import models, well_models
 class NonzeroFractureGapPoromechanics:
     """Adjust bc values and initial condition."""
 
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
 
     domain_boundary_sides: Callable
     """Boundary sides of the domain. Normally defined in a mixin instance of

@@ -39,7 +39,7 @@ class MassBalanceEquations(pp.BalanceEquation):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
     """"Fluid object. See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
@@ -408,7 +408,7 @@ class ConstitutiveLawsSinglePhaseFlow(
 class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     """Boundary conditions for single-phase flow."""
 
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
@@ -562,7 +562,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.

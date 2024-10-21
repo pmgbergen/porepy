@@ -41,7 +41,7 @@ class OneVerticalWell:
 class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
     """Boundary conditions for the well setup."""
 
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
 
     params: dict[str, float]
     """Model parameters."""

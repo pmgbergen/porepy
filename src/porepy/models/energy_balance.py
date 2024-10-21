@@ -42,7 +42,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     defining the solution strategy.
 
     """
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
     """"Fluid object. See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
     interface_fourier_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
@@ -502,7 +502,7 @@ class VariablesEnergyBalance:
     defining the solution strategy.
 
     """
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
@@ -701,7 +701,7 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
 
     """
 
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.

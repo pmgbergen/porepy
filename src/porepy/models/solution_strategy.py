@@ -143,7 +143,7 @@ class SolutionStrategy(abc.ABC):
         self.units: pp.Units = params.get("units", pp.Units())
         """Units of the model. See also :meth:`set_units`."""
 
-        self.fluid: pp.compositional.Fluid
+        self.fluid: pp.Fluid
         """Fluid constants. See also :meth:`set_materials`."""
 
         self.solid: pp.SolidConstants

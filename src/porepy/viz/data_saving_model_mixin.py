@@ -38,7 +38,7 @@ class DataSavingMixin:
     """Dictionary of parameters for restarting from pvd."""
     units: pp.Units
     """Units for the simulation."""
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
     """Fluid constants for the simulation."""
     nd: int
     """Number of spatial dimensions for the simulation."""

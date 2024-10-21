@@ -29,15 +29,7 @@ import porepy as pp
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
-from .base import (
-    AbstractEoS,
-    Component,
-    Compound,
-    DomainFunctionType,
-    ExtendedDomainFunctionType,
-    Fluid,
-    Phase,
-)
+from .base import AbstractEoS, Component, Compound, Fluid, Phase
 from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
@@ -45,6 +37,9 @@ __all__ = [
     "CompositionalVariables",
     "FluidMixin",
 ]
+
+DomainFunctionType = pp.DomainFunctionType
+ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
 class _MixtureDOFHandler:

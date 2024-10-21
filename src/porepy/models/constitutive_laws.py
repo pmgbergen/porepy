@@ -2363,7 +2363,7 @@ class FouriersLaw:
     instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
     interface_fourier_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
@@ -2976,7 +2976,7 @@ class GravityForce:
 
     """
 
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
     """Fluid constant object that takes care of scaling of fluid-related quantities.
     Normally, this is set by a mixin of instance
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
