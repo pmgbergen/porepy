@@ -27,8 +27,6 @@ __all__ = [
     "FluidEnthalpyFromTemperature",
 ]
 
-
-number = pp.number
 Scalar = pp.ad.Scalar
 
 
@@ -79,11 +77,11 @@ class FluidDensityFromPressure:
 
         """
 
-        def rho(grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        def rho(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             rho_ref = Scalar(
                 self.fluid.reference_component.density, "reference_fluid_density"
             )
-            rho_ = rho_ref * self.pressure_exponential(grids)
+            rho_ = rho_ref * self.pressure_exponential(domains)
             rho_.set_name("fluid_density")
             return rho_
 
@@ -157,11 +155,11 @@ class FluidDensityFromTemperature:
 
         """
 
-        def rho(grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        def rho(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             rho_ref = Scalar(
                 self.fluid.reference_component.density, "reference_fluid_density"
             )
-            rho_ = rho_ref * self.temperature_exponential(grids)
+            rho_ = rho_ref * self.temperature_exponential(domains)
             rho_.set_name("fluid_density")
             return rho_
 
@@ -209,13 +207,13 @@ class FluidDensityFromPressureAndTemperature(
 
         """
 
-        def rho(grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        def rho(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             rho_ref = Scalar(self.fluid.density(), "reference_fluid_density")
 
             rho_ = (
                 rho_ref
-                * self.pressure_exponential(grids)
-                * self.temperature_exponential(grids)
+                * self.pressure_exponential(domains)
+                * self.temperature_exponential(domains)
             )
             rho_.set_name("fluid_density_from_pressure_and_temperature")
             return rho_
@@ -285,7 +283,7 @@ class ConstantViscosity:
         """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
         to provide a constant viscosity for the fluid's phase."""
 
-        def mu(grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        def mu(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             return Scalar(self.fluid.reference_component.viscosity, "viscosity")
 
         return mu
@@ -302,7 +300,7 @@ class ConstantFluidThermalConductivity:
         """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
         to provide a constant thermal conductivity for the fluid's phase."""
 
-        def kappa(grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        def kappa(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             return Scalar(
                 self.fluid.reference_component.thermal_conductivity,
                 "fluid_thermal_conductivity",
@@ -365,9 +363,9 @@ class FluidEnthalpyFromTemperature:
         """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
         to provide a linear specific enthalpy for the fluid's phase."""
 
-        def h(grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-            c = self.fluid_specific_heat_capacity(grids)
-            enthalpy = c * self.perturbation_from_reference("temperature", grids)
+        def h(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            c = self.fluid_specific_heat_capacity(domains)
+            enthalpy = c * self.perturbation_from_reference("temperature", domains)
             enthalpy.set_name("fluid_enthalpy")
             return enthalpy
 

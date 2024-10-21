@@ -942,7 +942,7 @@ class Fluid:
         :meth:`reference_component_index`."""
         return self._components[self.reference_component_index]
 
-    def density(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Density of the fluid in ``[kg / m^3]`` or ``[mol / m^3]``.
 
         Its general, thermodynamically consistent representation is
@@ -961,7 +961,7 @@ class Fluid:
             grids is required.
 
         Parameters:
-            grids: A sequence of grids.
+            domains: A sequence of grids.
 
         Returns:
             Above expression by calling the phase saturations and densities.
@@ -973,26 +973,26 @@ class Fluid:
 
             op = pp.ad.sum_operator_list(
                 [
-                    phase.saturation(grids) * phase.density(grids)
+                    phase.saturation(domains) * phase.density(domains)
                     for phase in self.phases
                 ],
                 "fluid_density",
             )
 
         else:
-            op = self.reference_phase.density(grids)
+            op = self.reference_phase.density(domains)
             op.set_name("fluid_density")
 
         return op
 
-    def specific_volume(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def specific_volume(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Returns the reciprocal of :attr:`density`."""
 
-        op = self.density(grids) ** pp.ad.Scalar(-1)
+        op = self.density(domains) ** pp.ad.Scalar(-1)
         op.set_name("fluid_specific_volume")
         return op
 
-    def specific_enthalpy(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def specific_enthalpy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Specific enthalpy of the fluid in ``[J / kg]`` or ``[J / mol]``.
 
         Its general, thermodynamically consistent representation is
@@ -1011,7 +1011,7 @@ class Fluid:
             fluid mixture has no access to the pressure variable in the model.
 
         Parameters:
-            grids: A sequence of grids.
+            domains: A sequence of grids.
 
         Returns:
             Above expression by calling the phase fraction and spec. enthalpies.
@@ -1024,19 +1024,21 @@ class Fluid:
 
             op = pp.ad.sum_operator_list(
                 [
-                    phase.fraction(grids) * phase.specific_enthalpy(grids)
+                    phase.fraction(domains) * phase.specific_enthalpy(domains)
                     for phase in self.phases
                 ],
                 "fluid_specific_enthalpy",
             )
 
         else:
-            op = self.reference_phase.specific_enthalpy(grids)
+            op = self.reference_phase.specific_enthalpy(domains)
             op.set_name("fluid_specific_enthalpy")
 
         return op
 
-    def thermal_conductivity(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def thermal_conductivity(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
         """Thermal conductivity of the fluid in ``[W / m / K]``.
 
         Its general, thermodynamically consistent representation is
@@ -1050,7 +1052,7 @@ class Fluid:
             :attr:`density` for a note on the signature.
 
         Parameters:
-            grids: A sequence of grids.
+            domains: A sequence of grids.
 
         Returns:
             Above expression by calling the phase saturations and conductivities.
@@ -1061,7 +1063,7 @@ class Fluid:
 
             op = pp.ad.sum_operator_list(
                 [
-                    phase.saturation(grids) * phase.conductivity(grids)
+                    phase.saturation(domains) * phase.conductivity(domains)
                     for phase in self.phases
                 ],
                 "fluid_thermal_conductivity",
@@ -1069,7 +1071,7 @@ class Fluid:
 
         else:
 
-            op = self.reference_phase.conductivity(grids)
+            op = self.reference_phase.conductivity(domains)
             op.set_name("fluid_thermal_conductivity")
 
         return op
