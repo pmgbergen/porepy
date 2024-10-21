@@ -14,8 +14,6 @@ from __future__ import annotations
 from typing import Callable
 
 import porepy as pp
-import porepy.compositional as ppc
-from porepy.compositional.base import ExtendedDomainFunctionType
 
 __all__ = [
     "FluidDensityFromPressure",
@@ -28,6 +26,7 @@ __all__ = [
 ]
 
 Scalar = pp.ad.Scalar
+ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
 class FluidDensityFromPressure:
@@ -58,7 +57,7 @@ class FluidDensityFromPressure:
         )
 
     # NOTE replaces mixin fluid_density
-    def density_of_phase(self, phase: ppc.Phase) -> ExtendedDomainFunctionType:
+    def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
         """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
         to provide a density exponential law for the fluid's phase..
 
@@ -140,7 +139,7 @@ class FluidDensityFromTemperature:
         val = self.fluid.reference_component.thermal_expansion
         return Scalar(val, "fluid_thermal_expansion")
 
-    def density_of_phase(self, phase: ppc.Phase) -> ExtendedDomainFunctionType:
+    def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
         """ "Analogous to :meth:`FluidDensityFromPressure.density_of_phase`, but using
         temperature and the thermal expansion of the reference component.
 
@@ -192,7 +191,7 @@ class FluidDensityFromPressureAndTemperature(
 ):
     """Fluid density which is a function of pressure and temperature."""
 
-    def density_of_phase(self, phase: ppc.Phase) -> ExtendedDomainFunctionType:
+    def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
         """Returns a combination of the laws in the parent class methods:
 
         .. math::
@@ -230,7 +229,7 @@ class FluidMobility:  # TODO this does not belong here, requires a solution for 
 
     """
 
-    fluid: ppc.Fluid
+    fluid: pp.Fluid
 
     def mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mobility of the fluid flux, given by the reciprocal of the fluid's reference phase
@@ -275,11 +274,11 @@ class FluidMobility:  # TODO this does not belong here, requires a solution for 
 class ConstantViscosity:
     """Constant viscosity for a 1-phase, 1-component fluid."""
 
-    fluid: ppc.Fluid
+    fluid: pp.Fluid
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
 
     # NOTE replaces mixin fluid_viscosity
-    def viscosity_of_phase(self, phase: ppc.Phase) -> ExtendedDomainFunctionType:
+    def viscosity_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
         """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
         to provide a constant viscosity for the fluid's phase."""
 
@@ -292,11 +291,11 @@ class ConstantViscosity:
 class ConstantFluidThermalConductivity:
     """Ïmplementation of a constant thermal conductivity for a 1-phase, 1-component fluid."""
 
-    fluid: ppc.Fluid
+    fluid: pp.Fluid
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
 
     # NOTE replaces mixin fluid_thermal_conductivity
-    def conductivity_of_phase(self, phase: ppc.Phase) -> ExtendedDomainFunctionType:
+    def conductivity_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
         """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
         to provide a constant thermal conductivity for the fluid's phase."""
 
@@ -334,7 +333,7 @@ class FluidEnthalpyFromTemperature:
 
     """
 
-    fluid: ppc.Fluid
+    fluid: pp.Fluid
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
 
     perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
@@ -357,9 +356,7 @@ class FluidEnthalpyFromTemperature:
         )
 
     # NOTE replaces mixin fluid_enthalpy
-    def specific_enthalpy_of_phase(
-        self, phase: ppc.Phase
-    ) -> ExtendedDomainFunctionType:
+    def specific_enthalpy_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
         """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
         to provide a linear specific enthalpy for the fluid's phase."""
 

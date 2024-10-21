@@ -20,7 +20,7 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
 
     """
 
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
@@ -86,7 +86,7 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
 
     """
 
-    fluid: pp.compositional.Fluid
+    fluid: pp.Fluid
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
