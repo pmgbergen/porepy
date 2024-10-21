@@ -38,12 +38,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid density. Defined in a mixin class with a suitable constitutive relation.
-    """
-    fluid_enthalpy: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Fluid enthalpy. Defined in a mixin class with a suitable constitutive relation.
-    """
     solid_enthalpy: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Solid enthalpy. Defined in a mixin class with a suitable constitutive relation.
     """
@@ -198,7 +192,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
         """
         energy = (
-            self.fluid_density(subdomains) * self.fluid_enthalpy(subdomains)
+            self.fluid.density(subdomains) * self.fluid.specific_enthalpy(subdomains)
             - self.pressure(subdomains)
         ) * self.porosity(subdomains)
         energy.set_name("fluid_internal_energy")
@@ -271,6 +265,23 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux.set_name("interface_energy_flux")
         return flux
 
+    def mobility_rho_h(self, grids: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """ "Non-linear weight in the advective enthalpy flux.
+
+        Parameters:
+            grids: A list of either subdomains or boundary grids.
+
+        Returns:
+            The expression :math:`\\frac{\\rho h}{\\mu}` in operator form.
+
+        """
+        result = (
+            self.fluid.specific_enthalpy(grids)
+            * self.fluid.density(grids)
+            * self.mobility(grids)
+        )
+        return result
+
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Enthalpy flux.
 
@@ -311,14 +322,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         # (in the typing sense).
         subdomains = cast(list[pp.Grid], subdomains)
 
-        def enthalpy_dirichlet(boundary_grids):
-            result = self.fluid_enthalpy(boundary_grids)
-            result *= self.mobility_rho(boundary_grids)
-            return result
-
-        boundary_operator = self._combine_boundary_operators(
+        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
-            dirichlet_operator=enthalpy_dirichlet,
+            dirichlet_operator=self.mobility_rho_h,
             neumann_operator=self.enthalpy_flux,
             # Robin operator is not relevant for advective fluxes
             robin_operator=None,
@@ -329,9 +335,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = self.enthalpy_discretization(subdomains)
         flux = self.advective_flux(
             subdomains,
-            self.fluid_enthalpy(subdomains)
-            * self.mobility(subdomains)
-            * self.fluid_density(subdomains),
+            self.mobility_rho_h(subdomains),
             discr,
             boundary_operator,
             self.interface_enthalpy_flux,
@@ -355,9 +359,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = self.interface_enthalpy_discretization(interfaces)
         flux = self.interface_advective_flux(
             interfaces,
-            self.fluid_enthalpy(subdomains)
-            * self.mobility(subdomains)
-            * self.fluid_density(subdomains),
+            self.mobility_rho_h(subdomains),
             discr,
         )
 
@@ -381,9 +383,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = pp.ad.UpwindCouplingAd(self.enthalpy_keyword, interfaces)
         flux = self.well_advective_flux(
             interfaces,
-            self.fluid_enthalpy(subdomains)
-            * self.mobility(subdomains)
-            * self.fluid_density(subdomains),
+            self.mobility_rho_h(subdomains),
             discr,
         )
 
@@ -612,7 +612,6 @@ class VariablesEnergyBalance(pp.VariableMixin):
 
 
 class ConstitutiveLawsEnergyBalance(
-    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FouriersLaw,
@@ -640,20 +639,6 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     enthalpy flux."""
     temperature_variable: str
     """See :attr:`SolutionStrategyEnergyBalance.temperature_variable`."""
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`VariablesEnergyBalance.temperature`."""
-    fluid_enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid enthalpy. Defined in a mixin class with a suitable constitutive relation.
-    """
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid density. Defined in a mixin class with a suitable constitutive relation.
-    """
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`~porepy.models.constitutive_laws.DarcysLaw.darcy_flux`."""
-    fourier_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`~porepy.models.constitutive_laws.FouriersLaw.fourier_flux`."""
-    enthalpy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`EnergyBalanceEquations.enthalpy_flux`."""
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary conditions on all external boundaries for the conductive flux

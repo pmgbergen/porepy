@@ -39,7 +39,6 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
     # Energy subproblem
     pp.constitutive_laws.SecondOrderTensorUtils,
-    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
