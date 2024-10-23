@@ -50,7 +50,7 @@ extended_water_values_for_testing = water.copy()
 extended_water_values_for_testing.update(
     {
         "normal_thermal_conductivity": 0.5975,  # [kg m^-3]
-        "pressure": 101325,  # [Pa]
+        "pressure": 101325.0,  # [Pa]
         "temperature": 293.15,  # [K]
     }
 )
