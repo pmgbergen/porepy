@@ -250,7 +250,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def set_materials(self):
         """Set material parameters.
 
-        Searcher for entries in ``params['material_constatns']`` with keys ``'fluid'`` and
+        Searcher for entries in ``params['material_constants']`` with keys ``'fluid'`` and
         ``'solid'`` for respective material constant instances. If not found, default materials
         are instantiated.
 
@@ -258,7 +258,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         the :attr:`fluid` object by calling :attr:`create_fluid`.
 
         By default, a 1-phase, 1-component fluid is created based on the fluid constants
-        provided in ``params['material_constatns']``.
+        provided in ``params['material_constants']``.
 
         """
         # User provided values, if any
