@@ -187,8 +187,8 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def time_step_indices(self) -> np.ndarray:
         """Indices for storing time step solutions.
 
-        Note:
-            (Previous) Time step indices should start with 1.
+        Index 0 corresponds to the most recent time step with the know solution, 1 -
+        to the previous time step, etc.
 
         Returns:
             An array of the indices of which time step solutions will be stored,
