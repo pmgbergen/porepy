@@ -53,7 +53,7 @@ def safe_sum(x: Sequence[_Addable]) -> _Addable:
         return cast(_Addable, 0)
 
 
-@numba.njit("float64[:,:](float64[:,:])", fastmath=NUMBA_FAST_MATH, cache=True)
+@numba.njit("f8[:,:](f8[:,:])", fastmath=NUMBA_FAST_MATH, cache=True)
 def normalize_rows(x: np.ndarray) -> np.ndarray:
     """Takes a 2D array and normalizes it row-wise.
 
@@ -76,7 +76,7 @@ def normalize_rows(x: np.ndarray) -> np.ndarray:
     return (x.T / x.sum(axis=1)).T
 
 
-@numba.njit("float64[:](float64[:],float64[:])", fastmath=NUMBA_FAST_MATH, cache=True)
+@numba.njit("f8[:](f8[:],f8[:])", fastmath=NUMBA_FAST_MATH, cache=True)
 def _chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
     """Internal ``numba.njit``-decorated function for
     :meth:`chainrule_fractional_derivatives` for non-vectorized input."""
@@ -92,21 +92,16 @@ def _chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.n
     return df_dx
 
 
-# NOTE Use guvectorize, not vectorize, because the return value is a 2D array
-# vectorize cannot cope with everything, must instruct numba about the output shape
-@numba.guvectorize(
-    ["void(float64[:],float64[:],float64[:],float64[:])"],
-    "(m),(n),(m)->(m)",
-    target="parallel" if NUMBA_PARALLEL else "cpu",
-    nopython=True,
-    cache=NUMBA_CACHE,  # NOTE cache depends on internal function
-)
-def _chainrule_fractional_derivatives_gu(
-    df_dxn: np.ndarray, x: np.ndarray, out: np.ndarray, dummy: np.ndarray
-) -> None:
-    """Internal ``numba.guvectorize``-decorated function for
-    :meth:`chainrule_fractional_derivatives`."""
-    out[:] = _chainrule_fractional_derivatives(df_dxn, x)
+@numba.njit("f8[:,:](f8[:,:],f8[:,:])", cache=NUMBA_CACHE, parallel=NUMBA_PARALLEL)
+def _chainrule_fractional_derivatives_parallel(
+    df_dxn: np.ndarray, x: np.ndarray
+) -> np.ndarray:
+    """Parallelized version of :func:`_chainrule_fractional_derivatives` to take
+    vectorized input."""
+    df_dx = np.empty(df_dxn.shape)
+    for i in numba.prange(df_dxn.shape[1]):
+        df_dx[:, i] = _chainrule_fractional_derivatives(df_dxn[:, i], x[:, i])
+    return df_dx
 
 
 def chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.ndarray:
@@ -149,13 +144,7 @@ def chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.nd
     if len(df_dxn.shape) > 1:
         if df_dxn.shape[1] != x.shape[1]:
             raise ValueError("Dimensions in Axis 1 mismatch.")
-
-        # NOTE Transpose to parallelize over values, not derivatives
-        df_dxn_T = df_dxn.T
-        df_dx = np.empty_like(df_dxn_T)
-        _chainrule_fractional_derivatives_gu(df_dxn_T, x.T, df_dx)
-
-        df_dx = df_dx.T
+        df_dx = _chainrule_fractional_derivatives_parallel(df_dxn, x)
     else:
         if len(x.shape) != 1:
             raise ValueError("Dimensions in Axis 1 mismatch.")
@@ -164,9 +153,7 @@ def chainrule_fractional_derivatives(df_dxn: np.ndarray, x: np.ndarray) -> np.nd
     return df_dx
 
 
-@numba.njit(
-    "float64[:](float64[:],float64[:],float64)", fastmath=NUMBA_FAST_MATH, cache=True
-)
+@numba.njit("f8[:](f8[:],f8[:],f8)", fastmath=NUMBA_FAST_MATH, cache=True)
 def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarray:
     """Internal ``numba.njit``-decorated function for :meth:`compute_saturations` for
     non-vectorized input."""
@@ -221,19 +208,15 @@ def _compute_saturations(y: np.ndarray, rho: np.ndarray, eps: float) -> np.ndarr
     return s
 
 
-@numba.guvectorize(
-    ["void(float64[:],float64[:],float64,float64[:],float64[:])"],
-    "(n),(n),(),(n)->(n)",
-    target="parallel" if NUMBA_PARALLEL else "cpu",
-    nopython=True,
-    cache=NUMBA_CACHE,  # NOTE cache depends on internal function
-)
-def _compute_saturations_gu(
-    y: np.ndarray, rho: np.ndarray, eps: float, out: np.ndarray, dummy: np.ndarray
-) -> None:
-    """Internal ``numba.guvectorize``-decorated function for
-    :meth:`compute_saturations`."""
-    out[:] = _compute_saturations(y, rho, eps)
+@numba.njit("f8[:,:](f8[:,:],f8[:,:], f8)", cache=NUMBA_CACHE, parallel=NUMBA_PARALLEL)
+def _compute_saturations_parallel(
+    y: np.ndarray, rho: np.ndarray, eps: float
+) -> np.ndarray:
+    """Parallelized version of :func:`_compute_saturations` to take vectorized input."""
+    s = np.empty(y.shape)
+    for i in numba.prange(y.shape[1]):
+        s[:, i] = _compute_saturations(y[:, i], rho[:, i], eps)
+    return s
 
 
 def compute_saturations(
@@ -278,11 +261,7 @@ def compute_saturations(
         raise ValueError("More than 1 phase saturated in terms of y.")
 
     if len(y.shape) > 1:
-        # NOTE transpose to parallelize over values, not phases
-        y_T = y.T
-        s = np.empty_like(y_T)
-        _compute_saturations_gu(y_T, rho.T, eps, s)
-        s = s.T
+        s = _compute_saturations_parallel(y, rho, eps)
     else:
         s = _compute_saturations(y, rho, eps)
 
