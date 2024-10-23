@@ -4097,10 +4097,10 @@ class ElasticModuli:
         """Characteristic traction [Pa].
 
         The value is computed from the solid constants and the characteristic
-        displacement. Inversion of this relationship, i.e.,
-        u_char=u_char(t_char), can be done in a mixin overriding the
-        characteristic sizes. This may be beneficial if the characteristic
-        traction is easier to estimate than the characteristic displacement.
+        displacement. Inversion of this relationship, i.e., u_char=u_char(t_char), can
+        be done in a mixin overriding the characteristic sizes. This may be beneficial
+        if the characteristic traction is easier to estimate than the characteristic
+        displacement, e.g. if the driving force is a Neumann condition.
 
         Parameters:
             subdomains: List of subdomains where the characteristic traction is defined.
