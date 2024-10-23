@@ -377,8 +377,8 @@ else:
             """Obtain a vector for flipping normal vectors on internal boundaries.
 
             For a list of subdomains, check if the normal vector on internal boundaries
-            point into the internal interface (e.g., into the fracture), and if so, flip
-            the normal vector. The flipping takes the form of an operator that
+            point into the internal interface (i.e., away from the fracture), and if so,
+            flip the normal vector. The flipping takes the form of an operator that
             multiplies the normal vectors of all faces on fractures, leaves internal
             faces (internal to the subdomain proper, that is) unchanged, but flips the
             relevant normal vectors on subdomain faces that are part of an internal
