@@ -1071,7 +1071,7 @@ class FluidMixin:
     - :meth:`get_components`
     - :meth:`get_phase_configuration`
 
-    To define the dependcy of phase properties in terms of variables, see
+    To define the dependency of phase properties in terms of variables, see
 
     - :meth:`dependencies_of_phase_properties`
 
@@ -1253,7 +1253,7 @@ class FluidMixin:
         Important:
             This method must be overwritten in every flow problem which does not rely
             on heuristics. The base method returns an empty list for reasons of compatibility
-            with pure mechanics models. Bewelow is an example to implement the logic explained
+            with pure mechanics models. Below is an example to implement the logic explained
             above.
 
         Example:
