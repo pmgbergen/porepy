@@ -658,7 +658,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         is, in contact) in the normal direction.
 
         """
-        # Zero for displacement and initial bc values for Biot
+        # Zero for displacement and initial bc values.
         super().initial_condition()
 
         # Contact as initial guess. Ensure traction is consistent with zero jump, which
@@ -708,11 +708,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
             c_num: Numerical constant.
 
         """
-
-        # Physical interpretation (IS):
-        # As a crude way of making the fracture softer than the matrix, we scale by
-        # one order of magnitude.
-        # Alternative interpretation (EK):
+        # Interpretation (EK):
         # The scaling factor should not be too large, otherwise the contact problem
         # may be discretized wrongly. I therefore introduce a safety factor here; its
         # value is somewhat arbitrary.
