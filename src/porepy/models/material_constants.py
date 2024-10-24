@@ -326,8 +326,6 @@ class SolidConstants(MaterialConstants):
         # TODO: Same goes for characteristic sizes.
         default_constants = {
             "biot_coefficient": 1,
-            "characteristic_displacement": 1,
-            "characteristic_contact_traction": 1,
             "density": 1,
             "dilation_angle": 0,
             "fracture_gap": 0,
@@ -359,26 +357,6 @@ class SolidConstants(MaterialConstants):
 
         """
         return self.constants["biot_coefficient"]
-
-    def characteristic_displacement(self) -> number:
-        """Characteristic displacement [m].
-
-        Returns:
-            Characteristic displacement in converted length units.
-
-        """
-        return self.convert_units(self.constants["characteristic_displacement"], "m")
-
-    def characteristic_contact_traction(self) -> number:
-        """Characteristic traction [Pa].
-
-        Returns:
-            Characteristic traction in converted pressure units.
-
-        """
-        return self.convert_units(
-            self.constants["characteristic_contact_traction"], "Pa"
-        )
 
     def density(self) -> number:
         """Density [kg * m^-3].
@@ -610,6 +588,8 @@ class NumericalConstants(MaterialConstants):
         default_constants = {
             "open_state_tolerance": 1e-5,  # Numerical method parameter
             "contact_mechanics_scaling": 1e-1,  # Numerical method parameter
+            "characteristic_displacement": 1,
+            "characteristic_contact_traction": 1,
         }
         return default_constants
     
@@ -633,3 +613,23 @@ class NumericalConstants(MaterialConstants):
 
         """
         return self.constants["open_state_tolerance"]
+
+    def characteristic_displacement(self) -> number:
+        """Characteristic displacement [m].
+
+        Returns:
+            Characteristic displacement in converted length units.
+
+        """
+        return self.convert_units(self.constants["characteristic_displacement"], "m")
+
+    def characteristic_contact_traction(self) -> number:
+        """Characteristic traction [Pa].
+
+        Returns:
+            Characteristic traction in converted pressure units.
+
+        """
+        return self.convert_units(
+            self.constants["characteristic_contact_traction"], "Pa"
+        )
