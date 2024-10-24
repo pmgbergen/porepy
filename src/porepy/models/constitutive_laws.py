@@ -4027,6 +4027,12 @@ class ElasticModuli:
     :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
+    num: pp.NumericalConstants
+    """Numerical constants object that takes care of scaling of the corresponding
+    quantities. Normally, this is set by a mixin of instance
+    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
+
+    """
 
     def shear_modulus(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Shear modulus [Pa].
@@ -4129,7 +4135,7 @@ class ElasticModuli:
             Scalar operator representing the characteristic displacement.
 
         """
-        u_char = Scalar(self.solid.characteristic_displacement())
+        u_char = Scalar(self.num.characteristic_displacement())
         u_char.set_name("characteristic_displacement")
         return u_char
 

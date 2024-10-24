@@ -180,6 +180,7 @@ from porepy.models.material_constants import (
     FluidConstants,
     SolidConstants,
     MaterialConstants,
+    NumericalConstants,
 )
 
 

@@ -138,6 +138,9 @@ class SolutionStrategy(abc.ABC):
         self.solid: pp.SolidConstants
         """Solid constants. See also :meth:`set_materials`."""
 
+        self.num: pp.NumericalConstants
+        """Numerical constants. See also :meth:`set_materials`."""
+
         self.time_manager: pp.TimeManager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
@@ -356,6 +359,8 @@ class SolutionStrategy(abc.ABC):
             constants["fluid"] = pp.FluidConstants()
         if "solid" not in constants:
             constants["solid"] = pp.SolidConstants()
+        if "num" not in constants:
+            constants["num"] = pp.NumericalConstants()
 
         # Loop over all constants objects (fluid, solid), and set units.
         for name, const in constants.items():
