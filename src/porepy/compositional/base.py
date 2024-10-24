@@ -165,8 +165,8 @@ class Compound(Component):
     :class:`~porepy.compositional.compositional_mixins.FluidMixin`.
 
     Note:
-        Due to the generalization, the solvent and individual tracers are not considered as
-        genuine components which can transition into various phases,
+        Due to the generalization, the solvent and individual tracers are not considered
+        as genuine components which can transition into various phases,
         but rather as parameters in the equilibrium problem problem.
         Only the compound as a whole splits into various phases. Fractions in phases
         are associated with the compound.
@@ -347,15 +347,15 @@ class AbstractEoS:
     Component properties required for computations can be extracted in the constructor.
 
     Note:
-        This class is called 'abstract EoS', but is in fact not strictly abstract and can be
-        instantiated.
+        This class is called 'abstract EoS', but is in fact not strictly abstract and
+        can be instantiated.
 
-        This is by intention such that phases can be created with the abstract EoS, in a
-        simulation setting which uses heuristics. The method :meth:`compute_phase_properties`
-        is not to be called in that case.
+        This is by intention such that phases can be created with a generic EoS, in a
+        simulation setting which uses heuristic laws for fluid properties. The method
+        :meth:`compute_phase_properties` is not to be called in that case.
 
-        If used with an actual EoS though, above method is called with the input defined by
-        :meth:`porepy.compositional.compositional_mixins.FluidMixin.
+        If used with an actual EoS though, above method is called with the input defined
+        by :meth:`porepy.compositional.compositional_mixins.FluidMixin.
         dependencies_of_phase_properties`
 
     Parameters:
@@ -682,9 +682,9 @@ class Fluid:
     The fluid (mixture) serves as a container for components and phases and contains the
     specification of the reference component and phase.
 
-    It also provides general attributes for some thermodynamic properites of a fluid, which
-    are required by the remaining framework. Hence this class serves as an interface for e.g.,
-    PDE formulations.
+    It also provides general attributes for some thermodynamic properites of a fluid,
+    which are required by the remaining framework. Hence this class serves as an
+    interface for e.g., PDE formulations.
 
     - :attr:`density`
     - :attr:`specific_enthalpy`
@@ -715,7 +715,8 @@ class Fluid:
             - Any phase has no components in it.
 
         CompositionalModellingError: If there is 1 component, which is not in any phase.
-        ValueError: If any two components or phases have the same name (storage conflicts).
+        ValueError: If any two components or phases have the same name
+        (storage conflicts).
 
     """
 

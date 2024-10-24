@@ -36,12 +36,12 @@ class _HashableDict(Generic[_K, _V], OrderedDict):
     """See https://stackoverflow.com/questions/1151658/python-hashable-dicts.
 
     We require hashable dictionaries for the below material constant classes which
-    contain various constants and unit declarations in dicts, all in simple formats and per se
-    hashable.
+    contain various constants and unit declarations in dicts, all in simple formats and
+    per se hashable.
 
-    The need for hashable material constants arises when fluid constants are used as a base
-    class for components and tracers, which are dynamically created and themselves stored in
-    standard dictionaries at various points in ``porepy.compositional``.
+    The need for hashable material constants arises when fluid constants are used as a
+    base class for components and tracers, which are dynamically created and themselves
+    stored in standard dictionaries at various points in ``porepy.compositional``.
 
     """
 
@@ -85,14 +85,10 @@ class MaterialConstants:
         For Examples, see :class:`FluidConstants`.
         For instructions on how to write composed units, see :meth:`convert_units`
 
-    This class is intended for 1 species only. Different domains or fluids in the
-    mD-setting require each their own material constants instance in the case of
-    heterogenity.
-
     """
 
-    # NOTE Annotating it as a ClassVar leads to the dataclasss decorator ignoring this in its
-    # machinery. The annotation must not be forgotten in derived classes.
+    # NOTE Annotating it as a ClassVar leads to the dataclasss decorator ignoring this
+    # in its machinery. The annotation must not be forgotten in derived classes.
     SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict()
     """A dictionary containing the SI unit of every material constant defined by
     a derived class.
@@ -119,8 +115,8 @@ class MaterialConstants:
 
     """
 
-    # NOTE init=False makes this a data class field, which is not in the constructor signature.
-    # Its value is computed in the post-initialization procedure.
+    # NOTE init=False makes this a data class field, which is not in the constructor
+    # signature. Its value is computed in the post-initialization procedure.
     constants_in_SI: _HashableDict[str, number] = field(
         init=False, default_factory=_HashableDict
     )
@@ -271,15 +267,15 @@ class MaterialConstants:
 
         Note:
             When using units which are not defined in the standard
-            :class:`~porepy.models.units.Units`, the default value of ``units`` might not
-            be enough to convert to SI.
+            :class:`~porepy.models.units.Units`, the default value of ``units`` might
+            not be enough to convert to SI.
 
         Parameters:
             units: A new unit system. The default unit system is in SI.
 
         Returns:
-            A new instance of of the data class using this method, with parameters converted
-            according to ``units``.
+            A new instance of of the data class using this method, with parameters
+            converted according to ``units``.
 
         """
         kwargs = dict(self.constants_in_SI)
@@ -297,6 +293,9 @@ class FluidConstants(MaterialConstants):
 
     It declares fluid species parameters, which are expected of a fluid by the remaining
     framework, especially flow & transport equations.
+
+    This class is intended for 1 fluid species only. Fluid mixtures with multiple
+    components require multiple sets of constants to define individual fluid components.
 
     """
 
@@ -319,33 +318,33 @@ class FluidConstants(MaterialConstants):
         }
     )
 
-    molar_mass: number = 1
+    acentric_factor: number = 0.0
+
+    compressibility: number = 0
 
     critical_pressure: number = 1
 
-    critical_temperature: number = 1
-
     critical_specific_volume: number = 1
 
-    acentric_factor: number = 0.0
+    critical_temperature: number = 1
 
     density: number = 1
+
+    molar_mass: number = 1
+
+    normal_thermal_conductivity: number = 1
 
     pressure: number = 0
 
     temperature: number = 0
 
-    compressibility: number = 0
-
-    specific_heat_capacity: number = 1
+    thermal_conductivity: number = 1
 
     thermal_expansion: number = 0
 
+    specific_heat_capacity: number = 1
+
     viscosity: number = 1
-
-    thermal_conductivity: number = 1
-
-    normal_thermal_conductivity: number = 1
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -354,6 +353,9 @@ class SolidConstants(MaterialConstants):
 
     It declares solid species parameters, which are expected of a solid by the remaining
     framework, especially poro- & fracture-mechanics.
+
+    This class is meant for 1 solid species only. Different domains in the mD-setting
+    require each their own material constants instance in the case of heterogenity.
 
     """
 
@@ -387,13 +389,20 @@ class SolidConstants(MaterialConstants):
         }
     )
 
-    density: number = 1
-
     biot_coefficient: number = 1
+
+    characteristic_contact_traction: number = 1
 
     characteristic_displacement: number = 1
 
-    characteristic_contact_traction: number = 1
+    contact_mechanics_scaling: number = 1e-1
+    """Numerical method parameter
+
+    Safety scaling factor, making fractures softer than the matrix
+
+    """
+
+    density: number = 1
 
     dilation_angle: number = 0
 
@@ -420,6 +429,15 @@ class SolidConstants(MaterialConstants):
 
     normal_permeability: number = 1
 
+    open_state_tolerance: number = 1e-5
+    """Numerical method parameter.
+
+    Tolerance parameter for the tangential characteristic contact mechanics.
+
+    FIXME: Revisit the tolerance.
+
+    """
+
     permeability: number = 1
 
     porosity: number = 0.1
@@ -441,22 +459,6 @@ class SolidConstants(MaterialConstants):
     thermal_expansion: number = 0
 
     well_radius: number = 0.1
-
-    open_state_tolerance: number = 1e-5
-    """Numerical method parameter.
-
-    Tolerance parameter for the tangential characteristic contact mechanics.
-
-    FIXME: Revisit the tolerance.
-
-    """
-
-    contact_mechanics_scaling: number = 1e-1
-    """Numerical method parameter
-
-    Safety scaling factor, making fractures softer than the matrix
-
-    """
 
 
 def load_fluid_constants(

@@ -1062,7 +1062,8 @@ class FluidMixin:
 
     The base class provides phase properties as general
     :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`.
-    To use heuristic laws, override above mentioned methods via mixins.
+    To use heuristic laws in form of AD-compatible functions, override above mentioned
+    methods via mixins.
 
     The base class also provides a default set-up in form of a 1-phase, 1-component
     fluid, based on fluid constants found in ``params``.
@@ -1134,11 +1135,11 @@ class FluidMixin:
     def get_components(self) -> list[Component]:
         """Method to return a list of modelled components.
 
-        The default implementation takes the user-provided or default fluid constants found in
-        the model ``params`` and returns a single component.
+        The default implementation takes the user-provided or default fluid constants
+        found in the model ``params`` and returns a single component.
 
-        Override this method via mixin to provide a more complex component context for the
-        :attr:`fluid`.
+        Override this method via mixin to provide a more complex component context for
+        the :attr:`fluid`.
 
         """
         # Should be available after SolutionStrategy.set_materials()
@@ -1151,8 +1152,9 @@ class FluidMixin:
     ) -> Sequence[tuple[AbstractEoS, PhysicalState, str]]:
         """Method to return a configuration of modelled phases.
 
-        The default implementation returns a liquid-like phase with an abstract EoS instance
-        (to be used in the standard set-up with heuristic fluid properties).
+        The default implementation returns a liquid-like phase with an abstract EoS
+        instance (to be used in the standard set-up with heuristic fluid properties
+        implemented for 1-phase fluids).
 
         Parameters:
             components: The list of components modelled by :meth:`get_components`.
@@ -1181,7 +1183,8 @@ class FluidMixin:
     ) -> None:
         """Method to implement a strategy for which components are added to which phase.
 
-        By default, the unified assumption is applied: All phases contain all components.
+        By default, the unified assumption is applied: All phases contain all
+        components.
 
         Overwrite to do otherwise.
 
@@ -1210,7 +1213,8 @@ class FluidMixin:
           :attr:`~porepy.compositional.base.Phase.specific_volume`
         - :meth:`specific_enthalpy_of_phase` to
           :attr:`~porepy.compositional.base.Phase.specific_enthalpy`
-        - :meth:`viscosity_of_phase` to :attr:`~porepy.compositional.base.Phase.viscosity`
+        - :meth:`viscosity_of_phase` to
+          :attr:`~porepy.compositional.base.Phase.viscosity`
         - :meth:`thermal_conductivity_of_phase` to
           :attr:`~porepy.compositional.base.Phase.thermal_conductivity`
         - :meth:`fugacity_coefficient` to
@@ -1251,12 +1255,39 @@ class FluidMixin:
         fractions.
 
         Important:
-            This method must be overwritten in every flow problem which does not rely
-            on heuristics. The base method returns an empty list for reasons of compatibility
-            with pure mechanics models. Below is an example to implement the logic explained
-            above.
+            This method must be overwritten in every flow problem which relies on e.g.,
+            :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory` for
+            externally computed values. The framework requires information about the
+            input arguments of the externally computes property values (primary
+            variables and their indices in the system's Jacobian).
+            The base method returns an empty list for reasons of compatibility
+            with pure mechanics models. Below is an example to implement the logic
+            explained above.
+
+        Important:
+            The default return value (empty list), leads to phase property function
+            factories
+
+            - :attr:`density_of_phase`
+            - :attr:`specific_enthalpy_of_phase`
+            - :attr:`viscosity_of_phase`
+            - :attr:`thermal_conductivity_of_phase`
+            - :attr:`fugacity_coefficient`
+
+            returning functions which raise an error when called, alerting the user
+            that some some mixin is missing to provide respective functions as the
+            implementation of some heuristic law.
 
         Example:
+
+            Let's assume a general mixture with multiple components and phases, which
+            uses the :class:`CompositionalVariables`, and either
+            :attr:`_MixtureDOFHandler._has_unified_equilibrium` or
+            :attr:`_MixtureDOFHandler._has_equilibrium` defined. I.e., the
+            fluid and phase properties are not characterized by some mixed-in, heuristic
+            law, but by a local phase equilibrium system.
+            The above mentioned logic can then be translated into code the following
+            way:
 
             .. code-block:: python
 
@@ -1272,7 +1303,9 @@ class FluidMixin:
                             dependencies +=  [self.temperature] + [
                                 phase.extended_fraction_of[component]
                                 for component in phase
-                                if self.has_independent_extended_fraction(component, phase)
+                                if self.has_independent_extended_fraction(
+                                    component, phase
+                                )
                             ]
 
                         elif self._has_equilibrium:
@@ -1280,7 +1313,9 @@ class FluidMixin:
                             dependencies += [self.temperature] + [
                                 phase.partial_fraction_of[component]
                                 for component in phase
-                                if self.has_independent_partial_fraction(component, phase)
+                                if self.has_independent_partial_fraction(
+                                    component, phase
+                                )
                             ]
 
                         else:
@@ -1299,8 +1334,10 @@ class FluidMixin:
     def density_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
         """This base method returns the density of a ``phase`` as a
         :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`,
-        if :meth:`dependencies_of_phase_properties`. Otherwise it returns an empty function,
-        raising an error when called (missing mixin of constitutive laws).
+        if :meth:`dependencies_of_phase_properties` has a non-empty return value.
+
+        Otherwise it returns an empty function, raising an error when called
+        (missing mixin of constitutive laws).
 
         The phase density (like all thermodynamic properties) is a dependent quantity.
 
