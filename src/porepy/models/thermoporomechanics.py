@@ -39,7 +39,6 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
     # Energy subproblem
     pp.constitutive_laws.SecondOrderTensorUtils,
-    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.FouriersLaw,
     pp.constitutive_laws.ThermalConductivityLTE,
@@ -231,6 +230,7 @@ class Thermoporomechanics(  # type: ignore[misc]
     VariablesThermoporomechanics,
     BoundaryConditionsThermoporomechanics,
     ConstitutiveLawsThermoporomechanics,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

@@ -47,7 +47,6 @@ class ConstitutiveLawFluidMassAndEnergy(
     pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
     pp.constitutive_laws.ConstantSolidDensity,
-    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FouriersLaw,
@@ -102,6 +101,7 @@ class MassAndEnergyBalance(  # type: ignore
     ConstitutiveLawFluidMassAndEnergy,
     BoundaryConditionsFluidMassAndEnergy,
     SolutionStrategyFluidMassAndEnergy,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

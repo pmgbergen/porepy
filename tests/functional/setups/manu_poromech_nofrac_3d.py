@@ -78,15 +78,15 @@ class ManuPoroMechExactSolution3d:
         """Constructor of the class."""
 
         # Physical parameters
-        lame_lmbda = setup.solid.lame_lambda()  # [Pa] Lamé parameter
-        lame_mu = setup.solid.shear_modulus()  # [Pa] Lamé parameter
-        alpha = setup.solid.biot_coefficient()  # [-] Biot coefficient
-        rho_0 = setup.fluid.density()  # [kg / m^3] Reference density
-        phi_0 = setup.solid.porosity()  # [-] Reference porosity
-        p_0 = setup.fluid.pressure()  # [Pa] Reference pressure
-        c_f = setup.fluid.compressibility()  # [Pa^-1] Fluid compressibility
-        k = setup.solid.permeability()  # [m^2] Permeability
-        mu_f = setup.fluid.viscosity()  # [Pa * s] Fluid viscosity
+        lame_lmbda = setup.solid.lame_lambda  # [Pa] Lamé parameter
+        lame_mu = setup.solid.shear_modulus  # [Pa] Lamé parameter
+        alpha = setup.solid.biot_coefficient  # [-] Biot coefficient
+        rho_0 = setup.fluid.reference_component.density  # [kg / m^3] Reference density
+        phi_0 = setup.solid.porosity  # [-] Reference porosity
+        p_0 = setup.fluid.reference_component.pressure  # [Pa] Reference pressure
+        c_f = setup.fluid.reference_component.compressibility  # [Pa^-1] Fluid compressibility
+        k = setup.solid.permeability  # [m^2] Permeability
+        mu_f = setup.fluid.reference_component.viscosity  # [Pa * s] Fluid viscosity
         K_d = lame_lmbda + (2 / 3) * lame_mu  # [Pa] Bulk modulus
 
         # Symbolic variables
