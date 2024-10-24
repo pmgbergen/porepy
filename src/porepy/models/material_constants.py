@@ -322,8 +322,6 @@ class SolidConstants(MaterialConstants):
 
         """
         # Default values, sorted alphabetically
-        # TODO: Numerical method parameters may find a better home soon.
-        # TODO: Same goes for characteristic sizes.
         default_constants = {
             "biot_coefficient": 1,
             "density": 1,
@@ -559,15 +557,18 @@ class SolidConstants(MaterialConstants):
 
 
 class NumericalConstants(MaterialConstants):
-    """TODO: Write description
+    """Numerical method parameters, including characteristic sizes.
 
-   
+    Each constant (class attribute) typically corresponds to exactly one method which
+    scales the value and broadcasts to relevant size, typically number of cells in the
+    specified subdomains or interfaces.
 
     Parameters:
         constants (dict): Dictionary of constants. Only keys corresponding to a constant
             in the class will be used. If not specified, default values are used, mostly
             0 or 1. See the soucre code for permissible keys and default values.
     """
+
     def __init__(self, constants: Optional[dict] = None):
         default_constants = self.default_constants
         self.verify_constants(constants, default_constants)
@@ -584,12 +585,11 @@ class NumericalConstants(MaterialConstants):
 
         """
         # Default values, sorted alphabetically
-        # TODO: Numerical method parameters may find a better home soon.
         default_constants = {
-            "open_state_tolerance": 1e-5,  # Numerical method parameter
-            "contact_mechanics_scaling": 1e-1,  # Numerical method parameter
-            "characteristic_displacement": 1,
             "characteristic_contact_traction": 1,
+            "characteristic_displacement": 1,
+            "contact_mechanics_scaling": 1e-1,  # Numerical method parameter
+            "open_state_tolerance": 1e-5,  # Numerical method parameter
         }
         return default_constants
     
