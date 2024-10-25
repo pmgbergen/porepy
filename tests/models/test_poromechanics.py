@@ -22,6 +22,10 @@ class NonzeroFractureGapPoromechanics:
     """Adjust bc values and initial condition."""
 
     fluid: pp.Fluid
+    solid: pp.SolidConstants
+    units: pp.Units
+    mdg: pp.MixedDimensionalGrid
+    equation_system: pp.EquationSystem
 
     domain_boundary_sides: Callable
     """Boundary sides of the domain. Normally defined in a mixin instance of
@@ -56,7 +60,7 @@ class NonzeroFractureGapPoromechanics:
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
         # Initial displacement.
         if len(self.mdg.subdomains()) > 1:
-            top_cells = sd.cell_centers[1] > self.fluid.reference_component.convert_units(0.5, "m")
+            top_cells = sd.cell_centers[1] > self.units.convert_units(0.5, "m")
             vals = np.zeros((self.nd, sd.num_cells))
             vals[1, top_cells] = self.solid.fracture_gap
             self.equation_system.set_variable_values(
@@ -140,7 +144,7 @@ class NonzeroFractureGapPoromechanics:
             if sd.dim == self.nd:
                 vals.append(np.zeros(sd.num_cells))
             else:
-                val = self.fluid.reference_component.convert_units(
+                val = self.units.convert_units(
                     self.params["fracture_source_value"], "kg * s ^ -1"
                 )
                 vals.append(val * np.ones(sd.num_cells))
@@ -528,7 +532,7 @@ class PoromechanicsWell(
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
         h = 0.5 * ls
         mesh_sizes = {
             "cell_size": h,

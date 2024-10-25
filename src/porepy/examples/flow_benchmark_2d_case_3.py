@@ -42,8 +42,8 @@ class Case3aBoundaryConditions(BoundaryConditionsMassDirNorthSouth):
         """Pressure value of 4 on top and 1 on bottom side."""
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[bounds.north] = self.fluid.reference_component.convert_units(4, "Pa")
-        values[bounds.south] = self.fluid.reference_component.convert_units(1, "Pa")
+        values[bounds.north] = self.units.convert_units(4, "Pa")
+        values[bounds.south] = self.units.convert_units(1, "Pa")
         return values
 
 
@@ -54,8 +54,8 @@ class Case3bBoundaryConditions(BoundaryConditionsMassDirWestEast):
         """Pressure value of 4 on left/west and 1 on right/east side."""
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[bounds.west] = self.fluid.reference_component.convert_units(4, "Pa")
-        values[bounds.east] = self.fluid.reference_component.convert_units(1, "Pa")
+        values[bounds.west] = self.units.convert_units(4, "Pa")
+        values[bounds.east] = self.units.convert_units(1, "Pa")
         return values
 
 
@@ -86,7 +86,7 @@ class Permeability(DimensionDependentPermeability):
         permeabilities = []
         for sd in subdomains:
             permeabilities.append(
-                self.solid.convert_units(
+                self.units.convert_units(
                     self.fracture_permeabilities[sd.frac_num] * np.ones(sd.num_cells),
                     "m^2",
                 )
@@ -130,7 +130,7 @@ class Permeability(DimensionDependentPermeability):
                     1 / unique_fracture_permeabilities
                 )
             permeabilities.append(
-                self.solid.convert_units(val * np.ones(intf.num_cells), "m^2")
+                self.units.convert_units(val * np.ones(intf.num_cells), "m^2")
             )
         return pp.wrap_as_dense_ad_array(
             np.hstack(permeabilities), name="normal_permeability"

@@ -1,11 +1,14 @@
 """Storage classes for material constants.
 
-Materials are storage classes for values of physical properties. They are typically used
-when composing constitutive laws. A material is instantiated with a Units object, which
-defines the units of the physical properties. The material can then be used to convert
-from units set by the user (standard SI units) to those specified by the Units object,
-which are the ones used internally in the simulation. The conversion hopefully reduces
-problems with scaling/rounding errors and condition numbers.
+Material contants are values representing either constant physical properties (f.e.
+critical pressurre) or parameters for constitutive laws (f.e. constant compressibility
+for exponential-type density law). A material is instantiated with a
+:class:`~porepy.models.units.Units` object, which
+defines the units of the physical properties for a simulation setup.
+While the constants must be given in base SI units when instantiationg a material class,
+its constants are converted and stored in the target units, to be used subsequently.
+
+For converting values on the fly, see :meth:`~porepy.models.units.Units.convert_units`.
 
 """
 
@@ -13,9 +16,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import asdict, dataclass, field, is_dataclass
-from typing import Callable, ClassVar, Generic, Optional, TypeVar, Union, cast, overload
-
-import numpy as np
+from typing import Callable, ClassVar, Generic, TypeVar, cast
 
 import porepy as pp
 
@@ -71,7 +72,7 @@ class MaterialConstants:
 
     If the user wants the material to be presented in other than SI units, a ``units=``
     kw-argument can be passed to declare the target, non-SI units (f.e. MPa instead of
-    Pa). The base class functionality will take conversion
+    Pa).
 
     Important:
         When instantiating a material constants data class, the constants must all
@@ -82,8 +83,9 @@ class MaterialConstants:
         Every derived class must have a class attribute :attr:`SI_units`, **annotated as
         ClassVar**. This is to inform the base class about the used SI units.
 
-        For Examples, see :class:`FluidConstants`.
-        For instructions on how to write composed units, see :meth:`convert_units`
+        For examples, see :class:`FluidConstants` or :class:`SolidConstants`.
+        For instructions on how to write composed units, see
+        :meth:`~porepy.models.units.Units.convert_units`.
 
     """
 
@@ -111,7 +113,8 @@ class MaterialConstants:
 
     This defines the physical units used in the simulation for this species. Constants
     with a physical dimension passed during instantiation will be converted to the
-    units defined here.
+    units defined here, while constants with dimension ``['-'], [''], ['1']`` will be
+    considered dimensionless and left untouched.
 
     """
 
@@ -170,7 +173,7 @@ class MaterialConstants:
                     + f" in SI in {type(self)}.SI_units."
                 )
             si_unit = self.SI_units[k]
-            v_in_custom_units = self.convert_units(v, si_unit)
+            v_in_custom_units = self.units.convert_units(v, si_unit)
             object.__setattr__(self, k, v_in_custom_units)
 
     def __init_subclass__(cls) -> None:
@@ -190,85 +193,16 @@ class MaterialConstants:
                     cls, "__post_init__", MaterialConstants.__post_init__
                 )
 
-    @overload
-    def convert_units(
-        self, value: number, units: str, to_si: Optional[bool] = False
-    ) -> number: ...
-
-    @overload
-    def convert_units(
-        self,
-        value: np.ndarray,
-        units: str,
-        to_si: Optional[bool] = False,
-    ) -> np.ndarray: ...
-
-    def convert_units(
-        self,
-        value: Union[number, np.ndarray],
-        units: str,
-        to_si: Optional[bool] = False,
-    ) -> Union[number, np.ndarray]:
-        """Convert value between SI and user specified units.
-
-        The method divides the value by the units as defined by the user. As an example,
-        if the user has defined the unit for pressure to be 1 MPa, then a value of  1e8
-        will be converted to 1e8 / 1e6 = 1e2. Conversely, if to_si is True, the value
-        will be converted to SI units, i.e. a value of 1e-2 results in 1e-2 * 1e6 = 1e4.
-
-        Parameters:
-            value: Value to be converted.
-            units: Units of ``value`` defined as a string in
-                the form of ``unit1 * unit2 * unit3^-1``, e.g., ``"Pa*m^3/kg"``.
-
-                Valid units are the attributes and properties of the :attr:`units`
-                defined at instantiation.
-                Validoperators are * and ^, including negative powers (e.g. m^-2). A
-                dimensionless value can be specified by setting units to "", "1" or "-".
-            to_si: ``default=False``
-
-                If True, the value is converted from given ``units`` to SI units.
-                If False, the value is assumed to be in SI units, andconverted to the
-                :attr:`units` specified by the user during instantiation.
-
-        Returns:
-            Value in the user specified units to be used in the simulation.
-
-        """
-        # Make a copy of the value to avoid modifying the original.
-        # This is not strictly necessary for scalars, but is done in case the method is
-        # used for arrays.
-        if isinstance(value, np.ndarray):
-            value = value.copy()
-        # Trim any spaces
-        units = units.replace(" ", "")
-        if units in ["", "1", "-"]:
-            return value
-        # Traverse string specifying units, and convert to SI units
-        # The string is traversed by first splitting at *.
-        # If the substring contains a ^, the substring is split again, and the first
-        # element is raised to the power of the second.
-        for sub_unit in units.split("*"):
-            if "^" in sub_unit:
-                sub_unit, power = sub_unit.split("^")
-                factor = getattr(self.units, sub_unit) ** float(power)
-            else:
-                factor = getattr(self.units, sub_unit)
-            if to_si:
-                value *= factor
-            else:
-                value /= factor
-        return value
-
     def to_units(
         self: _MaterialConstants, units: pp.Units = pp.Units()
     ) -> _MaterialConstants:
         """Utility to quickly convert material constants to new units.
 
         Note:
+            The default value of ``units`` allows a conversion to SI units.
             When using units which are not defined in the standard
-            :class:`~porepy.models.units.Units`, the default value of ``units`` might
-            not be enough to convert to SI.
+            :class:`~porepy.models.units.Units` class, the default value of ``units``
+            might not be enough.
 
         Parameters:
             units: A new unit system. The default unit system is in SI.

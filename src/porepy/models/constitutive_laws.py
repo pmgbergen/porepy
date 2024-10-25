@@ -2504,7 +2504,7 @@ class FouriersLaw(PorePyModel):
             Cell-wise nd-vector source term operator.
 
         """
-        val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
+        val = self.units.convert_units(0, "m*s^-2")  # TODO: Fix units
         size = int(sum(g.num_cells for g in grids) * self.nd)
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
@@ -2523,7 +2523,7 @@ class FouriersLaw(PorePyModel):
             Cell-wise nd-vector source term operator.
 
         """
-        val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
+        val = self.units.convert_units(0, "m*s^-2")  # TODO: Fix units
         size = int(sum(g.num_cells for g in interfaces))
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
@@ -2920,9 +2920,7 @@ class GravityForce(PorePyModel):
             Cell-wise nd-vector representing the gravity force [kg*s^-2*m^-2].
 
         """
-        val = self.fluid.reference_component.convert_units(
-            pp.GRAVITY_ACCELERATION, "m*s^-2"
-        )
+        val = self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
         size = int(sum(g.num_cells for g in grids))
         gravity: pp.ad.Operator
         gravity = pp.wrap_as_dense_ad_array(val, size=size, name="gravity")
@@ -3881,7 +3879,7 @@ class ElasticTangentialFractureDeformation(PorePyModel):
 
         stiffness = self.fracture_tangential_stiffness(subdomains)
         # Retrieve the *unscaled* stiffness value for the check below.
-        stiffness_value = self.solid.convert_units(
+        stiffness_value = self.units.convert_units(
             stiffness.value(self.equation_system), "Pa*m^-1", to_si=True
         )
         if np.any(np.isclose(stiffness_value, -1.0, atol=1e-12, rtol=1e-12)):

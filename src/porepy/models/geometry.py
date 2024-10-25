@@ -71,7 +71,7 @@ class ModelGeometry(PorePyModel):
         Override this method to define a geometry with a different domain.
 
         """
-        self._domain = nd_cube_domain(2, self.solid.convert_units(1.0, "m"))
+        self._domain = nd_cube_domain(2, self.units.convert_units(1.0, "m"))
 
     @property
     def fractures(self) -> Union[list[pp.LineFracture], list[pp.PlaneFracture]]:
@@ -125,7 +125,7 @@ class ModelGeometry(PorePyModel):
 
         """
         # Default value of 1/2, scaled by the length unit.
-        cell_size = self.solid.convert_units(0.5, "m")
+        cell_size = self.units.convert_units(0.5, "m")
         default_meshing_args: dict[str, float] = {"cell_size": cell_size}
         # If meshing arguments are provided in the params, they should already be
         # scaled by the length unit.

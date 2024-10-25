@@ -6,6 +6,8 @@ This is part of a system for setting the units of measurement of a problem.
 
 from __future__ import annotations
 
+from typing import Optional, Union, overload
+
 import numpy as np
 
 import porepy as pp
@@ -123,3 +125,73 @@ class Units:
     def degree(self) -> number:
         """Angle unit, derived from rad."""
         return self.rad * 180 / np.pi
+
+    @overload
+    def convert_units(
+        self, value: number, units: str, to_si: Optional[bool] = False
+    ) -> number: ...
+
+    @overload
+    def convert_units(
+        self,
+        value: np.ndarray,
+        units: str,
+        to_si: Optional[bool] = False,
+    ) -> np.ndarray: ...
+
+    def convert_units(
+        self,
+        value: Union[number, np.ndarray],
+        units: str,
+        to_si: Optional[bool] = False,
+    ) -> Union[number, np.ndarray]:
+        """Convert value between SI and user specified units.
+
+        The method divides the value by the units as defined by the user. As an example,
+        if the user has defined the unit for pressure to be 1 MPa, then a value of  1e8
+        will be converted to 1e8 / 1e6 = 1e2. Conversely, if to_si is True, the value
+        will be converted to SI units, i.e. a value of 1e-2 results in 1e-2 * 1e6 = 1e4.
+
+        Parameters:
+            value: Value to be converted.
+            units: Units of ``value`` defined as a string in
+                the form of ``unit1 * unit2 * unit3^-1``, e.g., ``"Pa*m^3/kg"``.
+
+                Valid units are the attributes and properties of the :attr:`units`
+                defined at instantiation.
+                Validoperators are * and ^, including negative powers (e.g. m^-2). A
+                dimensionless value can be specified by setting units to "", "1" or "-".
+            to_si: ``default=False``
+
+                If True, the value is converted from given ``units`` to SI units.
+                If False, the value is assumed to be in SI units, andconverted to the
+                :attr:`units` specified by the user during instantiation.
+
+        Returns:
+            Value in the user specified units to be used in the simulation.
+
+        """
+        # Make a copy of the value to avoid modifying the original.
+        # This is not strictly necessary for scalars, but is done in case the method is
+        # used for arrays.
+        if isinstance(value, np.ndarray):
+            value = value.copy()
+        # Trim any spaces
+        units = units.replace(" ", "")
+        if units in ["", "1", "-"]:
+            return value
+        # Traverse string specifying units, and convert to SI units
+        # The string is traversed by first splitting at *.
+        # If the substring contains a ^, the substring is split again, and the first
+        # element is raised to the power of the second.
+        for sub_unit in units.split("*"):
+            if "^" in sub_unit:
+                sub_unit, power = sub_unit.split("^")
+                factor = getattr(self, sub_unit) ** float(power)
+            else:
+                factor = getattr(self, sub_unit)
+            if to_si:
+                value *= factor
+            else:
+                value /= factor
+        return value

@@ -442,7 +442,7 @@ class ThermoporomechanicsWell(
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
         h = 0.5 * ls
         mesh_sizes = {
             "cell_size": h,

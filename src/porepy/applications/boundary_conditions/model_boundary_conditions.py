@@ -253,8 +253,8 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
         u_s = np.tile(
             self.params.get("u_south", np.zeros(self.nd)), (boundary_grid.num_cells, 1)
         ).T
-        values[:, sides.north] = self.solid.convert_units(u_n, "m")[:, sides.north]
-        values[:, sides.south] = self.solid.convert_units(u_s, "m")[:, sides.south]
+        values[:, sides.north] = self.units.convert_units(u_n, "m")[:, sides.north]
+        values[:, sides.south] = self.units.convert_units(u_s, "m")[:, sides.south]
         return values.ravel("F")
 
 
