@@ -14,7 +14,7 @@ from porepy.applications.md_grids.model_geometries import (
 )
 
 
-class NoPhysics(  # type: ignore[misc]
+class NoPhysics(
     pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin, pp.BoundaryConditionMixin
 ):
     """A model with no physics, for testing purposes.
@@ -245,11 +245,12 @@ def subdomains_or_interfaces_from_method_name(
     assert len(signature.parameters) == 1
 
     # The domain is a list of either subdomains or interfaces.
+    domains: list[pp.Grid] | list[pp.MortarGrid]
     if "subdomains" in signature.parameters or "domains" in signature.parameters:
         # If relevant, filter out the domains that are not to be tested.
         domains = mdg.subdomains(dim=domain_dimension)
     elif "interfaces" in signature.parameters:
-        domains = mdg.interfaces(dim=domain_dimension)  # type: ignore[assignment]
+        domains = mdg.interfaces(dim=domain_dimension)
 
     return domains
 

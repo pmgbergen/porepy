@@ -140,8 +140,6 @@ class SolutionStrategyPoromechanics(
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
     """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid."""
 
     biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that defines the Biot tensor. Normally provided by a mixin instance of
