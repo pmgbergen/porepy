@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any
 
 import numpy as np
 
@@ -19,8 +18,6 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
     The domain can be 1d, 2d or 3d.
 
     """
-
-    fluid: pp.Fluid
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
@@ -85,8 +82,6 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
     The domain can be 2d or 3d.
 
     """
-
-    fluid: pp.Fluid
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
@@ -193,13 +188,6 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
     south boundaries.
 
     """
-
-    params: dict[str, Any]
-    """Model parameters."""
-    solid: pp.SolidConstants
-    """Solid parameters."""
-    nd: int
-    """Number of dimensions."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Boundary condition type for mechanics.

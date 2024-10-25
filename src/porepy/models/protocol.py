@@ -18,6 +18,9 @@ if not TYPE_CHECKING:
     class PorePyModel(Protocol):
         """This is an empty placeholder of the protocol, used mainly for type hints."""
 
+        def __init__(self, *args, **kwargs) -> None:
+            super().__init__(*args, **kwargs)
+
 else:
     # This branch is accessed by mypy and linters.
 

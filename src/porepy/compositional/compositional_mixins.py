@@ -26,6 +26,7 @@ from typing import Callable, Optional, Sequence, cast
 import numpy as np
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
@@ -61,7 +62,7 @@ def _get_surrogate_factory_as_property(
     )
 
 
-class _MixtureDOFHandler:
+class _MixtureDOFHandler(PorePyModel):
     """A class to help resolve the independent fractional variables of an arbitrary
     mixture, and respectivly the DOFs.
 
@@ -124,20 +125,6 @@ class _MixtureDOFHandler:
         in phases.
 
     """
-
-    fluid: Fluid
-    """See :class:`FluidMixin`."""
-
-    equation_system: pp.ad.EquationSystem
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-
-    params: dict
-    """See the solutions strategy mixin."""
-
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`."""
 
     # Logic methods determining existence of DOFs
 
@@ -448,7 +435,7 @@ class _MixtureDOFHandler:
                 [isinstance(g, pp.BoundaryGrid) for g in domains]
             ):
                 return self.create_boundary_operator(
-                    name=name, domains=domains  # type: ignore[call-arg]
+                    name=name, domains=cast(Sequence[pp.BoundaryGrid], domains)
                 )
             # Check that the domains are grids.
             if not all([isinstance(g, pp.Grid) for g in domains]):
@@ -1034,7 +1021,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         return fraction
 
 
-class FluidMixin:
+class FluidMixin(PorePyModel):
     """Mixin class for introducing a general fluid (mixture) into a PorePy model and
     providing it as an attribute :attr:`fluid`.
 
@@ -1089,11 +1076,6 @@ class FluidMixin:
     """See :class:`~porepy.models.geometry.ModelGeometry`."""
     params: dict
     """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-
-    pressure: DomainFunctionType
-    """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
-    temperature: DomainFunctionType
-    """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
     _has_unified_equilibrium: bool
     """See :class:`_MixtureDOFHandler`."""

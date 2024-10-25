@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Callable
+
 import numpy as np
 import pytest
 from numpy import ndarray
@@ -61,6 +63,8 @@ def get_mock_model(
         composit.CompositionalVariables,
         pp.BoundaryConditionMixin,
     ):
+        pressure: Callable
+        temperature: Callable
 
         def get_components(self) -> list[composit.Component]:
             return components

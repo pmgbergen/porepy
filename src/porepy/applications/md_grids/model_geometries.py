@@ -7,7 +7,7 @@ import porepy as pp
 from . import domains, fracture_sets
 
 
-class SquareDomainOrthogonalFractures:
+class SquareDomainOrthogonalFractures(pp.ModelGeometry):
     """Create a mixed-dimensional grid for a square domain with up to two
     orthogonal fractures.
 
@@ -15,15 +15,6 @@ class SquareDomainOrthogonalFractures:
     :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-
-    params: dict
-    """Parameters for the model geometry. Entries relevant for this mixin are:
-        - domain_size: The side length of the square domain.
-        - fracture_indices: List of indices of fractures to be included in the grid.
-
-    """
-    units: pp.Units
-    """Units for the model geometry."""
 
     @property
     def domain_size(self) -> pp.number:
@@ -61,7 +52,7 @@ class SquareDomainOrthogonalFractures:
         self._domain = domains.nd_cube_domain(2, self.domain_size)
 
 
-class CubeDomainOrthogonalFractures:
+class CubeDomainOrthogonalFractures(pp.ModelGeometry):
     """Create a mixed-dimensional grid for a cube domain with up to three
     orthogonal fractures.
 
@@ -69,15 +60,6 @@ class CubeDomainOrthogonalFractures:
     :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-
-    params: dict
-    """Parameters for the model geometry. Entries relevant for this mixin are:
-        - domain_size: The side length of the cube domain.
-        - fracture_indices: List of indices of fractures to be included in the grid.
-
-    """
-    units: pp.Units
-    """Units for the model geometry."""
 
     @property
     def domain_size(self) -> pp.number:
@@ -107,9 +89,6 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
     [0, 1, 2].
 
     """
-
-    params: dict
-    """Parameters for the model."""
 
     def set_fractures(self) -> None:
         # Length scale:
