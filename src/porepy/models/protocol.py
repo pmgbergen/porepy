@@ -564,7 +564,7 @@ else:
 
                 :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
                 get_phase_configuration` respectively.
-    
+
             """
 
         def assign_thermodynamic_properties_to_phases(self) -> None:
