@@ -7,12 +7,13 @@ Contains:
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, Union
+from typing import Union
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 
 
-class BalanceEquation:
+class BalanceEquation(PorePyModel):
     """Generic class for vector balance equations.
 
     In the only known use case, the balance equation is the momentum balance equation,
@@ -21,42 +22,6 @@ class BalanceEquation:
 
     with momentum frequently being zero. All terms need to be specified in order to
     define an equation.
-
-    """
-
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int], pp.ad.DenseArray]
-    """Wrap a grid attribute as a DenseArray. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-
-    """Function that returns the specific volume of a subdomain or interface.
-
-    Normally provided by a mixin of instance
-    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
-    """Basis for the local coordinate system. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    time_manager: pp.TimeManager
-    """Time manager. Normally set by a mixin instance of
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    ad_time_step: pp.ad.Scalar
-    """Time step as an automatic differentiation scalar. Normally set in
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -88,7 +53,6 @@ class BalanceEquation:
             Operator for the balance equation.
 
         """
-
         dt_operator = pp.ad.time_derivatives.dt
         dt = self.ad_time_step
         div = pp.ad.Divergence(subdomains, dim=dim)
@@ -105,11 +69,11 @@ class BalanceEquation:
         Includes cell volumes and specific volume.
 
         Parameters:
-            integrand: Operator for the integrand. Assumed to be a cell-wise scalar or
-                vector quantity, cf. :code:`dim` argument.
+            integrand: Operator for the integrand. Assumed to be a cell-wise scalar
+                or vector quantity, cf. :code:`dim` argument.
             grids: List of subdomains or interfaces to be integrated over.
-            dim: Spatial dimension of the integrand. dim = 1 for scalar problems, dim >
-                1 for vector problems.
+            dim: Spatial dimension of the integrand. dim = 1 for scalar problems,
+                dim > 1 for vector problems.
 
         Returns:
             Operator for the volume integral.
@@ -118,16 +82,12 @@ class BalanceEquation:
             ValueError: If the grids are not all subdomains or all interfaces.
 
         """
-
         assert all(isinstance(g, pp.MortarGrid) for g in grids) or all(
             isinstance(g, pp.Grid) for g in grids
         ), "Grids must be either all subdomains or all interfaces."
 
         # First account for cell volumes.
-        # Ignore mypy complaint about unexpected keyword arguments.
-        cell_volumes = self.wrap_grid_attribute(  # type: ignore[call-arg]
-            grids, "cell_volumes", dim=1
-        )
+        cell_volumes = self.wrap_grid_attribute(grids, "cell_volumes", dim=1)
 
         # Next, include the effects of reduced dimensions, expressed as specific
         # volumes.
@@ -138,9 +98,8 @@ class BalanceEquation:
             # For vector problems, we need to expand the volume array from cell-wise
             # scalar values to cell-wise vectors. We do this by left multiplication with
             # e_i and summing over i.
-            basis: list[pp.ad.SparseArray] = self.basis(
-                grids, dim=dim  # type: ignore[call-arg]
-            )
+            basis = self.basis(grids, dim=dim)
+
             volumes_nd = pp.ad.sum_operator_list(
                 [e @ (cell_volumes * self.specific_volume(grids)) for e in basis]
             )
@@ -148,7 +107,7 @@ class BalanceEquation:
             return volumes_nd * integrand
 
 
-class VariableMixin:
+class VariableMixin(PorePyModel):
     """Mixin class for variables.
 
     This class is intended to be used together with the other model classes providing
@@ -165,15 +124,16 @@ class VariableMixin:
 
         The parameter :code:`variable_name` should be the name of a variable so that
         :code:`self.variable_name()` and `self.reference_variable_name()` are valid
-        calls. These methods will be provided by mixin classes; normally this will be a
-        subclass of :class:`VariableMixin`.
+        calls. These methods will be provided by mixin classes; normally this will
+        be a subclass of :class:`VariableMixin`.
 
         The returned operator will be of the form
         :code:`self.variable_name(grids) - self.reference_variable_name(grids)`.
 
         Parameters:
             variable_name: Name of the variable.
-            grids: List of subdomain or interface grids on which the variable is defined.
+            grids: List of subdomain or interface grids on which the variable is
+                defined.
 
         Returns:
             Operator for the perturbation.

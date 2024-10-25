@@ -10,15 +10,16 @@ or to a file format other than vtu.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 from porepy.viz.exporter import DataInput
 
 
-class DataSavingMixin:
+class DataSavingMixin(PorePyModel):
     """Class for saving data from a simulation model.
 
     Contract with other classes:
@@ -26,36 +27,7 @@ class DataSavingMixin:
 
     """
 
-    equation_system: pp.EquationSystem
-    """Equation system manager."""
-    params: dict[str, Any]
-    """Dictionary of parameters. May contain data saving parameters."""
-    time_manager: pp.TimeManager
-    """Time manager for the simulation."""
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the simulation."""
-    restart_options: dict
-    """Dictionary of parameters for restarting from pvd."""
-    units: pp.Units
-    """Units for the simulation."""
-    fluid: pp.FluidConstants
-    """Fluid constants for the simulation."""
-    nd: int
-    """Number of spatial dimensions for the simulation."""
-    nonlinear_solver_statistics: pp.SolverStatistics
-    """Non-linear solver statistics for nonlinear solver."""
-
     def save_data_time_step(self) -> None:
-        """Export the model state at a given time step, and log time.
-        The options for exporting times are:
-            * None: All time steps are exported
-            * list: Export if time is in the list. If the list is empty, then no times
-              are exported.
-
-        In addition, save the solver statistics to file if the option is set.
-
-        """
-
         # Fetching the desired times to export
         times_to_export = self.params.get("times_to_export", None)
         if times_to_export is None:
@@ -158,15 +130,6 @@ class DataSavingMixin:
         return vals
 
     def initialize_data_saving(self) -> None:
-        """Initialize data saving.
-
-        This method is called by :meth:`prepare_simulation` to initialize the exporter,
-        and any other data saving functionality (e.g., empty data containers to be
-        appended in :meth:`save_data_time_step`).
-
-        In addition, set path for storing solver statistics data to file for each time step.
-
-        """
         self.exporter = pp.Exporter(
             self.mdg,
             self.params["file_name"],
@@ -191,20 +154,6 @@ class DataSavingMixin:
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
     ) -> None:
-        """Initialize data in the model by reading from a pvd file.
-
-        Parameters:
-            vtu_files: path(s) to vtu file(s)
-            keys: keywords addressing cell data to be transferred. If 'None', the
-                mixed-dimensional grid is checked for keywords corresponding to primary
-                variables identified through pp.TIME_STEP_SOLUTIONS.
-            keyword arguments: see documentation of
-                :meth:`porepy.viz.exporter.Exporter.import_state_from_vtu`
-
-        Raises:
-            ValueError: if incompatible file type provided.
-
-        """
         # Sanity check
         if not (
             isinstance(vtu_files, list)
@@ -227,21 +176,6 @@ class DataSavingMixin:
         times_file: Optional[Path] = None,
         keys: Optional[Union[str, list[str]]] = None,
     ) -> None:
-        """Initialize data in the model by reading from a pvd file.
-
-        Parameters:
-            pvd_file: path to pvd file with exported vtu files.
-            is_mdg_pvd: flag controlling whether pvd file is a mdg file, i.e., generated
-                with Exporter._export_mdg_pvd() or Exporter.write_pvd().
-            times_file: path to json file storing history of time and time step size.
-            keys: keywords addressing cell data to be transferred. If 'None', the
-                mixed-dimensional grid is checked for keywords corresponding to primary
-                variables identified through pp.TIME_STEP_SOLUTIONS.
-
-        Raises:
-            ValueError: if incompatible file type provided.
-
-        """
         # Sanity check
         if not pvd_file.suffix == ".pvd":
             raise ValueError
@@ -257,12 +191,6 @@ class DataSavingMixin:
 
 class VerificationDataSaving(DataSavingMixin):
     """Class to store relevant data for a generic verification setup."""
-
-    nonlinear_solver_statistics: pp.SolverStatistics
-    """Non-linear solver statistics, also keeping track of the number of iterations."""
-
-    _is_time_dependent: Callable[[], bool]
-    """Whether the problem is time-dependent."""
 
     results: list
     """List of objects containing the results of the verification."""

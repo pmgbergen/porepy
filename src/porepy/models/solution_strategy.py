@@ -12,68 +12,20 @@ import logging
 import time
 import warnings
 from functools import partial
-from pathlib import Path
 from typing import Any, Callable, Optional
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 
 logger = logging.getLogger(__name__)
 
 
-class SolutionStrategy(abc.ABC):
+class SolutionStrategy(abc.ABC, PorePyModel):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
-
-    """
-
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    set_geometry: Callable[[], None]
-    """Set the geometry of the model. Normally provided by a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    initialize_data_saving: Callable[[], None]
-    """Initialize data saving. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
-    save_data_time_step: Callable[[], None]
-    """Save data at a time step. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
-    create_variables: Callable[[], None]
-    """Create variables. Normally provided by a mixin instance of a Variable class
-    relevant to the model.
-
-    """
-    set_equations: Callable[[], None]
-    """Set the governing equations of the model. Normally provided by the solution
-    strategy of a specific model (i.e. a subclass of this class).
-
-    """
-    load_data_from_vtu: Callable[[Path, int, Optional[Path]], None]
-    """Load data from vtu to initialize the states, only applicable in restart mode.
-    :class:`~porepy.viz.exporter.Exporter`.
-
-    """
-    load_data_from_pvd: Callable[[Path, bool, Optional[Path]], None]
-    """Load data from pvd to initialize the states, only applicable in restart mode.
-    :class:`~porepy.viz.exporter.Exporter`.
-
-    """
-    nonlinear_solver_statistics: pp.SolverStatistics
-    """Solver statistics for the nonlinear solver."""
-    update_all_boundary_conditions: Callable[[], None]
-    """Set the values of the boundary conditions for the new time step.
-    Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
 
     """
 
@@ -81,8 +33,7 @@ class SolutionStrategy(abc.ABC):
         """Initialize the solution strategy.
 
         Parameters:
-            params: Parameters for the solution strategy. Defaults to
-                None.
+            params: Parameters for the solution strategy. Defaults to None.
 
         """
         if params is None:
@@ -96,55 +47,21 @@ class SolutionStrategy(abc.ABC):
         }
 
         default_params.update(params)
-
         self.params = default_params
-        """Dictionary of parameters."""
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
-        self.convergence_status: bool = False
-        """Whether the non-linear iteration has converged."""
+        self.convergence_status = False
 
-        # Define attributes to be assigned later
-        self.equation_system: pp.ad.EquationSystem
-        """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
-
-        """
-        self.mdg: pp.MixedDimensionalGrid
-        """Mixed-dimensional grid. Will normally be set by a mixin instance of
-        :class:`~porepy.models.geometry.ModelGeometry`.
-
-        """
-        self._domain: pp.Domain
-        """Box-shaped domain. Will normally be set by a mixin instance of
-        :class:`~porepy.models.geometry.ModelGeometry`.
-
-        """
-        self.linear_system: tuple[sps.spmatrix, np.ndarray]
-        """The linear system to be solved in each iteration of the non-linear solver.
-        The tuple contains the sparse matrix and the right hand side residual vector.
-
-        """
         self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
-        self.exporter: pp.Exporter
-        """Exporter for visualization."""
+        self.units = params.get("units", pp.Units())
 
-        self.units: pp.Units = params.get("units", pp.Units())
-        """Units of the model. See also :meth:`set_units`."""
-
-        self.fluid: pp.FluidConstants
-        """Fluid constants. See also :meth:`set_materials`."""
-
-        self.solid: pp.SolidConstants
-        """Solid constants. See also :meth:`set_materials`."""
-
-        self.time_manager: pp.TimeManager = params.get(
+        self.time_manager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
-        """Time manager for the simulation."""
 
-        self.restart_options: dict = params.get(
+        self.restart_options = params.get(
             "restart_options",
             {
                 "restart": False,
@@ -175,17 +92,9 @@ class SolutionStrategy(abc.ABC):
                 # assumed to address the last time step in times_file.
             },
         )
-        """Restart options (template) for restart from pvd as expected restart routines
-        within :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
 
-        """
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
-        """Time step as an automatic differentiation scalar.
 
-        This is used to ensure that the time step is for all equations if the time step
-        is adjusted during simulation. See :meth:`before_nonlinear_loop`.
-
-        """
         self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
@@ -275,20 +184,16 @@ class SolutionStrategy(abc.ABC):
         self.update_time_dependent_ad_arrays()
 
     @property
-    def domain(self) -> pp.Domain:
-        """Domain of the problem."""
-        return self._domain
-
-    @property
     def time_step_indices(self) -> np.ndarray:
         """Indices for storing time step solutions.
 
-        Note:
-            (Previous) Time step indices should start with 1.
+        Index 0 corresponds to the most recent time step with the know solution, 1 -
+        to the previous time step, etc.
 
         Returns:
-            An array of the indices of which time step solutions will be stored, counting
-            from 0. Defaults to storing the most recently computed solution only.
+            An array of the indices of which time step solutions will be stored,
+            counting from 0. Defaults to storing the most recently computed solution
+            only.
 
         """
         return np.array([0])
@@ -721,7 +626,7 @@ class SolutionStrategy(abc.ABC):
         self.update_all_boundary_conditions()
 
 
-class ContactIndicators:
+class ContactIndicators(PorePyModel):
     """Class for computing contact indicators used for tailored line search.
 
     This functionality is experimental and may be subject to change.
@@ -737,9 +642,6 @@ class ContactIndicators:
 
     """
 
-    basis: Callable[[list[pp.Grid], int], list[pp.ad.SparseArray]]
-    """Basis vector operator."""
-
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction operator."""
 
@@ -749,29 +651,11 @@ class ContactIndicators:
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Displacement jump operator."""
 
-    equation_system: pp.ad.EquationSystem
-    """Equation system manager."""
-
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Fracture gap operator."""
 
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction bound operator."""
-
-    normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Normal component operator for vectors defined on fracture subdomains."""
-
-    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Tangential component operator for vectors defined on fracture subdomains."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
-
-    nd: int
-    """Ambient dimension of the problem."""
-
-    params: dict[str, Any]
-    """Dictionary of parameters."""
 
     def opening_indicator(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Function describing the state of the opening constraint.
@@ -833,9 +717,7 @@ class ContactIndicators:
         # Mapping from a full vector to the tangential component
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
-        tangential_basis: list[pp.ad.SparseArray] = self.basis(
-            subdomains, dim=self.nd - 1  # type: ignore[call-arg]
-        )
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # Variables: The tangential component of the contact traction and the
         # displacement jump
@@ -876,7 +758,7 @@ class ContactIndicators:
             ind = ind / pp.ad.Scalar(scale)
         return ind * h_oi
 
-    def contact_traction_estimate(self, subdomains):
+    def contact_traction_estimate(self, subdomains: list[pp.Grid]):
         """Estimate the magnitude of contact traction.
 
         Parameters:
