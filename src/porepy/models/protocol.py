@@ -575,7 +575,9 @@ else:
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""
 
-        def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
+        def perturbation_from_reference(
+            self, variable_name: str, grids: list[pp.Grid]
+        ) -> pp.ad.Operator:
             """Perturbation of a variable from its reference value.
 
             The parameter :code:`variable_name` should be the name of a variable so that

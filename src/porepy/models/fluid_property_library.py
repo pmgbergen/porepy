@@ -11,9 +11,11 @@ refactor tests since their name space changed to model.fluid
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, cast
+from typing import Sequence, cast
 
 import porepy as pp
+
+from .protocol import PorePyModel
 
 __all__ = [
     "FluidDensityFromPressure",
@@ -29,16 +31,8 @@ Scalar = pp.ad.Scalar
 ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
-class FluidDensityFromPressure:
+class FluidDensityFromPressure(PorePyModel):
     """Fluid density as a function of pressure."""
-
-    fluid: pp.compositional.Fluid
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
-    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """Function that returns a perturbation from the reference state. Normally
-    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
-
-    """
 
     def fluid_compressibility(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
         """Fluid compressibility.
@@ -110,20 +104,8 @@ class FluidDensityFromPressure:
         return exp(c * dp)
 
 
-class FluidDensityFromTemperature:
+class FluidDensityFromTemperature(PorePyModel):
     """Fluid density as a function of temperature."""
-
-    fluid: pp.compositional.Fluid
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """Function that returns a perturbation from the reference state. Normally
-    provided by a mixin of instance :class:`~porepy.models.VariableMixin`.
-
-    """
 
     def fluid_thermal_expansion(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
         """
@@ -222,7 +204,9 @@ class FluidDensityFromPressureAndTemperature(
         return rho
 
 
-class FluidMobility:  # TODO this does not belong here, requires a solution for 1 and m-phase
+class FluidMobility(
+    PorePyModel
+):  # TODO this does not belong here, requires a solution for 1 and m-phase
     """Class for fluid mobility and its discretization in single-phase flow problems."""
 
     mobility_keyword: str
@@ -230,8 +214,6 @@ class FluidMobility:  # TODO this does not belong here, requires a solution for 
     instance :class:`~porepy.models.SolutionStrategy`.
 
     """
-
-    fluid: pp.Fluid
 
     def mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Mobility of the fluid flux, given by the reciprocal of the fluid's reference phase
@@ -273,11 +255,8 @@ class FluidMobility:  # TODO this does not belong here, requires a solution for 
         return pp.ad.UpwindCouplingAd(self.mobility_keyword, interfaces)
 
 
-class ConstantViscosity:
+class ConstantViscosity(PorePyModel):
     """Constant viscosity for a 1-phase, 1-component fluid."""
-
-    fluid: pp.Fluid
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
 
     # NOTE replaces mixin fluid_viscosity
     def viscosity_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
@@ -290,11 +269,8 @@ class ConstantViscosity:
         return mu
 
 
-class ConstantFluidThermalConductivity:
+class ConstantFluidThermalConductivity(PorePyModel):
     """Ïmplementation of a constant thermal conductivity for a 1-phase, 1-component fluid."""
-
-    fluid: pp.Fluid
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
 
     # NOTE replaces mixin fluid_thermal_conductivity
     def thermal_conductivity_of_phase(
@@ -328,7 +304,7 @@ class ConstantFluidThermalConductivity:
         return Scalar(val, "normal_thermal_conductivity")
 
 
-class FluidEnthalpyFromTemperature:
+class FluidEnthalpyFromTemperature(PorePyModel):
     """Implementation of a linearized fluid enthalpy :math:`c(T - T_{ref})` for a 1-phase,
     1-component fluid.
 
@@ -336,12 +312,6 @@ class FluidEnthalpyFromTemperature:
     which is constant.
 
     """
-
-    fluid: pp.Fluid
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
-
-    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """See :class:`~porepy.models.VariableMixin`."""
 
     def fluid_specific_heat_capacity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """
