@@ -3,10 +3,6 @@
 Most of the laws implemented here are meant for 1-phase, 1-component mixtures, using some
 fluid constants stored in the fluid's reference component.
 
-TODO: Various flid_* methods have tests implemented in
-test_fluid_mass_balance, test_constitutive_laws, test_energy_balance
-refactor tests since their name space changed to model.fluid
-
 """
 
 from __future__ import annotations
@@ -50,17 +46,16 @@ class FluidDensityFromPressure(PorePyModel):
             self.fluid.reference_component.compressibility, "fluid_compressibility"
         )
 
-    # NOTE replaces mixin fluid_density
     def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
-        """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
-        to provide a density exponential law for the fluid's phase..
+        """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.
+        FluidMixin` to provide a density exponential law for the fluid's phase.
 
         .. math::
             \\rho = \\rho_0 \\exp \\left[ c_p \\left(p - p_0\\right) \\right]
 
         The reference density and the compressibility are taken from the material
-        constants of the reference component, while the reference pressure is accessible by
-        mixin; a typical implementation will provide this in a variable class.
+        constants of the reference component, while the reference pressure is accessible
+        by mixin; a typical implementation will provide this in a variable class.
 
         Parameters:
             subdomains: List of subdomain grids.
@@ -114,8 +109,8 @@ class FluidDensityFromTemperature(PorePyModel):
                 other implementations.
 
         Returns:
-            Operator representing the thermal expansion  [1/K]. The value is picked from the
-            fluid constants of the reference component.
+            Operator representing the thermal expansion  [1/K]. The value is picked from
+            the fluid constants of the reference component.
 
         """
         val = self.fluid.reference_component.thermal_expansion
@@ -204,9 +199,8 @@ class FluidDensityFromPressureAndTemperature(
         return rho
 
 
-class FluidMobility(
-    PorePyModel
-):  # TODO this does not belong here, requires a solution for 1 and m-phase
+# TODO this does not belong here, requires a solution for 1 and m-phase
+class FluidMobility(PorePyModel):
     """Class for fluid mobility and its discretization in single-phase flow problems."""
 
     mobility_keyword: str
@@ -216,8 +210,8 @@ class FluidMobility(
     """
 
     def mobility(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Mobility of the fluid flux, given by the reciprocal of the fluid's reference phase
-        viscosity.
+        """Mobility of the fluid flux, given by the reciprocal of the fluid's reference
+        phase viscosity.
 
         Parameters:
             subdomains: List of subdomains.
@@ -258,10 +252,9 @@ class FluidMobility(
 class ConstantViscosity(PorePyModel):
     """Constant viscosity for a 1-phase, 1-component fluid."""
 
-    # NOTE replaces mixin fluid_viscosity
     def viscosity_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
-        """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
-        to provide a constant viscosity for the fluid's phase."""
+        """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.
+        FluidMixin` to provide a constant viscosity for the fluid's phase."""
 
         def mu(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             return Scalar(self.fluid.reference_component.viscosity, "viscosity")
@@ -270,14 +263,14 @@ class ConstantViscosity(PorePyModel):
 
 
 class ConstantFluidThermalConductivity(PorePyModel):
-    """Ïmplementation of a constant thermal conductivity for a 1-phase, 1-component fluid."""
+    """Ïmplementation of a constant thermal conductivity for a 1-phase, 1-component
+    fluid."""
 
-    # NOTE replaces mixin fluid_thermal_conductivity
     def thermal_conductivity_of_phase(
         self, phase: pp.Phase
     ) -> ExtendedDomainFunctionType:
-        """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
-        to provide a constant thermal conductivity for the fluid's phase."""
+        """Mixin method for :class:`~porepy.compositional.compositional_mixins.
+        FluidMixin` to provide a constant thermal conductivity for the fluid's phase."""
 
         def kappa(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             return Scalar(
@@ -287,11 +280,12 @@ class ConstantFluidThermalConductivity(PorePyModel):
 
         return kappa
 
-    def normal_thermal_conductivity(  # NOTE this is not really a fluid-related const. law
+    # NOTE this is not really a fluid-related const. law, more related to mD
+    def normal_thermal_conductivity(
         self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Scalar:
-        """Constant normal thermal conductivity of the fluid given by the fluid constants
-        stored in the fluid's reference component.
+        """Constant normal thermal conductivity of the fluid given by the fluid
+        constants stored in the fluid's reference component.
 
         Parameters:
             interfaces: List of interface grids.
@@ -305,8 +299,8 @@ class ConstantFluidThermalConductivity(PorePyModel):
 
 
 class FluidEnthalpyFromTemperature(PorePyModel):
-    """Implementation of a linearized fluid enthalpy :math:`c(T - T_{ref})` for a 1-phase,
-    1-component fluid.
+    """Implementation of a linearized fluid enthalpy :math:`c(T - T_{ref})` for a
+    1-phase, 1-component fluid.
 
     It uses the specific heat capacity of the fluid's reference component as :math:`c`,
     which is constant.
@@ -329,10 +323,9 @@ class FluidEnthalpyFromTemperature(PorePyModel):
             "fluid_specific_heat_capacity",
         )
 
-    # NOTE replaces mixin fluid_enthalpy
     def specific_enthalpy_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
-        """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.FluidMixin`
-        to provide a linear specific enthalpy for the fluid's phase."""
+        """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.
+        FluidMixin` to provide a linear specific enthalpy for the fluid's phase."""
 
         def h(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             c = self.fluid_specific_heat_capacity(cast(list[pp.Grid], domains))

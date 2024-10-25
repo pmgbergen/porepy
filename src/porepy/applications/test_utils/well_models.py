@@ -43,11 +43,6 @@ class OneVerticalWell:
 class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
     """Boundary conditions for the well setup."""
 
-    fluid: pp.Fluid
-
-    params: dict[str, float]
-    """Model parameters."""
-
     def _bc_type(self, sd: pp.Grid, well_cond: str) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 

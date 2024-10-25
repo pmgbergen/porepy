@@ -1069,14 +1069,6 @@ class FluidMixin(PorePyModel):
 
     """
 
-    fluid: Fluid
-    """The fluid mixture set by this class during :meth:`create_fluid`."""
-
-    mdg: pp.MixedDimensionalGrid
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-    params: dict
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-
     _has_unified_equilibrium: bool
     """See :class:`_MixtureDOFHandler`."""
     _has_equilibrium: bool

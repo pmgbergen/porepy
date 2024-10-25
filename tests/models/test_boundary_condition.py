@@ -2,7 +2,7 @@
 
 """
 
-from typing import Callable, Sequence
+from typing import Sequence
 
 import numpy as np
 import pytest
@@ -25,8 +25,6 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
     """
 
     custom_bc_neumann_key = "custom_bc_neumann"
-
-    fluid: pp.compositional.Fluid
 
     def update_all_boundary_conditions(self) -> None:
         super().update_all_boundary_conditions()

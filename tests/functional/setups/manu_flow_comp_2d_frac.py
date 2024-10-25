@@ -674,9 +674,6 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
 class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
     """Modified solution strategy for the verification setup."""
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
-
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
     provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
@@ -694,9 +691,6 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
 
     results: list[ManuCompSaveData]
     """List of SaveData objects."""
-
-    solid: pp.SolidConstants
-    """Object containing the solid constants."""
 
     def __init__(self, params: dict):
         """Constructor of the class."""

@@ -16,26 +16,11 @@ import pytest
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models, well_models
+from porepy.models.protocol import PorePyModel
 
 
-class NonzeroFractureGapPoromechanics:
+class NonzeroFractureGapPoromechanics(PorePyModel):
     """Adjust bc values and initial condition."""
-
-    fluid: pp.Fluid
-    solid: pp.SolidConstants
-    units: pp.Units
-    mdg: pp.MixedDimensionalGrid
-    equation_system: pp.EquationSystem
-
-    domain_boundary_sides: Callable
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    nd: int
-    """Number of dimensions of the problem."""
-    params: dict
-    """Parameters for the model."""
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         domain_sides = self.domain_boundary_sides(sd)

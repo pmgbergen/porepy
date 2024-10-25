@@ -132,15 +132,7 @@ class Permeability(DimensionDependentPermeability):
 
     """
 
-    params: dict
-    """Dictionary of parameters."""
     solid: FractureSolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-
-    Tailored to the current model with the additional parameter
-    `fracture_permeability`.
-
-    """
 
     def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability of fractures.

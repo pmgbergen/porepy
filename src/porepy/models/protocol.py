@@ -2,6 +2,17 @@
 in an instance of a PorePy model. The proper implementations of these methods can be
 found in various classes within the models directiory.
 
+Note that the protocol framework is accessed by static type checkes only!
+
+Warning:
+    For developers:
+
+    Do not bring the ``typing.Protocol`` class into any form into the mixin framework
+    of PorePy! Use it exclusively in ``if``-sections for ``typing.TYPE_CHECKING``.
+
+    Protocols use ``__slot__`` which leads to unforeseeable behaviour when combined
+    with multiple inheritance and mixing.
+
 """
 
 from pathlib import Path
@@ -15,6 +26,7 @@ import scipy.sparse as sps
 # and returns None.
 if not TYPE_CHECKING:
     # This branch is accessed in python runtime.
+    # NOTE See Warning in module docstring before attempting anything here.
     class PorePyModel:
         """This is an empty placeholder of the protocol, used mainly for type hints."""
 
