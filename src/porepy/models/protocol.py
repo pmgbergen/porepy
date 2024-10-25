@@ -556,9 +556,13 @@ else:
 
         def create_fluid(self) -> None:
             """Create the :attr:`fluid` object based on the default or user-provided
-            context of components and phases from
-            :meth:`~porepy.compositional.compositional_mixins.FluidMixin.get_components`
-            and :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+            context of components and phases.
+
+            See also:
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                get_components`
+
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
             get_phase_configuration` respectively."""
 
         def assign_thermodynamic_properties_to_phases(self) -> None:
