@@ -65,12 +65,6 @@ class BoundaryConditions:
     :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    fluid: pp.Fluid
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
     specific_volume: Callable[
         [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
     ]
@@ -86,11 +80,14 @@ class BoundaryConditions:
 
     """
 
+    units: pp.Units
+    """Simulation units provided by the solution strategy mixin."""
+
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Pressure value of 1 Pa on east side."""
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[bounds.east] = self.fluid.reference_component.convert_units(1, "Pa")
+        values[bounds.east] = self.units.convert_units(1, "Pa")
         return values
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -116,7 +113,7 @@ class BoundaryConditions:
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
         # Inflow on the west boundary. Sign as per PorePy convention.
-        val = self.fluid.reference_component.convert_units(-1, "m * s^-1")
+        val = self.units.convert_units(-1, "m * s^-1")
         # Integrate over the boundary cell volumes.
         values[bounds.west] = val * boundary_grid.cell_volumes[bounds.west]
         # Scale with specific volume.

@@ -102,9 +102,7 @@ class DataSavingMixin:
                 variables=[var], time_step_index=0
             )
             units = var.tags["si_units"]
-            values = self.fluid.reference_component.convert_units(
-                scaled_values, units, to_si=True
-            )
+            values = self.units.convert_units(scaled_values, units, to_si=True)
             data.append((var.domain, var.name, values))
 
         # Add secondary variables/derived quantities.
@@ -149,16 +147,14 @@ class DataSavingMixin:
             grid: Grid or mortar grid for which the method should be evaluated.
             method_name: Name of the method to be evaluated.
             units: Units of the quantity returned by the method. Should be parsable by
-                :meth:`porepy.fluid.FluidConstants.convert_units`.
+                :meth:`porepy.models.units.Units.convert_units`.
 
         Returns:
             Array of values for the quantity, scaled to SI units.
 
         """
         vals_scaled = getattr(self, method_name)([grid]).value(self.equation_system)
-        vals = self.fluid.reference_component.convert_units(
-            vals_scaled, units, to_si=True
-        )
+        vals = self.units.convert_units(vals_scaled, units, to_si=True)
         return vals
 
     def initialize_data_saving(self) -> None:

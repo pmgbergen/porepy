@@ -24,12 +24,6 @@ class SquareDomainOrthogonalFractures:
     """
     units: pp.Units
     """Units for the model geometry."""
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
 
     @property
     def domain_size(self) -> pp.number:
@@ -40,7 +34,7 @@ class SquareDomainOrthogonalFractures:
 
         """
         # Scale by length unit.
-        return self.solid.convert_units(self.params.get("domain_size", 1.0), "m")
+        return self.units.convert_units(self.params.get("domain_size", 1.0), "m")
 
     def set_fractures(self) -> None:
         """Assigns 0 to 2 fractures to the domain.
@@ -84,18 +78,12 @@ class CubeDomainOrthogonalFractures:
     """
     units: pp.Units
     """Units for the model geometry."""
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
 
     @property
     def domain_size(self) -> pp.number:
         """Return the side length of the cube domain."""
         # Scale by length unit.
-        return self.solid.convert_units(self.params.get("domain_size", 1.0), "m")
+        return self.units.convert_units(self.params.get("domain_size", 1.0), "m")
 
     def set_fractures(self) -> None:
         """Assigns 0 to 3 fractures."""
@@ -125,7 +113,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
 
     def set_fractures(self) -> None:
         # Length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
 
         fracture_indices = self.params.get("fracture_indices", [0])
         fractures = [
@@ -137,7 +125,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
 
     def meshing_arguments(self) -> dict:
         # Divide by length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
 
         mesh_sizes = {
             # Cartesian: 2 by 8 cells.
@@ -157,7 +145,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
             self.params["grid_type"] = "cartesian"
 
         # Length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
 
         # Mono-dimensional grid by default
         phys_dims = np.array([2, 1]) * ls
@@ -179,7 +167,7 @@ class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
 
     def meshing_arguments(self) -> dict:
         # Length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
 
         mesh_sizes = {
             "cell_size": 0.5 * ls,

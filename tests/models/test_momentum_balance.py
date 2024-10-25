@@ -263,8 +263,8 @@ def test_lithostatic(dim: int):
     vals = vals.reshape((model.nd, -1), order="F")
 
     # Analytical displacement.
-    g = model.solid.convert_units(pp.GRAVITY_ACCELERATION, "m * s^-2")
-    rho = model.solid.convert_units(model.solid.density, "kg * m^-3")
+    g = model.units.convert_units(pp.GRAVITY_ACCELERATION, "m * s^-2")
+    rho = model.units.convert_units(model.solid.density, "kg * m^-3")
     data = model.mdg.subdomain_data(sd)
     stiffness = data[pp.PARAMETERS][model.stress_keyword]["fourth_order_tensor"]
     E = 2 * stiffness.mu[0] + stiffness.lmbda[0]
@@ -616,7 +616,7 @@ class TimeDependentBCs(
             # Create slip for second time step.
             u_z = 50.0 if self.time_manager.time > 1.1 else 1.0
             u_n = np.tile([1, -1, u_z], (bg.num_cells, 1)).T
-            values[:, sides.north] += self.solid.convert_units(u_n, "m")[:, sides.north]
+            values[:, sides.north] += self.units.convert_units(u_n, "m")[:, sides.north]
         return values.ravel("F")
 
 

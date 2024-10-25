@@ -295,8 +295,8 @@ class TerzaghiUtils(VerificationUtils):
     # ---> Derived physical quantities
     def gravity_acceleration(self) -> number:
         """Gravity acceleration in scaled [m * s^-2]."""
-        ls = self.solid.convert_units(1, "m")
-        ts = self.solid.convert_units(1, "s")
+        ls = self.units.convert_units(1, "m")
+        ts = self.units.convert_units(1, "s")
         scaling_factor = ls / ts**2
         return pp.GRAVITY_ACCELERATION * scaling_factor  # scaled [m * s^-2]
 
@@ -507,7 +507,7 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
     def height(self) -> pp.number:
         """Retrieve height of the domain, in scaled [m]."""
-        ls = self.solid.convert_units(1, "m")  # length scaling
+        ls = self.units.convert_units(1, "m")  # length scaling
         height = self.params.get("height", 1.0)  # [m]
         return height * ls
 
@@ -528,20 +528,14 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
 # -----> Boundary conditions
 class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBalance):
+
     params: dict
     """Parameter dictionary of the verification setup."""
-
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of storing and scaling numerical values
-    representing solid-related quantities. Normally, this is set by an instance of
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
 
     def applied_load(self) -> pp.number:
         """Obtain vertical load in scaled [Pa]."""
         applied_load = self.params.get("vertical_load", 6e8)  # [Pa]
-        return self.solid.convert_units(applied_load, "Pa")  # scaled [Pa]
+        return self.units.convert_units(applied_load, "Pa")  # scaled [Pa]
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.

@@ -32,12 +32,6 @@ class ModelGeometry:
     """Unit system."""
     params: dict
     """Parameters for the model."""
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
 
     def set_geometry(self) -> None:
         """Define geometry and create a mixed-dimensional grid.
@@ -87,7 +81,7 @@ class ModelGeometry:
         Override this method to define a geometry with a different domain.
 
         """
-        self._domain = nd_cube_domain(2, self.solid.convert_units(1.0, "m"))
+        self._domain = nd_cube_domain(2, self.units.convert_units(1.0, "m"))
 
     @property
     def fractures(self) -> Union[list[pp.LineFracture], list[pp.PlaneFracture]]:
@@ -141,7 +135,7 @@ class ModelGeometry:
 
         """
         # Default value of 1/2, scaled by the length unit.
-        cell_size = self.solid.convert_units(0.5, "m")
+        cell_size = self.units.convert_units(0.5, "m")
         default_meshing_args: dict[str, float] = {"cell_size": cell_size}
         # If meshing arguments are provided in the params, they should already be
         # scaled by the length unit.

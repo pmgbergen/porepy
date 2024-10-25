@@ -7,15 +7,17 @@ import porepy as pp
 
 
 class OneVerticalWell:
+
     domain: pp.Domain
     """Domain for the model."""
 
-    solid: pp.SolidConstants
+    units: pp.Units
+    """Simulation units provided by the solution strategy mixin."""
 
     def set_well_network(self) -> None:
         """Assign well network class."""
         points = np.array([[0.5, 0.5], [0.5, 0.5], [0.2, 1]])
-        mesh_size = self.solid.convert_units(1 / 10.0, "m")
+        mesh_size = self.units.convert_units(1 / 10.0, "m")
         self.well_network = pp.WellNetwork3d(
             domain=self.domain,
             wells=[pp.Well(points)],
@@ -24,7 +26,7 @@ class OneVerticalWell:
 
     def meshing_arguments(self) -> dict:
         # Length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
         h = 0.15 * ls
         mesh_sizes = {
             "cell_size_fracture": h,
@@ -111,7 +113,7 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
             Boundary condition values array.
 
         """
-        value = self.fluid.reference_component.convert_units(
+        value = self.units.convert_units(
             self.params.get("well_flux", -1), "kg * m ^ 3 * s ^ -1"
         )
         return self._bc_values(boundary_grid, value)
@@ -142,9 +144,7 @@ class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
             Numeric enthalpy flux values for a Neumann-type BC.
 
         """
-        val = self.fluid.reference_component.convert_units(
-            self.params.get("well_enthalpy", 1e7), "K"
-        )
+        val = self.units.convert_units(self.params.get("well_enthalpy", 1e7), "K")
         return self._bc_values(boundary_grid, val)
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:

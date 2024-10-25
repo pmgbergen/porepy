@@ -53,7 +53,7 @@ class BoundaryConditionLinearPressure(
 
         sides = self.domain_boundary_sides(boundary_grid)
         vals = np.zeros(boundary_grid.num_cells)
-        vals[sides.west] = self.fluid.reference_component.convert_units(1, "Pa")
+        vals[sides.west] = self.units.convert_units(1, "Pa")
         return vals
 
 
@@ -62,7 +62,7 @@ class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
         vals = np.zeros(boundary_grid.num_cells)
-        vals[sides.west] = self.fluid.reference_component.convert_units(1, "K")
+        vals[sides.west] = self.units.convert_units(1, "K")
         return vals
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -208,7 +208,7 @@ def test_unit_conversion(units):
 
             sides = self.domain_boundary_sides(boundary_grid)
             vals = np.zeros(boundary_grid.num_cells)
-            vals[sides.west] = self.fluid.reference_component.convert_units(10.0, "K")
+            vals[sides.west] = self.units.convert_units(10.0, "K")
             return vals
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -216,7 +216,7 @@ def test_unit_conversion(units):
 
             sides = self.domain_boundary_sides(boundary_grid)
             vals = np.zeros(boundary_grid.num_cells)
-            vals[sides.west] = self.fluid.reference_component.convert_units(1e4, "Pa")
+            vals[sides.west] = self.units.convert_units(1e4, "Pa")
             return vals
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing

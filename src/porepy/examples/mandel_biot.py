@@ -1148,7 +1148,7 @@ class MandelUtils(VerificationUtils):
         """Plot degree of consolidation as a function of time."""
 
         # Retrieve data
-        m = self.solid.convert_units(1, "m")
+        m = self.units.convert_units(1, "m")
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
         c_f = self.fluid_diffusivity()  # [m^2 * s^-1]
@@ -1235,14 +1235,14 @@ class MandelGeometry(pp.ModelGeometry):
 
     def set_domain(self) -> None:
         """Set the domain."""
-        ls = self.solid.convert_units(1, "m")  # length scaling
+        ls = self.units.convert_units(1, "m")  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
         domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
         self._domain = domain
 
     def meshing_arguments(self) -> dict[str, float]:
         """Set meshing arguments."""
-        ls = self.solid.convert_units(1, "m")  # length scaling
+        ls = self.units.convert_units(1, "m")  # length scaling
         default_meshing_arguments = {"cell_size": 2 * ls}
         return self.params.get("meshing_arguments", default_meshing_arguments)
 
@@ -1268,8 +1268,8 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
             Applied vertical load on the North boundary in scaled [N * m^-1].
 
         """
-        N = self.solid.convert_units(1, "N")  # force scaling
-        m = self.solid.convert_units(1, "m")  # length scaling
+        N = self.units.convert_units(1, "N")  # force scaling
+        m = self.units.convert_units(1, "m")  # length scaling
         applied_force = self.params.get("vertical_load", 6e8)  # [N * m^-1]
         return applied_force * (N / m)
 

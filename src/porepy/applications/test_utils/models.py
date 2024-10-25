@@ -332,12 +332,8 @@ def compare_scaled_primary_variables(
             variables=[var_name], time_step_index=0
         )
         # Convert back to SI units.
-        values_0 = setup_0.fluid.reference_component.convert_units(
-            scaled_values_0, var_unit, to_si=True
-        )
-        values_1 = setup_1.fluid.reference_component.convert_units(
-            scaled_values_1, var_unit, to_si=True
-        )
+        values_0 = setup_0.units.convert_units(scaled_values_0, var_unit, to_si=True)
+        values_1 = setup_1.units.convert_units(scaled_values_1, var_unit, to_si=True)
         compare_values(values_0, values_1, cell_wise=cell_wise)
 
 
@@ -377,11 +373,7 @@ def compare_scaled_model_quantities(
             )
             # Convert back to SI units.
             value = method(domains).value(setup.equation_system)
-            values.append(
-                setup.fluid.reference_component.convert_units(
-                    value, method_unit, to_si=True
-                )
-            )
+            values.append(setup.units.convert_units(value, method_unit, to_si=True))
         compare_values(values[0], values[1], cell_wise=cell_wise)
 
 
