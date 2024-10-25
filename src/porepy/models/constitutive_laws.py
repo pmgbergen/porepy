@@ -461,8 +461,7 @@ class DisplacementJumpAperture(DimensionReduction):
                 )
 
                 # Get the apertures of the higher-dimensional neighbors by calling this
-                # method on the parents. TODO: It should be possible to store the values
-                # from the aperture calculation on the previous dimension.
+                # method on the parents.
                 parent_apertures = self.aperture(parent_subdomains)
 
                 # The apertures on the lower-dimensional subdomains are the mean
@@ -2954,7 +2953,7 @@ class FouriersLaw:
             Cell-wise nd-vector source term operator.
 
         """
-        val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
+        val = self.fluid.convert_units(0, "K * m^-1")
         size = int(sum(g.num_cells for g in grids) * self.nd)
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
@@ -2973,7 +2972,7 @@ class FouriersLaw:
             Cell-wise nd-vector source term operator.
 
         """
-        val = self.fluid.convert_units(0, "m*s^-2")  # TODO: Fix units
+        val = self.fluid.convert_units(0, "K * m^-1")
         size = int(sum(g.num_cells for g in interfaces))
         source = pp.wrap_as_dense_ad_array(val, size=size, name="zero_vector_source")
         return source
@@ -4167,7 +4166,7 @@ class CoulombFrictionBound:
             - F t_n
 
         where :math:`F` is the friction coefficient and :math:`t_n` is the normal
-        component of the contact traction. TODO: Rename class to CoulombFrictionBound?
+        component of the contact traction.
 
         Parameters:
             subdomains: List of fracture subdomains.

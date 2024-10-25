@@ -137,7 +137,7 @@ class BalanceEquation:
         else:
             # For vector problems, we need to expand the volume array from cell-wise
             # scalar values to cell-wise vectors. We do this by left multiplication with
-            #  e_i and summing over i.
+            # e_i and summing over i.
             basis: list[pp.ad.SparseArray] = self.basis(
                 grids, dim=dim  # type: ignore[call-arg]
             )
