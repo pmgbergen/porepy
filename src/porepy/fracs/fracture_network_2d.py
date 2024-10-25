@@ -155,9 +155,6 @@ class FractureNetwork2d:
 
         Note that the mesh generation process is outsourced to gmsh.
 
-        Todo:
-            Add description of **kwargs.
-
         Parameters:
             mesh_args: Arguments passed on to mesh size control. It should contain,
                 minimally, the keyword ``mesh_size_frac``. Other supported keywords are
@@ -213,6 +210,7 @@ class FractureNetwork2d:
                 This is of use only if ``finalize_gmsh=False`, in which case it may be
                 desirable to delete the old geometry before adding a new one.
             **kwargs:
+                Passed on to the meshing function.
 
         Returns:
             Mixed-dimensional grid for this fracture network.
@@ -244,21 +242,20 @@ class FractureNetwork2d:
         )
 
         if dfn:
-            # Create list of grids
+            # Create list of grids.
             subdomains = porepy.fracs.simplex.line_grid_from_gmsh(
                 file_name, constraints=constraints
             )
 
         else:
-            # Create list of grids
+            # Create list of grids.
             subdomains = porepy.fracs.simplex.triangle_grid_from_gmsh(
                 file_name, constraints=constraints
             )
 
         if tags_to_transfer:
-            # preserve tags for the fractures from the network
-            # we are assuming a coherent numeration between the network
-            # and the created grids
+            # Preserve tags for the fractures from the network. We assume a coherent
+            # numeration between the network and the created grids.
             frac = np.setdiff1d(
                 np.arange(self._edges.shape[1]), constraints, assume_unique=True
             )
@@ -267,7 +264,7 @@ class FractureNetwork2d:
                     if key not in g.tags:
                         g.tags[key] = self.tags[key][frac][idg]
 
-        # Assemble in md grid
+        # Assemble in md grid.
         return pp.meshing.subdomains_to_mdg(subdomains, **kwargs)
 
     def prepare_for_gmsh(
@@ -590,11 +587,8 @@ class FractureNetwork2d:
     def _find_intersection_points(self, lines: np.ndarray) -> np.ndarray:
         """Find intersection points for a set of lines.
 
-        Todo:
-            Improve documentation.
-
         Parameters:
-            lines: Lines defined as pair of points.
+            lines: Lines defined as pairs of points.
 
         Returns:
             Numpy array containing the intersection between :attr:`lines`.
@@ -603,9 +597,9 @@ class FractureNetwork2d:
         frac_id = np.ravel(lines[:2, lines[2] == GmshInterfaceTags.FRACTURE.value])
         _, frac_ia, frac_count = np.unique(frac_id, True, False, True)
 
-        # In the case we have auxiliary points remove do not create a 0d point in
-        # case one intersects a single fracture. In the case of multiple fractures
-        # intersection with an auxiliary point do consider the 0d.
+        # In the case we have auxiliary points, do not create a 0d point in the case
+        # where the point intersects a single fracture. In the case of multiple
+        # fractures intersecting with an auxiliary point do consider the 0d.
         aux_id = np.logical_or(
             lines[2] == GmshInterfaceTags.AUXILIARY_LINE.value,
             lines[2] == GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value,
@@ -615,10 +609,10 @@ class FractureNetwork2d:
             _, aux_ia, aux_count = np.unique(aux_id, True, False, True)
 
             # It can probably be done more efficiently, but currently we rarely use the
-            # auxiliary points in 2d
+            # auxiliary points in 2d.
             for a in aux_id[aux_ia[aux_count > 1]]:
-                # if a match is found decrease the frac_count only by one, this prevents
-                # the multiple fracture case to be handled wrongly
+                # If a match is found decrease the frac_count only by one, this prevents
+                # the multiple fracture case to be handled wrongly.
                 frac_count[frac_id[frac_ia] == a] -= 1
 
         return frac_id[frac_ia[frac_count > 1]]
