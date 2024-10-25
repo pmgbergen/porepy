@@ -257,30 +257,30 @@ def stack_diag(A: sps.spmatrix, B: sps.spmatrix) -> sps.spmatrix:
 def slice_indices(
     A: sps.spmatrix, slice_ind: np.ndarray, return_array_ind: bool = False
 ) -> Union[np.ndarray, tuple[np.ndarray, Union[np.ndarray, slice]]]:
-    """Function for slicing sparse matrix along rows or columns. 
-    
+    """Function for slicing sparse matrix along rows or columns.
+
     If A is a csc_matrix, it will be sliced along columns. If A is a csr_matrix, it will
     be sliced along the rows.
 
     Parameters:
-        A: A sparse matrix. 
+        A: A sparse matrix.
         slice_ind: Array containing indices to be sliced.
 
     Returns:
-        Tuple of indices and array_ind. 
+        Tuple of indices and array_ind.
 
             If A is csc_matrix, indices is the nonzero row indices or columns slice_ind.
             If A is csr_matrix, indices is the nonzero columns indices or rows
             slice_ind.
-            
+
             array_ind: The indices in the compressed storage format (csc or csr)
         corresponding to the slice; so that, if A is csr, A.indices[array_ind] gives the
             columns of the slice (represented in indices), and the corresponding data
             can be accessed as A.data[array_ind]. Only returned if return_array_ind is
             True.
-    
+
     Example:
-        A = sps.csc_matrix(np.eye(10)) 
+        A = sps.csc_matrix(np.eye(10))
          rows = slice_indices(A, np.array([0,2,3]))
 
     """
@@ -730,7 +730,7 @@ def invert_diagonal_blocks(
 
         Returns:
             inv_a: Flattened nonzero values of the inverse matrix.
-            
+
         """
 
         # This function only supports CSR format.
@@ -858,7 +858,7 @@ def block_diag_matrix(vals: np.ndarray, sz: np.ndarray) -> sps.spmatrix:
 
     Returns:
         sps.csr matrix.
-        
+
     """
     indices = block_diag_index(sz)
     # This line recovers starting indices of the rows.
