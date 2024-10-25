@@ -15,11 +15,8 @@ import scipy.sparse as sps
 # and returns None.
 if not TYPE_CHECKING:
     # This branch is accessed in python runtime.
-    class PorePyModel(Protocol):
+    class PorePyModel:
         """This is an empty placeholder of the protocol, used mainly for type hints."""
-
-        # def __init__(self, *args, **kwargs) -> None:
-        #     super().__init__(*args, **kwargs)
 
 else:
     # This branch is accessed by mypy and linters.
