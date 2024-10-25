@@ -497,12 +497,6 @@ else:
         See also :meth:`set_units`.
 
         """
-        fluid: pp.FluidConstants
-        """Fluid constants.
-
-        See also :meth:`set_materials`.
-
-        """
         solid: pp.SolidConstants
         """Solid constants.
 
@@ -546,6 +540,34 @@ else:
 
             Returns:
                 bool: True if the problem is time-dependent, False otherwise.
+
+            """
+
+    class FluidProtocol(Protocol):
+        """This protocol provides declarations of methods defined in the
+        :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
+
+        fluid: pp.Fluid
+        """Fluid object.
+
+        See also :meth:`create_fluid`.
+
+        """
+
+        def create_fluid(self) -> None:
+            """Create the :attr:`fluid` object based on the default or user-provided
+            context of components and phases from
+            :meth:`~porepy.compositional.compositional_mixins.FluidMixin.get_components`
+            and :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+            get_phase_configuration` respectively."""
+
+        def assign_thermodynamic_properties_to_phases(self) -> None:
+            """Assigns callable properties to the dynamic phase objects, after the
+            fluid and all variables are defined.
+
+            See also:
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                assign_thermodynamic_properties_to_phases`.
 
             """
 
@@ -761,6 +783,7 @@ else:
         BoundaryConditionProtocol,
         EquationProtocol,
         VariableProtocol,
+        FluidProtocol,
         ModelGeometryProtocol,
         DataSavingProtocol,
         SolutionStrategyProtocol,
