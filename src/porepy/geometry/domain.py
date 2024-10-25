@@ -139,8 +139,8 @@ class Domain:
         return s
 
     def __eq__(self, other: object) -> bool:
-        """Two domains are equal if they have the same polytope. 
-        
+        """Two domains are equal if they have the same polytope.
+
         Note:
             This assumes that the arrays of the polytope list are stored in the exact
             same order. This condition may be too strict - we might want to consider the
