@@ -269,19 +269,20 @@ def slice_indices(
     Returns:
         Tuple of indices and array_ind.
 
-            If A is csc_matrix, indices is the nonzero row indices or columns slice_ind.
-            If A is csr_matrix, indices is the nonzero columns indices or rows
-            slice_ind.
+            indices:
+            If A is csc_matrix, the nonzero row indices or columns slice_ind.
+            If A is csr_matrix, the nonzero columns indices or rows slice_ind.
 
             array_ind: The indices in the compressed storage format (csc or csr)
-        corresponding to the slice; so that, if A is csr, A.indices[array_ind] gives the
-            columns of the slice (represented in indices), and the corresponding data
-            can be accessed as A.data[array_ind]. Only returned if return_array_ind is
-            True.
+            corresponding to the slice; so that, if A is csr, A.indices[array_ind] gives
+            the columns of the slice (represented in indices), and the corresponding
+            data can be accessed as A.data[array_ind]. Only returned if return_array_ind
+            is True.
 
     Example:
-        A = sps.csc_matrix(np.eye(10))
-         rows = slice_indices(A, np.array([0,2,3]))
+
+        >>> A = sps.csc_matrix(np.eye(10))
+        >>> rows = slice_indices(A, np.array([0,2,3]))
 
     """
     assert A.getformat() == "csc" or A.getformat() == "csr"
