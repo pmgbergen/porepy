@@ -35,7 +35,7 @@
 
 Note:
     Phases are meant to be based on an Equation of State.
-    A basic interface for such an equation of state is defined by :class:`AbstractEoS`.
+    A basic interface for such an equation of state is defined by :class:`EquationOfState`.
 
 Important:
     The physical units used here are in general SI units.
@@ -65,7 +65,7 @@ from .utils import CompositionalModellingError, safe_sum
 __all__ = [
     "Component",
     "Compound",
-    "AbstractEoS",
+    "EquationOfState",
     "Phase",
     "Fluid",
 ]
@@ -339,15 +339,14 @@ class Compound(Component):
         return X
 
 
-class AbstractEoS:
-    """Abstract EoS class defining the interface between thermodynamic input
+class EquationOfState:
+    """EoS class defining the interface between thermodynamic input
     and resulting structure containing thermodynamic properties of a phase.
 
     Component properties required for computations can be extracted in the constructor.
 
     Note:
-        This class is called 'abstract EoS', but is in fact not strictly abstract and
-        can be instantiated.
+        The base class cann be instantiated without providing concrete computations.
 
         This is by intention such that phases can be created with a generic EoS, in a
         simulation setting which uses heuristic laws for fluid properties. The method
@@ -375,7 +374,7 @@ class AbstractEoS:
     def compute_phase_properties(
         self, phase_state: PhysicalState, *thermodynamic_input: np.ndarray
     ) -> PhaseProperties:
-        """ "Abstract method to compute the properties of a phase based any
+        """Method to compute the properties of a phase based any
         thermodynamic input and a given physical state.
 
         The base class method raises an :obj:`NotImplementedError`.
@@ -402,7 +401,7 @@ class AbstractEoS:
             derivatives w.r.t. the dependencies (``thermodynamic_input``).
 
         """
-        raise NotImplementedError("Call to abstract base class.")
+        raise NotImplementedError("Call to generic base class method.")
 
 
 class Phase:
@@ -472,7 +471,7 @@ class Phase:
 
     def __init__(
         self,
-        eos: AbstractEoS,
+        eos: EquationOfState,
         state: PhysicalState,
         name: str,
     ) -> None:
@@ -492,7 +491,7 @@ class Phase:
 
         """
 
-        self.eos: AbstractEoS = eos
+        self.eos: EquationOfState = eos
         """The EoS passed at instantiation."""
 
         self.state: PhysicalState = state
@@ -670,7 +669,7 @@ class Phase:
 
     def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseProperties:
         """Shortcut to compute the properties calling
-        :meth:`AbstractEoS.compute_phase_state` of :attr:`eos` with :attr:`state` as
+        :meth:`EquationOfState.compute_phase_state` of :attr:`eos` with :attr:`state` as
         argument."""
         return self.eos.compute_phase_properties(self.state, *thermodynamic_input)
 

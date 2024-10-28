@@ -16,7 +16,7 @@ import porepy.compositional as composit
 def dummyeos():
     """Dummy Eos"""
 
-    class DummyEos(composit.AbstractEoS):
+    class DummyEos(composit.EquationOfState):
 
         def compute_phase_properties(
             self, phase_type: int, *thermodynamic_input: ndarray
@@ -71,7 +71,7 @@ def get_mock_model(
 
         def get_phase_configuration(
             self, components: np.Sequence[composit.Component]
-        ) -> np.Sequence[tuple[composit.AbstractEoS, int, str]]:
+        ) -> np.Sequence[tuple[composit.EquationOfState, int, str]]:
             return phase_configuration
 
         # for simplicity of testing
@@ -152,9 +152,9 @@ def test_mixture_contexts(
     if ncomp == 0:
         with pytest.raises(composit.CompositionalModellingError):
             _ = dummyeos(components)
-        eos: composit.AbstractEoS = dummyeos([h2o])
+        eos: composit.EquationOfState = dummyeos([h2o])
     else:
-        eos: composit.AbstractEoS = dummyeos(components)
+        eos: composit.EquationOfState = dummyeos(components)
     phases: list[composit.Phase] = []
     has_gas = False
     has_more_gas = False

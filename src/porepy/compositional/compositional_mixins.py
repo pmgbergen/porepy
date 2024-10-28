@@ -30,7 +30,7 @@ from porepy.models.protocol import PorePyModel
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
-from .base import AbstractEoS, Component, Compound, Fluid, Phase
+from .base import Component, Compound, EquationOfState, Fluid, Phase
 from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
@@ -1123,7 +1123,7 @@ class FluidMixin(PorePyModel):
 
     def get_phase_configuration(
         self, components: Sequence[Component]
-    ) -> Sequence[tuple[AbstractEoS, PhysicalState, str]]:
+    ) -> Sequence[tuple[EquationOfState, PhysicalState, str]]:
         """Method to return a configuration of modelled phases.
 
         The default implementation returns a liquid-like phase with an abstract EoS
@@ -1150,7 +1150,7 @@ class FluidMixin(PorePyModel):
             :class:`~porepy.compositional.base.Phase`.
 
         """
-        return [(AbstractEoS(components), PhysicalState.liquid, "liquid")]
+        return [(EquationOfState(components), PhysicalState.liquid, "liquid")]
 
     def set_components_in_phases(
         self, components: Sequence[Component], phases: Sequence[Phase]
