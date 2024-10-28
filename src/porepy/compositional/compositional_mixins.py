@@ -1232,7 +1232,7 @@ class FluidMixin(PorePyModel):
             This method must be overwritten in every flow problem which relies on e.g.,
             :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory` for
             externally computed values. The framework requires information about the
-            input arguments of the externally computes property values (primary
+            input arguments of the externally computed property values (primary
             variables and their indices in the system's Jacobian).
             The base method returns an empty list for reasons of compatibility
             with pure mechanics models. Below is an example to implement the logic
