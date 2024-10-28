@@ -295,8 +295,8 @@ class TerzaghiUtils(VerificationUtils):
     # ---> Derived physical quantities
     def gravity_acceleration(self) -> number:
         """Gravity acceleration in scaled [m * s^-2]."""
-        ls = self.solid.convert_units(1, "m")
-        ts = self.solid.convert_units(1, "s")
+        ls = self.units.convert_units(1, "m")
+        ts = self.units.convert_units(1, "s")
         scaling_factor = ls / ts**2
         return pp.GRAVITY_ACCELERATION * scaling_factor  # scaled [m * s^-2]
 
@@ -307,8 +307,8 @@ class TerzaghiUtils(VerificationUtils):
             Confined compressibility.
 
         """
-        mu_s = self.solid.shear_modulus()  # scaled [Pa]
-        lambda_s = self.solid.lame_lambda()  # scaled [Pa]
+        mu_s = self.solid.shear_modulus  # scaled [Pa]
+        lambda_s = self.solid.lame_lambda  # scaled [Pa]
         m_v = 1 / (2 * mu_s + lambda_s)  # scaled [Pa^-1]
         return m_v
 
@@ -319,14 +319,14 @@ class TerzaghiUtils(VerificationUtils):
             Coefficient of consolidation.
 
         """
-        k = self.solid.permeability()  # scaled [m^2]
-        mu_f = self.fluid.viscosity()  # scaled [Pa * s]
-        rho = self.fluid.density()  # scaled [kg * m^-3]
+        k = self.solid.permeability  # scaled [m^2]
+        mu_f = self.fluid.reference_component.viscosity  # scaled [Pa * s]
+        rho = self.fluid.reference_component.density  # scaled [kg * m^-3]
         g = self.gravity_acceleration()  # scaled [m * s^-2]
         gamma_f = rho * g  # specific weight in scaled [Pa * m^-1]
         hydraulic_conductivity = (k * gamma_f) / mu_f  # scaled [m * s^-1]
-        storage = self.solid.specific_storage()  # scaled [Pa^-1]
-        alpha_biot = self.solid.biot_coefficient()  # scaled [-]
+        storage = self.solid.specific_storage  # scaled [Pa^-1]
+        alpha_biot = self.solid.biot_coefficient  # scaled [-]
         m_v = self.confined_compressibility()  # scaled [Pa^-1]
         c_v = hydraulic_conductivity / (gamma_f * (storage + alpha_biot**2 * m_v))
 
@@ -507,7 +507,7 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
     def height(self) -> pp.number:
         """Retrieve height of the domain, in scaled [m]."""
-        ls = self.solid.convert_units(1, "m")  # length scaling
+        ls = self.units.convert_units(1, "m")  # length scaling
         height = self.params.get("height", 1.0)  # [m]
         return height * ls
 
@@ -528,20 +528,14 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
 # -----> Boundary conditions
 class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBalance):
+
     params: dict
     """Parameter dictionary of the verification setup."""
-
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of storing and scaling numerical values
-    representing solid-related quantities. Normally, this is set by an instance of
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
 
     def applied_load(self) -> pp.number:
         """Obtain vertical load in scaled [Pa]."""
         applied_load = self.params.get("vertical_load", 6e8)  # [Pa]
-        return self.solid.convert_units(applied_load, "Pa")  # scaled [Pa]
+        return self.units.convert_units(applied_load, "Pa")  # scaled [Pa]
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
@@ -674,10 +668,10 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         self.exact_sol = TerzaghiExactSolution(self)
 
         # Specific storage must be zero
-        assert self.solid.specific_storage() == 0
+        assert self.solid.specific_storage == 0
 
         # Biot's coefficient must be one
-        assert self.solid.biot_coefficient() == 1
+        assert self.solid.biot_coefficient == 1
 
     def initial_condition(self) -> None:
         """Set initial conditions.

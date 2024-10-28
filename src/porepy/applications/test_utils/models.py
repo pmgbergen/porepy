@@ -14,8 +14,12 @@ from porepy.applications.md_grids.model_geometries import (
 )
 
 
-class NoPhysics(
-    pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin, pp.BoundaryConditionMixin
+class NoPhysics(  # type: ignore[misc]
+    pp.ModelGeometry,
+    pp.SolutionStrategy,
+    pp.DataSavingMixin,
+    pp.BoundaryConditionMixin,
+    pp.FluidMixin,
 ):
     """A model with no physics, for testing purposes.
 
@@ -329,8 +333,8 @@ def compare_scaled_primary_variables(
             variables=[var_name], time_step_index=0
         )
         # Convert back to SI units.
-        values_0 = setup_0.fluid.convert_units(scaled_values_0, var_unit, to_si=True)
-        values_1 = setup_1.fluid.convert_units(scaled_values_1, var_unit, to_si=True)
+        values_0 = setup_0.units.convert_units(scaled_values_0, var_unit, to_si=True)
+        values_1 = setup_1.units.convert_units(scaled_values_1, var_unit, to_si=True)
         compare_values(values_0, values_1, cell_wise=cell_wise)
 
 
@@ -370,7 +374,7 @@ def compare_scaled_model_quantities(
             )
             # Convert back to SI units.
             value = method(domains).value(setup.equation_system)
-            values.append(setup.fluid.convert_units(value, method_unit, to_si=True))
+            values.append(setup.units.convert_units(value, method_unit, to_si=True))
         compare_values(values[0], values[1], cell_wise=cell_wise)
 
 
@@ -448,4 +452,73 @@ def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
         ):
             testable_methods.append(method)
 
-    return testable_methods
+    # Appending testable methods of the fluid
+    fluid_methods = [
+        method for method in dir(model_setup.fluid) if not method.startswith("_")
+    ]
+    testable_fluid_methods: list[str] = []
+    # The basic flow model has no energy-related
+    skip_methods = ["specific_enthalpy", "thermal_conductivity"]
+    for method in fluid_methods:
+        if method in skip_methods:
+            continue
+        # Get method in callable form
+        callable_method = getattr(model_setup.fluid, method)
+
+        # Retrieve method signature via inspect
+        try:
+            signature = inspect.signature(callable_method)
+        except TypeError:
+            continue
+
+        # Append method to the `testable_methods` list if the conditions are met
+        if (
+            len(signature.parameters) == 1
+            and (
+                "subdomains" in signature.parameters
+                or "interfaces" in signature.parameters
+                or "domains" in signature.parameters
+            )
+            and (
+                "pp.ad.Operator" in signature.return_annotation
+                or "pp.ad.DenseArray" in signature.return_annotation
+            )
+        ):
+            testable_fluid_methods.append(f"fluid.{method}")
+
+    # The fluid is represented by a reference phase, whose saturation is 1
+    # I.e., it's thermodynamic properties are equal to the fluid properties
+    phase_methods = [
+        method
+        for method in dir(model_setup.fluid.reference_phase)
+        if not method.startswith("_")
+    ]
+    testable_phase_methods: list[str] = []
+    for method in phase_methods:
+        if method in skip_methods:
+            continue
+        # Get method in callable form
+        callable_method = getattr(model_setup.fluid.reference_phase, method)
+
+        # Retrieve method signature via inspect
+        try:
+            signature = inspect.signature(callable_method)
+        except TypeError:
+            continue
+
+        # Append method to the `testable_methods` list if the conditions are met
+        if (
+            len(signature.parameters) == 1
+            and (
+                "subdomains" in signature.parameters
+                or "interfaces" in signature.parameters
+                or "domains" in signature.parameters
+            )
+            and (
+                "pp.ad.Operator" in signature.return_annotation
+                or "pp.ad.DenseArray" in signature.return_annotation
+            )
+        ):
+            testable_phase_methods.append(f"fluid.reference_phase.{method}")
+
+    return testable_methods + testable_fluid_methods + testable_phase_methods

@@ -176,17 +176,21 @@ from porepy.models.abstract_equations import (
 from porepy.models.boundary_condition import BoundaryConditionMixin
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units
-from porepy.models.material_constants import (
-    FluidConstants,
-    SolidConstants,
-    MaterialConstants,
-)
-
 
 from porepy.viz.data_saving_model_mixin import DataSavingMixin
 from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.models import constitutive_laws
+
+# composite subpackage
+from . import compositional
+from porepy.compositional.materials import (
+    FluidConstants,
+    SolidConstants,
+    MaterialConstants,
+)
+from porepy.compositional.base import Component, Phase, Fluid
+from porepy.compositional.compositional_mixins import CompositionalVariables, FluidMixin
 
 # "Primary" models
 from porepy.models import fluid_mass_balance, momentum_balance
@@ -233,6 +237,3 @@ from porepy.applications.md_grids import (
 from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils
 from porepy import applications
-
-# composite subpackage
-from . import compositional

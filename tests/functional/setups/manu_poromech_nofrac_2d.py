@@ -234,15 +234,15 @@ class ManuPoroMechExactSolution2d:
         """Constructor of the class."""
 
         # Physical parameters
-        lame_lmbda = setup.solid.lame_lambda()  # [Pa] Lamé parameter
-        lame_mu = setup.solid.shear_modulus()  # [Pa] Lamé parameter
-        alpha = setup.solid.biot_coefficient()  # [-] Biot coefficient
-        rho_0 = setup.fluid.density()  # [kg / m^3] Reference density
-        phi_0 = setup.solid.porosity()  # [-] Reference porosity
-        p_0 = setup.fluid.pressure()  # [Pa] Reference pressure
-        c_f = setup.fluid.compressibility()  # [Pa^-1] Fluid compressibility
-        k = setup.solid.permeability()  # [m^2] Permeability
-        mu_f = setup.fluid.viscosity()  # [Pa * s] Fluid viscosity
+        lame_lmbda = setup.solid.lame_lambda  # [Pa] Lamé parameter
+        lame_mu = setup.solid.shear_modulus  # [Pa] Lamé parameter
+        alpha = setup.solid.biot_coefficient  # [-] Biot coefficient
+        rho_0 = setup.fluid.reference_component.density  # [kg / m^3] Reference density
+        phi_0 = setup.solid.porosity  # [-] Reference porosity
+        p_0 = setup.fluid.reference_component.pressure  # [Pa] Reference pressure
+        c_f = setup.fluid.reference_component.compressibility  # [Pa^-1] Fluid compressibility
+        k = setup.solid.permeability  # [m^2] Permeability
+        mu_f = setup.fluid.reference_component.viscosity  # [Pa * s] Fluid viscosity
         K_d = lame_lmbda + (2 / 3) * lame_mu  # [Pa] Bulk modulus
 
         # Symbolic variables
@@ -569,9 +569,6 @@ class ManuPoroMechExactSolution2d:
 class ManuPoroMechUtils(VerificationUtils):
     """Mixin class containing useful utility methods for the setup."""
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
-
     results: list[ManuPoroMechSaveData]
     """List of ManuPoroMechSaveData objects."""
 
@@ -659,7 +656,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
 
         .. code:: python
 
-            rho = self.fluid_density(subdomains)
+            rho = self.fluid.density(subdomains)
             phi = self.volume_integral(self.porosity(subdomains), subdomains, dim=1)
             dt_op = pp.ad.time_derivatives.dt
             dt = pp.ad.Scalar(self.time_manager.dt, name="delta_t")
@@ -706,9 +703,6 @@ class ManuPoroMechSolutionStrategy2d(poromechanics.SolutionStrategyPoromechanics
 
     exact_sol: ManuPoroMechExactSolution2d
     """Exact solution object."""
-
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
 
     plot_results: Callable
     """Method for plotting results. Usually provided by the mixin class

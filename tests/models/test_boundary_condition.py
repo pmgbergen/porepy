@@ -2,7 +2,7 @@
 
 """
 
-from typing import Callable, Sequence
+from typing import Sequence
 
 import numpy as np
 import pytest
@@ -25,8 +25,6 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
     """
 
     custom_bc_neumann_key = "custom_bc_neumann"
-
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def update_all_boundary_conditions(self) -> None:
         super().update_all_boundary_conditions()
@@ -58,7 +56,7 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
         )
         return self._combine_boundary_operators(
             subdomains=subdomains,
-            dirichlet_operator=self.fluid_density,
+            dirichlet_operator=self.fluid.density,
             neumann_operator=op,
             robin_operator=op,
             bc_type=self.bc_type_dummy,
@@ -92,7 +90,7 @@ def test_boundary_condition_mixin(t_end: int):
         bc_val = bc_operator.value(setup.equation_system)
 
         # Testing the Dirichlet values. They should be equal to the fluid density.
-        expected_val = setup.fluid.density()
+        expected_val = setup.fluid.reference_component.density
         assert np.allclose(bc_val[bc_type.is_dir], expected_val)
         assert not np.allclose(bc_val[bc_type.is_neu], expected_val)
 
