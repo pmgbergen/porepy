@@ -2,6 +2,17 @@
 in an instance of a PorePy model. The proper implementations of these methods can be
 found in various classes within the models directiory.
 
+Note that the protocol framework is accessed by static type checkes only!
+
+Warning:
+    For developers:
+
+    Do not bring the ``typing.Protocol`` class into any form into the mixin framework
+    of PorePy! Use it exclusively in ``if``-sections for ``typing.TYPE_CHECKING``.
+
+    Protocols use ``__slot__`` which leads to unforeseeable behaviour when combined
+    with multiple inheritance and mixing.
+
 """
 
 from pathlib import Path
@@ -15,7 +26,8 @@ import scipy.sparse as sps
 # and returns None.
 if not TYPE_CHECKING:
     # This branch is accessed in python runtime.
-    class PorePyModel(Protocol):
+    # NOTE See Warning in module docstring before attempting anything here.
+    class PorePyModel:
         """This is an empty placeholder of the protocol, used mainly for type hints."""
 
 else:
@@ -497,12 +509,6 @@ else:
         See also :meth:`set_units`.
 
         """
-        fluid: pp.FluidConstants
-        """Fluid constants.
-
-        See also :meth:`set_materials`.
-
-        """
         solid: pp.SolidConstants
         """Solid constants.
 
@@ -549,11 +555,47 @@ else:
 
             """
 
+    class FluidProtocol(Protocol):
+        """This protocol provides declarations of methods defined in the
+        :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
+
+        fluid: pp.Fluid
+        """Fluid object.
+
+        See also :meth:`create_fluid`.
+
+        """
+
+        def create_fluid(self) -> None:
+            """Create the :attr:`fluid` object based on the default or user-provided
+            context of components and phases.
+
+            See also:
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                get_components`
+
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                get_phase_configuration` respectively.
+
+            """
+
+        def assign_thermodynamic_properties_to_phases(self) -> None:
+            """Assigns callable properties to the dynamic phase objects, after the
+            fluid and all variables are defined.
+
+            See also:
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                assign_thermodynamic_properties_to_phases`.
+
+            """
+
     class VariableProtocol(Protocol):
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""
 
-        def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
+        def perturbation_from_reference(
+            self, variable_name: str, grids: list[pp.Grid]
+        ) -> pp.ad.Operator:
             """Perturbation of a variable from its reference value.
 
             The parameter :code:`variable_name` should be the name of a variable so that
@@ -761,6 +803,7 @@ else:
         BoundaryConditionProtocol,
         EquationProtocol,
         VariableProtocol,
+        FluidProtocol,
         ModelGeometryProtocol,
         DataSavingProtocol,
         SolutionStrategyProtocol,

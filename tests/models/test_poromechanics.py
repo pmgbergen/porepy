@@ -16,20 +16,11 @@ import pytest
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models, well_models
+from porepy.models.protocol import PorePyModel
 
 
-class NonzeroFractureGapPoromechanics:
+class NonzeroFractureGapPoromechanics(PorePyModel):
     """Adjust bc values and initial condition."""
-
-    domain_boundary_sides: Callable
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    nd: int
-    """Number of dimensions of the problem."""
-    params: dict
-    """Parameters for the model."""
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         domain_sides = self.domain_boundary_sides(sd)
@@ -46,7 +37,7 @@ class NonzeroFractureGapPoromechanics:
         super().initial_condition()
         # Initial pressure equals reference pressure (defaults to zero).
         self.equation_system.set_variable_values(
-            self.fluid.pressure() * np.ones(self.mdg.num_subdomain_cells()),
+            self.fluid.reference_component.pressure * np.ones(self.mdg.num_subdomain_cells()),
             [self.pressure_variable],
             time_step_index=0,
             iterate_index=0,
@@ -54,9 +45,9 @@ class NonzeroFractureGapPoromechanics:
         sd, sd_data = self.mdg.subdomains(return_data=True)[0]
         # Initial displacement.
         if len(self.mdg.subdomains()) > 1:
-            top_cells = sd.cell_centers[1] > self.fluid.convert_units(0.5, "m")
+            top_cells = sd.cell_centers[1] > self.units.convert_units(0.5, "m")
             vals = np.zeros((self.nd, sd.num_cells))
-            vals[1, top_cells] = self.solid.fracture_gap()
+            vals[1, top_cells] = self.solid.fracture_gap
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
                 [self.displacement_variable],
@@ -82,8 +73,8 @@ class NonzeroFractureGapPoromechanics:
             # Set mortar displacement to zero on bottom and fracture gap value on top
             vals = np.zeros((self.nd, intf.num_cells))
             vals[1, top_cells] = (
-                self.solid.fracture_gap()
-                + self.solid.maximum_elastic_fracture_opening()
+                self.solid.fracture_gap
+                + self.solid.maximum_elastic_fracture_opening
             )
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
@@ -138,7 +129,7 @@ class NonzeroFractureGapPoromechanics:
             if sd.dim == self.nd:
                 vals.append(np.zeros(sd.num_cells))
             else:
-                val = self.fluid.convert_units(
+                val = self.units.convert_units(
                     self.params["fracture_source_value"], "kg * s ^ -1"
                 )
                 vals.append(val * np.ones(sd.num_cells))
@@ -176,8 +167,8 @@ def create_fractured_setup(solid_vals: dict, fluid_vals: dict, uy_north: float):
     solid_vals["residual_aperture"] = 1e-10
     solid_vals["biot_coefficient"] = 1.0
     fluid_vals["compressibility"] = 1
-    solid = pp.SolidConstants(solid_vals)
-    fluid = pp.FluidConstants(fluid_vals)
+    solid = pp.SolidConstants(**solid_vals)
+    fluid = pp.FluidConstants(**fluid_vals)
 
     model_params = {
         "times_to_export": [],  # Suppress output for tests
@@ -273,7 +264,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         assert np.allclose(u_vals[:, bottom], 0)
         # Zero x and nonzero y displacement in top
         assert np.allclose(u_vals[0, top], 0)
-        assert np.allclose(u_vals[1, top], setup.solid.fracture_gap())
+        assert np.allclose(u_vals[1, top], setup.solid.fracture_gap)
         # Zero displacement relative to initial value implies zero pressure
         assert np.allclose(p_vals, 0)
     elif north_displacement < 0.0:
@@ -309,7 +300,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     else:
         # Displacement jump should be equal to initial displacement.
         assert np.allclose(jump[0], 0.0)
-        assert np.allclose(jump[1], setup.solid.fracture_gap())
+        assert np.allclose(jump[1], setup.solid.fracture_gap)
         # Normal traction should be non-positive. Zero if north_displacement equals
         # initial gap, negative otherwise.
         if north_displacement < 0.0:
@@ -329,8 +320,8 @@ def test_poromechanics_model_no_modification():
 
 @pytest.mark.parametrize("biot_coefficient", [0.0, 0.5])
 def test_without_fracture(biot_coefficient):
-    fluid = pp.FluidConstants(constants={"compressibility": 0.5})
-    solid = pp.SolidConstants(constants={"biot_coefficient": biot_coefficient})
+    fluid = pp.FluidConstants(compressibility=0.5)
+    solid = pp.SolidConstants(biot_coefficient=biot_coefficient)
     params = {
         "fracture_indices": [],
         "material_constants": {"fluid": fluid, "solid": solid},
@@ -411,7 +402,7 @@ def test_push_north_zero_opening():
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
 
     # All components should be closed in the normal direction
-    assert np.allclose(jump[1], setup.solid.fracture_gap())
+    assert np.allclose(jump[1], setup.solid.fracture_gap)
 
     # Contact force in normal direction should be negative
     assert np.all(traction[1] < 0)
@@ -427,7 +418,7 @@ def test_positive_p_frac_positive_opening():
     _, _, p_frac, jump, traction = get_variables(setup)
 
     # All components should be open in the normal direction
-    assert np.all(jump[1] > setup.solid.fracture_gap())
+    assert np.all(jump[1] > setup.solid.fracture_gap)
 
     # By symmetry (reasonable to expect from this grid), the jump in tangential
     # deformation should be zero.
@@ -477,13 +468,13 @@ def test_unit_conversion(units):
 
     Parameters:
         units (dict): Dictionary with keys as those in
-            :class:`~pp.models.material_constants.MaterialConstants`.
+            :class:`~pp.compositional.materials.MaterialConstants`.
 
     """
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
-    solid = pp.SolidConstants(solid_vals)
-    fluid = pp.FluidConstants(fluid_vals)
+    solid = pp.SolidConstants(**solid_vals)
+    fluid = pp.FluidConstants(**fluid_vals)
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
@@ -526,7 +517,7 @@ class PoromechanicsWell(
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
         h = 0.5 * ls
         mesh_sizes = {
             "cell_size": h,

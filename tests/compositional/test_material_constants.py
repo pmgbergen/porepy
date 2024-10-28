@@ -60,8 +60,13 @@ def test_default_units(base_units, derived_units):
         else:
             assert np.isclose(getattr(units, unit), 1)
 
-    # Get list of all public attributes
-    attributes = [attr for attr in dir(units) if not attr.startswith("_")]
+    # Get list of all public attributes excluding methods
+    exclude = ['convert_units']
+    attributes = [
+        attr
+        for attr in dir(units)
+        if not (attr.startswith("_") or attr in exclude)
+    ]
 
     # Check that all attributes are base or derived units.
     # An error in this test likely means a new unit has been added, but is not covered
@@ -142,8 +147,7 @@ def test_convert_units(modify_dict, base_units, derived_units):
     # Assign the units to a material, which has a conversion method.
     # We need to pass a dictionary to the __init__ of the the MaterialConstant class,
     # but the values are not used in the test, so make the dict empty.
-    material = pp.MaterialConstants({})
-    material.set_units(units)
+    material = pp.MaterialConstants(units=units)
 
     # Test that the conversion works for base units
     for unit in base_units:
@@ -151,9 +155,9 @@ def test_convert_units(modify_dict, base_units, derived_units):
         # is 1.
         val = modify_dict.get(unit, 1)
         # Assert that scaling 1 * unit returns the inverse of the scale set for unit
-        assert np.isclose(material.convert_units(1, unit), 1 / val)
+        assert np.isclose(units.convert_units(1, unit), 1 / val)
         # Assert that scaling 1 / unit**2 returns the square of the scale set for unit
-        assert np.isclose(material.convert_units(1, f"{unit}^-2"), val**2)
+        assert np.isclose(units.convert_units(1, f"{unit}^-2"), val**2)
 
     # Test that the conversion works for combinations of units
     # Get pascal from modified base units
@@ -163,17 +167,17 @@ def test_convert_units(modify_dict, base_units, derived_units):
     expected = pascal / units.m**2
     # The conversion method in the material class should be equivalent to manual scaling
     # as done above.
-    assert np.isclose(material.convert_units(1, "m^2 *Pa^-1"), expected)
+    assert np.isclose(units.convert_units(1, "m^2 *Pa^-1"), expected)
     expected = pascal * units.s / units.m**2
-    assert np.isclose(material.convert_units(1, "m^2*Pa^-1*s^-1"), expected)
+    assert np.isclose(units.convert_units(1, "m^2*Pa^-1*s^-1"), expected)
 
     # Test that invalid units raise an error
     invalid_units = ["invalid", "m^2*invalid", "^2", "s^-1*", "2", "m**2"]
     for unit in invalid_units:
         with pytest.raises(AttributeError):
-            material.convert_units(1, unit)
+            units.convert_units(1, unit)
 
     # Test that the different ways of defining a dimensionless unit work
     dimensionless_units = ["", "1", "-", "   "]
     for unit in dimensionless_units:
-        assert np.isclose(material.convert_units(1, unit), 1)
+        assert np.isclose(units.convert_units(1, unit), 1)
