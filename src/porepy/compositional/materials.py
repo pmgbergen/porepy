@@ -252,6 +252,10 @@ class FluidConstants(MaterialConstants):
         }
     )
 
+    # NOTE due to legacy code (Only 1-phase 1-component fluid), the fluid constants have a
+    # pressure and temperature property, which is not a material property. This will likely be
+    # refactored in the future, but is left here for now. See GH issue 1244 and respective
+    # comments.
     acentric_factor: number = 0.0
 
     compressibility: number = 0
