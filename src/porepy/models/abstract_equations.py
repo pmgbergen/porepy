@@ -97,8 +97,9 @@ class BalanceEquation(PorePyModel):
         else:
             # For vector problems, we need to expand the volume array from cell-wise
             # scalar values to cell-wise vectors. We do this by left multiplication with
-            #  e_i and summing over i.
+            # e_i and summing over i.
             basis = self.basis(grids, dim=dim)
+
             volumes_nd = pp.ad.sum_operator_list(
                 [e @ (cell_volumes * self.specific_volume(grids)) for e in basis]
             )

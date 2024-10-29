@@ -318,9 +318,9 @@ def _create_lower_dim_grids_3d(
     pts = network.decomposition["points"]
     edges = network.decomposition["edges"]
     poly = network._poly_2_segment()
-    # And tags identifying points and edges corresponding to normal fractures,
-    # domain boundaries and subdomain boundaries. Only the entities corresponding to
-    # normal fractures should actually be gridded.
+    # And tags identifying points and edges corresponding to normal fractures, domain
+    # boundaries and subdomain boundaries. Only the entities corresponding to normal
+    # fractures should actually be gridded.
 
     # TODO: Constraints have not been implemented for structured DFM grids.
 

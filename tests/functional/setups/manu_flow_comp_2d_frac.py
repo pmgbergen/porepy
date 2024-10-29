@@ -653,17 +653,16 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Modify balance equation to account for time-dependent external sources."""
 
-        # Internal sources are inherit from parent class
+        # Internal sources are inherited from parent class.
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
-        # External sources are retrieved from SOLUTIONS and wrapped as an
-        # AdArray.
+        # External sources are retrieved from SOLUTIONS and wrapped as an AdArray.
         external_sources = pp.ad.TimeDependentDenseArray(
             name="external_sources",
             domains=self.mdg.subdomains(),
         ).previous_timestep()
 
-        # Add-up contribution
+        # Add up contributions.
         fluid_source = internal_sources + external_sources
         fluid_source.set_name("Time-dependent fluid source")
 
