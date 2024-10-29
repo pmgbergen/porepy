@@ -1069,18 +1069,6 @@ class FluidMixin(PorePyModel):
 
     """
 
-    _has_unified_equilibrium: bool
-    """See :class:`_MixtureDOFHandler`."""
-    _has_equilibrium: bool
-    """See :class:`_MixtureDOFHandler`."""
-
-    has_independent_partial_fraction: Callable[[Component, Phase], bool]
-    """See :class:`_MixtureDOFHandler`."""
-    has_independent_extended_fraction: Callable[[Component, Phase], bool]
-    """See :class:`_MixtureDOFHandler`."""
-    has_independent_fraction: Callable[[Component], bool]
-    """See :class:`_MixtureDOFHandler`."""
-
     def create_fluid(self) -> None:
         """Set-up method to create a fluid mixture.
 
