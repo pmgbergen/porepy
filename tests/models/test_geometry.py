@@ -255,7 +255,7 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
     assert no_subdomains == []
     assert no_interfaces == []
     if getattr(geometry, "num_fracs", 0) > 1:
-        # Matrix and two fractures. TODO: Use three_sds?
+        # Matrix and two fractures.
         two_fractures = all_subdomains[1:3]
         # Only those interfaces involving one of the two fractures are expected.
         interfaces = []

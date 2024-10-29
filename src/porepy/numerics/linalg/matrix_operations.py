@@ -164,22 +164,16 @@ def merge_matrices(
 
 
 def stack_mat(A: sps.spmatrix, B: sps.spmatrix):
-    """
-    Stack matrix B at the end of matrix A.
+    """Stack matrix B at the end of matrix A.
+
     If A and B are csc matrices this function is equivalent to
         A = scipy.sparse.hstack((A, B))
     If A and B are csr matrices this function is equivalent to
         A = scipy.sparse.vstack((A, B))
 
     Parameters:
-    -----------
-    A (scipy.sparse.spmatrix): A sparse matrix
-    B (scipy.sparse.spmatrix): A sparse matrix
-
-    Return
-    ------
-    None
-
+        A: A sparse matrix.
+        B: A sparse matrix
 
     """
     if A.getformat() != "csc" and A.getformat() != "csr":
@@ -205,20 +199,17 @@ def stack_mat(A: sps.spmatrix, B: sps.spmatrix):
 
 
 def copy(A: sps.spmatrix) -> sps.spmatrix:
-    """
-    Create a new matrix C that is a copy of matrix A
-    This function is equivalent to
-    A.copy(), but does not change the ordering
-    of the A.indices for csc and csr matrices
+    """Create a new matrix C that is a copy of matrix A.
+
+    This function is equivalent to A.copy(), but does not change the ordering of
+    A.indices for csc and csr matrices.
 
     Parameters:
-    -----------
-    A (scipy.sparse.spmatrix): A sparce matrix
+        A: A sparce matrix.
 
+    Returns:
+        A sparce matrix copy of A.
 
-    Return
-    ------
-        A (scipy.sparse.spmatrix): A sparce matrix
     """
     if A.getformat() == "csc":
         return sps.csc_matrix((A.data, A.indices, A.indptr), shape=A.shape)
@@ -229,22 +220,18 @@ def copy(A: sps.spmatrix) -> sps.spmatrix:
 
 
 def stack_diag(A: sps.spmatrix, B: sps.spmatrix) -> sps.spmatrix:
-    """
-    Create a new matrix C that contains matrix A and B at the diagonal:
+    """Create a new matrix C that contains matrix A and B at the diagonal.
+
     C = [[A, 0], [0, B]]
-    This function is equivalent to
-    sps.block_diag((A, B), format=A.format), but does not change the ordering
-    of the A.indices or B.indices
+    This function is equivalent to sps.block_diag((A, B), format=A.format), but does not
+    change the ordering of A.indices or B.indices.
 
     Parameters:
-    -----------
-    A (scipy.sparse.spmatrix): A sparce matrix
-    B (scipy.sparse.spmatrix): A sparce matrix
+        A: A sparse matrix.
+        B: A sparse matrix.
 
-    Return
-    ------
-    None
-
+    Returns:
+        A sparse matrix containing A and B at the diagonal.
 
     """
     if A.getformat() != "csc" and A.getformat() != "csr":
@@ -270,37 +257,37 @@ def stack_diag(A: sps.spmatrix, B: sps.spmatrix) -> sps.spmatrix:
 def slice_indices(
     A: sps.spmatrix, slice_ind: np.ndarray, return_array_ind: bool = False
 ) -> Union[np.ndarray, tuple[np.ndarray, Union[np.ndarray, slice]]]:
-    """
-    Function for slicing sparse matrix along rows or columns.
-    If A is a csc_matrix A will be sliced along columns, while if A is a
-    csr_matrix A will be sliced along the rows.
+    """Function for slicing sparse matrix along rows or columns.
 
-    Parameters
-    ----------
-    A (scipy.sparse.csc/csr_matrix): A sparse matrix.
-    slice_ind (np.ndarray): Array containing indices to be sliced
+    If A is a csc_matrix, it will be sliced along columns. If A is a csr_matrix, it will
+    be sliced along the rows.
 
-    Returns
-    -------
-    indices (np.ndarray): If A is csc_matrix:
-                            The nonzero row indices or columns slice_ind
-                          If A is csr_matrix:
-                            The nonzero columns indices or rows slice_ind
-    array_ind (np.ndarray or slice): The indices in the compressed storage format (csc
-                            or csr) corresponding to the slice; so that, if A is csr,
-                            A.indices[array_ind] gives the columns of the slice
-                            (represented in indices), and the corresponding data can be
-                            accessed as A.data[array_ind]. Only returned if
-                            return_array_ind is True.
+    Parameters:
+        A: A sparse matrix.
+        slice_ind: Array containing indices to be sliced.
 
-    Examples
-    --------
-    A = sps.csc_matrix(np.eye(10))
-    rows = slice_indices(A, np.array([0,2,3]))
+    Returns:
+        Tuple of indices and array_ind.
+
+            indices:
+            If A is csc_matrix, the nonzero row indices or columns slice_ind.
+            If A is csr_matrix, the nonzero columns indices or rows slice_ind.
+
+            array_ind: The indices in the compressed storage format (csc or csr)
+            corresponding to the slice; so that, if A is csr, A.indices[array_ind] gives
+            the columns of the slice (represented in indices), and the corresponding
+            data can be accessed as A.data[array_ind]. Only returned if return_array_ind
+            is True.
+
+    Example:
+
+        >>> A = sps.csc_matrix(np.eye(10))
+        >>> rows = slice_indices(A, np.array([0,2,3]))
+
     """
     assert A.getformat() == "csc" or A.getformat() == "csr"
     if np.asarray(slice_ind).dtype == "bool":
-        # convert to indices.
+        # Convert to indices.
         # First check for dimension
         if slice_ind.size != A.indptr.size - 1:
             raise IndexError("boolean index did not match indexed array")
@@ -326,16 +313,14 @@ def slice_mat(A: sps.spmatrix, ind: np.ndarray) -> sps.spmatrix:
     If A is a csc_matrix A will be sliced along columns, while if A is a
     csr_matrix A will be sliced along the rows.
 
-    Parameters
-    ----------
-    A (scipy.sparse.csc/csr_matrix): A sparse matrix.
-    ind (np.array): Array containing indices to be sliced.
+    Parameters:
+        A: A sparse matrix.
+        ind: Array containing indices to be sliced.
 
-    Returns
-    -------
-    A_sliced (scipy.sparse.csc/csr_matrix): The sliced matrix
-        if A is a csc_matrix A_sliced = A[:, ind]
-        if A is a csr_matrix A_slice = A[ind, :]
+    Returns:
+        A_sliced (scipy.sparse.csc/csr_matrix): The sliced matrix
+            if A is a csc_matrix A_sliced = A[:, ind]
+            if A is a csr_matrix A_slice = A[ind, :]
 
     Examples
     --------
@@ -386,7 +371,7 @@ def optimized_compressed_storage(A: sps.spmatrix) -> sps.spmatrix:
     only size 2.
 
     Parameters:
-        A (sps.spmatrix): Matrix to be reformatted.
+        A: Matrix to be reformatted.
 
     Returns:
         sps.spmatrix: The matrix represented in optimal storage format.
@@ -476,9 +461,9 @@ def _csx_matrix_from_blocks(
         sps.block_diag(blocks)
 
     Parameters:
-        data (np.array): Matrix values, sorted column-wise.
-        block_size (int): The size of *all* the blocks.
-        num_blocks (int): Number of blocks to be added.
+        data: Matrix values, sorted column-wise.
+        block_size: The size of *all* the blocks.
+        num_blocks: Number of blocks to be added.
         matrix_format: type of matrix to be created. Should be either sps.csc_matrix
             or sps.csr_matrix
 
@@ -494,18 +479,18 @@ def _csx_matrix_from_blocks(
         raise ValueError("Incompatible input to generate block matrix")
     # The block structure of the matrix allows for a unified construction of compressed
     # column and row matrices. The difference will simply be in how the data is
-    # interpreted
+    # interpreted.
 
-    # The new columns or rows start with intervals of block_size
+    # The new columns or rows start with intervals of block_size.
     indptr = np.arange(0, block_size**2 * num_blocks + 1, block_size)
 
-    # To get the indices in the compressed storage format requires some more work
+    # To get the indices in the compressed storage format requires some more work.
     if block_size > 1:
-        # First create indices for each of the blocks
+        # First create indices for each of the blocks.
         #  The inner tile creates arrays
         #   [0, 1, ..., block_size-1, 0, 1, ... block_size-1, ... ]
         #   The size of the inner tile is block_size^2, and forms the indices of a
-        # single block
+        # single block.
         #  The outer tile repeats the inner tile, num_blocks times
         #  The size of base is thus block_size^2 * num_blocks
         base = np.tile(
@@ -514,7 +499,7 @@ def _csx_matrix_from_blocks(
         # Next, increase the index in base, so as to create a block diagonal matrix
         # the first block_size^2 elements (e.g. the elemnets of the first block are
         # unperturbed.
-        # the next block_size elements are increased by block_size^2 etc.
+        # The next block_size elements are increased by block_size^2 etc.
         block_increase = (
             np.tile(np.arange(num_blocks), (block_size**2, 1)).reshape(
                 (1, -1), order="F"
@@ -534,28 +519,24 @@ def _csx_matrix_from_blocks(
 def invert_diagonal_blocks(
     mat: sps.spmatrix, s: np.ndarray, method: Optional[str] = None
 ) -> Union[sps.csr, sps.csc]:
-    """
-    Invert block diagonal matrix.
+    """Invert block diagonal matrix.
 
     Three implementations are available, either pure numpy, or a speedup using
     numba or cython. If none is specified, the function will try to use numba,
     then cython. The python option will only be invoked if explicitly asked
     for; it will be very slow for general problems.
 
-    Parameters
-    ----------
-    mat: sps.csr or sps.csc matrix to be inverted.
-    s: block size. Must be int64 for the numba acceleration to work
-    method: Choice of method. Either numba (default), cython or 'python'.
-        Defaults to None, in which case first numba, then cython is tried.
+    Parameters:
+        mat: sps.csr or sps.csc matrix to be inverted.
+        s: block size. Must be int64 for the numba acceleration to work
+        method: Choice of method. Either numba (default), cython or 'python'.
+            Defaults to None, in which case first numba, then cython is tried.
 
-    Returns
-    -------
-    imat: Inverse matrix
+    Returns:
+        imat: Inverse matrix.
 
-    Raises
-    -------
-    ImportError: If numba or cython implementation is invoked without numba or
+    Raises:
+        ImportError: If numba or cython implementation is invoked without numba or
         cython being available on the system.
 
     """
@@ -564,30 +545,28 @@ def invert_diagonal_blocks(
         """
         Invert block diagonal matrix using pure python code.
 
-        Parameters
-        ----------
-        a : Block diagonal sparse matrix
-        size : Size of individual blocks
+        Parameters:
+            a: Block diagonal sparse matrix
+            size: Size of individual blocks
 
-        Returns
-        -------
-        inv_a: Flattened nonzero values of the inverse matrix
+        Returns:
+            inv_a: Flattened nonzero values of the inverse matrix
         """
 
         # This function only supports CSR anc CSC format.
         if not (sps.isspmatrix_csr(a) or sps.isspmatrix_csc(a)):
             raise TypeError("Sparse array type not implemented: ", type(a))
 
-        # Construction of simple data structures (low complexity)
-        # Indices for block positions, flattened inverse block positions and nonzeros
-        # Expanded block positions
+        # Construction of simple data structures (low complexity).
+        # Indices for block positions, flattened inverse block positions and nonzeros.
+        # Expanded block positions.
         idx_blocks = np.cumsum([0] + list(size))
-        # Expanded nonzero positions for flattened inverse blocks
+        # Expanded nonzero positions for flattened inverse blocks.
         idx_inv_blocks = np.cumsum([0] + list(size * size))
-        # Nonzero positions for the given matrix data (i.e. a.data)
+        # Nonzero positions for the given matrix data (i.e. a.data).
         idx_nnz = np.searchsorted(a.indices, idx_blocks)
 
-        # Retrieve global indices (low complexity)
+        # Retrieve global indices (low complexity).
         if sps.isspmatrix_csr(a):
             # cols are in fact a.indices
             cols = a.indices
@@ -608,16 +587,15 @@ def invert_diagonal_blocks(
         # Nonzero entries
         data = a.data
 
-        # flattened nonzero values of the dense inverse
+        # Flattened nonzero values of the dense inverse.
         inv_a = np.zeros(idx_inv_blocks[-1])
 
         def operate_on_block(ib: int):
             """
             Retrieve, invert, and assign dense block inverse values.
 
-            Parameters
-            ----------
-            ib: the block index
+            Parameters:
+                ib: the block index
 
             """
 
@@ -651,14 +629,13 @@ def invert_diagonal_blocks(
         It is the parallel function of the Python inverter.  Using numba support and a
         single call to numba.prange, parallelization is achieved.
 
-        Parameters
-        ----------
-        a : Block diagonal sparse matrix
-        size : Size of individual blocks
+        Parameters:
+            a : Block diagonal sparse matrix
+            size : Size of individual blocks
 
-        Returns
-        -------
-        inv_a: Flattened nonzero values of the inverse matrix
+        Returns:
+            inv_a: Flattened nonzero values of the inverse matrix.
+
         """
 
         # This function only supports CSR anc CSC format.
@@ -744,18 +721,17 @@ def invert_diagonal_blocks(
     def invert_diagonal_blocks_numba_old(
         a: sps.csr_matrix, size: np.ndarray
     ) -> np.ndarray:
-        """
-        Invert block diagonal matrix by invoking numba acceleration of a simple
+        """Invert block diagonal matrix by invoking numba acceleration of a simple
         for-loop based algorithm.
 
-        Parameters
-        ----------
-        a : sps.csr matrix
-        size : Size of individual blocks
+        Currently not used, but may be resurrected if the new implementation fails.
+        Parameters:
+            a : sps.csr matrix
+            size : Size of individual blocks
 
-        Returns
-        -------
-        inv_a: Flattened nonzero values of the inverse matrix
+        Returns:
+            inv_a: Flattened nonzero values of the inverse matrix.
+
         """
 
         # This function only supports CSR format.
@@ -875,17 +851,15 @@ def invert_diagonal_blocks(
 
 
 def block_diag_matrix(vals: np.ndarray, sz: np.ndarray) -> sps.spmatrix:
-    """
-    Construct block diagonal matrix based on matrix elements and block sizes.
+    """Construct block diagonal matrix based on matrix elements and block sizes.
 
-    Parameters
-    ----------
-    vals: matrix values
-    sz: size of matrix blocks
+    Parameters:
+        vals: matrix values
+        sz: size of matrix blocks
 
-    Returns
-    -------
-    sps.csr matrix
+    Returns:
+        sps.csr matrix.
+
     """
     indices = block_diag_index(sz)
     # This line recovers starting indices of the rows.
@@ -957,16 +931,15 @@ def block_diag_index(
 def rlencode(A: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Compress matrix by looking for identical columns.
 
-    Example usage: Convert a full set of (row or column) indices of a
-    sparse matrix into compressed storage.
+    Example usage: Convert a full set of (row or column) indices of a sparse matrix into
+    compressed storage.
 
-    Acknowledgement: The code is heavily inspired by MRST's function with the
-    same name, however, requirements on the shape of functions are probably
-    somewhat different.
+    Acknowledgement: The code is heavily inspired by MRST's function with the same name,
+    however, requirements on the shape of functions are probably somewhat different.
 
     Parameters:
-        A (np.ndarray): Matrix to be compressed. Should be 2d. Compression
-            will be along the second axis.
+        A: Matrix to be compressed. Should be 2d. Compression   will be along the second
+        axis.
 
     Returns:
         np.ndarray: The compressed array, size n x m.
