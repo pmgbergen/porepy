@@ -1117,6 +1117,7 @@ class FluidMixin(PorePyModel):
 
         """
         # Should be available after SolutionStrategy.set_materials()
+        # Getting the user-passed fluid constants to create the default fluid component
         fluid_constants: pp.FluidConstants = self.params["_default_fluid_constants"]
         default_component = Component.from_fluid_constants(fluid_constants)
         return [default_component]
