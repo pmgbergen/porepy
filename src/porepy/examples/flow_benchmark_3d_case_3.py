@@ -16,7 +16,7 @@ References:
 
 """
 
-from typing import Callable, cast
+from typing import cast
 
 import numpy as np
 
@@ -90,17 +90,8 @@ class IntersectionPermeability(Permeability):
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
 
-class BoundaryConditions:
+class BoundaryConditions(pp.BoundaryConditionMixin):
     """Define inlet and outlet boundary conditions as specified by the benchmark."""
-
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Defined by a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    units: pp.Units
-    """Simulation units provided by the solution strategy mixin."""
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign Dirichlet to the top and bottom  part of the north (y=y_max)

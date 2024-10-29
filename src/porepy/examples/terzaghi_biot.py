@@ -529,9 +529,6 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 # -----> Boundary conditions
 class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBalance):
 
-    params: dict
-    """Parameter dictionary of the verification setup."""
-
     def applied_load(self) -> pp.number:
         """Obtain vertical load in scaled [Pa]."""
         applied_load = self.params.get("vertical_load", 6e8)  # [Pa]

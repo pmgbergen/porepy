@@ -12,7 +12,7 @@ import logging
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -262,17 +262,17 @@ class SolutionStrategy(abc.ABC, PorePyModel):
 
         """
         # User provided values, if any
-        constants: dict[str, pp.MaterialConstants] = self.params.get(
-            "material_constants", {}
+        constants = cast(
+            dict[str, pp.MaterialConstants], self.params.get("material_constants", {})
         )
 
         # Use standard models for fluid and solid constants if not provided.
         # Otherwise get the given constants.
-        solid: pp.SolidConstants = constants.get(
-            "solid", pp.SolidConstants(name="solid")
+        solid = cast(
+            pp.SolidConstants, constants.get("solid", pp.SolidConstants(name="solid"))
         )
-        fluid: pp.FluidConstants = constants.get(
-            "fluid", pp.FluidConstants(name="fluid")
+        fluid = cast(
+            pp.FluidConstants, constants.get("fluid", pp.FluidConstants(name="fluid"))
         )
 
         # Sanity check that users did not pass anything unexpected

@@ -28,6 +28,16 @@ class DataSavingMixin(PorePyModel):
     """
 
     def save_data_time_step(self) -> None:
+        """Export the model state at a given time step and log time.
+
+        The options for exporting times are:
+            * `None`: All time steps are exported
+            * `list`: Export if time is in the list. If the list is empty, then no
+            times are exported.
+
+        In addition, save the solver statistics to file if the option is set.
+
+        """
         # Fetching the desired times to export
         times_to_export = self.params.get("times_to_export", None)
         if times_to_export is None:
@@ -130,6 +140,17 @@ class DataSavingMixin(PorePyModel):
         return vals
 
     def initialize_data_saving(self) -> None:
+        """Initialize data saving.
+
+        This method is called by
+        :meth:`~porepy.models.solution_strategy.SolutionStrategy.prepare_simulation` to
+        initialize the exporter, and any other data saving functionality
+        (e.g., empty data containers to be appended in :meth:`save_data_time_step`).
+
+        In addition, it sets the path for storing solver statistics data to file for
+        each time step.
+
+        """
         self.exporter = pp.Exporter(
             self.mdg,
             self.params["file_name"],
@@ -154,6 +175,21 @@ class DataSavingMixin(PorePyModel):
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
     ) -> None:
+        """Initialize data in the model by reading from a pvd file.
+
+        Parameters:
+            vtu_files: Path(s) to vtu file(s)
+            keys: Keywords addressing cell data to be transferred. If ``None``, the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through ``pp.TIME_STEP_SOLUTIONS``.
+            **kwargs: See documentation of
+                :meth:`porepy.viz.exporter.Exporter.import_state_from_vtu`
+
+        Raises:
+            ValueError: If incompatible file types are provided.
+
+        """
+
         # Sanity check
         if not (
             isinstance(vtu_files, list)
@@ -176,6 +212,21 @@ class DataSavingMixin(PorePyModel):
         times_file: Optional[Path] = None,
         keys: Optional[Union[str, list[str]]] = None,
     ) -> None:
+        """Initialize data in the model by reading from a pvd file.
+
+        Parameters:
+            pvd_file: Path to pvd file with exported vtu files.
+            is_mdg_pvd: Flag controlling whether pvd file is a mdg file, i.e., generated
+                with ``Exporter._export_mdg_pvd()`` or ``Exporter.write_pvd()``.
+            times_file: Path to json file storing history of time and time step size.
+            keys: Keywords addressing cell data to be transferred. If ``None``, the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through ``pp.TIME_STEP_SOLUTIONS``.
+
+        Raises:
+            ValueError: if incompatible file type provided.
+
+        """
         # Sanity check
         if not pvd_file.suffix == ".pvd":
             raise ValueError
