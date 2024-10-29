@@ -633,7 +633,6 @@ def _update_connectivity_fracture_grid(
 
         # Find node indices faces to be updated.
         ind_n_local = faces_l[:, ~exist]
-        # TODO: What happens here if ~exist is more than one face?
         local_pts = sd_secondary.nodes[:, ind_n_local]
         local_face_centers = np.mean(local_pts, axis=1)
 

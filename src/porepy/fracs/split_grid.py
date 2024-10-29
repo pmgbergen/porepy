@@ -432,8 +432,6 @@ def _update_face_cells(
     ``cell_id`` refers to new lower-dimensional cells, e.g. after fracture propagation.
     In this case, ``face_id[i]`` is the "parent" face of ``cell_id[i]``.
 
-    TODO: Consider replacing hstack and vstack by pp.matrix_operations.stack_mat.
-
     Parameters:
         face_cells: List of face-cell relation between a higher-dimensional grid
             and all its lower-dimensional neighbors.
@@ -453,7 +451,7 @@ def _update_face_cells(
     if face_id.size == 0:
         return face_cells
 
-    # Loop over all lower-dimensional neighbors
+    # Loop over all lower-dimensional neighbors.
     for j, f_c in enumerate(face_cells):
         assert f_c.getformat() == "csc"
         if j == i:
@@ -464,7 +462,7 @@ def _update_face_cells(
             # the faces were added to the end of the face arrays in the
             # higher-dimensional grid). Columns (face-indices in the higher
             # dimensional grid) must be added, rows / indices and data are identical
-            # for the two
+            # for the two.
             new_indptr = f_c_sliced.indptr + f_c.indptr[-1]
             new_ind = f_c_sliced.indices
             new_data = f_c_sliced.data

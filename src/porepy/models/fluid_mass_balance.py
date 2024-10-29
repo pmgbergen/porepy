@@ -122,8 +122,6 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.mdg.subdomains()
         codim_1_interfaces = self.mdg.interfaces(codim=1)
-        # TODO: If wells are integrated for nd=2 models, consider refactoring sorting of
-        # interfaces into method returning either "normal" or well interfaces.
         codim_2_interfaces = self.mdg.interfaces(codim=2)
         sd_eq = self.mass_balance_equation(subdomains)
         intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)

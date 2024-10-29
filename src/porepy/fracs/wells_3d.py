@@ -317,9 +317,6 @@ class WellNetwork3d:
             Mesh size for the :attr:`well` or one of its segments.
 
         """
-        # TODO: IS: I have not concluded whether mesh size should be global (Network)
-        #  or local (individual wells/segments). To be decided, with possible
-        #  consequences for this function.
         size = well._mesh_size(segment_ind)
         if size is None:
             size = self.parameters["mesh_size"]
@@ -337,19 +334,18 @@ class WellNetwork3d:
         fractures and well segments.
 
         Example:
-            Topology for well intersecting two fractures, terminating at the
-            lowermost
+            Topology for well intersecting two fractures, terminating at the lowermost
 
             .. code:: python3
 
                             |
-                sd_well_0    |
+                sd_well_0   |
                             |
                             * e(sd_isec_0, sd_well_0)
                 sd_isec_0    . * e(sd_isec_0, sd_frac_0)  ___________ sd_frac_0 (2d)
                             * e(sd_isec_0, sd_well_1)
                             |
-                sd_well_1    |
+                sd_well_1   |
                             |
                             * e(sd_isec_1, sd_well_1)
                 sd_isec_1    . * e(sd_isec_1, sd_frac_1)  ___________ sd_frac_1 (2d)
@@ -396,8 +392,8 @@ class WellNetwork3d:
             endp_frac_tags = np.zeros(2, dtype=bool)
             # Special treatment of first end point. We need to check whether it
             # corresponds to an intersection. If so, we make an intersection grid and
-            # add an edge between that grid and the fracture in question. Note that
-            # the edge with the first well segment is added below.
+            # add an edge between that grid and the fracture in question. Note that the
+            # edge with the first well segment is added below.
             if tags_w[0].size > 0:
                 sd_isec = _intersection_subdomain(w.pts[:, 0], mdg)
                 _add_fracture_2_intersection_interface(sd_isec, tags_w[0], mdg)
