@@ -136,13 +136,13 @@ def test_modified_units(modify_dict, derived_units, base_units):
 
 
 @pytest.mark.parametrize("modify_dict", modification_dictionaries)
-def test_convert_units(modify_dict, base_units, derived_units):
+def test_convert_units(modify_dict, base_units):
     """Test that the conversion between units works as expected.
 
     Conversion includes parsing and evaluating the string and dividing the value by the
     resulting unit.
     """
-    # Set up a unit class with modified units passed as keyword arguments
+    # Set up a unit class with modified units passed as keyword arguments.
     units = pp.Units(**modify_dict)
     # Assign the units to a material, which has a conversion method.
     # We need to pass a dictionary to the __init__ of the the MaterialConstant class,

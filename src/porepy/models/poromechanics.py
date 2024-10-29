@@ -8,9 +8,10 @@ porosity and stress. The former aquires a pressure dependency and an additional
 :math:`\alpha`\nabla\cdot\mathbf{u} term, while the latter is modified to include a
 isotropic pressure term :math:`\alpha p \mathbf{I}`.
 
-Suggested references (TODO: add more, e.g. Inga's in prep):
+Suggested references:
     - Coussy, 2004, https://doi.org/10.1002/0470092718.
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
+    - Stefansson et al, 2024 https://doi.org/10.1016/j.rinam.2023.100428.
 
 """
 
