@@ -48,19 +48,30 @@ class SolutionStrategy(abc.ABC, PorePyModel):
 
         default_params.update(params)
         self.params = default_params
+        """Dictionary of parameters."""
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
         self.convergence_status = False
-
+        """Whether the non-linear iteration has converged."""
         self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
+        """List of non-linear discretizations, to be updated in every iteration.
+
+        See also :meth:`add_nonlinear_discretization`.
+
+        """
         self.units = params.get("units", pp.Units())
+        """Units of the model.
+
+        See also :meth:`set_units`.
+
+        """
 
         self.time_manager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
-
+        """Time manager for the simulation."""
         self.restart_options = params.get(
             "restart_options",
             {
@@ -92,8 +103,9 @@ class SolutionStrategy(abc.ABC, PorePyModel):
                 # assumed to address the last time step in times_file.
             },
         )
-
+        """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
+        """Time step as an automatic differentiation scalar."""
 
         self.set_solver_statistics()
 
