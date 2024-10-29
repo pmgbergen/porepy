@@ -112,11 +112,11 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         # Order of operations is important here.
         self.set_equation_system_manager()
         self.create_variables()
-        # After fluid and variables are defined, we can define the secondary quantities like
-        # fluid properties (which depend on variables).
+        # After fluid and variables are defined, we can define the secondary quantities
+        # like fluid properties (which depend on variables).
         # NOTE this is critical in the case where properties depend on some fractions.
-        # The callables for those are dynamically created during create_variables, as opposed
-        # to e.g., pressure or temperature.
+        # The callables for those are dynamically created during create_variables, as
+        # opposed to e.g., pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
         self.reset_state_from_file()
@@ -250,12 +250,12 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def set_materials(self):
         """Set material parameters.
 
-        Searcher for entries in ``params['material_constants']`` with keys ``'fluid'`` and
-        ``'solid'`` for respective material constant instances. If not found, default materials
-        are instantiated.
+        Searcher for entries in ``params['material_constants']`` with keys ``'fluid'``
+        and ``'solid'`` for respective material constant instances. If not found,
+        default materials are instantiated.
 
-        Provides the :attr:`solid` material constants as an attribute to the model, as well as
-        the :attr:`fluid` object by calling :attr:`create_fluid`.
+        Provides the :attr:`solid` material constants as an attribute to the model, as
+        well as the :attr:`fluid` object by calling :attr:`create_fluid`.
 
         By default, a 1-phase, 1-component fluid is created based on the fluid constants
         provided in ``params['material_constants']``.
@@ -287,9 +287,9 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         # NOTE this will change with the generalization of the solid
         self.solid = solid
 
-        # Store the default fluid constants to be accessible by the compositional.Fluid
-        # TODO considering that there is a order in prepare_simulations, is there a better
-        # solution to transfer the fluid constants to the next step in prepare simulations?
+        # Store the default fluid constants to be accessible by in
+        # compositional.Fluid.get_components to create a default component for the
+        # default set-up of 1 phase and 1 component.
         self.params["_default_fluid_constants"] = fluid
         self.create_fluid()
 
