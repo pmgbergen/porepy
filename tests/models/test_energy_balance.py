@@ -12,7 +12,8 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.test_utils import models, well_models
+from porepy.applications.test_utils import models, well_models, \
+    material_constants_for_testing
 
 
 class BoundaryConditionLinearPressure(
@@ -218,8 +219,8 @@ def test_unit_conversion(units):
             vals[sides.west] = self.fluid.convert_units(1e4, "Pa")
             return vals
 
-    solid_vals = pp.solid_values.extended_granite_values_for_testing
-    fluid_vals = pp.fluid_values.extended_water_values_for_testing
+    solid_vals = material_constants_for_testing.extended_granite_values_for_testing
+    fluid_vals = material_constants_for_testing.extended_water_values_for_testing
     solid = pp.SolidConstants(solid_vals)
     fluid = pp.FluidConstants(fluid_vals)
 

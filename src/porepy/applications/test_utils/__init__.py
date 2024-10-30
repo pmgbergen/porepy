@@ -7,6 +7,7 @@ Functions which are relevant also outside tests should go elsewhere.
 
 from . import (
     arrays,
+    material_constants_for_testing,
     common_xpfa_tests,
     grids,
     models,

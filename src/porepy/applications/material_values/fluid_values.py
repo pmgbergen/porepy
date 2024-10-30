@@ -38,19 +38,3 @@ water = {
     "thermal_expansion": 2.068e-4,  # [K^-1]
     "viscosity": 1.002e-3,  # [Pa s], absolute viscosity
 }
-
-
-"""
-Water values have been extended for testing purposes
-
-"""
-
-extended_water_values_for_testing = water.copy()
-
-extended_water_values_for_testing.update(
-    {
-        "normal_thermal_conductivity": 0.5975,  # [kg m^-3]
-        "pressure": 101325.0,  # [Pa]
-        "temperature": 293.15,  # [K]
-    }
-)
