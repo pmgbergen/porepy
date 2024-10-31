@@ -38,7 +38,7 @@ class DataSavingMixin(PorePyModel):
         In addition, save the solver statistics to file if the option is set.
 
         """
-        # Fetching the desired times to export
+        # Fetching the desired times to export.
         times_to_export = self.params.get("times_to_export", None)
         if times_to_export is None:
             # Export all time steps if times are not specified.
@@ -53,7 +53,7 @@ class DataSavingMixin(PorePyModel):
         if do_export:
             self.write_pvd_and_vtu()
 
-        # Save solver statistics to file
+        # Save solver statistics to file.
         self.nonlinear_solver_statistics.save()
 
     def write_pvd_and_vtu(self) -> None:
@@ -178,7 +178,7 @@ class DataSavingMixin(PorePyModel):
         """Initialize data in the model by reading from a pvd file.
 
         Parameters:
-            vtu_files: Path(s) to vtu file(s)
+            vtu_files: Path(s) to vtu file(s).
             keys: Keywords addressing cell data to be transferred. If ``None``, the
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through ``pp.TIME_STEP_SOLUTIONS``.
@@ -197,10 +197,10 @@ class DataSavingMixin(PorePyModel):
         ) and not (isinstance(vtu_files, Path) and vtu_files.suffix == ".vtu"):
             raise ValueError
 
-        # Load states and read time index, connecting data and time history
+        # Load states and read time index, connecting data and time history.
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
 
-        # Load time and time step size
+        # Load time and time step size.
         self.time_manager.load_time_information(times_file)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
@@ -231,10 +231,10 @@ class DataSavingMixin(PorePyModel):
         if not pvd_file.suffix == ".pvd":
             raise ValueError
 
-        # Import data and determine time index corresponding to the pvd file
+        # Import data and determine time index corresponding to the pvd file.
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
 
-        # Load time and time step size
+        # Load time and time step size.
         self.time_manager.load_time_information(times_file)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index

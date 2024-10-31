@@ -40,7 +40,7 @@ fracture_network = Union[
 
 DomainFunctionType = Callable[[SubdomainsOrBoundaries], "pp.ad.Operator"]
 """Type alias to denote thermodynamic properties and variables which are defined on
-subdomains or boundaries, and return an AD-compatible representation.
+subdomains or boundaries and return an AD-compatible representation.
 
 Motivated by PorePy's modelling framework, terms appearing in model equations are
 defined on some domain and represented as an AD operator.

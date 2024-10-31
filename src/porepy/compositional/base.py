@@ -2,45 +2,44 @@
 
 1. :class:`Component`:
    A phase-changing representation of a species involving some physical constants.
-   Additionally, this class represents a variable quantity in the equilibrium
-   problem. It can appear in multiple phases and has a fraction of the overall mass
-   associated with it.
+   Additionally, this class represents a variable quantity in the equilibrium problem.
+   It can appear in multiple phases and has a fraction of the overall mass associated
+   with it.
 
 2. :class:`Compound`:
-   A compound represents a combination of chemical species, which can be bundled into
-   1 component-like instance. While one chemical species serves as the solvent,
-   an arbitrary number of other species can be set as active tracers.
-   Pseudo-components are not considered individually in the equilibrium problem, but the
-   compound as a whole.
+   A compound represents a combination of chemical species, which can be bundled into 1
+   component-like instance. While one chemical species serves as the solvent, an
+   arbitrary number of other species can be set as active tracers. Pseudo-components are
+   not considered individually in the equilibrium problem, but the compound as a whole.
    But they are transportable quantities, with a fractional value relative to the
    overall fraction of the compound.
 
 3. :class:`Phase`:
-   An object representing a physical phase like gas-phase or a liquid-phase.
-   A phase can contain multiple phase-changing components and the modeller must set
-   those explicitly (see :attr:`Phase.components`).
-   Components in a phase are characterized by their fraction of mass
-   (:attr:`Phase.partial_fraction_of`), relative to the
-   fraction of mass in a phase (:attr:`Phase.fraction`).
+   An object representing a physical phase like gas-phase or a liquid-phase. A phase can
+   contain multiple phase-changing components and the modeller must set those explicitly
+   (see :attr:`Phase.components`). Components in a phase are characterized by their
+   fraction of mass (:attr:`Phase.partial_fraction_of`), relative to the fraction of
+   mass in a phase (:attr:`Phase.fraction`).
 
    The phase has also physical properties (like density and enthalpy) which come into
-   play when formulating more complex equilibrium models coupled with flow & transport.
+   play when formulating more complex equilibrium models coupled with flow and
+   transport.
 
 4. :class:`Fluid`:
     A basic representation of a mixture which is a collection of anticipated phases and
     present components, putting them into their contexts.
 
-    Serves as a managing instance and provides functionalities to formulate flow &
-    transport & flash equations using PorePy's AD framework.
+    Serves as a managing instance and provides functionalities to formulate flow and
+    transport and flash equations using PorePy's AD framework.
 
 Note:
-    Phases are meant to be based on an Equation of State.
-    A basic interface for such an equation of state is defined by :class:`EquationOfState`.
+    Phases are meant to be based on an Equation of State. A basic interface for such an
+    equation of state is defined by :class:`EquationOfState`.
 
 Important:
-    The physical units used here are in general SI units.
-    For specific quantities, the framework can be used for both, molar and massic
-    settings. Once chosen, it must be consistent throughout the set-up.
+    The physical units used here are in general SI units. For specific quantities, the
+    framework can be used for both molar and massic settings. Once chosen, it must be
+    consistent throughout the set-up.
 
     Fractions are respectively molar or massic as well, though they are always
     dimensionless.
@@ -79,17 +78,16 @@ class Component(FluidConstants):
     """Base class for components modelled inside a mixture.
 
     Components are chemical species inside a mixture, which can go through phase
-    transitions and appear in multiple :class:`Phase`.
-    A component is identified by the (time-dependent) :meth:`fraction` of total mass
-    belonging to the component.
+    transitions and appear in multiple :class:`Phase`. A component is identified by the
+    (time-dependent) :meth:`fraction` of total mass belonging to the component.
 
     The fractions are assigned by the AD interface
-    :class:`~porepy.compositional.compositional_mixins.FluidMixin`, once the
-    component is added to a mixture context.
+    :class:`~porepy.compositional.compositional_mixins.FluidMixin`, once the component
+    is added to a mixture context.
 
     Note:
-        Rather than instantiating a component directly, it is easier to use the
-        class factory based on loaded species data (see :meth:`from_species`).
+        Rather than instantiating a component directly, it is easier to use the class
+        factory based on loaded species data (see :meth:`from_species`).
 
     Parameters:
         **kwargs: See parent (data-) class and its attributes.
@@ -98,14 +96,14 @@ class Component(FluidConstants):
 
     def __init__(self, **kwargs) -> None:
 
-        # Filter away kwargs that will not be recognized by base data class
+        # Filter away kwargs that will not be recognized by base data class.
         constant_fields = tuple(
             field.name for field in fields(pp.FluidConstants) if field.kw_only
         )
         chem_species_kwargs = {k: v for k, v in kwargs.items() if k in constant_fields}
         super().__init__(**chem_species_kwargs)
 
-        # creating the overall molar fraction variable
+        # Creating the overall molar fraction variable.
         self.fraction: DomainFunctionType
         """Overall fraction, or feed fraction, for this component, indicating how much
         of the total mass or moles belong to this component.
@@ -114,9 +112,8 @@ class Component(FluidConstants):
         The sum of overall fractions must always equal 1.
 
         Note:
-            This is a variable in flow and transport.
-            The feed fraction of one arbitrarily chosen component can be eliminated
-            by unity.
+            This is a variable in flow and transport. The feed fraction of one
+            arbitrarily chosen component can be eliminated by unity.
 
             If there is only 1 component, this should be a wrapped scalar with value 1.
 
@@ -137,7 +134,7 @@ class Component(FluidConstants):
             A component instance to be used in PorePy.
 
         """
-        # Start from SI units to avoid double-scaling using the given units
+        # Start from SI units to avoid double-scaling using the given units.
         constants = dict(fluid_constants.constants_in_SI)
         constants["name"] = fluid_constants.name
         constants["units"] = fluid_constants.units
@@ -148,35 +145,34 @@ _ComponentLike = TypeVar("_ComponentLike", bound=Component)
 
 
 class Compound(Component):
-    """A compound is a simplified, but meaningfully generalized set of chemical species
+    """A compound is a simplified, but meaningfully generalized, set of chemical species
     inside a mixture, for which it makes sense to treat it as a single component.
 
-    It is represents one species, the solvent, and contains arbitrary many
-    active tracers (pseudo-components).
+    It is represents one species, the solvent, and contains arbitrary many active
+    tracers (pseudo-components).
 
     A compound can appear in multiple phases and its thermodynamic properties are
     determined by the tracers present.
 
-    Tracers are transportable and are represented by a fraction relative to
-    the :attr:`~Component.fraction` of the compound, i.e. the moles/mass of them are
-    given by a product of mixture density, compound fraction and tracer fraction.
+    Tracers are transportable and are represented by a fraction relative to the
+    :attr:`~Component.fraction` of the compound, i.e. the moles/mass of them are given
+    by a product of mixture density, compound fraction and tracer fraction.
     :attr:`tracer_fraction_of` are assigned by the AD interface
     :class:`~porepy.compositional.compositional_mixins.FluidMixin`.
 
     Note:
         Due to the generalization, the solvent and individual tracers are not considered
-        as genuine components which can transition into various phases,
-        but rather as parameters in the equilibrium problem problem.
-        Only the compound as a whole splits into various phases. Fractions in phases
-        are associated with the compound.
-        Solvent and tracer fractions are not variables in the flash problem.
+        as genuine components which can transition into various phases, but rather as
+        parameters in the equilibrium problem problem. Only the compound as a whole
+        splits into various phases. Fractions in phases are associated with the
+        compound. Solvent and tracer fractions are not variables in the flash problem.
 
     Example:
         1. Brines with species salt and water as tracer and solvent, where it is
-           sufficient to calculate how much brine is in vapor or liquid form,
-           and the information about how the salt distributes across phases is
-           irrelevant. The salt in this case is a **transportable** quantity,
-           whose concentration acts as a parameter in the flash.
+           sufficient to calculate how much brine is in vapor or liquid form, and the
+           information about how the salt distributes across phases is irrelevant. The
+           salt in this case is a **transportable** quantity, whose concentration acts
+           as a parameter in the flash.
 
         2. The black-oil model, where black-oil is treated as a compound with various
            hydrocarbons as active tracers.
@@ -340,13 +336,13 @@ class Compound(Component):
 
 
 class EquationOfState:
-    """EoS class defining the interface between thermodynamic input
+    """Equation of State (EoS) class defining the interface between thermodynamic input
     and resulting structure containing thermodynamic properties of a phase.
 
     Component properties required for computations can be extracted in the constructor.
 
     Note:
-        The base class cann be instantiated without providing concrete computations.
+        The base class can be instantiated without providing concrete computations.
 
         This is by intention such that phases can be created with a generic EoS, in a
         simulation setting which uses heuristic laws for fluid properties. The method
@@ -682,7 +678,7 @@ class Fluid:
 
     It also provides general attributes for some thermodynamic properites of a fluid,
     which are required by the remaining framework. Hence this class serves as an
-    interface for e.g., PDE formulations.
+    interface for e.g. PDE formulations.
 
     - :attr:`density`
     - :attr:`specific_enthalpy`
@@ -700,8 +696,8 @@ class Fluid:
         - The first component is set as reference component per default.
 
     Parameters:
-        components: A list of components to be added to the mixture.
-            These are the chemical species which can appear in multiple phases.
+        components: A list of components to be added to the mixture. These are the
+            chemical species which can appear in multiple phases.
         phases: A list of phases to be modelled.
 
     Raises:
@@ -713,8 +709,8 @@ class Fluid:
             - Any phase has no components in it.
 
         CompositionalModellingError: If there is 1 component, which is not in any phase.
-        ValueError: If any two components or phases have the same name
-        (storage conflicts).
+        ValueError: If any two components or phases have the same name (storage
+        conflicts).
 
     """
 
@@ -733,9 +729,9 @@ class Fluid:
         self._phases: list[Phase] = []
         """A list of phases passed at instantiation."""
 
-        # a container holding names already added, to avoid storage conflicts
+        # A container holding names already added, to avoid storage conflicts.
         double_names: list[str] = []
-        # Lists of gas-like and other phases
+        # Lists of gas-like and other phases.
         gaslike_phases: list[Phase] = []
         other_phases: list[Phase] = []
 
@@ -768,7 +764,7 @@ class Fluid:
         if len(gaslike_phases) > 1:
             raise CompositionalModellingError("At most 1 gas-like phase is permitted.")
 
-        # Checking no dangling components
+        # Checking no dangling components.
         for comp in self._components:
             its_phases = []
             for phase in self._phases:
@@ -779,7 +775,7 @@ class Fluid:
                     f"Component {comp.name} not in any phase."
                 )
 
-        # NOTE by logic, length of gas-like phases can only be 1 or 0 at this point
+        # NOTE by logic, length of gas-like phases can only be 1 or 0 at this point.
         self._has_gas: bool = True if len(gaslike_phases) == 1 else False
         """Flag indicating if a gas-like phase is present."""
 
@@ -996,7 +992,7 @@ class Fluid:
             domains: A sequence of grids.
 
         Returns:
-            Above expression by calling the phase fraction and spec. enthalpies.
+            Above expression by calling the phase fraction and specific enthalpies.
             In the case of only 1 phase, it returns the specific enthalpy of the
             reference phase.
 

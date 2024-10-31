@@ -44,7 +44,7 @@ ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
 def _no_property_function(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-    """ "Helper function to define missing phase property functions."""
+    """Helper function to define missing phase property functions."""
     raise NotImplementedError("Missing mixed-in constitutive laws.")
 
 
@@ -240,7 +240,7 @@ class _MixtureDOFHandler(PorePyModel):
 
         Paramters:
             tracer: An active tracer in one of the compounds in the
-                :attr:`fluid`
+                :attr:`fluid`.
             compound: A component/compound in the :attr:`fluid`'s
                 :attr:`~porepy.compositional.base.Fluid.components`.
 
@@ -805,7 +805,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         # executed, instead of the next one.
         elif self.has_independent_saturation(phase):
             saturation = self._fraction_factory(self._saturation_variable(phase))
-        # if reference component, eliminate by unity
+        # If reference component, eliminate by unity.
         elif phase == self.fluid.reference_phase:
 
             def saturation(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -830,8 +830,8 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         fraction: DomainFunctionType
         # Code is completely analogous to method saturation, except that we raise a
-        # modelling error if no equilibrium is defined. phase fractions can completely
-        # be omitted in that case
+        # modelling error if no equilibrium is defined. Phase fractions can completely
+        # be omitted in that case.
         if self.fluid.num_phases == 1:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
