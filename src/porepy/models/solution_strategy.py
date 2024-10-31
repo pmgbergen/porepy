@@ -278,6 +278,10 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         constants = cast(
             dict[str, pp.MaterialConstants], self.params.get("material_constants", {})
         )
+        # If the user provided material constants, assert they are in dictionary form
+        assert isinstance(
+            constants, dict
+        ), "model.params['material_constants'] must be a dictionary."
 
         # Use standard models for fluid and solid constants if not provided.
         # Otherwise get the given constants.
@@ -289,8 +293,14 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         )
 
         # Sanity check that users did not pass anything unexpected.
-        assert isinstance(solid, pp.SolidConstants)
-        assert isinstance(fluid, pp.FluidConstants)
+        assert isinstance(solid, pp.SolidConstants), (
+            "model.params['material_constants']['fluid'] must be of type "
+            + f"{pp.SolidConstants}"
+        )
+        assert isinstance(fluid, pp.FluidConstants), (
+            "model.params['material_constants']['fluid'] must be of type "
+            + f"{pp.FluidConstants}"
+        )
 
         # Converting to units of simulation.
         fluid = fluid.to_units(self.units)
@@ -300,10 +310,13 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         # NOTE this will change with the generalization of the solid
         self.solid = solid
 
-        # Store the default fluid constants to be accessible by in
-        # compositional.Fluid.get_components to create a default component for the
-        # default set-up of 1 phase and 1 component.
-        self.params["_default_fluid_constants"] = fluid
+        # Store the fluid constants to be accessible by the FluidMixin for creating the
+        # default fluid object of the model
+        if "material_constants" not in self.params:
+            self.params["material_constants"] = {"fluid": fluid}
+        else:
+            # by logic, params['material_constants'] is ensured to be a dict
+            self.params["material_constants"]["fluid"] = fluid
         self.create_fluid()
 
     def discretize(self) -> None:

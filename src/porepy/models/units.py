@@ -6,13 +6,17 @@ This is part of a system for setting the units of measurement of a problem.
 
 from __future__ import annotations
 
-from typing import Optional, Union, overload
+from typing import Optional, TypeVar
 
 import numpy as np
 
 import porepy as pp
 
 number = pp.number
+
+
+NumericalType = TypeVar("NumericalType", pp.number, np.ndarray)
+"""Numerical type variable, either a number (int, float) or a numpy array."""
 
 
 class Units:
@@ -126,25 +130,12 @@ class Units:
         """Angle unit, derived from rad."""
         return self.rad * 180 / np.pi
 
-    @overload
-    def convert_units(
-        self, value: number, units: str, to_si: Optional[bool] = False
-    ) -> number: ...
-
-    @overload
     def convert_units(
         self,
-        value: np.ndarray,
+        value: NumericalType,
         units: str,
         to_si: Optional[bool] = False,
-    ) -> np.ndarray: ...
-
-    def convert_units(
-        self,
-        value: Union[number, np.ndarray],
-        units: str,
-        to_si: Optional[bool] = False,
-    ) -> Union[number, np.ndarray]:
+    ) -> NumericalType:
         """Convert value between SI and user specified units.
 
         The method divides the value by the units as defined by the user. As an example,
@@ -153,7 +144,7 @@ class Units:
         will be converted to SI units, i.e. a value of 1e-2 results in 1e-2 * 1e6 = 1e4.
 
         Parameters:
-            value: Value to be converted.
+            value: Value to be converted. Either a number (int, float) or a numpy array.
             units: Units of ``value`` defined as a string in the form of
                 ``unit1 * unit2 * unit3^-1``, e.g., ``"Pa*m^3/kg"``.
 
@@ -169,6 +160,7 @@ class Units:
 
         Returns:
             Value in the user specified units to be used in the simulation.
+            Of same type as the argument ``value``.
 
         """
         # Make a copy of the value to avoid modifying the original.

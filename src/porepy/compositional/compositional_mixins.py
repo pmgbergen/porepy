@@ -54,7 +54,7 @@ def _get_surrogate_factory_as_property(
     dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
 ) -> pp.ad.SurrogateFactory:
     """Helper function to get a surrogate factory as a phase property, by providing
-    the name, the mD grid and the list of dependencies (like pressure, temperature)."""
+    the name, the md-grid and the list of dependencies (like pressure, temperature)."""
     return pp.ad.SurrogateFactory(
         name,
         mdg,
@@ -65,6 +65,11 @@ def _get_surrogate_factory_as_property(
 class _MixtureDOFHandler(PorePyModel):
     """A class to help resolve the independent fractional variables of an arbitrary
     mixture, and respectivly the DOFs.
+
+    For fluid with more than 1 phase or more than 1 component, the system automatically
+    includes additional unknowns. In the case of more than 1 phase, saturations become
+    unknowns. In the case of more than 1 component, various massic/molar fractions
+    become unknowns.
 
     .. rubric:: Assumptions and unity constraints
 
@@ -1028,7 +1033,7 @@ class FluidMixin(PorePyModel):
     Fluid properties are by definition expressed through respective phase properties,
     which can be overriden here as part of the constitutive modelling.
 
-    The following methods provide expressions for them:
+    The following methods are factories to provide functions for phase properties:
 
     - :meth:`density_of_phase`
     - :meth:`specific_volume_of_phase`
@@ -1105,8 +1110,13 @@ class FluidMixin(PorePyModel):
 
         """
         # Should be available after SolutionStrategy.set_materials()
-        # Getting the user-passed fluid constants to create the default fluid component
-        fluid_constants: pp.FluidConstants = self.params["_default_fluid_constants"]
+        # Getting the user-passed or default fluid constants to create the default fluid
+        # component
+        fluid_constants: pp.FluidConstants = self.params["material_constants"]["fluid"]
+        assert isinstance(fluid_constants, pp.FluidConstants), (
+            "model.params['material_constants']['fluid'] must be of type "
+            + f"{pp.FluidConstants}"
+        )
         default_component = Component.from_fluid_constants(fluid_constants)
         return [default_component]
 
@@ -1248,7 +1258,12 @@ class FluidMixin(PorePyModel):
             :attr:`_MixtureDOFHandler._has_unified_equilibrium` or
             :attr:`_MixtureDOFHandler._has_equilibrium` defined. I.e., the
             fluid and phase properties are not characterized by some mixed-in, heuristic
-            law, but by a local phase equilibrium system.
+            law, but by a local phase equilibrium system or some interpolation.
+            The values of properties like density are then dependent on some variables.
+            This information is used to evaluate those variables and provide the
+            information to flash calculations or look-up, and subsequently to populate
+            the Jacobians of the property.
+
             The above mentioned logic can then be translated into code the following
             way:
 
@@ -1304,6 +1319,13 @@ class FluidMixin(PorePyModel):
 
         The phase density (like all thermodynamic properties) is a dependent quantity.
 
+        Parameters:
+            phase: A phase in the :attr:`fluid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
+
         """
         name = f"phase_{phase.name}_density"
         dependencies = self.dependencies_of_phase_properties(phase)
@@ -1314,7 +1336,16 @@ class FluidMixin(PorePyModel):
 
     def specific_volume_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
         """The specific volume of the phase is returned as a function calling the
-        the phase density and taking the reciprocal of it."""
+        the phase density and taking the reciprocal of it.
+
+        Parameters:
+            phase: A phase in the :attr:`fluid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
+
+        """
 
         def volume(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             op = phase.density(domains)
@@ -1326,7 +1357,16 @@ class FluidMixin(PorePyModel):
 
     def specific_enthalpy_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
         """Analogous to :meth:`density_of_phase`, but for
-        :attr:`~porepy.compositional.base.Phase.specific_enthalpy`."""
+        :attr:`~porepy.compositional.base.Phase.specific_enthalpy` of a ``phase``.
+
+        Parameters:
+            phase: A phase in the :attr:`fluid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
+
+        """
         name = f"phase_{phase.name}_specific_enthalpy"
         dependencies = self.dependencies_of_phase_properties(phase)
         if dependencies:
@@ -1336,7 +1376,16 @@ class FluidMixin(PorePyModel):
 
     def viscosity_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
         """Analogous to :meth:`density_of_phase`,  but for
-        :attr:`~porepy.compositional.base.Phase.viscosity`."""
+        :attr:`~porepy.compositional.base.Phase.viscosity` of a ``phase``.
+
+        Parameters:
+            phase: A phase in the :attr:`fluid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
+
+        """
         name = f"phase_{phase.name}_viscosity"
         dependencies = self.dependencies_of_phase_properties(phase)
         if dependencies:
@@ -1346,7 +1395,16 @@ class FluidMixin(PorePyModel):
 
     def thermal_conductivity_of_phase(self, phase: Phase) -> ExtendedDomainFunctionType:
         """Analogous to :meth:`density_of_phase`, but for
-        :attr:`~porepy.compositional.base.Phase.thermal_conductivity`."""
+        :attr:`~porepy.compositional.base.Phase.thermal_conductivity` of a ``phase``.
+
+        Parameters:
+            phase: A phase in the :attr:`fluid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
+
+        """
         name = f"phase_{phase.name}_conductivity"
         dependencies = self.dependencies_of_phase_properties(phase)
         if dependencies:
@@ -1358,11 +1416,18 @@ class FluidMixin(PorePyModel):
         self, component: Component, phase: Phase
     ) -> ExtendedDomainFunctionType:
         """Analogous to :meth:`density_of_phase`, but for
-        :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of`.
+        :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of` of a ``phase``.
 
         Note:
             Fugacity coefficient appear only in the local equilibrium
             equation or other chemistry-related models, but not in flow and transport.
+
+        Parameters:
+            phase: A phase in the :attr:`fluid`.
+
+        Returns:
+            A callable taking some domains and returning an AD operator representing
+            this thermodynamic property.
 
         """
         name = f"fugacity_coefficient_{component.name}_in_{phase.name}"

@@ -6,24 +6,9 @@ from typing import Callable
 
 import numpy as np
 import pytest
-from numpy import ndarray
 
 import porepy as pp
 import porepy.compositional as composit
-
-
-@pytest.fixture(scope="module")
-def dummyeos():
-    """Dummy Eos"""
-
-    class DummyEos(composit.EquationOfState):
-
-        def compute_phase_properties(
-            self, phase_type: int, *thermodynamic_input: ndarray
-        ) -> composit.PhaseProperties:
-            pass
-
-    return DummyEos
 
 
 class MockModel(
@@ -127,7 +112,7 @@ def get_mock_model(
     ],
 )
 def test_mixture_contexts(
-    species: list[str], phaseconfig: list[list[tuple[str, int]]], dummyeos
+    species: list[str], phaseconfig: list[list[tuple[str, composit.PhysicalState]]]
 ):
     """Tests the phase and component context of a fluid mixture, and the assumptions
     on wich the framework is built. They must not be violated by any future development.
@@ -135,26 +120,18 @@ def test_mixture_contexts(
 
     nphase = len(phaseconfig)
     ncomp = len(species)
-    # h2o = composit.Component.from_species(composit.load_species(["H2O"])[0])
-    # Creating dummy components. Physical properties have no relevance for this test
-
+    # Creating dummy components and eos. Physical properties have no relevance here
     # 1 separate component for the dummy eos, just to instantiate it.
     h2o = composit.Component(name="H2O")
-
-    # components: list[composit.Component] = [
-    #     composit.Component.from_species(s) for s in composit.load_species(species)
-    # ]
-    components: list[composit.Component] = [
-        composit.Component(name=s)
-        for i, s in enumerate(species)
-    ]
+    components: list[composit.Component] = [composit.Component(name=s) for s in species]
 
     if ncomp == 0:
         with pytest.raises(composit.CompositionalModellingError):
-            _ = dummyeos(components)
-        eos: composit.EquationOfState = dummyeos([h2o])
+            _ = composit.EquationOfState(components)
+        eos= composit.EquationOfState([h2o])
     else:
-        eos: composit.EquationOfState = dummyeos(components)
+        eos = composit.EquationOfState(components)
+
     phases: list[composit.Phase] = []
     has_gas = False
     has_more_gas = False
@@ -213,7 +190,7 @@ def test_mixture_contexts(
 )
 @pytest.mark.parametrize("equilibrium_type", [None, "unified-p-T", "p-T"])
 def test_mixture_member_assignment(
-    eliminate_reference: bool, equilibrium_type: None | str, dummyeos
+    eliminate_reference: bool, equilibrium_type: None | str,
 ):
     """Testint that all requried members of phases, components, compounds and
     fluid mixtures are assigned by the compositional mixins. Tested with and without
@@ -223,11 +200,16 @@ def test_mixture_member_assignment(
     comp1 = composit.Compound.from_fluid_constants(pp.FluidConstants(name='H2O'))
     comp1.active_tracers = [pp.FluidConstants(name='NaCl')]
     comp2 = composit.Component.from_fluid_constants(pp.FluidConstants(name='CO2'))
-    eos = dummyeos([comp1, comp2])
+    # dummy EoS for completeness
+    eos = composit.EquationOfState([comp1, comp2])
+    phases = [
+        (eos, composit.PhysicalState.liquid, "L"),
+        (eos, composit.PhysicalState.gas, "G"),
+    ]
 
     mixin: MockModel = get_mock_model(
         [comp1, comp2],
-        [(eos, 0, "L"), (eos, 1, "G")],
+        phases,
         eliminate_reference,
         equilibrium_type,
     )
@@ -452,29 +434,17 @@ def test_mixture_member_assignment(
 )
 @pytest.mark.parametrize("phase_names", [["L"], ["L", "G"]])
 @pytest.mark.parametrize("species", [["H2O"], ["H2O", "CO2"]])
-def test_singular_mixtures(species, phase_names, equilibrium_type, dummyeos):
+def test_singular_mixtures(species, phase_names, equilibrium_type):
     """Testing the behavior when only 1 component, or 1 phase or both.
     In this case, the number of created variables follows certain rules."""
 
-    species_kwargs = {
-        "molar_mass": 1.0,
-        "p_crit": 1.0,
-        "T_crit": 1.0,
-        "V_crit": 1.0,
-        "omega": 1.0,
-    }
-
-    # Creating dummy components. Physical properties have no relevance for this test
+    # Creating dummy components and EoS. Physical properties have no relevance here
     components: list[composit.Component] = [
-        composit.Component(name=s, CASr_number=f"{i}", **species_kwargs)
-        for i, s in enumerate(species)
+        composit.Component(name=s) for s in species
     ]
 
-    # components = [
-    #     composit.Component.from_species(s) for s in composit.load_species(species)
-    # ]
-    eos = dummyeos(components)
-    phases = [(eos, 0, name) for name in phase_names]
+    eos = composit.EquationOfState(components)
+    phases = [(eos, composit.PhysicalState.liquid, name) for name in phase_names]
 
     mixin: MockModel = get_mock_model(components, phases, True, equilibrium_type)
 

@@ -3554,8 +3554,12 @@ class ElasticTangentialFractureDeformation(PorePyModel):
 
         stiffness = self.fracture_tangential_stiffness(subdomains)
         # Retrieve the *unscaled* stiffness value for the check below.
+        # need cast for convert_units. By implementation of stiffness, it can only be a
+        # number
         stiffness_value = self.units.convert_units(
-            stiffness.value(self.equation_system), "Pa*m^-1", to_si=True
+            cast(pp.number, stiffness.value(self.equation_system)),
+            "Pa*m^-1",
+            to_si=True,
         )
         if np.any(np.isclose(stiffness_value, -1.0, atol=1e-12, rtol=1e-12)):
             # Stiffness=-1 indicates no elastic tangential deformation. Small tolerances

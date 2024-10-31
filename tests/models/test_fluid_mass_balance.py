@@ -386,7 +386,6 @@ def test_ad_operator_methods_single_phase_flow(
     for name in method_namespace:
         method = getattr(owner, name)
         owner = method
-    # method: Callable = getattr(model_setup, method_name)
 
     # Obtain list of subdomain or interface grids where the method is defined.
     domains = models.subdomains_or_interfaces_from_method_name(
