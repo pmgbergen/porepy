@@ -1247,8 +1247,8 @@ class FluidMixin(PorePyModel):
             - :attr:`thermal_conductivity_of_phase`
             - :attr:`fugacity_coefficient`
 
-            returning functions which raise an error when called, alerting the user
-            that some some mixin is missing to provide respective functions as the
+            returning functions which raise an error when called, alerting the user that
+            some some mixin is missing to provide respective functions as the
             implementation of some heuristic law.
 
         Example:
@@ -1256,13 +1256,13 @@ class FluidMixin(PorePyModel):
             Let's assume a general mixture with multiple components and phases, which
             uses the :class:`CompositionalVariables`, and either
             :attr:`_MixtureDOFHandler._has_unified_equilibrium` or
-            :attr:`_MixtureDOFHandler._has_equilibrium` defined. I.e., the
-            fluid and phase properties are not characterized by some mixed-in, heuristic
-            law, but by a local phase equilibrium system or some interpolation.
-            The values of properties like density are then dependent on some variables.
-            This information is used to evaluate those variables and provide the
-            information to flash calculations or look-up, and subsequently to populate
-            the Jacobians of the property.
+            :attr:`_MixtureDOFHandler._has_equilibrium` defined. I.e., the fluid and
+            phase properties are not characterized by some mixed-in, heuristic law, but
+            by a local phase equilibrium system or some interpolation. The values of
+            properties like density are then dependent on some variables. This
+            information is used to evaluate those variables and provide the information
+            to flash calculations or look-up, and subsequently to populate the Jacobians
+            of the property.
 
             The above mentioned logic can then be translated into code the following
             way:
