@@ -316,7 +316,6 @@ def test_evaluated_values(
         | Type[models.Thermoporomechanics]
         | Type[models.MassAndEnergyBalance]
         | Type[models.MomentumBalance]
-        # | Type[_]
     ),  # noqa
     method_name: Literal[
         "fluid.density",
