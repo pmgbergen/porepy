@@ -91,11 +91,11 @@ class FluidDensityFromPressure(PorePyModel):
         """
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
 
-        # Reference variables are defined in a variables class which is assumed
-        # to be available by mixin.
+        # Reference variables are defined in a variables class which is assumed to be
+        # available by mixin.
         dp = self.perturbation_from_reference("pressure", subdomains)
 
-        # Wrap compressibility from fluid class as matrix (left multiplication with dp)
+        # Wrap compressibility from fluid class as matrix (left multiplication with dp).
         c = self.fluid_compressibility(subdomains)
         return exp(c * dp)
 
@@ -159,8 +159,8 @@ class FluidDensityFromTemperature(PorePyModel):
         """
         exp = pp.ad.Function(pp.ad.exp, "density_exponential")
 
-        # Reference variables are defined in a variables class which is assumed
-        # to be available by mixin.
+        # Reference variables are defined in a variables class which is assumed to be
+        # available by mixin.
         dtemp = self.perturbation_from_reference("temperature", subdomains)
         c = self.fluid_thermal_expansion(subdomains)
         return exp(Scalar(-1) * c * dtemp)
@@ -299,7 +299,6 @@ class ConstantFluidThermalConductivity(PorePyModel):
 
         return kappa
 
-    # NOTE this is not really a fluid-related const. law, more related to mD
     def normal_thermal_conductivity(
         self, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Scalar:
@@ -315,6 +314,8 @@ class ConstantFluidThermalConductivity(PorePyModel):
             Operator representing normal thermal conductivity on the interfaces.
 
         """
+        # NOTE this is not really a fluid-related const. law, it is more related to
+        # mixed-dimensional problems.
         val = self.fluid.reference_component.normal_thermal_conductivity
         return Scalar(val, "normal_thermal_conductivity")
 
