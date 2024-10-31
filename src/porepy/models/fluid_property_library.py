@@ -1,7 +1,7 @@
 """"Module containing some constant heuristic fluid property implemenations.
 
-Most of the laws implemented here are meant for 1-phase, 1-component mixtures, using some
-fluid constants stored in the fluid's reference component.
+Most of the laws implemented here are meant for 1-phase, 1-component mixtures, using
+some fluid constants stored in the fluid's reference component.
 
 """
 
@@ -28,18 +28,19 @@ ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
 class FluidDensityFromPressure(PorePyModel):
-    """Fluid density as a function of pressure."""
+    """Fluid density as a function of pressure for a single-phase, single-component
+    fluid."""
 
     def fluid_compressibility(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
-        """Fluid compressibility.
+        """Constant compressibility [Pa^-1] taken from the reference component of the
+        fluid.
 
         Parameters:
             subdomains: List of subdomain grids. Not used in this implementation, but
                 included for compatibility with other implementations.
 
         Returns:
-            The constant compressibility of the fluid [Pa^-1], represented as an Ad
-            operator. The value is taken from the fluid constants.
+            The fluid constant wrapped as an AD Scalar.
 
         """
         return Scalar(
@@ -58,10 +59,10 @@ class FluidDensityFromPressure(PorePyModel):
         by mixin; a typical implementation will provide this in a variable class.
 
         Parameters:
-            subdomains: List of subdomain grids.
+            phase: The single fluid phase.
 
         Returns:
-            Fluid density as a function of pressure [kg * m^-3].
+            A function representing above expression on some domains.
 
         """
 
@@ -100,17 +101,19 @@ class FluidDensityFromPressure(PorePyModel):
 
 
 class FluidDensityFromTemperature(PorePyModel):
-    """Fluid density as a function of temperature."""
+    """Fluid density as a function of temperature for a single-phase, single-component
+    fluid."""
 
     def fluid_thermal_expansion(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
-        """
+        """Constant thermal expansion [K^-1] taken from the reference component of the
+        fluid.
+
         Parameters:
             subdomains: List of subdomains. Not used, but included for consistency with
                 other implementations.
 
         Returns:
-            Operator representing the thermal expansion [1/K]. The value is picked from
-            the fluid constants of the reference component.
+            The constant wrapped in as an AD scalar.
 
         """
         val = self.fluid.reference_component.thermal_expansion
@@ -124,10 +127,10 @@ class FluidDensityFromTemperature(PorePyModel):
             \\rho = \\rho_0 \\exp \\left[ - c_T \\left(T - T_0\\right) \\right]
 
         Parameters:
-            subdomains: List of subdomain grids.
+            phase: The single fluid phase.
 
         Returns:
-            Fluid density as a function of temperature [kg * m^-3].
+            A function representing above expression on some domains.
 
         """
 
@@ -166,7 +169,8 @@ class FluidDensityFromTemperature(PorePyModel):
 class FluidDensityFromPressureAndTemperature(
     FluidDensityFromPressure, FluidDensityFromTemperature
 ):
-    """Fluid density which is a function of pressure and temperature."""
+    """Fluid density which is a function of pressure and temperature, for a single-phase
+    single-component fluid."""
 
     def density_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
         """Returns a combination of the laws in the parent class methods:
@@ -175,11 +179,11 @@ class FluidDensityFromPressureAndTemperature(
             \\rho = \\rho_0 \\exp \\left[ c_p \\left(p - p_0\\right)
             - c_T\\left(T - T_0\\right) \\right]
 
-          Parameters:
-              subdomains: List of subdomain grids.
+        Parameters:
+            phase: The single fluid phase.
 
-          Returns:
-              Fluid density as a function of pressure and temperature.
+        Returns:
+            A function representing above expression on some domains.
 
         """
 
@@ -249,11 +253,20 @@ class FluidMobility(PorePyModel):
 
 
 class ConstantViscosity(PorePyModel):
-    """Constant viscosity for a 1-phase, 1-component fluid."""
+    """Constant viscosity for a single-phase fluid."""
 
     def viscosity_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
-        """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.
-        FluidMixin` to provide a constant viscosity for the fluid's phase."""
+        """Mixin method for :class:`~porepy.compositional.compositional_mixins.
+        FluidMixin` to provide a constant viscosity for the fluid's phase.
+
+        Parameters:
+            phase: The single fluid phase.
+
+        Returns:
+            A function representing representing the constant phase viscosity on some
+            domains.
+
+        """
 
         def mu(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             return Scalar(self.fluid.reference_component.viscosity, "viscosity")
@@ -262,14 +275,21 @@ class ConstantViscosity(PorePyModel):
 
 
 class ConstantFluidThermalConductivity(PorePyModel):
-    """Ïmplementation of a constant thermal conductivity for a 1-phase, 1-component
-    fluid."""
+    """Ïmplementation of a constant thermal conductivity for a single-phase fluid."""
 
     def thermal_conductivity_of_phase(
         self, phase: pp.Phase
     ) -> ExtendedDomainFunctionType:
         """Mixin method for :class:`~porepy.compositional.compositional_mixins.
-        FluidMixin` to provide a constant thermal conductivity for the fluid's phase."""
+        FluidMixin` to provide a constant thermal conductivity for the fluid's phase.
+
+        Parameters:
+            phase: The single fluid phase.
+
+        Returns:
+            A function representing the constant phase conductivity on some domains.
+
+        """
 
         def kappa(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             return Scalar(
@@ -301,7 +321,7 @@ class ConstantFluidThermalConductivity(PorePyModel):
 
 class FluidEnthalpyFromTemperature(PorePyModel):
     """Implementation of a linearized fluid enthalpy :math:`c(T - T_{ref})` for a
-    1-phase, 1-component fluid.
+    single-phase, single-component fluid.
 
     It uses the specific heat capacity of the fluid's reference component as :math:`c`,
     which is constant.
@@ -325,8 +345,20 @@ class FluidEnthalpyFromTemperature(PorePyModel):
         )
 
     def specific_enthalpy_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
-        """ "Mixin method for :class:`~porepy.compositional.compositional_mixins.
-        FluidMixin` to provide a linear specific enthalpy for the fluid's phase."""
+        """Mixin method for :class:`~porepy.compositional.compositional_mixins.
+        FluidMixin` to provide a linear specific enthalpy for the fluid's phase.
+
+        .. math::
+
+            h = c \\left(T - T_0\\right)
+
+        Parameters:
+            phase: The single fluid phase.
+
+        Returns:
+            A function representing above expression on some domains.
+
+        """
 
         def h(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             c = self.fluid_specific_heat_capacity(cast(list[pp.Grid], domains))

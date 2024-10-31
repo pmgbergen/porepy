@@ -7,7 +7,7 @@ Note that the protocol framework is accessed by static type checkes only!
 Warning:
     For developers:
 
-    Do not bring the ``typing.Protocol`` class into any form into the mixin framework
+    Do not bring the ``typing.Protocol`` class in any form into the mixin framework
     of PorePy! Use it exclusively in ``if``-sections for ``typing.TYPE_CHECKING``.
 
     Protocols use ``__slot__`` which leads to unforeseeable behaviour when combined

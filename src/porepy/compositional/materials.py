@@ -192,19 +192,12 @@ class MaterialConstants:
                     cls, "__post_init__", MaterialConstants.__post_init__
                 )
 
-    def to_units(
-        self: _MaterialConstants, units: pp.Units = pp.Units()
-    ) -> _MaterialConstants:
+    def to_units(self: _MaterialConstants, units: pp.Units) -> _MaterialConstants:
         """Utility to quickly convert material constants to new units.
 
-        Note:
-            The default value of ``units`` allows a conversion to SI units.
-            When using units which are not defined in the standard
-            :class:`~porepy.models.units.Units` class, the default value of ``units``
-            might not be enough.
-
         Parameters:
-            units: A new unit system. The default unit system is in SI.
+            units: A new unit system. Note that ``units`` must cover all SI units
+                declared in :attr:`SI_units` of the material constants (child) class.
 
         Returns:
             A new instance of of the data class using this method, with parameters
@@ -398,9 +391,7 @@ class SolidConstants(MaterialConstants):
     well_radius: number = 0.1
 
 
-def load_fluid_constants(
-    names: list[str], package: str = "chemicals"
-) -> list[FluidConstants]:
+def load_fluid_constants(names: list[str], package: str) -> list[FluidConstants]:
     """Creates a fluid species, if identifiable by ``name`` in ``package``.
 
     Utility function to extract parameters for a fluid, like critical values.
@@ -412,12 +403,10 @@ def load_fluid_constants(
 
     Parameters:
         names: A list of names or chemical formulae to look up the chemical species.
-        package: ``default='chemicals'``
-
-            Name of one of the supported packages containing chemical databases.
+        package: Name of one of the supported packages containing chemical databases.
             Currently supported:
 
-            - chemicals
+            - ``'chemicals'``: :mod:`chemicals`
 
     Raises:
         NotImplementedError: If an unsupported package is passed as argument.
