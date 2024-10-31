@@ -125,9 +125,10 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         self.set_equation_system_manager()
         self.create_variables()
         # After fluid and variables are defined, we can define the secondary quantities
-        # like fluid properties (which depend on variables).
-        # NOTE this is critical in the case where properties depend on some fractions.
-        # The callables for those are dynamically created during create_variables, as
+        # like fluid properties (which depend on variables). Creating fluid and
+        # variables before defining secondary thermodynamic properties is critical in
+        # the case where properties depend on some fractions. since the callables for
+        # secondary variables are dynamically created during create_variables, as
         # opposed to e.g. pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
