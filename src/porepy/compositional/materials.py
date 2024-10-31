@@ -257,31 +257,31 @@ class FluidConstants(MaterialConstants):
     # comments.
     acentric_factor: number = 0.0
 
-    compressibility: number = 0
+    compressibility: number = 0.0
 
-    critical_pressure: number = 1
+    critical_pressure: number = 1.0
 
-    critical_specific_volume: number = 1
+    critical_specific_volume: number = 1.0
 
-    critical_temperature: number = 1
+    critical_temperature: number = 1.0
 
-    density: number = 1
+    density: number = 1.0
 
-    molar_mass: number = 1
+    molar_mass: number = 1.0
 
-    normal_thermal_conductivity: number = 1
+    normal_thermal_conductivity: number = 1.0
 
-    pressure: number = 0
+    pressure: number = 0.0
 
-    temperature: number = 0
+    temperature: number = 0.0
 
-    thermal_conductivity: number = 1
+    thermal_conductivity: number = 1.0
 
-    thermal_expansion: number = 0
+    thermal_expansion: number = 0.0
 
-    specific_heat_capacity: number = 1
+    specific_heat_capacity: number = 1.0
 
-    viscosity: number = 1
+    viscosity: number = 1.0
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -326,11 +326,11 @@ class SolidConstants(MaterialConstants):
         }
     )
 
-    biot_coefficient: number = 1
+    biot_coefficient: number = 1.0
 
-    characteristic_contact_traction: number = 1
+    characteristic_contact_traction: number = 1.0
 
-    characteristic_displacement: number = 1
+    characteristic_displacement: number = 1.0
 
     contact_mechanics_scaling: number = 1e-1
     """Numerical method parameter
@@ -339,13 +339,13 @@ class SolidConstants(MaterialConstants):
 
     """
 
-    density: number = 1
+    density: number = 1.0
 
-    dilation_angle: number = 0
+    dilation_angle: number = 0.0
 
-    fracture_gap: number = 0
+    fracture_gap: number = 0.0
 
-    fracture_normal_stiffness: number = 1
+    fracture_normal_stiffness: number = 1.0
     """Intended use is in Barton-Bandis-type models for elastic fracture deformation."""
 
     fracture_tangential_stiffness: number = -1.0
@@ -356,15 +356,15 @@ class SolidConstants(MaterialConstants):
         tangential direction.
     """
 
-    friction_coefficient: number = 1
+    friction_coefficient: number = 1.0
 
-    lame_lambda: number = 1
+    lame_lambda: number = 1.0
     """Lame's first parameter"""
 
-    maximum_elastic_fracture_opening: number = 0
+    maximum_elastic_fracture_opening: number = 0.0
     """Intended use is in Barton-Bandis-type models for elastic fracture deformation."""
 
-    normal_permeability: number = 1
+    normal_permeability: number = 1.0
 
     open_state_tolerance: number = 1e-5
     """Numerical method parameter.
@@ -375,25 +375,25 @@ class SolidConstants(MaterialConstants):
 
     """
 
-    permeability: number = 1
+    permeability: number = 1.0
 
     porosity: number = 0.1
 
     residual_aperture: number = 0.1
 
-    shear_modulus: number = 1
+    shear_modulus: number = 1.0
 
-    skin_factor: number = 0
+    skin_factor: number = 0.0
 
-    specific_heat_capacity: number = 1
+    specific_heat_capacity: number = 1.0
 
-    specific_storage: number = 1
+    specific_storage: number = 1.0
 
-    temperature: number = 0
+    temperature: number = 0.0
 
-    thermal_conductivity: number = 1
+    thermal_conductivity: number = 1.0
 
-    thermal_expansion: number = 0
+    thermal_expansion: number = 0.0
 
     well_radius: number = 0.1
 
