@@ -128,7 +128,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         # like fluid properties (which depend on variables).
         # NOTE this is critical in the case where properties depend on some fractions.
         # The callables for those are dynamically created during create_variables, as
-        # opposed to e.g., pressure or temperature.
+        # opposed to e.g. pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
         self.reset_state_from_file()
@@ -150,26 +150,26 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def set_discretization_parameters(self) -> None:
         """Set parameters for the discretization.
 
-        This method is called before the discretization is performed. It is
-        intended to be used to set parameters for the discretization, such as
-        the permeability, the porosity, etc.
+        This method is called before the discretization is performed. It is intended to
+        be used to set parameters for the discretization, such as the permeability, the
+        porosity, etc.
 
         """
 
     def set_solver_statistics(self) -> None:
         """Set the solver statistics object.
 
-        This method is called at initialization. It is intended to be used to
-        set the solver statistics object(s). Currently, the solver statistics
-        object is related to nonlinearity only. Statistics on other parts of the
-        solution process, such as linear solvers, may be added in the future.
+        This method is called at initialization. It is intended to be used to set the
+        solver statistics object(s). Currently, the solver statistics object is related
+        to nonlinearity only. Statistics on other parts of the solution process, such as
+        linear solvers, may be added in the future.
 
         Raises:
             ValueError: If the solver statistics object is not a subclass of
                 pp.SolverStatistics.
 
         """
-        # Retrieve the value with a default of pp.SolverStatistics
+        # Retrieve the value with a default of pp.SolverStatistics.
         statistics = self.params.get("nonlinear_solver_statistics", pp.SolverStatistics)
         # Explicitly check if the retrieved value is a class and a subclass of
         # pp.SolverStatistics for type checking.
@@ -205,8 +205,8 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def time_step_indices(self) -> np.ndarray:
         """Indices for storing time step solutions.
 
-        Index 0 corresponds to the most recent time step with the know solution, 1 -
-        to the previous time step, etc.
+        Index 0 corresponds to the most recent time step with the know solution, 1 to
+        the previous time step, etc.
 
         Returns:
             An array of the indices of which time step solutions will be stored,
@@ -262,7 +262,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def set_materials(self):
         """Set material parameters.
 
-        Searcher for entries in ``params['material_constants']`` with keys ``'fluid'``
+        Searches for entries in ``params['material_constants']`` with keys ``'fluid'``
         and ``'solid'`` for respective material constant instances. If not found,
         default materials are instantiated.
 
@@ -273,7 +273,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         provided in ``params['material_constants']``.
 
         """
-        # User provided values, if any
+        # User provided values, if any.
         constants = cast(
             dict[str, pp.MaterialConstants], self.params.get("material_constants", {})
         )
@@ -287,15 +287,15 @@ class SolutionStrategy(abc.ABC, PorePyModel):
             pp.FluidConstants, constants.get("fluid", pp.FluidConstants(name="fluid"))
         )
 
-        # Sanity check that users did not pass anything unexpected
+        # Sanity check that users did not pass anything unexpected.
         assert isinstance(solid, pp.SolidConstants)
         assert isinstance(fluid, pp.FluidConstants)
 
-        # converting to units of simulation
+        # Converting to units of simulation.
         fluid = fluid.to_units(self.units)
         solid = solid.to_units(self.units)
 
-        # Set the solid for the model
+        # Set the solid for the model.
         # NOTE this will change with the generalization of the solid
         self.solid = solid
 

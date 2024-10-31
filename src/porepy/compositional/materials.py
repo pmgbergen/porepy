@@ -1,12 +1,12 @@
 """Storage classes for material constants.
 
-Material contants are values representing either constant physical properties (f.e.
-critical pressurre) or parameters for constitutive laws (f.e. constant compressibility
+Material contants are values representing either constant physical properties (e.g.
+critical pressurre) or parameters for constitutive laws (e.g. constant compressibility
 for exponential-type density law). A material is instantiated with a
-:class:`~porepy.models.units.Units` object, which
-defines the units of the physical properties for a simulation setup.
-While the constants must be given in base SI units when instantiationg a material class,
-its constants are converted and stored in the target units, to be used subsequently.
+:class:`~porepy.models.units.Units` object, which defines the units of the physical
+properties for a simulation setup. While the constants must be given in base SI units
+when instantiating a material class, its constants are converted and stored in the
+target units, to be used subsequently.
 
 For converting values on the fly, see :meth:`~porepy.models.units.Units.convert_units`.
 
@@ -61,9 +61,9 @@ class _HashableDict(Generic[_K, _V], OrderedDict):
 class MaterialConstants:
     """Material property container and conversion class.
 
-    The base clase identifies a material using a given :attr:`name`.
-    To define material properties of some kind, derive a dataclass with this class
-    as its base (as frozen and keywords-only data class).
+    The base class identifies a material using a given :attr:`name`. To define material
+    properties of some kind, derive a dataclass with this class as its base (as frozen
+    and keywords-only data class).
 
     Material constants are declared as fields (float or int) with default values.
 
@@ -71,7 +71,7 @@ class MaterialConstants:
     about the the physical unit of each declared constant.
 
     If the user wants the material to be presented in other than SI units, a ``units=``
-    kw-argument can be passed to declare the target, non-SI units (f.e. MPa instead of
+    kw-argument can be passed to declare the target, non-SI units (e.g. MPa instead of
     Pa).
 
     Important:
@@ -83,8 +83,8 @@ class MaterialConstants:
         Every derived class must have a class attribute :attr:`SI_units`, **annotated as
         ClassVar**. This is to inform the base class about the used SI units.
 
-        For examples, see :class:`FluidConstants` or :class:`SolidConstants`.
-        For instructions on how to write composed units, see
+        For examples, see :class:`FluidConstants` or :class:`SolidConstants`. For
+        instructions on how to write composed units, see
         :meth:`~porepy.models.units.Units.convert_units`.
 
     """
@@ -92,8 +92,8 @@ class MaterialConstants:
     # NOTE Annotating it as a ClassVar leads to the dataclasss decorator ignoring this
     # in its machinery. The annotation must not be forgotten in derived classes.
     SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict()
-    """A dictionary containing the SI unit of every material constant defined by
-    a derived class.
+    """A dictionary containing the SI unit of every material constant defined by a
+    derived class.
 
     E.g., ``{'pressure': 'Pa'}``
 
@@ -148,25 +148,24 @@ class MaterialConstants:
         constants.pop("units")
         constants.pop("constants_in_SI")
 
-        # safety check if the user forgot to annotate the SI_units as a class variabel
-        # If yes, dataclass would declare it as a data field
+        # Safety check if the user forgot to annotate the SI_units as a class variable.
+        # If yes, dataclass would declare it as a data field.
         if "SI_units" in constants:
             raise AttributeError(
                 f"The attribute 'SI_units' in class {type(self)} must be annotated as"
                 + " SI_units: typing.ClassVar[dict[str,str]]."
             )
 
-        # by logic, what remains are constants as numbers
-        # storing original constants
+        # By logic, what remains are constants as numbers storing original constants.
         self.constants_in_SI.update(
             cast(_HashableDict[str, number], _HashableDict(constants))
         )
 
-        # transform the constants to SI and store them in this instance
+        # Transform the constants to SI and store them in this instance.
         # Bypass the freezing of attributes https://stackoverflow.com/questions/
         # 53756788/how-to-set-the-value-of-dataclass-field-in-post-init-when-frozen-true
         for k, v in self.constants_in_SI.items():
-            # convert the value to SI if it has a physical unit
+            # Convert the value to SI if it has a physical unit.
             if k not in type(self).SI_units:
                 raise AttributeError(
                     f"Material constant {k} requires a declaration of its physical unit"
@@ -178,8 +177,8 @@ class MaterialConstants:
 
     def __init_subclass__(cls) -> None:
         """If a data-class inherits this class, the base class post-initialization
-        procedure must be inherited as well for the conversion from SI units
-        (at instantiation) to simulation :attr:`units`."""
+        procedure must be inherited as well for the conversion from SI units (at
+        instantiation) to simulation :attr:`units`."""
 
         if is_dataclass(cls):
             if hasattr(cls, "__post_init__"):
@@ -226,7 +225,7 @@ class FluidConstants(MaterialConstants):
     """Material data class for fluid species.
 
     It declares fluid species parameters, which are expected of a fluid by the remaining
-    framework, especially flow & transport equations.
+    framework, especially flow and transport equations.
 
     This class is intended for 1 fluid species only. Fluid mixtures with multiple
     components require multiple sets of constants to define individual fluid components.
@@ -442,11 +441,11 @@ def load_fluid_constants(
     omega_loader: Callable
 
     if package == "chemicals":
-        # will raise import error if not found
+        # Will raise import error if not found.
         import chemicals  # type: ignore
 
         cas_loader = chemicals.CAS_from_any
-        mw_loader = lambda x: chemicals.MW(x) * 1e-3  # molas mass in kg / mol
+        mw_loader = lambda x: chemicals.MW(x) * 1e-3  # molar mass in kg / mol
         pc_loader = chemicals.Pc  # critical pressure in Pa
         Tc_loader = chemicals.Tc  # critical temperature in K
         vc_loader = chemicals.Vc  # critical volume in m^3 / mol

@@ -159,13 +159,12 @@ def test_parse_constitutive_laws(
     # Set up an object of the prescribed model
     setup = models.model(model_type, domain_dim, num_fracs=num_fracs)
     # Fetch the relevant method of this model and extract the domains for which it is
-    # defined. by looping top to bottom through the namespace
+    # defined by looping top to bottom through the namespace.
     method_namespace = method_name.split('.')
     owner = setup
     for name in method_namespace:
         method = getattr(owner, name)
         owner = method
-    # method = getattr(setup, method_name)
 
     domains = models.subdomains_or_interfaces_from_method_name(
         setup.mdg, method, dimensions_to_assemble
@@ -372,13 +371,12 @@ def test_evaluated_values(
             iterate_index=0,
         )
 
-    # Obtain the tested method by looping top to bottom through the namespace
+    # Obtain the tested method by looping top to bottom through the namespace.
     method_namespace = method_name.split('.')
     owner = setup
     for name in method_namespace:
         method = getattr(owner, name)
         owner = method
-    # method = getattr(setup, method_name)
 
     # Call the method with the domain as argument. An error here will indicate that
     # something is wrong with the way the method combines terms and factors (e.g., grids

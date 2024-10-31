@@ -863,7 +863,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
                         sd,
                         self.thermal_conductivity([sd]),
-                        # fallback to thermal conductivity of reference component
+                        # Fall back to thermal conductivity of reference component.
                         self.fluid.reference_component.thermal_conductivity,
                     ),
                     "ambient_dimension": self.nd,

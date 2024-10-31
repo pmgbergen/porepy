@@ -109,7 +109,7 @@ class FluidDensityFromTemperature(PorePyModel):
                 other implementations.
 
         Returns:
-            Operator representing the thermal expansion  [1/K]. The value is picked from
+            Operator representing the thermal expansion [1/K]. The value is picked from
             the fluid constants of the reference component.
 
         """
@@ -285,6 +285,8 @@ class ConstantFluidThermalConductivity(PorePyModel):
     ) -> pp.ad.Scalar:
         """Constant normal thermal conductivity of the fluid given by the fluid
         constants stored in the fluid's reference component.
+
+        Using the fluid value corresponds to assuming a fluid-filled fracture.
 
         Parameters:
             interfaces: List of interface grids.
