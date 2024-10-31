@@ -3,6 +3,28 @@
 Most of the laws implemented here are meant for 1-phase, 1-component mixtures, using
 some fluid constants stored in the fluid's reference component.
 
+Note:
+    In order to override default implementations of fluid properties in
+    :class:`~porepy.compositional.compositional_mixins.FluidMixin`, the classes hererin
+    must be mixed into the model *before* the fluid mixin.
+
+    .. code::python
+
+        class MyModel(
+            # ...
+            ContitutiveLawFromFluidLibrary,
+            # ...
+            FluidMixin,
+            # ...
+        )
+
+    E.g., Python must find :meth:`FluidDensityFromPressure.density_of_phase` before
+    it finds the default
+    :meth:`~porepy.compositional.compositional_mixins.FluidMixin.density_of_phase`. The
+    latter is a general
+    :class:`~porepy.numerics.ad.surrogate_operator.SurrogateOperator`, which requires
+    an additional strategy for populating its values and Jacobian.
+
 """
 
 from __future__ import annotations
