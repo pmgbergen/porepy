@@ -1,11 +1,12 @@
 from porepy.applications.material_values.solid_values import granite
 from porepy.applications.material_values.fluid_values import water
+
 """Material constants used in the model tests."""
 
 
-
-numerical_values_for_testing = {"characteristic_displacement": 0.2,  # [m]
-                                }
+numerical_values_for_testing = {
+    "characteristic_displacement": 0.2,  # [m]
+}
 """
 Water values have been extended for testing purposes
 

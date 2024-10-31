@@ -33,7 +33,7 @@ class LinearModel(
     "solid_vals, num_vals, north_displacement",
     [
         ({}, {}, 0.0),
-        ({},{"characteristic_displacement": 42}, -0.1),
+        ({}, {"characteristic_displacement": 42}, -0.1),
         ({"porosity": 0.5}, {}, 0.2),
     ],
 )
@@ -54,7 +54,7 @@ def test_2d_single_fracture(solid_vals, num_vals, north_displacement):
 
     params = {
         "times_to_export": [],  # Suppress output for tests
-        "material_constants": {"solid": solid, "num":num},
+        "material_constants": {"solid": solid, "num": num},
         "u_north": [0.0, north_displacement],
     }
 
@@ -130,7 +130,9 @@ def test_unit_conversion(units: dict, uy_north: float):
         uy_north: Value of y displacement on the north boundary.
 
     """
-    solid = pp.SolidConstants(material_constants_for_testing.extended_granite_values_for_testing)
+    solid = pp.SolidConstants(
+        material_constants_for_testing.extended_granite_values_for_testing
+    )
 
     params = {
         "times_to_export": [],  # Suppress output for tests
@@ -589,7 +591,6 @@ def test_elastoplastic_3d_single_fracture(
 class TimeDependentBCs(
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
 ):
-
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Displacement values.
 

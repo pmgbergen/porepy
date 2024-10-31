@@ -12,8 +12,11 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.test_utils import models, well_models, \
-    material_constants_for_testing
+from porepy.applications.test_utils import (
+    models,
+    well_models,
+    material_constants_for_testing,
+)
 
 
 class BoundaryConditionLinearPressure(
