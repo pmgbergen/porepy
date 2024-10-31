@@ -865,6 +865,10 @@ class MomentumBalance(  # type: ignore[misc]
     ConstitutiveLawsMomentumBalance,
     BoundaryConditionsMomentumBalance,
     SolutionStrategyMomentumBalance,
+    # For clarity, the functionality of the FluidMixin is not really used in the pure
+    # momentum balance model, but for unity of implementation (and to avoid some
+    # technical programing related to the FluidMixin not always being present) it is
+    # convenient to mix it in here.
     pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
