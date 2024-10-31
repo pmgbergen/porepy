@@ -14,7 +14,7 @@ import pytest
 
 import porepy as pp
 from porepy.applications.md_grids import model_geometries
-from porepy.applications.test_utils import well_models
+from porepy.applications.test_utils import well_models, material_constants_for_testing
 from porepy.applications.test_utils.models import (
     Thermoporomechanics,
     compare_scaled_model_quantities,
@@ -387,15 +387,19 @@ def test_unit_conversion(units):
 
     """
 
-    solid = pp.SolidConstants(pp.solid_values.extended_granite_values_for_testing)
-    fluid = pp.FluidConstants(pp.fluid_values.extended_water_values_for_testing)
+    solid_vals = material_constants_for_testing.extended_granite_values_for_testing
+    fluid_vals = material_constants_for_testing.extended_water_values_for_testing
+    num_vals = material_constants_for_testing.numerical_values_for_testing
+    solid = pp.SolidConstants(solid_vals)
+    fluid = pp.FluidConstants(fluid_vals)
+    num = pp.NumericalConstants(num_vals)
 
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0],
         "cartesian": True,
         "u_north": [0.0, -1e-5],
-        "material_constants": {"solid": solid, "fluid": fluid},
+        "material_constants": {"solid": solid, "fluid": fluid, "num": num},
     }
     model_params_ref = copy.deepcopy(model_params)
 

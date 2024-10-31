@@ -15,7 +15,11 @@ import pytest
 
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
-from porepy.applications.test_utils import models, well_models
+from porepy.applications.test_utils import (
+    models,
+    well_models,
+    material_constants_for_testing,
+)
 
 
 class NonzeroFractureGapPoromechanics:
@@ -209,8 +213,7 @@ def get_variables(
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
     u_var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
     u_vals = setup.equation_system.get_variable_values(
-        variables=u_var, 
-        time_step_index=0
+        variables=u_var, time_step_index=0
     ).reshape(setup.nd, -1, order="F")
 
     p_var = setup.equation_system.get_variables(
@@ -383,7 +386,7 @@ def test_pull_north_positive_opening():
 
 def test_pull_south_positive_opening():
     """Check solution for a pull on the south side with one horizontal fracture."""
-    
+
     setup = create_fractured_setup({}, {}, 0.0)
     setup.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(setup)
@@ -480,16 +483,18 @@ def test_unit_conversion(units):
             :class:`~pp.models.material_constants.MaterialConstants`.
 
     """
-    solid_vals = pp.solid_values.extended_granite_values_for_testing
-    fluid_vals = pp.fluid_values.extended_water_values_for_testing
+    solid_vals = material_constants_for_testing.extended_granite_values_for_testing
+    fluid_vals = material_constants_for_testing.extended_water_values_for_testing
+    num_vals = material_constants_for_testing.numerical_values_for_testing
     solid = pp.SolidConstants(solid_vals)
     fluid = pp.FluidConstants(fluid_vals)
+    num = pp.NumericalConstants(num_vals)
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,
         "u_north": [0.0, 1e-5],
-        "material_constants": {"solid": solid, "fluid": fluid},
+        "material_constants": {"solid": solid, "fluid": fluid, "num": num},
     }
     model_reference_params = copy.deepcopy(model_params)
     model_reference_params["file_name"] = "unit_conversion_reference"
