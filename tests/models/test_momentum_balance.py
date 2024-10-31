@@ -13,6 +13,9 @@ from porepy.applications.test_utils.models import (
     compare_scaled_model_quantities,
     compare_scaled_primary_variables,
 )
+
+from porepy.applications.test_utils import material_constants_for_testing
+
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
     CubeDomainOrthogonalFractures,
@@ -125,7 +128,7 @@ def test_unit_conversion(units: dict, uy_north: float):
         uy_north: Value of y displacement on the north boundary.
 
     """
-    solid = pp.SolidConstants(pp.solid_values.extended_granite_values_for_testing)
+    solid = pp.SolidConstants(material_constants_for_testing.extended_granite_values_for_testing)
 
     params = {
         "times_to_export": [],  # Suppress output for tests
