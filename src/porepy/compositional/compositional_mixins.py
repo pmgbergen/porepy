@@ -1218,8 +1218,8 @@ class FluidMixin(PorePyModel):
         """Method to define the signature of phase properties, which are dependent
         quantities.
 
-        In the case of a unified equilibrium formulation, the properties
-        depend on pressure, temperature and extended fractions.
+        In the case of a unified equilibrium formulation, the properties depend on
+        pressure, temperature and extended fractions.
 
         In the case of a non-unified equilibrium formulation, the properties are
         dependent on pressure, temperature and partial fractions in that phase.
@@ -1228,14 +1228,15 @@ class FluidMixin(PorePyModel):
         fractions.
 
         Important:
-            This method must be overwritten in every flow problem which relies on e.g.,
+            This method returns an empty list of dependencies, for reasons of
+            compatibility with pure mechanics models. The method must be overwritten in
+            every flow problem which relies on e.g.,
             :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory` for
-            externally computed values. The framework requires information about the
-            input arguments of the externally computed property values (primary
-            variables and their indices in the system's Jacobian).
-            The base method returns an empty list for reasons of compatibility
-            with pure mechanics models. Below is an example to implement the logic
-            explained above.
+            wrapping externally computed values as Ad operators. Specifically, the
+            SurrogateFactory framework requires information about the input arguments of
+            the externally computed property values (primary variables and their indices
+            in the system's Jacobian). See below for an example to overwrite this
+            method.
 
         Important:
             The default return value (empty list), leads to phase property function
