@@ -70,7 +70,7 @@ def material_constants() -> dict:
 
 
 @pytest.fixture(scope="module")
-def reference_values() -> pp.ReferenceValues:
+def reference_values() -> pp.ReferenceVariableValues:
     """Reference values for pressure and temperature.
     Use default values provided in the module where the setup class is included.
 
@@ -78,7 +78,7 @@ def reference_values() -> pp.ReferenceValues:
         Dictionary containing the reference value data structure.
 
     """
-    return pp.ReferenceValues(**manu_comp_ref_vals)
+    return pp.ReferenceVariableValues(**manu_comp_ref_vals)
 
 
 # --> [TEST_1] Relative L2-errors on Cartesian grid for three different times
@@ -87,7 +87,7 @@ def reference_values() -> pp.ReferenceValues:
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
 def actual_l2_errors(
-    material_constants: dict, reference_values: pp.ReferenceValues
+    material_constants: dict, reference_values: pp.ReferenceVariableValues
 ) -> list[list[dict[str, float]]]:
     """Run verification setups and retrieve results for the scheduled times.
 
@@ -106,7 +106,7 @@ def actual_l2_errors(
     model_params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
-        "reference_values": reference_values,
+        "reference_variable_values": reference_values,
         "meshing_arguments": {"cell_size": 0.125},
         "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
     }
@@ -237,7 +237,7 @@ def test_relative_l2_errors_cartesian_grid(
 # ----> Retrieve actual order of convergence
 @pytest.fixture(scope="module")
 def actual_ooc(
-    material_constants: dict, reference_values: pp.ReferenceValues
+    material_constants: dict, reference_values: pp.ReferenceVariableValues
 ) -> list[list[dict[str, float]]]:
     """Retrieve actual order of convergence.
 
@@ -276,7 +276,7 @@ def actual_ooc(
                 params = {
                     "grid_type": grid_type,
                     "material_constants": material_constants,
-                    "reference_values": reference_values,
+                    "reference_variable_values": reference_values,
                     "meshing_arguments": {"cell_size": 0.125},
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d

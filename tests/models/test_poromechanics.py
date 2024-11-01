@@ -37,7 +37,7 @@ class NonzeroFractureGapPoromechanics(PorePyModel):
         super().initial_condition()
         # Initial pressure equals reference pressure (defaults to zero).
         self.equation_system.set_variable_values(
-            self.reference_values.pressure * np.ones(self.mdg.num_subdomain_cells()),
+            self.reference_variable_values.pressure * np.ones(self.mdg.num_subdomain_cells()),
             [self.pressure_variable],
             time_step_index=0,
             iterate_index=0,
@@ -172,12 +172,12 @@ def create_fractured_setup(
     fluid_vals["compressibility"] = 1
     solid = pp.SolidConstants(**solid_vals)
     fluid = pp.FluidConstants(**fluid_vals)
-    reference_values = pp.ReferenceValues(**reference_vals)
+    reference_values = pp.ReferenceVariableValues(**reference_vals)
 
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
-        "reference_values": reference_values,
+        "reference_variable_values": reference_values,
         "u_north": [0.0, uy_north],  # Note: List of length nd. Extend if used in 3d.
         "max_iterations": 20,
     }
@@ -481,14 +481,14 @@ def test_unit_conversion(units):
     ref_vals = pp.reference_values.extended_reference_values_for_testing
     solid = pp.SolidConstants(**solid_vals)
     fluid = pp.FluidConstants(**fluid_vals)
-    reference_values = pp.ReferenceValues(**ref_vals)
+    reference_values = pp.ReferenceVariableValues(**ref_vals)
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,
         "u_north": [0.0, 1e-5],
         "material_constants": {"solid": solid, "fluid": fluid},
-        "reference_values": reference_values,
+        "reference_variable_values": reference_values,
     }
     model_reference_params = copy.deepcopy(model_params)
     model_reference_params["file_name"] = "unit_conversion_reference"

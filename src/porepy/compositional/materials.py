@@ -24,7 +24,7 @@ __all__ = [
     "MaterialConstants",
     "FluidConstants",
     "SolidConstants",
-    "ReferenceValues",
+    "ReferenceVariableValues",
     "load_fluid_constants",
 ]
 
@@ -387,7 +387,7 @@ class SolidConstants(MaterialConstants):
 
 
 @dataclass(frozen=True, kw_only=True)
-class ReferenceValues(MaterialConstants):
+class ReferenceVariableValues(MaterialConstants):
     """A data class storing reference values for a model.
 
     Intended use is for defining for example reference pressure and temperature,

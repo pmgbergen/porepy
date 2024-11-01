@@ -240,7 +240,7 @@ class ManuPoroMechExactSolution2d:
         alpha = setup.solid.biot_coefficient  # [-] Biot coefficient
         rho_0 = setup.fluid.reference_component.density  # [kg / m^3] Reference density
         phi_0 = setup.solid.porosity  # [-] Reference porosity
-        p_0 = setup.reference_values.pressure  # [Pa] Reference pressure
+        p_0 = setup.reference_variable_values.pressure  # [Pa] Reference pressure
         # [Pa^-1] Fluid compressibility
         c_f = setup.fluid.reference_component.compressibility
         k = setup.solid.permeability  # [m^2] Permeability

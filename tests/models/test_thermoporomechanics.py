@@ -389,7 +389,7 @@ def test_unit_conversion(units):
 
     solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
     fluid = pp.FluidConstants(**pp.fluid_values.extended_water_values_for_testing)
-    reference_values = pp.ReferenceValues(
+    reference_values = pp.ReferenceVariableValues(
         **pp.reference_values.extended_reference_values_for_testing
     )
 
@@ -399,7 +399,7 @@ def test_unit_conversion(units):
         "cartesian": True,
         "u_north": [0.0, -1e-5],
         "material_constants": {"solid": solid, "fluid": fluid},
-        "reference_values": reference_values,
+        "reference_variable_values": reference_values,
     }
     model_params_ref = copy.deepcopy(model_params)
 
