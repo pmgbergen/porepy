@@ -40,6 +40,7 @@ from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompUtils,
     SingleEmbeddedVerticalLineFracture,
 )
+from porepy.models.protocol import PorePyModel
 
 # PorePy typings
 number = pp.number
@@ -51,7 +52,6 @@ manu_comp_fluid: dict[str, number] = {
     "viscosity": 1.0,  # (**)
     "compressibility": 0.2,
     "density": 1.0,  # reference value
-    "pressure": 0.0,  # reference value
 }
 
 manu_comp_solid: dict[str, number] = {
@@ -59,6 +59,11 @@ manu_comp_solid: dict[str, number] = {
     "permeability": 1.0,  # (**)
     "residual_aperture": 1.0,  # (**)
     "porosity": 0.1,  # reference value
+}
+
+manu_comp_ref_vals: dict[str, number] = {
+    'pressure': 0.0,
+    'temperature': 0.0,
 }
 
 
@@ -200,14 +205,18 @@ class ManuCompDataSaving(VerificationDataSaving):
 class ManuCompExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
-    def __init__(self, setup):
+    def __init__(self, setup: PorePyModel):
         """Constructor of the class."""
 
         # Retrieve material constant from the setup
-        rho_0 = setup.fluid.reference_component.density  # [kg * m^-3]  Reference fluid density
-        p_0 = setup.fluid.reference_component.pressure  # [Pa] Reference fluid pressure
-        c_f = setup.fluid.reference_component.compressibility  # [Pa^-1]  Fluid compressibility
-        phi_0 = setup.solid.porosity  # [-] Reference porosity
+        # [kg * m^-3]  Reference fluid density
+        rho_0 = setup.fluid.reference_component.density
+        # [Pa] Reference fluid pressure
+        p_0 = setup.reference_values.pressure
+        # [Pa^-1]  Fluid compressibility
+        c_f = setup.fluid.reference_component.compressibility
+        # [-] Reference porosity
+        phi_0 = setup.solid.porosity
 
         # Symbolic variables
         x, y, t = sym.symbols("x y t")

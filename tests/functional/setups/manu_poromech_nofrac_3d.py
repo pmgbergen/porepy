@@ -64,6 +64,7 @@ from tests.functional.setups.manu_poromech_nofrac_2d import (
     ManuPoroMechSetup2d,
     ManuPoroMechSolutionStrategy2d,
 )
+from porepy.models.protocol import PorePyModel
 
 # PorePy typings
 number = pp.number
@@ -74,7 +75,7 @@ grid = pp.GridLike
 class ManuPoroMechExactSolution3d:
     """Class containing the exact manufactured solution for the verification setup."""
 
-    def __init__(self, setup):
+    def __init__(self, setup: PorePyModel):
         """Constructor of the class."""
 
         # Physical parameters
@@ -83,8 +84,9 @@ class ManuPoroMechExactSolution3d:
         alpha = setup.solid.biot_coefficient  # [-] Biot coefficient
         rho_0 = setup.fluid.reference_component.density  # [kg / m^3] Reference density
         phi_0 = setup.solid.porosity  # [-] Reference porosity
-        p_0 = setup.fluid.reference_component.pressure  # [Pa] Reference pressure
-        c_f = setup.fluid.reference_component.compressibility  # [Pa^-1] Fluid compressibility
+        p_0 = setup.reference_values.pressure  # [Pa] Reference pressure
+        # [Pa^-1] Fluid compressibility
+        c_f = setup.fluid.reference_component.compressibility
         k = setup.solid.permeability  # [m^2] Permeability
         mu_f = setup.fluid.reference_component.viscosity  # [Pa * s] Fluid viscosity
         K_d = lame_lmbda + (2 / 3) * lame_mu  # [Pa] Bulk modulus

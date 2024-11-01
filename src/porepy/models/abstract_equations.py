@@ -7,7 +7,7 @@ Contains:
 
 from __future__ import annotations
 
-from typing import Union
+from typing import Union, cast
 
 import porepy as pp
 from porepy.models.protocol import PorePyModel
@@ -119,28 +119,34 @@ class VariableMixin(PorePyModel):
 
     """
 
-    def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
-        """Perturbation of a variable from its reference value.
+    def perturbation_from_reference(self, name: str, grids: list[pp.Grid]):
+        """Perturbation of some quantity ``name`` from its reference value.
 
-        The parameter :code:`variable_name` should be the name of a variable so that
-        :code:`self.variable_name()` and `self.reference_variable_name()` are valid
-        calls. These methods will be provided by mixin classes; normally this will
-        be a subclass of :class:`VariableMixin`.
+        The parameter ``name`` should be the name of a mixed-in method, returning an
+        AD operator for given ``grids``.
 
-        The returned operator will be of the form
-        :code:`self.variable_name(grids) - self.reference_variable_name(grids)`.
+        ``name`` should also be defined in the model's :attr:`reference_values`.
+
+        This method calls the model method with given ``name`` on given ``grids`` to
+        create an operator ``A``. It then fetches the respective reference value and
+        wraps it into an AD scalar ``A_0``. The return value is an operator ``A - A_0``.
 
         Parameters:
-            variable_name: Name of the variable.
-            grids: List of subdomain or interface grids on which the variable is
+            name: Name of the quantity to be perturbed from a reference value.
+            grids: List of subdomain or interface grids on which the quantity is
                 defined.
 
         Returns:
             Operator for the perturbation.
 
         """
-        var = getattr(self, variable_name)
-        var_ref = getattr(self, "reference_" + variable_name)
-        d_var = var(grids) - var_ref(grids)
-        d_var.set_name(variable_name + "_perturbation")
-        return d_var
+        quantity = getattr(self, name)
+        # This will throw an error if the attribute is not callable
+        quantity_op = cast(pp.ad.Operator, quantity(grids))
+        # the reference values are a data class instance storing only numbers
+        quantity_ref = cast(pp.number, getattr(self.reference_values, name))
+        # The casting reflects the expected outcome, and is used to help linters find
+        # the set_name method
+        quantity_perturbed = quantity_op - pp.ad.Scalar(quantity_ref)
+        quantity_perturbed.set_name(f"{name}_perturbation")
+        return quantity_perturbed

@@ -697,7 +697,6 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "specific_storage": 4e-1,  # [Pa^-1]
             "thermal_conductivity": 3.1,  # [W * m^-1 * K^-1]
             "thermal_expansion": 9.6e-2,  # [K^-1]
-            "temperature": 2,  # [K]
         }
         nontrivial_fluid = {
             "compressibility": 1e-1,  # [Pa^-1], isentropic compressibility
@@ -706,8 +705,10 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "thermal_conductivity": 0.5,  # [kg m^-3]
             "thermal_expansion": 2.068e-1,  # [K^-1]
             "viscosity": 1.002e-1,  # [Pa s], absolute viscosity
-            "pressure": 1,  # [Pa]
-            "temperature": 2,  # [K]
+        }
+        nontrivial_reference_values = {
+            'pressure': 1.0,  # [Pa]
+            'temperature': 2.0,  # [K]
         }
 
         model_params = {
@@ -719,6 +720,7 @@ def test_rescaled_export(setup: ExporterTestSetup):
                 "solid": pp.SolidConstants(**nontrivial_solid),
                 "fluid": pp.FluidConstants(**nontrivial_fluid),
             },
+            "reference_values": pp.ReferenceValues(**nontrivial_reference_values),
         }
         model = TailoredThermoporomechanics(params=model_params)
         pp.run_time_dependent_model(model)

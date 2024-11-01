@@ -47,6 +47,7 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.models.protocol import PorePyModel
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
@@ -291,7 +292,7 @@ class ManuThermoPoroMechExactSolution2d:
 
     """
 
-    def __init__(self, setup):
+    def __init__(self, setup: PorePyModel):
         """Constructor of the class."""
 
         # Heterogeneity factor.
@@ -325,8 +326,8 @@ class ManuThermoPoroMechExactSolution2d:
         # Specific heat capacity of the solid
         solid_specific_heat = setup.solid.specific_heat_capacity
         # Reference pressure and temperature
-        p_0 = setup.fluid.reference_component.pressure
-        T_0 = setup.fluid.reference_component.temperature
+        p_0 = setup.reference_values.pressure
+        T_0 = setup.reference_values.temperature
 
         # Thermal expansion coefficients
         fluid_thermal_expansion = setup.fluid.reference_component.thermal_expansion

@@ -37,7 +37,7 @@ class NonzeroFractureGapPoromechanics(PorePyModel):
         super().initial_condition()
         # Initial pressure equals reference pressure (defaults to zero).
         self.equation_system.set_variable_values(
-            self.fluid.reference_component.pressure * np.ones(self.mdg.num_subdomain_cells()),
+            self.reference_values.pressure * np.ones(self.mdg.num_subdomain_cells()),
             [self.pressure_variable],
             time_step_index=0,
             iterate_index=0,
@@ -148,7 +148,9 @@ class TailoredPoromechanics(
     pass
 
 
-def create_fractured_setup(solid_vals: dict, fluid_vals: dict, uy_north: float):
+def create_fractured_setup(
+    solid_vals: dict, fluid_vals: dict, reference_vals: dict, uy_north: float
+):
     """Create a setup for a fractured domain.
 
     The domain is a unit square with two intersecting fractures.
@@ -156,6 +158,7 @@ def create_fractured_setup(solid_vals: dict, fluid_vals: dict, uy_north: float):
     Parameters:
         solid_vals: Parameters for the solid mechanics model.
         fluid_vals: Parameters for the fluid mechanics model.
+        reference_vals: Reference values for the mechanics model.
         uy_north: Displacement in y-direction on the north boundary.
 
     Returns:
@@ -169,10 +172,12 @@ def create_fractured_setup(solid_vals: dict, fluid_vals: dict, uy_north: float):
     fluid_vals["compressibility"] = 1
     solid = pp.SolidConstants(**solid_vals)
     fluid = pp.FluidConstants(**fluid_vals)
+    reference_values = pp.ReferenceValues(**reference_vals)
 
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid, "fluid": fluid},
+        "reference_values": reference_values,
         "u_north": [0.0, uy_north],  # Note: List of length nd. Extend if used in 3d.
         "max_iterations": 20,
     }
@@ -251,7 +256,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
 
     """
 
-    setup = create_fractured_setup(solid_vals, {}, north_displacement)
+    setup = create_fractured_setup(solid_vals, {}, {}, north_displacement)
     pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
 
@@ -352,7 +357,7 @@ def test_without_fracture(biot_coefficient):
 
 def test_pull_north_positive_opening():
     """Check solution for a pull on the north side with one horizontal fracture."""
-    setup = create_fractured_setup({}, {}, 0.001)
+    setup = create_fractured_setup({}, {}, {}, 0.001)
     pp.run_time_dependent_model(setup)
     _, _s, p_frac, jump, traction = get_variables(setup)
 
@@ -375,7 +380,7 @@ def test_pull_north_positive_opening():
 def test_pull_south_positive_opening():
     """Check solution for a pull on the south side with one horizontal fracture."""
     
-    setup = create_fractured_setup({}, {}, 0.0)
+    setup = create_fractured_setup({}, {}, {}, 0.0)
     setup.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
@@ -397,7 +402,7 @@ def test_pull_south_positive_opening():
 
 
 def test_push_north_zero_opening():
-    setup = create_fractured_setup({}, {}, -0.001)
+    setup = create_fractured_setup({}, {}, {}, -0.001)
     pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction = get_variables(setup)
 
@@ -412,7 +417,7 @@ def test_push_north_zero_opening():
 
 
 def test_positive_p_frac_positive_opening():
-    setup = create_fractured_setup({}, {}, 0.0)
+    setup = create_fractured_setup({}, {}, {}, 0.0)
     setup.params["fracture_source_value"] = 0.001
     pp.run_time_dependent_model(setup)
     _, _, p_frac, jump, traction = get_variables(setup)
@@ -436,7 +441,7 @@ def test_positive_p_frac_positive_opening():
 
 def test_pull_south_positive_reference_pressure():
     """Compare with and without nonzero reference (and initial) solution."""
-    setup_ref = create_fractured_setup({}, {}, 0.0)
+    setup_ref = create_fractured_setup({}, {}, {}, 0.0)
     setup_ref.subtract_p_frac = False
     setup_ref.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(setup_ref)
@@ -444,7 +449,7 @@ def test_pull_south_positive_reference_pressure():
         setup_ref
     )
 
-    setup = create_fractured_setup({}, {"pressure": 1}, 0.0)
+    setup = create_fractured_setup({}, {}, {"pressure": 1}, 0.0)
     setup.subtract_p_frac = False
     setup.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(setup)
@@ -473,14 +478,17 @@ def test_unit_conversion(units):
     """
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
+    ref_vals = pp.reference_values.extended_reference_values_for_testing
     solid = pp.SolidConstants(**solid_vals)
     fluid = pp.FluidConstants(**fluid_vals)
+    reference_values = pp.ReferenceValues(**ref_vals)
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,
         "u_north": [0.0, 1e-5],
         "material_constants": {"solid": solid, "fluid": fluid},
+        "reference_values": reference_values,
     }
     model_reference_params = copy.deepcopy(model_params)
     model_reference_params["file_name"] = "unit_conversion_reference"

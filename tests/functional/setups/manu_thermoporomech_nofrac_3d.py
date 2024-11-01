@@ -50,6 +50,7 @@ from tests.functional.setups.manu_thermoporomech_nofrac_2d import (
     SourceTerms,
     ManuThermoPoroMechSaveData,
 )
+from porepy.models.protocol import PorePyModel
 
 
 class ManuThermoPoroMechExactSolution3d:
@@ -77,7 +78,7 @@ class ManuThermoPoroMechExactSolution3d:
 
     """
 
-    def __init__(self, setup):
+    def __init__(self, setup: PorePyModel):
         """Constructor of the class."""
 
         # Heterogeneity factor.
@@ -111,8 +112,8 @@ class ManuThermoPoroMechExactSolution3d:
         # Specific heat capacity of the solid
         solid_specific_heat = setup.solid.specific_heat_capacity
         # Reference pressure and temperature
-        p_0 = setup.fluid.reference_component.pressure
-        T_0 = setup.fluid.reference_component.temperature
+        p_0 = setup.reference_values.pressure
+        T_0 = setup.reference_values.temperature
 
         # Thermal expansion coefficients
         fluid_thermal_expansion = setup.fluid.reference_component.thermal_expansion

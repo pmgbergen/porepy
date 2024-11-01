@@ -51,9 +51,7 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
         """
         domain_sides = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[domain_sides.west + domain_sides.east] = (
-            self.fluid.reference_component.pressure
-        )
+        values[domain_sides.west + domain_sides.east] = self.reference_values.pressure
         return values
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -115,9 +113,7 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
         """
         domain_sides = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[domain_sides.north + domain_sides.south] = (
-            self.fluid.reference_component.pressure
-        )
+        values[domain_sides.north + domain_sides.south] = self.reference_values.pressure
         return values
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:

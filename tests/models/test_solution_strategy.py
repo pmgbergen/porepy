@@ -47,7 +47,7 @@ def create_restart_model(
     solid_vals: dict, fluid_vals: dict, uy_north: float, restart: bool
 ):
     # Create fractured setup
-    fractured_setup = create_fractured_setup(solid_vals, fluid_vals, uy_north)
+    fractured_setup = create_fractured_setup(solid_vals, fluid_vals, {}, uy_north)
 
     # Fetch parameters for enhancing them
     params = fractured_setup.params
