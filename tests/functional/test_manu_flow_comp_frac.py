@@ -48,6 +48,7 @@ from tests.functional.setups.manu_flow_comp_2d_frac import (
     ManuCompFlowSetup2d,
     manu_comp_fluid,
     manu_comp_solid,
+    manu_comp_ref_vals,
 )
 from tests.functional.setups.manu_flow_comp_3d_frac import ManuCompFlowSetup3d
 
@@ -68,12 +69,26 @@ def material_constants() -> dict:
     return {"solid": solid_constants, "fluid": fluid_constants}
 
 
+@pytest.fixture(scope="module")
+def reference_values() -> pp.ReferenceValues:
+    """Reference values for pressure and temperature.
+    Use default values provided in the module where the setup class is included.
+
+    Returns:
+        Dictionary containing the reference value data structure.
+
+    """
+    return pp.ReferenceValues(**manu_comp_ref_vals)
+
+
 # --> [TEST_1] Relative L2-errors on Cartesian grid for three different times
 
 
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
-def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
+def actual_l2_errors(
+    material_constants: dict, reference_values: pp.ReferenceValues
+) -> list[list[dict[str, float]]]:
     """Run verification setups and retrieve results for the scheduled times.
 
     Parameters:
@@ -91,6 +106,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     model_params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
+        "reference_values": reference_values,
         "meshing_arguments": {"cell_size": 0.125},
         "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
     }
@@ -220,7 +236,9 @@ def test_relative_l2_errors_cartesian_grid(
 
 # ----> Retrieve actual order of convergence
 @pytest.fixture(scope="module")
-def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
+def actual_ooc(
+    material_constants: dict, reference_values: pp.ReferenceValues
+) -> list[list[dict[str, float]]]:
     """Retrieve actual order of convergence.
 
     Cartesian and simplices for 2d. Cartesian only for 3d.
@@ -258,6 +276,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                 params = {
                     "grid_type": grid_type,
                     "material_constants": material_constants,
+                    "reference_values": reference_values,
                     "meshing_arguments": {"cell_size": 0.125},
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d

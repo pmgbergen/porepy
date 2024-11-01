@@ -60,7 +60,7 @@ solid_values.update(
         ("mass_balance", "fluid_flux", None),
         ("mass_balance", "pressure_trace", None),
         ("mass_balance", "porosity", None),
-        ("mass_balance", "reference_pressure", None),
+        # ("mass_balance", "reference_pressure", None),
         # The body force and stress are only meaningful in the top dimension
         ("momentum_balance", "body_force", 0),
         ("momentum_balance", "stress", 0),
@@ -80,7 +80,7 @@ solid_values.update(
         ("energy_balance", "fourier_flux", None),
         ("energy_balance", "interface_enthalpy_flux", None),
         ("energy_balance", "interface_fourier_flux", None),
-        ("energy_balance", "reference_temperature", None),
+        # ("energy_balance", "reference_temperature", None), TODO modify test
         ("energy_balance", "normal_thermal_conductivity", None),
         ("energy_balance", "aperture", None),
         # Poromechanics

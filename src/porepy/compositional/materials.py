@@ -24,6 +24,7 @@ __all__ = [
     "MaterialConstants",
     "FluidConstants",
     "SolidConstants",
+    "ReferenceValues",
     "load_fluid_constants",
 ]
 
@@ -264,10 +265,6 @@ class FluidConstants(MaterialConstants):
 
     normal_thermal_conductivity: number = 1.0
 
-    pressure: number = 0.0
-
-    temperature: number = 0.0
-
     thermal_conductivity: number = 1.0
 
     thermal_expansion: number = 0.0
@@ -382,13 +379,36 @@ class SolidConstants(MaterialConstants):
 
     specific_storage: number = 1.0
 
-    temperature: number = 0.0
-
     thermal_conductivity: number = 1.0
 
     thermal_expansion: number = 0.0
 
     well_radius: number = 0.1
+
+
+@dataclass(frozen=True, kw_only=True)
+class ReferenceValues(MaterialConstants):
+    """A data class storing reference values for a model.
+
+    Intended use is for defining for example reference pressure and temperature,
+    where the perturbation from the reference value :math:`(p - p_{ref})` is used in
+    constitutive laws for example.
+
+    The aim is to have a single set of (scalar) reference values, which is to be used
+    consistently in the whole model, with the correct units.
+
+    """
+
+    SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict(
+        {
+            "pressure": "Pa",
+            "temperature": "K",
+        }
+    )
+
+    pressure: number = 0.0
+
+    temperature: number = 0.0
 
 
 def load_fluid_constants(names: list[str], package: str) -> list[FluidConstants]:

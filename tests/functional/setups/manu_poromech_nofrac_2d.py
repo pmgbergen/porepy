@@ -60,6 +60,7 @@ import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.models.protocol import PorePyModel
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -230,7 +231,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 class ManuPoroMechExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
-    def __init__(self, setup):
+    def __init__(self, setup: PorePyModel):
         """Constructor of the class."""
 
         # Physical parameters
@@ -239,8 +240,9 @@ class ManuPoroMechExactSolution2d:
         alpha = setup.solid.biot_coefficient  # [-] Biot coefficient
         rho_0 = setup.fluid.reference_component.density  # [kg / m^3] Reference density
         phi_0 = setup.solid.porosity  # [-] Reference porosity
-        p_0 = setup.fluid.reference_component.pressure  # [Pa] Reference pressure
-        c_f = setup.fluid.reference_component.compressibility  # [Pa^-1] Fluid compressibility
+        p_0 = setup.reference_values.pressure  # [Pa] Reference pressure
+        # [Pa^-1] Fluid compressibility
+        c_f = setup.fluid.reference_component.compressibility
         k = setup.solid.permeability  # [m^2] Permeability
         mu_f = setup.fluid.reference_component.viscosity  # [Pa * s] Fluid viscosity
         K_d = lame_lmbda + (2 / 3) * lame_mu  # [Pa] Bulk modulus

@@ -526,20 +526,6 @@ class Glossary:
         name="reference_porosity",
     )
 
-    reference_pressure: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Operator]",
-        docstring="Reference pressure. Normally defined in a mixin instance of"
-        " :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.",
-        name="reference_pressure",
-    )
-
-    reference_temperature: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Operator]",
-        docstring="Reference temperature. Normally defined in a mixin instance of"
-        " :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.",
-        name="reference_temperature",
-    )
-
     save_data_time_step: Entry = Entry(
         type="Callable[[], None]",
         docstring="Save data at the end of a time step. Normally provided by a mixin"

@@ -592,24 +592,6 @@ class VariablesEnergyBalance(pp.VariableMixin):
         )
         return flux
 
-    def reference_temperature(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference temperature.
-
-        For now, we assume that the reference temperature is the same for solid and
-        fluid. More sophisticated models may require different reference temperatures.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-            Returns:
-                Operator representing the reference temperature.
-
-        """
-        t_ref = self.fluid.reference_component.temperature
-        assert t_ref == self.solid.temperature
-        size = sum([sd.num_cells for sd in subdomains])
-        return pp.wrap_as_dense_ad_array(t_ref, size, name="reference_temperature")
-
 
 class ConstitutiveLawsEnergyBalance(
     pp.constitutive_laws.EnthalpyFromTemperature,
@@ -692,9 +674,7 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
             values on the provided boundary grid.
 
         """
-        return self.fluid.reference_component.temperature * np.ones(
-            boundary_grid.num_cells
-        )
+        return self.reference_values.temperature * np.ones(boundary_grid.num_cells)
 
     def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """**Heat** flux values on the Neumann boundary to be used with Fourier's law.

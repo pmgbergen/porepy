@@ -2861,11 +2861,6 @@ class PressureStress(LinearElasticMechanicalStress):
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
-    reference_pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Reference pressure. Normally defined in a mixin instance of
-    :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
-    """
     stress_keyword: str
     """Keyword used to identify the stress discretization. Normally set by a mixin
     instance of
@@ -2908,13 +2903,11 @@ class PressureStress(LinearElasticMechanicalStress):
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
         # The stress is simply found by the scalar_gradient operator, multiplied with the
         # pressure perturbation.
-        stress: pp.ad.Operator = (
-            discr.scalar_gradient(self.darcy_keyword) @ self.pressure(subdomains)
-            # The reference pressure is only defined on sd_primary, thus there is no
-            # need for a subdomain projection.
-            - discr.scalar_gradient(self.darcy_keyword)
-            @ self.reference_pressure(subdomains)
-        )
+        # The reference pressure is only defined on sd_primary, thus there is no
+        # need for a subdomain projection.
+        stress: pp.ad.Operator = discr.scalar_gradient(
+            self.darcy_keyword
+        ) @ self.perturbation_from_reference("pressure", subdomains)
         stress.set_name("pressure_stress")
         return stress
 
@@ -3015,11 +3008,7 @@ class ThermoPressureStress(PressureStress):
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    reference_temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Reference temperature. Normally defined in a mixin instance of
-    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
-    """
     biot_coefficient: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Biot coefficient. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.

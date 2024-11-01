@@ -221,8 +221,10 @@ def test_unit_conversion(units):
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
+    ref_vals = pp.reference_values.extended_reference_values_for_testing
     solid = pp.SolidConstants(**solid_vals)
     fluid = pp.FluidConstants(**fluid_vals)
+    reference_values = pp.ReferenceValues(**ref_vals)
 
     # Non-unitary time step needed for convergence
     dt = 1e5
@@ -231,6 +233,7 @@ def test_unit_conversion(units):
         "fracture_indices": [0, 1],
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid},
+        "reference_values": reference_values,
         "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
     }
 

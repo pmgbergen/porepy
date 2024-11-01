@@ -83,6 +83,7 @@ from porepy.params.data import (
 
 from porepy.applications.material_values import fluid_values
 from porepy.applications.material_values import solid_values
+from porepy.applications.material_values import reference_values
 
 
 # Grids
@@ -188,6 +189,7 @@ from porepy.compositional.materials import (
     FluidConstants,
     SolidConstants,
     MaterialConstants,
+    ReferenceValues,
 )
 from porepy.compositional.base import Component, Phase, Fluid
 from porepy.compositional.compositional_mixins import CompositionalVariables, FluidMixin

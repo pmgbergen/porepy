@@ -504,13 +504,16 @@ else:
         params: dict
         """Dictionary of parameters."""
         units: pp.Units
-        """Units of the model.
+        """Units of the model provided in ``params['units']``."""
+        reference_values: pp.ReferenceValues
+        """The model reference values, converted to simulation :attr:`units`.
 
-        See also :meth:`set_units`.
+        Reference values can be provided through ``params['reference_values']``.
 
         """
         solid: pp.SolidConstants
-        """Solid constants.
+        """Solid constants. Can be provided through
+        ``params['material_constants']['solid']``.
 
         See also :meth:`set_materials`.
 
@@ -596,19 +599,20 @@ else:
         def perturbation_from_reference(
             self, variable_name: str, grids: list[pp.Grid]
         ) -> pp.ad.Operator:
-            """Perturbation of a variable from its reference value.
+            """Perturbation of some quantity ``name`` from its reference value.
 
-            The parameter :code:`variable_name` should be the name of a variable so that
-            :code:`self.variable_name()` and `self.reference_variable_name()` are valid
-            calls. These methods will be provided by mixin classes; normally this will
-            be a subclass of :class:`VariableMixin`.
+            The parameter ``name`` should be the name of a mixed-in method, returning an
+            AD operator for given ``grids``.
 
-            The returned operator will be of the form
-            :code:`self.variable_name(grids) - self.reference_variable_name(grids)`.
+            ``name`` should also be defined in the model's :attr:`reference_values`.
+
+            This method calls the model method with given ``name`` on given ``grids`` to
+            create an operator ``A``. It then fetches the respective reference value and
+            wraps it into an AD scalar ``A_0``. The return value is an operator ``A - A_0``.
 
             Parameters:
-                variable_name: Name of the variable.
-                grids: List of subdomain or interface grids on which the variable is
+                name: Name of the quantity to be perturbed from a reference value.
+                grids: List of subdomain or interface grids on which the quantity is
                     defined.
 
             Returns:

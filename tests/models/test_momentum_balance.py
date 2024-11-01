@@ -126,6 +126,9 @@ def test_unit_conversion(units: dict, uy_north: float):
 
     """
     solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
+    reference_values = pp.ReferenceValues(
+        **pp.reference_values.extended_reference_values_for_testing
+    )
 
     params = {
         "times_to_export": [],  # Suppress output for tests
@@ -133,6 +136,7 @@ def test_unit_conversion(units: dict, uy_north: float):
         "cartesian": True,
         "u_north": [0.0, uy_north],
         "material_constants": {"solid": solid},
+        "reference_values": reference_values,
     }
     reference_params = copy.deepcopy(params)
     # Create model and run simulation.

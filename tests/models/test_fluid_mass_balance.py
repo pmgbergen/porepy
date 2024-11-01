@@ -346,7 +346,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        ("reference_pressure", 0, None),
+        # ("reference_pressure", 0, None),
         ("skin_factor", 0, None),
         ("tangential_component", np.array([[1.0, 0.0]]), 0),  # check only for 0d
         ("well_fluid_flux", 0, 2),  # use dim_restriction=2 to ignore well flux
@@ -428,20 +428,23 @@ def test_unit_conversion(units):
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
             """Ensure nontrivial solution."""
-            vals = self.fluid.reference_component.pressure * np.ones(boundary_grid.num_cells)
+            vals = self.reference_values.pressure * np.ones(boundary_grid.num_cells)
             faces = self.domain_boundary_sides(boundary_grid).east
             vals[faces] += self.units.convert_units(1e5, "Pa")
             return vals
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
+    ref_vals = pp.reference_values.extended_reference_values_for_testing
     solid = pp.SolidConstants(**solid_vals)
     fluid = pp.FluidConstants(**fluid_vals)
+    reference_values = pp.ReferenceValues(**ref_vals)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid},
+        "reference_values": reference_values,
     }
     solver_params = {
         "nl_convergence_tol_res": 1e-12,
