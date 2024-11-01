@@ -63,13 +63,14 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         self.units = params.get("units", pp.Units())
         """Units of the model provided in ``params['units']``."""
         # get default or user-provided reference values
-        reference_values: pp.ReferenceValues = params.get(
-            "reference_values", pp.ReferenceValues()
+        reference_values: pp.ReferenceVariableValues = params.get(
+            "reference_variable_values", pp.ReferenceVariableValues()
         )
         # Ensure the reference values are in the right units
         reference_values = reference_values.to_units(self.units)
-        self.reference_values = reference_values
-        """The model reference values, converted to simulation :attr:`units`.
+        self.reference_variable_values = reference_values
+        """The model reference values for variables, converted to simulation
+        :attr:`units`.
 
         Reference values can be provided through ``params['reference_values']``.
 

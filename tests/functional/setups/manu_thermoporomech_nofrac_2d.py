@@ -326,8 +326,8 @@ class ManuThermoPoroMechExactSolution2d:
         # Specific heat capacity of the solid
         solid_specific_heat = setup.solid.specific_heat_capacity
         # Reference pressure and temperature
-        p_0 = setup.reference_values.pressure
-        T_0 = setup.reference_values.temperature
+        p_0 = setup.reference_variable_values.pressure
+        T_0 = setup.reference_variable_values.temperature
 
         # Thermal expansion coefficients
         fluid_thermal_expansion = setup.fluid.reference_component.thermal_expansion

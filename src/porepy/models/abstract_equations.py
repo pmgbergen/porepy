@@ -144,7 +144,7 @@ class VariableMixin(PorePyModel):
         # This will throw an error if the attribute is not callable
         quantity_op = cast(pp.ad.Operator, quantity(grids))
         # the reference values are a data class instance storing only numbers
-        quantity_ref = cast(pp.number, getattr(self.reference_values, name))
+        quantity_ref = cast(pp.number, getattr(self.reference_variable_values, name))
         # The casting reflects the expected outcome, and is used to help linters find
         # the set_name method
         quantity_perturbed = quantity_op - pp.ad.Scalar(quantity_ref)

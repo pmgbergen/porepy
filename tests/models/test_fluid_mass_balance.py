@@ -428,7 +428,7 @@ def test_unit_conversion(units):
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
             """Ensure nontrivial solution."""
-            vals = self.reference_values.pressure * np.ones(boundary_grid.num_cells)
+            vals = self.reference_variable_values.pressure * np.ones(boundary_grid.num_cells)
             faces = self.domain_boundary_sides(boundary_grid).east
             vals[faces] += self.units.convert_units(1e5, "Pa")
             return vals
@@ -438,13 +438,13 @@ def test_unit_conversion(units):
     ref_vals = pp.reference_values.extended_reference_values_for_testing
     solid = pp.SolidConstants(**solid_vals)
     fluid = pp.FluidConstants(**fluid_vals)
-    reference_values = pp.ReferenceValues(**ref_vals)
+    reference_values = pp.ReferenceVariableValues(**ref_vals)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid},
-        "reference_values": reference_values,
+        "reference_variable_values": reference_values,
     }
     solver_params = {
         "nl_convergence_tol_res": 1e-12,

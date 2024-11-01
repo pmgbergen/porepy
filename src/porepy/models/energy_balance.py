@@ -674,7 +674,9 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
             values on the provided boundary grid.
 
         """
-        return self.reference_values.temperature * np.ones(boundary_grid.num_cells)
+        return self.reference_variable_values.temperature * np.ones(
+            boundary_grid.num_cells
+        )
 
     def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """**Heat** flux values on the Neumann boundary to be used with Fourier's law.

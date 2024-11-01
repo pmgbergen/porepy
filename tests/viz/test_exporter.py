@@ -720,7 +720,9 @@ def test_rescaled_export(setup: ExporterTestSetup):
                 "solid": pp.SolidConstants(**nontrivial_solid),
                 "fluid": pp.FluidConstants(**nontrivial_fluid),
             },
-            "reference_values": pp.ReferenceValues(**nontrivial_reference_values),
+            "reference_variable_values": pp.ReferenceVariableValues(
+                **nontrivial_reference_values
+            ),
         }
         model = TailoredThermoporomechanics(params=model_params)
         pp.run_time_dependent_model(model)

@@ -505,8 +505,9 @@ else:
         """Dictionary of parameters."""
         units: pp.Units
         """Units of the model provided in ``params['units']``."""
-        reference_values: pp.ReferenceValues
-        """The model reference values, converted to simulation :attr:`units`.
+        reference_variable_values: pp.ReferenceVariableValues
+        """The model reference values for variables, converted to simulation
+        :attr:`units`.
 
         Reference values can be provided through ``params['reference_values']``.
 

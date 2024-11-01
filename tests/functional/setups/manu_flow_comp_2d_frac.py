@@ -212,7 +212,7 @@ class ManuCompExactSolution2d:
         # [kg * m^-3]  Reference fluid density
         rho_0 = setup.fluid.reference_component.density
         # [Pa] Reference fluid pressure
-        p_0 = setup.reference_values.pressure
+        p_0 = setup.reference_variable_values.pressure
         # [Pa^-1]  Fluid compressibility
         c_f = setup.fluid.reference_component.compressibility
         # [-] Reference porosity
