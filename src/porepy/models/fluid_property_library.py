@@ -20,10 +20,12 @@ Note:
 
     E.g., Python must find :meth:`FluidDensityFromPressure.density_of_phase` before
     it finds the default
-    :meth:`~porepy.compositional.compositional_mixins.FluidMixin.density_of_phase`. The
-    latter is a general
-    :class:`~porepy.numerics.ad.surrogate_operator.SurrogateOperator`, which requires
-    an additional strategy for populating its values and Jacobian.
+    :meth:`~porepy.compositional.compositional_mixins.FluidMixin.density_of_phase`.
+
+Note:
+    Different constitutive laws, based on analytical expressions, for fluid properties
+    can be implemented in the same way as the classes here, see for instance the methods
+    in :class:`~porepy.models.fluid_property_library.FluidDensityFromPressure`.
 
 """
 
