@@ -25,7 +25,7 @@ import configparser
 import warnings
 
 
-__version__ = "1.8.0"
+__version__ = "1.10.0"
 
 # Try to read the config file from the directory where python process was launched
 try:
@@ -124,6 +124,7 @@ from porepy.numerics.fv import fvutils
 from porepy.numerics.fv.mpsa import Mpsa
 from porepy.numerics.fv.fv_elliptic import FVElliptic
 from porepy.numerics.fv.tpfa import Tpfa
+from porepy.numerics.fv.tpsa import Tpsa
 from porepy.numerics.fv.mpfa import Mpfa
 from porepy.numerics.fv.biot import Biot
 
@@ -158,8 +159,11 @@ from porepy.models.run_models import (
 from porepy.numerics import ad
 from porepy.numerics.ad.operators import wrap_as_dense_ad_array, wrap_as_sparse_ad_array
 from porepy.numerics.ad.equation_system import EquationSystem
-from porepy.numerics.ad._ad_utils import set_solution_values
-from porepy.numerics.ad._ad_utils import get_solution_values
+from porepy.numerics.ad._ad_utils import (
+    get_solution_values,
+    set_solution_values,
+    shift_solution_values,
+)
 
 # Time stepping control
 from porepy.numerics.time_step_control import TimeManager
@@ -194,6 +198,11 @@ from porepy.models import (
     mass_and_energy_balance,
     thermoporomechanics,
 )
+from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.models.momentum_balance import MomentumBalance
+from porepy.models.poromechanics import Poromechanics
+from porepy.models.thermoporomechanics import Thermoporomechanics
+from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
 
 
 # Visualization
@@ -224,3 +233,6 @@ from porepy.applications.md_grids import (
 from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils
 from porepy import applications
+
+# composite subpackage
+from . import compositional

@@ -1,23 +1,29 @@
 """
 This module contains a collection of unit tests for the `TimeManager` class. The
 module contains two test classes, namely: `TestParameterInputs` and `TestTimeControl`.
+The module also contains the integration test to the models.
 
-`TestParameterInputs` contains test methods that check the sanity of the input parameters.
-This includes checks for default parameters in initialization, checks for admissible parameter
-values, and checks for admissible parameter types.
+`TestParameterInputs` contains test methods that check the sanity of the input
+parameters. This includes checks for default parameters in initialization, checks for
+admissible parameter values, and checks for admissible parameter types.
 
 `TestTimeControl` contains checks for the correct behaviour of the time-stepping control
-algorithm via the `next_time_step()` method. Here, the tests are designed to check that the
-time step is indeed adapted (based on iterations or recomputation criteria) and corrected
-(based on minimum and maximum allowable time steps or to satisfy required scheduled times).
+algorithm via the `next_time_step()` method. Here, the tests are designed to check that
+the time step is indeed adapted (based on iterations or recomputation criteria) and
+corrected (based on minimum and maximum allowable time steps or to satisfy required
+scheduled times).
 """
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
@@ -368,35 +374,43 @@ class TestParameterInputs:
             constant_dt=True,
         )
 
-        params = {
+        model_params = {
             "time_manager": time_manager,
             "times_to_export": [],
         }
 
-        model = SinglePhaseFlow(params)
-        pp.run_time_dependent_model(model, params)
+        model = SinglePhaseFlow(model_params)
+        pp.run_time_dependent_model(model)
         performed_time_steps = model.time_manager.time_index
 
         assert performed_time_steps == num_time_steps
 
 
 class TestTimeControl:
-    """The following tests are written to check the overall behavior of the time-stepping
-    algorithm"""
+    """The following tests are written to check the overall behavior of the
+    time-stepping algorithm"""
 
-    def test_final_simulation_time(self):
-        """Test if final simulation time returns None, irrespectively of parameters
-        passed in next_time_step()."""
+    @pytest.mark.parametrize("recompute_solution", [False, True])
+    @pytest.mark.parametrize(
+        "time",
+        [
+            1,  # We reach the final time
+            2,  # We are above the final time
+        ],
+    )
+    def test_final_simulation_time(self, recompute_solution: bool, time: int):
+        """Test if final simulation time returns None if we do not ask to recompute the
+        solution"""
         # Assume we reach the final time
         time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1)
-        time_manager.time = 1
-        dt = time_manager.compute_time_step(iterations=1000, recompute_solution=True)
-        assert dt is None
-        # Now, assume we are above the final time
-        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=0.1)
-        time_manager.time = 2
-        dt = time_manager.compute_time_step(iterations=0, recompute_solution=False)
-        assert dt is None
+        time_manager.time = time
+        dt = time_manager.compute_time_step(
+            iterations=1000, recompute_solution=recompute_solution
+        )
+        if recompute_solution:
+            assert dt is not None
+        else:
+            assert dt is None
 
     @pytest.mark.parametrize(
         "schedule, dt_init, time, time_index, iters, recomp_sol",
@@ -675,6 +689,24 @@ class TestTimeControl:
         time_manager.increase_time_index()
         assert time_manager.time_index == (time_index + 1)
 
+    @pytest.mark.parametrize("constant_dt", [True, False])
+    def test_time_step_match_schedule_exactly(self, constant_dt: bool):
+        """Checks the edge case when the dynamic time stepping is on, but the next time
+        step matches the schedule exactly.
+
+        See: https://github.com/pmgbergen/porepy/issues/1152
+
+        """
+        time_manager = pp.TimeManager(
+            dt_init=1, dt_min_max=(0.1, 1), schedule=[0, 1, 2], constant_dt=constant_dt
+        )
+
+        while not time_manager.final_time_reached():
+            time_manager.increase_time()
+            time_manager.increase_time_index()
+            time_manager.compute_time_step(iterations=5)
+            assert not np.allclose(time_manager.dt, 0)
+
     def test_io_time_information(self):
         """Check I/O functionality. Checks if writing and loading of time information
         in the form of the evolution of time and dt is performed correctly. Also test
@@ -691,8 +723,8 @@ class TestTimeControl:
             time_manager.increase_time()
 
         # Check if the history is generated correctly.
-        assert np.all(np.isclose(time_manager.time_history, np.linspace(0, 0.9, 10)))
-        assert np.all(np.isclose(time_manager.dt_history, 10 * [0.1]))
+        assert np.all(np.isclose(time_manager.exported_times, np.linspace(0, 0.9, 10)))
+        assert np.all(np.isclose(time_manager.exported_dt, 10 * [0.1]))
 
         # Check if entirely fetched history of time and dt is loaded correctly.
         new_time_manager = pp.TimeManager(
@@ -700,27 +732,192 @@ class TestTimeControl:
         )
         new_time_manager.load_time_information(pth)
         assert np.all(
-            np.isclose(new_time_manager.time_history, np.linspace(0, 0.9, 10))
+            np.isclose(new_time_manager.exported_times, np.linspace(0, 0.9, 10))
         )
-        assert np.all(np.isclose(new_time_manager.dt_history, 10 * [0.1]))
+        assert np.all(np.isclose(new_time_manager.exported_dt, 10 * [0.1]))
 
         # Check if single-chosen time and dt are picked correctly.
-        new_time_manager.set_from_history(5)
+        new_time_manager.set_time_and_dt_from_exported_steps(5)
         assert np.isclose(new_time_manager.time, 0.5)
         assert np.isclose(new_time_manager.dt, 0.1)
 
         # Check if history has been cut-off correctly.
         assert np.all(
             np.isclose(
-                np.array(new_time_manager.time_history),
+                np.array(new_time_manager.exported_times),
                 np.array([0, 0.1, 0.2, 0.3, 0.4]),
             )
         )
         assert np.all(
             np.isclose(
-                np.array(new_time_manager.dt_history),
+                np.array(new_time_manager.exported_dt),
                 np.array([0.1, 0.1, 0.1, 0.1, 0.1]),
             )
         )
         # Remove temporary file.
         pth.unlink()
+
+
+class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
+    """A mockup model that overrides `check_convergence` and predefines convergence
+    behavior after each nonlinear iteration.
+
+    See the description of the input parameters at `test_model_time_step_control`.
+
+    """
+
+    def __init__(
+        self,
+        num_nonlinear_iterations: list[int],
+        time_step_converged: list,
+        params: dict,
+    ):
+        super().__init__(params)
+        self.time_step_idx: int = -1
+        self.num_nonlinear_iters: int = 0
+        self.num_nonlinear_iterations: list[int] = num_nonlinear_iterations
+        self.time_step_converged: list = time_step_converged
+        self.time_step_history: list = []
+
+    def before_nonlinear_loop(self) -> None:
+        super().before_nonlinear_loop()  # The AD time step is expected to update here.
+        self.time_step_idx += 1
+        self.num_nonlinear_iters = 0
+        self.time_step_history.append(self.time_manager.dt)
+
+    def before_nonlinear_iteration(self):
+        super().before_nonlinear_iteration()
+
+        # The AD time step should not change throughout the Newton iterations.
+        assert (
+            self.ad_time_step.value(self.equation_system) == self.time_manager.dt
+        ), "The AD time step value conflicts with the value from the time_manager."
+
+        # The initial guess for the unknown time step values should be equal to the
+        # known time step values. See https://github.com/pmgbergen/porepy/issues/1205.
+        if self.num_nonlinear_iters == 0:
+            iterate_values = self.equation_system.get_variable_values(iterate_index=0)
+            state_values = self.equation_system.get_variable_values(time_step_index=0)
+            assert np.all(
+                iterate_values == state_values
+            ), "Likely, 'iterate' was not reset after the unsuccessful time step."
+
+        self.num_nonlinear_iters += 1
+
+    def _is_nonlinear_problem(self):
+        return True
+
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: np.ndarray,
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+        if self.num_nonlinear_iters < self.num_nonlinear_iterations[self.time_step_idx]:
+            # Neither converged nor diverged
+            return False, False
+        if self.time_step_converged[self.time_step_idx] is True:
+            # Converged
+            return True, False
+        if self.time_step_converged[self.time_step_idx] is False:
+            # Diverged
+            return False, True
+        assert (
+            False
+        ), "Nonlinear solver did not stop iterating after the iteration limit."
+
+    # Minimizing computational expences.
+
+    def assemble_linear_system(self) -> None:
+        pass
+
+    def solve_linear_system(self) -> np.ndarray:
+        return np.ones(self.equation_system.num_dofs())
+
+
+MAX_NONLINEAR_ITER = 10
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        # Case 1: A successful simulation run with dynamic time stepping.
+        # Covers these situations:
+        # - decrease the time step after diverged
+        # - decrease the time step after iteration limit
+        # - increase the time step due to few nonlinear iterations
+        # - keep the time step due to expected number of nonlinear iterations
+        # - decrease the time step due to many nonlinear iterations (after convergence)
+        # - decrease the time step to meet the schedule (last time step)
+        {
+            # Below reads as: time step 0 takes 4 nonlinear iterations, time step 1
+            # takes 3 nonlinear iterations, etc.
+            "num_nonlinear_iterations": [4, 3, MAX_NONLINEAR_ITER + 2, 1, 6, 9, 1, 1],
+            # Time step 0 diverged after 4 iterations, time step 1 converged after 3
+            # iterations, etc. "unreachable" means that the convergence check should not
+            # be called due to exceeding the iteration limit.
+            "time_step_converged": [False, True, "unreachable"] + [True] * 5,
+            # Time step magnitudes to compare with. These are known values produced with
+            # the settings of the TimeStepper found in the test function below.
+            "exported_dt_expected": [1, 0.3, 0.6, 0.18, 0.36, 0.36, 0.144, 0.006],
+        },
+        # Case 2: constant_dt. Should fail after nonlinear divergence.
+        {
+            "constant_dt": True,
+            "should_fail": True,
+            "num_nonlinear_iterations": [2, 3],
+            "time_step_converged": [True, False],
+            "exported_dt_expected": [1, 1],
+        },
+        # Case 3: An unsuccessful simulation with dynamic time stepping. Reached the
+        # minimal time step and failed.
+        {
+            "should_fail": True,
+            "num_nonlinear_iterations": [1, 1, 1],
+            "time_step_converged": [False, False, False],
+            "exported_dt_expected": [1, 0.3, 0.1],
+        },
+        # Case 4: The time step fails right before the schedule point. Expected to
+        # decrease dt and meet the schedule regardless.
+        {
+            "num_nonlinear_iterations": [1, 1, 1, 1, 1],
+            "time_step_converged": [True, False, True, True, True],
+            "exported_dt_expected": [1, 0.35, 0.105, 0.21, 0.035],
+        },
+    ],
+)
+def test_model_time_step_control(params: dict):
+    """The integration test of the `TimeManager` class into PorePy models."""
+    constant_dt = params.get("constant_dt", False)
+    should_fail = params.get("should_fail", False)
+    num_nonlinear_iterations = params["num_nonlinear_iterations"]
+    time_step_converged = params["time_step_converged"]
+    exported_dt_expected = params["exported_dt_expected"]
+
+    schedule_end = 2 if constant_dt else 1.35
+    time_manager = pp.TimeManager(
+        schedule=(0, schedule_end),
+        dt_init=1,
+        constant_dt=constant_dt,
+        dt_min_max=(0.1, 5),
+        iter_relax_factors=(0.4, 2),
+        iter_optimal_range=(4, 7),
+        recomp_factor=0.3,
+    )
+    model = DynamicTimeStepTestCaseModel(
+        num_nonlinear_iterations=num_nonlinear_iterations,
+        time_step_converged=time_step_converged,
+        params={
+            "time_manager": time_manager,
+            "times_to_export": [],  # Suspends export
+        },
+    )
+
+    if should_fail:
+        with pytest.raises(ValueError):
+            pp.run_time_dependent_model(model, {"max_iterations": MAX_NONLINEAR_ITER})
+    else:
+        pp.run_time_dependent_model(model, {"max_iterations": MAX_NONLINEAR_ITER})
+
+    assert np.allclose(model.time_step_history, exported_dt_expected)

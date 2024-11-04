@@ -21,6 +21,7 @@ from typing import Callable, Optional, Sequence, cast
 import numpy as np
 
 import porepy as pp
+from porepy.models.abstract_equations import VariableMixin
 
 from . import constitutive_laws
 
@@ -30,33 +31,9 @@ logger = logging.getLogger(__name__)
 class MomentumBalanceEquations(pp.BalanceEquation):
     """Class for momentum balance equations and fracture deformation equations."""
 
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Stress on the grid faces. Provided by a suitable mixin class that specifies the
     physical laws governing the stress.
-
-    """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    internal_boundary_normal_to_outwards: Callable[
-        [list[pp.Grid], int], pp.ad.SparseArray
-    ]
-    """Switch interface normal vectors to point outwards from the subdomain. Normally
-    set by a mixin instance of :class:`porepy.models.geometry.ModelGeometry`.
 
     """
     fracture_stress: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
@@ -66,27 +43,17 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.PressureStress`.
 
     """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
-    """Basis for the local coordinate system. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    normal_component: Callable[[list[pp.Grid]], pp.ad.SparseArray]
-    """Operator giving the normal component of vectors. Normally defined in a mixin
-    instance of :class:`~porepy.models.models.ModelGeometry`.
-
-    """
-    tangential_component: Callable[[list[pp.Grid]], pp.ad.SparseArray]
-    """Operator giving the tangential component of vectors. Normally defined in a mixin
-    instance of :class:`~porepy.models.models.ModelGeometry`.
-
-    """
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.models.ModelGeometry`.
+    mixin instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Operator giving the plastic displacement jump on fracture grids. Normally defined
+    in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
+    """
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
@@ -98,7 +65,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FrictionBound`.
+    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
 
     """
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
@@ -114,12 +81,6 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     Can be interpreted as an indicator of the fracture cells in the open state.
     Normally provided by a mixin instance of
     :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
 
     """
     gravity_force: Callable[[list[pp.Grid] | list[pp.MortarGrid], str], pp.ad.Operator]
@@ -253,9 +214,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         contact_from_primary_mortar = (
             mortar_projection.primary_to_mortar_int
             @ proj.face_prolongation(matrix_subdomains)
-            @ self.internal_boundary_normal_to_outwards(
-                matrix_subdomains, dim=self.nd  # type: ignore[call-arg]
-            )
+            @ self.internal_boundary_normal_to_outwards(matrix_subdomains, dim=self.nd)
             @ self.stress(matrix_subdomains)
         )
         # Traction from the actual contact force.
@@ -276,7 +235,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         """Equation for the normal component of the fracture deformation.
 
         This constraint equation enforces non-penetration of opposing fracture
-        interfaces.
+        interfaces. The equation is dimensionless, as we use nondimensionalized
+        contact traction.
 
         Parameters:
             subdomains: List of subdomains where the normal deformation equation is
@@ -301,7 +261,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 
         # Variables
         nd_vec_to_normal = self.normal_component(subdomains)
-        # The normal component of the contact traction and the displacement jump
+        # The normal component of the contact traction and the displacement jump.
         t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
         u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
 
@@ -324,9 +284,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         self,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        """
-        Contact mechanics equation for the tangential constraints.
+        """Contact mechanics equation for the tangential constraints.
 
+        The equation is dimensionless, as we use nondimensionalized contact traction.
         The function reads
         .. math::
             C_t = max(b_p, ||T_t+c_t u_t||) T_t - max(0, b_p) (T_t+c_t u_t)
@@ -366,10 +326,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # Basis vectors for the tangential components. This is a list of Ad matrices,
         # each of which represents a cell-wise basis vector which is non-zero in one
         # dimension (and this is known to be in the tangential plane of the subdomains).
-        # Ignore mypy complaint on unknown keyword argument
-        tangential_basis: list[pp.ad.SparseArray] = self.basis(
-            subdomains, dim=self.nd - 1  # type: ignore[call-arg]
-        )
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
         # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
@@ -381,10 +338,12 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             [e_i for e_i in tangential_basis]
         )
 
-        # Variables: The tangential component of the contact traction and the
-        # displacement jump
+        # Variables: The tangential component of the contact traction and the plastic
+        # displacement jump.
         t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
-        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
+        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
+            subdomains
+        )
         # The time increment of the tangential displacement jump
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
 
@@ -392,8 +351,6 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         ones_frac = pp.ad.DenseArray(np.ones(num_cells * (self.nd - 1)))
         zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
 
-        # Functions EK: Should we try to agree on a name convention for ad functions?
-        # EK: Yes. Suggestions?
         f_max = pp.ad.Function(pp.ad.maximum, "max_function")
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
@@ -470,10 +427,12 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 class ConstitutiveLawsMomentumBalance(
     constitutive_laws.ZeroGravityForce,
     constitutive_laws.ElasticModuli,
+    constitutive_laws.ElasticTangentialFractureDeformation,
     constitutive_laws.LinearElasticMechanicalStress,
     constitutive_laws.ConstantSolidDensity,
     constitutive_laws.FractureGap,
-    constitutive_laws.FrictionBound,
+    constitutive_laws.CoulombFrictionBound,
+    constitutive_laws.DisplacementJump,
     constitutive_laws.DimensionReduction,
 ):
     """Class for constitutive equations for momentum balance equations."""
@@ -492,11 +451,13 @@ class ConstitutiveLawsMomentumBalance(
         return self.mechanical_stress(domains)
 
 
-class VariablesMomentumBalance:
+class VariablesMomentumBalance(VariableMixin):
     """Variables for mixed-dimensional deformation.
 
-    Displacement in matrix and on fracture-matrix interfaces. Fracture contact
-    traction.
+    The variables are:
+        - Displacement in matrix
+        - Displacement on fracture-matrix interfaces
+        - Fracture contact traction.
 
     """
 
@@ -518,34 +479,6 @@ class VariablesMomentumBalance:
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
-    local_coordinates: Callable[[list[pp.Grid]], pp.ad.SparseArray]
-    """Mapping to local coordinates. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
 
     def create_variables(self) -> None:
         """Set variables for the subdomains and interfaces.
@@ -573,7 +506,7 @@ class VariablesMomentumBalance:
             dof_info={"cells": self.nd},
             name=self.contact_traction_variable,
             subdomains=self.mdg.subdomains(dim=self.nd - 1),
-            tags={"si_units": "Pa"},
+            tags={"si_units": "-"},
         )
 
     def displacement(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -596,7 +529,8 @@ class VariablesMomentumBalance:
         if len(domains) == 0 or all(
             isinstance(grid, pp.BoundaryGrid) for grid in domains
         ):
-            return self.create_boundary_operator(  # type: ignore[call-arg]
+            domains = cast(Sequence[pp.BoundaryGrid], domains)
+            return self.create_boundary_operator(
                 name=self.displacement_variable, domains=domains
             )
         # Check that the subdomains are grids
@@ -640,14 +574,14 @@ class VariablesMomentumBalance:
         )
 
     def contact_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
-        """Fracture contact traction.
+        """Fracture contact traction [-].
 
         Parameters:
             subdomains: List of subdomains where the contact traction is defined. Should
                 be of co-dimension one, i.e. fractures.
 
         Returns:
-            Variable for fracture contact traction.
+            Variable for nondimensionalized fracture contact traction.
 
         """
         # Check that the subdomains are fractures
@@ -658,42 +592,6 @@ class VariablesMomentumBalance:
         return self.equation_system.md_variable(
             self.contact_traction_variable, subdomains
         )
-
-    def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Displacement jump on fracture-matrix interfaces.
-
-        Parameters:
-            subdomains: List of subdomains where the displacement jump is defined.
-                Should be a fracture subdomain.
-
-        Returns:
-            Operator for the displacement jump.
-
-        Raises:
-             AssertionError: If the subdomains are not fractures, i.e. have dimension
-                `nd - 1`.
-
-        """
-        if not all([sd.dim == self.nd - 1 for sd in subdomains]):
-            raise ValueError("Displacement jump only defined on fractures")
-
-        interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        # Only use matrix-fracture interfaces
-        interfaces = [intf for intf in interfaces if intf.dim == self.nd - 1]
-        mortar_projection = pp.ad.MortarProjections(
-            self.mdg, subdomains, interfaces, self.nd
-        )
-        # The displacement jmup is expressed in the local coordinates of the fracture.
-        # First use the sign of the mortar sides to get a difference, then map first
-        # from the interface to the fracture, and finally to the local coordinates.
-        rotated_jumps: pp.ad.Operator = (
-            self.local_coordinates(subdomains)
-            @ mortar_projection.mortar_to_secondary_avg
-            @ mortar_projection.sign_of_mortar_sides
-            @ self.interface_displacement(interfaces)
-        )
-        rotated_jumps.set_name("Rotated_displacement_jump")
-        return rotated_jumps
 
 
 class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
@@ -707,22 +605,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     """
 
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
     stiffness_tensor: Callable[[pp.Grid], pp.FourthOrderTensor]
     """Function that returns the stiffness tensor of a subdomain. Normally provided by a
     mixin of instance :class:`~porepy.models.constitutive_laws.ElasticModuli`.
@@ -734,14 +616,14 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     :class:`~porepy.models.momentum_balance.BoundaryConditionsMomentumBalance`.
 
     """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
-    """Basis for the local coordinate system. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FrictionBound`.
+    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
+
+    """
+    characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic displacement of the problem. Normally defined in a mixin
+    instance of :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
 
@@ -776,7 +658,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         is, in contact) in the normal direction.
 
         """
-        # Zero for displacement and initial bc values for Biot
+        # Zero for displacement and initial bc values.
         super().initial_condition()
 
         # Contact as initial guess. Ensure traction is consistent with zero jump, which
@@ -786,7 +668,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
             sd.num_cells for sd in self.mdg.subdomains(dim=self.nd - 1)
         )
         traction_vals = np.zeros((self.nd, num_frac_cells))
-        traction_vals[-1] = self.solid.convert_units(-1, "Pa")
+        traction_vals[-1] = -1  # Unitary nondimensional traction.
         self.equation_system.set_variable_values(
             traction_vals.ravel("F"),
             [self.contact_traction_variable],
@@ -812,43 +694,29 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     def contact_mechanics_numerical_constant(
         self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Scalar:
-        """Numerical constant for the contact problem [Pa * m^-1].
+    ) -> pp.ad.Operator:
+        """Numerical constant for the contact problem [m^-1].
 
-        A physical interpretation of this constant is as an elastic modulus for the
-        fracture, as it appears as a scaling of displacement jumps when comparing to
-        contact tractions.
+        A physical interpretation of this constant is a characteristic length of
+        the fracture, as it appears as a scaling of displacement jumps when
+        comparing to nondimensionalized contact tractions.
 
         Parameters:
             subdomains: List of subdomains. Only the first is used.
 
         Returns:
-            c_num: Numerical constant, as scalar.
+            c_num: Numerical constant.
 
         """
-        # The constant works as a scaling factor in the comparison between tractions and
-        # displacement jumps across fractures. In analogy with Hooke's law, the scaling
-        # constant is therefore proportional to the shear modulus and the inverse of a
-        # characteristic length of the fracture, where the latter has the interpretation
-        # of a gradient length.
-
-        shear_modulus = self.solid.shear_modulus()
-        characteristic_distance = (
-            self.solid.residual_aperture() + self.solid.fracture_gap()
-        )
-
-        # Physical interpretation (IS):
-        # As a crude way of making the fracture softer than the matrix, we scale by
-        # one order of magnitude.
-        # Alternative interpretation (EK):
+        # Interpretation (EK):
         # The scaling factor should not be too large, otherwise the contact problem
         # may be discretized wrongly. I therefore introduce a safety factor here; its
         # value is somewhat arbitrary.
-        softening_factor = self.solid.contact_mechanics_scaling()
+        softening_factor = pp.ad.Scalar(self.solid.contact_mechanics_scaling())
 
-        val = softening_factor * shear_modulus / characteristic_distance
-
-        return pp.ad.Scalar(val, name="Contact_mechanics_numerical_constant")
+        constant = softening_factor / self.characteristic_displacement(subdomains)
+        constant.set_name("Contact_mechanics_numerical_constant")
+        return constant
 
     def contact_mechanics_open_state_characteristic(
         self, subdomains: list[pp.Grid]
@@ -879,10 +747,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # Basis vectors for the tangential components. This is a list of Ad matrices,
         # each of which represents a cell-wise basis vector which is non-zero in one
         # dimension (and this is known to be in the tangential plane of the subdomains).
-        # Ignore mypy complaint on unknown keyword argument
-        tangential_basis: list[pp.ad.SparseArray] = self.basis(
-            subdomains, dim=self.nd - 1  # type: ignore[call-arg]
-        )
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
         # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
@@ -927,11 +792,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     """Boundary conditions for the momentum balance."""
 
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
     displacement_variable: str
 
     stress_keyword: str

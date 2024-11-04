@@ -28,7 +28,7 @@ Classes:
 from __future__ import annotations
 
 from abc import ABCMeta
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -294,34 +294,14 @@ def discretize_from_list(
                     pass
 
 
-def set_solution_values(
-    name: str,
-    values: np.ndarray,
-    data: dict,
+def _validate_indices(
     time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
-    additive: bool = False,
-) -> None:
-    """Function for setting values in the data dictionary.
+) -> list[tuple[Any, int]]:
+    """Helper method to validate the indexation of getter and setter methods for
+    values in a grid's data dictionary.
 
-    Parameters:
-        name: Name of the quantity that is to be assigned values.
-        values: The values that are set in the data dictionary.
-        data: Data dictionary corresponding to the subdomain or interface in question.
-        time_step_index (optional): Determines the key of where `values` are to be
-            stored in `data[pp.TIME_STEP_SOLUTIONS][name]`. 0 means it is the most
-            recent set of values, 1 means the one time step back in time, 2 is two time
-            steps back, and so on.
-        iterate_index (optional): Determines the key of where `values` are to be
-            stored in `data[pp.ITERATE_SOLUTIONS][name]`. 0 means it is the most
-            recent set of values, 1 means the values one iteration back in time, 2 is
-            two iterations back, and so on.
-        additive: Flag to decide whether the values already stored in the data
-            dictionary should be added to or overwritten.
-
-    Raises:
-        ValueError: If neither of `time_step_index` or `iterate_index` have been
-            assigned a non-None value.
+    See :func:`set_solution_values` and :func:`get_solution_values`.
 
     """
     if time_step_index is None and iterate_index is None:
@@ -330,26 +310,85 @@ def set_solution_values(
             " from None."
         )
 
-    if not additive:
-        if time_step_index is not None:
-            if pp.TIME_STEP_SOLUTIONS not in data:
-                data[pp.TIME_STEP_SOLUTIONS] = {}
-            if name not in data[pp.TIME_STEP_SOLUTIONS]:
-                data[pp.TIME_STEP_SOLUTIONS][name] = {}
-            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] = values.copy()
+    out = []
 
-        if iterate_index is not None:
-            if pp.ITERATE_SOLUTIONS not in data:
-                data[pp.ITERATE_SOLUTIONS] = {}
-            if name not in data[pp.ITERATE_SOLUTIONS]:
-                data[pp.ITERATE_SOLUTIONS][name] = {}
-            data[pp.ITERATE_SOLUTIONS][name][iterate_index] = values.copy()
-    else:
-        if time_step_index is not None:
-            data[pp.TIME_STEP_SOLUTIONS][name][time_step_index] += values
+    if iterate_index is not None:
+        # Some valid iterate value.
+        if iterate_index >= 0:
+            out.append((pp.ITERATE_SOLUTIONS, iterate_index))
+        # Negative iterate indices are not supported
+        else:
+            raise ValueError(
+                "Use increasing, non-negative integers for iterate indices."
+            )
 
-        if iterate_index is not None:
-            data[pp.ITERATE_SOLUTIONS][name][iterate_index] += values
+    if time_step_index is not None:
+        # Some previous time.
+        if time_step_index >= 0:
+            out.append((pp.TIME_STEP_SOLUTIONS, time_step_index))
+        # Negative time step indices are not supported.
+        else:
+            raise ValueError(
+                "Use increasing, non-negative integers for time step indices."
+            )
+
+    return out
+
+
+def set_solution_values(
+    name: str,
+    values: np.ndarray,
+    data: dict,
+    time_step_index: Optional[int] = None,
+    iterate_index: Optional[int] = None,
+    additive: bool = False,
+) -> None:
+    """Function for setting values in the data dictionary, for some time-dependent or
+    iterative term.
+
+    Parameters:
+        name: Name of the quantity that is to be assigned values.
+        values: The values that are set in the data dictionary.
+        data: Data dictionary corresponding to the subdomain or interface in question.
+        time_step_index: ``default=None``
+
+            Determines the key of where ``values`` are to be stored in
+            ``data[pp.TIME_STEP_SOLUTIONS][name]``.
+            0 is the most recent time step, 1 the one before that and so on.
+        iterate_index: ``default=None``
+
+            Determines the key of where ``values`` are to be stored in
+            ``data[pp.ITERATE_SOLUTIONS][name]``.
+            0 is the current iterate, 1 the previous iterate, and so on.
+        additive: ``default=False``
+
+            Flag to decide whether the values already stored in the data dictionary
+            should be added to or overwritten.
+
+    Raises:
+        ValueError: In the case of inconsistent usage of indices (both None, or negative
+            values).
+        ValueError: If the user attempts to set values additively at an index where no
+            values were set before.
+
+    """
+    loc_index = _validate_indices(time_step_index, iterate_index)
+
+    for loc, index in loc_index:
+        if loc not in data:
+            data[loc] = {}
+        if name not in data[loc]:
+            data[loc][name] = {}
+
+        if additive:
+            if index not in data[loc][name]:
+                raise ValueError(
+                    f"Cannot set value additively for {name} at {(loc, index)}:"
+                    + " No values stored to add to."
+                )
+            data[loc][name][index] += values
+        else:
+            data[loc][name][index] = values.copy()
 
 
 def get_solution_values(
@@ -358,62 +397,120 @@ def get_solution_values(
     time_step_index: Optional[int] = None,
     iterate_index: Optional[int] = None,
 ) -> np.ndarray:
-    """Function for fetching values stored in the data dictionary.
+    """Function for fetching values stored in the data dictionary, for some
+    time-dependent or iterative term.
 
-    This function should be used for obtaining solution values that are not related to a
-    variable. This is to avoid the cumbersome alternative of writing e.g.:
-    `data["solution_name"][pp.TIME_STEP_SOLUTION/pp.ITERATE_SOLUTION][0]`.
+    Note:
+        Compared to :func:`set_solution_values` the getter works only for 1 defined
+        index, whereas the setter can take both a time and iterate index.
 
     Parameters:
         name: Name of the parameter whose values we are interested in.
         data: The data dictionary.
-        time_step_index: Which time step we want to get values for. 0 is current, 1 is
-            one time step back in time. This is only limited by how many time steps are
-            stored from before.
-        iterate_index: Which iterate we want to get values for. 0 is current, 1 is one
-            iterate back in time. This is only limited by how many iterates are stored
-            from before.
+        time_step_index: ``default=None``
+
+            Determines the key of where ``values`` are to be stored in
+            ``data[pp.TIME_STEP_SOLUTIONS][name]``.
+            0 is the most recent time step, 1 the one before that and so on.
+        iterate_index: ``default=None``
+
+            Determines the key of where ``values`` are to be stored in
+            ``data[pp.ITERATE_SOLUTIONS][name]``.
+            0 is the current iterate, 1 the previous iterate, and so on.
 
     Raises:
-        ValueError: If both time_step_index and iterate_index are None.
-
-        ValueErorr: If both time_step_index and iterate_index are assigned a value.
-
-        KeyError: If there are no data values assigned to the provided name.
-
-        KeyError: If there are no data values assigned to the time step/iterate index.
+        ValueError: In the case of inconsistent usage of indices (both None or negative
+            values).
+        ValueError: If the user attempts to get multiple iterate and time step values
+            simultanously. Only 1 index is permitted in the getter.
+        KeyError: If no values are stored for the passed index.
 
     Returns:
-        An array containing the solution values.
+        A copy of the values stored at the passed index.
 
     """
-    if time_step_index is None and iterate_index is None:
-        raise ValueError("Both time_step_index and iterate_index cannot be None.")
-
-    if time_step_index is not None and iterate_index is not None:
+    loc_index = _validate_indices(time_step_index, iterate_index)
+    if len(loc_index) != 1:
         raise ValueError(
-            "Both time_step_index and iterate_index cannot be assigned a value."
+            "Cannot get value from both iterate and time step at once. Call separately."
         )
 
-    if time_step_index is not None:
-        if name not in data[pp.TIME_STEP_SOLUTIONS].keys():
-            raise KeyError(f"There are no values related the parameter name {name}.")
+    loc, index = loc_index[0]
 
-        if time_step_index not in data[pp.TIME_STEP_SOLUTIONS][name].keys():
-            raise KeyError(
-                f"There are no values stored for time step index {time_step_index}."
-            )
-        return data[pp.TIME_STEP_SOLUTIONS][name][time_step_index].copy()
+    try:
+        value = data[loc][name][index].copy()
+    except KeyError as err:
+        raise KeyError(
+            f"No values stored for {name} at {(loc, index)}: {str(err)}."
+        ) from err
 
+    return value
+
+
+def shift_solution_values(
+    name: str,
+    data: dict,
+    location: Any,
+    max_index: Optional[int] = None,
+) -> None:
+    """Function to shift numerical values stored in the data dictionary.
+
+    The shift is implemented s.t. values at index ``i`` are copied to index ``i + 1``.
+
+    Note:
+        The data stored must have support for ``.copy()`` in order to avoid faulty
+        referencing (e.g., numpy arrays or sparse matrices).
+
+    Note:
+        After this operation, values at index 0 and 1 will be the same.
+        Use :meth:`set_solution_values` to update the latest values at index 0.
+
+    Parameters:
+        name: Key in ``data`` for which quantity the shift should be performed.
+        data: A grid data dictionary.
+        location: Either :data:`~porepy.utils.common_constants.TIME_STEP_SOLUTIONS`
+            or :data:`~porepy.utils.common_constants.ITERATE_SOLUTIONS`.
+        max_index: ``default=None``
+
+            A non-negative integer, capping the range of the shift operation to
+            ``i -> max_index``.
+            If called repeatedly with ``None``, the depth in ``location`` keeps
+            increasing. To be used in schemes with a defined maximal depth of stored
+            iterate or time step values.
+
+    Raises:
+        ValueError: If unsupported ``location`` is passed.
+        ValueError: if ``max_index`` is negative.
+
+    """
+    if location not in [pp.ITERATE_SOLUTIONS, pp.TIME_STEP_SOLUTIONS]:
+        raise ValueError(f"Shifting values not implemented for location {location}")
+
+    # NOTE return because nothing to be shifted. Avoid confusion by introducing data
+    # dictionaries for values which were never set using pp.set_solution_values.
+    if location not in data:
+        return
+    if name not in data[location]:
+        return
+
+    num_stored = len(data[location][name])
+
+    if max_index is not None:
+        if max_index < 0:
+            raise ValueError("Maximal index must be non-negative.")
+
+        # Allow the number of stored values to increase
+        if max_index > num_stored:
+            range_ = range(num_stored, 0, -1)
+        # don't allow it to increase
+        else:
+            range_ = range(max_index - 1, 0, -1)
+            # TODO What should we do if for some reason already more stored?
     else:
-        if name not in data[pp.ITERATE_SOLUTIONS].keys():
-            raise KeyError(f"There are no values related the parameter name {name}.")
+        range_ = range(num_stored, 0, -1)
 
-        if iterate_index not in data[pp.ITERATE_SOLUTIONS][name].keys():
-            raise KeyError(
-                f"There are no values stored for iterate index {iterate_index}."
-            )
-        return data[pp.ITERATE_SOLUTIONS][name][iterate_index].copy()
+    for i in range_:
+        data[location][name][i] = data[location][name][i - 1].copy()
 
 
 class MergedOperator(operators.Operator):
@@ -427,6 +524,12 @@ class MergedOperator(operators.Operator):
 
     """
 
+    def _key(self) -> str:
+        return (
+            f"(merged_op, discretization_matrix_key={self._discretization_matrix_key},"
+            f" physics_key={self._physics_key}, domains={[d.id for d in self.domains]})"
+        )
+
     def __init__(
         self,
         discr: pp.discretization_type,
@@ -438,10 +541,10 @@ class MergedOperator(operators.Operator):
         """Initiate a merged discretization.
 
         Parameters:
-            discr: Mapping between subdomains, or interfaces, where the
-                discretization is applied, and the actual Discretization objects.
-            key: Keyword that identifies this discretization matrix, e.g.
-                for a class with an attribute foo_matrix_key, the key will be foo.
+            discr: Mapping between subdomains, or interfaces, where the discretization
+                is applied, and the actual Discretization objects.
+            key: Keyword that identifies this discretization matrix, e.g. for a class
+                with an attribute foo_matrix_key, the key will be foo.
             mat_dict_key: Keyword used to access discretization matrices.
             domains: Domains on which the discretization is defined.
 
@@ -480,7 +583,7 @@ class MergedOperator(operators.Operator):
 
         """
 
-        # Data structure for matrices
+        # Data structure for matrices.
         mat = []
 
         if len(self.domains) == 0:
@@ -490,7 +593,7 @@ class MergedOperator(operators.Operator):
             return sps.csc_matrix((0, 0))
 
         # Loop over all grid-discretization combinations, get hold of the discretization
-        # matrix for this grid quantity
+        # matrix for this grid quantity.
         for g in self.domains:
             # Get data dictionary for either grid or interface
             if isinstance(g, pp.MortarGrid):
@@ -498,14 +601,14 @@ class MergedOperator(operators.Operator):
             elif isinstance(g, pp.Grid):
                 data = mdg.subdomain_data(g)
             else:
-                s = "Did not expect a discretization defined on a BoundaryGrid"
+                s = "Did not expect a discretization defined on a BoundaryGrid."
                 raise ValueError(s)
 
             mat_dict: dict[str, sps.spmatrix] = data[  # type: ignore
                 pp.DISCRETIZATION_MATRICES
             ][self._physics_key]
 
-            # Get the submatrix for the right discretization
+            # Get the submatrix for the right discretization.
             key = self._discretization_matrix_key
             mat_key = getattr(self._discr, key + "_matrix_key")
             if self._inner_physics_key is not None:
@@ -515,9 +618,9 @@ class MergedOperator(operators.Operator):
             mat.append(local_mat)
 
         if all([isinstance(m, np.ndarray) for m in mat]):
-            # TODO: EK is almost sure this never happens, but leave this check for now
+            # TODO: EK is almost sure this never happens, but leave this check for now.
             raise NotImplementedError("")
 
         else:
-            # This is a standard discretization; wrap it in a diagonal sparse matrix
+            # This is a standard discretization; wrap it in a diagonal sparse matrix.
             return sps.block_diag(mat, format="csr")

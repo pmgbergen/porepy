@@ -41,30 +41,6 @@ matrix_keys = [
 ]
 
 
-def boundary_sides(g: pp.Grid, domain_size=None):
-    """Return a list of sides of the domain boundary.
-
-    TODO: Move?
-
-    Parameters:
-        g: Grid on which to find the boundary sides.
-        box: Optional. The length of the domain in all of g.dim dimensions."""
-    if domain_size is None:
-        domain_size = np.ones(g.dim)
-    west = g.face_centers[0] < 1e-10
-    east = g.face_centers[0] > domain_size[0] - 1e-10
-    south = g.face_centers[1] < 1e-10
-    north = g.face_centers[1] > domain_size[1] - 1e-10
-    if g.dim > 2:
-        bottom = g.face_centers[2] < 1e-10
-        top = g.face_centers[2] > domain_size[2] - 1e-10
-    else:
-        top = np.zeros(g.num_faces, dtype=bool)
-        bottom = top.copy()
-    all_bf = g.get_boundary_faces()
-    return pp.domain.DomainSides(all_bf, east, west, north, south, top, bottom)
-
-
 @pytest.fixture
 def discretization_matrices():
     """Return a grid and the corresponding mpsa discretization matrices."""
@@ -267,7 +243,7 @@ class TestMpsaExactReproduction:
         discr.discretize(g, data)
         A, b = discr.assemble_matrix_rhs(g, data)
 
-        d = np.linalg.solve(A.A, b)
+        d = np.linalg.solve(A.toarray(), b)
 
         stress = data[pp.DISCRETIZATION_MATRICES][keyword][discr.stress_matrix_key]
         bound_stress = data[pp.DISCRETIZATION_MATRICES][keyword][
@@ -349,9 +325,11 @@ class TestMpsaExactReproduction:
         g_list = [pp.CartGrid([n, n], physdims=physdims) for n in g_size]
         [g.compute_geometry() for g in g_list]
         for g in g_list:
-            bot = np.ravel(np.argwhere(g.face_centers[1, :] < 1e-10))
-            left = np.ravel(np.argwhere(g.face_centers[0, :] < 1e-10))
-            dir_faces = np.hstack((left, bot))
+
+            sides = pp.domain.domain_sides_from_grid(g)
+            south = np.where(sides.south)[0]
+            west = np.where(sides.west)[0]
+            dir_faces = np.hstack((west, south))
             bound = pp.BoundaryConditionVectorial(
                 g, dir_faces.ravel("F"), ["dir"] * dir_faces.size
             )
@@ -382,9 +360,10 @@ class TestMpsaExactReproduction:
         g_list = [gt, gc]
         [g.compute_geometry() for g in g_list]
         for g in g_list:
-            bot = np.ravel(np.argwhere(g.face_centers[1, :] < 1e-10))
-            left = np.ravel(np.argwhere(g.face_centers[0, :] < 1e-10))
-            dir_faces = np.hstack((left, bot))
+            sides = pp.domain.domain_sides_from_grid(g)
+            south = np.where(sides.south)[0]
+            west = np.where(sides.west)[0]
+            dir_faces = np.hstack((west, south))
             bound = pp.BoundaryConditionVectorial(
                 g, dir_faces.ravel("F"), ["dir"] * dir_faces.size
             )
@@ -592,7 +571,7 @@ class MpsaReconstructBoundaryDisplacement(TestUpdateMpsaDiscretization):
         grad_bound = matrix_dictionary[discr.bound_displacement_face_matrix_key]
 
         hf2f = pp.fvutils.map_hf_2_f(sd=g)
-        num_subfaces = hf2f.sum(axis=1).A.ravel()
+        num_subfaces = hf2f.sum(axis=1).toarray().ravel()
         scaling = sps.dia_matrix(
             (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
         )
@@ -702,25 +681,26 @@ class TestCreateBoundRhs:
         g.compute_geometry()
         basis = np.random.rand(g.dim, g.dim, g.num_faces)
 
-        bot = g.face_centers[1] < 1e-10
-        top = g.face_centers[1] > 1 - 1e-10
-        left = g.face_centers[0] < 1e-10
-        right = g.face_centers[0] > 1 - 1e-10
+        sides = pp.domain.domain_sides_from_grid(g)
+        west = np.where(sides.west)[0]
+        east = np.where(sides.east)[0]
+        south = np.where(sides.south)[0]
+        north = np.where(sides.north)[0]
 
         bc = pp.BoundaryConditionVectorial(g)
         bc.is_neu[:] = False
 
-        bc.is_dir[0, left] = True
-        bc.is_neu[1, left] = True
+        bc.is_dir[0, west] = True
+        bc.is_neu[1, west] = True
 
-        bc.is_rob[0, right] = True
-        bc.is_dir[1, right] = True
+        bc.is_rob[0, east] = True
+        bc.is_dir[1, east] = True
 
-        bc.is_neu[0, bot] = True
-        bc.is_rob[1, bot] = True
+        bc.is_neu[0, south] = True
+        bc.is_rob[1, south] = True
 
-        bc.is_rob[0, top] = True
-        bc.is_dir[1, top] = True
+        bc.is_rob[0, north] = True
+        bc.is_dir[1, north] = True
 
         self.run_test(g, basis, bc)
 
@@ -740,7 +720,7 @@ class TestCreateBoundRhs:
         bound_rhs_b = pp.Mpsa("")._create_bound_rhs(bc_sub, be, st, g, True)
 
         # rhs should not be affected by basis transform
-        assert np.allclose(bound_rhs_b.A, bound_rhs.A)
+        assert np.allclose(bound_rhs_b.toarray(), bound_rhs.toarray())
 
 
 class TestMpsaRotation:
@@ -782,10 +762,13 @@ class TestMpsaRotation:
         nf = g.num_faces
         basis = np.array([[[0] * nf, [1] * nf], [[1] * nf, [0] * nf]])
         bc = pp.BoundaryConditionVectorial(g)
-        west = g.face_centers[0] < 1e-7
-        south = g.face_centers[1] < 1e-7
-        north = g.face_centers[1] > 1 - 1e-7
-        east = g.face_centers[0] > 1 - 1e-7
+
+        sides = pp.domain.domain_sides_from_grid(g)
+        west = np.where(sides.west)[0]
+        east = np.where(sides.east)[0]
+        south = np.where(sides.south)[0]
+        north = np.where(sides.north)[0]
+                
         bc.is_dir[0, west] = True
         bc.is_rob[1, west] = True
         bc.is_rob[0, north] = True
@@ -909,7 +892,7 @@ class RobinBoundTest:
         c = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = 1
 
-        bnd_sides = boundary_sides(g)
+        bnd_sides = pp.domain.domain_sides_from_grid(g)
         dir_ind = np.ravel(np.argwhere(bnd_sides.left + bnd_sides.bot + bnd_sides.top))
         neu_ind = np.ravel(np.argwhere([]))
         rob_ind = np.ravel(np.argwhere(bnd_sides.right))
@@ -950,7 +933,7 @@ class RobinBoundTest:
         c = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = np.pi
 
-        bnd_sides = boundary_sides(g)
+        bnd_sides = pp.domain.domain_sides_from_grid(g)
         dir_ind = np.ravel(np.argwhere(bnd_sides.left))
         neu_ind = np.ravel(np.argwhere(bnd_sides.top))
         rob_ind = np.ravel(np.argwhere(bnd_sides.right + bnd_sides.bot))
@@ -993,7 +976,7 @@ class RobinBoundTest:
         c = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = np.pi
 
-        bnd_sides = boundary_sides(g)
+        bnd_sides = pp.domain.domain_sides_from_grid(g)
 
         dir_ind = np.ravel(np.argwhere(()))
         neu_ind = np.ravel(np.argwhere(()))
@@ -1038,7 +1021,7 @@ class RobinBoundTest:
         c = pp.FourthOrderTensor(np.ones(g.num_cells), np.ones(g.num_cells))
         robin_weight = np.pi
 
-        bnd_sides = boundary_sides(g)
+        bnd_sides = pp.domain.domain_sides_from_grid(g)
 
         dir_ind = np.ravel(np.argwhere(()))
         neu_ind = np.ravel(np.argwhere(()))
@@ -1084,7 +1067,7 @@ class RobinBoundTest:
         c = pp.FourthOrderTensor(np.ones(sd.num_cells), np.ones(sd.num_cells))
         robin_weight = 1.0
 
-        bnd_sides = boundary_sides(sd)
+        bnd_sides = pp.domain.domain_sides_from_grid(sd)
 
         dir_ind = np.ravel(np.argwhere(bnd_sides.west + bnd_sides.top))
         neu_ind = np.ravel(np.argwhere(bnd_sides.bottom))
@@ -1166,8 +1149,12 @@ class TestAsymmetricNeumann:
         top = g.face_centers[1] > 1 - 1e-10
 
         bc = pp.BoundaryConditionVectorial(g)
-        bc.is_dir[:, top] = True
-        bc.is_dir[0, right] = True
+        sides = pp.domain.domain_sides_from_grid(g)
+        east = np.where(sides.east)[0]
+        north = np.where(sides.north)[0]
+
+        bc.is_dir[:, north] = True
+        bc.is_dir[0, east] = True
 
         bc.is_neu[bc.is_dir] = False
 
@@ -1183,13 +1170,13 @@ class TestAsymmetricNeumann:
 
         expected_igrad = self.reference_sparse_arrays["test_cart_2d"]["igrad"]
 
-        assert np.all(np.abs(igrad - expected_igrad).A < 1e-12)
+        assert np.all(np.abs(igrad - expected_igrad).toarray() < 1e-12)
 
     def test_cart_3d(self):
         g = pp.CartGrid([1, 1, 1], physdims=(1, 1, 1))
         g.compute_geometry()
 
-        bnd_sides = boundary_sides(g)
+        bnd_sides = pp.domain.domain_sides_from_grid(g)
 
         bc = pp.BoundaryConditionVectorial(g)
         bc.is_dir[:, bnd_sides.west + bnd_sides.east + bnd_sides.south] = True
@@ -1205,7 +1192,7 @@ class TestAsymmetricNeumann:
             g, k, subcell_topology, bound_exclusion, 0, "python"
         )
         expected_igrad = self.reference_sparse_arrays["test_cart_3d"]["igrad"]
-        assert np.all(np.abs(igrad - expected_igrad).A < 1e-12)
+        assert np.all(np.abs(igrad - expected_igrad).toarray() < 1e-12)
 
 
 class TestMpsaReproduceKnownValues:

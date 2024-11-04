@@ -14,6 +14,7 @@ constitutive laws, the first test might be removed.
 
 
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal, Type
@@ -37,8 +38,8 @@ from porepy.applications.discretizations.flux_discretization import FluxDiscreti
 solid_values = pp.solid_values.granite
 solid_values.update(
     {
-        "fracture_normal_stiffness": 1529,
-        "maximum_fracture_closure": 1e-4,
+        "fracture_normal_stiffness": 1.9e8,
+        "maximum_elastic_fracture_opening": 1e-4,
         "fracture_gap": 1e-4,
         "residual_aperture": 0.01,
     }
@@ -181,9 +182,10 @@ def test_parse_constitutive_laws(
 
 
 # Shorthand for values with many digits. Used to compute expected values in the tests.
-lbda = pp.solid_values.granite["lame_lambda"]
-mu = pp.solid_values.granite["shear_modulus"]
+lbda = solid_values["lame_lambda"]
+mu = solid_values["shear_modulus"]
 bulk = lbda + 2 / 3 * mu
+youngs = mu * (3 * lbda + 2 * mu) / (lbda + mu)
 reference_arrays = reference_dense_arrays["test_evaluated_values"]
 
 
@@ -266,9 +268,13 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         (
             models.MomentumBalance,
             "elastic_normal_fracture_deformation",
-            # (-normal_traction) * maximum_closure /
-            #    (normal_stiffness * maximum_closure + (-normal_traction))
-            (1 * 1e-4) / (1529 * 1e-4 + 1),
+            # maximum_opening + normal_traction * maximum_opening / (
+            #   normal_stiffness / characteristic_traction * maximum_opening
+            #   - normal_traction
+            # )
+            # Here, characteristic_traction = Young's modulus (see implementation of
+            # elastic_normal_fracture_deformation in constitutive_laws.py)
+            1e-4 - (1 * 1e-4) / (1.9e8 / youngs * 1e-4 + 1),
             1,
         ),
         (
@@ -300,11 +306,13 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
     ],
 )
 def test_evaluated_values(
-    model: Type[models.Poromechanics]
-    | Type[models.Thermoporomechanics]
-    | Type[models.MassAndEnergyBalance]
-    | Type[models.MomentumBalance]
-    | Type[_],  # noqa
+    model: (
+        Type[models.Poromechanics]
+        | Type[models.Thermoporomechanics]
+        | Type[models.MassAndEnergyBalance]
+        | Type[models.MomentumBalance]
+        | Type[_]
+    ),  # noqa
     method_name: Literal[
         "fluid_density",
         "thermal_conductivity",
@@ -648,9 +656,13 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # Pick out the middle face, and only those faces that are associated with the mortar
     # displacement in the y-direction. The column indices must also be reordered to
     # match the ordering of the 2d cells (which was used to set 'true_derivatives').
-    dt_du_computed = computed_flux.jac[
-        1, (model.mortar_to_high_cell @ model.global_dof_u_mortar_y).astype(int)
-    ].A.ravel()
+    dt_du_computed = (
+        computed_flux.jac[
+            1, (model.mortar_to_high_cell @ model.global_dof_u_mortar_y).astype(int)
+        ]
+        .toarray()
+        .ravel()
+    )
 
     assert np.allclose(dt_du_computed, true_derivatives)
 
@@ -659,7 +671,11 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     #
     # The potential reconstruction method
     potential_trace = model.potential_trace(
-        model.mdg.subdomains(), model.pressure, model.permeability, "darcy_flux"
+        model.mdg.subdomains(),
+        model.pressure,
+        model.permeability,
+        model.combine_boundary_operators_darcy_flux,
+        "darcy_flux",
     ).value_and_jacobian(model.equation_system)
 
     # Fetch the permeability tensor from the data dictionary.
@@ -708,14 +724,16 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # ordering.
     assert np.allclose(
         true_jac_dp,
-        potential_trace.jac[fracture_faces_cart_ordering][:, model.global_p_2d_ind].A,
+        potential_trace.jac[fracture_faces_cart_ordering][
+            :, model.global_p_2d_ind
+        ].toarray(),
     )
 
     # The computed Jacobian. Here we also need to reorder the columns from mortar to
     # high-dimensional cell ordering.
     computed_dp_dl = potential_trace.jac[fracture_faces_cart_ordering][
         :, model.mortar_to_high_cell @ model.global_intf_ind
-    ].A
+    ].toarray()
     # The true Jacobian with respect to the interface flux is found by differentiating
     # p_reconstructed with respect to the interface flux.
     true_dp_dl = np.diag(-dist / k_yy)

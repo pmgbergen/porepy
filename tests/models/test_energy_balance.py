@@ -139,14 +139,14 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
     # Instantiate constants and store in params.
     fluid = pp.FluidConstants(fluid_vals)
     solid = pp.SolidConstants(solid_vals)
-    params = {
+    model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"fluid": fluid, "solid": solid},
     }
 
     # Create model and run simulation
-    setup = EnergyBalanceTailoredBCs(params)
-    pp.run_time_dependent_model(setup, params)
+    setup = EnergyBalanceTailoredBCs(model_params)
+    pp.run_time_dependent_model(setup)
 
     if solid_vals["thermal_conductivity"] > 1:
         # Diffusion dominated case.
@@ -200,17 +200,49 @@ def test_unit_conversion(units):
             :class:`~pp.models.material_constants.MaterialConstants`.
 
     """
-    params = {"times_to_export": [], "fracture_indices": [0, 1], "cartesian": True}
+
+    class Model(EnergyBalanceTailoredBCs):
+        def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+            """ """
+
+            sides = self.domain_boundary_sides(boundary_grid)
+            vals = np.zeros(boundary_grid.num_cells)
+            vals[sides.west] = self.fluid.convert_units(10.0, "K")
+            return vals
+
+        def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+            """ """
+
+            sides = self.domain_boundary_sides(boundary_grid)
+            vals = np.zeros(boundary_grid.num_cells)
+            vals[sides.west] = self.fluid.convert_units(1e4, "Pa")
+            return vals
+
+    solid_vals = pp.solid_values.extended_granite_values_for_testing
+    fluid_vals = pp.fluid_values.extended_water_values_for_testing
+    solid = pp.SolidConstants(solid_vals)
+    fluid = pp.FluidConstants(fluid_vals)
+
+    # Non-unitary time step needed for convergence
+    dt = 1e5
+    model_params = {
+        "times_to_export": [],
+        "fracture_indices": [0, 1],
+        "cartesian": True,
+        "material_constants": {"solid": solid, "fluid": fluid},
+        "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
+    }
+
     # Create model and run simulation
-    reference_params = copy.deepcopy(params)
-    reference_params["file_name"] = "unit_conversion_reference"
-    reference_setup = EnergyBalanceTailoredBCs(reference_params)
-    pp.run_time_dependent_model(reference_setup, reference_params)
+    model_reference_params = copy.deepcopy(model_params)
+    model_reference_params["file_name"] = "unit_conversion_reference"
+    reference_setup = Model(model_reference_params)
+    pp.run_time_dependent_model(reference_setup)
 
-    params["units"] = pp.Units(**units)
-    setup = EnergyBalanceTailoredBCs(params)
+    model_params["units"] = pp.Units(**units)
+    setup = Model(model_params)
 
-    pp.run_time_dependent_model(setup, params)
+    pp.run_time_dependent_model(setup)
     variable_names = [
         setup.temperature_variable,
         setup.pressure_variable,
@@ -249,7 +281,7 @@ def test_energy_conservation():
     """
     # We want low pressures, to ensure energy is not dominated by -p in fluid part.
     dt = 1e-4
-    params = {
+    model_params = {
         # Set impermeable matrix
         "material_constants": {
             "solid": pp.SolidConstants(
@@ -276,8 +308,8 @@ def test_energy_conservation():
         "grid_type": "cartesian",
     }
 
-    setup = MassAndEnergyWellModel(params)
-    pp.run_time_dependent_model(setup, params)
+    setup = MassAndEnergyWellModel(model_params)
+    pp.run_time_dependent_model(setup)
     # Check that the total enthalpy equals the injected one.
     in_val = 1e7
     u_expected = in_val * dt

@@ -8,6 +8,7 @@ Testing covers:
     Utility methods:
         domain_boundary_sides
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -90,9 +91,9 @@ def test_boundary_sides(geometry_class, num_fracs):
 
         # Check that only valid boundaries are picked
         domain_or_internal_bf = np.where(np.sum(np.abs(sd.cell_faces), axis=1) == 1)
-        assert np.all(np.in1d(all_bf, domain_or_internal_bf))
+        assert np.all(np.isin(all_bf, domain_or_internal_bf))
         frac_faces = sd.tags["fracture_faces"].nonzero()[0]
-        assert np.all(np.logical_not(np.in1d(all_bf, frac_faces)))
+        assert np.all(np.logical_not(np.isin(all_bf, frac_faces)))
         assert np.all(all_bool == (east + west + north + south + top + bottom))
 
         # Check that the coordinates of the
@@ -157,17 +158,13 @@ def test_wrap_grid_attributes(
 
     # Test that an error is raised if the grid does not have such an attribute
     with pytest.raises(ValueError):
-        geometry.wrap_grid_attribute(
-            top_subdomain, "no_such_attribute", dim=1  # type: ignore[call-arg]
-        )
+        geometry.wrap_grid_attribute(top_subdomain, "no_such_attribute", dim=1)
 
     # Test that the an error is raised if we try to wrap a field which is not an
     # ndarray.
     with pytest.raises(ValueError):
         # This will return a string
-        geometry.wrap_grid_attribute(
-            top_subdomain, "name", dim=1  # type: ignore[call-arg]
-        )
+        geometry.wrap_grid_attribute(top_subdomain, "name", dim=1)
 
     # One loop for both subdomains and interfaces.
     for grids in test_subdomains + test_interfaces:
@@ -193,9 +190,9 @@ def test_wrap_grid_attributes(
         # Loop over attributes and corresponding dimensions.
         for attr, dim in zip(attr_list, dim_list):
             # Get hold of the wrapped attribute and the wrapping.
-            wrapped_value = geometry.wrap_grid_attribute(
-                grids, attr, dim=dim  # type: ignore[call-args]
-            ).value(eq_system)
+            wrapped_value = geometry.wrap_grid_attribute(grids, attr, dim=dim).value(
+                eq_system
+            )
 
             # Check that the wrapped attribute is a matrix
             assert isinstance(wrapped_value, np.ndarray)
@@ -258,7 +255,7 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
     assert no_subdomains == []
     assert no_interfaces == []
     if getattr(geometry, "num_fracs", 0) > 1:
-        # Matrix and two fractures. TODO: Use three_sds?
+        # Matrix and two fractures.
         two_fractures = all_subdomains[1:3]
         # Only those interfaces involving one of the two fractures are expected.
         interfaces = []
@@ -325,7 +322,7 @@ def test_internal_boundary_normal_to_outwards(
         cf = sd.cell_faces
         # Summing is a trick to get the sign of the cell-face relation for the boundary
         # faces (we don't care about internal faces).
-        cf_sum = np.sum(cf, axis=1)
+        cf_sum = np.asarray(np.sum(cf, axis=1))
         # Only compare for fracture faces
         fracture_faces = np.where(sd.tags["fracture_faces"])[0]
         # The matrix constrained to this subdomain
@@ -337,9 +334,7 @@ def test_internal_boundary_normal_to_outwards(
             # Indices belonging to the current dimension
             dim_ind = np.arange(i, loc_size, dim)
             dim_vals = loc_vals[dim_ind]
-            assert np.allclose(
-                dim_vals[fracture_faces], cf_sum[fracture_faces].A.ravel()
-            )
+            assert np.allclose(dim_vals[fracture_faces], cf_sum[fracture_faces].ravel())
         # Update offset, needed to test for multiple subdomains.
         offset += sd.num_faces * dim
 

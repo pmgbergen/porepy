@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -12,7 +12,6 @@ try:
     # Avoid some mypy trouble.
     from tqdm.autonotebook import trange  # type: ignore
 
-    # Only import this if needed
     from porepy.utils.ui_and_logging import (
         logging_redirect_tqdm_with_level as logging_redirect_tqdm,
     )
@@ -56,7 +55,7 @@ def run_stationary_model(model, params: dict) -> None:
     model.after_simulation()
 
 
-def run_time_dependent_model(model, params: dict) -> None:
+def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
     """Run a time dependent model.
 
     Note:
@@ -72,10 +71,10 @@ def run_time_dependent_model(model, params: dict) -> None:
         model: Model class containing all information on parameters, variables,
             discretization, geometry. Various methods such as those relating to solving
             the system, see the appropriate solver for documentation.
-        params: Parameters related to the solution procedure. Why not just set these
-            as e.g. model.solution_parameters?
+        params: Parameters related to the solution procedure.
 
     """
+    params = params or {}
     # Assign parameters, variables and discretizations. Discretize time-indepedent terms
     if params.get("prepare_simulation", True):
         model.prepare_simulation()
@@ -132,6 +131,7 @@ def run_time_dependent_model(model, params: dict) -> None:
                 expected_timesteps,
                 desc="time loop",
                 position=0,
+                dynamic_ncols=True,
             )
 
             while not model.time_manager.final_time_reached():
@@ -229,6 +229,7 @@ def _run_iterative_model(model, params: dict) -> None:
                 expected_timesteps,
                 desc="time loop",
                 position=0,
+                dynamic_ncols=True,
             )
 
             while not model.time_manager.final_time_reached():

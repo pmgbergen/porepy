@@ -11,66 +11,21 @@ import abc
 import logging
 import time
 import warnings
-from pathlib import Path
+from functools import partial
 from typing import Any, Callable, Optional
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 
 logger = logging.getLogger(__name__)
 
 
-class SolutionStrategy(abc.ABC):
+class SolutionStrategy(abc.ABC, PorePyModel):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
-
-    """
-
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    set_geometry: Callable[[], None]
-    """Set the geometry of the model. Normally provided by a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    initialize_data_saving: Callable[[], None]
-    """Initialize data saving. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
-    save_data_time_step: Callable[[], None]
-    """Save data at a time step. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
-    create_variables: Callable[[], None]
-    """Create variables. Normally provided by a mixin instance of a Variable class
-    relevant to the model.
-
-    """
-    set_equations: Callable[[], None]
-    """Set the governing equations of the model. Normally provided by the solution
-    strategy of a specific model (i.e. a subclass of this class).
-
-    """
-    load_data_from_vtu: Callable[[Path, int, Optional[Path]], None]
-    """Load data from vtu to initialize the states, only applicable in restart mode.
-    :class:`~porepy.viz.exporter.Exporter`.
-
-    """
-    load_data_from_pvd: Callable[[Path, bool, Optional[Path]], None]
-    """Load data from pvd to initialize the states, only applicable in restart mode.
-    :class:`~porepy.viz.exporter.Exporter`.
-
-    """
-    update_all_boundary_conditions: Callable[[], None]
-    """Set the values of the boundary conditions for the new time step.
-    Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
 
     """
 
@@ -78,8 +33,7 @@ class SolutionStrategy(abc.ABC):
         """Initialize the solution strategy.
 
         Parameters:
-            params: Parameters for the solution strategy. Defaults to
-                None.
+            params: Parameters for the solution strategy. Defaults to None.
 
         """
         if params is None:
@@ -93,55 +47,21 @@ class SolutionStrategy(abc.ABC):
         }
 
         default_params.update(params)
-
         self.params = default_params
-        """Dictionary of parameters."""
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
-        self.convergence_status: bool = False
-        """Whether the non-linear iteration has converged."""
+        self.convergence_status = False
 
-        # Define attributes to be assigned later
-        self.equation_system: pp.ad.EquationSystem
-        """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
-
-        """
-        self.mdg: pp.MixedDimensionalGrid
-        """Mixed-dimensional grid. Will normally be set by a mixin instance of
-        :class:`~porepy.models.geometry.ModelGeometry`.
-
-        """
-        self._domain: pp.Domain
-        """Box-shaped domain. Will normally be set by a mixin instance of
-        :class:`~porepy.models.geometry.ModelGeometry`.
-
-        """
-        self.linear_system: tuple[sps.spmatrix, np.ndarray]
-        """The linear system to be solved in each iteration of the non-linear solver.
-        The tuple contains the sparse matrix and the right hand side residual vector.
-
-        """
         self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
-        self.exporter: pp.Exporter
-        """Exporter for visualization."""
-
-        self.units: pp.Units = params.get("units", pp.Units())
-        """Units of the model. See also :meth:`set_units`."""
-
-        self.fluid: pp.FluidConstants
-        """Fluid constants. See also :meth:`set_materials`."""
-
-        self.solid: pp.SolidConstants
-        """Solid constants. See also :meth:`set_materials`."""
+        self.units = params.get("units", pp.Units())
 
         self.time_manager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
-        """Time manager for the simulation."""
 
-        self.restart_options: dict = params.get(
+        self.restart_options = params.get(
             "restart_options",
             {
                 "restart": False,
@@ -172,20 +92,10 @@ class SolutionStrategy(abc.ABC):
                 # assumed to address the last time step in times_file.
             },
         )
-        """Restart options (template) for restart from pvd as expected restart routines
-        within :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
 
-        """
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
-        """Time step as an automatic differentiation scalar.
 
-        This is used to ensure that the time step is for all equations if the time step
-        is adjusted during simulation. See :meth:`before_nonlinear_loop`.
-
-        """
-
-        self.nonlinear_solver_statistics = pp.SolverStatistics()
-        """Statistics object for non-linear solver loop."""
+        self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
         """Run at the start of simulation. Used for initialization etc."""
@@ -228,6 +138,31 @@ class SolutionStrategy(abc.ABC):
 
         """
 
+    def set_solver_statistics(self) -> None:
+        """Set the solver statistics object.
+
+        This method is called at initialization. It is intended to be used to
+        set the solver statistics object(s). Currently, the solver statistics
+        object is related to nonlinearity only. Statistics on other parts of the
+        solution process, such as linear solvers, may be added in the future.
+
+        Raises:
+            ValueError: If the solver statistics object is not a subclass of
+                pp.SolverStatistics.
+
+        """
+        # Retrieve the value with a default of pp.SolverStatistics
+        statistics = self.params.get("nonlinear_solver_statistics", pp.SolverStatistics)
+        # Explicitly check if the retrieved value is a class and a subclass of
+        # pp.SolverStatistics for type checking.
+        if isinstance(statistics, type) and issubclass(statistics, pp.SolverStatistics):
+            self.nonlinear_solver_statistics = statistics()
+
+        else:
+            raise ValueError(
+                f"Expected a subclass of pp.SolverStatistics, got {statistics}."
+            )
+
     def initial_condition(self) -> None:
         """Set the initial condition for the problem.
 
@@ -249,16 +184,16 @@ class SolutionStrategy(abc.ABC):
         self.update_time_dependent_ad_arrays()
 
     @property
-    def domain(self) -> pp.Domain:
-        """Domain of the problem."""
-        return self._domain
-
-    @property
     def time_step_indices(self) -> np.ndarray:
         """Indices for storing time step solutions.
 
+        Index 0 corresponds to the most recent time step with the know solution, 1 -
+        to the previous time step, etc.
+
         Returns:
-            An array of the indices of which time step solutions will be stored.
+            An array of the indices of which time step solutions will be stored,
+            counting from 0. Defaults to storing the most recently computed solution
+            only.
 
         """
         return np.array([0])
@@ -424,7 +359,7 @@ class SolutionStrategy(abc.ABC):
             nonlinear_increment: The new solution, as computed by the non-linear solver.
 
         """
-        self.equation_system.shift_iterate_values()
+        self.equation_system.shift_iterate_values(max_index=len(self.iterate_indices))
         self.equation_system.set_variable_values(
             values=nonlinear_increment, additive=True, iterate_index=0
         )
@@ -437,7 +372,16 @@ class SolutionStrategy(abc.ABC):
 
         """
         solution = self.equation_system.get_variable_values(iterate_index=0)
-        self.equation_system.shift_time_step_values()
+
+        # Update the time step magnitude if the dynamic scheme is used.
+        if not self.time_manager.is_constant:
+            self.time_manager.compute_time_step(
+                iterations=self.nonlinear_solver_statistics.num_iteration
+            )
+
+        self.equation_system.shift_time_step_values(
+            max_index=len(self.time_step_indices)
+        )
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
@@ -447,10 +391,21 @@ class SolutionStrategy(abc.ABC):
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
         self.save_data_time_step()
-        if self._is_nonlinear_problem():
+        if not self._is_nonlinear_problem():
+            raise ValueError("Failed to solve linear system for the linear problem.")
+
+        if self.time_manager.is_constant:
+            # We cannot decrease the constant time step.
             raise ValueError("Nonlinear iterations did not converge.")
         else:
-            raise ValueError("Tried solving singular matrix for the linear problem.")
+            # Update the time step magnitude if the dynamic scheme is used.
+            # Note: It will also raise a ValueError if the minimal time step is reached.
+            self.time_manager.compute_time_step(recompute_solution=True)
+
+            # Reset the iterate values. This ensures that the initial guess for an
+            # unknown time step equals the known time step.
+            prev_solution = self.equation_system.get_variable_values(time_step_index=0)
+            self.equation_system.set_variable_values(prev_solution, iterate_index=0)
 
     def after_simulation(self) -> None:
         """Run at the end of simulation. Can be used for cleanup etc."""
@@ -462,15 +417,15 @@ class SolutionStrategy(abc.ABC):
         residual: np.ndarray,
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
-    ) -> tuple[float, float, bool, bool]:
+    ) -> tuple[bool, bool]:
         """Implements a convergence check, to be called by a non-linear solver.
 
         Parameters:
             nonlinear_increment: Newly obtained solution increment vector
             residual: Residual vector of non-linear system, evaluated at the newly
             obtained solution vector.
-            reference_residual: Reference residual vector of non-linear system, evaluated
-                for the initial guess at current time step.
+            reference_residual: Reference residual vector of non-linear system,
+                evaluated for the initial guess at current time step.
             nl_params: Dictionary of parameters used for the convergence check.
                 Which items are required will depend on the convergence test to be
                 implemented.
@@ -478,10 +433,6 @@ class SolutionStrategy(abc.ABC):
         Returns:
             The method returns the following tuple:
 
-            float:
-                Residual norm, computed to the norm in question.
-            float:
-                Increment norm, computed to the norm in question.
             boolean:
                 True if the solution is converged according to the test implemented by
                 this method.
@@ -502,7 +453,7 @@ class SolutionStrategy(abc.ABC):
             # First a simple check for nan values.
             if np.any(np.isnan(nonlinear_increment)):
                 # If the solution contains nan values, we have diverged.
-                return np.nan, np.nan, False, True
+                return False, True
 
             # nonlinear_increment based norm
             nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
@@ -525,7 +476,7 @@ class SolutionStrategy(abc.ABC):
             nonlinear_increment_norm, residual_norm
         )
 
-        return residual_norm, nonlinear_increment_norm, converged, diverged
+        return converged, diverged
 
     def compute_residual_norm(
         self, residual: np.ndarray, reference_residual: np.ndarray
@@ -673,3 +624,171 @@ class SolutionStrategy(abc.ABC):
 
         """
         self.update_all_boundary_conditions()
+
+
+class ContactIndicators(PorePyModel):
+    """Class for computing contact indicators used for tailored line search.
+
+    This functionality is experimental and may be subject to change.
+
+    The class is a mixin for the solution strategy classes for models with contact
+    mechanics. The class provides methods for computing the opening and sliding
+    indicators, which are used for tailored line search as defined in the class
+    :class:`~porepy.numerics.nonlinear.line_search.ConstraintLineSearch`.
+
+    By specifying the parameter `adaptive_indicator_scaling` in the model
+    parameters, the indicators can be scaled adaptively by the characteristic
+    fracture traction estimate based on the most recent iteration value.
+
+    """
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact traction operator."""
+
+    contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Contact mechanics numerical constant."""
+
+    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Displacement jump operator."""
+
+    fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Fracture gap operator."""
+
+    friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Friction bound operator."""
+
+    def opening_indicator(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Function describing the state of the opening constraint.
+
+        The function is a linear combination of the two arguments of the max function of
+        the normal fracture deformation equation. Arbitrary sign convention: Negative
+        for open fractures, positive for closed ones.
+
+        The parameter `adaptive_indicator_scaling` scales the indicator by the contact
+        traction estimate.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            opening_indicator: Opening indicator operator.
+
+        """
+        nd_vec_to_normal = self.normal_component(subdomains)
+        # The normal component of the contact traction and the displacement jump.
+        t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
+        u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
+        c_num = self.contact_mechanics_numerical_constant(subdomains)
+        max_arg_1 = pp.ad.Scalar(-1.0) * t_n
+        max_arg_2 = c_num * (u_n - self.fracture_gap(subdomains))
+        ind = max_arg_1 - max_arg_2
+        if self.params.get("adaptive_indicator_scaling", False):
+            # Scale adaptively based on the contact traction estimate.
+            # Base variable values from all fracture subdomains.
+            all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
+            scale_op = self.contact_traction_estimate(all_subdomains)
+            scale = self.compute_traction_norm(scale_op.value(self.equation_system))
+            ind = ind / pp.ad.Scalar(scale)
+        return ind
+
+    def sliding_indicator(
+        self,
+        subdomains: list[pp.Grid],
+    ) -> pp.ad.Operator:
+        """Function describing the state of the sliding constraint.
+
+        The function is a linear combination of the two arguments of the max function of
+        the tangential fracture deformation equation. Sign convention: Negative for
+        sticking, positive for sliding:  ||T_t+c_t u_t||-b_p
+
+        The parameter `adaptive_indicator_scaling` scales the indicator by the contact
+        traction estimate.
+
+        Parameters:
+            subdomains: List of fracture subdomains.
+
+        Returns:
+            sliding_indicator: Sliding indicator operator.
+
+        """
+
+        # Basis vector combinations
+        num_cells = sum([sd.num_cells for sd in subdomains])
+        # Mapping from a full vector to the tangential component
+        nd_vec_to_tangential = self.tangential_component(subdomains)
+
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
+
+        # Variables: The tangential component of the contact traction and the
+        # displacement jump
+        t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
+        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.displacement_jump(subdomains)
+        # The time increment of the tangential displacement jump
+        u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
+        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
+
+        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
+        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
+        # Heaviside function. The 0 as the second argument to partial() implies
+        # f_heaviside(0)=0, a choice that is not expected to affect the result in this
+        # context.
+        f_heaviside = pp.ad.Function(partial(pp.ad.heaviside, 0), "heaviside_function")
+
+        c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
+
+        c_num = pp.ad.sum_operator_list(
+            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
+        )
+        tangential_sum = t_t + c_num @ u_t_increment
+
+        max_arg_1 = f_norm(tangential_sum)
+        max_arg_1.set_name("norm_tangential")
+
+        max_arg_2 = f_max(self.friction_bound(subdomains), zeros_frac)
+        max_arg_2.set_name("b_p")
+
+        h_oi = f_heaviside(self.opening_indicator(subdomains))
+        ind = max_arg_1 - max_arg_2
+
+        if self.params.get("adaptive_indicator_scaling", False):
+            # Base on all fracture subdomains
+            all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
+            scale_op = self.contact_traction_estimate(all_subdomains)
+            scale = self.compute_traction_norm(scale_op.value(self.equation_system))
+            ind = ind / pp.ad.Scalar(scale)
+        return ind * h_oi
+
+    def contact_traction_estimate(self, subdomains: list[pp.Grid]):
+        """Estimate the magnitude of contact traction.
+
+        Parameters:
+            subdomains: List of subdomains where the contact traction is defined.
+
+        Returns:
+            Characteristic fracture traction estimate.
+
+        """
+        t: pp.ad.Operator = self.contact_traction(subdomains)
+        e_n = self.e_i(subdomains, dim=self.nd, i=self.nd - 1)
+
+        u = self.displacement_jump(subdomains) - e_n @ self.fracture_gap(subdomains)
+        c_num = self.contact_mechanics_numerical_constant(subdomains)
+        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd), "norm_function")
+        return f_norm(t) + f_norm(c_num * u)
+
+    def compute_traction_norm(self, val: np.ndarray) -> float:
+        """Compute a norm of the traction estimate from the vector-valued traction.
+
+        The scalar traction is computed as the p norm of the traction vector.
+
+        Parameters:
+            val: Vector-valued traction.
+
+        Returns:
+            Scalar traction.
+
+        """
+        val = val.clip(1e-8, 1e8)
+        p = self.params.get("traction_estimate_p_mean", 5.0)
+        p_mean = np.mean(val**p, axis=0) ** (1 / p)
+        return float(p_mean)
