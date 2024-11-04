@@ -1,4 +1,4 @@
-"""Storage classes for material constants.
+"""Storage classes for solid constants and fluid components.
 
 Material contants are values representing either constant physical properties (e.g.
 critical pressurre) or parameters for constitutive laws (e.g. constant compressibility
@@ -14,15 +14,16 @@ For converting values on the fly, see :meth:`~porepy.models.units.Units.convert_
 
 from __future__ import annotations
 
-from collections import OrderedDict
-from dataclasses import asdict, dataclass, field, is_dataclass
-from typing import Callable, ClassVar, Generic, TypeVar, cast
+from dataclasses import FrozenInstanceError, asdict, dataclass, field, is_dataclass
+from typing import Any, Callable, ClassVar, TypeVar, cast
 
 import porepy as pp
 
+from .base import Component
+
 __all__ = [
-    "MaterialConstants",
-    "FluidConstants",
+    "Constants",
+    "FluidComponent",
     "SolidConstants",
     "ReferenceVariableValues",
     "load_fluid_constants",
@@ -30,43 +31,24 @@ __all__ = [
 
 number = pp.number
 
-_K = TypeVar("_K")
-_V = TypeVar("_V")
 
-
-class _HashableDict(Generic[_K, _V], OrderedDict):
-    """See https://stackoverflow.com/questions/1151658/python-hashable-dicts.
-
-    We require hashable dictionaries for the below material constant classes which
-    contain various constants and unit declarations in dicts, all in simple formats and
-    per se hashable.
-
-    The need for hashable material constants arises when fluid constants are used as a
-    base class for components and tracers, which are dynamically created and themselves
-    stored in standard dictionaries at various points in ``porepy.compositional``.
-
-    """
-
-    def __hash__(self):
-        return hash(tuple(sorted(self.items())))
-
-
-# The dataclass is frozen, since material parameters are not supposed to change, as well
-# as the units they are given in.
-# By using this in combination with keyword_only arguments for the construction of
+# 1. By using keyword_only arguments for the construction of
 # materials, the user is forced to instantiate the constants with the right names of
 # constants, otherwise errors are raised (no separate checks required).
-# By providing default values to the fields, not every constant is required. The user
+# 2. By providing default values to the fields, not every constant is required. The user
 # is expected to be aware which physics are used in the model.
-@dataclass(frozen=True, kw_only=True)
-class MaterialConstants:
+# 3. By instructing dataclass to not override the __eq__ provided by object (we do not
+# need to compare constants by equality of values, since the class is intended for
+# distinct instances). This way the classes remain hashable! (can be used in dicts)
+@dataclass(kw_only=True, eq=False)
+class Constants:
     """Material property container and conversion class.
 
     The base class identifies a material using a given :attr:`name`. To define material
-    properties of some kind, derive a dataclass with this class as its base (as frozen
-    and keywords-only data class).
+    properties of some kind, derive a dataclass with this class as its base (as
+    keywords-only and ``eq==False`` data class).
 
-    Material constants are declared as fields (float or int) with default values.
+    Constants are declared as fields (float or int) with default values.
 
     Derived classes must have a class attribute :attr:`SI_units` containing information
     about the the physical unit of each declared constant.
@@ -75,8 +57,22 @@ class MaterialConstants:
     kw-argument can be passed to declare the target, non-SI units (e.g. MPa instead of
     Pa).
 
+    The base class provides a check that constants defined as dataclass fields
+    are not asignable, once the instance is created. This is motivated by the fact that
+    material parameters are not supposed to change (or converted to another unit) once
+    given in a simulation.
+
+    Note:
+        When inheriting from this class and making another data class, use
+        ``@dataclass(kw_only=True, eq=False)`` to be consistent with the base class
+        and to make the child hashable (important when storing it in dictionaries).
+
+        Having an overload of ``__equ__`` by comparing fields (as ``dataclass`` does)
+        makes little sense for this class, as it is designed to hold different constants
+        per instance. We loose only the hashability with the redundant ``__equ__``.
+
     Important:
-        When instantiating a material constants data class, the constants must all
+        When instantiating a ``Constants`` data class, the constants must all
         be strictly given in SI units. The conversion happens post-initialization for
         the subsequent simulation.
 
@@ -84,7 +80,7 @@ class MaterialConstants:
         Every derived class must have a class attribute :attr:`SI_units`, **annotated as
         ClassVar**. This is to inform the base class about the used SI units.
 
-        For examples, see :class:`FluidConstants` or :class:`SolidConstants`. For
+        For examples, see :class:`FluidComponent` or :class:`SolidConstants`. For
         instructions on how to write composed units, see
         :meth:`~porepy.models.units.Units.convert_units`.
 
@@ -92,7 +88,7 @@ class MaterialConstants:
 
     # NOTE Annotating it as a ClassVar leads to the dataclasss decorator ignoring this
     # in its machinery. The annotation must not be forgotten in derived classes.
-    SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict()
+    SI_units: ClassVar[dict[str, str]] = dict()
     """A dictionary containing the SI unit of every material constant defined by a
     derived class.
 
@@ -121,9 +117,7 @@ class MaterialConstants:
 
     # NOTE init=False makes this a data class field, which is not in the constructor
     # signature. Its value is computed in the post-initialization procedure.
-    constants_in_SI: _HashableDict[str, number] = field(
-        init=False, default_factory=_HashableDict
-    )
+    constants_in_SI: dict[str, number] = field(init=False, default_factory=dict)
     """A dictionary containing the original constants in SI units, passed at the
     instantiation of this class.
 
@@ -135,6 +129,16 @@ class MaterialConstants:
 
     """
 
+    _initialized: bool = field(init=False, default=False)
+    """Flag marking the end of the initialization and post-initialization procedure.
+
+    Set to be ``True``, once :meth:`__post_init__` is done. Used to disallow the
+    assignement of material parameters after construction.
+
+    Once True, constants cannot be set anymore.
+
+    """
+
     def __post_init__(self, *args, **kwargs) -> None:
         """Post-initialization procedure to convert the given species parameters from
         SI units to the units given by :attr:`units`.
@@ -143,11 +147,12 @@ class MaterialConstants:
 
         """
 
-        # Get the material constants using the data class field, excluding utilities
+        # Get the constants using the data class field, excluding utilities
         constants = asdict(self)
         constants.pop("name")
         constants.pop("units")
         constants.pop("constants_in_SI")
+        constants.pop("_initialized")
 
         # Safety check if the user forgot to annotate the SI_units as a class variable.
         # If yes, dataclass would declare it as a data field.
@@ -158,9 +163,7 @@ class MaterialConstants:
             )
 
         # By logic, what remains are constants as numbers storing original constants.
-        self.constants_in_SI.update(
-            cast(_HashableDict[str, number], _HashableDict(constants))
-        )
+        self.constants_in_SI.update(cast(dict[str, number], dict(constants)))
 
         # Transform the constants to SI and store them in this instance.
         # Bypass the freezing of attributes https://stackoverflow.com/questions/
@@ -176,57 +179,109 @@ class MaterialConstants:
             v_in_custom_units = self.units.convert_units(v, si_unit)
             object.__setattr__(self, k, v_in_custom_units)
 
+        # Flag the initialization procdure as done.
+        object.__setattr__(self, "_initialized", True)
+
     def __init_subclass__(cls) -> None:
         """If a data-class inherits this class, the base class post-initialization
         procedure must be inherited as well for the conversion from SI units (at
-        instantiation) to simulation :attr:`units`."""
+        instantiation) to simulation :attr:`units`.
+
+        Also, the blockage of rewriting the material parameters must be inherited as
+        well.
+
+        Both is achieved by asigning the base class ``__post_init__`` and
+        ``__setattr__`` of this base class to any child class which is a data class.
+
+        """
 
         if is_dataclass(cls):
             if hasattr(cls, "__post_init__"):
-                if cls.__post_init__ != MaterialConstants.__post_init__:
+                if cls.__post_init__ != Constants.__post_init__:
                     raise AttributeError(
-                        f"Data classes inheriting form {MaterialConstants} must not"
+                        f"Data classes inheriting form {Constants} must not"
                         + " have __post_init__ defined, but inherit it."
                     )
             else:
-                object.__setattr__(
-                    cls, "__post_init__", MaterialConstants.__post_init__
-                )
+                object.__setattr__(cls, "__post_init__", Constants.__post_init__)
+            if hasattr(cls, "__setattr__"):
+                if cls.__setattr__ != Constants.__setattr__:
+                    raise AttributeError(
+                        f"Data classes inheriting form {Constants} must not"
+                        + " have __setattr__ defined, but inherit it."
+                    )
+            else:
+                object.__setattr__(cls, "__setattr__", Constants.__setattr__)
 
-    def to_units(self: _MaterialConstants, units: pp.Units) -> _MaterialConstants:
-        """Utility to quickly convert material constants to new units.
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Custom attribute setter imitating dataclasses with frozen attributes, but
+        only disallowing the setting of attributes which correspond to a field defined
+        as part of the material constant framework.
+
+        Parameters:
+            name: The name of an attribute.
+            value: The new value to be set.
+
+        Raises:
+            FrozenInstanceError: If the user attempts to set any of the following
+                attributes:
+
+                - :attr:`name`
+                - :attr:`units`
+                - :attr:`constants_in_SI`
+                - and any field of material parameters indirectly defined in
+                  :attr:`SI_units`
+
+        """
+
+        frozen = ["name", "units", "constants_in_SI", "_initialized"] + list(
+            type(self).SI_units.keys()
+        )
+        if name in frozen and self._initialized:
+            raise FrozenInstanceError(
+                f"Cannot asign to field {name}. Names, units and material parameters"
+                + " are frozen once set."
+            )
+        else:
+            super().__setattr__(name, value)
+
+    def to_units(self: _Constants, units: pp.Units) -> _Constants:
+        """Utility to quickly convert constants to new units.
 
         Parameters:
             units: A new unit system. Note that ``units`` must cover all SI units
-                declared in :attr:`SI_units` of the material constants (child) class.
+                declared in :attr:`SI_units` of the constants (child) class.
 
         Returns:
             A new instance of of the data class using this method, with parameters
             converted according to ``units``.
 
         """
-        kwargs = dict(self.constants_in_SI)
-        kwargs["name"] = self.name
-        kwargs["units"] = units
-        return type(self)(**kwargs)
+        return type(self)(name=self.name, units=units, **self.constants_in_SI)
 
 
-_MaterialConstants = TypeVar("_MaterialConstants", bound=MaterialConstants)
+_Constants = TypeVar("_Constants", bound=Constants)
+"""Type variable for Constants-like objects. Mainly used to type the units conversion
+of :class:`Constants` correctly."""
 
 
-@dataclass(frozen=True, kw_only=True)
-class FluidConstants(MaterialConstants):
-    """Material data class for fluid species.
+@dataclass(kw_only=True, eq=False)
+class FluidComponent(Constants, Component):
+    """Material data class for fluid components.
 
-    It declares fluid species parameters, which are expected of a fluid by the remaining
+    It declares parameters relevant for fluid-like components, which are expected of a
+    fluid by the remaining
     framework, especially flow and transport equations.
 
-    This class is intended for 1 fluid species only. Fluid mixtures with multiple
+    This class is intended for 1 fluid component only. Fluid mixtures with multiple
     components require multiple sets of constants to define individual fluid components.
+
+    THis class is used as the default representation of fluid components inside a
+    mixture.
 
     """
 
-    SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict(
+    SI_units: ClassVar[dict[str, str]] = dict(
         {
             "density": "kg * m^-3",
             "molar_mass": "kg * mol^-1",
@@ -245,10 +300,6 @@ class FluidConstants(MaterialConstants):
         }
     )
 
-    # NOTE due to legacy code (Only 1-phase 1-component fluid), the fluid constants have a
-    # pressure and temperature property, which is not a material property. This will likely be
-    # refactored in the future, but is left here for now. See GH issue 1244 and respective
-    # comments.
     acentric_factor: number = 0.0
 
     compressibility: number = 0.0
@@ -274,8 +325,8 @@ class FluidConstants(MaterialConstants):
     viscosity: number = 1.0
 
 
-@dataclass(frozen=True, kw_only=True)
-class SolidConstants(MaterialConstants):
+@dataclass(kw_only=True)
+class SolidConstants(Constants):
     """Material data class for solid species present in the porous medium.
 
     It declares solid species parameters, which are expected of a solid by the remaining
@@ -286,7 +337,7 @@ class SolidConstants(MaterialConstants):
 
     """
 
-    SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict(
+    SI_units: ClassVar[dict[str, str]] = dict(
         {
             "density": "kg * m^-3",
             "biot_coefficient": "-",
@@ -386,8 +437,8 @@ class SolidConstants(MaterialConstants):
     well_radius: number = 0.1
 
 
-@dataclass(frozen=True, kw_only=True)
-class ReferenceVariableValues(MaterialConstants):
+@dataclass(kw_only=True)
+class ReferenceVariableValues(Constants):
     """A data class storing reference values for a model.
 
     Intended use is for defining for example reference pressure and temperature,
@@ -399,7 +450,7 @@ class ReferenceVariableValues(MaterialConstants):
 
     """
 
-    SI_units: ClassVar[_HashableDict[str, str]] = _HashableDict(
+    SI_units: ClassVar[dict[str, str]] = dict(
         {
             "pressure": "Pa",
             "temperature": "K",
@@ -411,7 +462,7 @@ class ReferenceVariableValues(MaterialConstants):
     temperature: number = 0.0
 
 
-def load_fluid_constants(names: list[str], package: str) -> list[FluidConstants]:
+def load_fluid_constants(names: list[str], package: str) -> list[FluidComponent]:
     """Creates a fluid species, if identifiable by ``name`` in ``package``.
 
     Utility function to extract parameters for a fluid, like critical values.
@@ -438,7 +489,7 @@ def load_fluid_constants(names: list[str], package: str) -> list[FluidConstants]
 
     """
 
-    species: list[FluidConstants] = []
+    species: list[FluidComponent] = []
 
     cas: str
 
@@ -471,7 +522,7 @@ def load_fluid_constants(names: list[str], package: str) -> list[FluidConstants]
         v_crit = float(vc_loader(cas)) / mm
 
         species.append(
-            FluidConstants(
+            FluidComponent(
                 name=name,
                 molar_mass=mm,
                 critical_pressure=float(pc_loader(cas)),

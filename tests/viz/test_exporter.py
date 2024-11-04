@@ -718,7 +718,7 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "folder_name": setup.folder,
             "material_constants": {
                 "solid": pp.SolidConstants(**nontrivial_solid),
-                "fluid": pp.FluidConstants(**nontrivial_fluid),
+                "fluid": pp.FluidComponent(**nontrivial_fluid),
             },
             "reference_variable_values": pp.ReferenceVariableValues(
                 **nontrivial_reference_values

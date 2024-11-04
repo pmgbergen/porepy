@@ -186,9 +186,9 @@ from porepy.models import constitutive_laws
 # composite subpackage
 from . import compositional
 from porepy.compositional.materials import (
-    FluidConstants,
+    FluidComponent,
     SolidConstants,
-    MaterialConstants,
+    Constants,
     ReferenceVariableValues,
 )
 from porepy.compositional.base import Component, Phase, Fluid

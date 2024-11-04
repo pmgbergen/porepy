@@ -197,9 +197,9 @@ def test_mixture_member_assignment(
     independent reference component/phase fractions."""
 
     # Creating dummy components. Physical properties have no relevance for this test
-    comp1 = composit.Compound.from_fluid_constants(pp.FluidConstants(name='H2O'))
-    comp1.active_tracers = [pp.FluidConstants(name='NaCl')]
-    comp2 = composit.Component.from_fluid_constants(pp.FluidConstants(name='CO2'))
+    comp1 = composit.Compound(name='H2O', molar_mass=1.)
+    comp1.active_tracers = [pp.FluidComponent(name='NaCl')]
+    comp2 = pp.FluidComponent(name='CO2')
     # dummy EoS for completeness
     eos = composit.EquationOfState([comp1, comp2])
     phases = [
@@ -439,9 +439,10 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
     In this case, the number of created variables follows certain rules."""
 
     # Creating dummy components and EoS. Physical properties have no relevance here
-    components: list[composit.Component] = [
-        composit.Component(name=s) for s in species
+    components: list[pp.FluidComponent] = [
+        pp.FluidComponent(name=s) for s in species
     ]
+    hash(components[0])
 
     eos = composit.EquationOfState(components)
     phases = [(eos, composit.PhysicalState.liquid, name) for name in phase_names]

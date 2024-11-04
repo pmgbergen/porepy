@@ -30,7 +30,7 @@ from porepy.models.protocol import PorePyModel
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
-from .base import Component, Compound, EquationOfState, Fluid, Phase
+from .base import Component, ComponentLike, Compound, EquationOfState, Fluid, Phase
 from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
@@ -238,7 +238,7 @@ class _MixtureDOFHandler(PorePyModel):
         return self.has_independent_fraction(phase)
 
     def has_independent_tracer_fraction(
-        self, tracer: pp.FluidConstants, compound: Compound
+        self, tracer: pp.FluidComponent, compound: Compound
     ) -> bool:
         """Checks if the :attr:`~porepy.compositional.base.Compound.tracer_fraction_of`
         a ``tracer`` in the ``compound`` is an independent variable.
@@ -401,7 +401,7 @@ class _MixtureDOFHandler(PorePyModel):
         return f"{symbols['phase_saturation']}_{phase.name}"
 
     def _tracer_fraction_variable(
-        self, tracer: pp.FluidConstants, compound: Compound
+        self, tracer: pp.FluidComponent, compound: Compound
     ) -> str:
         """Returns the name of the tracer fraction variable assigned to tracer in a
         compound."""
@@ -753,7 +753,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         return fraction
 
     def tracer_fraction(
-        self, tracer: pp.FluidConstants, compound: Compound
+        self, tracer: pp.FluidComponent, compound: Compound
     ) -> DomainFunctionType:
         """Getter method to create a callable representing the tracer fraction of an
         active tracer in a compound, on a list of subdomains or boundaries.
@@ -1058,7 +1058,7 @@ class FluidMixin(PorePyModel):
     methods via mixins.
 
     The base class also provides a default set-up in form of a 1-phase, 1-component
-    fluid, based on fluid constants found in ``params``.
+    fluid, based on fluid component found in ``params``.
     To modify the default set-up, provide overrides for
 
     - :meth:`get_components`
@@ -1087,11 +1087,12 @@ class FluidMixin(PorePyModel):
 
         """
 
-        components = self.get_components()
-        phase_configurations = self.get_phase_configuration(components)
+        # Need annotations which represent the default implementation using
+        # FluidComponent.
+        phases: list[Phase[pp.FluidComponent]] = []
+        components: list[pp.FluidComponent] = self.get_components()
 
-        phases: list[Phase] = []
-        for config in phase_configurations:
+        for config in self.get_phase_configuration(components):
             eos, type_, name = config
             phases.append(Phase(eos, type_, name))
 
@@ -1099,10 +1100,10 @@ class FluidMixin(PorePyModel):
 
         self.fluid = Fluid(components, phases)
 
-    def get_components(self) -> list[Component]:
+    def get_components(self) -> list[ComponentLike]:
         """Method to return a list of modelled components.
 
-        The default implementation takes the user-provided or default fluid constants
+        The default implementation takes the user-provided or default fluid component
         found in the model ``params`` and returns a single component.
 
         Override this method via mixin to provide a more complex component context for
@@ -1110,18 +1111,19 @@ class FluidMixin(PorePyModel):
 
         """
         # Should be available after SolutionStrategy.set_materials()
-        # Getting the user-passed or default fluid constants to create the default fluid
+        # Getting the user-passed or default fluid component to create the default fluid
         # component
-        fluid_constants: pp.FluidConstants = self.params["material_constants"]["fluid"]
-        assert isinstance(fluid_constants, pp.FluidConstants), (
+        fluid_constants = self.params["material_constants"]["fluid"]
+        # All materials are assumed to derive from Component.
+        assert isinstance(fluid_constants, Component), (
             "model.params['material_constants']['fluid'] must be of type "
-            + f"{pp.FluidConstants}"
+            + f"{Component}"
         )
-        default_component = Component.from_fluid_constants(fluid_constants)
-        return [default_component]
+        # Need to cast into ComponentLike, because of the assert statement above.
+        return [cast(ComponentLike, fluid_constants)]
 
     def get_phase_configuration(
-        self, components: Sequence[Component]
+        self, components: Sequence[ComponentLike]
     ) -> Sequence[tuple[EquationOfState, PhysicalState, str]]:
         """Method to return a configuration of modelled phases.
 

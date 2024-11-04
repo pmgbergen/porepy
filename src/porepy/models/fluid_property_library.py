@@ -1,7 +1,7 @@
 """"Module containing some constant heuristic fluid property implemenations.
 
 Most of the laws implemented here are meant for 1-phase, 1-component mixtures, using
-some fluid constants stored in the fluid's reference component.
+some fluid component stored in the fluid's reference component.
 
 Note:
     In order to override default implementations of fluid properties in
@@ -361,7 +361,7 @@ class FluidEnthalpyFromTemperature(PorePyModel):
 
         Returns:
             Operator representing the fluid specific heat capacity  [J/kg/K]. The value
-            is picked from the fluid constants of the reference component.
+            is picked from the constants of the reference component.
 
         """
         return Scalar(

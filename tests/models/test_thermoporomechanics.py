@@ -43,7 +43,7 @@ def create_fractured_setup(
     Parameters:
         solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants`
             and corresponding values.
-        fluid_vals: Dictionary with keys as those in :class:`pp.FluidConstants`
+        fluid_vals: Dictionary with keys as those in :class:`pp.FluidComponent`
             and corresponding values.
         params: Dictionary with keys as those in params of
             :class:`TailoredThermoporomechanics`.
@@ -60,7 +60,7 @@ def create_fractured_setup(
     fluid_vals["compressibility"] = 1
     fluid_vals["thermal_expansion"] = 1e-1
     solid = pp.SolidConstants(**solid_vals)
-    fluid = pp.FluidConstants(**fluid_vals)
+    fluid = pp.FluidComponent(**fluid_vals)
 
     default = {
         "times_to_export": [],  # Suppress output for tests
@@ -383,12 +383,12 @@ def test_unit_conversion(units):
 
     Parameters:
         units: Dictionary with keys as those in
-            :class:`~pp.compositional.materials.MaterialConstants`.
+            :class:`~pp.compositional.materials.Constants`.
 
     """
 
     solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
-    fluid = pp.FluidConstants(**pp.fluid_values.extended_water_values_for_testing)
+    fluid = pp.FluidComponent(**pp.fluid_values.extended_water_values_for_testing)
     reference_values = pp.ReferenceVariableValues(
         **pp.reference_values.extended_reference_values_for_testing
     )

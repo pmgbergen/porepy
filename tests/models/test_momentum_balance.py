@@ -121,7 +121,7 @@ def test_unit_conversion(units: dict, uy_north: float):
 
     Parameters:
         units: Dictionary with keys as those in
-            :class:`~pp.compositional.materials.MaterialConstants`.
+            :class:`~pp.compositional.materials.Constants`.
         uy_north: Value of y displacement on the north boundary.
 
     """

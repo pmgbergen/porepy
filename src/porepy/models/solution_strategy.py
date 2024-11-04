@@ -279,13 +279,13 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         Provides the :attr:`solid` material constants as an attribute to the model, as
         well as the :attr:`fluid` object by calling :attr:`create_fluid`.
 
-        By default, a 1-phase, 1-component fluid is created based on the fluid constants
+        By default, a 1-phase, 1-component fluid is created based on the fluid component
         provided in ``params['material_constants']``.
 
         """
         # User provided values, if any.
         constants = cast(
-            dict[str, pp.MaterialConstants], self.params.get("material_constants", {})
+            dict[str, pp.Constants], self.params.get("material_constants", {})
         )
         # If the user provided material constants, assert they are in dictionary form
         assert isinstance(
@@ -298,7 +298,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
             pp.SolidConstants, constants.get("solid", pp.SolidConstants(name="solid"))
         )
         fluid = cast(
-            pp.FluidConstants, constants.get("fluid", pp.FluidConstants(name="fluid"))
+            pp.FluidComponent, constants.get("fluid", pp.FluidComponent(name="fluid"))
         )
 
         # Sanity check that users did not pass anything unexpected.
@@ -306,9 +306,9 @@ class SolutionStrategy(abc.ABC, PorePyModel):
             "model.params['material_constants']['fluid'] must be of type "
             + f"{pp.SolidConstants}"
         )
-        assert isinstance(fluid, pp.FluidConstants), (
+        assert isinstance(fluid, pp.FluidComponent), (
             "model.params['material_constants']['fluid'] must be of type "
-            + f"{pp.FluidConstants}"
+            + f"{pp.FluidComponent}"
         )
 
         # Converting to units of simulation.
@@ -319,7 +319,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         # NOTE this will change with the generalization of the solid
         self.solid = solid
 
-        # Store the fluid constants to be accessible by the FluidMixin for creating the
+        # Store the fluid component to be accessible by the FluidMixin for creating the
         # default fluid object of the model
         if "material_constants" not in self.params:
             self.params["material_constants"] = {"fluid": fluid}

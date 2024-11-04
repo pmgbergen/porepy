@@ -171,7 +171,7 @@ def create_fractured_setup(
     solid_vals["biot_coefficient"] = 1.0
     fluid_vals["compressibility"] = 1
     solid = pp.SolidConstants(**solid_vals)
-    fluid = pp.FluidConstants(**fluid_vals)
+    fluid = pp.FluidComponent(**fluid_vals)
     reference_values = pp.ReferenceVariableValues(**reference_vals)
 
     model_params = {
@@ -325,7 +325,7 @@ def test_poromechanics_model_no_modification():
 
 @pytest.mark.parametrize("biot_coefficient", [0.0, 0.5])
 def test_without_fracture(biot_coefficient):
-    fluid = pp.FluidConstants(compressibility=0.5)
+    fluid = pp.FluidComponent(compressibility=0.5)
     solid = pp.SolidConstants(biot_coefficient=biot_coefficient)
     params = {
         "fracture_indices": [],
@@ -473,14 +473,14 @@ def test_unit_conversion(units):
 
     Parameters:
         units (dict): Dictionary with keys as those in
-            :class:`~pp.compositional.materials.MaterialConstants`.
+            :class:`~pp.compositional.materials.Constants`.
 
     """
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
     ref_vals = pp.reference_values.extended_reference_values_for_testing
     solid = pp.SolidConstants(**solid_vals)
-    fluid = pp.FluidConstants(**fluid_vals)
+    fluid = pp.FluidComponent(**fluid_vals)
     reference_values = pp.ReferenceVariableValues(**ref_vals)
     model_params = {
         "times_to_export": [],  # Suppress output for tests
