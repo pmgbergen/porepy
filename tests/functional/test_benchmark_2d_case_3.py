@@ -66,19 +66,19 @@ def model(
         A solved instance of the model.
 
     """
-    params = {
+    model_params = {
         "material_constants": {"solid": solid_constants},
         "grid_type": "simplex",
         "meshing_arguments": {"cell_size": 0.1},
         "flux_discretization": flux_discretization,
     }
     if case == "a":
-        model = Model3aWithEffectivePermeability(params)
+        model = Model3aWithEffectivePermeability(model_params)
     elif case == "b":
-        model = Model3bWithEffectivePermeability(params)
+        model = Model3bWithEffectivePermeability(model_params)
     else:
         ValueError("Parameter combination not admissible.")
-    pp.run_time_dependent_model(model, {})
+    pp.run_time_dependent_model(model)
     return model
 
 

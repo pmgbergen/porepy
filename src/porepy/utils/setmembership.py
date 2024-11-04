@@ -15,8 +15,7 @@ def unique_rows(data: np.ndarray[Any, np.dtype[np.float64]]) -> Tuple[
     np.ndarray[Any, np.dtype[np.int64]],
     np.ndarray[Any, np.dtype[np.int64]],
 ]:
-    """
-    Function similar to Matlab's unique(...,'rows')
+    r"""Function similar to Matlab's unique(...,'rows')
 
     See also function unique_columns in this module; this is likely slower, but
     is understandable, documented, and has a tolerance option.
@@ -26,14 +25,30 @@ def unique_rows(data: np.ndarray[Any, np.dtype[np.float64]]) -> Tuple[
     (summary pretty far down on the page)
     Note: I have no idea what happens here
 
+    Parameters:
+        data ``shape=(n, m)``.
+
+            Array to be uniquified along its first array.
+
+    Returns:
+        Uniquified array.
+
+        np.ndarray: ``shape=(n, r), r \leq m``. Unique rows.
+
+        np.ndarray: ``shape=(r)`` Indexes that map from the unique to the original
+            array.
+
+        np.ndarray: ``shape=(m)`` Indexes that map from the original to the unique
+            array.
+
     """
     b = np.ascontiguousarray(data).view(
         np.dtype((np.void, data.dtype.itemsize * data.shape[1]))
     )
     _, ia = np.unique(b, return_index=True)
     _, ic = np.unique(b, return_inverse=True)
-    #    return np.unique(b).view(data.dtype).reshape(-1, data.shape[1]), ia, ic
-    return data[ia], ia, ic
+    # Ravel index data to get 1d output
+    return data[ia], ia.ravel(), ic.ravel()
 
 
 def ismember_rows(
@@ -94,6 +109,7 @@ def ismember_rows(
     # the indices which maps the unique array back to the original c
     if a.ndim > 1:
         _, ind = np.unique(c, axis=1, return_inverse=True)
+        ind = ind.ravel()
     else:
         _, ind = np.unique(c, return_inverse=True)
 
@@ -175,7 +191,8 @@ def unique_columns_tol(
         un_ar, new_2_old, old_2_new = np.unique(
             mat, return_index=True, return_inverse=True, axis=1
         )
-        return un_ar, new_2_old, old_2_new
+        # Ravel index arrays to get 1d output
+        return un_ar, new_2_old.ravel(), old_2_new.ravel()
 
     @numba.jit("Tuple((b1[:],i8[:],i8[:]))(f8[:, :],f8)", nopython=True, cache=True)
     def _numba_distance(mat, tol):
@@ -194,7 +211,7 @@ def unique_columns_tol(
 
         """
         num_cols = mat.shape[0]
-        keep = np.zeros(num_cols, dtype=numba.types.bool_)
+        keep = np.zeros(num_cols, dtype=np.bool_)
         keep[0] = True
         keep_counter = 1
 
@@ -227,7 +244,6 @@ def unique_columns_tol(
     # practice failed.
 
     keep, new_2_old, old_2_new = _numba_distance(mat_t, tol)
-
     return mat[:, keep], new_2_old, old_2_new
 
 

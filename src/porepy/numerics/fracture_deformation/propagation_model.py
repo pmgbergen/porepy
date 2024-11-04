@@ -170,7 +170,7 @@ class FracturePropagation(abc.ABC):
             # Only cell-based dofs have been considered so far.
             # It should not be difficult to handle other types of variables,
             # but the need has not been there.
-            dofs = self.equation_system._variable_dof_type[var]
+            dofs = self.equation_system._variable_dof_type[var.id]
             face_dof: int = dofs.get("faces", 0)
             node_dof: int = dofs.get("nodes", 0)
             if face_dof != 0 or node_dof != 0:
@@ -239,7 +239,7 @@ class FracturePropagation(abc.ABC):
             # grid, second populate newly formed cells.
 
             # Mapping of old variables.
-            dofs = self.equation_system._variable_dof_type[var]
+            dofs = self.equation_system._variable_dof_type[var.id]
             cell_dof = dofs["cells"]
             mapping = sps.kron(cell_map, sps.eye(cell_dof))
             x_new[self.equation_system.dofs_of([var])] = (

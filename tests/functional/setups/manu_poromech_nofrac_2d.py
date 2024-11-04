@@ -122,7 +122,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
     """
 
-    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
@@ -642,8 +642,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_flow",
             domains=self.mdg.subdomains(),
-            previous_timestep=True,
-        )
+        ).previous_timestep()
 
         # Add up contribution of internal and external sources of fluid
         fluid_sources = internal_sources + external_sources
@@ -680,8 +679,7 @@ class ManuPoroMechMomentumBalance(momentum.MomentumBalanceEquations):
         external_sources = pp.ad.TimeDependentDenseArray(
             name="source_mechanics",
             domains=self.mdg.subdomains(),
-            previous_timestep=True,
-        )
+        ).previous_timestep()
 
         return external_sources
 

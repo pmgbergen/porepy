@@ -8,9 +8,10 @@ porosity and stress. The former aquires a pressure dependency and an additional
 :math:`\alpha`\nabla\cdot\mathbf{u} term, while the latter is modified to include a
 isotropic pressure term :math:`\alpha p \mathbf{I}`.
 
-Suggested references (TODO: add more, e.g. Inga's in prep):
+Suggested references:
     - Coussy, 2004, https://doi.org/10.1002/0470092718.
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
+    - Stefansson et al, 2024 https://doi.org/10.1016/j.rinam.2023.100428.
 
 """
 
@@ -42,10 +43,12 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.ElasticTangentialFractureDeformation,
     pp.constitutive_laws.LinearElasticMechanicalStress,
     pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.FractureGap,
-    pp.constitutive_laws.FrictionBound,
+    pp.constitutive_laws.CoulombFrictionBound,
+    pp.constitutive_laws.DisplacementJump,
 ):
     """Class for the coupling of mass and momentum balance to obtain poromechanics
     equations.
@@ -137,8 +140,6 @@ class SolutionStrategyPoromechanics(
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
     """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid."""
 
     biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that defines the Biot tensor. Normally provided by a mixin instance of

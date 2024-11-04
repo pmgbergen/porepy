@@ -25,6 +25,7 @@ import json
 import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -77,7 +78,7 @@ def create_restart_model(
         ({"porosity": 0.5}, 0.1),
     ],
 )
-def test_restart(solid_vals, north_displacement):
+def test_restart(solid_vals: dict, north_displacement: float):
     """Restart version of .test_poromechanics.test_2d_single_fracture.
 
     Provided the exported data from a previous time step, restart the simulaton,
@@ -88,18 +89,16 @@ def test_restart(solid_vals, north_displacement):
     practical situation.
 
     Parameters:
-        solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
-            and corresponding values.
-        north_displacement (float): Value of displacement on the north boundary.
-        expected_x_y (tuple): Expected values of the displacement in the x and y.
-            directions. The values are used to infer sign of displacement solution.
+        solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants` and
+            corresponding values.
+        north_displacement: Value of displacement on the north boundary.
 
     """
     # Setup and run model for full time interval. With this generate reference files
     # for comparison with a restarted simulation. At the same time, this generates the
     # restart files.
     setup = create_restart_model(solid_vals, {}, north_displacement, restart=False)
-    pp.run_time_dependent_model(setup, {})
+    pp.run_time_dependent_model(setup)
 
     # The run generates data for initial and the first two time steps. In order to use
     # the data as restart and reference data, move it to a reference folder.
@@ -112,12 +111,12 @@ def test_restart(solid_vals, north_displacement):
 
     # Now use the reference data to restart the simulation. Note, the restart
     # capabilities of the models automatically use the last available time step for
-    # restart, here the restart files contain information on the initial and first
-    # time step. Thus, the simulation is restarted from the first time step.
-    # Recompute the second time step which will serve as foundation for the comparison
-    # to the above computed reference files.
+    # restart, here the restart files contain information on the initial and first time
+    # step. Thus, the simulation is restarted from the first time step. Recompute the
+    # second time step which will serve as foundation for the comparison to the above
+    # computed reference files.
     setup = create_restart_model(solid_vals, {}, north_displacement, restart=True)
-    pp.run_time_dependent_model(setup, {})
+    pp.run_time_dependent_model(setup)
 
     # To verify the restart capabilities, perform five tests.
 
@@ -169,10 +168,10 @@ def test_restart(solid_vals, north_displacement):
     restarted_times_json.close()
     reference_times_json.close()
 
-    # Remove temporary visualization folder
+    # Remove temporary visualization folder.
     shutil.rmtree(visualization_dir)
 
-    # Clean up the reference data
+    # Clean up the reference data.
     for f in pvd_files + vtu_files + json_files:
         src = reference_dir / Path(f.stem + f.suffix)
         src.unlink()
@@ -199,7 +198,7 @@ class RediscretizationTest:
 
     def check_convergence(self, *args, **kwargs):
         if self.nonlinear_solver_statistics.num_iteration > 1:
-            return 0.0, 0.0, True, False
+            return True, False
         else:
             # Call to super is okay here, since the full model used in the tests is
             # known to have a method of this name.
@@ -259,25 +258,26 @@ model_classes = [
 @pytest.mark.parametrize("model_class", model_classes)
 def test_targeted_rediscretization(model_class):
     """Test that targeted rediscretization yields same results as full discretization."""
-    params_full = {
-        "full_rediscretization": True,
+    model_params = {
         "fracture_indices": [0, 1],
+        "full_rediscretization": True,
         "cartesian": True,
         # Make flow problem non-linear:
         "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})},
     }
+    # {"fracture_indices": [0, 1]}
     # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = models._add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.
-    model_full = rediscretization_model_class(params_full)
-    pp.run_time_dependent_model(model_full, params_full)
+    model_full = rediscretization_model_class(model_params)
+    pp.run_time_dependent_model(model_full)
 
     # A model object with targeted rediscretization.
-    params_targeted = params_full.copy()
-    params_targeted["full_rediscretization"] = False
+    model_params_targeted = model_params.copy()
+    model_params_targeted["full_rediscretization"] = False
     # Set up the model.
-    model_targeted = rediscretization_model_class(params_targeted)
-    pp.run_time_dependent_model(model_targeted, params_targeted)
+    model_targeted = rediscretization_model_class(model_params_targeted)
+    pp.run_time_dependent_model(model_targeted)
 
     # Check that the linear systems are the same.
     assert len(model_full.stored_linear_system) == 2
@@ -287,7 +287,7 @@ def test_targeted_rediscretization(model_class):
         A_targeted, b_targeted = model_targeted.stored_linear_system[i]
 
         # Convert to dense array to ensure the matrices are identical.
-        assert np.allclose(A_full.A, A_targeted.A)
+        assert np.allclose(A_full.toarray(), A_targeted.toarray())
         assert np.allclose(b_full, b_targeted)
 
     # Check that the discretization matrix changes between iterations. Without this
@@ -336,8 +336,8 @@ def test_parse_equations(
     """Test that equation parsing works as expected.
 
     Currently tested are the relevant equations in the mass balance and momentum balance
-    models. To add a new model, add a new class in setup_utils.py and expand the
-    test parameterization accordingly.
+    models. To add a new model, add a new class in setup_utils.py and expand the test
+    parameterization accordingly.
 
     Parameters:
         model_type: Type of model to test. Currently supported are "mass_balance" and
@@ -385,3 +385,51 @@ def test_parse_equations(
     # terms and factors (e.g., grids, parameters, variables, other methods etc.) to form
     # an Ad operator object.
     setup.equation_system.assemble({equation_name: domains})
+
+
+class CheckConvergenceTest(pp.SolutionStrategy):
+    """Class to ."""
+
+    def __init__(self, params: dict):
+        super().__init__(params)
+        self.nonlinear_solver_statistics = pp.SolverStatistics()
+
+
+@pytest.fixture
+def solution_strategy_with_statistics() -> CheckConvergenceTest:
+    return CheckConvergenceTest({})
+
+
+@pytest.mark.parametrize(
+    "nonlinear_increment,residual,expected",
+    [
+        # Case 1: Both increment and residual are below tolerance.
+        (np.array([1e-6, 1e-6]), np.array([1e-6]), (True, False)),
+        # Case 2: Increment is above tolerance.
+        (np.array([1e-6, 1]), np.array([1e-6]), (False, False)),
+        # Case 3: Residual is above tolerance.
+        (np.array([1e-6, 1e-6]), np.array([1]), (False, False)),
+        # Case 4: Increment is nan.
+        (np.array([np.nan, 0.1]), np.array([1e-6]), (False, True)),
+    ],
+)
+def test_check_convergence(
+    nonlinear_increment: np.ndarray,
+    residual: np.ndarray,
+    expected: tuple[bool, bool],
+    solution_strategy_with_statistics: CheckConvergenceTest,
+):
+    """Test that ``SolutionStrategy.check_convergence`` returns the right
+    diverged/converged values.
+
+    """
+    # ``reference_residual`` is not used by ``check_convergence``. We pass a zero
+    # arrray.
+    nl_params: dict[str, Any] = {
+        "nl_convergence_tol": 1e-5,
+        "nl_convergence_tol_res": 1e-5,
+    }
+    converged, diverged = solution_strategy_with_statistics.check_convergence(
+        nonlinear_increment, residual, np.zeros(1), nl_params
+    )
+    assert (converged, diverged) == expected

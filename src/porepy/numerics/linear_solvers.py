@@ -53,7 +53,7 @@ class LinearSolver:
         residual = setup.equation_system.assemble(evaluate_jacobian=False)
         nonlinear_increment = setup.solve_linear_system()
 
-        _, _, is_converged, _ = setup.check_convergence(
+        is_converged, _ = setup.check_convergence(
             nonlinear_increment, residual, residual.copy(), self.params
         )
 
