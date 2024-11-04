@@ -29,7 +29,7 @@ jobs:
     # https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#specifying-a-python-version
     strategy:
       matrix:
-        python-version:  ["3.10", "3.11", "3.12"]
+        python-version:  ["3.11", "3.12"]
       # Complete all versions in matrix even if one fails.
       fail-fast: false
 
