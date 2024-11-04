@@ -62,7 +62,7 @@ def model_setup():
 
     # Material constants
     solid = pp.SolidConstants(**models.granite_values)
-    fluid = pp.FluidConstants(**models.water_values)
+    fluid = pp.FluidComponent(**models.water_values)
 
     # Declare model parameters
     params = {
@@ -419,7 +419,7 @@ def test_unit_conversion(units):
 
     Parameters:
         units (dict): Dictionary with keys as those in
-            :class:`~pp.compositional.materials.MaterialConstants`.
+            :class:`~pp.compositional.materials.Constants`.
 
     """
 
@@ -437,7 +437,7 @@ def test_unit_conversion(units):
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
     ref_vals = pp.reference_values.extended_reference_values_for_testing
     solid = pp.SolidConstants(**solid_vals)
-    fluid = pp.FluidConstants(**fluid_vals)
+    fluid = pp.FluidComponent(**fluid_vals)
     reference_values = pp.ReferenceVariableValues(**ref_vals)
     params = {
         "times_to_export": [],  # Suppress output for tests

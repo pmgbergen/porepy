@@ -54,7 +54,7 @@ def test_biot_equal_to_incompressible_poromechanics():
     model_params_poromech = {
         "material_constants": {
             "solid": pp.SolidConstants(**terzaghi_solid_constants),
-            "fluid": pp.FluidConstants(**terzaghi_fluid_constants),
+            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         },
         "num_cells": 10,
     }
@@ -67,7 +67,7 @@ def test_biot_equal_to_incompressible_poromechanics():
     model_params_biot = {
         "material_constants": {
             "solid": pp.SolidConstants(**terzaghi_solid_constants),
-            "fluid": pp.FluidConstants(**terzaghi_fluid_constants),
+            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         },
         "num_cells": 10,
     }
@@ -111,7 +111,7 @@ def test_pressure_and_consolidation_degree_errors():
     model_params = {
         "material_constants": {
             "solid": pp.SolidConstants(**terzaghi_solid_constants),
-            "fluid": pp.FluidConstants(**terzaghi_fluid_constants),
+            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         },
         "time_manager": pp.TimeManager([0, 0.15, 0.3], 0.15, True),
         "num_cells": 10,
@@ -142,7 +142,7 @@ def test_scaled_vs_unscaled_systems():
 
     # The unscaled problem
     material_constants_unscaled = {
-        "fluid": pp.FluidConstants(**terzaghi_fluid_constants),
+        "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         "solid": pp.SolidConstants(**terzaghi_solid_constants),
     }
     model_params_unscaled = {"material_constants": material_constants_unscaled}
@@ -151,7 +151,7 @@ def test_scaled_vs_unscaled_systems():
 
     # The scaled problem
     material_constants_scaled = {
-        "fluid": pp.FluidConstants(**terzaghi_fluid_constants),
+        "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         "solid": pp.SolidConstants(**terzaghi_solid_constants),
     }
     scaling = {"m": 0.001, "kg": 0.001}  # length in millimeters and mass in grams

@@ -563,7 +563,7 @@ else:
         """This protocol provides declarations of methods defined in the
         :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
 
-        fluid: pp.Fluid
+        fluid: pp.Fluid[pp.FluidComponent, pp.Phase[pp.FluidComponent]]
         """Fluid object.
 
         See also :meth:`create_fluid`.

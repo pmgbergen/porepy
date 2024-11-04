@@ -65,7 +65,7 @@ def material_constants() -> dict:
 
     """
     solid_constants = pp.SolidConstants(**manu_comp_solid)
-    fluid_constants = pp.FluidConstants(**manu_comp_fluid)
+    fluid_constants = pp.FluidComponent(**manu_comp_fluid)
     return {"solid": solid_constants, "fluid": fluid_constants}
 
 

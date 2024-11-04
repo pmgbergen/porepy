@@ -65,7 +65,7 @@ def material_constants() -> dict:
         constant classes.
 
     """
-    fluid_constants = pp.FluidConstants(compressibility=0.02)
+    fluid_constants = pp.FluidComponent(compressibility=0.02)
     solid_constants = pp.SolidConstants(biot_coefficient=0.5)
     return {"solid": solid_constants, "fluid": fluid_constants}
 

@@ -129,7 +129,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
     For the latter, we check that a near linear temperature profile is obtained.
 
     Parameters:
-        fluid_vals (dict): Dictionary with keys as those in :class:`pp.FluidConstants`
+        fluid_vals (dict): Dictionary with keys as those in :class:`pp.FluidComponent`
             and corresponding values.
         solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
             and corresponding values.
@@ -138,7 +138,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
     # Always use zero compressibility
     fluid_vals["compressibility"] = 0
     # Instantiate constants and store in params.
-    fluid = pp.FluidConstants(**fluid_vals)
+    fluid = pp.FluidComponent(**fluid_vals)
     solid = pp.SolidConstants(**solid_vals)
     model_params = {
         "times_to_export": [],  # Suppress output for tests
@@ -198,7 +198,7 @@ def test_unit_conversion(units):
 
     Parameters:
         units (dict): Dictionary with keys as those in
-            :class:`~pp.compositional.materials.MaterialConstants`.
+            :class:`~pp.compositional.materials.Constants`.
 
     """
 
@@ -223,7 +223,7 @@ def test_unit_conversion(units):
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
     ref_vals = pp.reference_values.extended_reference_values_for_testing
     solid = pp.SolidConstants(**solid_vals)
-    fluid = pp.FluidConstants(**fluid_vals)
+    fluid = pp.FluidComponent(**fluid_vals)
     reference_values = pp.ReferenceVariableValues(**ref_vals)
 
     # Non-unitary time step needed for convergence
@@ -296,7 +296,7 @@ def test_energy_conservation():
                 permeability=1e4,  # Reduce pressure effect
                 normal_permeability=1e4,
             ),
-            "fluid": pp.FluidConstants(
+            "fluid": pp.FluidComponent(
                 specific_heat_capacity=1e0,
                 thermal_conductivity=1e-6,
                 normal_thermal_conductivity=1e-6,

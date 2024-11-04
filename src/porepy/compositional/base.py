@@ -48,8 +48,7 @@ Important:
 
 from __future__ import annotations
 
-from dataclasses import fields
-from typing import Generator, Sequence, Type, TypeVar
+from typing import Generator, Generic, Sequence, TypeVar
 
 import numpy as np
 
@@ -57,7 +56,6 @@ import porepy as pp
 from porepy.numerics.ad.functions import FloatType
 
 from ._core import PhysicalState
-from .materials import FluidConstants
 from .states import PhaseProperties
 from .utils import CompositionalModellingError, safe_sum
 
@@ -74,34 +72,34 @@ DomainFunctionType = pp.DomainFunctionType
 ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
-class Component(FluidConstants):
+class Component:
     """Base class for components modelled inside a mixture.
 
-    Components are chemical species inside a mixture, which can go through phase
-    transitions and appear in multiple :class:`Phase`. A component is identified by the
-    (time-dependent) :meth:`fraction` of total mass belonging to the component.
+    Components inside a mixture are characterized by various scalar fields representing
+    fractions, and can go through phase transitions and appear in multiple
+    :class:`Phase`. A component is identified by the (time-dependent) :meth:`fraction`
+    of total mass belonging to the component.
 
     The fractions are assigned by the AD interface
     :class:`~porepy.compositional.compositional_mixins.FluidMixin`, once the component
     is added to a mixture context.
 
     Note:
-        Rather than instantiating a component directly, it is easier to use the class
-        factory based on loaded species data (see :meth:`from_species`).
+        The component is a rather general class with no support for heuristic or
+        thermodynamics. Consider using
+        :class:`~porepy.compositional.materials.FluidComponent`.
 
     Parameters:
-        **kwargs: See parent (data-) class and its attributes.
+        *args: Left for reasons of inheritance.
+        **kwargs: Same as above.
 
     """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
 
-        # Filter away kwargs that will not be recognized by base data class.
-        constant_fields = tuple(
-            field.name for field in fields(pp.FluidConstants) if field.kw_only
-        )
-        chem_species_kwargs = {k: v for k, v in kwargs.items() if k in constant_fields}
-        super().__init__(**chem_species_kwargs)
+        self.name: str = str(kwargs.get("name", "unnamed_component"))
+        """Name of the component. Can be named by providing a keyword argument 'name'
+        when instantiating."""
 
         # Creating the overall molar fraction variable.
         self.fraction: DomainFunctionType
@@ -119,32 +117,13 @@ class Component(FluidConstants):
 
         """
 
-    @classmethod
-    def from_fluid_constants(
-        cls: Type[_ComponentLike], fluid_constants: pp.FluidConstants
-    ) -> _ComponentLike:
-        """Factory method for creating an instance of this class based on some material
-        data.
 
-        Parameters:
-            fluid_constants: Fluid species data with constant parameters characterizing
-                the component.
-
-        Returns:
-            A component instance to be used in PorePy.
-
-        """
-        # Start from SI units to avoid double-scaling using the given units.
-        constants = dict(fluid_constants.constants_in_SI)
-        constants["name"] = fluid_constants.name
-        constants["units"] = fluid_constants.units
-        return cls(**constants)
+ComponentLike = TypeVar("ComponentLike", bound=Component, covariant=True)
+"""Type variable for component-like objects inheriting from the base :class:`Component`.
+"""
 
 
-_ComponentLike = TypeVar("_ComponentLike", bound=Component)
-
-
-class Compound(Component):
+class Compound(Component, Generic[ComponentLike]):
     """A compound is a simplified, but meaningfully generalized, set of chemical species
     inside a mixture, for which it makes sense to treat it as a single component.
 
@@ -177,15 +156,28 @@ class Compound(Component):
         2. The black-oil model, where black-oil is treated as a compound with various
            hydrocarbons as active tracers.
 
+    The class provides some generic typing options to narrow down what type of tracers
+    the compound contains, e.g. ``compound: Compound[FluidComponent] = Compound(...)
+
     """
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, *args, **kwargs) -> None:
 
-        self._active_tracers: list[pp.FluidConstants] = []
+        self.molar_mass: pp.number
+        if "molar_mass" not in kwargs:
+            raise ValueError(
+                "Compound creation requires giving the 'molar_mass' of the solvent as"
+                " a keyword argument."
+            )
+        else:
+            self.molar_mass = float(kwargs["molar_mass"])
+
+        super().__init__(*args, **kwargs)
+
+        self._active_tracers: list[ComponentLike] = []
         """A list containing present tracers as species."""
 
-        self.tracer_fraction_of: dict[pp.FluidConstants, DomainFunctionType] = {}
+        self.tracer_fraction_of: dict[ComponentLike, DomainFunctionType] = {}
         """A dictionary containing per present tracer (key) the tracer
         fraction of it with respect to the compound's overall fraction.
 
@@ -199,13 +191,13 @@ class Compound(Component):
 
         """
 
-    def __iter__(self) -> Generator[pp.FluidConstants, None, None]:
+    def __iter__(self) -> Generator[ComponentLike, None, None]:
         """Iterator overload to iterate over present tracers."""
         for tracer in self._active_tracers:
             yield tracer
 
     @property
-    def active_tracers(self) -> list[pp.FluidConstants]:
+    def active_tracers(self) -> list[ComponentLike]:
         """
         Important:
             Pseudo-components must be set before the compound is added to a mixture.
@@ -224,12 +216,13 @@ class Compound(Component):
         return [s for s in self._active_tracers]
 
     @active_tracers.setter
-    def active_tracers(self, tracers: list[pp.FluidConstants]) -> None:
+    def active_tracers(self, tracers: list[ComponentLike]) -> None:
         # avoid double species
         double_names = []
         self._active_tracers = []
         for s in tracers:
             double_names.append(s.name)
+
             self._active_tracers.append(s)
         if len(set(double_names)) < len(tracers):
             raise ValueError("Names must be unique per species.")
@@ -260,7 +253,16 @@ class Compound(Component):
         # molar units.
 
         for pc, x in zip(self._active_tracers, X):
-            M += pp.ad.Scalar(pc.molar_mass) * x
+            # NOTE this is ugly due to generic typing of this class using a base
+            # component (which has no such fields). Consider switching to protocol or
+            # fluid component.
+            if not hasattr(pc, "molar_mass"):
+                raise TypeError(
+                    f"Cannot assemble compound molar mass: Active tracer of type"
+                    + f" {type(pc)} has no attribute `molar_mass`."
+                )
+            else:
+                M += pp.ad.Scalar(pc.molar_mass) * x  # type:ignore[attr-defined]
         M.set_name(f"compound_molar_mass_{self.name}")
         return M
 
@@ -360,7 +362,7 @@ class EquationOfState:
 
     """
 
-    def __init__(self, components: Sequence[Component]) -> None:
+    def __init__(self, components: Sequence[ComponentLike]) -> None:
         self._nc: int = len(components)
         """Number of components passed at instantiation."""
 
@@ -400,7 +402,7 @@ class EquationOfState:
         raise NotImplementedError("Call to generic base class method.")
 
 
-class Phase:
+class Phase(Generic[ComponentLike]):
     """Base class for phases in a fluid mixture.
 
     The term 'phase' as used here refers to physical states of matter.
@@ -456,6 +458,9 @@ class Phase:
         the extended fractions are meaningless and the partialf ractions are independent
         variables instead.
 
+    The class supports some generic typing to narrow down the type of components
+    contained within the class, e.g. ``phase: Phase[FluidComponent] = Phase(...)``.
+
     Parameters:
         eos: An EoS which provides means to compute physical properties of the phase.
             Can be different for different phases.
@@ -477,7 +482,7 @@ class Phase:
 
         ### PUBLIC
 
-        self.components: Sequence[Component]
+        self.components: Sequence[ComponentLike]
         """A sequence of all components modelled in this phase.
 
         To be set by the user, or by some instance of
@@ -535,7 +540,7 @@ class Phase:
 
         """
 
-        self.fugacity_coefficient_of: dict[Component, ExtendedDomainFunctionType]
+        self.fugacity_coefficient_of: dict[ComponentLike, ExtendedDomainFunctionType]
         """Fugacitiy coefficients per component in this phase.
 
         Dimensionless, scalar field.
@@ -574,7 +579,7 @@ class Phase:
 
         """
 
-        self.extended_fraction_of: dict[Component, DomainFunctionType]
+        self.extended_fraction_of: dict[ComponentLike, DomainFunctionType]
         """Extended molar fractions per component in a phase, used in the unified
         phase equilibrium formulation (see :attr:`partial_fraction_of`).
 
@@ -586,7 +591,7 @@ class Phase:
 
         """
 
-        self.partial_fraction_of: dict[Component, DomainFunctionType]
+        self.partial_fraction_of: dict[ComponentLike, DomainFunctionType]
         """Partial (physical) fraction of a component, relative to the phase fraction.
 
         Dimensionless, scalar field bound to the interval ``[0, 1]``.
@@ -603,7 +608,7 @@ class Phase:
 
         """
 
-    def __iter__(self) -> Generator[Component, None, None]:
+    def __iter__(self) -> Generator[ComponentLike, None, None]:
         """Iterator over components present in this phase.
 
         Notes:
@@ -658,7 +663,7 @@ class Phase:
         self._ref_component_index = int(index)
 
     @property
-    def reference_component(self) -> Component:
+    def reference_component(self) -> ComponentLike:
         """The component in :attr:`components` corresponding to the
         :meth:`reference_component_index`."""
         return self.components[self.reference_component_index]
@@ -670,7 +675,11 @@ class Phase:
         return self.eos.compute_phase_properties(self.state, *thermodynamic_input)
 
 
-class Fluid:
+PhaseLike = TypeVar("PhaseLike", bound=Phase, covariant=True)
+"""Type variable for phase-like objects inheriting from the base :class:`Phase`."""
+
+
+class Fluid(Generic[ComponentLike, PhaseLike]):
     """General fluid class managing modelled components and phases.
 
     The fluid (mixture) serves as a container for components and phases and contains the
@@ -695,6 +704,10 @@ class Fluid:
         - The single gas-like phase is always the last one.
         - The first component is set as reference component per default.
 
+    The class provides some generic typing options to narrow down what kind of
+    components the fluid contains, e.g.
+    ``fluid: Fluid[FluidComponent, Phase[FluidComponent]] = Fluid(...)``.
+
     Parameters:
         components: A list of components to be added to the mixture. These are the
             chemical species which can appear in multiple phases.
@@ -716,24 +729,24 @@ class Fluid:
 
     def __init__(
         self,
-        components: list[Component],
-        phases: list[Phase],
+        components: list[ComponentLike],
+        phases: list[PhaseLike],
     ) -> None:
 
         self._ref_phase_index: int = 0
         """See :meth:`reference_phase_index`."""
         self._ref_component_index: int = 0
         """See :meth:`reference_component_index`."""
-        self._components: list[Component] = []
+        self._components: list[ComponentLike] = []
         """A list of components passed at instantiation."""
-        self._phases: list[Phase] = []
+        self._phases: list[PhaseLike] = []
         """A list of phases passed at instantiation."""
 
         # A container holding names already added, to avoid storage conflicts.
         double_names: list[str] = []
         # Lists of gas-like and other phases.
-        gaslike_phases: list[Phase] = []
-        other_phases: list[Phase] = []
+        gaslike_phases: list[PhaseLike] = []
+        other_phases: list[PhaseLike] = []
 
         for comp in components:
             double_names.append(comp.name)
@@ -805,22 +818,20 @@ class Fluid:
         return len(self._phases)
 
     @property
-    def components(self) -> Generator[Component, None, None]:
+    def components(self) -> list[ComponentLike]:
         """
-        Yields:
+        Returns:
             Components in this fluid mixture.
         """
-        for C in self._components:
-            yield C
+        return [c for c in self._components]
 
     @property
-    def phases(self) -> Generator[Phase, None, None]:
+    def phases(self) -> list[PhaseLike]:
         """
-        Yields:
+        Returns:
             Phases modelled in this fluid mixture.
         """
-        for P in self._phases:
-            yield P
+        return [p for p in self._phases]
 
     @property
     def gas_phase_index(self) -> int | None:
@@ -910,12 +921,12 @@ class Fluid:
         self._ref_component_index = int(index)
 
     @property
-    def reference_phase(self) -> Phase:
+    def reference_phase(self) -> PhaseLike:
         """Returns the reference phase as designated by :meth:`reference_phase_index`."""
         return self._phases[self.reference_phase_index]
 
     @property
-    def reference_component(self) -> Component:
+    def reference_component(self) -> ComponentLike:
         """Returns the reference component as designated by
         :meth:`reference_component_index`."""
         return self._components[self.reference_component_index]
