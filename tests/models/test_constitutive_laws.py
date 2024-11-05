@@ -402,9 +402,41 @@ def test_evaluated_values(
     # perturbations are small relative to
     assert np.allclose(val, expected, rtol=1e-8, atol=1e-10)
 
+@pytest.mark.parametrize(
+    'model, quantities',
+    [
+        (models.MassBalance, ['pressure']),
+        (models.MassAndEnergyBalance, ['pressure', 'temperature'])
+    ]
+)
+def test_perturbation_from_reference(model: type[models.MassAndEnergyBalance], quantities: list[str]):
+    """Tests the evaluation of operators perturbed from reference values."""
 
-def test_perturbation_from_reference(model: type[PorePyModel], quantities: list[str]):
-    ...
+    # Give some non-trivial reference values
+    ref_vals = dict([(q, float(i + 1)) for i, q in enumerate(quantities)])
+
+    # providing non-trivial reference values.
+    params = {
+        "reference_variable_values": pp.ReferenceVariableValues(
+            pressure=1, temperature=2
+        ),
+    }
+
+    setup = model(params)
+    setup.prepare_simulation()
+
+    # Set all variable values to zero
+    setup.equation_system.set_variable_values(
+        np.zeros(setup.equation_system.num_dofs()), time_step_index=0, iterate_index=0
+    )
+
+    for q in quantities:
+        op = setup.perturbation_from_reference(q, setup.mdg.subdomains())
+        # Calling value and jacobian to make sure there are no errors in parsing
+        # but only value is checked.
+        op_val = op.value_and_jacobian(setup.equation_system)
+        # value of op is 0 - ref val
+        assert np.allclose(op_val.val, - ref_vals[q])
 
 @pytest.mark.parametrize(
     "geometry, domain_dimension, expected",
