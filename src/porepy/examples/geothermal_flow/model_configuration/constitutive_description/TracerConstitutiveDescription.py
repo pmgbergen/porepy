@@ -7,6 +7,7 @@ import numpy as np
 import porepy as pp
 import porepy.compositional as ppc
 from porepy.models.compositional_flow import SecondaryEquationsMixin
+from porepy.models.protocol import PorePyModel
 
 
 def gas_saturation_func(
@@ -103,7 +104,7 @@ chi_functions_map = {
 }
 
 
-class LiquidLikeCorrelations(ppc.AbstractEoS):
+class LiquidLikeCorrelations(ppc.EquationOfState):
     """Class implementing the calculation of thermodynamic properties.
 
     Note:
@@ -207,7 +208,7 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         )
 
 
-class GasLikeCorrelations(ppc.AbstractEoS):
+class GasLikeCorrelations(ppc.EquationOfState):
     """Class implementing the calculation of thermodynamic properties.
 
     Note:
@@ -309,22 +310,23 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         )
 
 
-class FluidMixture(ppc.FluidMixtureMixin):
+class FluidMixture(PorePyModel):
     """Mixture mixin creating the brine mixture with two components."""
 
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Provided by :class:`~porepy.models.compositional_flow.VariablesEnergyBalance`."""
+    """See :class:`~porepy.models.compositional_flow.VariablesEnergyBalance`."""
 
-    def get_components(self) -> list[ppc.Component]:
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_mass_balance.VariableSinglePhaseFlow`."""
+
+    def get_components(self) -> Sequence[pp.FluidComponent]:
         """Setting H20 as first component in Sequence makes it the reference component.
         z_H20 will be eliminated."""
-        species = ppc.load_species(["H2O", "NaCl"])
-        components = [ppc.Component.from_species(s) for s in species]
-        return components
+        return ppc.load_fluid_constants(["H2O", "NaCl"], "chemicals")
 
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
-    ) -> Sequence[tuple[ppc.AbstractEoS, ppc.PhysicalState, str]]:
+    ) -> Sequence[tuple[ppc.EquationOfState, ppc.PhysicalState, str]]:
         eos_L = LiquidLikeCorrelations(components)
         eos_G = GasLikeCorrelations(components)
         return [
@@ -337,21 +339,14 @@ class FluidMixture(ppc.FluidMixtureMixin):
     ) -> list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         z_NaCl = [
             comp.fraction
-            for comp in self.fluid_mixture.components
-            if comp != self.fluid_mixture.reference_component
+            for comp in self.fluid.components
+            if comp != self.fluid.reference_component
         ]
         dependencies = cast(
             list[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
             [self.pressure, self.enthalpy] + z_NaCl,
         )
         return dependencies
-
-    def set_components_in_phases(
-        self, components: Sequence[ppc.Component], phases: Sequence[ppc.Phase]
-    ) -> None:
-        """By default, the unified assumption is applied: all components are present
-        in all phases."""
-        super().set_components_in_phases(components, phases)
 
 
 class SecondaryEquations(SecondaryEquationsMixin):
@@ -366,11 +361,6 @@ class SecondaryEquations(SecondaryEquationsMixin):
 
     """
 
-    dependencies_of_phase_properties: Callable[
-        [ppc.Phase], list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
-    ]
-    """Defined in the Brine mixture mixin."""
-
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
 
@@ -382,9 +372,9 @@ class SecondaryEquations(SecondaryEquationsMixin):
         matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
 
         ### Providing constitutive law for gas saturation based on correlation
-        rphase = self.fluid_mixture.reference_phase  # liquid phase
+        rphase = self.fluid.reference_phase  # liquid phase
         # gas phase is independent
-        independent_phases = [p for p in self.fluid_mixture.phases if p != rphase]
+        independent_phases = [p for p in self.fluid.phases if p != rphase]
 
         # domains on which to eliminate are all subdomains and the matrix boundary
         on_domains: list[pp.Grid | pp.BoundaryGrid] = subdomains + [
@@ -403,7 +393,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
             )
 
         ### Providing constitutive laws for partial fractions based on correlations
-        for phase in self.fluid_mixture.phases:
+        for phase in self.fluid.phases:
             for comp in phase:
                 if self.has_independent_partial_fraction(comp, phase):
                     self.eliminate_by_constitutive_law(

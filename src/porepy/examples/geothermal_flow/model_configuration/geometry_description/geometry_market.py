@@ -1,4 +1,3 @@
-from abc import abstractmethod
 from typing import Literal, cast
 
 import numpy as np
@@ -6,16 +5,15 @@ import numpy as np
 import porepy as pp
 from porepy.applications.md_grids.mdg_library import benchmark_3d_case_3
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.models.geometry import ModelGeometry
+from porepy.models.protocol import PorePyModel
 
 
-class Geometry(ModelGeometry):
+class Geometry(PorePyModel):
 
-    @abstractmethod
     def get_inlet_outlet_sides(
         self, sd: pp.Grid | pp.BoundaryGrid
     ) -> tuple[np.ndarray, np.ndarray]:
-        pass
+        raise NotImplementedError(f"Inlet and outlet not defined.")
 
     @staticmethod
     def harvest_sphere_members(xc, rc, x):
@@ -33,7 +31,7 @@ class Benchmark2DC1(Geometry):
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size = self.units.convert_units(0.1, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -72,7 +70,7 @@ class Benchmark2DC3(Geometry):
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size = self.units.convert_units(0.1, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -162,9 +160,9 @@ class SimpleGeometry(Geometry):
     def set_domain(self) -> None:
 
         dimension = 2
-        size_x = self.solid.convert_units(10.0, "m")
-        size_y = self.solid.convert_units(10.0, "m")
-        size_z = self.solid.convert_units(1.0, "m")
+        size_x = self.units.convert_units(10.0, "m")
+        size_y = self.units.convert_units(10.0, "m")
+        size_z = self.units.convert_units(1.0, "m")
         box: dict[str, pp.number] = {"xmax": size_x}
         if dimension > 1:
             box.update({"ymax": size_y})
@@ -176,7 +174,7 @@ class SimpleGeometry(Geometry):
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
@@ -220,8 +218,8 @@ class SimpleGeometry1D(Geometry):
     _outlet_centre: np.ndarray = np.array([2000.0, 5.0, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.solid.convert_units(2000.0, "m")
-        y_length = self.solid.convert_units(10.0, "m")
+        x_length = self.units.convert_units(2000.0, "m")
+        y_length = self.units.convert_units(10.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
@@ -229,7 +227,7 @@ class SimpleGeometry1D(Geometry):
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(10.0, "m")
+        cell_size = self.units.convert_units(10.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
