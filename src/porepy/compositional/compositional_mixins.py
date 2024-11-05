@@ -1216,7 +1216,7 @@ class FluidMixin(PorePyModel):
 
     def dependencies_of_phase_properties(
         self, phase: Phase
-    ) -> list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         """Method to define the signature of phase properties, which are dependent
         quantities.
 
