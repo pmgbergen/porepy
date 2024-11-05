@@ -17,6 +17,8 @@ import porepy as pp
 
 from dataclasses import FrozenInstanceError
 
+from porepy.examples.flow_benchmark_2d_case_1 import FractureSolidConstants
+
 # TODO remove
 @pytest.fixture
 def subdomains() -> list[pp.Grid]:
@@ -198,7 +200,8 @@ def test_convert_units(modify_dict, base_units):
         pp.Constants,
         pp.FluidComponent,
         pp.SolidConstants,
-        pp.ReferenceVariableValues
+        FractureSolidConstants,
+        pp.ReferenceVariableValues,
     ]
 )
 def test_class_of_constants(constants_type: type[pp.Constants], scaled_units: pp.Units):
@@ -208,7 +211,7 @@ def test_class_of_constants(constants_type: type[pp.Constants], scaled_units: pp
 
     1. Creation with default values (should be unscaled)
     2. Constants declared with SI units are frozen
-    3. Constants are numbers (float, int)
+    3. Default field values are numbers (float, int)
     4. The conversion to new, scaled units works as intended.
 
     """
@@ -226,10 +229,11 @@ def test_class_of_constants(constants_type: type[pp.Constants], scaled_units: pp
         # Testing that the default values match with the default units (SI)
         c = getattr(constants, name)
         c_default = getattr(constants_default, name)
+        assert np.isclose(c, c_default)
 
+        # test that the values are or intended format.
         assert isinstance(c, (float, int))
         assert isinstance(c_default, (float, int))
-        assert np.isclose(c, c_default)
 
         # Testing that the constants cannot be reset anymore
         with pytest.raises(FrozenInstanceError):

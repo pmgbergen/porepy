@@ -25,6 +25,7 @@ import pytest
 
 import porepy as pp
 import porepy.models.constitutive_laws as c_l
+from porepy.models.protocol import PorePyModel
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.reference_dense_arrays import (
     test_constitutive_laws as reference_dense_arrays,
@@ -60,7 +61,6 @@ solid_values.update(
         ("mass_balance", "fluid_flux", None),
         ("mass_balance", "pressure_trace", None),
         ("mass_balance", "porosity", None),
-        # ("mass_balance", "reference_pressure", None),
         # The body force and stress are only meaningful in the top dimension
         ("momentum_balance", "body_force", 0),
         ("momentum_balance", "stress", 0),
@@ -80,7 +80,6 @@ solid_values.update(
         ("energy_balance", "fourier_flux", None),
         ("energy_balance", "interface_enthalpy_flux", None),
         ("energy_balance", "interface_fourier_flux", None),
-        # ("energy_balance", "reference_temperature", None), TODO modify test
         ("energy_balance", "normal_thermal_conductivity", None),
         ("energy_balance", "aperture", None),
         # Poromechanics
@@ -403,6 +402,9 @@ def test_evaluated_values(
     # perturbations are small relative to
     assert np.allclose(val, expected, rtol=1e-8, atol=1e-10)
 
+
+def test_perturbation_from_reference(model: type[PorePyModel], quantities: list[str]):
+    ...
 
 @pytest.mark.parametrize(
     "geometry, domain_dimension, expected",
