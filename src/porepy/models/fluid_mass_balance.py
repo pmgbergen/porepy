@@ -16,7 +16,7 @@ Notes:
 from __future__ import annotations
 
 import logging
-from typing import Callable, Optional, Sequence, Union, cast
+from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
 
@@ -34,11 +34,6 @@ class MassBalanceEquations(pp.BalanceEquation):
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
@@ -46,15 +41,7 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid density. Defined in a mixin class with a suitable constitutive relation.
-    """
-    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
@@ -103,16 +90,6 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
     """
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     well_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """Well flux equation. Provided e.g. by a mixin instance of
     :class:`~porepy.models.constitutive_laws.PiecmannWellFlux`.
@@ -126,30 +103,12 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
 
     """
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-    """
     bc_data_fluid_flux_key: str
     """See :class:`BoundaryConditionsSinglePhaseFlow`.
     """
     bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsSinglePhaseFlow`.
     """
-
-    _combine_boundary_operators: Callable[
-        [
-            Sequence[pp.Grid],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[pp.Grid], pp.BoundaryCondition],
-            str,
-            int,
-        ],
-        pp.ad.Operator,
-    ]
 
     def set_equations(self):
         """Set the equations for the mass balance problem.
@@ -160,8 +119,6 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.mdg.subdomains()
         codim_1_interfaces = self.mdg.interfaces(codim=1)
-        # TODO: If wells are integrated for nd=2 models, consider refactoring sorting of
-        # interfaces into method returning either "normal" or well interfaces.
         codim_2_interfaces = self.mdg.interfaces(codim=2)
         sd_eq = self.mass_balance_equation(subdomains)
         intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
@@ -209,7 +166,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the cell-wise fluid mass.
 
         """
-        mass_density = self.fluid_density(subdomains) * self.porosity(subdomains)
+        mass_density = self.fluid.density(subdomains) * self.porosity(subdomains)
         mass = self.volume_integral(mass_density, subdomains, dim=1)
         mass.set_name("fluid_mass")
         return mass
@@ -226,7 +183,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid density times mobility [s * m^-2].
 
         """
-        return self.fluid_density(domains) * self.mobility(domains)
+        return self.fluid.density(domains) * self.mobility(domains)
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Fluid flux as Darcy flux times density and mobility.
@@ -253,8 +210,9 @@ class MassBalanceEquations(pp.BalanceEquation):
             # Note: in case of the empty subdomain list, the time dependent array is
             # still returned. Otherwise, this method produces an infinite recursion
             # loop. It does not affect real computations anyhow.
-            return self.create_boundary_operator(  # type: ignore[call-arg]
-                name=self.bc_data_fluid_flux_key, domains=domains
+            return self.create_boundary_operator(
+                name=self.bc_data_fluid_flux_key,
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
             )
 
         # Verify that the domains are subdomains.
@@ -266,7 +224,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         discr = self.mobility_discretization(domains)
         mob_rho = self.mobility_rho(domains)
 
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
+        boundary_operator = self._combine_boundary_operators(
             subdomains=domains,
             dirichlet_operator=self.mobility_rho,
             neumann_operator=self.fluid_flux,
@@ -307,7 +265,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
+        mob_rho = self.mobility_rho(subdomains)
         # Call to constitutive law for advective fluxes.
         flux: pp.ad.Operator = self.interface_advective_flux(interfaces, mob_rho, discr)
         flux.set_name("interface_fluid_flux")
@@ -325,7 +283,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
+        mob_rho = self.mobility_rho(subdomains)
         # Call to constitutive law for advective fluxes.
         flux: pp.ad.Operator = self.well_advective_flux(interfaces, mob_rho, discr)
         flux.set_name("well_fluid_flux")
@@ -410,13 +368,6 @@ class ConstitutiveLawsSinglePhaseFlow(
 class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     """Boundary conditions for single-phase flow."""
 
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
     bc_data_fluid_flux_key: str = "fluid_flux"
     bc_data_darcy_flux_key: str = "darcy_flux"
     """Name of the boundary data for the Neuman boundary condition."""
@@ -474,7 +425,9 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             values on the provided boundary grid.
 
         """
-        return self.fluid.pressure() * np.ones(boundary_grid.num_cells)
+        return self.reference_variable_values.pressure * np.ones(
+            boundary_grid.num_cells
+        )
 
     def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """**Volumetric** Darcy flux values for the Neumann boundary condition.
@@ -552,22 +505,6 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
 
     """
 
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
     pressure_variable: str
     """Name of the primary variable representing the pressure. Normally defined in a
     mixin of instance
@@ -586,22 +523,15 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """Boundary conditions wrapped as an operator. Defined in
-    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-
-    """
-    nd: int
-    """Number of spatial dimensions. Normally defined in a mixin of instance
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
 
     def create_variables(self) -> None:
-        """Assign primary variables to subdomains and interfaces of the
-        mixed-dimensional grid.
+        """Set variables for the subdomains and interfaces.
+
+        The following variables are set:
+            - Pressure on all subdomains.
+            - Darcy flux on interfaces between subdomains one dimension apart.
+            - Well flux on interfaces between subdomains two dimension apart.
+        See individual variable methods for details.
 
         """
         self.equation_system.create_variables(
@@ -641,7 +571,8 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         """
         if len(domains) > 0 and isinstance(domains[0], pp.BoundaryGrid):
             return self.create_boundary_operator(
-                name=self.pressure_variable, domains=domains  # type: ignore[call-arg]
+                name=self.pressure_variable,
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
             )
         # Check that all domains are subdomains.
         if not all(isinstance(g, pp.Grid) for g in domains):
@@ -685,20 +616,6 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         flux = self.equation_system.md_variable(self.well_flux_variable, interfaces)
         return flux
 
-    def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference pressure.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Operator representing the reference pressure [Pa].
-
-        """
-        p_ref = self.fluid.pressure()
-        size = sum([sd.num_cells for sd in subdomains])
-        return pp.wrap_as_dense_ad_array(p_ref, size, name="reference_pressure")
-
 
 class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     """Setup and numerics-related methods for a single-phase flow problem.
@@ -714,24 +631,9 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
     """
 
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Function that returns the specific volume of a subdomain or interface.
-
-    Normally provided by a mixin of instance
-    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
-
     permeability: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Function that returns the permeability of a subdomain. Normally provided by a
     mixin class with a suitable permeability definition.
-
-    """
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
 
     """
     bc_type_darcy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
@@ -837,7 +739,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 {
                     "bc": self.bc_type_darcy_flux(sd),
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd, self.permeability([sd]), self.solid.permeability()
+                        sd, self.permeability([sd]), self.solid.permeability
                     ),
                     "ambient_dimension": self.nd,
                 },
@@ -907,6 +809,7 @@ class SinglePhaseFlow(  # type: ignore[misc]
     ConstitutiveLawsSinglePhaseFlow,
     BoundaryConditionsSinglePhaseFlow,
     SolutionStrategySinglePhaseFlow,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

@@ -7,27 +7,12 @@ import porepy as pp
 from . import domains, fracture_sets
 
 
-class SquareDomainOrthogonalFractures:
+class SquareDomainOrthogonalFractures(pp.ModelGeometry):
     """Create a mixed-dimensional grid for a square domain with up to two
     orthogonal fractures.
 
     To be used as a mixin taking precedence over
     :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    params: dict
-    """Parameters for the model geometry. Entries relevant for this mixin are:
-        - domain_size: The side length of the square domain.
-        - fracture_indices: List of indices of fractures to be included in the grid.
-
-    """
-    units: pp.Units
-    """Units for the model geometry."""
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -40,7 +25,7 @@ class SquareDomainOrthogonalFractures:
 
         """
         # Scale by length unit.
-        return self.solid.convert_units(self.params.get("domain_size", 1.0), "m")
+        return self.units.convert_units(self.params.get("domain_size", 1.0), "m")
 
     def set_fractures(self) -> None:
         """Assigns 0 to 2 fractures to the domain.
@@ -67,7 +52,7 @@ class SquareDomainOrthogonalFractures:
         self._domain = domains.nd_cube_domain(2, self.domain_size)
 
 
-class CubeDomainOrthogonalFractures:
+class CubeDomainOrthogonalFractures(pp.ModelGeometry):
     """Create a mixed-dimensional grid for a cube domain with up to three
     orthogonal fractures.
 
@@ -76,26 +61,11 @@ class CubeDomainOrthogonalFractures:
 
     """
 
-    params: dict
-    """Parameters for the model geometry. Entries relevant for this mixin are:
-        - domain_size: The side length of the cube domain.
-        - fracture_indices: List of indices of fractures to be included in the grid.
-
-    """
-    units: pp.Units
-    """Units for the model geometry."""
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
     @property
     def domain_size(self) -> pp.number:
         """Return the side length of the cube domain."""
         # Scale by length unit.
-        return self.solid.convert_units(self.params.get("domain_size", 1.0), "m")
+        return self.units.convert_units(self.params.get("domain_size", 1.0), "m")
 
     def set_fractures(self) -> None:
         """Assigns 0 to 3 fractures."""
@@ -120,12 +90,9 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
 
     """
 
-    params: dict
-    """Parameters for the model."""
-
     def set_fractures(self) -> None:
         # Length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
 
         fracture_indices = self.params.get("fracture_indices", [0])
         fractures = [
@@ -137,7 +104,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
 
     def meshing_arguments(self) -> dict:
         # Divide by length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
 
         mesh_sizes = {
             # Cartesian: 2 by 8 cells.
@@ -157,7 +124,7 @@ class RectangularDomainThreeFractures(pp.ModelGeometry):
             self.params["grid_type"] = "cartesian"
 
         # Length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
 
         # Mono-dimensional grid by default
         phys_dims = np.array([2, 1]) * ls
@@ -179,7 +146,7 @@ class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
 
     def meshing_arguments(self) -> dict:
         # Length scale:
-        ls = self.solid.convert_units(1, "m")
+        ls = self.units.convert_units(1, "m")
 
         mesh_sizes = {
             "cell_size": 0.5 * ls,

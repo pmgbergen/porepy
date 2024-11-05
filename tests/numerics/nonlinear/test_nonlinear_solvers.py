@@ -40,10 +40,9 @@ def test_nonlinear_iteration_count():
     iteration count matches the pre set value after convergence is obtained.
 
     """
-    params = {"max_iterations": 96}
     model = NonlinearSinglePhaseFlow()
     model.expected_number_of_iterations = 3
-    pp.run_time_dependent_model(model, params)
+    pp.run_time_dependent_model(model, {})
 
     assert (
         model.nonlinear_solver_statistics.num_iteration
