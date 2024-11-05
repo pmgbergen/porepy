@@ -39,7 +39,8 @@ number = pp.number
 # is expected to be aware which physics are used in the model.
 # 3. By instructing dataclass to not override the __eq__ provided by object (we do not
 # need to compare constants by equality of values, since the class is intended for
-# distinct instances). This way the classes remain hashable! (can be used in dicts)
+# distinct instances). This way the classes remain hashable (can be used in dicts),
+# see for instance https://stackoverflow.com/a/52390734. 
 @dataclass(kw_only=True, eq=False)
 class Constants:
     """Material property container and conversion class.
@@ -265,6 +266,8 @@ _Constants = TypeVar("_Constants", bound=Constants)
 of :class:`Constants` correctly."""
 
 
+# See comment above (in the definition of Constants) for the reasoning behind the
+# eq=False.
 @dataclass(kw_only=True, eq=False)
 class FluidComponent(Constants, Component):
     """Material data class for fluid components.
@@ -322,7 +325,13 @@ class FluidComponent(Constants, Component):
     viscosity: number = 1.0
 
 
-@dataclass(kw_only=True)
+# Strictly speaking, it is not necessary to have eq=False for SolidConstants. The issues
+# with hashability noted for Constants (see above), do not apply here, since the class
+# could have been made frozen (this is in contrast to the FluidComponent, which
+# continherits from the non-constant Component class). However, for consistency, we keep
+# eq=False; although this means objects of type SolidConstants cannot be compared by
+# fields, this is also not an expected use case.
+@dataclass(kw_only=True, eq=False)
 class SolidConstants(Constants):
     """Material data class for solid species present in the porous medium.
 
