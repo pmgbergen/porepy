@@ -27,7 +27,8 @@ from porepy.models.constitutive_laws import DimensionDependentPermeability
 class FractureSolidConstants(SolidConstants):
     """Solid constants tailored to the current model."""
 
-    SI_units: ClassVar[dict[str, str]] = SolidConstants.SI_units
+    # NOTE this makes a deep copy of the solid constants dict.
+    SI_units: ClassVar[dict[str, str]] = dict(**SolidConstants.SI_units)
     SI_units.update({"fracture_permeability": "m^2"})
 
     fracture_permeability: pp.number = 1.0
