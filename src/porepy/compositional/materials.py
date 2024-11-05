@@ -32,9 +32,9 @@ __all__ = [
 number = pp.number
 
 
-# 1. By using keyword_only arguments for the construction of
-# materials, the user is forced to instantiate the constants with the right names of
-# constants, otherwise errors are raised (no separate checks required).
+# 1. By using keyword_only arguments for the construction of materials, the user is
+# forced to instantiate the constants with the right names of constants, otherwise
+# errors are raised (no separate checks required).
 # 2. By providing default values to the fields, not every constant is required. The user
 # is expected to be aware which physics are used in the model.
 # 3. By instructing dataclass to not override the __eq__ provided by object (we do not
@@ -72,9 +72,9 @@ class Constants:
         per instance. We loose only the hashability with the redundant ``__equ__``.
 
     Important:
-        When instantiating a ``Constants`` data class, the constants must all
-        be strictly given in SI units. The conversion happens post-initialization for
-        the subsequent simulation.
+        When instantiating a ``Constants`` data class, the constants must all be
+        strictly given in SI units. The conversion happens post-initialization for the
+        subsequent simulation.
 
     Important:
         Every derived class must have a class attribute :attr:`SI_units`, **annotated as
@@ -270,13 +270,12 @@ class FluidComponent(Constants, Component):
     """Material data class for fluid components.
 
     It declares parameters relevant for fluid-like components, which are expected of a
-    fluid by the remaining
-    framework, especially flow and transport equations.
+    fluid by the remaining framework, especially flow and transport equations.
 
     This class is intended for 1 fluid component only. Fluid mixtures with multiple
     components require multiple sets of constants to define individual fluid components.
 
-    THis class is used as the default representation of fluid components inside a
+    This class is used as the default representation of fluid components inside a
     mixture.
 
     """

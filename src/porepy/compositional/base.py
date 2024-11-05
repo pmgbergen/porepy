@@ -106,8 +106,8 @@ class Component:
         """Overall fraction, or feed fraction, for this component, indicating how much
         of the total mass or moles belong to this component.
 
-        Dimensionless, scalar field bound to the interval ``[0, 1]``.
-        The sum of overall fractions must always equal 1.
+        Dimensionless, scalar field bound to the interval ``[0, 1]``. The sum of overall
+        fractions must always equal 1.
 
         Note:
             This is a variable in flow and transport. The feed fraction of one
@@ -384,10 +384,10 @@ class EquationOfState:
             2. For general multiphase-multicomponent mixtures, the thermodynamic input
                may consist of pressure, temperature and partial fractions of components
                in a phase.
-            3. For correlations which indirectly represent the solution of the
-               fluid phase equilibrium problem, the signature might as well be
-               pressure, temperature and independent overall fractions, or other primary
-               flow & transport variables.
+            3. For correlations which indirectly represent the solution of the fluid
+               phase equilibrium problem, the signature might as well be pressure,
+               temperature and independent overall fractions, or other primary flow &
+               transport variables.
 
         Parameters:
             phase_state: The physical phase state for which to compute values.
@@ -405,9 +405,9 @@ class EquationOfState:
 class Phase(Generic[ComponentLike]):
     """Base class for phases in a fluid mixture.
 
-    The term 'phase' as used here refers to physical states of matter.
-    A phase is identified by the (time-dependent) region/volume it occupies (saturation)
-    and the fraction of moles/mass belonging to this phase.
+    The term 'phase' as used here refers to physical states of matter. A phase is
+    identified by the (time-dependent) region/volume it occupies (saturation) and the
+    fraction of moles/mass belonging to this phase.
 
     Phases have physical properties, dependent on some thermodynamic input.
     They are usually assigned by an instance of
@@ -426,8 +426,8 @@ class Phase(Generic[ComponentLike]):
     FluidMixin.set_components_in_phases`).
 
     Important:
-        The components must be set in a phase, before adding the two contexts into
-        a mixture.
+        The components must be set in a phase, before adding the two contexts into a
+        mixture.
 
     The mixin creates fractional unknowns as well, including
 
@@ -436,15 +436,15 @@ class Phase(Generic[ComponentLike]):
     - :attr:`extended_fraction_of`
     - :attr:`partial_fraction_of`
 
-    Both, properties and fractional unknowns, are only available once put into a
-    context by creating a :class:`Mixture`.
+    Both, properties and fractional unknowns, are only available once put into a context
+    by creating a :class:`Mixture`.
 
     Note:
-        Dependent on whether this phase is assigned as the reference phase or not,
-        the operator representing the fraction or saturation might either be a genuine
-        variable (:class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`)
-        or a dependent :class:`~porepy.numerics.ad.operators.Operator`,
-        where the fraction and saturation were eliminated by unity respectively.
+        Dependent on whether this phase is assigned as the reference phase or not, the
+        operator representing the fraction or saturation might either be a genuine
+        variable (:class:`~porepy.numerics.ad.operators.MixedDimensionalVariable`) or a
+        dependent :class:`~porepy.numerics.ad.operators.Operator`, where the fraction
+        and saturation were eliminated by unity respectively.
 
     Note:
         All extended fractions :attr:`extended_fraction_of` are genuine variables in the
@@ -693,8 +693,8 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
     - :attr:`specific_enthalpy`
     - :attr:`specific_volume` as the reciprocal of :attr:`density`
 
-    The mixture allows only one gas-like phase, and it must be modelled with at least
-    1 component and 1 phase.
+    The mixture allows only one gas-like phase, and it must be modelled with at least 1
+    component and 1 phase.
 
     Important:
         Phases are re-ordered once passed as arguments according to the following rules:
@@ -723,7 +723,7 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
         CompositionalModellingError: If there is 1 component, which is not in any phase.
         ValueError: If any two components or phases have the same name (storage
-        conflicts).
+            conflicts).
 
     """
 
@@ -837,8 +837,8 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
     def gas_phase_index(self) -> int | None:
         """Returns the index of the gas-like phase in :meth:`phases`.
 
-        Only 1 gas-like phase is supported and as of now it is always the last one
-        in :meth:`phases`, if present.
+        Only 1 gas-like phase is supported and as of now it is always the last one in
+        :meth:`phases`, if present.
 
         Note:
             The return value can be used as a boolean check whether gas is modelled or
