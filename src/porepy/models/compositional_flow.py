@@ -65,24 +65,34 @@ def update_phase_properties(
             To be used in the the CFLE setting with the unified equilibrium formulation.
 
     """
-    phase.density.progress_iterate_values_on_grid(props.rho, grid, depth=depth)
-    phase.specific_enthalpy.progress_iterate_values_on_grid(props.h, grid, depth=depth)
-    phase.viscosity.progress_iterate_values_on_grid(props.mu, grid, depth=depth)
-    phase.thermal_conductivity.progress_iterate_values_on_grid(
-        props.kappa, grid, depth=depth
-    )
-
-    if update_derivatives:
-        if use_extended_derivatives:
-            phase.density.set_derivatives_on_grid(props.drho_ext, grid)
-            phase.specific_enthalpy.set_derivatives_on_grid(props.dh_ext, grid)
-            phase.viscosity.set_derivatives_on_grid(props.dmu_ext, grid)
-            phase.thermal_conductivity.set_derivatives_on_grid(props.dkappa_ext, grid)
-        else:
-            phase.density.set_derivatives_on_grid(props.drho, grid)
-            phase.specific_enthalpy.set_derivatives_on_grid(props.dh, grid)
-            phase.viscosity.set_derivatives_on_grid(props.dmu, grid)
-            phase.thermal_conductivity.set_derivatives_on_grid(props.dkappa, grid)
+    if isinstance(phase.density, pp.ad.SurrogateFactory):
+        phase.density.progress_iterate_values_on_grid(props.rho, grid, depth=depth)
+        if update_derivatives:
+            phase.density.set_derivatives_on_grid(
+                props.drho_ext if use_extended_derivatives else props.drho, grid
+            )
+    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+        phase.specific_enthalpy.progress_iterate_values_on_grid(
+            props.h, grid, depth=depth
+        )
+        if update_derivatives:
+            phase.specific_enthalpy.set_derivatives_on_grid(
+                props.dh_ext if use_extended_derivatives else props.dh, grid
+            )
+    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+        phase.viscosity.progress_iterate_values_on_grid(props.mu, grid, depth=depth)
+        if update_derivatives:
+            phase.viscosity.set_derivatives_on_grid(
+                props.dmu_ext if use_extended_derivatives else props.dmu, grid
+            )
+    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
+        phase.thermal_conductivity.progress_iterate_values_on_grid(
+            props.kappa, grid, depth=depth
+        )
+        if update_derivatives:
+            phase.thermal_conductivity.set_derivatives_on_grid(
+                props.dkappa_ext if use_extended_derivatives else props.dkappa, grid
+            )
 
 
 # region CONSTITUTIVE LAWS taylored to pore.compositional and its mixins
@@ -2012,9 +2022,12 @@ class BoundaryConditionsCF(
                     mu_bc = state.mu
 
                 # phase properties which appear in mobilities
-                phase.density.update_boundary_values(rho_bc, bg, depth=nt)
-                phase.specific_enthalpy.update_boundary_values(h_bc, bg, depth=nt)
-                phase.viscosity.update_boundary_values(mu_bc, bg, depth=nt)
+                if isinstance(phase.density, pp.ad.SurrogateFactory):
+                    phase.density.update_boundary_values(rho_bc, bg, depth=nt)
+                if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                    phase.specific_enthalpy.update_boundary_values(h_bc, bg, depth=nt)
+                if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+                    phase.viscosity.update_boundary_values(mu_bc, bg, depth=nt)
 
     def update_fractional_boundary_values(self) -> None:
         """If the user instructs the model to use explicit values for the non-linear
@@ -2353,22 +2366,30 @@ class InitialConditionsCF(PorePyModel):
 
                 # progress iterate values to all iterate indices
                 for _ in self.iterate_indices:
-                    phase.density.progress_iterate_values_on_grid(
-                        phase_props.rho, grid, depth=ni
-                    )
-                    phase.specific_enthalpy.progress_iterate_values_on_grid(
-                        phase_props.h, grid, depth=ni
-                    )
-                    phase.viscosity.progress_iterate_values_on_grid(
-                        phase_props.mu, grid, depth=ni
-                    )
-                    phase.thermal_conductivity.progress_iterate_values_on_grid(
-                        phase_props.kappa, grid, depth=ni
-                    )
+                    if isinstance(phase.density, pp.ad.SurrogateFactory):
+                        phase.density.progress_iterate_values_on_grid(
+                            phase_props.rho, grid, depth=ni
+                        )
+                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                        phase.specific_enthalpy.progress_iterate_values_on_grid(
+                            phase_props.h, grid, depth=ni
+                        )
+                    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+                        phase.viscosity.progress_iterate_values_on_grid(
+                            phase_props.mu, grid, depth=ni
+                        )
+                    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
+                        phase.thermal_conductivity.progress_iterate_values_on_grid(
+                            phase_props.kappa, grid, depth=ni
+                        )
                 # Copy values to all time step indices
                 for _ in self.time_step_indices:
-                    phase.density.progress_values_in_time([grid], depth=nt)
-                    phase.specific_enthalpy.progress_values_in_time([grid], depth=nt)
+                    if isinstance(phase.density, pp.ad.SurrogateFactory):
+                        phase.density.progress_values_in_time([grid], depth=nt)
+                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                        phase.specific_enthalpy.progress_values_in_time(
+                            [grid], depth=nt
+                        )
 
     ### IC for primary variables which need to be given by the user in any case.
 
@@ -2751,8 +2772,10 @@ class SolutionStrategyCF(
         subdomains = self.mdg.subdomains()
         nt = self.time_step_indices.size
         for phase in self.fluid.phases:
-            phase.density.progress_values_in_time(subdomains, depth=nt)
-            phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
+            if isinstance(phase.density, pp.ad.SurrogateFactory):
+                phase.density.progress_values_in_time(subdomains, depth=nt)
+            if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
 
     def before_nonlinear_iteration(self) -> None:
         """Overwrites parent methods to perform an update of secondary quantities,
