@@ -204,6 +204,7 @@ class Poromechanics(  # type: ignore[misc]
     ConstitutiveLawsPoromechanics,
     BoundaryConditionsPoromechanics,
     SolutionStrategyPoromechanics,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

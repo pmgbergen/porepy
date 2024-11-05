@@ -25,6 +25,7 @@ import pytest
 
 import porepy as pp
 import porepy.models.constitutive_laws as c_l
+from porepy.models.protocol import PorePyModel
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.reference_dense_arrays import (
     test_constitutive_laws as reference_dense_arrays,
@@ -50,17 +51,16 @@ solid_values.update(
     "model_type,method_name,only_codimension",
     [  # Fluid mass balance
         ("mass_balance", "mobility_rho", None),
-        ("mass_balance", "fluid_viscosity", None),
+        ("mass_balance", "fluid.reference_phase.viscosity", None),
         ("mass_balance", "fluid_source", None),
         ("mass_balance", "mobility", None),
-        ("mass_balance", "fluid_density", None),
+        ("mass_balance", "fluid.density", None),
         ("mass_balance", "aperture", None),
         ("mass_balance", "darcy_flux", None),
         ("mass_balance", "interface_fluid_flux", None),
         ("mass_balance", "fluid_flux", None),
         ("mass_balance", "pressure_trace", None),
         ("mass_balance", "porosity", None),
-        ("mass_balance", "reference_pressure", None),
         # The body force and stress are only meaningful in the top dimension
         ("momentum_balance", "body_force", 0),
         ("momentum_balance", "stress", 0),
@@ -80,7 +80,6 @@ solid_values.update(
         ("energy_balance", "fourier_flux", None),
         ("energy_balance", "interface_enthalpy_flux", None),
         ("energy_balance", "interface_fourier_flux", None),
-        ("energy_balance", "reference_temperature", None),
         ("energy_balance", "normal_thermal_conductivity", None),
         ("energy_balance", "aperture", None),
         # Poromechanics
@@ -159,8 +158,13 @@ def test_parse_constitutive_laws(
     # Set up an object of the prescribed model
     setup = models.model(model_type, domain_dim, num_fracs=num_fracs)
     # Fetch the relevant method of this model and extract the domains for which it is
-    # defined.
-    method = getattr(setup, method_name)
+    # defined by looping top to bottom through the namespace.
+    method_namespace = method_name.split('.')
+    owner = setup
+    for name in method_namespace:
+        method = getattr(owner, name)
+        owner = method
+
     domains = models.subdomains_or_interfaces_from_method_name(
         setup.mdg, method, dimensions_to_assemble
     )
@@ -192,10 +196,10 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
 @pytest.mark.parametrize(
     "model, method_name, expected, dimension",
     [
-        (models.Poromechanics, "fluid_density", 998.2 * np.exp(4.559e-10 * 2), None),
+        (models.Poromechanics, "fluid.density", 998.2 * np.exp(4.559e-10 * 2), None),
         (
             models.Thermoporomechanics,
-            "fluid_density",
+            "fluid.density",
             # \rho = \rho_0 \exp(compressibility p - thermal_expansion T)
             998.2 * np.exp(4.559e-10 * 2 - 2.068e-4 * 3),
             None,
@@ -218,7 +222,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         ),
         (
             models.MassAndEnergyBalance,
-            "fluid_enthalpy",
+            "fluid.specific_enthalpy",
             # c_p T
             4182 * 3,
             None,
@@ -311,13 +315,12 @@ def test_evaluated_values(
         | Type[models.Thermoporomechanics]
         | Type[models.MassAndEnergyBalance]
         | Type[models.MomentumBalance]
-        | Type[_]
     ),  # noqa
     method_name: Literal[
-        "fluid_density",
+        "fluid.density",
         "thermal_conductivity",
         "solid_enthalpy",
-        "fluid_enthalpy",
+        "fluid.specific_enthalpy",
         "matrix_porosity",
         "bulk_modulus",
         "shear_modulus",
@@ -341,8 +344,8 @@ def test_evaluated_values(
     # The thermoporoelastic model covers most constitutive laws, so we use it for the
     # test.
     # Assign non-trivial values to the parameters to avoid masking errors.
-    solid = pp.SolidConstants(solid_values)
-    fluid = pp.FluidConstants(pp.fluid_values.water)
+    solid = pp.SolidConstants(**solid_values)
+    fluid = pp.FluidComponent(**pp.fluid_values.water)
     params = {
         "material_constants": {"solid": solid, "fluid": fluid},
         "fracture_indices": [0, 1],
@@ -365,7 +368,13 @@ def test_evaluated_values(
             [setup.temperature_variable],
             iterate_index=0,
         )
-    method = getattr(setup, method_name)
+
+    # Obtain the tested method by looping top to bottom through the namespace.
+    method_namespace = method_name.split('.')
+    owner = setup
+    for name in method_namespace:
+        method = getattr(owner, name)
+        owner = method
 
     # Call the method with the domain as argument. An error here will indicate that
     # something is wrong with the way the method combines terms and factors (e.g., grids
@@ -393,6 +402,41 @@ def test_evaluated_values(
     # perturbations are small relative to
     assert np.allclose(val, expected, rtol=1e-8, atol=1e-10)
 
+@pytest.mark.parametrize(
+    'model, quantities',
+    [
+        (models.MassBalance, ['pressure']),
+        (models.MassAndEnergyBalance, ['pressure', 'temperature'])
+    ]
+)
+def test_perturbation_from_reference(model: type[models.MassAndEnergyBalance], quantities: list[str]):
+    """Tests the evaluation of operators perturbed from reference values."""
+
+    # Give some non-trivial reference values
+    ref_vals = dict([(q, float(i + 1)) for i, q in enumerate(quantities)])
+
+    # providing non-trivial reference values.
+    params = {
+        "reference_variable_values": pp.ReferenceVariableValues(
+            pressure=1, temperature=2
+        ),
+    }
+
+    setup = model(params)
+    setup.prepare_simulation()
+
+    # Set all variable values to zero
+    setup.equation_system.set_variable_values(
+        np.zeros(setup.equation_system.num_dofs()), time_step_index=0, iterate_index=0
+    )
+
+    for q in quantities:
+        op = setup.perturbation_from_reference(q, setup.mdg.subdomains())
+        # Calling value and jacobian to make sure there are no errors in parsing
+        # but only value is checked.
+        op_val = op.value_and_jacobian(setup.equation_system)
+        # value of op is 0 - ref val
+        assert np.allclose(op_val.val, - ref_vals[q])
 
 @pytest.mark.parametrize(
     "geometry, domain_dimension, expected",
@@ -422,7 +466,7 @@ def test_dimension_reduction_values(
 
     """
     # Assign non-trivial values to the parameters to avoid masking errors.
-    solid = pp.SolidConstants({"residual_aperture": 0.02})
+    solid = pp.SolidConstants(residual_aperture=0.02)
     params = {"material_constants": {"solid": solid}, "num_fracs": 3}
     if geometry is models.RectangularDomainThreeFractures:
         params["fracture_indices"] = [0, 1]

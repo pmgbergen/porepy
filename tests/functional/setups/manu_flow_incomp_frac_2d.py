@@ -554,9 +554,6 @@ class ManuIncompExactSolution2d:
 class ManuIncompUtils(VerificationUtils):
     """Mixin class containing useful utility methods for the setup."""
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
-
     results: list[ManuIncompSaveData]
     """List of ManuIncompSaveData objects."""
 
@@ -749,17 +746,11 @@ class ManuIncompSolutionStrategy2d(
     exact_sol: ManuIncompExactSolution2d
     """Exact solution object."""
 
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
-
     plot_results: Callable
     """Method to plot results of the verification setup. Usually provided by the
     mixin class :class:`SetupUtilities`.
 
     """
-
-    solid: pp.SolidConstants
-    """Object containing the solid constants."""
 
     results: list[ManuIncompSaveData]
     """List of SaveData objects."""
@@ -780,12 +771,12 @@ class ManuIncompSolutionStrategy2d(
         super().set_materials()
 
         # Sanity checks to guarantee the validity of the manufactured solution
-        assert self.fluid.density() == 1
-        assert self.fluid.viscosity() == 1
-        assert self.fluid.compressibility() == 0
-        assert self.solid.permeability() == 1
-        assert self.solid.residual_aperture() == 1
-        assert self.solid.normal_permeability() == 0.5
+        assert self.fluid.reference_component.density == 1
+        assert self.fluid.reference_component.viscosity == 1
+        assert self.fluid.reference_component.compressibility == 0
+        assert self.solid.permeability == 1
+        assert self.solid.residual_aperture == 1
+        assert self.solid.normal_permeability == 0.5
 
         # Instantiate exact solution object after materials have been set
         self.exact_sol = ManuIncompExactSolution2d()

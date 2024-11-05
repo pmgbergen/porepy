@@ -34,8 +34,8 @@ from porepy.examples.mandel_biot import (
 def results() -> list[MandelSaveData]:
     # Run verification setup and retrieve results for three different times
     material_constants = {
-        "fluid": pp.FluidConstants(mandel_fluid_constants),
-        "solid": pp.SolidConstants(mandel_solid_constants),
+        "fluid": pp.FluidComponent(**mandel_fluid_constants),
+        "solid": pp.SolidConstants(**mandel_solid_constants),
     }
     time_manager = pp.TimeManager([0, 25, 50], 25, True)
     model_params = {
@@ -146,8 +146,8 @@ def test_scaled_vs_unscaled_systems():
 
     # The unscaled problem
     material_constants_unscaled = {
-        "fluid": pp.FluidConstants(mandel_fluid_constants),
-        "solid": pp.SolidConstants(mandel_solid_constants),
+        "fluid": pp.FluidComponent(**mandel_fluid_constants),
+        "solid": pp.SolidConstants(**mandel_solid_constants),
     }
     time_manager_unscaled = pp.TimeManager([0, 10], 10, True)
     model_params_unscaled = {
@@ -159,8 +159,8 @@ def test_scaled_vs_unscaled_systems():
 
     # The scaled problem
     material_constants_scaled = {
-        "fluid": pp.FluidConstants(mandel_fluid_constants),
-        "solid": pp.SolidConstants(mandel_solid_constants),
+        "fluid": pp.FluidComponent(**mandel_fluid_constants),
+        "solid": pp.SolidConstants(**mandel_solid_constants),
     }
     time_manager_scaled = pp.TimeManager([0, 10], 10, True)
     scaling = {"m": 1e-3, "kg": 1e-3}  # length in millimeters and mass in grams

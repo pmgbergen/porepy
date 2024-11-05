@@ -12,7 +12,7 @@ import logging
 import time
 import warnings
 from functools import partial
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -48,19 +48,39 @@ class SolutionStrategy(abc.ABC, PorePyModel):
 
         default_params.update(params)
         self.params = default_params
+        """Dictionary of parameters."""
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
         self.convergence_status = False
-
+        """Whether the non-linear iteration has converged."""
         self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
+        """List of non-linear discretizations, to be updated in every iteration.
+
+        See also :meth:`add_nonlinear_discretization`.
+
+        """
         self.units = params.get("units", pp.Units())
+        """Units of the model provided in ``params['units']``."""
+        # get default or user-provided reference values
+        reference_values: pp.ReferenceVariableValues = params.get(
+            "reference_variable_values", pp.ReferenceVariableValues()
+        )
+        # Ensure the reference values are in the right units
+        reference_values = reference_values.to_units(self.units)
+        self.reference_variable_values = reference_values
+        """The model reference values for variables, converted to simulation
+        :attr:`units`.
+
+        Reference values can be provided through ``params['reference_values']``.
+
+        """
 
         self.time_manager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
-
+        """Time manager for the simulation."""
         self.restart_options = params.get(
             "restart_options",
             {
@@ -92,8 +112,9 @@ class SolutionStrategy(abc.ABC, PorePyModel):
                 # assumed to address the last time step in times_file.
             },
         )
-
+        """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
+        """Time step as an automatic differentiation scalar."""
 
         self.set_solver_statistics()
 
@@ -112,6 +133,13 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         # Order of operations is important here.
         self.set_equation_system_manager()
         self.create_variables()
+        # After fluid and variables are defined, we can define the secondary quantities
+        # like fluid properties (which depend on variables). Creating fluid and
+        # variables before defining secondary thermodynamic properties is critical in
+        # the case where properties depend on some fractions. since the callables for
+        # secondary variables are dynamically created during create_variables, as
+        # opposed to e.g. pressure or temperature.
+        self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
         self.reset_state_from_file()
         self.set_equations()
@@ -132,26 +160,26 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def set_discretization_parameters(self) -> None:
         """Set parameters for the discretization.
 
-        This method is called before the discretization is performed. It is
-        intended to be used to set parameters for the discretization, such as
-        the permeability, the porosity, etc.
+        This method is called before the discretization is performed. It is intended to
+        be used to set parameters for the discretization, such as the permeability, the
+        porosity, etc.
 
         """
 
     def set_solver_statistics(self) -> None:
         """Set the solver statistics object.
 
-        This method is called at initialization. It is intended to be used to
-        set the solver statistics object(s). Currently, the solver statistics
-        object is related to nonlinearity only. Statistics on other parts of the
-        solution process, such as linear solvers, may be added in the future.
+        This method is called at initialization. It is intended to be used to set the
+        solver statistics object(s). Currently, the solver statistics object is related
+        to nonlinearity only. Statistics on other parts of the solution process, such as
+        linear solvers, may be added in the future.
 
         Raises:
             ValueError: If the solver statistics object is not a subclass of
                 pp.SolverStatistics.
 
         """
-        # Retrieve the value with a default of pp.SolverStatistics
+        # Retrieve the value with a default of pp.SolverStatistics.
         statistics = self.params.get("nonlinear_solver_statistics", pp.SolverStatistics)
         # Explicitly check if the retrieved value is a class and a subclass of
         # pp.SolverStatistics for type checking.
@@ -187,8 +215,8 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def time_step_indices(self) -> np.ndarray:
         """Indices for storing time step solutions.
 
-        Index 0 corresponds to the most recent time step with the know solution, 1 -
-        to the previous time step, etc.
+        Index 0 corresponds to the most recent time step with the know solution, 1 to
+        the previous time step, etc.
 
         Returns:
             An array of the indices of which time step solutions will be stored,
@@ -244,32 +272,61 @@ class SolutionStrategy(abc.ABC, PorePyModel):
     def set_materials(self):
         """Set material parameters.
 
-        In addition to adjusting the units (see ::method::set_units), materials are
-        defined through ::class::pp.Material and the constants passed when initializing
-        the materials. For most purposes, a user needs only pass the desired parameter
-        values in params["material_constants"] when initializing a solution strategy,
-        and should not need to modify the material classes. However, if a user wishes to
-        modify to e.g. provide additional material parameters, this can be done by
-        passing modified material classes in params["fluid"] and params["solid"].
+        Searches for entries in ``params['material_constants']`` with keys ``'fluid'``
+        and ``'solid'`` for respective material constant instances. If not found,
+        default materials are instantiated.
+
+        Provides the :attr:`solid` material constants as an attribute to the model, as
+        well as the :attr:`fluid` object by calling :attr:`create_fluid`.
+
+        By default, a 1-phase, 1-component fluid is created based on the fluid component
+        provided in ``params['material_constants']``.
 
         """
-        # Default values
-        constants = {}
-        constants.update(self.params.get("material_constants", {}))
-        # Use standard models for fluid and solid constants if not provided.
-        if "fluid" not in constants:
-            constants["fluid"] = pp.FluidConstants()
-        if "solid" not in constants:
-            constants["solid"] = pp.SolidConstants()
+        # User provided values, if any.
+        constants = cast(
+            dict[str, pp.Constants], self.params.get("material_constants", {})
+        )
+        # If the user provided material constants, assert they are in dictionary form
+        assert isinstance(
+            constants, dict
+        ), "model.params['material_constants'] must be a dictionary."
 
-        # Loop over all constants objects (fluid, solid), and set units.
-        for name, const in constants.items():
-            # Check that the object is of the correct type
-            assert isinstance(const, pp.models.material_constants.MaterialConstants)
-            # Impose the units passed to initialization of the model.
-            const.set_units(self.units)
-            # This is where the constants (fluid, solid) are actually set as attributes
-            setattr(self, name, const)
+        # Use standard models for fluid and solid constants if not provided.
+        # Otherwise get the given constants.
+        solid = cast(
+            pp.SolidConstants, constants.get("solid", pp.SolidConstants(name="solid"))
+        )
+        fluid = cast(
+            pp.FluidComponent, constants.get("fluid", pp.FluidComponent(name="fluid"))
+        )
+
+        # Sanity check that users did not pass anything unexpected.
+        assert isinstance(solid, pp.SolidConstants), (
+            "model.params['material_constants']['fluid'] must be of type "
+            + f"{pp.SolidConstants}"
+        )
+        assert isinstance(fluid, pp.FluidComponent), (
+            "model.params['material_constants']['fluid'] must be of type "
+            + f"{pp.FluidComponent}"
+        )
+
+        # Converting to units of simulation.
+        fluid = fluid.to_units(self.units)
+        solid = solid.to_units(self.units)
+
+        # Set the solid for the model.
+        # NOTE this will change with the generalization of the solid
+        self.solid = solid
+
+        # Store the fluid component to be accessible by the FluidMixin for creating the
+        # default fluid object of the model
+        if "material_constants" not in self.params:
+            self.params["material_constants"] = {"fluid": fluid}
+        else:
+            # by logic, params['material_constants'] is ensured to be a dict
+            self.params["material_constants"]["fluid"] = fluid
+        self.create_fluid()
 
     def discretize(self) -> None:
         """Discretize all terms."""

@@ -20,32 +20,11 @@ import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models
 
 
-class GeometryClassWithSolidConstants:
-    """To enable/allow use of convert_units method when testing geometry.
-
-    The convert_units method is accessed by instantiating `pp.SolidConstants` and then
-    calling its `set_units` method.
-
-    For local use. Only overrides init, which is not defined in other geometry classes.
-
-    """
-
-    def __init__(self):
-        self.solid = pp.SolidConstants()
-        self.solid.set_units(pp.Units())
-
-
 geometry_list = [
+    porepy.applications.md_grids.model_geometries.RectangularDomainThreeFractures,
     models._add_mixin(
-        GeometryClassWithSolidConstants,
-        porepy.applications.md_grids.model_geometries.RectangularDomainThreeFractures,
-    ),
-    models._add_mixin(
-        GeometryClassWithSolidConstants,
-        models._add_mixin(
-            porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
-            pp.models.geometry.ModelGeometry,
-        ),
+        porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+        pp.ModelGeometry,
     ),
 ]
 
@@ -53,7 +32,7 @@ num_fracs_list = [0, 1, 2, 3]
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_set_geometry(geometry_class):
+def test_set_geometry(geometry_class: type[pp.ModelGeometry]):
     """Test the method set_geometry."""
     geometry = geometry_class()
     # Testing with a single fracture should be sufficient here.
@@ -73,7 +52,7 @@ def test_set_geometry(geometry_class):
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", num_fracs_list)
-def test_boundary_sides(geometry_class, num_fracs):
+def test_boundary_sides(geometry_class: type[pp.ModelGeometry], num_fracs):
     geometry = geometry_class()
     geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
