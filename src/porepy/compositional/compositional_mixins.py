@@ -238,7 +238,7 @@ class _MixtureDOFHandler(PorePyModel):
         return self.has_independent_fraction(phase)
 
     def has_independent_tracer_fraction(
-        self, tracer: pp.FluidComponent, compound: Compound
+        self, tracer: Component, compound: Compound
     ) -> bool:
         """Checks if the :attr:`~porepy.compositional.base.Compound.tracer_fraction_of`
         a ``tracer`` in the ``compound`` is an independent variable.
@@ -400,9 +400,7 @@ class _MixtureDOFHandler(PorePyModel):
         """Returns the name of the saturation variable assigned to ``phase``."""
         return f"{symbols['phase_saturation']}_{phase.name}"
 
-    def _tracer_fraction_variable(
-        self, tracer: pp.FluidComponent, compound: Compound
-    ) -> str:
+    def _tracer_fraction_variable(self, tracer: Component, compound: Compound) -> str:
         """Returns the name of the tracer fraction variable assigned to tracer in a
         compound."""
         return f"{symbols['tracer_fraction']}_{tracer.name}_{compound.name}"
@@ -1090,7 +1088,7 @@ class FluidMixin(PorePyModel):
         # Need annotations which represent the default implementation using
         # FluidComponent.
         phases: list[Phase[pp.FluidComponent]] = []
-        components: list[pp.FluidComponent] = self.get_components()
+        components: list[pp.FluidComponent] = [c for c in self.get_components()]
 
         for config in self.get_phase_configuration(components):
             eos, type_, name = config
@@ -1100,7 +1098,7 @@ class FluidMixin(PorePyModel):
 
         self.fluid = Fluid(components, phases)
 
-    def get_components(self) -> list[ComponentLike]:
+    def get_components(self) -> Sequence[pp.FluidComponent]:
         """Method to return a list of modelled components.
 
         The default implementation takes the user-provided or default fluid component
@@ -1120,7 +1118,7 @@ class FluidMixin(PorePyModel):
             + f"{Component}"
         )
         # Need to cast into ComponentLike, because of the assert statement above.
-        return [cast(ComponentLike, fluid_constants)]
+        return [cast(pp.FluidComponent, fluid_constants)]
 
     def get_phase_configuration(
         self, components: Sequence[ComponentLike]

@@ -30,14 +30,14 @@ import porepy.compositional as ppc
 
 from . import energy_balance as energy
 from . import mass_and_energy_balance as mass_energy
-from .protocol import PorePyModel
+from .protocol import CompositionalFlowModelProtocol, PorePyModel
 
 logger = logging.getLogger(__name__)
 
 
 def update_phase_properties(
     grid: pp.Grid,
-    phase: ppc.Phase,
+    phase: pp.Phase,
     props: ppc.PhaseProperties,
     depth: int,
     update_derivatives: bool = True,
@@ -149,7 +149,7 @@ class MobilityCF(PorePyModel):
         return mobility
 
     def phase_mobility(
-        self, phase: ppc.Phase, domains: pp.SubdomainsOrBoundaries
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         r"""Returns the mobility of a phase :math:`j`
 
@@ -175,7 +175,7 @@ class MobilityCF(PorePyModel):
         return mobility
 
     def component_mobility(
-        self, component: ppc.FluidComponent, domains: pp.SubdomainsOrBoundaries
+        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         r"""Non-linear term in the advective flux in a component mass balance equation,
         or total mobility of a component.
@@ -197,19 +197,22 @@ class MobilityCF(PorePyModel):
 
         """
         name = f"component_mobility_{component.name}"
+        # NOTE this method is kept as general as possible when typing the signature.
+        # But the default fluid of the model consists of FluidComponent, not Component.
+        # Adding type:ignore for this reason.
         mobility = pp.ad.sum_operator_list(
             [
                 phase.partial_fraction_of[component](domains)
                 * self.phase_mobility(phase, domains)
                 for phase in self.fluid.phases
-                if component in phase
+                if component in phase  # type:ignore[operator]
             ],
             name,
         )
         return mobility
 
     def fractional_component_mobility(
-        self, component: ppc.FluidComponent, domains: pp.SubdomainsOrBoundaries
+        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         r"""Returns the :meth:`component_mobility` divided by the
         :meth:`total_mobility`.
@@ -243,7 +246,7 @@ class MobilityCF(PorePyModel):
         return frac_mob
 
     def fractional_phase_mobility(
-        self, phase: ppc.Phase, domains: pp.SubdomainsOrBoundaries
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         r"""Returns the :meth:`phase_mobility` divided by the :meth:`total_mobility`.
 
@@ -684,10 +687,10 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
     """See :class:`~porepy.models.constitutive_laws.DarcyFlux`."""
     total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`MobilityCF`"""
-    phase_mobility: Callable[[ppc.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`MobilityCF`"""
     fractional_phase_mobility: Callable[
-        [ppc.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
+        [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`MobilityCF`"""
 
@@ -912,7 +915,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     """See :class:`~porepy.models.constitutive_laws.AdvectiveFlux`."""
 
     fractional_component_mobility: Callable[
-        [ppc.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`MobilityCF`."""
 
@@ -929,13 +932,13 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     uses_fractional_flow_bc: bool
     """See :class:`BoundaryConditionsCF`."""
 
-    bc_data_fractional_flow_component_key: Callable[[ppc.Component], str]
+    bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsCF`"""
 
-    has_independent_fraction: Callable[[ppc.Phase | ppc.Component], bool]
+    has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
-    def _mass_balance_equation_name(self, component: ppc.Component) -> str:
+    def _mass_balance_equation_name(self, component: pp.Component) -> str:
         """Method returning a name to be given to the mass balance equation of a
         component."""
         return f"mass_balance_equation_{component.name}"
@@ -964,7 +967,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
                 self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
 
     def mass_balance_equation_for_component(
-        self, component: ppc.Component, subdomains: list[pp.Grid]
+        self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Mass balance equation for subdomains for a given component.
 
@@ -989,7 +992,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         return eq
 
     def fluid_mass_for_component(
-        self, component: ppc.Component, subdomains: list[pp.Grid]
+        self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         r"""Returns the accumulation term in a ``component``'s mass balance equation
         using the :attr:`~porepy.compositional.base.FluidMixture.density` of the fluid
@@ -1012,7 +1015,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         return mass_density
 
     def advective_weight_component_flux(
-        self, component: ppc.Component, domains: pp.SubdomainsOrBoundaries
+        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         """The non-linear weight in the advective component flux.
 
@@ -1043,7 +1046,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         return op
 
     def fluid_flux_for_component(
-        self, component: ppc.Component, domains: pp.SubdomainsOrBoundaries
+        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         """A fractional component mass flux, where the total flux consists of the Darcy
         flux multiplied with a non-linear weight.
@@ -1102,7 +1105,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         return flux
 
     def interface_flux_for_component(
-        self, component: ppc.Component, interfaces: list[pp.MortarGrid]
+        self, component: pp.Component, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
         """Interface component flux using a the interface darcy flux and
         :meth:`advective_weight_component_flux`.
@@ -1119,7 +1122,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         return flux
 
     def well_flux_for_component(
-        self, component: ppc.Component, interfaces: list[pp.MortarGrid]
+        self, component: pp.Component, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
         """Well component flux using a the well flux and
         :meth:`advective_weight_component_flux`.
@@ -1136,7 +1139,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         return flux
 
     def fluid_source_of_component(
-        self, component: ppc.Component, subdomains: list[pp.Grid]
+        self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Source term in a component's mass balance equation.
 
@@ -1783,22 +1786,17 @@ class BoundaryConditionsCF(
 
     """
 
-    dependencies_of_phase_properties: Callable[
-        [ppc.Phase], list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
-    ]
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
     enthalpy_variable: str
     """See :class:`SolutionStrategyCF`."""
 
-    has_independent_fraction: Callable[[ppc.Phase | ppc.Component], bool]
+    has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
-    _overall_fraction_variable: Callable[[ppc.Component], str]
+    _overall_fraction_variable: Callable[[pp.Component], str]
     """See :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
-    _saturation_variable: Callable[[ppc.Phase], str]
+    _saturation_variable: Callable[[pp.Phase], str]
     """See :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
-    _partial_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
+    _partial_fraction_variable: Callable[[pp.Component, pp.Phase], str]
     """See :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
     _tracer_fraction_variable: Callable[[pp.Component, ppc.Compound], str]
     """See :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
@@ -1830,7 +1828,7 @@ class BoundaryConditionsCF(
         """
         return bool(self.params.get("use_fractional_flow_bc", False))
 
-    def bc_data_fractional_flow_component_key(self, component: ppc.Component) -> str:
+    def bc_data_fractional_flow_component_key(self, component: pp.Component) -> str:
         """Key to store the BC values of the non-linear weight in the advective flux
         of a component's mass balance equation"""
         return f"bc_data_fractional_flow_{component.name}"
@@ -2083,7 +2081,7 @@ class BoundaryConditionsCF(
         return np.zeros(boundary_grid.num_cells)
 
     def bc_values_overall_fraction(
-        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         """BC values for overall fraction of a component (primary variable).
 
@@ -2123,7 +2121,7 @@ class BoundaryConditionsCF(
         return np.zeros(boundary_grid.num_cells)
 
     def bc_values_fractional_flow_component(
-        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         """BC values for the non-linear weight in the advective flux in
         :class:`ComponentMassBalanceEquations`, determining how much mass for respecitve
@@ -2184,15 +2182,10 @@ class InitialConditionsCF(PorePyModel):
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`VariablesCF`."""
 
-    has_independent_fraction: Callable[[ppc.Phase | ppc.Component], bool]
+    has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
     has_independent_tracer_fraction: Callable[[pp.Component, ppc.Compound], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
-
-    dependencies_of_phase_properties: Callable[
-        [ppc.Phase], list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
-    ]
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     _constitutive_eliminations: dict[
         str,
@@ -2428,7 +2421,7 @@ class InitialConditionsCF(PorePyModel):
         return np.zeros(sd.num_cells)
 
     def initial_overall_fraction(
-        self, component: ppc.Component, sd: pp.Grid
+        self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         """
         Parameters:
@@ -2463,6 +2456,7 @@ class InitialConditionsCF(PorePyModel):
 
 class SolutionStrategyCF(
     mass_energy.SolutionStrategyFluidMassAndEnergy,
+    CompositionalFlowModelProtocol,
 ):
     """Solution strategy for compositional flow.
 
@@ -2520,23 +2514,9 @@ class SolutionStrategyCF(
     """See :class:`ConstitutiveLawsCF`."""
     update_all_constitutive_expressions: Callable[[], None]
     """See :class:`ConstitutiveLawsCF`."""
-    dependencies_of_phase_properties: Callable[
-        [ppc.Phase], list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
-    ]
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
-    primary_equation_names: list[str]
-    """See :class:`EquationsCompositionalFlow`."""
-    primary_variable_names: list[str]
-    """See :class:`VariablesCF`."""
 
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsCF`."""
-
-    _is_ref_phase_eliminated: bool
-    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`"""
-    _is_ref_comp_eliminated: bool
-    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`"""
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)

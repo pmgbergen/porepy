@@ -41,15 +41,14 @@ time_manager = pp.TimeManager(
     print_info=True,
 )
 
-solid_constants = pp.SolidConstants(
-    {
-        "permeability": 5.0e-14,
-        "porosity": 0.1,
-        "thermal_conductivity": 1.8,
-        "density": 2650.0,
-        "specific_heat_capacity": 1000.0,
-    }
-)
+solid_vals: dict[str, pp.number] = {
+    "permeability": 5.0e-14,
+    "porosity": 0.1,
+    "thermal_conductivity": 1.8,
+    "density": 2650.0,
+    "specific_heat_capacity": 1000.0,
+}
+solid_constants = pp.SolidConstants(name="solid", units=pp.Units(), **solid_vals)
 material_constants = {"solid": solid_constants}
 params = {
     "material_constants": material_constants,

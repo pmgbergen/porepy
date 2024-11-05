@@ -30,6 +30,9 @@ if not TYPE_CHECKING:
     class PorePyModel:
         """This is an empty placeholder of the protocol, used mainly for type hints."""
 
+    class CompositionalFlowModelProtocol:
+        """This is an empty placeholder of the protocol, used mainly for type hints."""
+
 else:
     # This branch is accessed by mypy and linters.
 
@@ -75,6 +78,9 @@ else:
             four Cartesian cells.
 
             """
+
+        def set_well_network(self) -> None:
+            """Assign well network class :attr:`well_network`."""
 
         def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
@@ -593,6 +599,17 @@ else:
 
             """
 
+        def dependencies_of_phase_properties(
+            self, phase: pp.Phase
+        ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+            """Returns the Callables representing variables, on which the thermodynamic
+            properties of phases depend.
+
+            For a more detailed explanation, see :meth:`~porepy.compositional.
+            compositional_mixins.dependencies_of_phase_properties.`
+
+            """
+
     class VariableProtocol(Protocol):
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""
@@ -828,3 +845,67 @@ else:
             runtime, since it is not an abstract base class.
 
         """
+
+    class CompositionalFlowModelProtocol(Protocol):
+        """Protocol declaring a collection of mixed-in methods specific to the
+        compositional flow setting."""
+
+        @property
+        def primary_variable_names(self) -> list[str]:
+            """Returns a list of primary variables, which in the basic set-up consist
+            of
+
+            1. pressure,
+            2. overall fractions,
+            3. tracer fractions,
+            4. specific fluid enthalpy.
+
+            Primary variable names are used to define the primary block in the Schur
+            elimination in the solution strategy.
+
+            Implemented in :meth:`~porepy.models.compositional_flow.VariablesCF.
+            primary_variables`.
+
+            """
+
+        @property
+        def primary_equation_names(self) -> list[str]:
+            """Returns the list of primary equation, consisting of
+
+            1. pressure equation,
+            2. energy balance equation,
+            3. mass balance equations per fluid component,
+            4. transport equations per solute in compounds in the fluid.
+
+            Note:
+                Interface equations, which are non-local equations since they relate
+                interface variables and respective subdomain variables on some subdomain
+                cells, are not included.
+
+                This might have an effect on the Schur complement in the solution
+                strategy.
+
+            Implemented in :meth:`~porepy.models.compositional_flow.PrimaryEquationsCF.
+            primary_equation_names`.
+
+            """
+
+        @property
+        def _is_ref_phase_eliminated(self) -> bool:
+            """Helper property to access the model parameters and check if the
+            reference phase is eliminated. Default value is True.
+
+            Implemented in :meth:`~porepy.compositional.compositional_mixins.
+            _MixtureDOFHandler._is_ref_phase_eliminated`.
+
+            """
+
+        @property
+        def _is_ref_comp_eliminated(self) -> bool:
+            """Helper property to access the model parameters and check if the
+            reference component is eliminated. Default value is True.
+
+            Implemented in :meth:`~porepy.compositional.compositional_mixins.
+            _MixtureDOFHandler._is_ref_comp_eliminated`.
+
+            """
