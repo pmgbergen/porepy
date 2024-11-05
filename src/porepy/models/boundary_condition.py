@@ -4,9 +4,10 @@ from typing import Callable, Sequence
 import numpy as np
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 
 
-class BoundaryConditionMixin:
+class BoundaryConditionMixin(PorePyModel):
     """Mixin class for boundary conditions.
 
     This class is intended to be used together with the other model classes providing
@@ -14,47 +15,9 @@ class BoundaryConditionMixin:
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    time_manager: pp.TimeManager
-    """Time manager. Normally set by an instance of a subclass of
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
-    subdomains_to_boundary_grids: Callable[
-        [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
-    ]
-    """Function that maps a sequence of subdomains to a sequence of boundary grids.
-    Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    units: "pp.Units"
-    """Units object, containing the scaling of base magnitudes."""
-
-    time_step_indices: np.ndarray
-    """See :meth:`~porepy.models.solution_strategy.SolutionStragey.time_step_indices`.
-    """
-
     def update_all_boundary_conditions(self) -> None:
         """This method is called before a new time step to set the values of the
         boundary conditions.
-
-        This implementation updates only the filters for Dirichlet and Neumann
-        values. The specific boundary condition values should be updated in
-        overrides by models.
 
         Note:
             One can use the convenience method `update_boundary_condition` for each
@@ -110,18 +73,20 @@ class BoundaryConditionMixin:
     def create_boundary_operator(
         self, name: str, domains: Sequence[pp.BoundaryGrid]
     ) -> pp.ad.TimeDependentDenseArray:
-        """
+        """Creates an operator on boundary grids.
+
         Parameters:
-            name: Name of the variable or operator to be represented on the boundary.
+            name: Name of the variable or operator to be represented on the
+                boundary.
             domains: A sequence of boundary grids on which the operator is defined.
 
         Raises:
             ValueError: If the passed sequence of domains does not consist entirely
-                of instances of boundary grid.
+                of boundary grid.
 
         Returns:
-            An operator of given name representing time-dependent value on given
-            sequence of boundary grids.
+            An operator of given name representing value on given sequence of
+            boundary grids. Can possibly be time-dependent.
 
         """
         if not all(isinstance(x, pp.BoundaryGrid) for x in domains):
@@ -143,12 +108,12 @@ class BoundaryConditionMixin:
 
         Parameters:
             subdomains: List of subdomains.
-            dirichlet_operator: Function that returns the Dirichlet boundary condition
-                operator.
+            dirichlet_operator: Function that returns the Dirichlet boundary
+                condition operator.
             neumann_operator: Function that returns the Neumann boundary condition
                 operator.
-            robin_operator: Function that returns the Robin boundary condition operator.
-                Expected to be None for e.g. advective fluxes.
+            robin_operator: Function that returns the Robin boundary condition
+                operator. Expected to be None for e.g. advective fluxes.
             dim: Dimension of the equation. Defaults to 1.
             name: Name of the resulting operator. Must be unique for an operator.
 

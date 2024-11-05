@@ -4,7 +4,7 @@ For now we provide parameter values for the following fluids:
 * Water (at 20 degrees Celsius)
 
 The dictionary containing parameter values is obtained by e.g. pp.fluid_values.water.
-They can be used in a simulation by passing `fluid = pp.FluidConstants(pp.fluid_values.
+They can be used in a simulation by passing `fluid = pp.FluidComponent(**pp.fluid_values.
 water)` as a material parameter on model initiation.
 
 
@@ -50,7 +50,5 @@ extended_water_values_for_testing = water.copy()
 extended_water_values_for_testing.update(
     {
         "normal_thermal_conductivity": 0.5975,  # [kg m^-3]
-        "pressure": 101325,  # [Pa]
-        "temperature": 293.15,  # [K]
     }
 )

@@ -11,6 +11,7 @@ import numpy as np
 from scipy import stats
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 from porepy.utils.txt_io import TxtData, export_data_to_txt
 
 logger = logging.getLogger(__name__)
@@ -119,8 +120,12 @@ class ConvergenceAnalysis:
         """
 
         # Initialize setup and retrieve spatial and temporal data
-        setup = model_class(deepcopy(model_params))  # make a deep copy of dictionary
-        setup.prepare_simulation()
+        setup: PorePyModel = model_class(
+            deepcopy(model_params)
+        )  # make a deep copy of dictionary
+        # The typing of PorePyModel was added to support linters as much as possible.
+        # But the protocols do not contain all methods provided by SolutionStrategy.
+        setup.prepare_simulation()  # type: ignore[attr-defined]
 
         # Store initial setup
         self._init_setup = setup

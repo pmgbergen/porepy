@@ -12,68 +12,20 @@ import logging
 import time
 import warnings
 from functools import partial
-from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.models.protocol import PorePyModel
 
 logger = logging.getLogger(__name__)
 
 
-class SolutionStrategy(abc.ABC):
+class SolutionStrategy(abc.ABC, PorePyModel):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
-
-    """
-
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    set_geometry: Callable[[], None]
-    """Set the geometry of the model. Normally provided by a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    initialize_data_saving: Callable[[], None]
-    """Initialize data saving. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
-    save_data_time_step: Callable[[], None]
-    """Save data at a time step. Normally provided by a mixin instance of
-    :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-    """
-    create_variables: Callable[[], None]
-    """Create variables. Normally provided by a mixin instance of a Variable class
-    relevant to the model.
-
-    """
-    set_equations: Callable[[], None]
-    """Set the governing equations of the model. Normally provided by the solution
-    strategy of a specific model (i.e. a subclass of this class).
-
-    """
-    load_data_from_vtu: Callable[[Path, int, Optional[Path]], None]
-    """Load data from vtu to initialize the states, only applicable in restart mode.
-    :class:`~porepy.viz.exporter.Exporter`.
-
-    """
-    load_data_from_pvd: Callable[[Path, bool, Optional[Path]], None]
-    """Load data from pvd to initialize the states, only applicable in restart mode.
-    :class:`~porepy.viz.exporter.Exporter`.
-
-    """
-    nonlinear_solver_statistics: pp.SolverStatistics
-    """Solver statistics for the nonlinear solver."""
-    update_all_boundary_conditions: Callable[[], None]
-    """Set the values of the boundary conditions for the new time step.
-    Defined in :class:`~porepy.models.abstract_equations.BoundaryConditionsMixin`.
 
     """
 
@@ -81,8 +33,7 @@ class SolutionStrategy(abc.ABC):
         """Initialize the solution strategy.
 
         Parameters:
-            params: Parameters for the solution strategy. Defaults to
-                None.
+            params: Parameters for the solution strategy. Defaults to None.
 
         """
         if params is None:
@@ -96,55 +47,41 @@ class SolutionStrategy(abc.ABC):
         }
 
         default_params.update(params)
-
         self.params = default_params
         """Dictionary of parameters."""
 
         # Set a convergence status. Not sure if a boolean is sufficient, or whether
         # we should have an enum here.
-        self.convergence_status: bool = False
+        self.convergence_status = False
         """Whether the non-linear iteration has converged."""
-
-        # Define attributes to be assigned later
-        self.equation_system: pp.ad.EquationSystem
-        """Equation system manager. Will be set by :meth:`set_equation_system_manager`.
-
-        """
-        self.mdg: pp.MixedDimensionalGrid
-        """Mixed-dimensional grid. Will normally be set by a mixin instance of
-        :class:`~porepy.models.geometry.ModelGeometry`.
-
-        """
-        self._domain: pp.Domain
-        """Box-shaped domain. Will normally be set by a mixin instance of
-        :class:`~porepy.models.geometry.ModelGeometry`.
-
-        """
-        self.linear_system: tuple[sps.spmatrix, np.ndarray]
-        """The linear system to be solved in each iteration of the non-linear solver.
-        The tuple contains the sparse matrix and the right hand side residual vector.
-
-        """
         self._nonlinear_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
-        self.exporter: pp.Exporter
-        """Exporter for visualization."""
+        """List of non-linear discretizations, to be updated in every iteration.
 
-        self.units: pp.Units = params.get("units", pp.Units())
-        """Units of the model. See also :meth:`set_units`."""
+        See also :meth:`add_nonlinear_discretization`.
 
-        self.fluid: pp.FluidConstants
-        """Fluid constants. See also :meth:`set_materials`."""
+        """
+        self.units = params.get("units", pp.Units())
+        """Units of the model provided in ``params['units']``."""
+        # get default or user-provided reference values
+        reference_values: pp.ReferenceVariableValues = params.get(
+            "reference_variable_values", pp.ReferenceVariableValues()
+        )
+        # Ensure the reference values are in the right units
+        reference_values = reference_values.to_units(self.units)
+        self.reference_variable_values = reference_values
+        """The model reference values for variables, converted to simulation
+        :attr:`units`.
 
-        self.solid: pp.SolidConstants
-        """Solid constants. See also :meth:`set_materials`."""
+        Reference values can be provided through ``params['reference_values']``.
 
-        self.time_manager: pp.TimeManager = params.get(
+        """
+
+        self.time_manager = params.get(
             "time_manager",
             pp.TimeManager(schedule=[0, 1], dt_init=1, constant_dt=True),
         )
         """Time manager for the simulation."""
-
-        self.restart_options: dict = params.get(
+        self.restart_options = params.get(
             "restart_options",
             {
                 "restart": False,
@@ -175,17 +112,10 @@ class SolutionStrategy(abc.ABC):
                 # assumed to address the last time step in times_file.
             },
         )
-        """Restart options (template) for restart from pvd as expected restart routines
-        within :class:`~porepy.viz.data_saving_model_mixin.DataSavingMixin`.
-
-        """
+        """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
-        """Time step as an automatic differentiation scalar.
+        """Time step as an automatic differentiation scalar."""
 
-        This is used to ensure that the time step is for all equations if the time step
-        is adjusted during simulation. See :meth:`before_nonlinear_loop`.
-
-        """
         self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
@@ -203,6 +133,13 @@ class SolutionStrategy(abc.ABC):
         # Order of operations is important here.
         self.set_equation_system_manager()
         self.create_variables()
+        # After fluid and variables are defined, we can define the secondary quantities
+        # like fluid properties (which depend on variables). Creating fluid and
+        # variables before defining secondary thermodynamic properties is critical in
+        # the case where properties depend on some fractions. since the callables for
+        # secondary variables are dynamically created during create_variables, as
+        # opposed to e.g. pressure or temperature.
+        self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
         self.reset_state_from_file()
         self.set_equations()
@@ -223,26 +160,26 @@ class SolutionStrategy(abc.ABC):
     def set_discretization_parameters(self) -> None:
         """Set parameters for the discretization.
 
-        This method is called before the discretization is performed. It is
-        intended to be used to set parameters for the discretization, such as
-        the permeability, the porosity, etc.
+        This method is called before the discretization is performed. It is intended to
+        be used to set parameters for the discretization, such as the permeability, the
+        porosity, etc.
 
         """
 
     def set_solver_statistics(self) -> None:
         """Set the solver statistics object.
 
-        This method is called at initialization. It is intended to be used to
-        set the solver statistics object(s). Currently, the solver statistics
-        object is related to nonlinearity only. Statistics on other parts of the
-        solution process, such as linear solvers, may be added in the future.
+        This method is called at initialization. It is intended to be used to set the
+        solver statistics object(s). Currently, the solver statistics object is related
+        to nonlinearity only. Statistics on other parts of the solution process, such as
+        linear solvers, may be added in the future.
 
         Raises:
             ValueError: If the solver statistics object is not a subclass of
                 pp.SolverStatistics.
 
         """
-        # Retrieve the value with a default of pp.SolverStatistics
+        # Retrieve the value with a default of pp.SolverStatistics.
         statistics = self.params.get("nonlinear_solver_statistics", pp.SolverStatistics)
         # Explicitly check if the retrieved value is a class and a subclass of
         # pp.SolverStatistics for type checking.
@@ -275,20 +212,16 @@ class SolutionStrategy(abc.ABC):
         self.update_time_dependent_ad_arrays()
 
     @property
-    def domain(self) -> pp.Domain:
-        """Domain of the problem."""
-        return self._domain
-
-    @property
     def time_step_indices(self) -> np.ndarray:
         """Indices for storing time step solutions.
 
-        Note:
-            (Previous) Time step indices should start with 1.
+        Index 0 corresponds to the most recent time step with the know solution, 1 to
+        the previous time step, etc.
 
         Returns:
-            An array of the indices of which time step solutions will be stored, counting
-            from 0. Defaults to storing the most recently computed solution only.
+            An array of the indices of which time step solutions will be stored,
+            counting from 0. Defaults to storing the most recently computed solution
+            only.
 
         """
         return np.array([0])
@@ -339,32 +272,61 @@ class SolutionStrategy(abc.ABC):
     def set_materials(self):
         """Set material parameters.
 
-        In addition to adjusting the units (see ::method::set_units), materials are
-        defined through ::class::pp.Material and the constants passed when initializing
-        the materials. For most purposes, a user needs only pass the desired parameter
-        values in params["material_constants"] when initializing a solution strategy,
-        and should not need to modify the material classes. However, if a user wishes to
-        modify to e.g. provide additional material parameters, this can be done by
-        passing modified material classes in params["fluid"] and params["solid"].
+        Searches for entries in ``params['material_constants']`` with keys ``'fluid'``
+        and ``'solid'`` for respective material constant instances. If not found,
+        default materials are instantiated.
+
+        Provides the :attr:`solid` material constants as an attribute to the model, as
+        well as the :attr:`fluid` object by calling :attr:`create_fluid`.
+
+        By default, a 1-phase, 1-component fluid is created based on the fluid component
+        provided in ``params['material_constants']``.
 
         """
-        # Default values
-        constants = {}
-        constants.update(self.params.get("material_constants", {}))
-        # Use standard models for fluid and solid constants if not provided.
-        if "fluid" not in constants:
-            constants["fluid"] = pp.FluidConstants()
-        if "solid" not in constants:
-            constants["solid"] = pp.SolidConstants()
+        # User provided values, if any.
+        constants = cast(
+            dict[str, pp.Constants], self.params.get("material_constants", {})
+        )
+        # If the user provided material constants, assert they are in dictionary form
+        assert isinstance(
+            constants, dict
+        ), "model.params['material_constants'] must be a dictionary."
 
-        # Loop over all constants objects (fluid, solid), and set units.
-        for name, const in constants.items():
-            # Check that the object is of the correct type
-            assert isinstance(const, pp.models.material_constants.MaterialConstants)
-            # Impose the units passed to initialization of the model.
-            const.set_units(self.units)
-            # This is where the constants (fluid, solid) are actually set as attributes
-            setattr(self, name, const)
+        # Use standard models for fluid and solid constants if not provided.
+        # Otherwise get the given constants.
+        solid = cast(
+            pp.SolidConstants, constants.get("solid", pp.SolidConstants(name="solid"))
+        )
+        fluid = cast(
+            pp.FluidComponent, constants.get("fluid", pp.FluidComponent(name="fluid"))
+        )
+
+        # Sanity check that users did not pass anything unexpected.
+        assert isinstance(solid, pp.SolidConstants), (
+            "model.params['material_constants']['fluid'] must be of type "
+            + f"{pp.SolidConstants}"
+        )
+        assert isinstance(fluid, pp.FluidComponent), (
+            "model.params['material_constants']['fluid'] must be of type "
+            + f"{pp.FluidComponent}"
+        )
+
+        # Converting to units of simulation.
+        fluid = fluid.to_units(self.units)
+        solid = solid.to_units(self.units)
+
+        # Set the solid for the model.
+        # NOTE this will change with the generalization of the solid
+        self.solid = solid
+
+        # Store the fluid component to be accessible by the FluidMixin for creating the
+        # default fluid object of the model
+        if "material_constants" not in self.params:
+            self.params["material_constants"] = {"fluid": fluid}
+        else:
+            # by logic, params['material_constants'] is ensured to be a dict
+            self.params["material_constants"]["fluid"] = fluid
+        self.create_fluid()
 
     def discretize(self) -> None:
         """Discretize all terms."""
@@ -721,7 +683,7 @@ class SolutionStrategy(abc.ABC):
         self.update_all_boundary_conditions()
 
 
-class ContactIndicators:
+class ContactIndicators(PorePyModel):
     """Class for computing contact indicators used for tailored line search.
 
     This functionality is experimental and may be subject to change.
@@ -737,9 +699,6 @@ class ContactIndicators:
 
     """
 
-    basis: Callable[[list[pp.Grid], int], list[pp.ad.SparseArray]]
-    """Basis vector operator."""
-
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction operator."""
 
@@ -749,29 +708,11 @@ class ContactIndicators:
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Displacement jump operator."""
 
-    equation_system: pp.ad.EquationSystem
-    """Equation system manager."""
-
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Fracture gap operator."""
 
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Friction bound operator."""
-
-    normal_component: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Normal component operator for vectors defined on fracture subdomains."""
-
-    tangential_component: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Tangential component operator for vectors defined on fracture subdomains."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
-
-    nd: int
-    """Ambient dimension of the problem."""
-
-    params: dict[str, Any]
-    """Dictionary of parameters."""
 
     def opening_indicator(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Function describing the state of the opening constraint.
@@ -833,9 +774,7 @@ class ContactIndicators:
         # Mapping from a full vector to the tangential component
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
-        tangential_basis: list[pp.ad.SparseArray] = self.basis(
-            subdomains, dim=self.nd - 1  # type: ignore[call-arg]
-        )
+        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # Variables: The tangential component of the contact traction and the
         # displacement jump
@@ -876,7 +815,7 @@ class ContactIndicators:
             ind = ind / pp.ad.Scalar(scale)
         return ind * h_oi
 
-    def contact_traction_estimate(self, subdomains):
+    def contact_traction_estimate(self, subdomains: list[pp.Grid]):
         """Estimate the magnitude of contact traction.
 
         Parameters:

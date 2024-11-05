@@ -8,6 +8,7 @@ Testing covers:
     Utility methods:
         domain_boundary_sides
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,32 +20,11 @@ import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models
 
 
-class GeometryClassWithSolidConstants:
-    """To enable/allow use of convert_units method when testing geometry.
-
-    The convert_units method is accessed by instantiating `pp.SolidConstants` and then
-    calling its `set_units` method.
-
-    For local use. Only overrides init, which is not defined in other geometry classes.
-
-    """
-
-    def __init__(self):
-        self.solid = pp.SolidConstants()
-        self.solid.set_units(pp.Units())
-
-
 geometry_list = [
+    porepy.applications.md_grids.model_geometries.RectangularDomainThreeFractures,
     models._add_mixin(
-        GeometryClassWithSolidConstants,
-        porepy.applications.md_grids.model_geometries.RectangularDomainThreeFractures,
-    ),
-    models._add_mixin(
-        GeometryClassWithSolidConstants,
-        models._add_mixin(
-            porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
-            pp.models.geometry.ModelGeometry,
-        ),
+        porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
+        pp.ModelGeometry,
     ),
 ]
 
@@ -52,7 +32,7 @@ num_fracs_list = [0, 1, 2, 3]
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_set_geometry(geometry_class):
+def test_set_geometry(geometry_class: type[pp.ModelGeometry]):
     """Test the method set_geometry."""
     geometry = geometry_class()
     # Testing with a single fracture should be sufficient here.
@@ -72,7 +52,7 @@ def test_set_geometry(geometry_class):
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", num_fracs_list)
-def test_boundary_sides(geometry_class, num_fracs):
+def test_boundary_sides(geometry_class: type[pp.ModelGeometry], num_fracs):
     geometry = geometry_class()
     geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
@@ -157,17 +137,13 @@ def test_wrap_grid_attributes(
 
     # Test that an error is raised if the grid does not have such an attribute
     with pytest.raises(ValueError):
-        geometry.wrap_grid_attribute(
-            top_subdomain, "no_such_attribute", dim=1  # type: ignore[call-arg]
-        )
+        geometry.wrap_grid_attribute(top_subdomain, "no_such_attribute", dim=1)
 
     # Test that the an error is raised if we try to wrap a field which is not an
     # ndarray.
     with pytest.raises(ValueError):
         # This will return a string
-        geometry.wrap_grid_attribute(
-            top_subdomain, "name", dim=1  # type: ignore[call-arg]
-        )
+        geometry.wrap_grid_attribute(top_subdomain, "name", dim=1)
 
     # One loop for both subdomains and interfaces.
     for grids in test_subdomains + test_interfaces:
@@ -193,9 +169,9 @@ def test_wrap_grid_attributes(
         # Loop over attributes and corresponding dimensions.
         for attr, dim in zip(attr_list, dim_list):
             # Get hold of the wrapped attribute and the wrapping.
-            wrapped_value = geometry.wrap_grid_attribute(
-                grids, attr, dim=dim  # type: ignore[call-args]
-            ).value(eq_system)
+            wrapped_value = geometry.wrap_grid_attribute(grids, attr, dim=dim).value(
+                eq_system
+            )
 
             # Check that the wrapped attribute is a matrix
             assert isinstance(wrapped_value, np.ndarray)
@@ -258,7 +234,7 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
     assert no_subdomains == []
     assert no_interfaces == []
     if getattr(geometry, "num_fracs", 0) > 1:
-        # Matrix and two fractures. TODO: Use three_sds?
+        # Matrix and two fractures.
         two_fractures = all_subdomains[1:3]
         # Only those interfaces involving one of the two fractures are expected.
         interfaces = []
@@ -337,9 +313,7 @@ def test_internal_boundary_normal_to_outwards(
             # Indices belonging to the current dimension
             dim_ind = np.arange(i, loc_size, dim)
             dim_vals = loc_vals[dim_ind]
-            assert np.allclose(
-                dim_vals[fracture_faces], cf_sum[fracture_faces].ravel()
-            )
+            assert np.allclose(dim_vals[fracture_faces], cf_sum[fracture_faces].ravel())
         # Update offset, needed to test for multiple subdomains.
         offset += sd.num_faces * dim
 
