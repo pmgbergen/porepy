@@ -150,7 +150,9 @@ class _MixtureDOFHandler(PorePyModel):
         """Helper method to access the model parameters and check if the
         equilibrium type is defined. Defaults to False."""
 
-        if self.equilibrium_type is None:
+        equilibrium_type = self.params.get("equilibrium_type", None)
+
+        if equilibrium_type is None:
             return False
         else:
             return True
@@ -161,7 +163,7 @@ class _MixtureDOFHandler(PorePyModel):
         equilibrium type is defined and if it is unified."""
         if self._has_equilibrium:
             # NOTE _has_equilibrium already checks that the value is not none.
-            if "unified" in str(self.equilibrium_type):
+            if "unified" in str(self.params["equilibrium_type"]):
                 return True
             else:
                 return False
