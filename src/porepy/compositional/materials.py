@@ -37,10 +37,14 @@ number = pp.number
 # errors are raised (no separate checks required).
 # 2. By providing default values to the fields, not every constant is required. The user
 # is expected to be aware which physics are used in the model.
-# 3. By instructing dataclass to not override the __eq__ provided by object (we do not
-# need to compare constants by equality of values, since the class is intended for
-# distinct instances). This way the classes remain hashable (can be used in dicts),
-# see for instance https://stackoverflow.com/a/52390734. 
+# 3. By instructing dataclass to not override the __eq__ provided by object, the classes
+# remain hashable (can be used in dicts), see for instance
+# https://stackoverflow.com/a/52390734.
+# We do not need to compare constants by equality of field values (what eq=True would
+# do), since the class is intended for instances like solids and fluids, which *are*
+# distinct by design.
+# Note however, it inherits the default eq from object, which is a comparison of memory
+# adresses.
 @dataclass(kw_only=True, eq=False)
 class Constants:
     """Material property container and conversion class.
