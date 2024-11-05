@@ -41,7 +41,7 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
-    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
