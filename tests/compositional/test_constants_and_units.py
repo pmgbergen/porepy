@@ -15,6 +15,7 @@ import pytest
 
 import porepy as pp
 
+from dataclasses import FrozenInstanceError
 
 # TODO remove
 @pytest.fixture
@@ -42,6 +43,17 @@ def derived_units() -> list[str]:
     """Create a list of derived units defined in Units."""
     return ["Pa", "N", "J", "W", "degree"]
 
+
+@pytest.fixture
+def scaled_units() -> pp.Units:
+    """Some scaled units used to test constatns."""
+    return pp.Units(
+        **{
+            'm': pp.KILO * pp.METER,
+            'kg': pp.KILO * pp.METER,
+            'K': pp.KILO * pp.KELVIN,
+        }
+    )
 
 def test_default_units(base_units, derived_units):
     """Test that the default units are defined properly.
@@ -178,3 +190,79 @@ def test_convert_units(modify_dict, base_units):
     dimensionless_units = ["", "1", "-", "   "]
     for unit in dimensionless_units:
         assert np.isclose(units.convert_units(1, unit), 1)
+
+
+@pytest.mark.parametrize(
+    'constants_type',
+    [
+        pp.Constants,
+        pp.FluidComponent,
+        pp.SolidConstants,
+        pp.ReferenceVariableValues
+    ]
+)
+def test_class_of_constants(constants_type: type[pp.Constants], scaled_units: pp.Units):
+    """Tests the class Constants and its children.
+
+    Tests:
+
+    1. Creation with default values (should be unscaled)
+    2. Constants declared with SI units are frozen
+    3. Constants are numbers (float, int)
+    4. The conversion to new, scaled units works as intended.
+
+    """
+
+    default_units = pp.Units()
+
+    constants = constants_type()
+    constants_default = constants_type(units=default_units)
+
+    # assert the post-initialization is done and the instance is flagged as initialized
+    assert constants._initialized
+
+    # Testing individual constants delcared indirectly by SI units.
+    for name in constants_type.SI_units.keys():
+        # Testing that the default values match with the default units (SI)
+        c = getattr(constants, name)
+        c_default = getattr(constants_default, name)
+
+        assert isinstance(c, (float, int))
+        assert isinstance(c_default, (float, int))
+        assert np.isclose(c, c_default)
+
+        # Testing that the constants cannot be reset anymore
+        with pytest.raises(FrozenInstanceError):
+            exec(f"constants.{name} = 1")
+
+    # Testing that other utility fields cannot be set as well
+    with pytest.raises(FrozenInstanceError):
+        exec("constants.name = ''")
+    with pytest.raises(FrozenInstanceError):
+        exec("constants.units = default_units")
+    with pytest.raises(FrozenInstanceError):
+        exec("constants.constants_in_SI = dict()")
+    with pytest.raises(FrozenInstanceError):
+        exec("constants._initialized = False")
+
+    # Testing the scaled values
+    constants_scaled = constants.to_units(scaled_units)
+
+    for name in constants_type.SI_units.keys():
+        # check that the values in SI where not lost
+        assert np.isclose(
+            constants.constants_in_SI[name], constants_scaled.constants_in_SI[name]
+        )
+        assert np.isclose(
+            constants_default.constants_in_SI[name],
+            constants_scaled.constants_in_SI[name]
+        )
+
+        # check that the value is correctly converted by manually converting the units
+        # from SI to given scaled units
+        assert np.isclose(
+            eval(f"constants_scaled.{name}"),
+            scaled_units.convert_units(
+                eval(f"constants.{name}"), constants.SI_units[name]
+            )
+        )
