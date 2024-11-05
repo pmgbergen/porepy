@@ -30,6 +30,7 @@ import porepy.compositional as ppc
 
 from . import energy_balance as energy
 from . import mass_and_energy_balance as mass_energy
+from .protocol import PorePyModel
 
 logger = logging.getLogger(__name__)
 
@@ -67,25 +68,27 @@ def update_phase_properties(
     phase.density.progress_iterate_values_on_grid(props.rho, grid, depth=depth)
     phase.specific_enthalpy.progress_iterate_values_on_grid(props.h, grid, depth=depth)
     phase.viscosity.progress_iterate_values_on_grid(props.mu, grid, depth=depth)
-    phase.conductivity.progress_iterate_values_on_grid(props.kappa, grid, depth=depth)
+    phase.thermal_conductivity.progress_iterate_values_on_grid(
+        props.kappa, grid, depth=depth
+    )
 
     if update_derivatives:
         if use_extended_derivatives:
             phase.density.set_derivatives_on_grid(props.drho_ext, grid)
             phase.specific_enthalpy.set_derivatives_on_grid(props.dh_ext, grid)
             phase.viscosity.set_derivatives_on_grid(props.dmu_ext, grid)
-            phase.conductivity.set_derivatives_on_grid(props.dkappa_ext, grid)
+            phase.thermal_conductivity.set_derivatives_on_grid(props.dkappa_ext, grid)
         else:
             phase.density.set_derivatives_on_grid(props.drho, grid)
             phase.specific_enthalpy.set_derivatives_on_grid(props.dh, grid)
             phase.viscosity.set_derivatives_on_grid(props.dmu, grid)
-            phase.conductivity.set_derivatives_on_grid(props.dkappa, grid)
+            phase.thermal_conductivity.set_derivatives_on_grid(props.dkappa, grid)
 
 
 # region CONSTITUTIVE LAWS taylored to pore.compositional and its mixins
 
 
-class MobilityCF:
+class MobilityCF(PorePyModel):
     """Mixin class defining mobilities for the balance equations in the CF setting, and
     the discretization to be used for the non-linear weights in advective fluxes.
 
@@ -104,17 +107,8 @@ class MobilityCF:
 
     """
 
-    fluid_mixture: ppc.FluidMixture
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
     relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
     """See :class:`SolidSkeletonCF`."""
-
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-    """
 
     mobility_keyword: str
     """See :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
@@ -139,10 +133,7 @@ class MobilityCF:
         """
         name = "total_mobility"
         mobility = pp.ad.sum_operator_list(
-            [
-                self.phase_mobility(phase, domains)
-                for phase in self.fluid_mixture.phases
-            ],
+            [self.phase_mobility(phase, domains) for phase in self.fluid.phases],
             name,
         )
         return mobility
@@ -174,7 +165,7 @@ class MobilityCF:
         return mobility
 
     def component_mobility(
-        self, component: ppc.Component, domains: pp.SubdomainsOrBoundaries
+        self, component: ppc.FluidComponent, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         r"""Non-linear term in the advective flux in a component mass balance equation,
         or total mobility of a component.
@@ -200,7 +191,7 @@ class MobilityCF:
             [
                 phase.partial_fraction_of[component](domains)
                 * self.phase_mobility(phase, domains)
-                for phase in self.fluid_mixture.phases
+                for phase in self.fluid.phases
                 if component in phase
             ],
             name,
@@ -208,7 +199,7 @@ class MobilityCF:
         return mobility
 
     def fractional_component_mobility(
-        self, component: ppc.Component, domains: pp.SubdomainsOrBoundaries
+        self, component: ppc.FluidComponent, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         r"""Returns the :meth:`component_mobility` divided by the
         :meth:`total_mobility`.
@@ -314,12 +305,6 @@ class ThermalConductivityCF(pp.constitutive_laws.ThermalConductivityLTE):
     """A constitutive law providing the fluid and normal thermal conductivity to be
     used with Fourier's Law in the compositional flow."""
 
-    mdg: pp.MixedDimensionalGrid
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-
-    fluid_mixture: ppc.FluidMixture
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
     def fluid_thermal_conductivity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Assembles the fluid conductivity as a sum of phase conductivities weighed
         with saturations.
@@ -334,8 +319,8 @@ class ThermalConductivityCF(pp.constitutive_laws.ThermalConductivityLTE):
         """
         conductivity = pp.ad.sum_operator_list(
             [
-                phase.conductivity(subdomains) * phase.saturation(subdomains)
-                for phase in self.fluid_mixture.phases
+                phase.thermal_conductivity(subdomains) * phase.saturation(subdomains)
+                for phase in self.fluid.phases
             ],
             "fluid_thermal_conductivity",
         )
@@ -370,9 +355,9 @@ class ThermalConductivityCF(pp.constitutive_laws.ThermalConductivityLTE):
 
 class SolidSkeletonCF(
     pp.constitutive_laws.ConstantPermeability,
-    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.ConstantPorosity,
     pp.constitutive_laws.ConstantSolidDensity,
+    pp.constitutive_laws.EnthalpyFromTemperature,
 ):
     """Collection of constitutive laws for the solid skeleton in the compositional
     flow framework.
@@ -391,20 +376,11 @@ class SolidSkeletonCF(
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-
     total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`MobilityCF`."""
 
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
-
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-
-    perturbation_from_reference: Callable[[str, list[pp.Grid]], pp.ad.Operator]
-    """See :class:`~porepy.models.VariableMixin`."""
 
     temperature_variable: str
     """See :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`."""
@@ -419,7 +395,7 @@ class SolidSkeletonCF(
             The constant solid porosity wrapped as an Ad scalar.
 
         """
-        return pp.ad.Scalar(self.solid.porosity(), "reference_porosity")
+        return pp.ad.Scalar(self.solid.porosity, "reference_porosity")
 
     def diffusive_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Required by constitutive laws implementing differentiable MPFA/TPFA.
@@ -438,7 +414,7 @@ class SolidSkeletonCF(
 
         """
         abs_perm = pp.wrap_as_dense_ad_array(
-            self.solid.permeability(),
+            self.solid.permeability,
             size=sum(sd.num_cells for sd in subdomains),
             name="absolute_permeability",
         )
@@ -559,14 +535,6 @@ class TotalMassBalanceEquation(pp.BalanceEquation):
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-    equation_system: pp.ad.EquationSystem
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-
-    fluid_mixture: ppc.FluidMixture
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
@@ -583,11 +551,6 @@ class TotalMassBalanceEquation(pp.BalanceEquation):
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
     well_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """See :class:`~porepy.models.constitutive_laws.PiecmannWellFlux`."""
-
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
 
     @staticmethod
     def primary_equation_name() -> str:
@@ -641,9 +604,7 @@ class TotalMassBalanceEquation(pp.BalanceEquation):
         :math:`\Phi\rho`, using the :attr:`~SolidSkeletonCF.permeability` and the
         :attr:`~porepy.compositional.base.FluidMixture.density` of the fluid mixture,
         in AD operator form on a given set of ``subdomains``."""
-        mass_density = self.fluid_mixture.density(subdomains) * self.porosity(
-            subdomains
-        )
+        mass_density = self.fluid.density(subdomains) * self.porosity(subdomains)
         mass_density.set_name("total_fluid_mass")
         return mass_density
 
@@ -706,9 +667,6 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
 
     """
 
-    fluid_mixture: ppc.FluidMixture
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`VariablesCF`."""
 
@@ -764,10 +722,10 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
 
         """
         energy = self.porosity(subdomains) * (
-            self.fluid_mixture.density(subdomains) * self.enthalpy(subdomains)
+            self.fluid.density(subdomains) * self.enthalpy(subdomains)
             - self.pressure(subdomains)
         )
-        energy.set_name("fluid_mixture_internal_energy")
+        energy.set_name("fluid_internal_energy")
         return energy
 
     def advective_weight_enthalpy_flux(
@@ -804,7 +762,7 @@ class TotalEnergyBalanceEquation_h(energy.EnergyBalanceEquations):
                     phase.specific_enthalpy(domains)
                     * self.fractional_phase_mobility(phase, domains)
                     # * self.phase_mobility(phase, domains)
-                    for phase in self.fluid_mixture.phases
+                    for phase in self.fluid.phases
                 ],
                 name="advected_enthalpy",
             )  # / self.total_mobility(domains)
@@ -918,14 +876,6 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-    equation_system: pp.ad.EquationSystem
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-
-    fluid_mixture: ppc.FluidMixture
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
     porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """See :class:`SolidSkeletonCF`."""
 
@@ -963,37 +913,14 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     ]
     """See :class:`MobilityCF`."""
 
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsCF`."""
 
-    _combine_boundary_operators: Callable[
-        [
-            Sequence[pp.Grid],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[pp.Grid], pp.BoundaryCondition],
-            str,
-            int,
-        ],
-        pp.ad.Operator,
-    ]
-    """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`"""
     uses_fractional_flow_bc: bool
     """See :class:`BoundaryConditionsCF`."""
 
     bc_data_fractional_flow_component_key: Callable[[ppc.Component], str]
     """See :class:`BoundaryConditionsCF`"""
-
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """See :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`."""
 
     has_independent_fraction: Callable[[ppc.Phase | ppc.Component], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
@@ -1009,7 +936,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         """
         return [
             self._mass_balance_equation_name(component)
-            for component in self.fluid_mixture.components
+            for component in self.fluid.components
             if self.has_independent_fraction(component)
         ]
 
@@ -1021,7 +948,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.mdg.subdomains()
 
-        for component in self.fluid_mixture.components:
+        for component in self.fluid.components:
             if self.has_independent_fraction(component):
                 sd_eq = self.mass_balance_equation_for_component(component, subdomains)
                 self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
@@ -1068,7 +995,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         """
         mass_density = (
             self.porosity(subdomains)
-            * self.fluid_mixture.density(subdomains)
+            * self.fluid.density(subdomains)
             * component.fraction(subdomains)
         )
         mass_density.set_name(f"component_mass_{component.name}")
@@ -1247,12 +1174,12 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
 
     """
 
-    has_independent_tracer_fraction: Callable[[ppc.ChemicalSpecies, ppc.Compound], bool]
+    has_independent_tracer_fraction: Callable[[pp.Component, ppc.Compound], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     def _tracer_transport_equation_name(
         self,
-        tracer: ppc.ChemicalSpecies,
+        tracer: pp.Component,
         component: ppc.Compound,
     ) -> str:
         """Method returning a name to be given to the transport equation of an active
@@ -1265,7 +1192,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
         fluid mixture."""
         return [
             self._tracer_transport_equation_name(tracer, component)
-            for component in self.fluid_mixture.components
+            for component in self.fluid.components
             if isinstance(component, ppc.Compound)
             for tracer in component.active_tracers
             if self.has_independent_tracer_fraction(tracer, component)
@@ -1276,7 +1203,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
         fluid mixture."""
         subdomains = self.mdg.subdomains()
 
-        for component in self.fluid_mixture.components:
+        for component in self.fluid.components:
             if isinstance(component, ppc.Compound):
 
                 for tracer in component.active_tracers:
@@ -1287,7 +1214,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
 
     def transport_equation_for_tracer(
         self,
-        tracer: ppc.ChemicalSpecies,
+        tracer: pp.Component,
         compound: ppc.Compound,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
@@ -1316,7 +1243,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
 
     def mass_for_tracer(
         self,
-        tracer: ppc.ChemicalSpecies,
+        tracer: pp.Component,
         compound: ppc.Compound,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
@@ -1341,7 +1268,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
         """
         mass_density = (
             self.porosity(subdomains)
-            * self.fluid_mixture.density(subdomains)
+            * self.fluid.density(subdomains)
             * compound.fraction(subdomains)
             * compound.tracer_fraction_of[tracer](subdomains)
         )
@@ -1353,7 +1280,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
 # region INTERMEDIATE CF MODEL MIXINS: collecting variables, equations, const. laws
 
 
-class SecondaryEquationsMixin:
+class SecondaryEquationsMixin(PorePyModel):
     """Base class for introducing secondary equations into the compositional flow
     formulation.
 
@@ -1376,20 +1303,6 @@ class SecondaryEquationsMixin:
            for example, to introduce local, secondary equations.
 
     """
-
-    fluid_mixture: ppc.FluidMixture
-    """Provided by
-    :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Provided by :class:`~porepy.models.geometry.ModelGeometry`."""
-    equation_system: pp.ad.EquationSystem
-    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-
-    time_step_indices: np.ndarray
-    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
-    iterate_indices: np.ndarray
-    """Provided by :class:`~porepy.models.solution_strategy.SolutionStrategy`"""
 
     add_constitutive_expression: Callable[
         [
@@ -1667,7 +1580,7 @@ class VariablesCF(
         """
         if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             return self.create_boundary_operator(
-                name=self.enthalpy_variable, domains=domains  # type: ignore[call-arg]
+                name=self.enthalpy_variable, domains=domains  # type: ignore[arg-type]
             )
 
         # Check that the domains are grids.
@@ -1682,7 +1595,7 @@ class VariablesCF(
 
 
 class ConstitutiveLawsCF(
-    ppc.FluidMixtureMixin,
+    ppc.FluidMixin,
     MobilityCF,
     ThermalConductivityCF,
     SolidSkeletonCF,
@@ -1860,20 +1773,12 @@ class BoundaryConditionsCF(
 
     """
 
-    fluid_mixture: ppc.FluidMixture
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
-    equation_system: pp.ad.EquationSystem
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-
     dependencies_of_phase_properties: Callable[
         [ppc.Phase], list[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
     ]
     """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
 
     enthalpy_variable: str
-    """See :class:`SolutionStrategyCF`."""
-    params: dict
     """See :class:`SolutionStrategyCF`."""
 
     has_independent_fraction: Callable[[ppc.Phase | ppc.Component], bool]
@@ -1885,7 +1790,7 @@ class BoundaryConditionsCF(
     """See :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
     _partial_fraction_variable: Callable[[ppc.Component, ppc.Phase], str]
     """See :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
-    _tracer_fraction_variable: Callable[[ppc.ChemicalSpecies, ppc.Compound], str]
+    _tracer_fraction_variable: Callable[[pp.Component, ppc.Compound], str]
     """See :class:`~porepy.compositional.compositional_mixins.CompositeVariables`."""
 
     _constitutive_eliminations: dict[
@@ -2000,7 +1905,7 @@ class BoundaryConditionsCF(
         This is separated, because the order matters: Must be first updated.
 
         """
-        for component in self.fluid_mixture.components:
+        for component in self.fluid.components:
             # Update of tracer fractions on Dirichlet boundary
             if isinstance(component, ppc.Compound):
                 for tracer in component.active_tracers:
@@ -2090,7 +1995,7 @@ class BoundaryConditionsCF(
 
         nt = self.time_step_indices.size
         for bg in self.mdg.boundaries():
-            for phase in self.fluid_mixture.phases:
+            for phase in self.fluid.phases:
                 # some work is required for BGs with zero cells
                 if bg.num_cells == 0:
                     rho_bc = np.zeros(0)
@@ -2117,7 +2022,7 @@ class BoundaryConditionsCF(
 
         # Updating BC values of non-linear weights in component mass balance equations
         # Dependent components are skipped.
-        for component in self.fluid_mixture.components:
+        for component in self.fluid.components:
             # NOTE the independency of overall fractions is used to characterize the
             # dependency of fractional flow, since the fractional weights also fulfill
             # the unity constraint.
@@ -2184,7 +2089,7 @@ class BoundaryConditionsCF(
 
     def bc_values_tracer_fraction(
         self,
-        solute: ppc.ChemicalSpecies,
+        solute: pp.Component,
         compound: ppc.Compound,
         boundary_grid: pp.BoundaryGrid,
     ) -> np.ndarray:
@@ -2238,7 +2143,7 @@ class BoundaryConditionsCF(
         return np.zeros(boundary_grid.num_cells)
 
 
-class InitialConditionsCF:
+class InitialConditionsCF(PorePyModel):
     """Class for setting the initial values in a compositional flow model.
 
     This mixin is introduced because of the complexity of the framework, guiding the
@@ -2258,18 +2163,6 @@ class InitialConditionsCF:
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-    equation_system: pp.ad.EquationSystem
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-    fluid_mixture: ppc.FluidMixture
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
-    time_step_indices: np.ndarray
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-    iterate_indices: np.ndarray
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
     """
@@ -2280,7 +2173,7 @@ class InitialConditionsCF:
 
     has_independent_fraction: Callable[[ppc.Phase | ppc.Component], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
-    has_independent_tracer_fraction: Callable[[ppc.ChemicalSpecies, ppc.Compound], bool]
+    has_independent_tracer_fraction: Callable[[pp.Component, ppc.Compound], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     dependencies_of_phase_properties: Callable[
@@ -2365,7 +2258,7 @@ class InitialConditionsCF:
             )
 
             # Setting overall fractions and tracer fractions
-            for component in self.fluid_mixture.components:
+            for component in self.fluid.components:
                 # independent overall fractions must have an initial value
                 if self.has_independent_fraction(component):
                     self.equation_system.set_variable_values(
@@ -2445,7 +2338,7 @@ class InitialConditionsCF:
 
         # Set the initial values on individual grids for the iterate indices
         for grid in subdomains:
-            for phase in self.fluid_mixture.phases:
+            for phase in self.fluid.phases:
                 dep_vals = [
                     d([grid]).value(self.equation_system)
                     for d in self.dependencies_of_phase_properties(phase)
@@ -2469,7 +2362,7 @@ class InitialConditionsCF:
                     phase.viscosity.progress_iterate_values_on_grid(
                         phase_props.mu, grid, depth=ni
                     )
-                    phase.conductivity.progress_iterate_values_on_grid(
+                    phase.thermal_conductivity.progress_iterate_values_on_grid(
                         phase_props.kappa, grid, depth=ni
                     )
                 # Copy values to all time step indices
@@ -2530,7 +2423,7 @@ class InitialConditionsCF:
         return np.zeros(sd.num_cells)
 
     def initial_tracer_fraction(
-        self, tracer: ppc.ChemicalSpecies, compound: ppc.Compound, sd: pp.Grid
+        self, tracer: pp.Component, compound: ppc.Compound, sd: pp.Grid
     ) -> np.ndarray:
         """
         Parameters:
@@ -2582,9 +2475,6 @@ class SolutionStrategyCF(
 
     """
 
-    fluid_mixture: ppc.FluidMixture
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-
     total_mobility: Callable[[list[pp.Grid]], pp.ad.Operator]
     """See :class:`MobilityCF`."""
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -2603,10 +2493,6 @@ class SolutionStrategyCF(
     darcy_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
-    create_mixture: Callable[[], None]
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
-    assign_thermodynamic_properties_to_mixture: Callable[[], None]
-    """See :class:`~porepy.compositional.compositional_mixins.FluidMixtureMixin`."""
     set_initial_values: Callable[[], None]
     """See :class:`InitialConditionsCF`."""
     progress_all_constitutive_expressions_in_time: Callable[[], None]
@@ -2678,37 +2564,6 @@ class SolutionStrategyCF(
 
         """
         return self.params.get("equilibrium_type", None)
-
-    def prepare_simulation(self) -> None:
-        """Introduces some additional elements in between steps performed by the parent
-        method.
-
-        1. It creates a mixture before creating any variables.
-        2. After creating variables it creates the phase properties defined by the
-           mixture mixin.
-        3. Then it creates the equations so that all secondary expressions are
-           instantiated.
-
-        """
-        self.set_materials()
-        self.set_geometry()
-        self.initialize_data_saving()
-        self.set_equation_system_manager()
-
-        # This block is new and the order is critical
-        self.create_mixture()
-        self.create_variables()
-        self.assign_thermodynamic_properties_to_mixture()
-
-        self.set_equations()
-        self.initial_condition()
-        self.reset_state_from_file()
-
-        self.set_discretization_parameters()
-        self.discretize()
-        self._initialize_linear_solver()
-        self.set_nonlinear_discretizations()
-        self.save_data_time_step()
 
     def initial_condition(self) -> None:
         """Atop the parent methods, this method calles
@@ -2789,7 +2644,7 @@ class SolutionStrategyCF(
         ni = self.iterate_indices.size
 
         for grid in subdomains:
-            for phase in self.fluid_mixture.phases:
+            for phase in self.fluid.phases:
                 dep_vals = [
                     d([grid]).value(self.equation_system)
                     for d in self.dependencies_of_phase_properties(phase)
@@ -2853,14 +2708,14 @@ class SolutionStrategyCF(
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
                         sd,
                         self.thermal_conductivity([sd]),
-                        self.fluid.thermal_conductivity(),
+                        self.fluid.reference_component.thermal_conductivity,
                     )
                 }
             )
             data[pp.PARAMETERS][self.darcy_keyword].update(
                 {
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd, self.permeability([sd]), self.solid.permeability()
+                        sd, self.permeability([sd]), self.solid.permeability
                     )
                 }
             )
@@ -2895,7 +2750,7 @@ class SolutionStrategyCF(
         self.progress_all_constitutive_expressions_in_time()
         subdomains = self.mdg.subdomains()
         nt = self.time_step_indices.size
-        for phase in self.fluid_mixture.phases:
+        for phase in self.fluid.phases:
             phase.density.progress_values_in_time(subdomains, depth=nt)
             phase.specific_enthalpy.progress_values_in_time(subdomains, depth=nt)
 
