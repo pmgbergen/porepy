@@ -16,6 +16,7 @@ import pytest
 import porepy as pp
 
 
+# TODO remove
 @pytest.fixture
 def subdomains() -> list[pp.Grid]:
     """Create a list of grids for the test."""
