@@ -155,8 +155,8 @@ class Units:
             to_si: ``default=False``
 
                 If True, the value is converted from given ``units`` to SI units.
-                If False, the value is assumed to be in SI units, andconverted to the
-                :attr:`units` specified by the user during instantiation.
+                If False, the value is assumed to be in SI units, and converted to the
+                scale specified by this class.
 
         Returns:
             Value in the user specified units to be used in the simulation.
