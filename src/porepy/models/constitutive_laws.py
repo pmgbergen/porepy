@@ -2122,8 +2122,6 @@ class FouriersLaw(PorePyModel):
             )
         subdomains = cast(list[pp.Grid], subdomains)
 
-        subdomains = cast(list[pp.Grid], subdomains)  # for mypy
-
         interfaces: list[pp.MortarGrid] = self.subdomains_to_interfaces(subdomains, [1])
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
         discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.fourier_flux_discretization(
