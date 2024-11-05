@@ -28,7 +28,17 @@ class DataSavingMixin(PorePyModel):
     """
 
     def save_data_time_step(self) -> None:
-        # Fetching the desired times to export
+        """Export the model state at a given time step and log time.
+
+        The options for exporting times are:
+            * `None`: All time steps are exported
+            * `list`: Export if time is in the list. If the list is empty, then no
+            times are exported.
+
+        In addition, save the solver statistics to file if the option is set.
+
+        """
+        # Fetching the desired times to export.
         times_to_export = self.params.get("times_to_export", None)
         if times_to_export is None:
             # Export all time steps if times are not specified.
@@ -43,7 +53,7 @@ class DataSavingMixin(PorePyModel):
         if do_export:
             self.write_pvd_and_vtu()
 
-        # Save solver statistics to file
+        # Save solver statistics to file.
         self.nonlinear_solver_statistics.save()
 
     def write_pvd_and_vtu(self) -> None:
@@ -74,7 +84,7 @@ class DataSavingMixin(PorePyModel):
                 variables=[var], time_step_index=0
             )
             units = var.tags["si_units"]
-            values = self.fluid.convert_units(scaled_values, units, to_si=True)
+            values = self.units.convert_units(scaled_values, units, to_si=True)
             data.append((var.domain, var.name, values))
 
         # Add secondary variables/derived quantities.
@@ -119,17 +129,28 @@ class DataSavingMixin(PorePyModel):
             grid: Grid or mortar grid for which the method should be evaluated.
             method_name: Name of the method to be evaluated.
             units: Units of the quantity returned by the method. Should be parsable by
-                :meth:`porepy.fluid.FluidConstants.convert_units`.
+                :meth:`porepy.models.units.Units.convert_units`.
 
         Returns:
             Array of values for the quantity, scaled to SI units.
 
         """
         vals_scaled = getattr(self, method_name)([grid]).value(self.equation_system)
-        vals = self.fluid.convert_units(vals_scaled, units, to_si=True)
+        vals = self.units.convert_units(vals_scaled, units, to_si=True)
         return vals
 
     def initialize_data_saving(self) -> None:
+        """Initialize data saving.
+
+        This method is called by
+        :meth:`~porepy.models.solution_strategy.SolutionStrategy.prepare_simulation` to
+        initialize the exporter, and any other data saving functionality
+        (e.g., empty data containers to be appended in :meth:`save_data_time_step`).
+
+        In addition, it sets the path for storing solver statistics data to file for
+        each time step.
+
+        """
         self.exporter = pp.Exporter(
             self.mdg,
             self.params["file_name"],
@@ -154,6 +175,21 @@ class DataSavingMixin(PorePyModel):
         keys: Optional[Union[str, list[str]]] = None,
         **kwargs,
     ) -> None:
+        """Initialize data in the model by reading from a pvd file.
+
+        Parameters:
+            vtu_files: Path(s) to vtu file(s).
+            keys: Keywords addressing cell data to be transferred. If ``None``, the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through ``pp.TIME_STEP_SOLUTIONS``.
+            **kwargs: See documentation of
+                :meth:`porepy.viz.exporter.Exporter.import_state_from_vtu`
+
+        Raises:
+            ValueError: If incompatible file types are provided.
+
+        """
+
         # Sanity check
         if not (
             isinstance(vtu_files, list)
@@ -161,10 +197,10 @@ class DataSavingMixin(PorePyModel):
         ) and not (isinstance(vtu_files, Path) and vtu_files.suffix == ".vtu"):
             raise ValueError
 
-        # Load states and read time index, connecting data and time history
+        # Load states and read time index, connecting data and time history.
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
 
-        # Load time and time step size
+        # Load time and time step size.
         self.time_manager.load_time_information(times_file)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
@@ -176,14 +212,29 @@ class DataSavingMixin(PorePyModel):
         times_file: Optional[Path] = None,
         keys: Optional[Union[str, list[str]]] = None,
     ) -> None:
+        """Initialize data in the model by reading from a pvd file.
+
+        Parameters:
+            pvd_file: Path to pvd file with exported vtu files.
+            is_mdg_pvd: Flag controlling whether pvd file is a mdg file, i.e., generated
+                with ``Exporter._export_mdg_pvd()`` or ``Exporter.write_pvd()``.
+            times_file: Path to json file storing history of time and time step size.
+            keys: Keywords addressing cell data to be transferred. If ``None``, the
+                mixed-dimensional grid is checked for keywords corresponding to primary
+                variables identified through ``pp.TIME_STEP_SOLUTIONS``.
+
+        Raises:
+            ValueError: if incompatible file type provided.
+
+        """
         # Sanity check
         if not pvd_file.suffix == ".pvd":
             raise ValueError
 
-        # Import data and determine time index corresponding to the pvd file
+        # Import data and determine time index corresponding to the pvd file.
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
 
-        # Load time and time step size
+        # Load time and time step size.
         self.time_manager.load_time_information(times_file)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index

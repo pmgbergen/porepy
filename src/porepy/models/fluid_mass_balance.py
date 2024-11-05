@@ -41,9 +41,6 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid density. Defined in a mixin class with a suitable constitutive relation.
-    """
     porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
@@ -169,7 +166,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the cell-wise fluid mass.
 
         """
-        mass_density = self.fluid_density(subdomains) * self.porosity(subdomains)
+        mass_density = self.fluid.density(subdomains) * self.porosity(subdomains)
         mass = self.volume_integral(mass_density, subdomains, dim=1)
         mass.set_name("fluid_mass")
         return mass
@@ -186,7 +183,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid density times mobility [s * m^-2].
 
         """
-        return self.fluid_density(domains) * self.mobility(domains)
+        return self.fluid.density(domains) * self.mobility(domains)
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Fluid flux as Darcy flux times density and mobility.
@@ -268,7 +265,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
+        mob_rho = self.mobility_rho(subdomains)
         # Call to constitutive law for advective fluxes.
         flux: pp.ad.Operator = self.interface_advective_flux(interfaces, mob_rho, discr)
         flux.set_name("interface_fluid_flux")
@@ -286,7 +283,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.mobility(subdomains) * self.fluid_density(subdomains)
+        mob_rho = self.mobility_rho(subdomains)
         # Call to constitutive law for advective fluxes.
         flux: pp.ad.Operator = self.well_advective_flux(interfaces, mob_rho, discr)
         flux.set_name("well_fluid_flux")
@@ -428,7 +425,9 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             values on the provided boundary grid.
 
         """
-        return self.fluid.pressure() * np.ones(boundary_grid.num_cells)
+        return self.reference_variable_values.pressure * np.ones(
+            boundary_grid.num_cells
+        )
 
     def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """**Volumetric** Darcy flux values for the Neumann boundary condition.
@@ -617,20 +616,6 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
         flux = self.equation_system.md_variable(self.well_flux_variable, interfaces)
         return flux
 
-    def reference_pressure(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference pressure.
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Operator representing the reference pressure [Pa].
-
-        """
-        p_ref = self.fluid.pressure()
-        size = sum([sd.num_cells for sd in subdomains])
-        return pp.wrap_as_dense_ad_array(p_ref, size, name="reference_pressure")
-
 
 class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     """Setup and numerics-related methods for a single-phase flow problem.
@@ -754,7 +739,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
                 {
                     "bc": self.bc_type_darcy_flux(sd),
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd, self.permeability([sd]), self.solid.permeability()
+                        sd, self.permeability([sd]), self.solid.permeability
                     ),
                     "ambient_dimension": self.nd,
                 },
@@ -824,6 +809,7 @@ class SinglePhaseFlow(  # type: ignore[misc]
     ConstitutiveLawsSinglePhaseFlow,
     BoundaryConditionsSinglePhaseFlow,
     SolutionStrategySinglePhaseFlow,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

@@ -265,27 +265,11 @@ class Glossary:
     )
 
     fluid: Entry = Entry(
-        type="pp.FluidConstants",
-        docstring="Fluid constant object that takes care of storing and scaling"
-        " numerical values representing fluid-related quantities. Normally, this is"
-        " set by an instance of"
-        " :class:`~porepy.models.solution_strategy.SolutionStrategy`.",
+        type="pp.compositional.Fluid",
+        docstring="Fluid object providing an interface to properties of fluids, phases and"
+        " some material constants of fluid components. Provided by"
+        " :class:`~porepy.compositional.compositional_mixins.FluidMixin`.",
         name="fluid",
-    )
-
-    fluid_density: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Operator]",
-        docstring="Fluid density. Normally defined in a mixin class with a suitable"
-        " constitutive relation, e.g.,"
-        " :class:`~porepy.models.constitutive_laws.FluidDensityFromPressure`.",
-        name="fluid_density",
-    )
-
-    fluid_enthalpy: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Operator]",
-        docstring="Variable for interface enthalpy flux. Normally provided by a mixin"
-        " instance of :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.",
-        name="fluid_enthalpy",
     )
 
     fluid_internal_energy: Entry = Entry(
@@ -540,20 +524,6 @@ class Glossary:
         docstring="Reference porosity of the rock. Normally provided by a mixin"
         " instance of :class:`~porepy.models.constitutive_laws.PoroMechanicsPorosity`.",
         name="reference_porosity",
-    )
-
-    reference_pressure: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Operator]",
-        docstring="Reference pressure. Normally defined in a mixin instance of"
-        " :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.",
-        name="reference_pressure",
-    )
-
-    reference_temperature: Entry = Entry(
-        type="Callable[[list[pp.Grid]], pp.ad.Operator]",
-        docstring="Reference temperature. Normally defined in a mixin instance of"
-        " :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.",
-        name="reference_temperature",
     )
 
     save_data_time_step: Entry = Entry(

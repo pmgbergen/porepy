@@ -61,8 +61,8 @@ def model_setup():
         """Single phase flow model in a domain with two intersecting fractures."""
 
     # Material constants
-    solid = pp.SolidConstants(models.granite_values)
-    fluid = pp.FluidConstants(models.water_values)
+    solid = pp.SolidConstants(**models.granite_values)
+    fluid = pp.FluidComponent(**models.water_values)
 
     # Declare model parameters
     params = {
@@ -212,7 +212,6 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ),
         ("fluid_compressibility", 4e-10, None),
         # rho = rho_ref * exp(c_f * (p - p_ref))
-        ("fluid_density", 1000 * np.exp(4e-10 * 200 * pp.BAR), None),
         # Values of the mass fluxes (i.e., scaling with rho/mu is incorporated).
         (
             "fluid_flux",
@@ -284,7 +283,6 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        ("fluid_viscosity", 0.001, None),
         ("interface_darcy_flux_equation", 5e9, None),
         ("interface_fluid_flux", 1.00803209e-06, None),
         ("interface_flux_equation", 5e9, None),
@@ -348,12 +346,18 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        ("reference_pressure", 0, None),
+        # ("reference_pressure", 0, None),
         ("skin_factor", 0, None),
         ("tangential_component", np.array([[1.0, 0.0]]), 0),  # check only for 0d
         ("well_fluid_flux", 0, 2),  # use dim_restriction=2 to ignore well flux
         ("well_flux_equation", 0, 2),  # use dim_restriction=2 to ignore well equation
         ("well_radius", 0.1, None),
+        # Testing of methods with deeper namespace
+        ("fluid.density", 1000 * np.exp(4e-10 * 200 * pp.BAR), None),
+        ("fluid.specific_volume", 1. / (1000 * np.exp(4e-10 * 200 * pp.BAR)), None),
+        ("fluid.reference_phase.density", 1000 * np.exp(4e-10 * 200 * pp.BAR), None),
+        ("fluid.reference_phase.specific_volume", 1. / (1000 * np.exp(4e-10 * 200 * pp.BAR)), None),
+        ("fluid.reference_phase.viscosity", 0.001, None),
     ],
 )
 def test_ad_operator_methods_single_phase_flow(
@@ -374,8 +378,14 @@ def test_ad_operator_methods_single_phase_flow(
             compactness, only tested in one dimension.
 
     """
-    # Get the method to be tested in callable form..
-    method: Callable = getattr(model_setup, method_name)
+    # processing name space
+    method_namespace = method_name.split('.')
+    owner = model_setup
+    # loop top to bottom through namespace to get to the actual method defined on some grids
+    # and returning an operator
+    for name in method_namespace:
+        method = getattr(owner, name)
+        owner = method
 
     # Obtain list of subdomain or interface grids where the method is defined.
     domains = models.subdomains_or_interfaces_from_method_name(
@@ -409,7 +419,7 @@ def test_unit_conversion(units):
 
     Parameters:
         units (dict): Dictionary with keys as those in
-            :class:`~pp.models.material_constants.MaterialConstants`.
+            :class:`~pp.compositional.materials.Constants`.
 
     """
 
@@ -418,20 +428,23 @@ def test_unit_conversion(units):
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
             """Ensure nontrivial solution."""
-            vals = self.fluid.pressure() * np.ones(boundary_grid.num_cells)
+            vals = self.reference_variable_values.pressure * np.ones(boundary_grid.num_cells)
             faces = self.domain_boundary_sides(boundary_grid).east
-            vals[faces] += self.fluid.convert_units(1e5, "Pa")
+            vals[faces] += self.units.convert_units(1e5, "Pa")
             return vals
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
-    solid = pp.SolidConstants(solid_vals)
-    fluid = pp.FluidConstants(fluid_vals)
+    ref_vals = pp.reference_values.extended_reference_values_for_testing
+    solid = pp.SolidConstants(**solid_vals)
+    fluid = pp.FluidComponent(**fluid_vals)
+    reference_values = pp.ReferenceVariableValues(**ref_vals)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid},
+        "reference_variable_values": reference_values,
     }
     solver_params = {
         "nl_convergence_tol_res": 1e-12,
@@ -481,7 +494,7 @@ def test_well_incompressible_pressure_values():
     params = {
         # Set impermeable matrix
         "material_constants": {
-            "solid": pp.SolidConstants({"permeability": 1e-6 / 4, "well_radius": 0.01})
+            "solid": pp.SolidConstants(permeability=1e-6 / 4, well_radius=0.01)
         },
         # Use only the horizontal fracture of OrthogonalFractures3d
         "fracture_indices": [2],
@@ -608,9 +621,7 @@ def model_setup_gravity(
     }
     params.update(model_params)
     params["material_constants"] = {
-        "solid": pp.SolidConstants(
-            {"normal_permeability": kn, "residual_aperture": aperture}
-        )
+        "solid": pp.SolidConstants(normal_permeability=kn, residual_aperture=aperture)
     }
     if dimension == 2:
         Geometry = SquareDomainOrthogonalFractures
@@ -663,15 +674,15 @@ def model_setup_gravity(
             if np.isclose(gravity_angle, 0):
                 # Normalize by the GravityForce class' default value.
                 default = (
-                    self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
-                    * self.fluid.density()
+                    self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
+                    * self.fluid.reference_component.density
                 )
                 return super().gravity_force(grids, material) / default
             num_cells = int(np.sum([g.num_cells for g in grids]))
             values = np.zeros((self.nd, num_cells))
             # Angle of zero means force vector of [0, -1]
-            values[1] = self.fluid.convert_units(-np.cos(gravity_angle), "m*s^-2")
-            values[0] = self.fluid.convert_units(np.sin(gravity_angle), "m*s^-2")
+            values[1] = self.units.convert_units(-np.cos(gravity_angle), "m*s^-2")
+            values[0] = self.units.convert_units(np.sin(gravity_angle), "m*s^-2")
             source = pp.wrap_as_dense_ad_array(values.ravel("F"), name="gravity force")
             return source
 
