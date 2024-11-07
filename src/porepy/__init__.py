@@ -188,6 +188,7 @@ from . import compositional
 from porepy.compositional.materials import (
     FluidComponent,
     SolidConstants,
+    NumericalConstants,
     Constants,
     ReferenceVariableValues,
 )
