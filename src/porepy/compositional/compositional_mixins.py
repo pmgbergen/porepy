@@ -1117,7 +1117,7 @@ class FluidMixin(PorePyModel):
             "model.params['material_constants']['fluid'] must be of type "
             + f"{Component}"
         )
-        # Need to cast into ComponentLike, because of the assert statement above.
+        # Need to cast into FluidComponent, because of the assert statement above.
         return [cast(pp.FluidComponent, fluid_constants)]
 
     def get_phase_configuration(
