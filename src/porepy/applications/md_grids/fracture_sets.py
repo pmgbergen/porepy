@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from pathlib import Path
 
 import numpy as np
 
@@ -124,6 +125,32 @@ def benchmark_2d_case_3(size: pp.number = 1) -> list[pp.LineFracture]:
     ]
     fractures = [pp.LineFracture(pts * size) for pts in points]
     return fractures
+
+
+def benchmark_2d_case_4() -> list[pp.LineFracture]:
+    """Returns a fracture set that corresponds to Case 4 from the 2D flow benchmark [1].
+
+    The setup is composed of 64 fractures grouped in 13 different connected networks,
+    ranging from isolated fractures up to tens of fractures each.
+
+    References:
+        - [1] Flemisch, B., Berre, I., Boon, W., Fumagalli, A., Schwenck, N.,
+        Scotti, A., ... & Tatomir, A. (2018). Benchmarks for single-phase flow in
+        fractured porous media. Advances in Water Resources, 111, 239-258.
+
+    """
+    fracture_network_path = (
+        Path(__file__).parent
+        / "gmsh_file_library"
+        / "benchmark_2d_case_4"
+        / "fracture_network_benchmark_2d_case_4.csv"
+    )
+    fracture_network = pp.fracture_importer.network_2d_from_csv(
+        str(fracture_network_path)
+    )
+    # We return only the fractures to stay consistent with the other functions' API from
+    # this file.
+    return fracture_network.fractures
 
 
 def seven_fractures_one_L_intersection(size: pp.number = 1) -> list[pp.LineFracture]:

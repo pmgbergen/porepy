@@ -11,9 +11,12 @@ Example (intended to show basic input and output functionality):
     >>> python run_profiler.py --physics flow --geometry 1 --grid_refinement 2
     # This will run a single-phase flow benchmark on the second 2D case with the finest
     grid refinement.
-    >>> python run_profiler.py --physics flow --geometry 1 --grid_refinement 2
-    # This will run a single-phase flow benchmark on a 3D grid with the finest grid
-    refinement.
+    >>> python run_profiler.py --physics poromechanics --geometry 2 --grid_refinement 2
+    # This will run a single-phase poromechanics benchmark on a 3D grid with the finest
+    # grid refinement.
+
+Note: Running the 3D model on the finest grid requires ~20 GB ram (!), thus is not
+    recommended on a local machine.
 
 """
 
@@ -41,6 +44,9 @@ from porepy.examples.flow_benchmark_3d_case_3 import BoundaryConditions as Case3
 from porepy.examples.flow_benchmark_3d_case_3 import FlowBenchmark3dCase3Model
 from porepy.examples.flow_benchmark_3d_case_3 import Geometry as Case3dGeo
 from porepy.examples.flow_benchmark_3d_case_3 import Permeability as Case3dPermeability
+from porepy.examples.flow_benchmark_2d_case_4 import FlowBenchmark2dCase4Model
+from porepy.examples.flow_benchmark_2d_case_4 import Geometry as Case4Geo
+from porepy.examples.flow_benchmark_2d_case_4 import BoundaryConditions as Case4BC
 from porepy.models.poromechanics import Poromechanics
 
 
@@ -53,6 +59,10 @@ class Case3aPoromech2D(Case3Permeability, Case3Geo, Case3aBC, Poromechanics):
 
 
 class Case3Poromech3D(Case3dPermeability, Case3dGeo, Case3dBC, Poromechanics):
+    pass
+
+
+class Case4Poromech2D(Case4Geo, Case4BC, Poromechanics):
     pass
 
 
@@ -81,11 +91,9 @@ def make_benchmark_model(
     model_params = {
         "material_constants": {
             "solid": FractureSolidConstants(
-                {
-                    "residual_aperture": 1e-1,
-                    "fracture_permeability": 1e-1,
-                    "normal_permeability": 1e-1,
-                }
+                residual_aperture=1e-1,
+                fracture_permeability=1e-1,
+                normal_permeability=1e-1,
             )
         },
         "grid_type": "simplex",
@@ -98,7 +106,7 @@ def make_benchmark_model(
 
     # Set cell_size/refinement_level model parameter based on choice of geometry and
     # grid refinement.
-    if args.geometry in [0, 1]:
+    if args.geometry in [0, 1, 3]:
         if args.grid_refinement == 0:
             cell_size = 0.1
         elif args.grid_refinement == 1:
@@ -130,6 +138,11 @@ def make_benchmark_model(
             model = FlowBenchmark3dCase3Model
         elif args.physics == "poromechanics":
             model = Case3Poromech3D
+    elif args.geometry == 3:
+        if args.physics == "flow":
+            model = FlowBenchmark2dCase4Model
+        elif args.physics == "poromechanics":
+            model = Case4Poromech2D
 
     if model is None:
         raise ValueError(f"{args.geometry = }, {args.physics = }")
@@ -162,7 +175,7 @@ def run_model_with_tracer(args, model) -> None:
 
     """
     if args.save_file == "":
-        save_file = f"{args.physics}_{args.geometry}_{args.grid_refinement}.json"
+        save_file = f"profiling_{args.physics}_{args.geometry}_{args.grid_refinement}.json"
     else:
         if not args.save_file.endswith(".json"):
             raise ValueError(f"{args.save_file = }")
@@ -210,8 +223,11 @@ if __name__ == "__main__":
         "--geometry",
         type=int,
         default=0,
-        choices=[0, 1, 2],
-        help="0: 1st 2D case , 1: 2nd 2D case, 2: 3D case.",
+        choices=[0, 1, 2, 3],
+        help=(
+            "0: 1st 2D case, 1: 2nd 2D case, 2: 3D case, 3: 2D case with 64",
+            " fractures.",
+        ),
     )
     parser.add_argument(
         "--grid_refinement",
