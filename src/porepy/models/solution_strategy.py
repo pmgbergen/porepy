@@ -300,6 +300,9 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         fluid = cast(
             pp.FluidComponent, constants.get("fluid", pp.FluidComponent(name="fluid"))
         )
+        numerical = cast(
+            pp.NumericalConstants, constants.get("numerical", pp.NumericalConstants(name="numerical"))
+        )
 
         # Sanity check that users did not pass anything unexpected.
         assert isinstance(solid, pp.SolidConstants), (
@@ -314,10 +317,14 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         # Converting to units of simulation.
         fluid = fluid.to_units(self.units)
         solid = solid.to_units(self.units)
+        numerical = numerical.to_units(self.units)
 
         # Set the solid for the model.
         # NOTE this will change with the generalization of the solid
         self.solid = solid
+
+        # Set the numerical constants for the model.
+        self.numerical = numerical
 
         # Store the fluid component to be accessible by the FluidMixin for creating the
         # default fluid object of the model
