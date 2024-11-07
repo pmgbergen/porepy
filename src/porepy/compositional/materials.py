@@ -351,8 +351,6 @@ class SolidConstants(Constants):
         {
             "density": "kg * m^-3",
             "biot_coefficient": "-",
-            "characteristic_displacement": "m",
-            "characteristic_contact_traction": "Pa",
             "dilation_angle": "rad",
             "fracture_gap": "m",
             "fracture_normal_stiffness": "Pa * m^-1",
@@ -371,23 +369,10 @@ class SolidConstants(Constants):
             "thermal_conductivity": "W * m^-1 * K^-1",
             "thermal_expansion": "K^-1",
             "well_radius": "m",
-            "open_state_tolerance": "-",
-            "contact_mechanics_scaling": "-",
         }
     )
 
     biot_coefficient: number = 1.0
-
-    characteristic_contact_traction: number = 1.0
-
-    characteristic_displacement: number = 1.0
-
-    contact_mechanics_scaling: number = 1e-1
-    """Numerical method parameter
-
-    Safety scaling factor, making fractures softer than the matrix
-
-    """
 
     density: number = 1.0
 
@@ -416,15 +401,6 @@ class SolidConstants(Constants):
 
     normal_permeability: number = 1.0
 
-    open_state_tolerance: number = 1e-5
-    """Numerical method parameter.
-
-    Tolerance parameter for the tangential characteristic contact mechanics.
-
-    FIXME: Revisit the tolerance.
-
-    """
-
     permeability: number = 1.0
 
     porosity: number = 0.1
@@ -444,6 +420,36 @@ class SolidConstants(Constants):
     thermal_expansion: number = 0.0
 
     well_radius: number = 0.1
+
+
+@dataclass(kw_only=True, eq=False)
+class NumericalConstants(Constants):
+    """Data class containing numerical method parameters,
+     including characteristic sizes.
+    """
+
+    SI_units: ClassVar[dict[str, str]] = dict(
+        {
+            "characteristic_displacement": "m",
+            "characteristic_contact_traction": "Pa",
+            "open_state_tolerance": "-",
+            "contact_mechanics_scaling": "-",
+        }
+    )
+
+    characteristic_contact_traction: number = 1.0
+
+    characteristic_displacement: number = 1.0
+
+    contact_mechanics_scaling: number = 1e-1
+    """Safety scaling factor, making fractures softer than the matrix"""
+
+    open_state_tolerance: number = 1e-5
+    """Tolerance parameter for the tangential characteristic contact mechanics.
+
+    FIXME: Revisit the tolerance.
+
+    """
 
 
 @dataclass(kw_only=True)
