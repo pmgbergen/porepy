@@ -25,6 +25,7 @@ __all__ = [
     "Constants",
     "FluidComponent",
     "SolidConstants",
+    "NumericalConstants",
     "ReferenceVariableValues",
     "load_fluid_constants",
 ]
