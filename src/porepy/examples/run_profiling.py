@@ -53,19 +53,38 @@ from porepy.models.poromechanics import Poromechanics
 
 
 # Ignore type errors inherent to the ``Poromechanics`` class.
-class Case1Poromech2D(Case1Permeability, Case1Geo, Case1BC, Poromechanics):  # type: ignore[misc]
+class Case1Poromech2D(  # type: ignore[misc]
+    Case1Permeability,
+    Case1Geo,
+    Case1BC,
+    Poromechanics,
+):
     pass
 
 
-class Case3aPoromech2D(Case3Permeability, Case3Geo, Case3aBC, Poromechanics):  # type: ignore[misc]
+class Case3aPoromech2D(  # type: ignore[misc]
+    Case3Permeability,
+    Case3Geo,
+    Case3aBC,
+    Poromechanics,
+):
     pass
 
 
-class Case3Poromech3D(Case3dPermeability, Case3dGeo, Case3dBC, Poromechanics):  # type: ignore[misc]
+class Case3Poromech3D(  # type: ignore[misc]
+    Case3dPermeability,
+    Case3dGeo,
+    Case3dBC,
+    Poromechanics,
+):
     pass
 
 
-class Case4Poromech2D(Case4Geo, Case4BC, Poromechanics):  # type: ignore[misc]
+class Case4Poromech2D(  # type: ignore[misc]
+    Case4Geo,
+    Case4BC,
+    Poromechanics,
+):
     pass
 
 
@@ -117,12 +136,12 @@ def make_benchmark_model(args: argparse.Namespace):
         elif args.grid_refinement == 2:
             cell_size = 0.005
         else:
-            raise ValueError(f"{args.grid_refinement = }")
+            raise ValueError(f"{args.grid_refinement=}")
         model_params["meshing_arguments"] = {"cell_size": cell_size}
     elif args.geometry == 3:
         model_params["refinement_level"] = args.grid_refinement
     else:
-        raise ValueError(f"{args.grid_refinement = }")
+        raise ValueError(f"{args.grid_refinement=}")
 
     # Select a model based on choice of physics and geometry.
     model: Optional[Type] = None
@@ -148,7 +167,7 @@ def make_benchmark_model(args: argparse.Namespace):
             model = Case3Poromech3D
 
     if model is None:
-        raise ValueError(f"{args.geometry = }, {args.physics = }")
+        raise ValueError(f"{args.geometry=}, {args.physics=}")
 
     return model(model_params)
 
@@ -182,7 +201,7 @@ def run_model_with_tracer(args, model) -> None:
         )
     else:
         if not args.save_file.endswith(".json"):
-            raise ValueError(f"{args.save_file = }")
+            raise ValueError(f"{args.save_file=}")
         save_file = args.save_file
 
     # Run model with viztracer enabled.
