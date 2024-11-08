@@ -130,21 +130,34 @@ def test_subdomain_projections(mdg, scalar):
 @pytest.mark.integtest
 @pytest.mark.parametrize("scalar", [True, False])
 def test_mortar_projections(mdg, scalar):
+    # Improvements needed:
+    # 1) We need mappings between the two 1d mortar grids and the 1d + 2d grid. This
+    #    should work, but return a smaller projection matrix.
+    # 2) Mapping between one of the 1d mortar grids, and the 2d + the other 1d grid.
+    #    The 2d grid mapping should be fine, but the 1d grid mapping should be zero,
+    #    though with the right shape.
+    # 3) Mapping with an empty list of subdomains and interfaces, respectively.
+
     # Test of mortar projections between mortar grids and standard subdomain grids.
 
     # Define the dimension of the field being projected
     proj_dim = 1 if scalar else mdg.dim_max()
 
-    # Collect geometrical and grid objects
+    # Collect geometrical and grid objects.
     n_cells, n_faces, n_mortar_cells = geometry_information(mdg, proj_dim)
 
+    # The 2d grid.
     g0 = mdg.subdomains(dim=2)[0]
+    # Two 1d grids.
     g1, g2 = mdg.subdomains(dim=1)
+    # A 0d grid.
     g3 = mdg.subdomains(dim=0)[0]
 
+    # Interfaces between the 2d and the two 1d grids.
     intf01 = mdg.subdomain_pair_to_interface((g0, g1))
     intf02 = mdg.subdomain_pair_to_interface((g0, g2))
 
+    # Interfaces between the two 1d grids and the 0d grid.
     intf13 = mdg.subdomain_pair_to_interface((g1, g3))
     intf23 = mdg.subdomain_pair_to_interface((g2, g3))
 
