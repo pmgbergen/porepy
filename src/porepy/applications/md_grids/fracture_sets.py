@@ -5,12 +5,14 @@
 
 from __future__ import annotations
 
-from typing import Optional
+import typing
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 
 import porepy as pp
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
 
 
 def orthogonal_fractures_2d(
@@ -145,8 +147,11 @@ def benchmark_2d_case_4() -> list[pp.LineFracture]:
         / "benchmark_2d_case_4"
         / "fracture_network_benchmark_2d_case_4.csv"
     )
-    fracture_network = pp.fracture_importer.network_2d_from_csv(
-        str(fracture_network_path)
+    # ``network_2d_from_csv`` is called with ``return_frac_id=False``, i.e.,
+    # ``fracture_network`` is actually a ``FractureNetwork2D`` object.
+    fracture_network = typing.cast(
+        FractureNetwork2d,
+        pp.fracture_importer.network_2d_from_csv(str(fracture_network_path)),
     )
     # We return only the fractures to stay consistent with the other functions' API from
     # this file.

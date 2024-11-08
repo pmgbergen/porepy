@@ -85,7 +85,8 @@ class BoundaryConditions(PorePyModel):
         return values
 
 
-class FlowBenchmark2dCase4Model(
+# Ignore type errors inherent to the ``SinglePhaseFlow`` class.
+class FlowBenchmark2dCase4Model(  # type: ignore[misc]
     Geometry,
     BoundaryConditions,
     pp.fluid_mass_balance.SinglePhaseFlow,
