@@ -23,8 +23,10 @@ Note: Running the 3D model on the finest grid requires ~20 GB ram (!), thus is n
 import argparse
 import pathlib
 import subprocess
+from typing import Optional, Type
 
-from viztracer import VizTracer
+# VizTracer is missing stubs or py.typed marker, hence we ignore type errors.
+from viztracer import VizTracer  # type: ignore[import]
 
 import porepy as pp
 from porepy.examples.flow_benchmark_2d_case_1 import BoundaryConditions as Case1BC
@@ -40,51 +42,52 @@ from porepy.examples.flow_benchmark_2d_case_3 import (
 from porepy.examples.flow_benchmark_2d_case_3 import FlowBenchmark2dCase3aModel
 from porepy.examples.flow_benchmark_2d_case_3 import Geometry as Case3Geo
 from porepy.examples.flow_benchmark_2d_case_3 import Permeability as Case3Permeability
+from porepy.examples.flow_benchmark_2d_case_4 import BoundaryConditions as Case4BC
+from porepy.examples.flow_benchmark_2d_case_4 import FlowBenchmark2dCase4Model
+from porepy.examples.flow_benchmark_2d_case_4 import Geometry as Case4Geo
 from porepy.examples.flow_benchmark_3d_case_3 import BoundaryConditions as Case3dBC
 from porepy.examples.flow_benchmark_3d_case_3 import FlowBenchmark3dCase3Model
 from porepy.examples.flow_benchmark_3d_case_3 import Geometry as Case3dGeo
 from porepy.examples.flow_benchmark_3d_case_3 import Permeability as Case3dPermeability
-from porepy.examples.flow_benchmark_2d_case_4 import FlowBenchmark2dCase4Model
-from porepy.examples.flow_benchmark_2d_case_4 import Geometry as Case4Geo
-from porepy.examples.flow_benchmark_2d_case_4 import BoundaryConditions as Case4BC
 from porepy.models.poromechanics import Poromechanics
 
 
-class Case1Poromech2D(Case1Permeability, Case1Geo, Case1BC, Poromechanics):
+# Ignore type errors inherent to the ``Poromechanics`` class.
+class Case1Poromech2D(Case1Permeability, Case1Geo, Case1BC, Poromechanics):  # type: ignore[misc]
     pass
 
 
-class Case3aPoromech2D(Case3Permeability, Case3Geo, Case3aBC, Poromechanics):
+class Case3aPoromech2D(Case3Permeability, Case3Geo, Case3aBC, Poromechanics):  # type: ignore[misc]
     pass
 
 
-class Case3Poromech3D(Case3dPermeability, Case3dGeo, Case3dBC, Poromechanics):
+class Case3Poromech3D(Case3dPermeability, Case3dGeo, Case3dBC, Poromechanics):  # type: ignore[misc]
     pass
 
 
-class Case4Poromech2D(Case4Geo, Case4BC, Poromechanics):
+class Case4Poromech2D(Case4Geo, Case4BC, Poromechanics):  # type: ignore[misc]
     pass
 
 
-def make_benchmark_model(
-    args: argparse.Namespace,
-):
+def make_benchmark_model(args: argparse.Namespace):
     """Create a benchmark model based on the provided arguments.
 
     Parameters:
-    args: Command-line arguments containing the following
-        attributes:
-        - geometry (int): Specifies the geometry type (0, 1, or 2). Geometry 0 and 1 are
-            2D grids, while geometry 2 is a 3D grid.
-        - grid_refinement (int): Specifies the grid refinement level.
-        - physics (str): Specifies the type of physics ("flow" or "poromechanics").
+        args: Command-line arguments containing the following
+            attributes:
+            - geometry (int): Specifies the geometry type (0, 1, or 2). Geometry 0 and 1
+            are 2D grids, geometry 2 is a 2D grid with 64 fractures, and geometry 3 is a
+            3D grid.
+            - grid_refinement (int): Specifies the grid refinement level.
+            - physics (str): Specifies the type of physics ("flow" or "poromechanics").
 
     Returns:
-    model: An instance of the selected benchmark model with the specified parameters.
+        model: An instance of the selected benchmark model with the specified
+            parameters.
 
     Raises:
-    ValueError: If the geometry or grid_refinement values are invalid, or if the
-        combination of geometry and physics is not supported.
+        ValueError: If the geometry or grid_refinement values are invalid, or if the
+            combination of geometry and physics is not supported.
 
     """
     # Set up fixed model parameters.
@@ -106,7 +109,7 @@ def make_benchmark_model(
 
     # Set cell_size/refinement_level model parameter based on choice of geometry and
     # grid refinement.
-    if args.geometry in [0, 1, 3]:
+    if args.geometry in [0, 1, 2]:
         if args.grid_refinement == 0:
             cell_size = 0.1
         elif args.grid_refinement == 1:
@@ -116,13 +119,13 @@ def make_benchmark_model(
         else:
             raise ValueError(f"{args.grid_refinement = }")
         model_params["meshing_arguments"] = {"cell_size": cell_size}
-    elif args.geometry == 2:
+    elif args.geometry == 3:
         model_params["refinement_level"] = args.grid_refinement
     else:
         raise ValueError(f"{args.grid_refinement = }")
 
     # Select a model based on choice of physics and geometry.
-    model = None
+    model: Optional[Type] = None
     if args.geometry == 0:
         if args.physics == "flow":
             model = FlowBenchmark2dCase1Model
@@ -135,14 +138,14 @@ def make_benchmark_model(
             model = Case3aPoromech2D
     elif args.geometry == 2:
         if args.physics == "flow":
-            model = FlowBenchmark3dCase3Model
-        elif args.physics == "poromechanics":
-            model = Case3Poromech3D
-    elif args.geometry == 3:
-        if args.physics == "flow":
             model = FlowBenchmark2dCase4Model
         elif args.physics == "poromechanics":
             model = Case4Poromech2D
+    elif args.geometry == 3:
+        if args.physics == "flow":
+            model = FlowBenchmark3dCase3Model
+        elif args.physics == "poromechanics":
+            model = Case3Poromech3D
 
     if model is None:
         raise ValueError(f"{args.geometry = }, {args.physics = }")
@@ -151,8 +154,7 @@ def make_benchmark_model(
 
 
 def run_model_with_tracer(args, model) -> None:
-    """
-    Run a model with VizTracer enabled for performance profiling.
+    """Run a model with VizTracer enabled for performance profiling.
 
     Parameters:
         args: Command-line arguments containing the following attributes:
@@ -175,11 +177,13 @@ def run_model_with_tracer(args, model) -> None:
 
     """
     if args.save_file == "":
-        save_file = f"profiling_{args.physics}_{args.geometry}_{args.grid_refinement}.json"
+        save_file: str = (
+            f"profiling_{args.physics}_{args.geometry}_{args.grid_refinement}.json"
+        )
     else:
         if not args.save_file.endswith(".json"):
             raise ValueError(f"{args.save_file = }")
-        save_file: str = args.save_file
+        save_file = args.save_file
 
     # Run model with viztracer enabled.
     tracer = VizTracer(
@@ -225,8 +229,7 @@ if __name__ == "__main__":
         default=0,
         choices=[0, 1, 2, 3],
         help=(
-            "0: 1st 2D case, 1: 2nd 2D case, 2: 3D case, 3: 2D case with 64",
-            " fractures.",
+            "0: 1st 2D case, 1: 2nd 2D case, 2: 2D case with 64 fracture, 3: 3D case."
         ),
     )
     parser.add_argument(
