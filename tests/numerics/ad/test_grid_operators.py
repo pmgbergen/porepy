@@ -2,13 +2,12 @@
 
 Checks performed include the following:
     test_subdomain_projections: Operators for restriction and prolongation are checked
-         for
-        both faces and cells;
+        for both faces and cells;
     test_mortar_projections: Projections between mortar grids and subdomain grids;
     test_boundary_grid_projection:  Tests are conducted on the boundary projection
         operator and its inverse;
     test_trace and test_divergence: Operators for discrete traces and divergences
-    test_ad_discretization_class: test for AD discretizations;
+    test_ad_discretization_class: test for AD discretizations.
 
 """
 
@@ -17,6 +16,7 @@ import pytest
 import scipy.sparse as sps
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
+
 
 @pytest.fixture
 def mdg():
@@ -395,17 +395,13 @@ def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
 
 
 def _compare_matrices(m1, m2):
+    # Convert ad sparse arrays to scipy sparse matrices if necessary. Then call the
+    # standard comparison function for matrices.
     if isinstance(m1, pp.ad.SparseArray):
         m1 = m1._mat
     if isinstance(m2, pp.ad.SparseArray):
         m2 = m2._mat
-    if m1.shape != m2.shape:
-        return False
-    d = m1 - m2
-    if d.data.size > 0:
-        if np.max(np.abs(d.data)) > 1e-10:
-            return False
-    return True
+    return pp.applications.test_utils.arrays.compare_matrices(m1, m2)
 
 def _list_ind_of_grid(subdomains, g):
     for i, gl in enumerate(subdomains):
