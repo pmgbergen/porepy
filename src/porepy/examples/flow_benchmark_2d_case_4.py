@@ -45,24 +45,25 @@ class BoundaryConditions(PorePyModel):
     """
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        """Pressure value of 1 Pa on east side."""
+        """Pressure value of one atmosphere (101325 Pa) on west side."""
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[bounds.east] = self.units.convert_units(1, "Pa")
+        values[bounds.west] = self.units.convert_units(101325, "Pa")
         return values
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Assign Dirichlet to the east boundary. The rest are Neumann by default."""
+        """Assign Dirichlet to the east and west boundary. The rest are Neumann by
+        default."""
         bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.east, "dir")
+        bc = pp.BoundaryCondition(sd, bounds.east + bounds.west, "dir")
         return bc
 
     def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Inflow on the west boundary.
 
         Per PorePy convention, the sign is negative for inflow and the value is
-        integrated over the boundary cell volumes. Since the inflow boundary contains
-        a fracture, the latter includes the fracture specific volume.
+        integrated over the boundary cell volumes. Since the inflow boundary contains a
+        fracture, the latter includes the fracture specific volume.
 
         Parameters:
             boundary_grid: Boundary grid.
@@ -73,15 +74,6 @@ class BoundaryConditions(PorePyModel):
         """
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        # Inflow on the west boundary. Sign as per PorePy convention.
-        val = self.units.convert_units(-1, "m * s^-1")
-        # Integrate over the boundary cell volumes.
-        values[bounds.west] = val * boundary_grid.cell_volumes[bounds.west]
-        # Scale with specific volume.
-        sd = boundary_grid.parent
-        trace = np.abs(sd.cell_faces)
-        specific_volumes = self.specific_volume([sd]).value(self.equation_system)
-        values *= boundary_grid.projection() @ trace @ specific_volumes
         return values
 
 
