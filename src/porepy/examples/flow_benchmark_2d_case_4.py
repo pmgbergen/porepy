@@ -18,9 +18,16 @@ References:
 import numpy as np
 
 import porepy as pp
+from porepy.examples.flow_benchmark_2d_case_1 import FractureSolidConstants
+from porepy.models.constitutive_laws import DimensionDependentPermeability
 from porepy.models.protocol import PorePyModel
 
-solid_constants = pp.SolidConstants(residual_aperture=1e-4)
+solid_constants = FractureSolidConstants(
+    residual_aperture=1e-2,  # m
+    permeability=1e-14,  # m^2
+    normal_permeability=1e-8,  # m^2
+    fracture_permeability=1e-8,  # m^2
+)
 
 
 class Geometry(PorePyModel):
@@ -33,8 +40,7 @@ class Geometry(PorePyModel):
     @property
     def domain(self) -> pp.Domain:
         """Domain of the problem."""
-        # return pp.Domain({'xmax': 700, 'ymax': 600})
-        return pp.Domain({"xmax": 50, "ymax": 50})
+        return pp.Domain({"xmax": 700, "ymax": 600})
 
 
 class BoundaryConditions(PorePyModel):
@@ -72,15 +78,42 @@ class BoundaryConditions(PorePyModel):
             Boundary values.
 
         """
-        bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
         return values
+
+
+class Permeability(DimensionDependentPermeability):
+    """Tangential permeability specification for Case 1 of the 2D flow benchmark.
+
+    The normal permeability is handled by the `SolidConstants`' `normal_permeability`
+    parameter.
+
+    """
+
+    solid: FractureSolidConstants
+
+    def fracture_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability of fractures.
+
+        Parameters:
+            subdomains: List of subdomains.
+
+        Returns:
+            Cell-wise permeability operator.
+
+        """
+        size = sum([sd.num_cells for sd in subdomains])
+        permeability = pp.wrap_as_dense_ad_array(
+            self.solid.fracture_permeability, size, name="fracture permeability"
+        )
+        return self.isotropic_second_order_tensor(subdomains, permeability)
 
 
 # Ignore type errors inherent to the ``SinglePhaseFlow`` class.
 class FlowBenchmark2dCase4Model(  # type: ignore[misc]
     Geometry,
     BoundaryConditions,
+    Permeability,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """Mixer class for case 4 from the 2d flow benchmark."""
