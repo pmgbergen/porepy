@@ -62,6 +62,12 @@ def test_subdomain_projections(mdg, scalar):
         col_face = pp.fvutils.expand_indices_nd(face_inds, dim)
         return row_cell, col_cell, data_cell, row_face, col_face, data_face
 
+    # Test projections to and from an empty list of subdomains
+    assert proj.cell_restriction([]).shape == (0, n_cells)
+    assert proj.cell_prolongation([]).shape == (n_cells, 0)
+    assert proj.face_restriction([]).shape == (0, n_faces)
+    assert proj.face_prolongation([]).shape == (n_faces, 0)
+
     # Test projection of one fracture at a time for the full set of grids
     for sd in subdomains:
         ind = _list_ind_of_grid(subdomains, sd)
@@ -160,6 +166,40 @@ def test_mortar_projections(mdg, scalar):
     # Interfaces between the two 1d grids and the 0d grid.
     intf13 = mdg.subdomain_pair_to_interface((g1, g3))
     intf23 = mdg.subdomain_pair_to_interface((g2, g3))
+
+    ### Test projections between empty lists of subdomains and interfaces
+    # Projection operator with empty list of subdomains
+    proj_no_subdomains = pp.ad.MortarProjections(
+        subdomains=[], interfaces=mdg.interfaces(), mdg=mdg, dim=proj_dim
+    )
+    # From mortar to subdomains
+    assert proj_no_subdomains.mortar_to_primary_int.shape == (0, n_mortar_cells)
+    assert proj_no_subdomains.mortar_to_secondary_int.shape == (0, n_mortar_cells)
+    # From subdomains to mortar
+    assert proj_no_subdomains.primary_to_mortar_int.shape == (n_mortar_cells, 0)
+    assert proj_no_subdomains.secondary_to_mortar_int.shape == (n_mortar_cells, 0)
+
+    # Projection operator with empty list of interfaces
+    proj_no_interfaces = pp.ad.MortarProjections(
+        subdomains=mdg.subdomains(), interfaces=[], mdg=mdg, dim=proj_dim
+    )
+    # From mortar to subdomains
+    assert proj_no_interfaces.mortar_to_primary_int.shape == (n_faces, 0)
+    assert proj_no_interfaces.mortar_to_secondary_int.shape == (n_cells, 0)
+    # From subdomains to mortar
+    assert proj_no_interfaces.primary_to_mortar_int.shape == (0, n_faces)
+    assert proj_no_interfaces.secondary_to_mortar_int.shape == (0, n_cells)
+
+    # Empty list of subdomains and interfaces
+    proj_no_subdomains_interfaces = pp.ad.MortarProjections(
+        subdomains=[], interfaces=[], mdg=mdg, dim=proj_dim
+    )
+    # From mortar to subdomains
+    assert proj_no_subdomains_interfaces.mortar_to_primary_int.shape == (0, 0)
+    assert proj_no_subdomains_interfaces.mortar_to_secondary_int.shape == (0, 0)
+    # From subdomains to mortar
+    assert proj_no_subdomains_interfaces.primary_to_mortar_int.shape == (0, 0)
+    assert proj_no_subdomains_interfaces.secondary_to_mortar_int.shape == (0, 0)
 
     # Compute reference projection matrices
     face_start = proj_dim * np.cumsum(
