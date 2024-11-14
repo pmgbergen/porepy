@@ -30,10 +30,7 @@ from viztracer import VizTracer  # type: ignore[import]
 
 import porepy as pp
 from porepy.examples.flow_benchmark_2d_case_1 import BoundaryConditions as Case1BC
-from porepy.examples.flow_benchmark_2d_case_1 import (
-    FlowBenchmark2dCase1Model,
-    FractureSolidConstants,
-)
+from porepy.examples.flow_benchmark_2d_case_1 import FlowBenchmark2dCase1Model
 from porepy.examples.flow_benchmark_2d_case_1 import Geometry as Case1Geo
 from porepy.examples.flow_benchmark_2d_case_1 import Permeability as Case1Permeability
 from porepy.examples.flow_benchmark_2d_case_3 import (
@@ -111,13 +108,6 @@ def make_benchmark_model(args: argparse.Namespace):
     """
     # Set up fixed model parameters.
     model_params = {
-        "material_constants": {
-            "solid": FractureSolidConstants(
-                residual_aperture=1e-1,
-                fracture_permeability=1e-1,
-                normal_permeability=1e-1,
-            )
-        },
         "grid_type": "simplex",
         "time_manager": pp.TimeManager(
             dt_init=1,
@@ -125,6 +115,10 @@ def make_benchmark_model(args: argparse.Namespace):
             constant_dt=True,
         ),
     }
+
+    # Warn user that the finest grid will likely take significant time.
+    if args.grid_refinement >= 2:
+        print(f"{args.grid_refinement=} will likely take significant time to run.")
 
     # Set cell_size/refinement_level model parameter based on choice of geometry and
     # grid refinement.
@@ -213,6 +207,10 @@ def run_model_with_tracer(args, model) -> None:
     tracer.start()
     model.prepare_simulation()
     print("Num dofs:", model.equation_system.num_dofs())
+    # Simulations use a single time step and relaxed Newton tolerance to ensure 1-2
+    # Newton iterations. Material parameters are defaults and not realistic, as these
+    # bencmarks are focusing on code segments (e.g., AD assembly) independent of
+    # parameter realism.
     pp.run_time_dependent_model(
         model,
         {
@@ -248,7 +246,7 @@ if __name__ == "__main__":
         default=0,
         choices=[0, 1, 2, 3],
         help=(
-            "0: 1st 2D case, 1: 2nd 2D case, 2: 2D case with 64 fracture, 3: 3D case."
+            "0: 1st 2D case, 1: 2nd 2D case, 2: 2D case with 64 fractures, 3: 3D case."
         ),
     )
     parser.add_argument(
