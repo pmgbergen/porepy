@@ -389,6 +389,8 @@ def test_unit_conversion(units):
 
     solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
     fluid = pp.FluidComponent(**pp.fluid_values.extended_water_values_for_testing)
+    numerical_vals = {"characteristic_displacement": 0.2}
+    numerical = pp.NumericalConstants(**numerical_vals)
     reference_values = pp.ReferenceVariableValues(
         **pp.reference_values.extended_reference_values_for_testing
     )
@@ -398,7 +400,7 @@ def test_unit_conversion(units):
         "fracture_indices": [0],
         "cartesian": True,
         "u_north": [0.0, -1e-5],
-        "material_constants": {"solid": solid, "fluid": fluid},
+        "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
         "reference_variable_values": reference_values,
     }
     model_params_ref = copy.deepcopy(model_params)
