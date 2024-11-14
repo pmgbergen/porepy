@@ -140,6 +140,15 @@ def make_benchmark_model(args: argparse.Namespace):
         model_params["meshing_arguments"] = {"cell_size": cell_size}
     elif args.geometry == 3:
         model_params["refinement_level"] = args.grid_refinement
+    elif args.geometry == 4:
+        if args.grid_refinement == 0:
+            cell_size = 70
+        elif args.grid_refinement == 1:
+            cell_size = 35
+        elif args.grid_refinement == 2:
+            cell_size = 10
+        else:
+            raise ValueError(f"{args.grid_refinement=}")
     else:
         raise ValueError(f"{args.grid_refinement=}")
 
