@@ -301,7 +301,8 @@ class SolutionStrategy(abc.ABC, PorePyModel):
             pp.FluidComponent, constants.get("fluid", pp.FluidComponent(name="fluid"))
         )
         numerical = cast(
-            pp.NumericalConstants, constants.get("numerical", pp.NumericalConstants(name="numerical"))
+            pp.NumericalConstants,
+            constants.get("numerical", pp.NumericalConstants(name="numerical")),
         )
 
         # Sanity check that users did not pass anything unexpected.
