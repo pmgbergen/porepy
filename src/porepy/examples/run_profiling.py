@@ -23,6 +23,7 @@ Note: Running the 3D model on the finest grid requires ~20 GB ram (!), thus is n
 import argparse
 import pathlib
 import subprocess
+import warnings
 from typing import Optional, Type
 
 # VizTracer is missing stubs or py.typed marker, hence we ignore type errors.
@@ -124,7 +125,9 @@ def make_benchmark_model(args: argparse.Namespace):
 
     # Warn user that the finest grid will likely take significant time.
     if args.grid_refinement >= 2:
-        print(f"{args.grid_refinement=} will likely take significant time to run.")
+        warnings.warn(
+            f"{args.grid_refinement=} will likely take significant time to run."
+        )
 
     # Set cell_size/refinement_level model parameter based on choice of geometry and
     # grid refinement.
