@@ -426,7 +426,7 @@ class SolidConstants(Constants):
 @dataclass(kw_only=True, eq=False)
 class NumericalConstants(Constants):
     """Data class containing numerical method parameters,
-     including characteristic sizes.
+    including characteristic sizes.
     """
 
     SI_units: ClassVar[dict[str, str]] = dict(
