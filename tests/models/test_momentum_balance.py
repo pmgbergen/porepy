@@ -126,6 +126,8 @@ def test_unit_conversion(units: dict, uy_north: float):
 
     """
     solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
+    numerical_vals = {"characteristic_displacement": 0.2}
+    numerical = pp.NumericalConstants(**numerical_vals)
     reference_values = pp.ReferenceVariableValues(
         **pp.reference_values.extended_reference_values_for_testing
     )
@@ -135,7 +137,7 @@ def test_unit_conversion(units: dict, uy_north: float):
         "fracture_indices": [0, 1],
         "cartesian": True,
         "u_north": [0.0, uy_north],
-        "material_constants": {"solid": solid},
+        "material_constants": {"solid": solid, "numerical": numerical},
         "reference_variable_values": reference_values,
     }
     reference_params = copy.deepcopy(params)
