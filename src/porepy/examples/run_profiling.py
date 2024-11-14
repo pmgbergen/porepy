@@ -29,12 +29,14 @@ from typing import Optional, Type
 from viztracer import VizTracer  # type: ignore[import]
 
 import porepy as pp
-from porepy.examples.flow_benchmark_2d_case_1 import BoundaryConditions as Case1BC
-from porepy.examples.flow_benchmark_2d_case_1 import FlowBenchmark2dCase1Model
-from porepy.examples.flow_benchmark_2d_case_1 import Geometry as Case1Geo
 
 # Models 1 and 4 use FractureSolidConstants class, others use its parent SolidConstants.
-from porepy.examples.flow_benchmark_2d_case_1 import FractureSolidConstants
+from porepy.examples.flow_benchmark_2d_case_1 import BoundaryConditions as Case1BC
+from porepy.examples.flow_benchmark_2d_case_1 import (
+    FlowBenchmark2dCase1Model,
+    FractureSolidConstants,
+)
+from porepy.examples.flow_benchmark_2d_case_1 import Geometry as Case1Geo
 from porepy.examples.flow_benchmark_2d_case_1 import Permeability as Case1Permeability
 from porepy.examples.flow_benchmark_2d_case_3 import (
     Case3aBoundaryConditions as Case3aBC,
