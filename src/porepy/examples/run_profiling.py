@@ -111,11 +111,11 @@ def make_benchmark_model(args: argparse.Namespace):
     """
     # Set up fixed model parameters.
     model_params = {
-        "solid": FractureSolidConstants(),
+        "material_constants": {"solid": FractureSolidConstants()},
         "grid_type": "simplex",
         "time_manager": pp.TimeManager(
             dt_init=1,
-            schedule=[0, 2],
+            schedule=[0, 1],
             constant_dt=True,
         ),
     }
