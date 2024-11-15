@@ -18,7 +18,7 @@ import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 
-#@pytest.fixture
+@pytest.fixture
 def mdg():
     """Provide a mixed-dimensional grid for the tests."""
     fracs = [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
@@ -138,7 +138,7 @@ def test_mortar_projections_empty_list(mdg):
     n_cells, n_faces, n_mortar_cells = geometry_information(mdg, 1)
     # Projection operator with empty list of subdomains
     proj_no_subdomains = pp.ad.MortarProjections(
-        subdomains=[], interfaces=mdg.interfaces(), mdg=mdg, dim=proj_dim
+        subdomains=[], interfaces=mdg.interfaces(), mdg=mdg, dim=1
     )
     # From mortar to subdomains
     assert proj_no_subdomains.mortar_to_primary_int.shape == (0, n_mortar_cells)
@@ -149,7 +149,7 @@ def test_mortar_projections_empty_list(mdg):
 
     # Projection operator with empty list of interfaces
     proj_no_interfaces = pp.ad.MortarProjections(
-        subdomains=mdg.subdomains(), interfaces=[], mdg=mdg, dim=proj_dim
+        subdomains=mdg.subdomains(), interfaces=[], mdg=mdg, dim=1
     )
     # From mortar to subdomains
     assert proj_no_interfaces.mortar_to_primary_int.shape == (n_faces, 0)
@@ -160,7 +160,7 @@ def test_mortar_projections_empty_list(mdg):
 
     # Empty list of subdomains and interfaces
     proj_no_subdomains_interfaces = pp.ad.MortarProjections(
-        subdomains=[], interfaces=[], mdg=mdg, dim=proj_dim
+        subdomains=[], interfaces=[], mdg=mdg, dim=1
     )
     # From mortar to subdomains
     assert proj_no_subdomains_interfaces.mortar_to_primary_int.shape == (0, 0)
@@ -172,29 +172,22 @@ def test_mortar_projections_empty_list(mdg):
 
 @pytest.mark.integtest
 @pytest.mark.parametrize("scalar", [True, False])
-def test_mortar_projections(mdg, scalar):
+@pytest.mark.parametrize("non_matching", [True, False])
+def test_mortar_projections(mdg, scalar, non_matching):
     # Test of mortar projections between mortar grids and standard subdomain grids.
+
+    if non_matching:
+        # If requested, we will refine the two 1d grids, such that the projection
+        # matrices have non-unitary entries.
+        for g in mdg.subdomains(dim=1):
+            g_new = pp.refinement.refine_grid_1d(g, ratio=2)
+            mdg.replace_subdomains_and_interfaces({g: g_new})
 
     # Define the dimension of the field being projected
     proj_dim = 1 if scalar else mdg.dim_max()
 
     # Collect geometrical and grid objects.
     n_cells, n_faces, n_mortar_cells = geometry_information(mdg, proj_dim)
-
-    # The 2d grid.
-    g0 = mdg.subdomains(dim=2)[0]
-    # Two 1d grids.
-    g1, g2 = mdg.subdomains(dim=1)
-    # A 0d grid.
-    g3 = mdg.subdomains(dim=0)[0]
-
-    # Interfaces between the 2d and the two 1d grids.
-    intf01 = mdg.subdomain_pair_to_interface((g0, g1))
-    intf02 = mdg.subdomain_pair_to_interface((g0, g2))
-
-    # Interfaces between the two 1d grids and the 0d grid.
-    intf13 = mdg.subdomain_pair_to_interface((g1, g3))
-    intf23 = mdg.subdomain_pair_to_interface((g2, g3))
 
     ## Mapping between subdomains and interfaces of dimension 2 and 1
     # List of subdomains of dimensions 2 and 1
@@ -206,30 +199,36 @@ def test_mortar_projections(mdg, scalar):
     # (start index) in the projection matrix. We will only check projections from mortar
     # to the subdomains (the other way is a transpose, which will be correct if the
     # original is so). Thus for the subdomains, we need the offsets for the faces
-    # (relevant for projection to the high dimension) and cells (relevant for projection
-    # to the low dimension). For the interfaces, we need the offset for the cells (used
-    # in both directions).
-    def _row_offset_higher_dimension(sds):
+    # (relevant for projection to primary) and cells (relevant for projection to
+    # secondary). For the interfaces, we need the offset for the cells (used in both
+    # directions).
+    def _row_offset_primary(sds):
         return proj_dim * np.cumsum(np.hstack((0, np.array([sd.num_faces for sd in sds]))))
-    def _row_offset_lower_dimension(sds):
+    def _row_offset_secondary(sds):
         return proj_dim * np.cumsum(np.hstack((0, np.array([sd.num_cells for sd in sds]))))
     def _col_offset(intfs):
         return proj_dim * np.cumsum(np.hstack((0, np.array([m.num_cells for m in intfs]))))
 
     # Get the indices of the projection matrices for the mapping to primary and
-    # secondary (higher and lower dimensional neighbor) for a given interface.
+    # secondary (higher and lower dimensional neighbor) for a given interface. Get the
+    # data for both integrating and averaging operators; both are needed to cover
+    # non-matching grids.
     def _indices_primary(intf):
-        return sps.find(intf.mortar_to_primary_int(nd=proj_dim))
+        row, col, data_int = sps.find(intf.mortar_to_primary_int(nd=proj_dim))
+        _, _, data_avg = sps.find(intf.mortar_to_primary_avg(nd=proj_dim))
+        return row, col, data_int, data_avg
 
-    def _indices_secondary(intfs: list[pp.MortarGrid]):
-        return sps.find(intf.mortar_to_secondary_int(nd=proj_dim))
+    def _indices_secondary(intf: list[pp.MortarGrid]):
+        row, col, data_int = sps.find(intf.mortar_to_secondary_int(nd=proj_dim))
+        _, _, data_avg = sps.find(intf.mortar_to_secondary_avg(nd=proj_dim))
+        return row, col, data_int, data_avg
    
     # Consider four cases:
     # 1) All subdomains and interfaces. This is the base case.
     # 2) The 2d and 1d subdomains, and the 1d interfaces. This tests that we can
     #    consider a subset of the grids. 
     # 3) The 2d subdomain, and the 1d interfaces. This tests that we can have a non-zero
-    #    projection in one direction (to the high dimension) and zero in the other.
+    #    projection in one direction (to the primary) and zero in the other.
     # 4) The 2d subdomain and the 0d interfaces. This tests that we can have projections
     #    with shape dictated by the size of the involved grids, but with only zero
     #    entries.
@@ -238,53 +237,63 @@ def test_mortar_projections(mdg, scalar):
 
     for (subdomains, interfaces) in zip(subdomain_lists, interface_lists):
         # Compute the offsets for the subdomains and interfaces
-        face_start = _row_offset_higher_dimension(subdomains)
-        cell_start = _row_offset_lower_dimension(subdomains)
+        face_start = _row_offset_primary(subdomains)
+        cell_start = _row_offset_secondary(subdomains)
         mortar_start = _col_offset(interfaces)
 
         # Initialize lists to store the indices and data of the projection matrices
-        row_ind_high, col_ind_high, row_ind_low, col_ind_low = [], [], [], []
-        data_high, data_low = [], []
+        row_ind_primary, col_ind_primary, row_ind_secondary, col_ind_secondary = [], [], [], []
+        data_primary_int, data_primary_avg, data_secondary_int, data_secondary_avg = [], [], [], []
 
         # Loop over the interfaces and subdomains to collect the indices and data of the
         # projection matrices, provided that the subdomain is involved in the
         # projection.
         for intf in interfaces:
             # Neighboring subdomains
-            sd_high, sd_low = mdg.interface_to_subdomain_pair(intf)
+            sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
             # If the subdomain is in the list, collect the indices and data of the
             # projection matrices. Otherwise, we ignore this subdomain.
-            if sd_high in subdomains:
-                r, c, data = _indices_primary(intf)
-                row_ind_high.append(r + face_start[subdomains.index(sd_high)])
-                col_ind_high.append(c + mortar_start[interfaces.index(intf)])
-                data_high.append(data)
+            if sd_primary in subdomains:
+                r, c, data_int, data_avg = _indices_primary(intf)
+                row_ind_primary.append(r + face_start[subdomains.index(sd_primary)])
+                col_ind_primary.append(c + mortar_start[interfaces.index(intf)])
+                data_primary_int.append(data_int)
+                data_primary_avg.append(data_avg)
             # Same for the lower dimensional neighbor
-            if sd_low in subdomains:
-                r, c, data = _indices_secondary(intf)
-                row_ind_low.append(r + cell_start[subdomains.index(sd_low)])
-                col_ind_low.append(c + mortar_start[interfaces.index(intf)])
-                data_low.append(data)
+            if sd_secondary in subdomains:
+                r, c, data_int, data_avg = _indices_secondary(intf)
+                row_ind_secondary.append(r + cell_start[subdomains.index(sd_secondary)])
+                col_ind_secondary.append(c + mortar_start[interfaces.index(intf)])
+                data_secondary_int.append(data_int)
+                data_secondary_avg.append(data_avg)
 
         # The shape of the projection matrices is determined by the number of faces and
         # cells in the subdomains and the number of cells in the interfaces.
-        shape_high = (proj_dim * sum([sd.num_faces for sd in subdomains]), proj_dim * sum([m.num_cells for m in interfaces]))
-        shape_low = (proj_dim * sum([sd.num_cells for sd in subdomains]), proj_dim * sum([m.num_cells for m in interfaces]))
+        shape_primary = (proj_dim * sum([sd.num_faces for sd in subdomains]), proj_dim * sum([m.num_cells for m in interfaces]))
+        shape_secondary = (proj_dim * sum([sd.num_cells for sd in subdomains]), proj_dim * sum([m.num_cells for m in interfaces]))
 
         # Construct the known projection matrices from the collected indices and data.
         # If no data is collected, the projection matrix is zero, with the given shape.
-        if len(row_ind_high) == 0:
-            proj_known_higher = sps.csr_matrix(shape_high)
+        if len(row_ind_primary) == 0:
+            proj_known_primaryer_int = sps.csr_matrix(shape_primary)
+            proj_known_primaryer_avg = sps.csr_matrix(shape_primary)
         else:
-            proj_known_higher = sps.coo_matrix(
-                (np.hstack(data_high), (np.hstack(row_ind_high), np.hstack(col_ind_high))), shape=shape_high
+            proj_known_primaryer_int = sps.coo_matrix(
+                (np.hstack(data_primary_int), (np.hstack(row_ind_primary), np.hstack(col_ind_primary))), shape=shape_primary
+            ).tocsr()
+            proj_known_primaryer_avg = sps.coo_matrix(
+                (np.hstack(data_primary_avg), (np.hstack(row_ind_primary), np.hstack(col_ind_primary))), shape=shape_primary
             ).tocsr()
         
-        if len(row_ind_low) == 0:
-            proj_known_lower = sps.csr_matrix(shape_low)
+        if len(row_ind_secondary) == 0:
+            proj_known_secondaryer_int = sps.csr_matrix(shape_secondary)
+            proj_known_secondaryer_avg = sps.csr_matrix(shape_secondary)
         else:
-            proj_known_lower = sps.coo_matrix(
-                (np.hstack(data_low), (np.hstack(row_ind_low), np.hstack(col_ind_low))), shape=shape_low
+            proj_known_secondaryer_int = sps.coo_matrix(
+                (np.hstack(data_secondary_int), (np.hstack(row_ind_secondary), np.hstack(col_ind_secondary))), shape=shape_secondary
+            ).tocsr()
+            proj_known_secondaryer_avg = sps.coo_matrix(
+                (np.hstack(data_secondary_avg), (np.hstack(row_ind_secondary), np.hstack(col_ind_secondary))), shape=shape_secondary
             ).tocsr()
 
         # Compute the object being tested
@@ -292,14 +301,15 @@ def test_mortar_projections(mdg, scalar):
             subdomains=subdomains, interfaces=interfaces, mdg=mdg, dim=proj_dim
         )
 
-        assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_int)
-        assert _compare_matrices(proj_known_higher, proj.mortar_to_primary_avg)
-        assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_int)
-        assert _compare_matrices(proj_known_higher.T, proj.primary_to_mortar_avg)
-        assert _compare_matrices(proj_known_lower, proj.mortar_to_secondary_int)
-        assert _compare_matrices(proj_known_lower, proj.mortar_to_secondary_avg)
-        assert _compare_matrices(proj_known_lower.T, proj.secondary_to_mortar_int)
-        assert _compare_matrices(proj_known_lower.T, proj.secondary_to_mortar_avg)
+        assert _compare_matrices(proj_known_primaryer_int, proj.mortar_to_primary_int)
+        assert _compare_matrices(proj_known_primaryer_avg, proj.mortar_to_primary_avg)
+        assert _compare_matrices(proj_known_primaryer_avg.T, proj.primary_to_mortar_int)
+        assert _compare_matrices(proj_known_primaryer_int.T, proj.primary_to_mortar_avg)
+
+        assert _compare_matrices(proj_known_secondaryer_int, proj.mortar_to_secondary_int)
+        assert _compare_matrices(proj_known_secondaryer_avg, proj.mortar_to_secondary_avg)
+        assert _compare_matrices(proj_known_secondaryer_avg.T, proj.secondary_to_mortar_int)
+        assert _compare_matrices(proj_known_secondaryer_int.T, proj.secondary_to_mortar_avg)
 
 @pytest.mark.integtest
 @pytest.mark.parametrize("scalar", [True, False])
@@ -478,4 +488,3 @@ def geometry_information(mdg: pp.MixedDimensionalGrid, dim: int) -> tuple[int, i
     n_mortar_cells = sum([intf.num_cells for intf in mdg.interfaces()]) * dim
     return n_cells, n_faces, n_mortar_cells
 
-test_mortar_projections(mdg(), True)
