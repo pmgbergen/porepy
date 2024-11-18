@@ -187,7 +187,8 @@ def test_mortar_projections(mdg, scalar, non_matching):
     """Test of mortar projections between mortar grids and standard subdomain grids.
 
     Parameters:
-        mdg: Mixed-dimensional grid. scalar: Boolean indicating whether the field being
+        mdg: Mixed-dimensional grid.
+        scalar: Boolean indicating whether the field being
         projected is scalar or
             vector, which will be taken as 2d (since the grid is 2d).
         non_matching: If True, the 1d subdomain grids will be refined so that the
@@ -469,8 +470,8 @@ def test_trace(mdg: pp.MixedDimensionalGrid):
 
     # Construct expected matrices.
     traces, inv_traces = list(), list()
-    # No check on this function here.
-    # TODO: A separate unit test might be appropriate.do in this PR?
+
+    # Contruct projections to the subdomains for cell and face quantities.
     cell_projections, face_projections = pp.ad.grid_operators._subgrid_projections(
         subdomains, dim=1
     )
@@ -484,8 +485,8 @@ def test_trace(mdg: pp.MixedDimensionalGrid):
     _compare_matrices(op.trace, sps.bmat([[m] for m in traces]))
     _compare_matrices(op.inv_trace, sps.bmat([[m] for m in inv_traces]))
 
-    # As of the writing of this test, Trace is not implemented for vector values.
-    # If it is ever extended, the test should be extended accordingly (e.g. parametrized with
+    # As of the writing of this test, Trace is not implemented for vector values. If it
+    # is ever extended, the test should be extended accordingly (e.g. parametrized with
     # dim=[1, 2]).
     with pytest.raises(NotImplementedError):
         pp.ad.Trace(subdomains, dim=2)
@@ -541,7 +542,7 @@ def _compare_matrices(m1, m2):
     return pp.applications.test_utils.arrays.compare_matrices(m1, m2)
 
 
-def _list_ind_of_grid(subdomains, g):
+def _list_ind_of_grid(subdomains: list[pp.Grid], g: pp.Grid) -> int:
     """Get the index of a grid in a list of grids.
 
     Parameters:
@@ -549,7 +550,7 @@ def _list_ind_of_grid(subdomains, g):
         g: Grid.
 
     Returns:
-        int: Index of grid in list.
+        Index of grid in list.
 
     Raises:
         ValueError: If grid is not in list.
@@ -574,6 +575,7 @@ def geometry_information(
         n_cells: Number of subdomain cells.
         n_faces: Number of subdomain faces.
         n_mortar_cells: Number of interface cells.
+
     """
     n_cells = sum([sd.num_cells for sd in mdg.subdomains()]) * dim
     n_faces = sum([sd.num_faces for sd in mdg.subdomains()]) * dim
