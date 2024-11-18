@@ -962,7 +962,6 @@ def geometry_information(
     return n_cells, n_faces, n_mortar_cells
 
 
-@pytest.mark.integtest
 def test_ad_discretization_class():
     # Test of the parent class for all AD discretizations (pp.ad.Discretization)
 
@@ -1501,7 +1500,6 @@ def _expected_value(
             return False
 
 
-@pytest.mark.integtest
 @pytest.mark.parametrize("var_1", ["scalar", "dense", "sparse", "ad"])
 @pytest.mark.parametrize("var_2", ["scalar", "dense", "sparse", "ad"])
 @pytest.mark.parametrize("op", ["+", "-", "*", "/", "**", "@"])

@@ -27,7 +27,6 @@ def mdg():
     return md_grid
 
 
-@pytest.mark.integtest
 @pytest.mark.parametrize("scalar", [True, False])
 def test_subdomain_projections(mdg, scalar):
     """Test of subdomain projections. Both face and cell restriction and prolongation.
@@ -136,7 +135,6 @@ def test_subdomain_projections(mdg, scalar):
     assert _compare_matrices(proj.face_prolongation([g1, g2]), known_face_proj.T)
 
 
-@pytest.mark.integtest
 def test_mortar_projections_empty_list(mdg):
     """Test projections between empty lists of subdomains and interfaces.
 
@@ -183,7 +181,6 @@ def test_mortar_projections_empty_list(mdg):
     assert proj_no_subdomains_interfaces.secondary_to_mortar_int.shape == (0, 0)
 
 
-@pytest.mark.integtest
 @pytest.mark.parametrize("scalar", [True, False])
 @pytest.mark.parametrize("non_matching", [True, False])
 def test_mortar_projections(mdg, scalar, non_matching):
@@ -382,7 +379,6 @@ def test_mortar_projections(mdg, scalar, non_matching):
         )
 
 
-@pytest.mark.integtest
 @pytest.mark.parametrize("scalar", [True, False])
 def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
     """Three main functionalities being tested:
@@ -455,7 +451,6 @@ def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
     assert np.allclose((subdomain_to_boundary - boundary_to_subdomain.T).data, 0)
 
 
-@pytest.mark.integtest
 # Geometry based operators
 def test_trace(mdg: pp.MixedDimensionalGrid):
     """Test Trace operator.
@@ -496,7 +491,6 @@ def test_trace(mdg: pp.MixedDimensionalGrid):
         pp.ad.Trace(subdomains, dim=2)
 
 
-@pytest.mark.integtest
 @pytest.mark.parametrize("dim", [1, 4])
 def test_divergence(mdg: pp.MixedDimensionalGrid, dim: int):
     """Test Divergence.

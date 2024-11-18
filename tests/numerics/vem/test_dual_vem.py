@@ -1279,7 +1279,6 @@ class TestVEMConvergence:
     # 3) Variable permeability with Tilted Grid with plane rotation of Pi / 2.0
     test_cases = [1, 2, 3]
 
-    @pytest.mark.integtest
     @pytest.mark.parametrize("case", test_cases)
     def test_expected_conv_rate(self, case):
         diam_10, error_10 = self._compute_approximation(10, case)
