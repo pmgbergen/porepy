@@ -1,6 +1,10 @@
 """This runscripts runs a selected porepy benchmark automatically with ``viztracer``
 enabled and opens the results in a browser.
 
+The alternative way to plug in the profiler to your script from the command line:
+>>> viztracer --min_duration 0.01ms --ignore_frozen --ignore_c_function your_script.py
+>>> vizviewer --port 9002 results.json
+
 Example (intended to show basic input and output functionality):
     # If not already installed, get viztracer:
     >>> pip install viztracer
