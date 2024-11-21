@@ -16,6 +16,7 @@ import porepy as pp
 from porepy.applications.md_grids import model_geometries
 from porepy.applications.test_utils import well_models
 from porepy.applications.test_utils.models import (
+    Thermoporomechanics,
     compare_scaled_model_quantities,
     compare_scaled_primary_variables,
 )
@@ -29,7 +30,7 @@ class TailoredThermoporomechanics(
     pp.model_boundary_conditions.TimeDependentMechanicalBCsDirNorthSouth,
     pp.model_boundary_conditions.BoundaryConditionsEnergyDirNorthSouth,
     pp.model_boundary_conditions.BoundaryConditionsMassDirNorthSouth,
-    pp.Thermoporomechanics,
+    Thermoporomechanics,
 ):
     pass
 
@@ -287,7 +288,7 @@ def test_robin_boundary_flux():
 
     class TailoredPoromechanicsRobin(
         pp.test_utils.models.RobinDirichletNeumannConditions,
-        pp.Thermoporomechanics,
+        Thermoporomechanics,
     ):
         def set_domain(self) -> None:
             self._domain = pp.domains.unit_cube_domain(dimension=2)
