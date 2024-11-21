@@ -440,6 +440,7 @@ class NumericalConstants(Constants):
     )
 
     characteristic_contact_traction: number = 1.0
+    """Characteristic traction used for scaling of contact mechanics."""
 
     characteristic_displacement: number = 1.0
 
