@@ -427,6 +427,7 @@ class SolidConstants(Constants):
 class NumericalConstants(Constants):
     """Data class containing numerical method parameters,
     including characteristic sizes.
+
     """
 
     SI_units: ClassVar[dict[str, str]] = dict(
@@ -439,11 +440,13 @@ class NumericalConstants(Constants):
     )
 
     characteristic_contact_traction: number = 1.0
+    """Characteristic traction used for scaling of contact mechanics."""
 
     characteristic_displacement: number = 1.0
+    """Characteristic displacement used for scaling of contact mechanics."""
 
     contact_mechanics_scaling: number = 1e-1
-    """Safety scaling factor, making fractures softer than the matrix"""
+    """Safety scaling factor, making fractures softer than the matrix."""
 
     open_state_tolerance: number = 1e-5
     """Tolerance parameter for the tangential characteristic contact mechanics.
