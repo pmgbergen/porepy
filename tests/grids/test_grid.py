@@ -3,6 +3,7 @@
 * Specific tests for Simplex and Structured Grids
 * Tests for the mortar grid.
 """
+
 import os
 import pickle
 
@@ -68,14 +69,15 @@ def test_closest_cell_out_of_plane():
 
 
 @pytest.mark.parametrize(
-    "g", [
-         pp.PointGrid(np.array([0, 0, 0])),
-         pp.CartGrid(np.array([2])),
-         pp.CartGrid(np.array([2, 2])),
-         pp.CartGrid(np.array([2, 2, 2])),
-         pp.StructuredTriangleGrid(np.array([2, 2])),
-         pp.StructuredTetrahedralGrid(np.array([2, 2, 2]))
-         ]
+    "g",
+    [
+        pp.PointGrid(np.array([0, 0, 0])),
+        pp.CartGrid(np.array([2])),
+        pp.CartGrid(np.array([2, 2])),
+        pp.CartGrid(np.array([2, 2, 2])),
+        pp.StructuredTriangleGrid(np.array([2, 2])),
+        pp.StructuredTetrahedralGrid(np.array([2, 2, 2])),
+    ],
 )
 def test_cell_faces_as_dense(g: pp.Grid):
     """Test that the cell_faces_as_dense method works as expected.
@@ -120,7 +122,9 @@ def test_cell_faces_as_dense(g: pp.Grid):
     # filtering to only catch actual cells.
     cols = np.concatenate([cf_dense[0, internal_cell_0], cf_dense[1, internal_cell_1]])
     # The data is 1 for the first row, and -1 for the second.
-    data = np.concatenate([np.ones(np.sum(internal_cell_0)), -np.ones(np.sum(internal_cell_1))])
+    data = np.concatenate(
+        [np.ones(np.sum(internal_cell_0)), -np.ones(np.sum(internal_cell_1))]
+    )
 
     # Reconstruct the sparse cell-face relation.
     reconstructed = sps.coo_matrix((data, (rows, cols)), shape=(nf, nc)).tocsr()

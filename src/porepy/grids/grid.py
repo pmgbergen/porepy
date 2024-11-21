@@ -927,8 +927,8 @@ class Grid:
 
         # Fin the non-zero elements in the cell-face relation.
         fi, ci, sgn = sps.find(self.cell_faces)
-        
-        # Find the sign of the faces. 
+
+        # Find the sign of the faces.
         pos = sgn > 0
         neg = sgn < 0
 
@@ -940,7 +940,6 @@ class Grid:
         cf_dense[1, fi[neg]] = ci[neg]
 
         return cf_dense
-      
 
     def cell_connection_map(self) -> sps.csr_matrix:
         """Get a matrix representation of cell-cell connections, as defined by
