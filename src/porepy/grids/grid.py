@@ -903,7 +903,7 @@ class Grid:
             ]
         )
 
-    def cell_face_as_dense(self) -> np.ndarray:
+    def cell_faces_as_dense(self) -> np.ndarray:
         """Obtain the cell-face relation in the form of two rows, rather than a
         sparse matrix.
 

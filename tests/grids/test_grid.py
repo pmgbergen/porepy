@@ -67,9 +67,9 @@ def test_closest_cell_out_of_plane():
     assert ind.size == 1
 
 
-def test_cell_face_as_dense():
+def test_cell_faces_as_dense(g):
     g = pp.CartGrid(np.array([2, 1]))
-    cf = g.cell_face_as_dense()
+    cf = g.cell_faces_as_dense()
     known = np.array([[-1, 0, 1, -1, -1, 0, 1], [0, 1, -1, 0, 1, -1, -1]])
     assert np.allclose(cf, known)
 
