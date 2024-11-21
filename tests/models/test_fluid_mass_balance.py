@@ -481,7 +481,7 @@ class WellModel(
     models.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
     well_models.WellPermeability,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     pass
 

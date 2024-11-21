@@ -103,7 +103,7 @@ class TestTpfaBoundaryPressure(xpfa_tests.XpfaBoundaryPressureTests):
 class UnitTestAdTpfaFlux(
     pp.constitutive_laws.DarcysLawAd,
     FluxDiscretization,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """
 
@@ -604,7 +604,7 @@ class DiffTpfaGridsOfAllDimensions(
     FluxDiscretization,
     pp.constitutive_laws.CubicLawPermeability,
     pp.constitutive_laws.DarcysLawAd,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work on grids of all dimensions.
