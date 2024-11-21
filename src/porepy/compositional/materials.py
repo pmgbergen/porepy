@@ -448,12 +448,8 @@ class NumericalConstants(Constants):
     contact_mechanics_scaling: number = 1e-1
     """Safety scaling factor, making fractures softer than the matrix."""
 
-    open_state_tolerance: number = 1e-5
-    """Tolerance parameter for the tangential characteristic contact mechanics.
-
-    FIXME: Revisit the tolerance.
-
-    """
+    open_state_tolerance: number = 1e-10
+    """Tolerance parameter for the tangential characteristic contact mechanics."""
 
 
 @dataclass(kw_only=True)
