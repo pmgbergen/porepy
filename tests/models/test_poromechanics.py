@@ -141,7 +141,7 @@ class TailoredPoromechanics(
     NonzeroFractureGapPoromechanics,
     pp.model_boundary_conditions.TimeDependentMechanicalBCsDirNorthSouth,
     pp.model_boundary_conditions.BoundaryConditionsMassDirNorthSouth,
-    pp.Poromechanics,
+    models.Poromechanics,
 ):
     pass
 
@@ -317,7 +317,7 @@ def test_poromechanics_model_no_modification():
 
     Failure of this test would signify rather fundamental problems in the model.
     """
-    mod = pp.Poromechanics({})
+    mod = models.Poromechanics({})
     pp.run_stationary_model(mod, {})
 
 
@@ -521,7 +521,7 @@ class PoromechanicsWell(
     well_models.OneVerticalWell,
     porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
-    pp.Poromechanics,
+    models.Poromechanics,
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:
