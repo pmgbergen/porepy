@@ -772,7 +772,7 @@ class ManuCompFlowSetup2d(  # type: ignore[misc]
     ManuCompSolutionStrategy2d,
     ManuIncompUtils,
     ManuCompDataSaving,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """
     Mixer class for the 2d compressible flow setup with a single fracture.
