@@ -249,9 +249,9 @@ class RandomPressureBCs(
 # rediscretization.
 model_classes = [
     models._add_mixin(RandomPressureBCs, models.MassBalance),
-    models._add_mixin(RandomPressureBCs, models.MassAndEnergyBalance),
+    models._add_mixin(RandomPressureBCs, pp.MassAndEnergyBalance),
     models._add_mixin(RandomPressureBCs, models.Poromechanics),
-    models._add_mixin(RandomPressureBCs, models.Thermoporomechanics),
+    models._add_mixin(RandomPressureBCs, pp.Thermoporomechanics),
 ]
 
 

@@ -705,7 +705,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
 class WithoutDiffTpfa(
     FluxDiscretization,
-    pp.mass_and_energy_balance.MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work on grids of all dimensions.
@@ -786,7 +786,7 @@ class DiffTpfaFractureTipsInternalBoundaries(
     FluxDiscretization,
     pp.constitutive_laws.DarcysLawAd,
     pp.constitutive_laws.FouriersLawAd,
-    pp.mass_and_energy_balance.MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work as intended on fracture tips and internal boundaries.
