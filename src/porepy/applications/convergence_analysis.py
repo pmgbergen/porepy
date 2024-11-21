@@ -11,7 +11,6 @@ import numpy as np
 from scipy import stats
 
 import porepy as pp
-from porepy.models.protocol import PorePyModel
 from porepy.utils.txt_io import TxtData, export_data_to_txt
 
 logger = logging.getLogger(__name__)
@@ -120,7 +119,7 @@ class ConvergenceAnalysis:
         """
 
         # Initialize setup and retrieve spatial and temporal data
-        setup: PorePyModel = model_class(
+        setup: pp.PorePyModel = model_class(
             deepcopy(model_params)
         )  # make a deep copy of dictionary
         # The typing of PorePyModel was added to support linters as much as possible.

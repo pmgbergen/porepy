@@ -9,7 +9,6 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.models.protocol import PorePyModel
 
 from .fluid_property_library import *  # noqa: F403, F401
 from .fluid_property_library import (
@@ -23,7 +22,7 @@ Scalar = pp.ad.Scalar
 ArrayType = TypeVar("ArrayType", pp.ad.AdArray, np.ndarray)
 
 
-class DisplacementJump(PorePyModel):
+class DisplacementJump(pp.PorePyModel):
     """Displacement jump on fractures.
 
     The displacement jump is the difference between the displacement on the two sides of
@@ -126,7 +125,7 @@ class DisplacementJump(PorePyModel):
         return u_p
 
 
-class DimensionReduction(PorePyModel):
+class DimensionReduction(pp.PorePyModel):
     """Apertures and specific volumes."""
 
     def grid_aperture(self, grid: pp.Grid) -> np.ndarray:
@@ -467,7 +466,7 @@ class DisplacementJumpAperture(DimensionReduction):
         return apertures
 
 
-class SecondOrderTensorUtils(PorePyModel):
+class SecondOrderTensorUtils(pp.PorePyModel):
 
     def isotropic_second_order_tensor(
         self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
@@ -547,7 +546,7 @@ class SecondOrderTensorUtils(PorePyModel):
         return pp.SecondOrderTensor(*args)
 
 
-class ConstantPermeability(PorePyModel):
+class ConstantPermeability(pp.PorePyModel):
     """A spatially homogeneous permeability field."""
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -721,7 +720,7 @@ class CubicLawPermeability(DimensionDependentPermeability):
         return self.cubic_law_permeability(subdomains)
 
 
-class DarcysLaw(PorePyModel):
+class DarcysLaw(pp.PorePyModel):
     """This class could be refactored to reuse for other diffusive fluxes, such as
     heat conduction. It's somewhat cumbersome, though, since potential, discretization,
     and boundary conditions all need to be passed around.
@@ -1014,7 +1013,7 @@ class DarcysLaw(PorePyModel):
         return dot_product
 
 
-class AdTpfaFlux(PorePyModel):
+class AdTpfaFlux(pp.PorePyModel):
     """Differentiable discretization of a diffusive flux.
 
     The diffusive flux is given by
@@ -1731,7 +1730,7 @@ class DarcysLawAd(AdTpfaFlux):
         return pressure_trace
 
 
-class PeacemanWellFlux(PorePyModel):
+class PeacemanWellFlux(pp.PorePyModel):
     """Well fluxes.
 
     Relations between well fluxes and pressures are implemented in this class.
@@ -1873,7 +1872,7 @@ class PeacemanWellFlux(PorePyModel):
         return r_w
 
 
-class ThermalExpansion(PorePyModel):
+class ThermalExpansion(pp.PorePyModel):
     """Thermal expansion coefficients for the solid."""
 
     def solid_thermal_expansion_coefficient(
@@ -2016,7 +2015,7 @@ class ThermalConductivityLTE(ConstantFluidThermalConductivity):
         return self.isotropic_second_order_tensor(subdomains, conductivity)
 
 
-class FouriersLaw(PorePyModel):
+class FouriersLaw(pp.PorePyModel):
     """This class could be refactored to reuse for other diffusive fluxes. It's somewhat
     cumbersome, though, since potential, discretization, and boundary conditions all
     need to be passed around.
@@ -2338,7 +2337,7 @@ class FouriersLawAd(AdTpfaFlux):
         return temperature_trace
 
 
-class AdvectiveFlux(PorePyModel):
+class AdvectiveFlux(pp.PorePyModel):
     """Mixin class for discretizing advective fluxes."""
 
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -2559,7 +2558,7 @@ class EnthalpyFromTemperature(FluidEnthalpyFromTemperature):
         return enthalpy
 
 
-class GravityForce(PorePyModel):
+class GravityForce(pp.PorePyModel):
     """Gravity force.
 
     The gravity force is defined as the product of the fluid density and the gravity
@@ -2615,7 +2614,7 @@ class GravityForce(PorePyModel):
         return gravity
 
 
-class ZeroGravityForce(PorePyModel):
+class ZeroGravityForce(pp.PorePyModel):
     """Zero gravity force.
 
     To be used in fluid fluxes and as body force in the force/momentum balance equation.
@@ -2642,7 +2641,7 @@ class ZeroGravityForce(PorePyModel):
         return pp.wrap_as_dense_ad_array(0, size=size, name="zero_vector_source")
 
 
-class LinearElasticMechanicalStress(PorePyModel):
+class LinearElasticMechanicalStress(pp.PorePyModel):
     """Linear elastic stress tensor.
 
     To be used in mechanical problems, e.g. force balance.
@@ -3062,7 +3061,7 @@ class ThermoPressureStress(PressureStress):
         return stress
 
 
-class ConstantSolidDensity(PorePyModel):
+class ConstantSolidDensity(pp.PorePyModel):
 
     def solid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Constant solid density.
@@ -3078,7 +3077,7 @@ class ConstantSolidDensity(PorePyModel):
         return Scalar(self.solid.density, "solid_density")
 
 
-class ElasticModuli(PorePyModel):
+class ElasticModuli(pp.PorePyModel):
     """Linear elastic properties of a solid.
 
     Includes "primary" stiffness parameters (lame_lambda, shear_modulus) and "secondary"
@@ -3193,7 +3192,7 @@ class ElasticModuli(PorePyModel):
         return u_char
 
 
-class CoulombFrictionBound(PorePyModel):
+class CoulombFrictionBound(pp.PorePyModel):
     """Friction bound for fracture deformation.
 
     This class is intended for use with fracture deformation models.
@@ -3246,7 +3245,7 @@ class CoulombFrictionBound(PorePyModel):
         return Scalar(self.solid.friction_coefficient, "friction_coefficient")
 
 
-class ShearDilation(PorePyModel):
+class ShearDilation(pp.PorePyModel):
     """Class for calculating fracture dilation due to tangential shearing.
 
     The main method of the class is :meth:`shear_dilation_gap`.
@@ -3296,7 +3295,7 @@ class ShearDilation(PorePyModel):
         return Scalar(self.solid.dilation_angle, "dilation_angle")
 
 
-class BartonBandis(PorePyModel):
+class BartonBandis(pp.PorePyModel):
     r"""Implementation of the Barton-Bandis model for elastic fracture normal
     deformation.
 
@@ -3478,7 +3477,7 @@ class FractureGap(BartonBandis, ShearDilation):
         return Scalar(self.solid.fracture_gap, "reference_fracture_gap")
 
 
-class ElasticTangentialFractureDeformation(PorePyModel):
+class ElasticTangentialFractureDeformation(pp.PorePyModel):
     """Constitutive relation for elastic tangential deformation.
 
     The elastic tangential deformation is the tangential component of the displacement
@@ -3565,7 +3564,7 @@ class ElasticTangentialFractureDeformation(PorePyModel):
         return u_t
 
 
-class BiotCoefficient(PorePyModel):
+class BiotCoefficient(pp.PorePyModel):
     """Biot coefficient and tensor."""
 
     def biot_coefficient(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -3598,7 +3597,7 @@ class BiotCoefficient(PorePyModel):
         return pp.SecondOrderTensor(value * np.ones(size))
 
 
-class SpecificStorage(PorePyModel):
+class SpecificStorage(pp.PorePyModel):
     """Specific storage."""
 
     def specific_storage(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -3624,7 +3623,7 @@ class SpecificStorage(PorePyModel):
         return Scalar(self.solid.specific_storage, "specific_storage")
 
 
-class ConstantPorosity(PorePyModel):
+class ConstantPorosity(pp.PorePyModel):
 
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Constant porosity [-].
@@ -3643,7 +3642,7 @@ class ConstantPorosity(PorePyModel):
         return Scalar(self.solid.porosity, "porosity")
 
 
-class PoroMechanicsPorosity(PorePyModel):
+class PoroMechanicsPorosity(pp.PorePyModel):
     r"""Porosity for poromechanical models.
 
     Note:

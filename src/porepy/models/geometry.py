@@ -13,10 +13,9 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.models.protocol import PorePyModel
 
 
-class ModelGeometry(PorePyModel):
+class ModelGeometry(pp.PorePyModel):
     """This class provides geometry related methods and information for a simulation
     model."""
 

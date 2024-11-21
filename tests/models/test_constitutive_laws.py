@@ -25,7 +25,6 @@ import pytest
 
 import porepy as pp
 import porepy.models.constitutive_laws as c_l
-from porepy.models.protocol import PorePyModel
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.reference_dense_arrays import (
     test_constitutive_laws as reference_dense_arrays,
@@ -198,14 +197,14 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
     [
         (models.Poromechanics, "fluid.density", 998.2 * np.exp(4.559e-10 * 2), None),
         (
-            models.Thermoporomechanics,
+            pp.Thermoporomechanics,
             "fluid.density",
             # \rho = \rho_0 \exp(compressibility p - thermal_expansion T)
             998.2 * np.exp(4.559e-10 * 2 - 2.068e-4 * 3),
             None,
         ),
         (
-            models.MassAndEnergyBalance,
+            pp.MassAndEnergyBalance,
             "thermal_conductivity",
             # Porosity weighted average of the solid and fluid thermal conductivities.
             # Expand to format for an isotropic second order tensor.
@@ -214,14 +213,14 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             None,
         ),
         (
-            models.MassAndEnergyBalance,
+            pp.MassAndEnergyBalance,
             "solid_enthalpy",
             # c_p T
             720.7 * 3,
             None,
         ),
         (
-            models.MassAndEnergyBalance,
+            pp.MassAndEnergyBalance,
             "fluid.specific_enthalpy",
             # c_p T
             4182 * 3,
@@ -236,7 +235,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             2,  # Matrix porosity is only defined in Nd
         ),
         (
-            models.Thermoporomechanics,
+            pp.Thermoporomechanics,
             "matrix_porosity",
             # phi_0 + (alpha - phi_ref) * (1 - alpha) / bulk * p
             # - (alpha - phi_0) * thermal expansion * T
@@ -312,8 +311,8 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
 def test_evaluated_values(
     model: (
         Type[models.Poromechanics]
-        | Type[models.Thermoporomechanics]
-        | Type[models.MassAndEnergyBalance]
+        | Type[pp.Thermoporomechanics]
+        | Type[pp.MassAndEnergyBalance]
         | Type[models.MomentumBalance]
     ),  # noqa
     method_name: Literal[
@@ -406,10 +405,10 @@ def test_evaluated_values(
     'model, quantities',
     [
         (models.MassBalance, ['pressure']),
-        (models.MassAndEnergyBalance, ['pressure', 'temperature'])
+        (pp.MassAndEnergyBalance, ['pressure', 'temperature'])
     ]
 )
-def test_perturbation_from_reference(model: type[models.MassAndEnergyBalance], quantities: list[str]):
+def test_perturbation_from_reference(model: type[pp.MassAndEnergyBalance], quantities: list[str]):
     """Tests the evaluation of operators perturbed from reference values."""
 
     # Give some non-trivial reference values

@@ -47,7 +47,6 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.models.protocol import PorePyModel
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
@@ -292,7 +291,7 @@ class ManuThermoPoroMechExactSolution2d:
 
     """
 
-    def __init__(self, setup: PorePyModel):
+    def __init__(self, setup: pp.PorePyModel):
         """Constructor of the class."""
 
         # Heterogeneity factor.
@@ -1203,6 +1202,6 @@ class ManuThermoPoroMechSetup2d(  # type: ignore[misc]
     SourceTerms,
     ManuThermoPoroMechSolutionStrategy2d,
     ManuThermoPoroMechDataSaving,
-    pp.thermoporomechanics.Thermoporomechanics,
+    pp.Thermoporomechanics,
 ):
     pass

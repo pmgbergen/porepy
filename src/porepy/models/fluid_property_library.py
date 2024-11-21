@@ -35,8 +35,6 @@ from typing import Sequence, cast
 
 import porepy as pp
 
-from .protocol import PorePyModel
-
 __all__ = [
     "FluidDensityFromPressure",
     "FluidDensityFromTemperature",
@@ -51,7 +49,7 @@ Scalar = pp.ad.Scalar
 ExtendedDomainFunctionType = pp.ExtendedDomainFunctionType
 
 
-class FluidDensityFromPressure(PorePyModel):
+class FluidDensityFromPressure(pp.PorePyModel):
     """Fluid density as a function of pressure for a single-phase, single-component
     fluid."""
 
@@ -124,7 +122,7 @@ class FluidDensityFromPressure(PorePyModel):
         return exp(c * dp)
 
 
-class FluidDensityFromTemperature(PorePyModel):
+class FluidDensityFromTemperature(pp.PorePyModel):
     """Fluid density as a function of temperature for a single-phase, single-component
     fluid."""
 
@@ -227,7 +225,7 @@ class FluidDensityFromPressureAndTemperature(
         return rho
 
 
-class FluidMobility(PorePyModel):
+class FluidMobility(pp.PorePyModel):
     """Class for fluid mobility and its discretization in single-phase flow problems."""
 
     mobility_keyword: str
@@ -276,7 +274,7 @@ class FluidMobility(PorePyModel):
         return pp.ad.UpwindCouplingAd(self.mobility_keyword, interfaces)
 
 
-class ConstantViscosity(PorePyModel):
+class ConstantViscosity(pp.PorePyModel):
     """Constant viscosity for a single-phase fluid."""
 
     def viscosity_of_phase(self, phase: pp.Phase) -> ExtendedDomainFunctionType:
@@ -298,7 +296,7 @@ class ConstantViscosity(PorePyModel):
         return mu
 
 
-class ConstantFluidThermalConductivity(PorePyModel):
+class ConstantFluidThermalConductivity(pp.PorePyModel):
     """Ïmplementation of a constant thermal conductivity for a single-phase fluid."""
 
     def thermal_conductivity_of_phase(
@@ -344,7 +342,7 @@ class ConstantFluidThermalConductivity(PorePyModel):
         return Scalar(val, "normal_thermal_conductivity")
 
 
-class FluidEnthalpyFromTemperature(PorePyModel):
+class FluidEnthalpyFromTemperature(pp.PorePyModel):
     """Implementation of a linearized fluid enthalpy :math:`c(T - T_{ref})` for a
     single-phase, single-component fluid.
 

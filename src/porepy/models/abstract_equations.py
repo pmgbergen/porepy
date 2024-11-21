@@ -10,10 +10,9 @@ from __future__ import annotations
 from typing import Union, cast
 
 import porepy as pp
-from porepy.models.protocol import PorePyModel
 
 
-class BalanceEquation(PorePyModel):
+class BalanceEquation(pp.PorePyModel):
     """Generic class for vector balance equations.
 
     In the only known use case, the balance equation is the momentum balance equation,
@@ -107,7 +106,7 @@ class BalanceEquation(PorePyModel):
             return volumes_nd * integrand
 
 
-class VariableMixin(PorePyModel):
+class VariableMixin(pp.PorePyModel):
     """Mixin class for variables.
 
     This class is intended to be used together with the other model classes providing

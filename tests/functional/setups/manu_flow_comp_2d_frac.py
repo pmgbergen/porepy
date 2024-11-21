@@ -40,7 +40,6 @@ from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompUtils,
     SingleEmbeddedVerticalLineFracture,
 )
-from porepy.models.protocol import PorePyModel
 
 # PorePy typings
 number = pp.number
@@ -205,7 +204,7 @@ class ManuCompDataSaving(VerificationDataSaving):
 class ManuCompExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
-    def __init__(self, setup: PorePyModel):
+    def __init__(self, setup: pp.PorePyModel):
         """Constructor of the class."""
 
         # Retrieve material constant from the setup
