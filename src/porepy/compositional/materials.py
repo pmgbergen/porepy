@@ -443,6 +443,7 @@ class NumericalConstants(Constants):
     """Characteristic traction used for scaling of contact mechanics."""
 
     characteristic_displacement: number = 1.0
+    """Characteristic displacement used for scaling of contact mechanics."""
 
     contact_mechanics_scaling: number = 1e-1
     """Safety scaling factor, making fractures softer than the matrix"""
