@@ -55,9 +55,8 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
+
 import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as momentum
-import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
@@ -668,7 +667,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         return fluid_sources  # - prod
 
 
-class ManuPoroMechMomentumBalance(momentum.MomentumBalanceEquations):
+class ManuPoroMechMomentumBalance(pp.MomentumBalance.MomentumBalanceEquations):
     """Modify momentum balance to account for time-dependent body force."""
 
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -699,7 +698,7 @@ class ManuPoroMechEquations(
 
 
 # -----> Solution strategy
-class ManuPoroMechSolutionStrategy2d(poromechanics.SolutionStrategyPoromechanics):
+class ManuPoroMechSolutionStrategy2d(pp.PoroMechanics.SolutionStrategyPoromechanics):
     """Solution strategy for the verification setup."""
 
     exact_sol: ManuPoroMechExactSolution2d
@@ -770,7 +769,7 @@ class ManuPoroMechSetup2d(  # type: ignore[misc]
     ManuPoroMechSolutionStrategy2d,
     ManuPoroMechUtils,
     ManuPoroMechDataSaving,
-    poromechanics.Poromechanics,
+    pp.Poromechanics,
 ):
     """
     Mixer class for the two-dimensional non-linear poromechanics verification setup.
