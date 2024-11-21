@@ -166,7 +166,7 @@ def test_unit_conversion(units: dict, uy_north: float):
 
 
 class LithostaticModel(
-    pp.constitutive_laws.GravityForce, pp.momentum_balance.MomentumBalance
+    pp.constitutive_laws.GravityForce, pp.MomentumBalance
 ):
     """Model class to test the computation of lithostatic stress.
 
@@ -308,7 +308,7 @@ def test_lithostatic(dim: int):
 class ElastoplasticModel2d(
     SquareDomainOrthogonalFractures,
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
-    pp.models.momentum_balance.MomentumBalance,
+    pp.MomentumBalance,
 ):
 
     pass
@@ -326,7 +326,7 @@ solid_vals_elastoplastic = {
 
 
 def verify_elastoplastic_deformation(
-    setup: pp.models.MomentumBalance,
+    setup: pp.MomentumBalance,
     u_e_expected: list[pp.number],
     u_p_expected: list[pp.number],
     u_top_expected: list[pp.number],
@@ -510,7 +510,7 @@ def test_elastoplastic_2d_single_fracture(
 class ElastoplasticModel3d(
     CubeDomainOrthogonalFractures,
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
-    pp.models.momentum_balance.MomentumBalance,
+    pp.MomentumBalance,
 ):
 
     pass
@@ -630,7 +630,7 @@ class TimeDependentBCs(
 class ElastoplasticModelTimeDependentBCs(
     CubeDomainOrthogonalFractures,
     TimeDependentBCs,
-    pp.models.momentum_balance.MomentumBalance,
+    pp.MomentumBalance,
 ):
 
     pass
