@@ -907,32 +907,40 @@ class Grid:
         """Obtain the cell-face relation in the form of two rows, rather than a
         sparse matrix.
 
-        This alternative format can be useful in some cases.
-
         Each column in the array corresponds to a face, and the elements in that column
-        refers to cell indices. The value -1 signifies a boundary. The normal vector of
-        the face points from the first to the second row.
+        refers to cell indices. Cells in the first and second row of the array have
+        positive and negative signs, respectively, in the sparse cell-face relation.
+        Equivalently, the face normal vector points from the cell in the first row to
+        the cell in the second row. The value -1 signifies that the face is on a
+        boundary of the domain, and that there is no cell on the other side. That is, a
+        -1 in the first row implies this is a boundary face with the normal vector
+        pointing into the domain, while a -1 in the second row implies the normal vector
+        points out of the domain.
 
         Returns:
             Array representation of face-cell relations with ``shape=(2, num_faces)``.
 
         """
+        # Shortcut for 0D grids
         if self.num_faces == 0:
-            return np.zeros((0, 2))
-        n = self.cell_faces.tocsr()
-        d = np.diff(n.indptr)
-        rows = pp.matrix_operations.rldecode(np.arange(d.size), d)
-        # Increase the data by one to distinguish cell indices from boundary
-        # cells
-        data = n.indices + 1
-        cols = ((n.data + 1) / 2).astype(int)
-        neighs = sps.coo_matrix((data, (rows, cols))).todense()
-        # Subtract 1 to get back to real cell indices
-        neighs -= 1
-        neighs = neighs.transpose().A.astype(int)
-        # Finally, we need to switch order of rows to get normal vectors
-        # pointing from first to second row.
-        return neighs[::-1]
+            return np.zeros((2, 0))
+
+        # Fin the non-zero elements in the cell-face relation.
+        fi, ci, sgn = sps.find(self.cell_faces)
+        
+        # Find the sign of the faces. 
+        pos = sgn > 0
+        neg = sgn < 0
+
+        # Initialize the array with -1s (boundary faces) and fill in the cell indices on
+        # the internal faces.
+        cf_dense = -np.ones((2, self.num_faces), dtype=int)
+        # Positive sign is the first row, negative sign is the second row.
+        cf_dense[0, fi[pos]] = ci[pos]
+        cf_dense[1, fi[neg]] = ci[neg]
+
+        return cf_dense
+      
 
     def cell_connection_map(self) -> sps.csr_matrix:
         """Get a matrix representation of cell-cell connections, as defined by
