@@ -40,34 +40,34 @@ class NoPhysics(  # type: ignore[misc]
 
 class MassBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ): ...
 
 
 class MomentumBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.momentum_balance.MomentumBalance,
+    pp.MomentumBalance,
 ):
     """Combine components needed for momentum balance simulation."""
 
 
 class MassAndEnergyBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.mass_and_energy_balance.MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
 
 
 class Poromechanics(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.poromechanics.Poromechanics,
+    pp.Poromechanics,
 ):
     """Combine components needed for poromechanics simulation."""
 
 
 class Thermoporomechanics(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.thermoporomechanics.Thermoporomechanics,
+    pp.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""
 
@@ -96,15 +96,15 @@ def model(
     # Identify the physics class
     model_class: Any = None
     if model_type == "mass_balance":
-        model_class = pp.fluid_mass_balance.SinglePhaseFlow
+        model_class = pp.SinglePhaseFlow
     elif model_type == "momentum_balance":
-        model_class = pp.momentum_balance.MomentumBalance
+        model_class = pp.MomentumBalance
     elif model_type == "energy_balance" or model_type == "mass_and_energy_balance":
-        model_class = pp.mass_and_energy_balance.MassAndEnergyBalance
+        model_class = pp.MassAndEnergyBalance
     elif model_type == "poromechanics":
-        model_class = pp.poromechanics.Poromechanics
+        model_class = pp.Poromechanics
     elif model_type == "thermoporomechanics":
-        model_class = pp.thermoporomechanics.Thermoporomechanics
+        model_class = pp.Thermoporomechanics
     else:
         # To add a new model, insert an elif clause here, and a new class above.
         raise ValueError(f"Unknown model type {model_type}")
