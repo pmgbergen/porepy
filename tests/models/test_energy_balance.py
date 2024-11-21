@@ -90,7 +90,7 @@ class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance
 class EnergyBalanceTailoredBCs(
     BoundaryConditionLinearPressure,
     BoundaryConditionsEnergy,
-    pp.MassAndEnergyBalance,
+    models.MassAndEnergyBalance,
 ):
     pass
 
@@ -273,7 +273,7 @@ class MassAndEnergyWellModel(
     models.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
     well_models.WellPermeability,
-    pp.MassAndEnergyBalance,
+    models.MassAndEnergyBalance,
 ):
     pass
 
