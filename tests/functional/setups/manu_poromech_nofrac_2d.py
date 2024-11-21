@@ -667,7 +667,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         return fluid_sources  # - prod
 
 
-class ManuPoroMechMomentumBalance(pp.MomentumBalance.MomentumBalanceEquations):
+class ManuPoroMechMomentumBalance(pp.momentum_balance.MomentumBalanceEquations):
     """Modify momentum balance to account for time-dependent body force."""
 
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -698,7 +698,7 @@ class ManuPoroMechEquations(
 
 
 # -----> Solution strategy
-class ManuPoroMechSolutionStrategy2d(pp.PoroMechanics.SolutionStrategyPoromechanics):
+class ManuPoroMechSolutionStrategy2d(pp.poromechanics.SolutionStrategyPoromechanics):
     """Solution strategy for the verification setup."""
 
     exact_sol: ManuPoroMechExactSolution2d
