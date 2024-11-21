@@ -427,6 +427,7 @@ class SolidConstants(Constants):
 class NumericalConstants(Constants):
     """Data class containing numerical method parameters,
     including characteristic sizes.
+
     """
 
     SI_units: ClassVar[dict[str, str]] = dict(
