@@ -292,7 +292,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
             constants, dict
         ), "model.params['material_constants'] must be a dictionary."
 
-        # Use standard models for fluid and solid constants if not provided.
+        # Use standard models for fluid, solid and numerical constants if not provided.
         # Otherwise get the given constants.
         solid = cast(
             pp.SolidConstants, constants.get("solid", pp.SolidConstants(name="solid"))
