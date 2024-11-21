@@ -211,6 +211,7 @@ from porepy.models.momentum_balance import MomentumBalance
 from porepy.models.poromechanics import Poromechanics
 from porepy.models.thermoporomechanics import Thermoporomechanics
 from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
+from porepy.models.protocol import Protocol
 
 
 # Visualization
