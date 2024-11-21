@@ -15,11 +15,10 @@ from typing import Optional, Union
 import numpy as np
 
 import porepy as pp
-from porepy.models.protocol import PorePyModel
 from porepy.viz.exporter import DataInput
 
 
-class DataSavingMixin(PorePyModel):
+class DataSavingMixin(pp.PorePyModel):
     """Class for saving data from a simulation model.
 
     Contract with other classes:

@@ -8,10 +8,9 @@ import numpy as np
 
 import porepy as pp
 from porepy.models.constitutive_laws import LinearElasticMechanicalStress
-from porepy.models.protocol import PorePyModel
 
 
-class VerificationUtils(PorePyModel):
+class VerificationUtils(pp.PorePyModel):
     """Mixin class storing useful utility methods.
 
     The intended use is to mix this class with a utlilty class, specific to a

@@ -60,7 +60,6 @@ import porepy.models.momentum_balance as momentum
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.models.protocol import PorePyModel
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -231,7 +230,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 class ManuPoroMechExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
-    def __init__(self, setup: PorePyModel):
+    def __init__(self, setup: pp.PorePyModel):
         """Constructor of the class."""
 
         # Physical parameters

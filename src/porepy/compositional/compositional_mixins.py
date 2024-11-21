@@ -26,7 +26,6 @@ from typing import Callable, Optional, Sequence, cast
 import numpy as np
 
 import porepy as pp
-from porepy.models.protocol import PorePyModel
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
@@ -62,7 +61,7 @@ def _get_surrogate_factory_as_property(
     )
 
 
-class _MixtureDOFHandler(PorePyModel):
+class _MixtureDOFHandler(pp.PorePyModel):
     """A class to help resolve the independent fractional variables of an arbitrary
     mixture, and respectivly the DOFs.
 
@@ -1026,7 +1025,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         return fraction
 
 
-class FluidMixin(PorePyModel):
+class FluidMixin(pp.PorePyModel):
     """Mixin class for introducing a general fluid (mixture) into a PorePy model and
     providing it as an attribute :attr:`fluid`.
 

@@ -4,10 +4,9 @@ from typing import Callable, Optional, Sequence, Union
 import numpy as np
 
 import porepy as pp
-from porepy.models.protocol import PorePyModel
 
 
-class BoundaryConditionMixin(PorePyModel):
+class BoundaryConditionMixin(pp.PorePyModel):
     """Mixin class for boundary conditions.
 
     This class is intended to be used together with the other model classes providing

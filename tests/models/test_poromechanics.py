@@ -16,10 +16,9 @@ import pytest
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models, well_models
-from porepy.models.protocol import PorePyModel
 
 
-class NonzeroFractureGapPoromechanics(PorePyModel):
+class NonzeroFractureGapPoromechanics(pp.PorePyModel):
     """Adjust bc values and initial condition."""
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
