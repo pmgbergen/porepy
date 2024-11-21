@@ -86,7 +86,6 @@ from porepy.applications.material_values import solid_values
 from porepy.applications.material_values import reference_values
 from porepy.applications.material_values import numerical_values
 
-
 # Grids
 from porepy.grids.grid import Grid
 from porepy.grids.mortar_grid import MortarGrid
@@ -148,6 +147,9 @@ from porepy.numerics.fracture_deformation import propagate_fracture
 from porepy.numerics.fracture_deformation.conforming_propagation import (
     ConformingFracturePropagation,
 )
+
+# The protocol must be imported before anything related to models.
+from porepy.models.protocol import PorePyModel
 
 # Related to models and solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
@@ -211,7 +213,6 @@ from porepy.models.momentum_balance import MomentumBalance
 from porepy.models.poromechanics import Poromechanics
 from porepy.models.thermoporomechanics import Thermoporomechanics
 from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
-from porepy.models.protocol import PorePyModel
 
 
 # Visualization
