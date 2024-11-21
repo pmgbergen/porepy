@@ -8,7 +8,6 @@ needed to avoid degenerate mass balance equation in fracture.
 from __future__ import annotations
 
 import copy
-from typing import Callable
 
 import numpy as np
 import pytest
