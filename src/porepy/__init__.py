@@ -84,6 +84,7 @@ from porepy.params.data import (
 from porepy.applications.material_values import fluid_values
 from porepy.applications.material_values import solid_values
 from porepy.applications.material_values import reference_values
+from porepy.applications.material_values import numerical_values
 
 
 # Grids
