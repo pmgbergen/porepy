@@ -7,6 +7,7 @@ Tested functionality includes:
     - The `export_error_to_txt()` method.
 
 """
+
 from __future__ import annotations
 
 import os
@@ -19,7 +20,10 @@ import pytest
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.applications.md_grids.mdg_library import square_with_orthogonal_fractures
+from porepy.applications.md_grids.mdg_library import (
+    square_with_orthogonal_fractures,
+    cube_with_orthogonal_fractures,
+)
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.utils.txt_io import read_data_from_txt
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
@@ -788,85 +792,201 @@ def grids() -> list[pp.Grid, pp.MortarGrid]:
     return [mdg.subdomains()[0], mdg.interfaces()[0]]
 
 
+@pytest.fixture(scope="module")
+def grids_3d() -> list[pp.Grid, pp.MortarGrid]:
+    """Create a mixed-dimensional grid on a unit cube with a single fracture.
+
+    Returns:
+        A list containing one subdomain grid (a Cartesian 2x2x2 grid) and one mortar
+        grid (a two dimensional mortar grid with 6 mortar cells).
+
+    """
+    mdg, _ = cube_with_orthogonal_fractures(
+        grid_type="simplex",
+        meshing_args={"cell_size": 0.5},
+        fracture_indices=[0],
+        size=1.0,
+    )
+    return [mdg.subdomains()[0], mdg.interfaces()[0]]
+
+
+def face_error(
+    sd: pp.GridLike,
+    true_array: np.ndarray,
+    approx_array: np.ndarray,
+    is_scalar: bool,
+    relative: bool = False,
+    parameter_weight: np.ndarray | None = None,
+) -> pp.number:
+    """Compute the L2-error for face-centered quantities.
+
+    This implementation is deliberately completely different to that in the
+    ConvergenceAnalysis class. The purpose is to test the correctness of the error
+    computation. This implementation is way less efficient.
+
+    Parameters:
+        sd: Grid-like object.
+        true_array: True array.
+        approx_array: Approximated array.
+        is_scalar: Whether the array is a scalar quantity.
+        relative: Whether the error should be computed relatively.
+        parameter_weight: Weight to be applied to the error.
+
+    Returns:
+        L2-error.
+
+    """
+    face_nodes = sd.face_nodes
+    meas = np.zeros(sd.num_faces)
+    for face_number in range(sd.num_faces):
+        # Obtain the coordinates of the nodes of the face.
+        face_node_indices = face_nodes.indices[
+            face_nodes.indptr[face_number] : face_nodes.indptr[face_number + 1]
+        ]
+
+        node_coordinates = []
+        for node in face_node_indices:
+            node_coordinates.append(sd.nodes[:, node])
+        # Obtain the neighboring cells of the face.
+        neighboring_cells = np.where(sd.cell_faces[face_number].todense() != 0)[
+            1
+        ].tolist()
+
+        def compute_volume(sd, cell, nodes):
+            """Compute the volume of a pyramid."""
+            cc = sd.cell_centers[:, cell].reshape(-1, 1)
+            # Compute the normal distance from the cell center to the face.
+            polygon = np.stack(nodes, axis=1)
+            distance = pp.geometry.distances.points_polygon(
+                p=cc, poly=polygon, tol=1e-8
+            )[0]
+            area = 1 / 3 * distance * sd.face_areas[face_number]
+            return area
+
+        def compute_area(sd, cell, nodes):
+            """Compute the area of a triangle."""
+            cc = sd.cell_centers[:, cell]
+            starting_point = nodes[0]
+            end_point = nodes[1]
+            # Compute the normal distance from the cell center to the face.
+            distance, _ = pp.geometry.distances.points_segments(
+                p=cc, start=starting_point, end=end_point
+            )
+            area = 1 / 2 * distance * sd.face_areas[face_number]
+            return area
+
+        area_local = 0
+        for cell in neighboring_cells:
+            if sd.dim == 3:
+                area_local += compute_volume(sd, cell, node_coordinates)
+            elif sd.dim == 2:
+                area_local += compute_area(sd, cell, node_coordinates)
+        meas[face_number] = area_local
+
+    if parameter_weight is not None:
+        meas *= parameter_weight
+    if not is_scalar:
+        meas = meas.repeat(sd.dim)
+
+    # Obtain numerator and denominator to determine the error.
+    numerator = np.sqrt(np.sum(meas * np.abs(true_array - approx_array) ** 2))
+    denominator = np.sqrt(np.sum(meas * np.abs(true_array) ** 2)) if relative else 1.0
+
+    return numerator / denominator
+
+
 @pytest.mark.parametrize("is_relative", [False, True])
 @pytest.mark.parametrize(
-    "is_sd, is_cc, is_scalar",
+    "is_sd, is_cc, is_scalar, parameter_weight",
     [
-        (True, True, True),  # subdomain scalar cell-centered quantity
-        (True, False, True),  # subdomain scalar face-centered quantity
-        (True, True, False),  # subdomain vector cell-centered quantity
-        (True, False, False),  # subdomain vector face-centered quantity
-        (False, True, True),  # interface scalar cell-centered quantity
-        (False, True, False),  # interface vector cell-centered quantity
+        (True, True, True, None),
+        (True, False, True, None),
+        (True, True, False, None),
+        (True, False, False, None),
+        (False, True, True, None),
+        (False, True, False, 1.2),
     ],
 )
+@pytest.mark.parametrize(
+    "grid_fixture", ["grids", "grids_3d"]
+)  # Use both 2D and 3D grid fixtures
 def test_l2_error(
     is_sd: bool,
-    is_scalar: bool,
     is_cc: bool,
+    is_scalar: bool,
     is_relative: bool,
-    grids: list[pp.Grid, pp.MortarGrid],
+    parameter_weight: bool,
+    grid_fixture: str,
+    request: pytest.FixtureRequest,
 ) -> None:
     """Test whether the discrete L2-error is computed correctly.
 
     The test sets arrays of ones as for the true array, and arrays of zeros for the
-    approximate arrays. The absolute l2-error is thus the square root of the sum of
-    the measure of each element (cell_volume when is_cc=True and face_area when
-    is_cc=False) in each grid. The relative l2-error is always 1.0 in all cases.
+    approximate arrays. The absolute l2-error is thus the square root of the sum of the
+    measure of each element (cell_volume when is_cc=True and face_area when is_cc=False)
+    in each grid. The relative l2-error is always 1.0 in all cases.
 
     Parameters:
         is_sd: Whether the error should be evaluated in a subdomain grid. False
             implies evaluation in an interface grid.
-        is_scalar: Whether the array is corresponds to a scalar quantity. False
-            implies a vector quantity.
         is_cc: Whether the array is a cell-centered quantity. False implies a
             face-centered quantity.
-        grids: List of grids. The first element is a two-dimensional subdomain grid,
-            and the second element is an interface grid. See the fixture grids().
+        is_scalar: Whether the array is corresponds to a scalar quantity. False
+            implies a vector quantity.
+        parameter_weight: Weight to be applied to the error. If a scalar is provided,
+            the same weight is applied to all cells or faces. If an array is provided,
+            the weight is broadcasted to each component of the vector quantity. While
+            the resulting error is the same, this design tests two different
+            implementations of the error computation.
+        grid_fixture: Name of the fixture that provides the list of grids.
 
     """
+    # Retrieve grid list from the fixture.
+    grid_list = request.getfixturevalue(grid_fixture)
 
-    # Retrieve grid
+    # Retrieve grid.
     if is_sd:
-        grid = grids[0]  # subdomain grid
+        grid = grid_list[0]  # subdomain grid
     else:
-        grid = grids[1]  # interface grid
+        grid = grid_list[1]  # interface grid
 
-    # Retrieve number of degrees of freedom and set the true array
+    # Define true and approximated values.
+    vec = 1 if is_scalar else grid.dim
+    num_dof = grid.num_cells if is_cc else grid.num_faces
+    true_array = np.random.random(num_dof * vec)
+    approx_array = np.random.random(num_dof * vec)
+    diff = true_array - approx_array
+    if parameter_weight:
+        _weight = np.random.random(num_dof)
+    else:
+        _weight = np.ones(num_dof)
+    # Retrieve number of degrees of freedom and set the true array.
     if is_cc:
-        if is_scalar:
-            ndof = grid.num_cells
-            true_l2_error = np.sqrt(np.sum(grid.cell_volumes))
-        else:
-            if is_sd:
-                ndof = 2 * grid.num_cells
-                true_l2_error = np.sqrt(2 * np.sum(grid.cell_volumes))
-            else:
-                ndof = grid.num_cells
-                true_l2_error = np.sqrt(np.sum(grid.cell_volumes))
-    else:
-        if is_scalar:
-            ndof = grid.num_faces
-            true_l2_error = np.sqrt(np.sum(grid.face_areas))
-        else:
-            ndof = 2 * grid.num_faces
-            true_l2_error = np.sqrt(2 * np.sum(grid.face_areas))
+        meas = np.repeat(grid.cell_volumes * _weight, vec)
+        true_l2_error = np.sqrt(np.sum(meas * diff**2))
 
-    # Compute actual error
+        if is_relative:
+            true_l2_error /= np.sqrt(np.sum(meas * true_array**2))
+    else:
+        true_l2_error = face_error(
+            grid, true_array, approx_array, is_scalar, is_relative, _weight
+        )
+
+    # Compute actual error.
+    # Use the parameter_weight if provided, otherwise set it to None.
+    parameter_weight = _weight if parameter_weight else None
     actual_l2_error = ConvergenceAnalysis.l2_error(
         grid=grid,
-        true_array=np.ones(ndof),
-        approx_array=np.zeros(ndof),
+        true_array=true_array,
+        approx_array=approx_array,
         is_cc=is_cc,
         is_scalar=is_scalar,
         relative=is_relative,
+        parameter_weight=parameter_weight,
     )
 
     # Compare
-    if not is_relative:
-        assert np.isclose(actual_l2_error, true_l2_error)
-    else:
-        assert np.isclose(actual_l2_error, 1.0)
+    assert np.isclose(actual_l2_error, true_l2_error)
 
 
 def test_l2_error_division_by_zero_error(grids: list[pp.Grid, pp.MortarGrid]) -> None:
@@ -916,3 +1036,16 @@ def test_l2_error_not_implemented_error(grids: list[pp.Grid, pp.MortarGrid]) -> 
             is_scalar=True,
         )
     assert msg in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "fixture_one, fixture_two",
+    [
+        ("fixture_one", "fixture_two"),
+    ],
+    indirect=True,
+)
+def test_combined_fixtures(fixture_one, fixture_two):
+    assert fixture_one == "fixture_one"
+    assert fixture_two == "fixture_two"
+    # ...existing code...
