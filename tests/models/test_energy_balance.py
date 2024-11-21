@@ -221,7 +221,7 @@ def test_unit_conversion(units):
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
-    numerical_vals = {"characteristic_displacement": 0.2}
+    numerical_vals = pp.numerical_values.extended_numerical_values_for_testing
     ref_vals = pp.reference_values.extended_reference_values_for_testing
     solid = pp.SolidConstants(**solid_vals)
     fluid = pp.FluidComponent(**fluid_vals)
