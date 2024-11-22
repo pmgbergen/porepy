@@ -8,7 +8,8 @@ from copy import deepcopy
 from typing import Literal, Optional, Union
 
 import numpy as np
-from scipy import stats, sparse as sps
+from scipy import sparse as sps
+from scipy import stats
 
 import porepy as pp
 from porepy.models.protocol import PorePyModel
@@ -531,9 +532,9 @@ class ConvergenceAnalysis:
         if isinstance(grid, pp.MortarGrid) and not is_cc:
             raise NotImplementedError("Interface variables can only be cell-centered.")
 
-        # Obtain proper measure, e.g., cell volumes for cell-centered quantities and the volume
-        # of the pyramids spanned by the face and its neighboring cell centers for face-centered
-        # quantities (see Eq. A1.12 from [1]).
+        # Obtain proper measure, e.g., cell volumes for cell-centered quantities and the
+        # volume of the pyramids spanned by the face and its neighboring cell centers
+        # for face-centered quantities (see Eq. A1.12 from [1]).
         if is_cc:
             num_faces_or_cells = grid.num_cells
             meas = grid.cell_volumes

@@ -1036,16 +1036,3 @@ def test_l2_error_not_implemented_error(grids: list[pp.Grid, pp.MortarGrid]) -> 
             is_scalar=True,
         )
     assert msg in str(excinfo.value)
-
-
-@pytest.mark.parametrize(
-    "fixture_one, fixture_two",
-    [
-        ("fixture_one", "fixture_two"),
-    ],
-    indirect=True,
-)
-def test_combined_fixtures(fixture_one, fixture_two):
-    assert fixture_one == "fixture_one"
-    assert fixture_two == "fixture_two"
-    # ...existing code...
