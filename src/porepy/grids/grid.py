@@ -925,7 +925,7 @@ class Grid:
         if self.num_faces == 0:
             return np.zeros((2, 0))
 
-        # Fin the non-zero elements in the cell-face relation.
+        # Find the non-zero elements in the cell-face relation.
         fi, ci, sgn = sps.find(self.cell_faces)
 
         # Find the sign of the faces.
