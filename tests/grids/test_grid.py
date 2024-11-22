@@ -3,6 +3,7 @@
 * Specific tests for Simplex and Structured Grids
 * Tests for the mortar grid.
 """
+
 import os
 import pickle
 
@@ -67,11 +68,68 @@ def test_closest_cell_out_of_plane():
     assert ind.size == 1
 
 
-def test_cell_face_as_dense():
-    g = pp.CartGrid(np.array([2, 1]))
-    cf = g.cell_face_as_dense()
-    known = np.array([[-1, 0, 1, -1, -1, 0, 1], [0, 1, -1, 0, 1, -1, -1]])
-    assert np.allclose(cf, known)
+@pytest.mark.parametrize(
+    "g",
+    [
+        pp.PointGrid(np.array([0, 0, 0])),
+        pp.CartGrid(np.array([2])),
+        pp.CartGrid(np.array([2, 2])),
+        pp.CartGrid(np.array([2, 2, 2])),
+        pp.StructuredTriangleGrid(np.array([2, 2])),
+        pp.StructuredTetrahedralGrid(np.array([2, 2, 2])),
+    ],
+)
+def test_cell_faces_as_dense(g: pp.Grid):
+    """Test that the cell_faces_as_dense method works as expected.
+
+    The test is based on constructing the dense version of the cell-face relation, using
+    the relevant method in the grid class, and reconstructing the sparse version from
+    the dense version using the known (or supposed, in case of bugs) structure of the
+    dense version.
+
+    Parameters:
+        g: The grid for which the test should be run.
+
+    """
+    # Get the sparse and dense versions of the cell-face relation.
+    cf_sparse = g.cell_faces
+    cf_dense = g.cell_faces_as_dense()
+
+    # Number of faces in the grid.
+    nf, nc = g.num_faces, g.num_cells
+
+    # All (possible) face indices. All of these will occur at least once (or else
+    # something is wrong, but the test should still work).
+    face_ind = np.arange(nf)
+
+    # In the dense cell-face relation, there are as many columns as there are faces, and
+    # the elements in the faces are the indices of the cells neighboring the face. The
+    # cells in the first row have positive sign in the sparse cell-face relation (that
+    # is, the face normal vectors point out of the cells), while the row contains cells
+    # with negative sign. A negative number in the dense cell-face relation signifies
+    # that the face is on the boundary, and that there is no neighboring cell on that
+    # side of the face.
+
+    # Logical array to identify actual cells in the first and second row
+    internal_cell_0 = cf_dense[0] >= 0
+    internal_cell_1 = cf_dense[1] >= 0
+
+    # Form the rows, columns and data for the reconstructed sparse cell-face relation.
+    # The rows are the indices of those faces that are internal. Pick indices from the
+    # first row of the dense relation, then the second.
+    rows = np.concatenate([face_ind[internal_cell_0], face_ind[internal_cell_1]])
+    # The columns are the indices of the cells that are neighbors to the faces. Again do
+    # filtering to only catch actual cells.
+    cols = np.concatenate([cf_dense[0, internal_cell_0], cf_dense[1, internal_cell_1]])
+    # The data is 1 for the first row, and -1 for the second.
+    data = np.concatenate(
+        [np.ones(np.sum(internal_cell_0)), -np.ones(np.sum(internal_cell_1))]
+    )
+
+    # Reconstruct the sparse cell-face relation.
+    reconstructed = sps.coo_matrix((data, (rows, cols)), shape=(nf, nc)).tocsr()
+    # The original and reconstructed cell-face relations should be the same.
+    assert np.allclose(reconstructed.toarray(), cf_sparse.toarray())
 
 
 # ----- Boundary tests ----- #
