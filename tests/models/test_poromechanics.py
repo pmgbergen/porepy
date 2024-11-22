@@ -317,7 +317,7 @@ def test_poromechanics_model_no_modification():
 
     Failure of this test would signify rather fundamental problems in the model.
     """
-    mod = models.Poromechanics({})
+    mod = pp.Poromechanics({})
     pp.run_stationary_model(mod, {})
 
 
