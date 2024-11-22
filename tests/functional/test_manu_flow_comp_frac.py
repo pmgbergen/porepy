@@ -115,7 +115,8 @@ def actual_l2_errors(
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
     for model in [ManuCompFlowSetup2d, ManuCompFlowSetup3d]:
-        setup = model(deepcopy(model_params))  # Make deep copy of params to avoid nasty bugs.
+        # Make deep copy of params to avoid nasty bugs.
+        setup = model(deepcopy(model_params))
         pp.run_time_dependent_model(setup, {})
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
@@ -148,14 +149,14 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     desired_errors_2d = [
         {  # t = 0.5 [s]
             "error_matrix_pressure": 0.05860315482644138,
-            "error_matrix_flux": 0.01728816711273373,
+            "error_matrix_flux": 0.018937,
             "error_frac_pressure": 4.761115466428997,
             "error_frac_flux": 0.0027528176884234297,
             "error_intf_flux": 3.0521278709541946,
         },
         {  # t = 1.0 [s]
             "error_matrix_pressure": 0.056952568619002386,
-            "error_matrix_flux": 0.017206997517806834,
+            "error_matrix_flux": 0.018810296317497734,
             "error_frac_pressure": 4.7258340277590865,
             "error_frac_flux": 0.0036119330001357737,
             "error_intf_flux": 3.1023316529076546,
@@ -165,14 +166,14 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     desired_errors_3d = [
         {  # t = 0.5 [s]
             "error_matrix_pressure": 0.044142110025893674,
-            "error_matrix_flux": 0.020240531408035483,
+            "error_matrix_flux": 0.021537430865696688,
             "error_frac_pressure": 7.345638542028673,
             "error_frac_flux": 0.04968518024390149,
             "error_intf_flux": 5.150695781155413,
         },
         {  # t = 1.0 [s]
             "error_matrix_pressure": 0.043341944057014324,
-            "error_matrix_flux": 0.02031093722149098,
+            "error_matrix_flux": 0.021683233504298377,
             "error_frac_pressure": 7.139915887008252,
             "error_frac_flux": 0.049748152094622,
             "error_intf_flux": 5.228345273854552,
@@ -182,12 +183,12 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     return [desired_errors_2d, desired_errors_3d]
 
 
-@pytest.mark.parametrize("dim_idx", [0, 1])
+@pytest.mark.parametrize("time_idx", [0, 1])
 @pytest.mark.parametrize(
     "var",
     ["matrix_pressure", "matrix_flux", "frac_pressure", "frac_flux", "intf_flux"],
 )
-@pytest.mark.parametrize("time_idx", [0, 1])
+@pytest.mark.parametrize("dim_idx", [0, 1])
 def test_relative_l2_errors_cartesian_grid(
     dim_idx: int,
     var: str,

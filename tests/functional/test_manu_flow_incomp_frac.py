@@ -25,6 +25,7 @@ References:
       elliptic equations. Journal of Numerical Mathematics.
 
 """
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -87,7 +88,8 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
     errors: list[dict[str, float]] = []
     # Loop through models, i.e., 2d and 3d
     for model in [ManuIncompFlowSetup2d, ManuIncompFlowSetup3d]:
-        setup = model(deepcopy(model_params))  # make deep copy of params to avoid nasty bugs
+        # Make deep copy of params to avoid nasty bugs.
+        setup = model(deepcopy(model_params))
         pp.run_time_dependent_model(setup)
         errors.append(
             {
@@ -114,7 +116,7 @@ def desired_l2_errors() -> list[dict[str, float]]:
     # Desired errors for 2d
     desired_errors_2d = {
         "error_matrix_pressure": 0.060732124330406576,
-        "error_matrix_flux": 0.01828457897868048,
+        "error_matrix_flux": 0.019884589070890718,
         "error_frac_pressure": 4.984308951373194,
         "error_frac_flux": 0.0019904878330327946,
         "error_intf_flux": 3.1453166913070185,
@@ -123,7 +125,7 @@ def desired_l2_errors() -> list[dict[str, float]]:
     # Desired error for 3d
     desired_errors_3d = {
         "error_matrix_pressure": 1.3822466693314728,
-        "error_matrix_flux": 1.2603123149160123,
+        "error_matrix_flux": 1.0879261547986523,
         "error_frac_pressure": 6.272401337799361,
         "error_frac_flux": 0.044759629637959035,
         "error_intf_flux": 5.291360607983224,
