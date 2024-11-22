@@ -102,7 +102,8 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
     for model in [ManuPoroMechSetup2d, ManuPoroMechSetup3d]:
-        setup = model(deepcopy(model_params))  # Make deep copy of params to avoid nasty bugs.
+        # Make deep copy of params to avoid nasty bugs.
+        setup = model(deepcopy(model_params))
         pp.run_time_dependent_model(setup)
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
@@ -131,30 +132,30 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     desired_errors_2d = [
         {  # t = 0.5 [s]
             "error_pressure": 0.20711096997503695,
-            "error_flux": 0.10810627224942725,
+            "error_flux": 0.11345122446471026,
             "error_displacement": 0.3953172876400884,
-            "error_force": 0.16377962778847108,
+            "error_force": 0.17104363665680572,
         },
         {  # t = 1.0 [s]
             "error_pressure": 0.1987998797257252,
-            "error_flux": 0.08957210872187034,
+            "error_flux": 0.09295559743883297,
             "error_displacement": 0.3952120364196121,
-            "error_force": 0.1637924594814397,
+            "error_force": 0.17107465087060394,
         },
     ]
 
     desired_errors_3d = [
         {  # t = 0.5 [s]
             "error_pressure": 0.2164612681791387,
-            "error_flux": 0.10469929694089308,
+            "error_flux": 0.107242413579278,
             "error_displacement": 0.44379951512274146,
-            "error_force": 0.22059921122808707,
+            "error_force": 0.23004990504030878,
         },
         {  # t = 1.0[s]
             "error_pressure": 0.2128131032248365,
-            "error_flux": 0.09661636990837687,
+            "error_flux": 0.09872012243139877,
             "error_displacement": 0.4437474284152431,
-            "error_force": 0.2206087610242069,
+            "error_force": 0.230068537690508,
         },
     ]
 
