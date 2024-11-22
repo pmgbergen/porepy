@@ -273,7 +273,7 @@ class MassAndEnergyWellModel(
     models.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
     well_models.WellPermeability,
-    models.MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     pass
 
