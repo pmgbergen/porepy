@@ -3188,7 +3188,7 @@ class ElasticModuli(PorePyModel):
             Scalar operator representing the characteristic displacement.
 
         """
-        u_char = Scalar(self.solid.characteristic_displacement)
+        u_char = Scalar(self.numerical.characteristic_displacement)
         u_char.set_name("characteristic_displacement")
         return u_char
 
