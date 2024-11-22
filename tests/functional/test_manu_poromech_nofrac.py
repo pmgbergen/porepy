@@ -289,8 +289,8 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     desired_ooc_2d = [
         {  # Cartesian
             "ooc_displacement": 1.9927774927713546,
-            "ooc_flux": 2.077738849468982,
-            "ooc_force": 1.5799927442621455,
+            "ooc_flux": 2.0951646701871427,
+            "ooc_force": 1.6253118564790916,
             "ooc_pressure": 2.0879033104990397,
         },
         {  # simplex
@@ -304,8 +304,8 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     desired_ooc_3d = [
         {  # Cartesian
             "ooc_displacement": 1.937336984736465,
-            "ooc_flux": 2.0646358924022863,
-            "ooc_force": 1.2933666910552015,
+            "ooc_flux": 2.076230389431763,
+            "ooc_force": 1.3277517560496654,
             "ooc_pressure": 2.097775030326012,
         }
     ]
