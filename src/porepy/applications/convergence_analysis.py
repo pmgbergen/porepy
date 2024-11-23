@@ -496,10 +496,10 @@ class ConvergenceAnalysis:
             ZeroDivisionError if the denominator in the relative error is zero.
 
         Parameters:
-            grid: Either a subdomain grid or a mortar grid. true_array: Array containing
-            the true values of a given variable. approx_array: Array containing the
-            approximate values of a given variable. is_scalar: Whether the variable is a
-            scalar quantity. Use ``False`` for
+            grid: Either a subdomain grid or a mortar grid.
+            true_array: Array containing the true values of a given variable.
+            approx_array: Array containing the approximate values of a given variable.
+            is_scalar: Whether the variable is a scalar quantity. Use ``False`` for
                 vector quantities. For example, ``is_scalar=True`` for pressure, whereas
                 ``is_scalar=False`` for displacement.
             is_cc: Whether the variable is associated to cell centers. Use ``False``
@@ -528,7 +528,7 @@ class ConvergenceAnalysis:
 
 
         """
-        # Sanity check
+        # Sanity check.
         if isinstance(grid, pp.MortarGrid) and not is_cc:
             raise NotImplementedError("Interface variables can only be cell-centered.")
 
@@ -572,7 +572,8 @@ class ConvergenceAnalysis:
             np.sqrt(np.sum(meas * np.abs(true_array) ** 2)) if relative else 1.0
         )
 
-        # Deal with the case when the denominator is zero when computing the relative error.
+        # Deal with the case when the denominator is zero when computing the relative
+        # error.
         if np.isclose(denominator, 0):
             raise ZeroDivisionError("Attempted division by zero.")
 
