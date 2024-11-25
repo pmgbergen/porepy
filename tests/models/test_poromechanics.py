@@ -478,16 +478,18 @@ def test_unit_conversion(units):
     """
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
+    numerical_vals = pp.numerical_values.extended_numerical_values_for_testing
     ref_vals = pp.reference_values.extended_reference_values_for_testing
     solid = pp.SolidConstants(**solid_vals)
     fluid = pp.FluidComponent(**fluid_vals)
+    numerical = pp.NumericalConstants(**numerical_vals)
     reference_values = pp.ReferenceVariableValues(**ref_vals)
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "num_fracs": 1,
         "cartesian": True,
         "u_north": [0.0, 1e-5],
-        "material_constants": {"solid": solid, "fluid": fluid},
+        "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
         "reference_variable_values": reference_values,
     }
     model_reference_params = copy.deepcopy(model_params)

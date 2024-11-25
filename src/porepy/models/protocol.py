@@ -525,6 +525,13 @@ else:
         See also :meth:`set_materials`.
 
         """
+        numerical: pp.NumericalConstants
+        """Numerical constants. Can be provided through
+        ``params['material_constants']['numerical']``.
+
+        See also :meth:`set_materials`.
+
+        """
         time_manager: pp.TimeManager
         """Time manager for the simulation."""
         restart_options: dict
