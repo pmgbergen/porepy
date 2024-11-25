@@ -178,7 +178,7 @@ class Upwind(Discretization):
         upstream_cell_ind = np.zeros(sd.num_faces, dtype=int)
         # Fill the array based on the cell-face relation. By construction, the normal
         # vector of a face points from the first to the second row in this array
-        cf_dense = sd.cell_face_as_dense()
+        cf_dense = sd.cell_faces_as_dense()
         # Positive fluxes point in the same direction as the normal vector, find the
         # upstream cell
         upstream_cell_ind[pos_flux] = cf_dense[0, pos_flux]

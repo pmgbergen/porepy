@@ -292,13 +292,17 @@ class SolutionStrategy(abc.ABC, PorePyModel):
             constants, dict
         ), "model.params['material_constants'] must be a dictionary."
 
-        # Use standard models for fluid and solid constants if not provided.
+        # Use standard models for fluid, solid and numerical constants if not provided.
         # Otherwise get the given constants.
         solid = cast(
             pp.SolidConstants, constants.get("solid", pp.SolidConstants(name="solid"))
         )
         fluid = cast(
             pp.FluidComponent, constants.get("fluid", pp.FluidComponent(name="fluid"))
+        )
+        numerical = cast(
+            pp.NumericalConstants,
+            constants.get("numerical", pp.NumericalConstants(name="numerical")),
         )
 
         # Sanity check that users did not pass anything unexpected.
@@ -314,10 +318,14 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         # Converting to units of simulation.
         fluid = fluid.to_units(self.units)
         solid = solid.to_units(self.units)
+        numerical = numerical.to_units(self.units)
 
         # Set the solid for the model.
         # NOTE this will change with the generalization of the solid
         self.solid = solid
+
+        # Set the numerical constants for the model.
+        self.numerical = numerical
 
         # Store the fluid component to be accessible by the FluidMixin for creating the
         # default fluid object of the model

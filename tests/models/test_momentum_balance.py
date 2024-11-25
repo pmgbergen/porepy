@@ -27,14 +27,14 @@ class LinearModel(
 
 
 @pytest.mark.parametrize(
-    "solid_vals,north_displacement",
+    "solid_vals,numerical_vals,north_displacement",
     [
-        ({}, 0.0),
-        ({"characteristic_displacement": 42}, -0.1),
-        ({"porosity": 0.5}, 0.2),
+        ({}, {}, 0.0),
+        ({}, {"characteristic_displacement": 42}, -0.1),
+        ({"porosity": 0.5}, {}, 0.2),
     ],
 )
-def test_2d_single_fracture(solid_vals, north_displacement):
+def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
     """Test that the solution is qualitatively sound.
 
     Parameters:
@@ -47,9 +47,10 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     """
     # Instantiate constants and store in params.
     solid = pp.SolidConstants(**solid_vals)
+    numerical = pp.NumericalConstants(**numerical_vals)
     params = {
         "times_to_export": [],  # Suppress output for tests
-        "material_constants": {"solid": solid},
+        "material_constants": {"solid": solid, "numerical": numerical},
         "u_north": [0.0, north_displacement],
     }
 
@@ -126,6 +127,8 @@ def test_unit_conversion(units: dict, uy_north: float):
 
     """
     solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
+    numerical_vals = {"characteristic_displacement": 0.2}
+    numerical = pp.NumericalConstants(**numerical_vals)
     reference_values = pp.ReferenceVariableValues(
         **pp.reference_values.extended_reference_values_for_testing
     )
@@ -135,7 +138,7 @@ def test_unit_conversion(units: dict, uy_north: float):
         "fracture_indices": [0, 1],
         "cartesian": True,
         "u_north": [0.0, uy_north],
-        "material_constants": {"solid": solid},
+        "material_constants": {"solid": solid, "numerical": numerical},
         "reference_variable_values": reference_values,
     }
     reference_params = copy.deepcopy(params)
