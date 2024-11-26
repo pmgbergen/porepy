@@ -797,8 +797,7 @@ def grids_3d() -> list[pp.Grid, pp.MortarGrid]:
     """Create a mixed-dimensional grid on a unit cube with a single fracture.
 
     Returns:
-        A list containing one subdomain grid (a Cartesian 2x2x2 grid) and one mortar
-        grid (a two dimensional mortar grid with 6 mortar cells).
+        A list containing one 3d subdomain grid and one 2d mortar grid.
 
     """
     mdg, _ = cube_with_orthogonal_fractures(
@@ -899,12 +898,12 @@ def face_error(
 @pytest.mark.parametrize(
     "is_sd, is_cc, is_scalar, parameter_weight",
     [
-        (True, True, True, None),
-        (True, False, True, None),
-        (True, True, False, None),
-        (True, False, False, None),
-        (False, True, True, None),
-        (False, True, False, 1.2),
+        (True, True, True, False),
+        (True, False, True, False),
+        (True, True, False, False),
+        (True, False, False, False),
+        (False, True, True, False),
+        (False, True, False, True),
     ],
 )
 @pytest.mark.parametrize(
@@ -933,11 +932,7 @@ def test_l2_error(
             face-centered quantity.
         is_scalar: Whether the array is corresponds to a scalar quantity. False
             implies a vector quantity.
-        parameter_weight: Weight to be applied to the error. If a scalar is provided,
-            the same weight is applied to all cells or faces. If an array is provided,
-            the weight is broadcasted to each component of the vector quantity. While
-            the resulting error is the same, this design tests two different
-            implementations of the error computation.
+        parameter_weight: Whether a parameter weight should be used.
         grid_fixture: Name of the fixture that provides the list of grids.
 
     """
