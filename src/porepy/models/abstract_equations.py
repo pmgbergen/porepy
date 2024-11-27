@@ -397,7 +397,7 @@ class LocalElimination(EquationMixin):
                 expr.set_derivatives_on_grid(diffs, grid)
 
 
-class VariableMixin(PorePyModel):
+class VariableMixin(pp.PorePyModel):
     """Mixin class for variables.
 
     This class is intended to be used together with the other model classes providing
