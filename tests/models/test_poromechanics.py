@@ -521,7 +521,7 @@ class PoromechanicsWell(
     well_models.OneVerticalWell,
     porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
-    models.Poromechanics,
+    pp.Poromechanics,
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:
