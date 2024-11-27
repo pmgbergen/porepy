@@ -56,7 +56,7 @@ params = {
     "eliminate_reference_component": True,  # z_H2O eliminated, default is True
     "time_manager": time_manager,
     "prepare_simulation": False,
-    "reduce_linear_system_q": False,
+    "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
     "nl_convergence_tol_res": 1.0e-5,
     "max_iterations": 25,

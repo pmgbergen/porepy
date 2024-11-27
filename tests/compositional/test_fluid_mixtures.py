@@ -9,12 +9,14 @@ import pytest
 
 import porepy as pp
 import porepy.compositional as composit
+from porepy.models.compositional_flow import SolutionStrategyCF
 
 
 class MockModel(
     composit.FluidMixin,
     composit.CompositionalVariables,
     pp.BoundaryConditionMixin,
+    SolutionStrategyCF,
 ):
     """For typing support when using methods of the mixins."""
 
@@ -47,6 +49,7 @@ def get_mock_model(
         composit.FluidMixin,
         composit.CompositionalVariables,
         pp.BoundaryConditionMixin,
+        SolutionStrategyCF,
     ):
         pressure: Callable
         temperature: Callable

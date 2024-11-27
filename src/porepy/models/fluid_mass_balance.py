@@ -69,7 +69,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             pp.ad.Operator,
             pp.ad.UpwindAd,
             pp.ad.Operator,
-            Callable[[list[pp.MortarGrid]], pp.ad.Operator],
+            Optional[Callable[[list[pp.MortarGrid]], pp.ad.Operator]],
         ],
         pp.ad.Operator,
     ]
@@ -110,13 +110,14 @@ class MassBalanceEquations(pp.BalanceEquation):
     """See :class:`BoundaryConditionsSinglePhaseFlow`.
     """
 
-    def set_equations(self):
+    def set_equations(self) -> None:
         """Set the equations for the mass balance problem.
 
         A mass balance equation is set for all subdomains and a Darcy-type flux relation
         is set for all interfaces of codimension one.
 
         """
+        super().set_equations()
         subdomains = self.mdg.subdomains()
         codim_1_interfaces = self.mdg.interfaces(codim=1)
         codim_2_interfaces = self.mdg.interfaces(codim=2)
@@ -488,6 +489,43 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         )
 
 
+class InitialConditionsSinglePhaseFlow(pp.InitialConditionMixin):
+    """Mixin for providing initial values for pressure."""
+
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`VariablesSinglePhaseFlow`."""
+
+    def set_initial_values_primary_variables(self) -> None:
+        """Method to set initial values for pressure at iterate index 0.
+
+        See also:
+
+            - :meth:`initial_pressure`
+
+        """
+        # super call for compatibility with multi-physics
+        super().set_initial_values_primary_variables()
+
+        for sd in self.mdg.subdomains():
+            # Need to cast the return value to variable, because it is types as operator
+            self.equation_system.set_variable_values(
+                self.initial_pressure(sd),
+                [cast(pp.ad.Variable, self.pressure([sd]))],
+                iterate_index=0,
+            )
+
+    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
+        """
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial pressure values on that subdomain. Defaults to zero array.
+
+        """
+        return np.zeros(sd.num_cells)
+
+
 class VariablesSinglePhaseFlow(pp.VariableMixin):
     """
     Creates necessary variables (pressure, interface flux) and provides getter methods
@@ -525,15 +563,15 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     """
 
     def create_variables(self) -> None:
-        """Set variables for the subdomains and interfaces.
+        """Introduces the following variables into the system:
 
-        The following variables are set:
-            - Pressure on all subdomains.
-            - Darcy flux on interfaces between subdomains one dimension apart.
-            - Well flux on interfaces between subdomains two dimension apart.
-        See individual variable methods for details.
+        1. pressure variable on all subdomains
+        2. Darcy flux variable on all interfaces with codimension 1
+        3. Well flux variable on all interfaces with codimension 2
 
         """
+        super().create_variables()
+
         self.equation_system.create_variables(
             self.pressure_variable,
             subdomains=self.mdg.subdomains(),
@@ -808,6 +846,7 @@ class SinglePhaseFlow(  # type: ignore[misc]
     VariablesSinglePhaseFlow,
     ConstitutiveLawsSinglePhaseFlow,
     BoundaryConditionsSinglePhaseFlow,
+    InitialConditionsSinglePhaseFlow,
     SolutionStrategySinglePhaseFlow,
     pp.FluidMixin,
     pp.ModelGeometry,

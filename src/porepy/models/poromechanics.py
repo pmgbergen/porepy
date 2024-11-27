@@ -70,35 +70,17 @@ class ConstitutiveLawsPoromechanics(
 
 
 class EquationsPoromechanics(
-    mass.MassBalanceEquations,
     momentum.MomentumBalanceEquations,
+    mass.MassBalanceEquations,
 ):
     """Combines mass and momentum balance equations."""
 
-    def set_equations(self):
-        """Set the equations for the poromechanics problem.
-
-        Call both parent classes' set_equations methods.
-
-        """
-        mass.MassBalanceEquations.set_equations(self)
-        momentum.MomentumBalanceEquations.set_equations(self)
-
 
 class VariablesPoromechanics(
-    mass.VariablesSinglePhaseFlow,
     momentum.VariablesMomentumBalance,
+    mass.VariablesSinglePhaseFlow,
 ):
     """Combines mass and momentum balance variables."""
-
-    def create_variables(self):
-        """Set the variables for the poromechanics problem.
-
-        Call both parent classes' set_variables methods.
-
-        """
-        mass.VariablesSinglePhaseFlow.create_variables(self)
-        momentum.VariablesMomentumBalance.create_variables(self)
 
 
 class BoundaryConditionsPoromechanics(
@@ -120,6 +102,14 @@ class BoundaryConditionsPoromechanics(
         `data[pp.ITERATE_SOLUTIONS]`.
 
     """
+
+
+class InitialConditionsPoromechanics(
+    mass.InitialConditionsSinglePhaseFlow,
+    momentum.InitialConditionsMomentumBalance,
+):
+    """Combines initial conditions for mass and momentum balance, and associated
+    primary variables."""
 
 
 class SolutionStrategyPoromechanics(
@@ -203,6 +193,7 @@ class Poromechanics(  # type: ignore[misc]
     VariablesPoromechanics,
     ConstitutiveLawsPoromechanics,
     BoundaryConditionsPoromechanics,
+    InitialConditionsPoromechanics,
     SolutionStrategyPoromechanics,
     pp.FluidMixin,
     pp.ModelGeometry,

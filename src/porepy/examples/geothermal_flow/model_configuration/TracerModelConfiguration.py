@@ -8,7 +8,7 @@ import porepy as pp
 import porepy.compositional as ppc
 from porepy.models.compositional_flow import (
     BoundaryConditionsCF,
-    CFModelMixin,
+    CFModelSetup,
     InitialConditionsCF,
     PrimaryEquationsCF,
 )
@@ -95,19 +95,6 @@ class ModelEquations(
     which provide substitutions for independent saturations and partial fractions.
     """
 
-    def set_equations(self):
-        """Call to the equation. Parent classes don't use super(). User must provide
-        proper order resultion.
-
-        I don't know why, but the other models are doing it this way was well.
-        Maybe it has something to do with the sparsity pattern.
-
-        """
-        # Flow and transport in MD setting
-        PrimaryEquationsCF.set_equations(self)
-        # local elimination of dangling secondary variables
-        SecondaryEquations.set_equations(self)
-
 
 class TracerFlowModel(
     ModelGeometry,
@@ -115,7 +102,7 @@ class TracerFlowModel(
     InitialConditions,
     BoundaryConditions,
     ModelEquations,
-    CFModelMixin,
+    CFModelSetup,
 ):
 
     def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:

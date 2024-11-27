@@ -26,7 +26,7 @@ from typing import Callable, Optional, Sequence, cast
 import numpy as np
 
 import porepy as pp
-from porepy.models.protocol import PorePyModel
+from porepy.models.protocol import CompositionalFlowModelProtocol, PorePyModel
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
@@ -62,9 +62,9 @@ def _get_surrogate_factory_as_property(
     )
 
 
-class _MixtureDOFHandler(PorePyModel):
+class _MixtureDOFHandler(PorePyModel, CompositionalFlowModelProtocol):
     """A class to help resolve the independent fractional variables of an arbitrary
-    mixture, and respectivly the DOFs.
+    mixture, and respectively the DOFs.
 
     For fluid with more than 1 phase or more than 1 component, the system automatically
     includes additional unknowns. In the case of more than 1 phase, saturations become
@@ -132,18 +132,6 @@ class _MixtureDOFHandler(PorePyModel):
     """
 
     # Logic methods determining existence of DOFs
-
-    @property
-    def _is_ref_phase_eliminated(self) -> bool:
-        """Helper property to access the model parameters and check if the
-        reference phase is eliminated. Default value is True."""
-        return bool(self.params.get("eliminate_reference_phase", True))
-
-    @property
-    def _is_ref_comp_eliminated(self) -> bool:
-        """Helper property to access the model parameters and check if the
-        reference component is eliminated. Default value is True."""
-        return bool(self.params.get("eliminate_reference_component", True))
 
     @property
     def _has_equilibrium(self) -> bool:
@@ -648,6 +636,8 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         expressions (regular AD operators).
 
         """
+        super().create_variables()
+
         if not hasattr(self, "fluid"):
             raise CompositionalModellingError(
                 "Cannot create fluid mixture variables before defining a fluid mixture."

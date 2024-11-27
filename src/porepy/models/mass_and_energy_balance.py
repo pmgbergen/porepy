@@ -14,33 +14,12 @@ class EquationsFluidMassAndEnergy(
 ):
     """Combine fluid mass and energy balance equations."""
 
-    def set_equations(self):
-        """Set the equations for the fluid mass and energy balance problem.
-
-        Call both parent classes' set_equations methods.
-
-        """
-        # Energy balance
-        energy.EnergyBalanceEquations.set_equations(self)
-        # Mass balance
-        mass.MassBalanceEquations.set_equations(self)
-
 
 class VariablesFluidMassAndEnergy(
     energy.VariablesEnergyBalance,
     mass.VariablesSinglePhaseFlow,
 ):
     """Combine fluid mass and energy balance variables."""
-
-    def create_variables(self) -> None:
-        """Set the variables for the fluid mass and energy balance problem.
-
-        Call both parent classes' set_variables methods.
-
-        """
-        # Energy balance
-        energy.VariablesEnergyBalance.create_variables(self)
-        mass.VariablesSinglePhaseFlow.create_variables(self)
 
 
 class ConstitutiveLawFluidMassAndEnergy(
@@ -79,6 +58,15 @@ class BoundaryConditionsFluidMassAndEnergy(
     pass
 
 
+class InitialConditionsMassAndEnergy(
+    energy.InitialConditionsEnergy,
+    mass.InitialConditionsSinglePhaseFlow,
+):
+    """Combining initial conditions for fluid mass and energy balance."""
+
+    pass
+
+
 class SolutionStrategyFluidMassAndEnergy(
     energy.SolutionStrategyEnergyBalance,
     mass.SolutionStrategySinglePhaseFlow,
@@ -100,6 +88,7 @@ class MassAndEnergyBalance(  # type: ignore
     VariablesFluidMassAndEnergy,
     ConstitutiveLawFluidMassAndEnergy,
     BoundaryConditionsFluidMassAndEnergy,
+    InitialConditionsMassAndEnergy,
     SolutionStrategyFluidMassAndEnergy,
     pp.FluidMixin,
     pp.ModelGeometry,

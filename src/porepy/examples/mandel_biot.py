@@ -1348,12 +1348,23 @@ class MandelPoromechanicsBoundaryConditions(
     """Mixer class for poromechanics boundary conditions."""
 
 
-# -----> Solution strategy
-class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
-    """Solution strategy for Mandel's problem."""
+class MandelInitialConditions:
+    """Mixin providing non-trivial initial values for pressure and displacement, given
+    by the exact solution."""
 
     exact_sol: MandelExactSolution
     """Exact solution object."""
+
+    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
+        return self.exact_sol.pressure(sd, 0)
+
+    def initial_displacement(self, sd: pp.Grid) -> np.ndarray:
+        return self.exact_sol.displacement(sd, 0)
+
+
+# -----> Solution strategy
+class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
+    """Solution strategy for Mandel's problem."""
 
     plot_results: Callable[[], None]
     """Method that plots pressure, displacement, flux, force, and degree of
@@ -1394,37 +1405,6 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         # Biot's coefficient must be one
         assert self.solid.biot_coefficient == 1
 
-    def initial_condition(self) -> None:
-        """Set initial conditions.
-
-        Initial conditions are given by Eqs. (41) - (43) from [3].
-
-        """
-        super().initial_condition()
-
-        sd = self.mdg.subdomains()[0]
-        data = self.mdg.subdomain_data(sd)
-        p_name = self.pressure_variable
-        u_name = self.displacement_variable
-
-        # Set initial pressure
-        pp.set_solution_values(
-            name=p_name,
-            values=self.exact_sol.pressure(sd, 0),
-            data=data,
-            iterate_index=0,
-            time_step_index=0,
-        )
-
-        # Set initial displacement
-        pp.set_solution_values(
-            name=u_name,
-            values=self.exact_sol.displacement(sd, 0),
-            data=data,
-            iterate_index=0,
-            time_step_index=0,
-        )
-
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
         if self.params.get("plot_results", False):
@@ -1438,6 +1418,7 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 class MandelSetup(  # type: ignore[misc]
     MandelGeometry,
     MandelPoromechanicsBoundaryConditions,
+    MandelInitialConditions,
     MandelSolutionStrategy,
     MandelUtils,
     MandelDataSaving,
