@@ -178,7 +178,7 @@ def test_thermoporomechanics_model_no_modification():
     Failure of this test would signify rather fundamental problems in the model.
 
     """
-    mod = pp.thermoporomechanics.Thermoporomechanics({})
+    mod = pp.Thermoporomechanics({})
     pp.run_stationary_model(mod, {})
 
 
@@ -288,7 +288,7 @@ def test_robin_boundary_flux():
 
     class TailoredPoromechanicsRobin(
         pp.test_utils.models.RobinDirichletNeumannConditions,
-        pp.models.thermoporomechanics.Thermoporomechanics,
+        Thermoporomechanics,
     ):
         def set_domain(self) -> None:
             self._domain = pp.domains.unit_cube_domain(dimension=2)
@@ -445,7 +445,7 @@ class ThermoporomechanicsWell(
     well_models.OneVerticalWell,
     model_geometries.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
-    pp.poromechanics.Poromechanics,
+    pp.Poromechanics,
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:

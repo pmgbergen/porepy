@@ -12,7 +12,6 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils.models import MassBalance as MassBalance_
-from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
 from porepy.models.momentum_balance import MomentumBalance
 
 
@@ -337,7 +336,7 @@ class CommonMassEnergyBalance(
     SquareDomainOrthogonalFractures,
     BCValuesDirichletIndices,
     BCValuesFlux,
-    MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     """Base mass and energy balance setup.
 
@@ -396,7 +395,7 @@ def run_model(balance_class, alpha):
     if isinstance(instance, MomentumBalance):
         displacement = instance.displacement([sd]).value(instance.equation_system)
         return {"displacement": displacement}
-    elif isinstance(instance, MassAndEnergyBalance):
+    elif isinstance(instance, pp.MassAndEnergyBalance):
         pressure = instance.pressure([sd]).value(instance.equation_system)
         temperature = instance.temperature([sd]).value(instance.equation_system)
         return {"temperature": temperature, "pressure": pressure}

@@ -13,10 +13,9 @@ from typing import Callable, Sequence, Union, cast
 import numpy as np
 
 import porepy as pp
-from porepy.models.protocol import PorePyModel
 
 
-class EquationMixin(PorePyModel):
+class EquationMixin(pp.PorePyModel):
     """General class for equations defining an interface to introduce equations into
     a model."""
 

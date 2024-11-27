@@ -34,7 +34,6 @@ from porepy.examples.terzaghi_biot import (
     terzaghi_fluid_constants,
     terzaghi_solid_constants,
 )
-from porepy.models.poromechanics import Poromechanics
 
 
 class TerzaghiSetupPoromechanics(
@@ -44,7 +43,7 @@ class TerzaghiSetupPoromechanics(
     TerzaghiSolutionStrategy,
     TerzaghiUtils,
     TerzaghiDataSaving,
-    Poromechanics,
+    pp.Poromechanics,
 ):
     """Terzaghi mixer class based on the full poromechanics class."""
 

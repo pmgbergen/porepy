@@ -17,7 +17,7 @@ class ConstraintLineSearchNonlinearSolver(
 
 
 class ConstraintFunctionsMomentumBalance(
-    SquareDomainOrthogonalFractures, pp.momentum_balance.MomentumBalance
+    SquareDomainOrthogonalFractures, pp.MomentumBalance
 ):
     """Enhance MomentumBalance for compatibility with the solver.
 

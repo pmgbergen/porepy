@@ -188,8 +188,7 @@ def test_mortar_projections(mdg, scalar, non_matching):
 
     Parameters:
         mdg: Mixed-dimensional grid.
-        scalar: Boolean indicating whether the field being
-        projected is scalar or
+        scalar: Boolean indicating whether the field being projected is scalar or
             vector, which will be taken as 2d (since the grid is 2d).
         non_matching: If True, the 1d subdomain grids will be refined so that the
             mappings from 1d mortars to their secondary subdomains will have non-unitary

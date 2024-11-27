@@ -8,7 +8,6 @@ needed to avoid degenerate mass balance equation in fracture.
 from __future__ import annotations
 
 import copy
-from typing import Callable
 
 import numpy as np
 import pytest
@@ -16,10 +15,9 @@ import pytest
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models, well_models
-from porepy.models.protocol import PorePyModel
 
 
-class NonzeroFractureGapPoromechanics(PorePyModel):
+class NonzeroFractureGapPoromechanics(pp.PorePyModel):
     """Adjust bc values and initial condition."""
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -319,7 +317,7 @@ def test_poromechanics_model_no_modification():
 
     Failure of this test would signify rather fundamental problems in the model.
     """
-    mod = pp.poromechanics.Poromechanics({})
+    mod = pp.Poromechanics({})
     pp.run_stationary_model(mod, {})
 
 
@@ -523,7 +521,7 @@ class PoromechanicsWell(
     well_models.OneVerticalWell,
     porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
-    pp.poromechanics.Poromechanics,
+    pp.Poromechanics,
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:

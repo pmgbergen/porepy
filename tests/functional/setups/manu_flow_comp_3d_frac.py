@@ -37,13 +37,12 @@ from tests.functional.setups.manu_flow_comp_2d_frac import (
 from tests.functional.setups.manu_flow_incomp_frac_3d import (
     SingleEmbeddedVerticalPlaneFracture,
 )
-from porepy.models.protocol import PorePyModel
 
 
 class ManuCompExactSolution3d:
     """Class containing the exact manufactured solution for the verification setup."""
 
-    def __init__(self, setup: PorePyModel):
+    def __init__(self, setup: pp.PorePyModel):
         # Model setup
         self.setup = setup
 
