@@ -30,10 +30,10 @@ import porepy.compositional as ppc
 from porepy.numerics.ad.operators import Operator
 
 from . import energy_balance as energy
+from . import fluid_mass_balance as mass
 from . import mass_and_energy_balance as mass_energy
 from .boundary_condition import BoundaryConditionsPrimaryVariables
 from .constitutive_laws import ThermalConductivityCF
-from .fluid_property_library import MobilityCF
 from .protocol import CompositionalFlowModelProtocol, PorePyModel
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ def update_phase_properties(
 # region general PDEs used in the (fractional) CF
 
 
-class TotalMassBalanceEquation(mass_energy.mass.MassBalanceEquations):
+class TotalMassBalanceEquation(mass.MassBalanceEquations):
     """Total mass balance equation, where the mobility term is generalized to account
     for arbitrary numbers of phases.
 
@@ -114,7 +114,8 @@ class TotalMassBalanceEquation(mass_energy.mass.MassBalanceEquations):
     """
 
     total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`MobilityCF`"""
+    """See
+    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
 
     @staticmethod
     def primary_equation_name() -> str:
@@ -126,9 +127,7 @@ class TotalMassBalanceEquation(mass_energy.mass.MassBalanceEquations):
         return self.total_mobility(domains)
 
 
-class DiffusiveTotalMassBalanceEquation(
-    pp.BalanceEquation, CompositionalFlowModelProtocol
-):
+class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelProtocol):
     """Mixed-dimensional balance of total mass in a fluid mixture.
 
     Also referred to as *pressure equation*.
@@ -210,7 +209,7 @@ class DiffusiveTotalMassBalanceEquation(
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name(TotalMassBalanceEquation.primary_equation_name())
+        eq.set_name(DiffusiveMassBalanceEquations.primary_equation_name())
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -292,20 +291,25 @@ class TwoVariableTotalEnergyBalanceEquations(
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.constitutive_laws.DarcyFlux`."""
     total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`MobilityCF`"""
+    """See
+    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
     phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`MobilityCF`"""
+    """See
+    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
     fractional_phase_mobility: Callable[
         [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
-    """See :class:`MobilityCF`"""
+    """See
+    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
 
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
-    """See :class:`MobilityCF`."""
+    """See
+    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
     interface_mobility_discretization: Callable[
         [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
-    """See :class:`MobilityCF`."""
+    """See
+    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
 
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsCF`."""
@@ -350,12 +354,14 @@ class TwoVariableTotalEnergyBalanceEquations(
     ) -> pp.ad.Operator:
         """The non-linear weight in the (advective) enthalpy flux.
 
-        It is computed by summing :meth:`~MobilityCF.phase_mobility` weighed with
+        It is computed by summing :meth:`~porepy.models.constitutive_laws.
+        fluid_property_library.FluidMobility.phase_mobility` weighed with
         :attr:`~porepy.compositional.base.Phase.specific_enthalpy` for each phase,
-        and dividing by :meth:`~MobilityCF.total_mobility`.
+        and dividing by :meth:`~porepy.models.constitutive_laws.fluid_property_library.
+        FluidMobility.total_mobility`.
 
         This is consistent with the fractional flow formulation, assuming the total
-        mobility is part of the diffusive tensor in :class:`TotalMassBalanceEquation`.
+        mobility is part of the diffusive tensor in the pressure equation.
 
         Creates a boundary operator, in case explicit values for fractional flow BC are
         used.
@@ -521,14 +527,17 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     fractional_component_mobility: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
-    """See :class:`MobilityCF`."""
+    """See
+    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
 
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
-    """See :class:`MobilityCF`."""
+    """See
+    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
     interface_mobility_discretization: Callable[
         [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
-    """See :class:`MobilityCF`."""
+    """See
+    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
 
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsCF`."""
@@ -619,8 +628,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     ) -> pp.ad.Operator:
         """The non-linear weight in the advective component flux.
 
-        It uses the ``component``'s :meth:`~MobilityCF.fractional_component_mobility`,
-        assuming the flux contains the total mobility in the diffusive tensor.
+        It uses the ``component``'s :meth:`~porepy.models.fluid_property_library.
+        FluidMobility.fractional_component_mobility`, assuming the flux contains the
+        total mobility in the diffusive tensor.
 
         This is consistent with the fractional flow formulation, based on overall
         fractions.
@@ -744,7 +754,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         """Source term in a component's mass balance equation.
 
         Analogous to
-        :meth:`~TotalMassBalanceEquation.fluid_source`,
+        :meth:`~porepy.models.fluid_mass_balance.MassBalanceEquations.fluid_source`,
         but using :meth:`interface_flux_for_component` and
         :meth:`well_flux_for_component` to obtain the correct, fractional flow accross
         interfaces.
@@ -896,7 +906,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
 
 
 class PrimaryEquationsCF(
-    TotalMassBalanceEquation,
+    mass.MassBalanceEquations,
     TracerTransportEquations,
     ComponentMassBalanceEquations,
     TwoVariableTotalEnergyBalanceEquations,
@@ -946,7 +956,8 @@ class ConstitutiveLawsSolidSkeletonCF(
     """
 
     total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`MobilityCF`."""
+    """See
+    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
 
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
@@ -1086,9 +1097,9 @@ class ConstitutiveLawsCF(
     ppc.FluidMixin,
     # must be on top to overwrite mobility and thermal conductivity from base class
     # constitutive laws
-    MobilityCF,
     ThermalConductivityCF,
     ConstitutiveLawsSolidSkeletonCF,
+    pp.constitutive_laws.FluidMobility,
     pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FouriersLaw,
@@ -1846,7 +1857,7 @@ class SolutionStrategyCF(
 
         return (
             [
-                TotalMassBalanceEquation.primary_equation_name(),
+                mass.MassBalanceEquations.primary_equation_name(),
                 TwoVariableTotalEnergyBalanceEquations.primary_equation_name(),
             ]
             + self.component_mass_balance_equation_names()
@@ -1887,13 +1898,8 @@ class SolutionStrategyCF(
             self._nonlinear_flux_discretizations.append(discretization)
 
     def set_nonlinear_discretizations(self) -> None:
-        """Overwrites parent methods to point to discretizations in
-        :class:`MobilityCF`.
-
-        Adds additionally the non-linear MPFA discretizations to a separate list, since
-        the updates are performed at different steps in the algorithm.
-
-        """
+        """Adds additionally the non-linear MPFA discretizations to a separate list,
+        since the updates are performed at different steps in the algorithm."""
         super().set_nonlinear_discretizations()
 
         if self._rediscretize_mpfa:

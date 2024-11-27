@@ -132,7 +132,7 @@ class LocalElimination(EquationMixin):
     """Generic class to introduce local equations on some grid.
 
     Provides functionality to close a model with dangling variables by introducing
-    a closure of form :math:`x - \\tilde{x}(\dots) = 0`, where :math:`\\tilde{x}` is
+    a closure of form :math:`x - \\tilde{x}(\\dots) = 0`, where :math:`\\tilde{x}` is
     some function to be evaluated depending on specified variables.
 
     Note:

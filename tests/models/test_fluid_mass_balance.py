@@ -349,6 +349,8 @@ def test_tested_vs_testable_methods_single_phase_flow(
         # ("reference_pressure", 0, None),
         ("skin_factor", 0, None),
         ("tangential_component", np.array([[1.0, 0.0]]), 0),  # check only for 0d
+        # Must be the same in the 1-phase, 1-component case as mobility_rho
+        ("total_mobility", 1008032.0855042734, None),
         ("well_fluid_flux", 0, 2),  # use dim_restriction=2 to ignore well flux
         ("well_flux_equation", 0, 2),  # use dim_restriction=2 to ignore well equation
         ("well_radius", 0.1, None),
