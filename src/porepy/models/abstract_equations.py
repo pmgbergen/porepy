@@ -312,14 +312,14 @@ class LocalElimination(EquationMixin):
         they are consistent with the local elimination.
 
         """
-        
+
         # Adding check to please mypy (safe-super) 
         if isinstance(self, pp.BoundaryConditionMixin):
             super().update_all_boundary_conditions()
         else:
             raise TypeError(
-                f'Model class {type(self)} does not have the BoundaryConditionMixin"
-                + " included.'
+                f'Model class {type(self)} does not have the BoundaryConditionMixin'
+                + ' included.'
             )
 
         for elimination in self.__local_eliminations.values():
