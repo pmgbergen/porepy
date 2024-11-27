@@ -313,13 +313,15 @@ class LocalElimination(EquationMixin):
 
         """
 
-        # Adding check to please mypy (safe-super) 
+        # Mypy complains about the parent (the protocol) having a trivial body.
+        # We ignore the safe-super check here, but do not comprosie safety by explicitly
+        # checking the inheritance tree.
         if isinstance(self, pp.BoundaryConditionMixin):
-            super().update_all_boundary_conditions()
+            super().update_all_boundary_conditions()  # type:ignore[safe-super]
         else:
             raise TypeError(
-                f'Model class {type(self)} does not have the BoundaryConditionMixin'
-                + ' included.'
+                f"Model class {type(self)} does not have the BoundaryConditionMixin"
+                + " included."
             )
 
         for elimination in self.__local_eliminations.values():
@@ -353,7 +355,14 @@ class LocalElimination(EquationMixin):
         which was eliminated. I.e., the local equation is fulfilled at the beginning.
 
         """
-        super().initial_condition()
+
+        # Same remark as in override of update_all_boundary_conditions
+        if isinstance(self, pp.SolutionStrategy):
+            super().initial_condition()  # type:ignore[safe-super]
+        else:
+            raise TypeError(
+                f"Model class {type(self)} does not have a SolutionStrategy included."
+            )
 
         for elimination in self.__local_eliminations.values():
             eliminatedvar, expr, f, domains, _ = elimination
@@ -386,7 +395,14 @@ class LocalElimination(EquationMixin):
         eliminations.
 
         """
-        super().before_nonlinear_iteration()
+
+        # Same remark as in override of update_all_boundary_conditions
+        if isinstance(self, pp.SolutionStrategy):
+            super().before_nonlinear_iteration()  # type:ignore[safe-super]
+        else:
+            raise TypeError(
+                f"Model class {type(self)} does not have a SolutionStrategy included."
+            )
 
         for elimination in self.__local_eliminations.values():
             _, expr, func, domains, _ = elimination

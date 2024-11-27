@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from .protocol import PorePyModel
+import porepy as pp
 
 
-class InitialConditionMixin(PorePyModel):
+class InitialConditionMixin(pp.PorePyModel):
     """Convenience class to provide dedicated methods for setting initial values of
     model variables.
 
@@ -25,7 +25,17 @@ class InitialConditionMixin(PorePyModel):
         # First call super and let the solution strategy handle the initialization of
         # everything (likely with zeros).
         # Then run the functionality given by this class.
-        super().initial_condition()
+
+        # Mypy complains about the parent (the protocol) having a trivial body.
+        # We ignore the safe-super check here, but do not comprosie safety by explicitly
+        # checking the inheritance tree.
+        if isinstance(self, pp.SolutionStrategy):
+            super().initial_condition()  # type:ignore[safe-super]
+        else:
+            raise TypeError(
+                f"Model class {type(self)} does not have a SolutionStrategy included."
+            )
+
         self.set_initial_values_primary_variables()
 
         # updating variable values from current time step, to all previous and iterate
