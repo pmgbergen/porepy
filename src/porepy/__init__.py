@@ -176,6 +176,7 @@ from porepy.models.abstract_equations import (
     VariableMixin,
 )
 from porepy.models.boundary_condition import BoundaryConditionMixin
+from porepy.models.initial_condition import InitialConditionMixin
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units
 

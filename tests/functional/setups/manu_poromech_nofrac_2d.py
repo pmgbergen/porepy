@@ -625,7 +625,7 @@ class UnitSquareGrid:
 
 
 # -----> Balance equations
-class ManuPoroMechMassBalance(mass.MassBalanceEquations):
+class ManuPoroMechMassBalance:
     """Modify balance equation to account for external sources."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -669,7 +669,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         return fluid_sources  # - prod
 
 
-class ManuPoroMechMomentumBalance(momentum.MomentumBalanceEquations):
+class ManuPoroMechMomentumBalance:
     """Modify momentum balance to account for time-dependent body force."""
 
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -687,16 +687,7 @@ class ManuPoroMechEquations(
     ManuPoroMechMassBalance,
     ManuPoroMechMomentumBalance,
 ):
-    """Mixer class for modified poromoechanics equations."""
-
-    def set_equations(self):
-        """Set the equations for the modified poromechanics problem.
-
-        Call both parent classes' `set_equations` methods.
-
-        """
-        ManuPoroMechMassBalance.set_equations(self)
-        ManuPoroMechMomentumBalance.set_equations(self)
+    """Mixer class for modified poromechanics equations."""
 
 
 # -----> Solution strategy

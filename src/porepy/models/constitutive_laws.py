@@ -2016,6 +2016,37 @@ class ThermalConductivityLTE(ConstantFluidThermalConductivity):
         return self.isotropic_second_order_tensor(subdomains, conductivity)
 
 
+class ThermalConductivityCF(ThermalConductivityLTE):
+    """A constitutive law providing the normal thermal conductivity to be
+    used with Fourier's Law in the compositional flow."""
+
+    def normal_thermal_conductivity(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Scalar:
+        """Normal thermal conductivity of the fluid.
+
+        This is a constitutive law choosing the thermal conductivity of the fluid in the
+        higher-dimensional domains as the normal conductivity.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing normal thermal conductivity on the interfaces.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        # this is a constitutive law based on Banshoya 2023
+        normal_conductivity = projection.secondary_to_mortar_avg @ (
+            self.fluid.thermal_conductivity(subdomains)
+        )
+        normal_conductivity.set_name("norma_thermal_conductivity")
+        return normal_conductivity
+
+
 class FouriersLaw(PorePyModel):
     """This class could be refactored to reuse for other diffusive fluxes. It's somewhat
     cumbersome, though, since potential, discretization, and boundary conditions all
@@ -2366,7 +2397,7 @@ class AdvectiveFlux(PorePyModel):
             Callable[[list[pp.MortarGrid]], pp.ad.Operator]
         ] = None,
     ) -> pp.ad.Operator:
-        """An operator represetning the advective flux on subdomains.
+        """An operator representing the advective flux on subdomains.
 
         .. note::
             The implementation assumes that the advective flux is discretized using a

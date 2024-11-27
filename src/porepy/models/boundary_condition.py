@@ -218,3 +218,28 @@ class BoundaryConditionMixin(PorePyModel):
 
         """
         return {}
+
+
+class BoundaryConditionsPrimaryVariables(BoundaryConditionMixin):
+    """Intermediate mixin layer to provide an interface for explicitely updating the BC
+    values of primary variables.
+
+    This class can be used in combination of others to introduce an order into the
+    BC update routine, if for example BC values of secondary quantities depend on BC
+    values of primary variables.
+
+    """
+
+    def update_all_boundary_conditions(self) -> None:
+        """Calls :meth:`update_boundary_values_primary_variables` after the super-call."""
+        super().update_all_boundary_conditions()
+        self.update_boundary_values_primary_variables()
+
+    def update_boundary_values_primary_variables(self) -> None:
+        """Method to set boundary values for primary variables.
+
+        The base method does nothing except provide an interface and compatibility for
+        super-calls to model-specific boundary condition setting.
+
+        """
+        pass

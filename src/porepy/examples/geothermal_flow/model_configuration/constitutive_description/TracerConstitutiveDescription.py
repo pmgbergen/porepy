@@ -6,7 +6,7 @@ import numpy as np
 
 import porepy as pp
 import porepy.compositional as ppc
-from porepy.models.compositional_flow import SecondaryEquationsMixin
+from porepy.models.abstract_equations import LocalElimination
 from porepy.models.protocol import PorePyModel
 
 
@@ -349,7 +349,7 @@ class FluidMixture(PorePyModel):
         return dependencies
 
 
-class SecondaryEquations(SecondaryEquationsMixin):
+class SecondaryEquations(LocalElimination):
     """Mixin to provide expressions for dangling variables.
 
     The CF framework has the following quantities always as independent variables:
@@ -368,6 +368,8 @@ class SecondaryEquations(SecondaryEquationsMixin):
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     def set_equations(self) -> None:
+        super().set_equations()
+
         subdomains = self.mdg.subdomains()
         matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
 
@@ -382,7 +384,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         ]
 
         for phase in independent_phases:
-            self.eliminate_by_constitutive_law(
+            self.eliminate_locally(
                 phase.saturation,  # callable giving saturation on ``subdomains``
                 self.dependencies_of_phase_properties(
                     phase
@@ -396,7 +398,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         for phase in self.fluid.phases:
             for comp in phase:
                 if self.has_independent_partial_fraction(comp, phase):
-                    self.eliminate_by_constitutive_law(
+                    self.eliminate_locally(
                         phase.partial_fraction_of[comp],
                         self.dependencies_of_phase_properties(phase),
                         chi_functions_map[comp.name + "_" + phase.name],
@@ -404,7 +406,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
                     )
 
         ### Provide constitutive law for temperature
-        self.eliminate_by_constitutive_law(
+        self.eliminate_locally(
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
             temperature_func,

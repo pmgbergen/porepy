@@ -572,6 +572,21 @@ else:
 
             """
 
+        def initial_condition(self) -> None:
+            """Set the initial condition for the problem.
+
+            For each solution index stored in ``self.time_step_indices`` and
+            ``self.iterate_indices`` a zero initial value will be assigned.
+
+            """
+
+        def before_nonlinear_iteration(self) -> None:
+            """Method to be called at the start of every non-linear iteration.
+
+            Possible usage is to update non-linear parameters, discretizations etc.
+
+            """
+
     class FluidProtocol(Protocol):
         """This protocol provides declarations of methods defined in the
         :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
@@ -595,6 +610,7 @@ else:
                 get_phase_configuration` respectively.
 
             """
+            return None
 
         def assign_thermodynamic_properties_to_phases(self) -> None:
             """Assigns callable properties to the dynamic phase objects, after the
@@ -605,6 +621,7 @@ else:
                 assign_thermodynamic_properties_to_phases`.
 
             """
+            return None
 
         def dependencies_of_phase_properties(
             self, phase: pp.Phase
@@ -646,7 +663,7 @@ else:
             """
 
         def create_variables(self) -> None:
-            """Assign primary variables to subdomains and interfaces of the mixed-
+            """Introduce variables to subdomains and interfaces of the mixed-
             dimensional grid."""
 
     class BoundaryConditionProtocol(Protocol):
@@ -713,6 +730,25 @@ else:
             Note:
                 One can use the convenience method `update_boundary_condition` for each
                 boundary condition value.
+
+            """
+
+        def update_boundary_condition(
+            self,
+            name: str,
+            function: Callable[[pp.BoundaryGrid], np.ndarray],
+        ) -> None:
+            """This method is the unified procedure of updating a boundary condition.
+
+            It shifts the boundary condition values in time and stores the current
+            iterate data (current time step) as the most recent previous time step data.
+            Next, it evaluates the boundary condition values for the new time step and
+            stores them in the iterate data.
+
+            Parameters:
+                name: Name of the operator defined on the boundary.
+                function: A callable that provides the boundary condition values on a
+                    given boundary grid.
 
             """
 
@@ -855,64 +891,153 @@ else:
 
     class CompositionalFlowModelProtocol(Protocol):
         """Protocol declaring a collection of mixed-in methods specific to the
-        compositional flow setting."""
+        compositional flow setting.
 
-        @property
-        def primary_variable_names(self) -> list[str]:
-            """Returns a list of primary variables, which in the basic set-up consist
-            of
+        This protocol does not contain all methods, only those which are expected in
+        some mixins, but implemented in others.
 
-            1. pressure,
-            2. overall fractions,
-            3. tracer fractions,
-            4. specific fluid enthalpy.
-
-            Primary variable names are used to define the primary block in the Schur
-            elimination in the solution strategy.
-
-            Implemented in :meth:`~porepy.models.compositional_flow.VariablesCF.
-            primary_variables`.
-
-            """
-
-        @property
-        def primary_equation_names(self) -> list[str]:
-            """Returns the list of primary equation, consisting of
-
-            1. pressure equation,
-            2. energy balance equation,
-            3. mass balance equations per fluid component,
-            4. transport equations per solute in compounds in the fluid.
-
-            Note:
-                Interface equations, which are non-local equations since they relate
-                interface variables and respective subdomain variables on some subdomain
-                cells, are not included.
-
-                This might have an effect on the Schur complement in the solution
-                strategy.
-
-            Implemented in :meth:`~porepy.models.compositional_flow.PrimaryEquationsCF.
-            primary_equation_names`.
-
-            """
+        """
 
         @property
         def _is_ref_phase_eliminated(self) -> bool:
-            """Helper property to access the model parameters and check if the
-            reference phase is eliminated. Default value is True.
+            """Property returning a flag from the model params, indicating whether the
+            reference phase fractions (molar/massic and saturation) were eliminated by unity
+            of fractions.
 
-            Implemented in :meth:`~porepy.compositional.compositional_mixins.
-            _MixtureDOFHandler._is_ref_phase_eliminated`.
+            Can be passed as ``params['eliminate_reference_phase'] = True``.
+
+            Defaults to True.
 
             """
 
         @property
         def _is_ref_comp_eliminated(self) -> bool:
-            """Helper property to access the model parameters and check if the
-            reference component is eliminated. Default value is True.
+            """Property returning a flag from the model params, indicating whether the
+            reference component's overall fraction was eliminated by unity of fractions.
 
-            Implemented in :meth:`~porepy.compositional.compositional_mixins.
-            _MixtureDOFHandler._is_ref_comp_eliminated`.
+            This also impacts the number of component mass balance equations.
+
+            Can be passed as ``params['eliminate_reference_component'] = True``.
+
+            Defaults to True.
 
             """
+
+        @property
+        def equilibrium_type(self) -> Optional[str]:
+            """Returns the user-defined equilibrium type, if any.
+
+            Can be passed as ``params['equilibrium_type'] = 'p-T'`` for example.
+            Use the target state of the local equilibrium as value (``'p-T'``, ``'p-h'``,
+            ...) and additional keywords like ``'unified-p-T'``.
+
+            Defaults to None for CF models without equilibrium.
+
+            """
+
+        @property
+        def _rediscretize_mpfa(self) -> bool:
+            """Property returning a flag from the model params, indicating whether the
+            MPFA should be consistently re-discretized or upwinding is used.
+
+            Can be passed as ``params['rediscretize_mpfa'] = True``.
+
+            Defaults to False.
+
+            """
+
+        @property
+        def _reduce_linear_system(self) -> bool:
+            """Property returning a flag from the model params, indicating whether the
+            global linear system should be reduced via Schur complement using
+            :meth:`primary_equation_names` and :meth:`primary_variable_names`.
+
+            Can be passed as ``params['reduce_linear_system'] = True``.
+
+            Defaults to False.
+
+            """
+
+        @property
+        def _fractional_flow(self) -> bool:
+            """Property returning a flag from the model params, indicating whether the
+            fractional flow formulation is used or not.
+
+            Can be passed as ``params['fractional_flow'] = True``.
+
+            Defaults to False.
+
+            """
+
+        @property
+        def overall_fraction_variables(self) -> list[str]:
+            """Names of independent overall
+            :attr:`~porepy.compositional.base.Component.fraction` variables created for
+            a model."""
+
+        @property
+        def tracer_fraction_variables(self) -> list[str]:
+            """Names of independent
+            :attr:`~porepy.compositional.base.Compound.tracer_fraction_of` -variables
+            created for a model."""
+
+        def component_mass_balance_equation_names(self) -> list[str]:
+            """Returns the names of component mass balance equations in the model,
+            which are primary PDEs on all subdomains for each independent fluid
+            component."""
+
+        def tracer_transport_equation_names(self) -> list[str]:
+            """Returns the names of transport equations in the model, which are primary
+            PDEs on all subdomains for each tracer in each compound in the fluid."""
+
+        def has_independent_fraction(self, instance: pp.Phase | pp.Component) -> bool:
+            """Checks whether the ``instance`` has an independent variable for the
+            fraction of total mass associated with it (
+            :attr:`~porepy.compositional.base.Component.fraction` of a component,
+            :attr:`~porepy.compositional.base.Phase.fraction` of a phase
+            )
+
+            Works the same for both components and phases.
+
+            Parameters:
+                instance: A phase or a component in the :attr:`fluid`.
+
+            Raises:
+                ValueError: If the ``instance`` is not in the fluid mixture.
+                TypeError: If ``instance`` is neither a phase nor a component.
+
+            Returns:
+                False, if there is only 1 instance (of phases or component) in the fluid
+                mixture, or it is the reference instance and it was eliminated.
+                Otherwise it returns True.
+
+            """
+
+        def has_independent_tracer_fraction(
+            self, tracer: pp.Component, compound: pp.compositional.Compound
+        ) -> bool:
+            """Checks if the :attr:`~porepy.compositional.base.Compound.tracer_fraction_of`
+            a ``tracer`` in the ``compound`` is an independent variable.
+
+            Paramters:
+                tracer: An active tracer in one of the compounds in the
+                    :attr:`fluid`.
+                compound: A component/compound in the :attr:`fluid`'s
+                    :attr:`~porepy.compositional.base.Fluid.components`.
+
+            Raises:
+                ValueError: If the ``compound`` is not in the :attr:`fluid`.
+
+            Returns:
+                True, if the ``tracer`` is in the compound``, False otherwise.
+
+            """
+
+        def _overall_fraction_variable(self, component: pp.Component) -> str:
+            """Returns the name of the fraction variable assigned to ``component``."""
+
+        def _tracer_fraction_variable(
+            self, tracer: pp.Component, compound: pp.compositional.Compound
+        ) -> str:
+            """Returns the name of the tracer fraction variable assigned to tracer in a
+            compound."""
