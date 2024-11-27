@@ -12,16 +12,8 @@ from porepy.models.compositional_flow import (
     BoundaryConditionsFractions,
     ComponentMassBalanceEquations,
     InitialConditionsFractions,
-    TotalMassBalanceEquation,
 )
-from porepy.models.fluid_mass_balance import (
-    BoundaryConditionsSinglePhaseFlow,
-    ConstitutiveLawsSinglePhaseFlow,
-    InitialConditionsSinglePhaseFlow,
-    SinglePhaseFlow,
-    VariablesSinglePhaseFlow,
-)
-from porepy.models.fluid_property_library import MobilityCF
+from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
 class WaterDict(TypedDict):
@@ -40,7 +32,7 @@ class TracerFlowDomain(pp.ModelGeometry):
     fracture embedded."""
 
 
-class TracerFluid(pp.FluidMixin):
+class TracerFluid:
     """Setting up a 2-component fluid."""
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
@@ -52,57 +44,21 @@ class TracerFluid(pp.FluidMixin):
         return [component_1, component_2]
 
 
-class TracerFlowConstitutiveLaws(
-    MobilityCF,
-    ConstitutiveLawsSinglePhaseFlow,
-):
-    """Atop the constitutive laws for single-phase flow, we add the constitutive laws
-    required for the multi-component case with fractional mobilities.
-
-    Note:
-        The constitutive laws for the single phase are all based on the reference
-        component, which is water in this case.
-        The tracer is just a transported quantity in this simple setup without any
-        effect on the physics, besides being represented by a overall fraction and
-        including a transport equation.
-
-    """
+class TracerBC(BoundaryConditionsFractions):
+    """Inherits treatmens of BC for fractions and mixes in custom BC for pressure."""
 
 
-class TracerFlowVariables(
-    VariablesSinglePhaseFlow,
-    CompositionalVariables,
-):
-    """Combines the pressure variable from single-phase flow with the fractional
-    variables for a multi-component mixture."""
-
-
-class TracerFlowEquations(TotalMassBalanceEquation, ComponentMassBalanceEquations):
-    """The isothermal tracer flow setup requires only the total mass balance equation
-    and the transport equation for the independent component."""
-
-
-class TracerBC(
-    BoundaryConditionsFractions,
-    BoundaryConditionsSinglePhaseFlow,
-):
-    """Combination of boundary condition routines for fractions and pressure."""
-
-
-class TracerIC(
-    InitialConditionsFractions,
-    InitialConditionsSinglePhaseFlow,
-):
-    """Combination of initial condition mixins for fractions and pressure."""
+class TracerIC(InitialConditionsFractions):
+    """Inherits treatmens of IC for fractions and mixes in IC for pressure."""
 
 
 class TracerFlowSetup(  # type: ignore[misc]
     TracerFlowDomain,
-    TracerFlowVariables,
-    TracerFlowEquations,
+    TracerFluid,
+    CompositionalVariables,
+    ComponentMassBalanceEquations,
     TracerBC,
     TracerIC,
-    TracerFlowConstitutiveLaws,
     SinglePhaseFlow,
 ):
     """Complete set-up for tracer flow modelled as a single phase, 2-component flow

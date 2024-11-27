@@ -32,6 +32,8 @@ class MassBalanceEquations(pp.BalanceEquation):
     of codimension one and Peaceman flux relation on interfaces of codimension two
     (well-fracture intersections).
 
+    This is a balance of total mass, also known as pressure equation.
+
     """
 
     interface_darcy_flux: Callable[
@@ -46,8 +48,8 @@ class MassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
     """
-    mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid mobility. Normally provided by a mixin instance of
+    total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Total fluid mobility. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.FluidMobility`.
 
     """
@@ -110,6 +112,12 @@ class MassBalanceEquations(pp.BalanceEquation):
     """See :class:`BoundaryConditionsSinglePhaseFlow`.
     """
 
+    @staticmethod
+    def primary_equation_name() -> str:
+        """Returns the string which is used to name the pressure equation on all
+        subdomains, which is the primary PDE set by this class."""
+        return "mass_balance_equation"
+
     def set_equations(self) -> None:
         """Set the equations for the mass balance problem.
 
@@ -145,7 +153,7 @@ class MassBalanceEquations(pp.BalanceEquation):
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name("mass_balance_equation")
+        eq.set_name(MassBalanceEquations.primary_equation_name())
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -173,7 +181,10 @@ class MassBalanceEquations(pp.BalanceEquation):
         return mass
 
     def mobility_rho(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Fluid density times mobility.
+        """Fluid density divided by viscosity.
+
+        Note:
+            Depending on the literature, this may also be called total mobility (CF).
 
         Parameters:
             domains: List of grids to define the operator on.
@@ -184,7 +195,7 @@ class MassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid density times mobility [s * m^-2].
 
         """
-        return self.fluid.density(domains) * self.mobility(domains)
+        return self.total_mobility(domains)
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Fluid flux as Darcy flux times density and mobility.
