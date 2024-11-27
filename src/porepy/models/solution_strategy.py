@@ -18,12 +18,11 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from porepy.models.protocol import PorePyModel
 
 logger = logging.getLogger(__name__)
 
 
-class SolutionStrategy(abc.ABC, PorePyModel):
+class SolutionStrategy(abc.ABC, pp.PorePyModel):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
 
@@ -691,7 +690,7 @@ class SolutionStrategy(abc.ABC, PorePyModel):
         self.update_all_boundary_conditions()
 
 
-class ContactIndicators(PorePyModel):
+class ContactIndicators(pp.PorePyModel):
     """Class for computing contact indicators used for tailored line search.
 
     This functionality is experimental and may be subject to change.

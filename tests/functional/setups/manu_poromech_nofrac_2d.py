@@ -55,12 +55,10 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
+
 import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as momentum
-import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.models.protocol import PorePyModel
 from porepy.utils.examples_utils import VerificationUtils
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -231,7 +229,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 class ManuPoroMechExactSolution2d:
     """Class containing the exact manufactured solution for the verification setup."""
 
-    def __init__(self, setup: PorePyModel):
+    def __init__(self, setup: pp.PorePyModel):
         """Constructor of the class."""
 
         # Physical parameters
@@ -691,7 +689,7 @@ class ManuPoroMechEquations(
 
 
 # -----> Solution strategy
-class ManuPoroMechSolutionStrategy2d(poromechanics.SolutionStrategyPoromechanics):
+class ManuPoroMechSolutionStrategy2d(pp.poromechanics.SolutionStrategyPoromechanics):
     """Solution strategy for the verification setup."""
 
     exact_sol: ManuPoroMechExactSolution2d
@@ -762,7 +760,7 @@ class ManuPoroMechSetup2d(  # type: ignore[misc]
     ManuPoroMechSolutionStrategy2d,
     ManuPoroMechUtils,
     ManuPoroMechDataSaving,
-    poromechanics.Poromechanics,
+    pp.Poromechanics,
 ):
     """
     Mixer class for the two-dimensional non-linear poromechanics verification setup.

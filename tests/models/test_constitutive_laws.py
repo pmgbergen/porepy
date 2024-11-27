@@ -25,7 +25,6 @@ import pytest
 
 import porepy as pp
 import porepy.models.constitutive_laws as c_l
-from porepy.models.protocol import PorePyModel
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.reference_dense_arrays import (
     test_constitutive_laws as reference_dense_arrays,
@@ -492,7 +491,7 @@ class PoromechanicalTestDiffTpfa(
     SquareDomainOrthogonalFractures,
     pp.constitutive_laws.CubicLawPermeability,
     pp.constitutive_laws.DarcysLawAd,
-    pp.poromechanics.Poromechanics,
+    pp.Poromechanics,
 ):
     """Helper class to test the derivative of the Darcy flux with respect to the mortar
     displacement.

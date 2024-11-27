@@ -142,7 +142,7 @@ class FlowBenchmark2dCase3aModel(  # type:ignore[misc]
     Geometry,
     Permeability,
     Case3aBoundaryConditions,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Mixer class for case 3a (top-to-bottom flow) from the 2d flow benchmark."""
 
@@ -152,6 +152,6 @@ class FlowBenchmark2dCase3bModel(  # type:ignore[misc]
     Geometry,
     Permeability,
     Case3bBoundaryConditions,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Mixer class for case 3b (left-to-right flow) from the 2d flow benchmark."""

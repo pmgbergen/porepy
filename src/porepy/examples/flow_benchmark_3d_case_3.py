@@ -129,6 +129,6 @@ class FlowBenchmark3dCase3Model(  # type:ignore[misc]
     Geometry,
     IntersectionPermeability,
     BoundaryConditions,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Mixer class for case 3 from the 3d flow benchmark."""

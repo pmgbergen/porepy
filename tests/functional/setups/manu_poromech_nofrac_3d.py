@@ -64,7 +64,6 @@ from tests.functional.setups.manu_poromech_nofrac_2d import (
     ManuPoroMechSetup2d,
     ManuPoroMechSolutionStrategy2d,
 )
-from porepy.models.protocol import PorePyModel
 
 # PorePy typings
 number = pp.number
@@ -75,7 +74,7 @@ grid = pp.GridLike
 class ManuPoroMechExactSolution3d:
     """Class containing the exact manufactured solution for the verification setup."""
 
-    def __init__(self, setup: PorePyModel):
+    def __init__(self, setup: pp.PorePyModel):
         """Constructor of the class."""
 
         # Physical parameters

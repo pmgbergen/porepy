@@ -50,7 +50,6 @@ from tests.functional.setups.manu_thermoporomech_nofrac_2d import (
     SourceTerms,
     ManuThermoPoroMechSaveData,
 )
-from porepy.models.protocol import PorePyModel
 
 
 class ManuThermoPoroMechExactSolution3d:
@@ -78,7 +77,7 @@ class ManuThermoPoroMechExactSolution3d:
 
     """
 
-    def __init__(self, setup: PorePyModel):
+    def __init__(self, setup: pp.PorePyModel):
         """Constructor of the class."""
 
         # Heterogeneity factor.
@@ -1044,6 +1043,6 @@ class ManuThermoPoroMechSetup3d(  # type: ignore[misc]
     SourceTerms,
     ManuThermoPoroMechDataSaving,
     ManuThermoPoroMechSolutionStrategy3d,
-    pp.thermoporomechanics.Thermoporomechanics,
+    pp.Thermoporomechanics,
 ):
     pass

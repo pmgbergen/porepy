@@ -157,6 +157,6 @@ class FlowBenchmark2dCase1Model(  # type:ignore[misc]
     Geometry,
     Permeability,
     BoundaryConditions,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Complete model class for case 1 from the 2d flow benchmark."""

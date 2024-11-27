@@ -33,7 +33,6 @@ import scipy.optimize as opt
 
 import porepy as pp
 import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as momentum_balance
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.derived_models.biot import BiotPoromechanics
@@ -1244,7 +1243,7 @@ class MandelGeometry(pp.ModelGeometry):
 
 # -----> Boundary conditions
 class MandelBoundaryConditionsMechanicsTimeDependent(
-    momentum_balance.BoundaryConditionsMomentumBalance,
+    pp.momentum_balance.BoundaryConditionsMomentumBalance,
 ):
     exact_sol: MandelExactSolution
     """Exact solution object."""
