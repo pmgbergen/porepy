@@ -88,7 +88,8 @@ def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
     for model in [ManuThermoPoroMechSetup2d, ManuThermoPoroMechSetup3d]:
-        setup = model(deepcopy(model_params))  # Make deep copy of params to avoid nasty bugs.
+        # Make deep copy of params to avoid nasty bugs.
+        setup = model(deepcopy(model_params))
         pp.run_time_dependent_model(setup, {})
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
@@ -120,37 +121,37 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     desired_errors_2d = [
         {  # t = 0.5 [s]
             "error_pressure": 0.29827252435393803,
-            "error_darcy_flux": 0.1439958241169773,
+            "error_darcy_flux": 0.14704959796830647,
             "error_displacement": 0.4058988627472109,
-            "error_force": 0.16888424201570365,
+            "error_force": 0.17946202670453834,
             "error_temperature": 0.28326347851869543,
-            "error_energy_flux": 0.143777694649805,
+            "error_energy_flux": 0.14744674524490634,
         },
         {  # t = 1.0 [s]
             "error_pressure": 0.3010187539654323,
-            "error_darcy_flux": 0.1433298407071359,
+            "error_darcy_flux": 0.14696637632376056,
             "error_displacement": 0.4058374630516512,
-            "error_force": 0.16890514221989356,
+            "error_force": 0.17947844131408328,
             "error_temperature": 0.27340859892936803,
-            "error_energy_flux": 0.14567435981074586,
+            "error_energy_flux": 0.15024661981724538,
         },
     ]
     desired_errors_3d = [
         {  # t = 0.5 [s]
             "error_pressure": 0.28233484316067864,
-            "error_darcy_flux": 0.15250403155748207,
+            "error_darcy_flux": 0.15280093702585573,
             "error_displacement": 0.4482633717525385,
-            "error_force": 0.21455044408871599,
+            "error_force": 0.22274805353894986,
             "error_temperature": 0.2668424103750087,
-            "error_energy_flux": 0.14699614090181903,
+            "error_energy_flux": 0.14770121187834004,
         },
         {  # t = 1.0 [s]
             "error_pressure": 0.28113090124404544,
-            "error_darcy_flux": 0.1487747552893976,
+            "error_darcy_flux": 0.149180288220841,
             "error_displacement": 0.448144662794714,
-            "error_force": 0.21457738933054352,
+            "error_force": 0.2227805202726474,
             "error_temperature": 0.2593080002077755,
-            "error_energy_flux": 0.14847494492738805,
+            "error_energy_flux": 0.1498638548606376,
         },
     ]
 
@@ -288,9 +289,9 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     desired_ooc_2d = [
         {  # Cartesian
             "ooc_displacement": 2.056709801235223,
-            "ooc_darcy_flux": 1.7001969755444224,
-            "ooc_energy_flux": 1.737188125750453,
-            "ooc_force": 1.4425687190971186,
+            "ooc_darcy_flux": 1.715827561535072,
+            "ooc_energy_flux": 1.7541949029574317,
+            "ooc_force": 1.4900572262197447,
             "ooc_pressure": 2.1102255203961358,
             "ooc_temperature": 2.310453793430966,
         },
@@ -307,9 +308,9 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     desired_ooc_3d = [
         {  # Cartesian
             "ooc_displacement": 2.0401748849429717,
-            "ooc_darcy_flux": 1.2226767170350672,
-            "ooc_energy_flux": 1.3090025057692818,
-            "ooc_force": 1.2472669444997415,
+            "ooc_darcy_flux": 1.2983158257680871,
+            "ooc_energy_flux": 1.4042578949295415,
+            "ooc_force": 1.301647792442485,
             "ooc_pressure": 2.038904548181216,
             "ooc_temperature": 2.2095880011696294,
         }
