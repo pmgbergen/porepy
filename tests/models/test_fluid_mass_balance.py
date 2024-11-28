@@ -157,7 +157,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
         all_testable_methods: List of all testable methods.
 
     """
-    # Failure here could be mean two things:
+    # Failure here could mean two things:
     #
     #   (1) The `all_tested_methods` fixture is an empty list due to the tests
     #       from `test_ad_operator_methods_single_phase_flow` not being collected (see
@@ -175,12 +175,12 @@ def test_tested_vs_testable_methods_single_phase_flow(
     assert all_tested_methods == all_testable_methods
 
 
-# NOTE: The tests for darcy_flux, fluid_flux, fluid_source,
+# NOTE: The tests for darcy_flux, fluid_flux, fluid_flux, fluid_source,
 # interface_darcy_flux_equation, interface_fluid_flux, interface_flux_equation,
 # mass_balance_equation, normal_permeability, skin_factor, and pressure_trace were based
 # on different water fluid values in PorePy 1.10.0 and prior. The new expected values
-# for each test are copied from the test's output. We rely on the tests working
-# correctly previously for this.
+# for each test are copied from the test's output. We rely on the correctness of the
+# previous tests for this choice.
 @pytest.mark.parametrize(
     "method_name, expected_value, dimension_restriction",
     [
@@ -261,8 +261,19 @@ def test_tested_vs_testable_methods_single_phase_flow(
         # fluid_mass = rho * phi * specific_volume
         (
             "fluid_mass",
-            granite_values["porosity"]
-            / (np.exp(water_values["compressibility"] * 200 * pp.BAR)),
+            np.array(
+                [
+                    3.27386543e00,
+                    3.27386543e00,
+                    3.27386543e00,
+                    3.27386543e00,
+                    6.54773085e-03,
+                    6.54773085e-03,
+                    6.54773085e-03,
+                    6.54773085e-03,
+                    1.30954617e-05,
+                ]
+            ),
             None,
         ),
         # Only sources from interface fluxes are non-zero. External sources are zero.
@@ -306,9 +317,9 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        # Mobility = rho / mu
-        ("mobility", water_values["density"] / (water_values["viscosity"]), None),
-        # Combination of mobility and fluid density = rho/mu
+        # Mobility = 1 / mu
+        ("mobility", 1.0 / (water_values["viscosity"]), None),
+        # Combination of mobility and fluid density = rho / mu
         # Mobility_rho = rho_ref * exp(c_f * (p - p_ref)) / mu
         (
             "mobility_rho",
@@ -317,9 +328,9 @@ def test_tested_vs_testable_methods_single_phase_flow(
             / water_values["viscosity"],
             None,
         ),
-        ("normal_permeability", 5e-15, None),
-        ("permeability", 5.0e-18, None),
-        ("porosity", 1.3e-2, None),
+        ("normal_permeability", granite_values["normal_permeability"], None),
+        ("permeability", granite_values["permeability"], None),
+        ("porosity", granite_values["porosity"], None),
         ("pressure", 200 * pp.BAR, None),
         # pressure_exponential = exp(c_f * (p - p_ref))
         (
@@ -360,11 +371,11 @@ def test_tested_vs_testable_methods_single_phase_flow(
             None,
         ),
         # ("reference_pressure", 0, None),
-        ("skin_factor", 37.0, None),
+        ("skin_factor", granite_values["skin_factor"], None),
         ("tangential_component", np.array([[1.0, 0.0]]), 0),  # Check only for 0d.
         ("well_fluid_flux", 0, 2),  # Use dim_restriction=2 to ignore well flux.
         ("well_flux_equation", 0, 2),  # Use dim_restriction=2 to ignore well equation.
-        ("well_radius", 0.1, None),
+        ("well_radius", granite_values["well_radius"], None),
         # Testing of methods with deeper namespace.
         # rho = rho_ref * exp(c_f * (p - p_ref))
         (
