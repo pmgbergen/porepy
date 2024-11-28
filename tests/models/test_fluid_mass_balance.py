@@ -36,10 +36,6 @@ from porepy.applications.material_values.solid_values import (
 from porepy.applications.material_values.fluid_values import (
     extended_water_values_for_testing as water_values,
 )
-from numba import config
-
-config.DISABLE_JIT = True
-
 
 @pytest.fixture(scope="function")
 def model_setup():
