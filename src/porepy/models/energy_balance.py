@@ -267,7 +267,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux.set_name("interface_energy_flux")
         return flux
 
-    def mobility_rho_h(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def advection_weight_energy_balance(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
         """Non-linear weight in the advective enthalpy flux.
 
         Parameters:
@@ -331,7 +333,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
-            dirichlet_operator=self.mobility_rho_h,
+            dirichlet_operator=self.advection_weight_energy_balance,
             neumann_operator=self.enthalpy_flux,
             # Robin operator is not relevant for advective fluxes
             robin_operator=None,
@@ -342,7 +344,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = self.enthalpy_discretization(subdomains)
         flux = self.advective_flux(
             subdomains,
-            self.mobility_rho_h(subdomains),
+            self.advection_weight_energy_balance(subdomains),
             discr,
             boundary_operator,
             self.interface_enthalpy_flux,
@@ -366,7 +368,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = self.interface_enthalpy_discretization(interfaces)
         flux = self.interface_advective_flux(
             interfaces,
-            self.mobility_rho_h(subdomains),
+            self.advection_weight_energy_balance(subdomains),
             discr,
         )
 
@@ -390,7 +392,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = pp.ad.UpwindCouplingAd(self.enthalpy_keyword, interfaces)
         flux = self.well_advective_flux(
             interfaces,
-            self.mobility_rho_h(subdomains),
+            self.advection_weight_energy_balance(subdomains),
             discr,
         )
 
