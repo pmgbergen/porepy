@@ -197,7 +197,7 @@ from porepy.compositional.materials import (
     ReferenceVariableValues,
 )
 from porepy.compositional.base import Component, Phase, Fluid
-from porepy.compositional.compositional_mixins import CompositionalVariables, FluidMixin
+from porepy.compositional.compositional_mixins import *
 
 # "Primary" models
 from porepy.models import fluid_mass_balance, momentum_balance

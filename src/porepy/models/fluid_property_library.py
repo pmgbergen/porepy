@@ -228,8 +228,10 @@ class FluidDensityFromPressureAndTemperature(
 class FluidMobility(pp.PorePyModel):
     """Class for fluid mobility and its discretization in single-phase flow problems."""
 
-    relative_permeability: Callable[[pp.ad.Operator], pp.ad.Operator]
-    """Provided by some mixin (work in progress).
+    relative_permeability: Callable[
+        [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """Provided by some mixin dealing with the porous medium (work in progress).
 
     Only relevant in the multi-phase case.
 
@@ -240,19 +242,6 @@ class FluidMobility(pp.PorePyModel):
     instance :class:`~porepy.models.SolutionStrategy`.
 
     """
-
-    def mobility(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Mobility of the fluid flux, given by the reciprocal of the fluid's reference
-        phase viscosity.
-
-        Parameters:
-            subdomains: List of subdomains or boundaries.
-
-        Returns:
-            Operator representing the mobility [m * s * kg^-1].
-
-        """
-        return pp.ad.Scalar(1) / self.fluid.reference_phase.viscosity(subdomains)
 
     def mobility_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
         """Discretization of the fluid mobility factor.
@@ -281,11 +270,11 @@ class FluidMobility(pp.PorePyModel):
         return pp.ad.UpwindCouplingAd(self.mobility_keyword, interfaces)
 
     def total_mobility(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        r"""Total mobility of the fluid mixture, by summing :meth:`phase_mobility`
+        r"""Total mobility of the fluid mixture is given by
 
         .. math::
 
-                \sum_j \dfrac{\rho_j k_r(s_j)}{\mu_j},
+                \sum_j \frac{\rho_j k_r(s_j)}{\mu_j}.
 
         Used as a non-linear part of the diffusive tensor in the (total) mass balance
         equation.
@@ -299,7 +288,10 @@ class FluidMobility(pp.PorePyModel):
         """
         name = "total_mobility"
         mobility = pp.ad.sum_operator_list(
-            [self.phase_mobility(phase, domains) for phase in self.fluid.phases],
+            [
+                phase.density(domains) * self.phase_mobility(phase, domains)
+                for phase in self.fluid.phases
+            ],
             name,
         )
         return mobility
@@ -311,7 +303,10 @@ class FluidMobility(pp.PorePyModel):
 
         .. math::
 
-            \rho_j \dfrac{k_r(s_j)}{\mu_j}.
+            \frac{k_r(s_j)}{\mu_j}.
+
+        Note:
+            For the single-phase case it returns simply :math:`\frac{1}{\mu}`.
 
         Parameters:
             phase: A phase in the fluid mixture.
@@ -326,14 +321,12 @@ class FluidMobility(pp.PorePyModel):
         # Makes this class compatible with single-phase models, without requiring some
         # rel-perm mixin
         if self.fluid.num_phases > 1:
-            mobility = (
-                phase.density(domains)
-                * self.relative_permeability(phase.saturation(domains))
-                / phase.viscosity(domains)
+            mobility = self.relative_permeability(phase, domains) / phase.viscosity(
+                domains
             )
         else:
             assert phase == self.fluid.reference_phase
-            mobility = phase.density(domains) / phase.viscosity(domains)
+            mobility = phase.viscosity(domains) ** pp.ad.Scalar(-1.0)
         mobility.set_name(name)
         return mobility
 
@@ -345,11 +338,16 @@ class FluidMobility(pp.PorePyModel):
 
         It is obtained by summing :meth:`phase_mobility` weighed with
         :attr:`~porepy.compositional.base.Phase.partial_fraction_of` the component,
+        and the phase :attr:`~porepy.compositional.base.Phase.density`,
         if the component is present in the phase.
 
         .. math::
 
-                \sum_j x_{n, ij} \rho_j \dfrac{k_r(s_j)}{\mu_j},
+                \sum_j x_{n, ij} \rho_j \frac{k_r(s_j)}{\mu_j},
+
+        Note:
+            In the single-phase, single-component case, this is reduced to
+            :math:`\frac{\rho}{\mu}`.
 
         Parameters:
             component: A component in the fluid mixture.
@@ -361,11 +359,12 @@ class FluidMobility(pp.PorePyModel):
         """
         if self.fluid.num_phases > 1 or self.fluid.num_components > 1:
             # NOTE this method is kept as general as possible when typing the signature.
-            # But the default fluid of the model consists of FluidComponent, not Component.
-            # Adding type:ignore for this reason.
+            # But the default fluid of the model consists of FluidComponent, not
+            # Component. Adding type:ignore for this reason.
             mobility = pp.ad.sum_operator_list(
                 [
                     phase.partial_fraction_of[component](domains)
+                    * phase.density(domains)
                     * self.phase_mobility(phase, domains)
                     for phase in self.fluid.phases
                     if component in phase  # type:ignore[operator]
@@ -376,7 +375,9 @@ class FluidMobility(pp.PorePyModel):
         # models, which do not have the complete notion of fractions
         else:
             assert component == self.fluid.reference_component
-            mobility = self.phase_mobility(self.fluid.reference_phase, domains)
+            mobility = self.fluid.reference_phase.density(
+                domains
+            ) * self.phase_mobility(self.fluid.reference_phase, domains)
 
         return mobility
 
@@ -407,17 +408,17 @@ class FluidMobility(pp.PorePyModel):
             The term :math:`f_{\eta}` in above expession in operator form.
 
         """
-        name = f"fractional_component_mobility_{component.name}"
         frac_mob = self.component_mobility(component, domains) / self.total_mobility(
             domains
         )
-        frac_mob.set_name(name)
+        frac_mob.set_name(f"fractional_component_mobility_{component.name}")
         return frac_mob
 
     def fractional_phase_mobility(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        r"""Returns the :meth:`phase_mobility` divided by the :meth:`total_mobility`.
+        r"""Returns the product of the ``phase`` density and :meth:`phase_mobility`
+        divided by the :meth:`total_mobility`.
 
         To be used in phase mass balance equations in a fractional flow set-up,
         where the total mobility is part of the non-linear diffusive tensor in the
@@ -431,7 +432,6 @@ class FluidMobility(pp.PorePyModel):
 
         assuming the tensor :math:`D(p, Y)` contains the total mobility.
 
-
         Parameters:
             phase: A phase in the fluid mixture.
             domains: A sequence of subdomains or boundary grids.
@@ -440,9 +440,12 @@ class FluidMobility(pp.PorePyModel):
             The term :math:`f_{\gamma}` in above expession in operator form.
 
         """
-        name = f"fractional_phase_mobility_{phase.name}"
-        frac_mob = self.phase_mobility(phase, domains) / self.total_mobility(domains)
-        frac_mob.set_name(name)
+        frac_mob = (
+            phase.density(domains)
+            * self.phase_mobility(phase, domains)
+            / self.total_mobility(domains)
+        )
+        frac_mob.set_name(f"fractional_phase_mobility_{phase.name}")
         return frac_mob
 
 

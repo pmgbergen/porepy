@@ -16,7 +16,7 @@ We provide two tests:
 from __future__ import annotations
 
 import copy
-from typing import Callable, Literal, Optional
+from typing import Literal, Optional
 
 import numpy as np
 import pytest
@@ -304,7 +304,6 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        ("mobility", 1 / 0.001, None),
         # Combination of mobility and fluid density = rho/mu
         # = rho_ref * exp(c_f * (p - p_ref)) / mu = 1000 * exp(4e-10 * 2e7) /  0.001
         ("mobility_rho", 1008032.0855042734, None),
@@ -409,6 +408,46 @@ def test_ad_operator_methods_single_phase_flow(
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
+@pytest.mark.parametrize(
+    "method_name, p_or_c, expected_value",
+    [
+        ('phase_mobility', 'phase', 1 / 0.001),
+        ('fractional_phase_mobility', 'phase', 1),
+        ('component_mobility', 'component', 1008032.0855042734),
+        ('fractional_component_mobility', 'component', 1),
+    ]
+)
+def test_mobility_single_phase_flow(
+    model_setup: pp.PorePyModel,
+    method_name: str,
+    p_or_c: Literal['phase', 'component'],
+    expected_value: float,
+) -> None:
+    """Tests the evaluation of various mobility methods in the single-phase,
+    single-component model.
+
+    Fractional mobilities must be 1.
+    The phase and component mobility must be equal to the total mobility.
+
+    """
+    # mobilities are only defined on subdomains
+    domains = model_setup.mdg.subdomains()
+
+    assert model_setup.fluid.num_components == 1
+    assert model_setup.fluid.num_phases == 1
+
+    if p_or_c == 'phase':
+        instance = model_setup.fluid.reference_phase
+    elif p_or_c == 'component':
+        instance = model_setup.fluid.reference_component
+    else:
+        assert False, 'Unclear test input'
+
+    # Fetching method and calling it with the right instance
+    op: pp.ad.Operator = getattr(model_setup, method_name)(instance, domains)
+    val = op.value(model_setup.equation_system)
+    # Compare the actual and expected values.
+    assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
 @pytest.mark.parametrize(
     "units",

@@ -27,7 +27,6 @@ import numpy as np
 
 import porepy as pp
 import porepy.compositional as ppc
-from porepy.numerics.ad.operators import Operator
 
 from . import energy_balance as energy
 from . import fluid_mass_balance as mass
@@ -102,31 +101,6 @@ def update_phase_properties(
 # region general PDEs used in the (fractional) CF
 
 
-class TotalMassBalanceEquation(mass.MassBalanceEquations):
-    """Total mass balance equation, where the mobility term is generalized to account
-    for arbitrary numbers of phases.
-
-    Requires the ``MobilityCF`` constitutive law.
-
-    Inherits from the single-phase mass balance equation which uses upwinding on the
-    non-linear term in the total mass flux.
-
-    """
-
-    total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See
-    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
-
-    @staticmethod
-    def primary_equation_name() -> str:
-        """Returns the string which is used to name the pressure equation on all
-        subdomains, which is the primary PDE set by this class."""
-        return "total_mass_balance_equation"
-
-    def mobility_rho(self, domains: pp.SubdomainsOrBoundaries) -> Operator:
-        return self.total_mobility(domains)
-
-
 class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelProtocol):
     """Mixed-dimensional balance of total mass in a fluid mixture.
 
@@ -140,6 +114,11 @@ class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         This balance equation assumes that the total mobility is part of the
         diffusive, second-order tensor in the non-linear (MPFA) discretization of the
         Darcy flux.
+
+    See also:
+
+        For an equation using upwinding for the total mass, see
+        :class:`~porepy.models.fluid_mass_balance.MassBalanceEquations`.
 
     """
 
@@ -175,8 +154,8 @@ class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         """
         super().set_equations()
 
-        assert (
-            self._fractional_flow
+        assert pp.is_fractional_flow(
+            self
         ), "fractional flow flag must be True in model params"
         subdomains = self.mdg.subdomains()
         codim_1_interfaces = self.mdg.interfaces(codim=1)
@@ -260,7 +239,7 @@ class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         return source
 
 
-class TwoVariableTotalEnergyBalanceEquations(
+class TwoVariableEnergyBalanceEquations(
     energy.EnergyBalanceEquations,
     CompositionalFlowModelProtocol,
 ):
@@ -291,25 +270,20 @@ class TwoVariableTotalEnergyBalanceEquations(
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.constitutive_laws.DarcyFlux`."""
     total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See
-    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
     phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See
-    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
     fractional_phase_mobility: Callable[
         [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
-    """See
-    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
-    """See
-    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
     interface_mobility_discretization: Callable[
         [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
-    """See
-    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsCF`."""
@@ -321,18 +295,18 @@ class TwoVariableTotalEnergyBalanceEquations(
     def primary_equation_name():
         """Returns the name of the total energy balance equation introduced by this
         class, which is a primary PDE on all subdomains."""
-        return "total_energy_balance"
+        return "two_variable_energy_balance_equation"
 
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Overwrites the parent method to give the name assigned by
         :meth:`primary_equation_name`."""
         eq = super().energy_balance_equation(subdomains)
-        eq.set_name(TwoVariableTotalEnergyBalanceEquations.primary_equation_name())
+        eq.set_name(TwoVariableEnergyBalanceEquations.primary_equation_name())
         return eq
 
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Returns the internal energy of the fluid using the independent
-        :meth:`~EnthalpyVariable.enthalpy` variable and the
+        :meth:`~porepy.models.energy_balance.EnthalpyVariable.enthalpy` variable and the
         :attr:`~porepy.compositional.base.FluidMixture.density` of the fluid mixture
 
         .. math::
@@ -349,48 +323,43 @@ class TwoVariableTotalEnergyBalanceEquations(
         energy.set_name("fluid_internal_energy")
         return energy
 
-    def advective_weight_enthalpy_flux(
-        self, domains: pp.SubdomainsOrBoundaries
-    ) -> pp.ad.Operator:
+    def mobility_rho_h(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """The non-linear weight in the (advective) enthalpy flux.
 
-        It is computed by summing :meth:`~porepy.models.constitutive_laws.
-        fluid_property_library.FluidMobility.phase_mobility` weighed with
-        :attr:`~porepy.compositional.base.Phase.specific_enthalpy` for each phase,
-        and dividing by :meth:`~porepy.models.constitutive_laws.fluid_property_library.
-        FluidMobility.total_mobility`.
+        In the fractional flow setting, this returns a time-dependent dense array on the
+        boundary. On the internal domain it returns :math:`\\sum_j h_j f_j`, with
+        :math:`j` denoting a phase and :math:`f_j` the fractional phase mobility.
 
-        This is consistent with the fractional flow formulation, assuming the total
-        mobility is part of the diffusive tensor in the pressure equation.
-
-        Creates a boundary operator, in case explicit values for fractional flow BC are
-        used.
+        In the regular setting it performs a super-call to the parent class
+        implementation.
 
         """
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if self._fractional_flow and all(
+        if pp.is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_energy_key,
                 cast(Sequence[pp.BoundaryGrid], domains),
             )
-        else:
+        elif pp.is_fractional_flow(self):
             # TODO is it worth reducing the operator tree size, by pulling the division
             # by total mobility out of the sum?
             op = pp.ad.sum_operator_list(
                 [
                     phase.specific_enthalpy(domains)
                     * self.fractional_phase_mobility(phase, domains)
+                    # * phase.density(domains)
                     # * self.phase_mobility(phase, domains)
                     for phase in self.fluid.phases
                 ],
-                name="advected_enthalpy",
             )  # / self.total_mobility(domains)
+        else:
+            op = super().mobility_rho_h(domains)
 
-        op.set_name("bc_advected_enthalpy")
+        op.set_name("advected_enthalpy")
         return op
 
     def enthalpy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -405,7 +374,7 @@ class TwoVariableTotalEnergyBalanceEquations(
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             # # NOTE The advected enthalpy (Neumann-type flux) must be consistent with
             # # the total mass flux
-            op = self.advective_weight_enthalpy_flux(domains) * self.darcy_flux(domains)
+            op = self.mobility_rho_h(domains) * self.darcy_flux(domains)
             return op
 
         # Check that the domains are grids, not interfaces
@@ -420,7 +389,7 @@ class TwoVariableTotalEnergyBalanceEquations(
         boundary_operator_enthalpy = (
             self._combine_boundary_operators(  # type: ignore[call-arg]
                 subdomains=domains,
-                dirichlet_operator=self.advective_weight_enthalpy_flux,
+                dirichlet_operator=self.mobility_rho_h,
                 neumann_operator=self.enthalpy_flux,
                 robin_operator=None,
                 bc_type=self.bc_type_advective_flux,
@@ -429,7 +398,7 @@ class TwoVariableTotalEnergyBalanceEquations(
         )
 
         discr = self.mobility_discretization(domains)
-        weight = self.advective_weight_enthalpy_flux(domains)
+        weight = self.mobility_rho_h(domains)
         flux = self.advective_flux(
             domains,
             weight,
@@ -447,7 +416,7 @@ class TwoVariableTotalEnergyBalanceEquations(
         :class:`MobilityCF`."""
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        weight = self.advective_weight_enthalpy_flux(subdomains)
+        weight = self.mobility_rho_h(subdomains)
         flux = self.interface_advective_flux(
             interfaces,
             weight,
@@ -465,7 +434,7 @@ class TwoVariableTotalEnergyBalanceEquations(
         :class:`MobilityCF`."""
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        weight = self.advective_weight_enthalpy_flux(subdomains)
+        weight = self.mobility_rho_h(subdomains)
         flux = self.well_advective_flux(
             interfaces,
             weight,
@@ -527,17 +496,20 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     fractional_component_mobility: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
-    """See
-    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+    component_mobility: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
     """See
-    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
+    :class:`~porepy.models.fluid_property_library.FluidMobility`."""
     interface_mobility_discretization: Callable[
         [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
     """See
-    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
+    :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsCF`."""
@@ -548,7 +520,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     def _mass_balance_equation_name(self, component: pp.Component) -> str:
         """Method returning a name to be given to the mass balance equation of a
         component."""
-        return f"mass_balance_equation_{component.name}"
+        return f"component_mass_balance_equation_{component.name}"
 
     def component_mass_balance_equation_names(self) -> list[str]:
         """Returns the names of mass balance equations set by this class,
@@ -642,15 +614,17 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if self._fractional_flow and all(
+        if pp.is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_component_key(component),
                 cast(Sequence[pp.BoundaryGrid], domains),
             )
-        else:
+        elif pp.is_fractional_flow(self):
             op = self.fractional_component_mobility(component, domains)
+        else:
+            op = self.component_mobility(component, domains)
 
         op.set_name(f"advected_mass_{component.name}")
         return op
@@ -909,7 +883,7 @@ class PrimaryEquationsCF(
     mass.MassBalanceEquations,
     TracerTransportEquations,
     ComponentMassBalanceEquations,
-    TwoVariableTotalEnergyBalanceEquations,
+    TwoVariableEnergyBalanceEquations,
 ):
     """A collection of primary equations in the CF setting.
 
@@ -956,8 +930,7 @@ class ConstitutiveLawsSolidSkeletonCF(
     """
 
     total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See
-    :class:`~porepy.models.constitutive_laws.fluid_property_library.FluidMobility`."""
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
@@ -1036,17 +1009,20 @@ class ConstitutiveLawsSolidSkeletonCF(
         normal_permeability.set_name("normal_permeability")
         return normal_permeability
 
-    def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
+    def relative_permeability(
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
         """Constitutive law implementing the relative permeability.
 
         Parameters:
-            saturation: Operator representing the saturation of a phase.
+            phase: A phase in the fluid.
+            domains: A list of subdomains or boundaries.
 
         Returns:
-            The base class method implements the linear law ``saturation``.
+            The base class method implements the linear law.
 
         """
-        return saturation
+        return phase.saturation(domains)
 
     def solid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Internal energy of the solid.
@@ -1071,25 +1047,6 @@ class ConstitutiveLawsSolidSkeletonCF(
         )
         energy.set_name("solid_internal_energy")
         return energy
-
-    def pore_volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Returns an Ad representation of the pore volume, which is a multiplication
-        of cell volumes and porosity on subdomains."""
-        cell_volume = pp.wrap_as_dense_ad_array(
-            np.hstack([g.cell_volumes for g in subdomains]), name="cell_volume"
-        )
-        op = cell_volume * self.porosity(subdomains)
-        op.set_name("pore_volume")
-        return op
-
-    def volume(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Returns the target volume to be used in equilbrium calculations with
-        isochoric constraints.
-
-        The base implementation returns the :meth:`pore_volume`.
-
-        """
-        return self.pore_volume(subdomains)
 
 
 class ConstitutiveLawsCF(
@@ -1270,7 +1227,7 @@ class BoundaryConditionsFractionalFlow(
 
         """
         super().update_all_boundary_conditions()
-        if self._fractional_flow:
+        if pp.is_fractional_flow(self):
             self.update_boundary_values_fractional_flow()
         else:
             raise pp.compositional.CompositionalModellingError(
@@ -1713,56 +1670,16 @@ class SolutionStrategyCF(
         are based on the Darcy flux)."""
 
         # Input validation for set-up
-        if not self._is_ref_comp_eliminated:
+        if not pp.is_reference_component_eliminated(self):
             warnings.warn(
                 "Reference component (and its fraction) are not eliminated."
                 + " The basic model needs to be closed (unity constraint)."
             )
-        if not self._is_ref_phase_eliminated:
+        if not pp.is_reference_phase_eliminated(self):
             warnings.warn(
                 "Reference phase (and its saturation) are not eliminated."
                 + " The basic model needs to be closed (unity constraint)."
             )
-
-    @property
-    def equilibrium_type(self) -> Optional[str]:
-        """Returns the user-defined equilibrium type, if any.
-
-        Can be passed as ``params['equilibrium_type'] = 'p-T'`` for example.
-        Use the target state of the local equilibrium as value (``'p-T'``, ``'p-h'``,
-        ...) and additional keywords like ``'unified-p-T'``.
-
-        Defaults to None for CF models without equilibrium.
-
-        """
-        return self.params.get("equilibrium_type", None)
-
-    @property
-    def _is_ref_phase_eliminated(self) -> bool:
-        """Property returning a flag from the model params, indicating whether the
-        reference phase fractions (molar/massic and saturation) were eliminated by unity
-        of fractions.
-
-        Can be passed as ``params['eliminate_reference_phase'] = True``.
-
-        Defaults to True.
-
-        """
-        return bool(self.params.get("eliminate_reference_phase", True))
-
-    @property
-    def _is_ref_comp_eliminated(self) -> bool:
-        """Property returning a flag from the model params, indicating whether the
-        reference component's overall fraction was eliminated by unity of fractions.
-
-        This also impacts the number of component mass balance equations.
-
-        Can be passed as ``params['eliminate_reference_component'] = True``.
-
-        Defaults to True.
-
-        """
-        return bool(self.params.get("eliminate_reference_component", True))
 
     @property
     def _rediscretize_mpfa(self) -> bool:
@@ -1788,18 +1705,6 @@ class SolutionStrategyCF(
 
         """
         return bool(self.params.get("reduce_linear_system", False))
-
-    @property
-    def _fractional_flow(self) -> bool:
-        """Property returning a flag from the model params, indicating whether the
-        fractional flow formulation is used or not.
-
-        Can be passed as ``params['fractional_flow'] = True``.
-
-        Defaults to False.
-
-        """
-        return bool(self.params.get("fractional_flow", False))
 
     def primary_variable_names(self) -> list[str]:
         """Returns a list of primary variables, which in the basic set-up consist
@@ -1858,7 +1763,7 @@ class SolutionStrategyCF(
         return (
             [
                 mass.MassBalanceEquations.primary_equation_name(),
-                TwoVariableTotalEnergyBalanceEquations.primary_equation_name(),
+                TwoVariableEnergyBalanceEquations.primary_equation_name(),
             ]
             + self.component_mass_balance_equation_names()
             + self.tracer_transport_equation_names()
@@ -2020,7 +1925,7 @@ class SolutionStrategyCF(
 # endregion
 
 
-class CFModelSetup(  # type: ignore[misc]
+class ModelSetupCF(  # type: ignore[misc]
     # const. laws on top to overwrite what is used in inherited mass and energy balance
     ConstitutiveLawsCF,
     PrimaryEquationsCF,
@@ -2069,7 +1974,7 @@ class CFModelSetup(  # type: ignore[misc]
     """
 
 
-class CFFracFlowModelSetup(  # type: ignore[misc]
+class FractionalFlowModelSetupCF(  # type: ignore[misc]
     # const. laws on top to overwrite what is used in inherited mass and energy balance
     ConstitutiveLawsCF,
     PrimaryEquationsCF,
@@ -2080,7 +1985,7 @@ class CFFracFlowModelSetup(  # type: ignore[misc]
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
-    """Similar to :class:`CFModelSetup`, with the difference being the mixed-in
+    """Similar to :class:`ModelSetupCF`, with the difference being the mixed-in
     BC values class.
 
     Fractional flow offer the possibility to provide non-linear terms in advective

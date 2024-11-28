@@ -50,19 +50,19 @@ class MassBalanceEquations(pp.BalanceEquation):
     """
     total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Total fluid mobility. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FluidMobility`.
+    :class:`~porepy.models.fluid_property_library.FluidMobility`.
 
     """
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
     """Discretization of the fluid mobility. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FluidMobility`.
+    :class:`~porepy.models.fluid_property_library.FluidMobility`.
 
     """
     interface_mobility_discretization: Callable[
         [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
     """Discretization of the fluid mobility on internal boundaries. Normally provided
-    by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
+    by a mixin instance of :class:`~porepy.models.fluid_property_library.FluidMobility`.
 
     """
     advective_flux: Callable[
@@ -699,14 +699,14 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
     """
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
     """Discretization of the fluid mobility. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FluidMobility`.
+    :class:`~porepy.models.fluid_property_library.FluidMobility`.
 
     """
     interface_mobility_discretization: Callable[
         [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
     """Discretization of the fluid mobility on internal boundaries. Normally provided
-    by a mixin instance of :class:`~porepy.models.constitutive_laws.FluidMobility`.
+    by a mixin instance of :class:`~porepy.models.fluid_property_library.FluidMobility`.
 
     """
     operator_to_SecondOrderTensor: Callable[

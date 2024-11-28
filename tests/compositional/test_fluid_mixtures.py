@@ -272,7 +272,7 @@ def test_mixture_member_assignment(
         assert hasattr(phase, "extended_fraction_of")
 
         # fractions should be defined in equilibrium setting
-        if mixin._has_equilibrium:
+        if pp.get_equilibrium_type(mixin) is not None:
             if mixin.has_independent_fraction(phase):
                 assert isinstance(phase.fraction(sds), pp.ad.Variable)
                 assert isinstance(phase.fraction(bgs), pp.ad.TimeDependentDenseArray)
@@ -288,7 +288,7 @@ def test_mixture_member_assignment(
                     phase.extended_fraction_of[comp](sds)
 
         # extended fraction only in unified equilibrium setting
-        if mixin._has_unified_equilibrium:
+        if pp.has_unified_equilibrium(mixin):
             for comp in phase:
                 assert isinstance(phase.extended_fraction_of[comp](sds), pp.ad.Variable)
                 assert isinstance(
@@ -346,7 +346,7 @@ def test_mixture_member_assignment(
             assert not isinstance(phase.saturation(bgs), pp.ad.TimeDependentDenseArray)
             assert isinstance(phase.saturation(bgs), pp.ad.Operator)
             # same holds for reference phase fraction in the equilibrium setting
-            if mixin._has_equilibrium:
+            if pp.get_equilibrium_type(mixin) is not None:
                 assert not isinstance(phase.fraction(sds), pp.ad.Variable)
                 assert isinstance(phase.fraction(sds), pp.ad.Operator)
                 assert not isinstance(
@@ -356,12 +356,12 @@ def test_mixture_member_assignment(
         else:
             # otherwise it must be a variable
             assert isinstance(phase.saturation(sds), pp.ad.Variable)
-            if mixin._has_equilibrium:
+            if pp.get_equilibrium_type(mixin) is not None:
                 assert isinstance(phase.fraction(sds), pp.ad.Variable)
 
             # fraction and saturation on boundaries are time-dependent dense arrays
             assert isinstance(phase.saturation(bgs), pp.ad.TimeDependentDenseArray)
-            if mixin._has_equilibrium:
+            if pp.get_equilibrium_type(mixin) is not None:
                 assert isinstance(phase.saturation(bgs), pp.ad.TimeDependentDenseArray)
 
         # Now check the thermodynamic properties.
@@ -421,7 +421,7 @@ def test_mixture_member_assignment(
     assert not isinstance(mixin.fluid.density(sds), pp.ad.Variable)
     assert isinstance(mixin.fluid.specific_volume(sds), pp.ad.Operator)
     assert not isinstance(mixin.fluid.specific_volume(sds), pp.ad.Variable)
-    if mixin._has_equilibrium:
+    if pp.get_equilibrium_type(mixin) is not None:
         assert isinstance(mixin.fluid.specific_enthalpy(sds), pp.ad.Operator)
         assert not isinstance(mixin.fluid.specific_enthalpy(sds), pp.ad.Variable)
     else:
@@ -469,7 +469,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
         phase = list(mixin.fluid.phases)[0]
         assert phase == mixin.fluid.reference_phase
         assert not isinstance(phase.saturation(sds), pp.ad.Variable)
-        if mixin._has_equilibrium:
+        if pp.get_equilibrium_type(mixin) is not None:
             assert not isinstance(phase.fraction(sds), pp.ad.Variable)
 
         for comp in mixin.fluid.components:
@@ -479,7 +479,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
             # In the case of 1 phase, partial fractions are equal overall fractions
             assert comp.fraction == phase.partial_fraction_of[comp]
             # Extended fractions are always variable
-            if mixin._has_unified_equilibrium:
+            if pp.has_unified_equilibrium(mixin):
                 assert isinstance(phase.extended_fraction_of[comp](sds), pp.ad.Variable)
 
             # checking overall fraction
@@ -500,7 +500,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
         for phase in mixin.fluid.phases:
             if mixin.has_independent_saturation(phase):
                 assert isinstance(phase.saturation(sds), pp.ad.Variable)
-                if mixin._has_equilibrium:
+                if pp.get_equilibrium_type(mixin) is not None:
                     assert isinstance(phase.fraction(sds), pp.ad.Variable)
                 else:
                     with pytest.raises(composit.CompositionalModellingError):
@@ -508,7 +508,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
             else:
                 assert phase == mixin.fluid.reference_phase
                 assert not isinstance(phase.saturation(sds), pp.ad.Variable)
-                if mixin._has_equilibrium:
+                if pp.get_equilibrium_type(mixin) is not None:
                     assert not isinstance(phase.fraction(sds), pp.ad.Variable)
                 else:
                     with pytest.raises(composit.CompositionalModellingError):
@@ -521,7 +521,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
             assert comp == phase.reference_component
             assert not isinstance(phase.partial_fraction_of[comp](sds), pp.ad.Variable)
             # Extended fractions remain variables, in case phase vanishes
-            if mixin._has_unified_equilibrium:
+            if pp.has_unified_equilibrium(mixin):
                 assert isinstance(phase.extended_fraction_of[comp](sds), pp.ad.Variable)
     elif nphase == 1 and ncomp == 1:
         # In this singular case, no fractional variable is independent
