@@ -1,17 +1,91 @@
-"""Model mixins for multi-phase, multi-component flow, also denoted as compositional
-flow (CF).
+"""Model mixins for compositional flow (CF) and fractional flow (CFF).
 
-Provides means to formulate pressure equation, mass balance equations per component
-and a total energy equation, using a fractional flow formulation with molar or massic
-quantities.
+The CF settings is general in terms of number of phases, number of components and
+thermal conditions. It therefore does not contain a runnable model, but building blocks
+for models concretized in terms of phases, components and thermal setting.
 
-Primary variables are pressure, specific fluid enthalpy and overall fractions,
-as well as tracer fractions for purely transported tracers.
+The following equations are available:
 
-By default, the model is not closed, since saturations and temperature are dangling
-variables.
-The user needs to close models by providing a constitutive expression
-for them and eliminating the variables by a local, algebraic equation.
+- :class:`ComponentMassBalanceEquations`: While the :class:`~porepy.models.
+  fluid_mass_balance.MassBalanceEquations` represent the balance of total mass
+  (pressure equation), this equation represent the balance equation of individual
+  components in the fluid mixture. Interface fluxes are handled using the overall
+  Darcy interface flux implemented in the pressure equations and an adapted non-linear
+  term. It introduces a single equation, all interface equations are introduced by
+  :class:`~porepy.models.fluid_mass_balance.MassBalanceEquations`.
+- :class:`DiffusiveMassBalanceEquations`: A diffusive variant of the total mass balance,
+  where the total mobility is an isotropic contribution to the permeability tensor.
+  To be used in a fractional flow model. Expensive, since it requires a
+  re-discretization of the MPFA, but numerically consistent.
+- :class:`TwoVariableEnergyBalanceEquations`: A specialized total energy balance using
+  an independent (specific fluid) enthalpy variable in the accumulation term.
+  Otherwise completely analogous to its base
+  :class:`~porepy.models.energy_balance.EnergyBalanceEquations`.
+- :class:`TracerTransportEquations`: A special set of transport equations for
+  :class:`~porepy.compositional.base.Compound` and tracer contained therein.
+  Analogous to :class:`ComponentMassBalanceEquations`, but with a modified accumulation
+  term to account for the relative tracer fractions.
+
+Primary equations include a total mass balance, component balance and the some energy
+balance equation. A collection for non-isothermal, non-diffusive flow is given in
+:class:`PrimaryEquationsCF`.
+
+Primary variables are assumed to be a single pressure (no capillarity), an enthalpy or
+temperature variable, and overall fraction variables. They are collected in
+:class:`VariablesCF`.
+
+In a general setting, where phase properties are given by :class:`~porepy.numerics.ad.
+surrogate_operator.SurrogateFactory`, special IC and BC classes handling the consistent
+update are given by :class:`InitialConditionsPhaseProperties` and
+:class:`BoundaryConditionsPhaseProperties` respectively. They handle the automatized
+computation of respective values during the simulation.
+
+A collective
+
+Following IC mixins are available:
+
+- :class:`InitialConditionsFractions`: Provides an interface to set initial conditions
+  for overall fractions and active tracer fractions, if any. Other fractions are for now
+  not covered since they are considered secondary and their initialization can be done
+  based on the primary fractions.
+- :class:`InitialConditionsPhaseProperties`: An initialization routine for models where
+  phase properties are represented by :class:`~porepy.numerics.ad.surrogate_operator.
+  SurrogateFactory`. Their initialization is dependent on variable values, and is
+  automatized to happen after the variables are initialized.
+- :class:`InitialConditionsCF`: A collection of above initialization routines, and
+  the IC mixins for mass & energy, including an independent enthalpy variable.
+
+Following BC mixins are available:
+
+- :class:`BoundaryConditionsFractions`: The analogy to
+  :class:`InitialConditionsFractions` but for BC.
+- :class:'BoundaryConditionsPhaseProperties': The analogy to
+  :class:`InitialConditionsPhaseProperties` but for BC. Their update can be automatized
+  to happen after values for variables are set on the boundary.
+- :class:`BoundaryConditionsFF`: An alternative to
+  :class:`BoundaryConditionsPhaseProperties` for the fractional flow setting, where
+  various non-linear terms in fluxes can be given explicitly on the boundary,
+  instead of providing variable values which in return compute phase properties
+  appearing in those expressions.
+- :class:`BoundaryConditionsCF`: A collection of BC update routines for primary
+  variables and phase properties as surrogate factories, including those from
+  mass & energy, enthalpy and fractions.
+- :class:`BoundaryConditionsCFF`: The alternative to :class:`BoundaryConditionsCF` for
+  the fractional flow setting with explicit values for non-linear weights in fluxes.
+
+The :class:`SolutionStrategyCF` handles the general Cf model, with or without fractional
+flow simulation, and provides means to re-discretize the MPFA in the diffusive setting,
+and to eliminate local, secondary equations via Schur-complement. Those equations are
+required in any case to close the general multi-phase setting.
+
+The two setups, :class:`ModelSetupCF` and :class:`ModelSetupCFF` are in principle
+complete set-ups for non-isothermal, compositional flow. The steps required by users to
+close the setups are:
+
+1. Define a fluid with all its phases and components.
+2. Close the system with local equations for dangling, fractional variables. These can
+   either be :class:`~porepy.models.abstract_equations.LocalElimination` using some
+   map or third-party correlations, or a closure in form of a local equilibrium system.
 
 """
 
@@ -19,7 +93,6 @@ from __future__ import annotations
 
 import logging
 import time
-import warnings
 from functools import partial
 from typing import Callable, Optional, Sequence, cast
 
@@ -139,12 +212,6 @@ class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     well_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """See :class:`~porepy.models.constitutive_laws.PiecmannWellFlux`."""
 
-    @staticmethod
-    def primary_equation_name() -> str:
-        """Returns the string which is used to name the pressure equation on all
-        subdomains, which is the primary PDE set by this class."""
-        return "pressure_equation"
-
     def set_equations(self) -> None:
         """Set the equations for the mass balance problem.
 
@@ -188,7 +255,9 @@ class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name(DiffusiveMassBalanceEquations.primary_equation_name())
+        # NOTE use same name to raise an error if one attempts to set both, diffusive
+        # and regular mass balance equations
+        eq.set_name(mass.MassBalanceEquations.primary_equation_name())
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -291,17 +360,13 @@ class TwoVariableEnergyBalanceEquations(
     bc_data_fractional_flow_energy_key: str
     """See :class:`BoundaryConditionsCF`."""
 
-    @staticmethod
-    def primary_equation_name():
-        """Returns the name of the total energy balance equation introduced by this
-        class, which is a primary PDE on all subdomains."""
-        return "two_variable_energy_balance_equation"
-
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Overwrites the parent method to give the name assigned by
         :meth:`primary_equation_name`."""
         eq = super().energy_balance_equation(subdomains)
-        eq.set_name(TwoVariableEnergyBalanceEquations.primary_equation_name())
+        # NOTE use same name to throw error if one tries to use two energy balance
+        # equations in the same model.
+        eq.set_name(energy.EnergyBalanceEquations.primary_equation_name())
         return eq
 
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -1077,8 +1142,7 @@ class ConstitutiveLawsCF(
 
 
 class _BoundaryConditionsAdvection(PorePyModel):
-    """Temporary class fixing some inconsistencies when defining inlet-outlet boundaries
-    and using upwinding for non-linear terms in advective fluxes.
+    """Temporary class fixing some inconsistencies for hyperbolic-type BC.
 
     FIXME throughout the package.
 
@@ -1123,19 +1187,19 @@ class BoundaryConditionsPhaseProperties(
     properties on the boundary, which are represented by surrogate factories.
 
     Important:
-            The computation of phase properties is performed on all boundary cells,
-            Neumann and Dirichlet. This may require non-trivial values for primary
-            variables like pressure on the Neumann boundary as well.
+        The computation of phase properties is performed on all boundary cells,
+        Neumann and Dirichlet. This may require non-trivial values for primary
+        variables like pressure on the Neumann boundary as well.
 
-            This is due to phase properties being part of the non-linear advection term,
-            i.e. on the Neumann boundary they are multiplied with the flux.
+        This is due to phase properties being part of the non-linear advection term,
+        i.e. on the Neumann boundary they are multiplied with the flux.
 
-            The users themselves must implement zero values on non-inlet/outlet
-            boundaries if specified.
+        The users themselves must implement zero values on non-inlet/outlet
+        boundaries if specified.
 
-            For a more direct approach, see :class:`BoundaryConditionsFractionalFlow`,
-            where the value of the non-linear terms in the advection must be given
-            directly.
+        For a more direct approach, see :class:`BoundaryConditionsFF`,
+        where the value of the non-linear terms in the advection must be given
+        directly.
 
     """
 
@@ -1146,16 +1210,18 @@ class BoundaryConditionsPhaseProperties(
 
     def update_boundary_values_phase_properties(self) -> None:
         """Evaluates the phase properties using underlying EoS and progresses
-        their values in time.
+        their values in time on the boundary.
 
         This base method updates only properties which are expected in the non-linear
         weights of the advective and diffusive flux:
 
         - phase densities
-        - phase volumes
         - phase enthalpies
         - phase viscosities
         - phase thermal conductivities
+
+        Phase volumes are not updated, as their assumed to be the reciprocals of
+        density.
 
         """
 
@@ -1191,10 +1257,8 @@ class BoundaryConditionsPhaseProperties(
                     )
 
 
-class BoundaryConditionsFractionalFlow(
-    pp.BoundaryConditionMixin, CompositionalFlowModelProtocol
-):
-    """Analogous to :class:`BoundaryConditionsPhaseProperties`, but provides means to
+class BoundaryConditionsFF(pp.BoundaryConditionMixin, CompositionalFlowModelProtocol):
+    """Analogous to :class:`BoundaryConditionsPhaseProperties`, but providing means to
     define values of the non-linear terms in fluxes directly without using their full
     expression.
 
@@ -1262,7 +1326,7 @@ class BoundaryConditionsFractionalFlow(
                     function=bc_func,
                 )
 
-        # Updaing BC values of the non-linear weight in the energy balance
+        # Updating BC values of the non-linear weight in the energy balance
         # (advected enthalpy)
         self.update_boundary_condition(
             name=self.bc_data_fractional_flow_energy_key,
@@ -1270,44 +1334,42 @@ class BoundaryConditionsFractionalFlow(
         )
 
     def bc_values_fractional_flow_component(
-        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, bg: pp.BoundaryGrid
     ) -> np.ndarray:
         """BC values for the non-linear weight in the advective flux in
-        :class:`ComponentMassBalanceEquations`, determining how much mass for respecitve
-        ``component`` is entering the system on some inlet faces.
+        :class:`ComponentMassBalanceEquations`, determining how much mass for respective
+        ``component`` is entering the system on some inlet faces in relative terms.
 
         Parameters:
             component: A component in the fluid mixture.
-            boundary_grid: A boundary grid in the mixed-dimensional grid.
+            bg: A boundary grid in the mixed-dimensional grid.
 
         Returns:
             By default a zero array with shape ``(boundary_grid.num_cells,)``.
 
         """
-        return np.zeros(boundary_grid.num_cells)
+        return np.zeros(bg.num_cells)
 
-    def bc_values_fractional_flow_energy(
-        self, boundary_grid: pp.BoundaryGrid
-    ) -> np.ndarray:
+    def bc_values_fractional_flow_energy(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """BC values for the non-linear weight in the advective flux in
         the energy balance equation, determining how much energy/enthalpy is
-        entering the system on some inlet faces.
+        entering the system on some inlet faces in terms relative to the mass.
 
         Parameters:
-            boundary_grid: A boundary grid in the mixed-dimensional grid.
+            bg: A boundary grid in the mixed-dimensional grid.
 
         Returns:
             By default a zero array with shape ``(boundary_grid.num_cells,)``.
 
         """
-        return np.zeros(boundary_grid.num_cells)
+        return np.zeros(bg.num_cells)
 
 
 class BoundaryConditionsFractions(
     BoundaryConditionsPrimaryVariables, CompositionalFlowModelProtocol
 ):
     """Mixin providing boundary values for overall fractions of components and tracer
-    fractions in compounds.
+    fractions in compounds (primary fractions).
 
     Note:
         As for the enthalpy, these variables are only in specific cases accessed on the
@@ -1327,6 +1389,8 @@ class BoundaryConditionsFractions(
 
         See also:
 
+            - :meth:`bc_values_overall_fraction`
+            - :meth:`bc_values_tracer_fraction`
 
         """
         super().update_boundary_values_primary_variables()
@@ -1356,7 +1420,7 @@ class BoundaryConditionsFractions(
                 )
 
     def bc_values_overall_fraction(
-        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, bg: pp.BoundaryGrid
     ) -> np.ndarray:
         """BC values for overall fraction of a component (primary variable).
 
@@ -1364,43 +1428,43 @@ class BoundaryConditionsFractions(
 
         Parameters:
             component: A component in the fluid mixture.
-            boundary_grid: A boundary grid in the domain.
+            bg: A boundary grid in the domain.
 
         Returns:
             An array with ``shape=(bg.num_cells,)`` containing the value of
             the overall fraction.
 
         """
-        return np.zeros(boundary_grid.num_cells)
+        return np.zeros(bg.num_cells)
 
     def bc_values_tracer_fraction(
         self,
-        solute: pp.Component,
+        tracer: pp.Component,
         compound: ppc.Compound,
-        boundary_grid: pp.BoundaryGrid,
+        bg: pp.BoundaryGrid,
     ) -> np.ndarray:
-        """BC values for solute fractions (primary variable).
+        """BC values for active tracer fractions (primary variable).
 
         Used to evaluate secondary expressions and variables on the boundary.
 
         Parameters:
-            solute: A solute in the ``compound``.
+            tracer: A tracer in the ``compound``.
             compound: A component in the fluid mixture.
-            boundary_grid: A boundary grid in the domain.
+            bg: A boundary grid in the domain.
 
         Returns:
             An array with ``shape=(bg.num_cells,)`` containing the value of
             the overall fraction.
 
         """
-        return np.zeros(boundary_grid.num_cells)
+        return np.zeros(bg.num_cells)
 
 
-class BoundaryConditionsFractionalFlowCF(
+class BoundaryConditionsCFF(
     _BoundaryConditionsAdvection,
     # put on top for override of update_all_boundary_values, which includes sub-routine
     # for fractional flow.
-    BoundaryConditionsFractionalFlow,
+    BoundaryConditionsFF,
     mass_energy.BoundaryConditionsFluidMassAndEnergy,
     energy.BoundaryConditionsEnthalpy,
     BoundaryConditionsFractions,
@@ -1433,10 +1497,7 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
     """
 
     def initial_condition(self) -> None:
-        """Calls :meth:`set_initial_values_phase_properties` after the initialization
-        of variables.
-
-        """
+        """Calls :meth:`set_initial_values_phase_properties` after the super-call."""
         super().initial_condition()
         self.set_initial_values_phase_properties()
 
@@ -1503,9 +1564,9 @@ class InitialConditionsFractions(
     """Class providing interfaces to set initial values for various fractions in a
     general multi-component mixture.
 
-    This base class provides only initialization routines for fractions which are
-    primary variables, namely overall fractions per components and tracer fractions in
-    compounds.
+    This base class provides only initialization routines for primary fractional
+    variables, namely overall fractions per components and tracer fractions in
+    compounds. Other fractions are assumed secondary.
 
     """
 
@@ -1557,8 +1618,8 @@ class InitialConditionsFractions(
             sd: A subdomain in the md-grid.
 
         Returns:
-            The initial overall fraction values for a component on a subdomain.
-            Defaults to zero array.
+            The initial overall fraction values for a component on a subdomain. Defaults
+            to zero array.
 
         """
         return np.zeros(sd.num_cells)
@@ -1574,8 +1635,7 @@ class InitialConditionsFractions(
 
         Returns:
             The initial solute fraction values for a solute in a compound on a
-            subdomain.
-            Defaults to zero array.
+            subdomain. Defaults to zero array.
 
         """
         return np.zeros(sd.num_cells)
@@ -1606,7 +1666,7 @@ class SolutionStrategyCF(
     respectively be updated before re-discretization. This update is performed
     before every nonlinear iteration. An update in time is performed after convergence.
 
-    It also provides some minor utilities like defining primary equations and variables
+    It also provides utilities for defining primary equations and variables
     to eliminate local equations via Schur complement.
 
     The initialization parameters can contain the following entries:
@@ -1616,13 +1676,13 @@ class SolutionStrategyCF(
       of the system. If False, more work is required by the modeller.
     - ``'eliminate_reference_component'``: Defaults to True. If True, the overall
       fraction of the reference component is eliminated by unity, reducing the number
-      of unknowns. Also, the local mass constraint for the reference component is
-      removed as an equation. If False, the modelled must close the system.
+      of unknowns. Also, the mass balance equation for the reference component is
+      removed as an equation. If False, the modeller must close the system.
     - ``'fractional_flow'``: Defaults to False. If True, the model treats the
-      non-linear weights in the advective fluxes in mass and energy balances as a closed
-      term on the boundary. The user must then provide values for the non-linear weights
-      directly. It also uses fractional mobilities, instead of regular ones. To be used
-      with consistently discretized diffusive parts or balance equations
+      non-linear weights in the advective fluxes in mass and energy balances as closed
+      terms on the boundary. The user must then provide values for the non-linear
+      weights explicitly. It also uses fractional mobilities, instead of regular ones.
+      To be used with consistently discretized diffusive parts or balance equations
       (see also ``'rediscretize_mpfa'``).
     - ``'equilibrium_type'``: Defaults to None. If the model contains an equilibrium
       part, it should be a string indicating the fixed state of the local phase
@@ -1649,10 +1709,13 @@ class SolutionStrategyCF(
         super().__init__(params)
 
         self._nonlinear_flux_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
+        """Separate container for fluxes which need to be re-discretized. The separation
+        is necessary due to the re-discretization being performed at different stages
+        of the algorithm."""
 
         self.enthalpy_variable: str = "enthalpy"
         """Primary variable in the compositional flow model, denoting the total,
-        transported (specific molar) enthalpy of the fluid mixture."""
+        transported (specific molar) enthalpy of the fluid."""
 
         # TODO consider purging this completely from porepy, similar to the advective
         # type BC. There is only 1 total mass flux and 1 inlet/outlet boundary.
@@ -1661,18 +1724,6 @@ class SolutionStrategyCF(
         """Overwrites the enthalpy keyword for storing upwinding matrices for the
         advected enthalpy to be consistent with the general notion of mobility (both
         are based on the Darcy flux)."""
-
-        # Input validation for set-up
-        if not pp.is_reference_component_eliminated(self):
-            warnings.warn(
-                "Reference component (and its fraction) are not eliminated."
-                + " The basic model needs to be closed (unity constraint)."
-            )
-        if not pp.is_reference_phase_eliminated(self):
-            warnings.warn(
-                "Reference phase (and its saturation) are not eliminated."
-                + " The basic model needs to be closed (unity constraint)."
-            )
 
     @property
     def _rediscretize_mpfa(self) -> bool:
@@ -1699,9 +1750,36 @@ class SolutionStrategyCF(
         """
         return bool(self.params.get("reduce_linear_system", False))
 
+    def prepare_simulation(self) -> None:
+        """Logs some information about the system."""
+        start = time.time()
+        super().prepare_simulation()
+        duration = time.time() - start
+
+        p_elim = pp.is_reference_phase_eliminated(self)
+        c_elim = pp.is_reference_component_eliminated(self)
+        is_ff = pp.is_fractional_flow(self)
+        et = pp.get_equilibrium_type(self)
+        var_names = set([v.name for v in self.equation_system.variables])
+        dofs = self.equation_system.num_dofs()
+        dofs_loc = dofs / len(var_names)
+        var_msg = "\n\t\t".join(var_names)
+        logger.info(
+            f"Initialized CF model in {duration} seconds:\n"
+            + f"\tEquilibrium type: {et}\n"
+            + f"\tFractional flow: {is_ff}"
+            + f"\tLocal equations eliminated (Schur): {self._reduce_linear_system}\n"
+            + f"\tRe-discretize MPFA: {self._rediscretize_mpfa}\n"
+            + f"\tNumber of phases: {self.fluid.num_phases}\n"
+            + f"\tNumber of components: {self.fluid.num_components}\n"
+            + f"\tReference phase eliminated: {p_elim}\n"
+            + f"\tReference component eliminated: {c_elim}\n"
+            + f"\tDOFs (locally): {dofs} ({dofs_loc})\n"
+            + f"\tVariables: \n\t\t{var_msg}\n"
+        )
+
     def primary_variable_names(self) -> list[str]:
-        """Returns a list of primary variables, which in the basic set-up consist
-        of
+        """Returns a list of primary variables, which in the basic set-up consist of
 
         1. pressure,
         2. overall fractions,
@@ -1756,7 +1834,7 @@ class SolutionStrategyCF(
         return (
             [
                 mass.MassBalanceEquations.primary_equation_name(),
-                TwoVariableEnergyBalanceEquations.primary_equation_name(),
+                energy.EnergyBalanceEquations.primary_equation_name(),
             ]
             + self.component_mass_balance_equation_names()
             + self.tracer_transport_equation_names()
@@ -1780,7 +1858,7 @@ class SolutionStrategyCF(
     def add_nonlinear_flux_discretization(
         self, discretization: pp.ad._ad_utils.MergedOperator
     ) -> None:
-        """Add an entry to the list of nonlinear flux discretizations.
+        """Add an entry to the list of non-linear flux discretizations.
 
         Important:
             The fluxes must be re-discretized before the upwinding is re-discretized,
@@ -1967,12 +2045,12 @@ class ModelSetupCF(  # type: ignore[misc]
     """
 
 
-class FractionalFlowModelSetupCF(  # type: ignore[misc]
+class ModelSetupCFF(  # type: ignore[misc]
     # const. laws on top to overwrite what is used in inherited mass and energy balance
     ConstitutiveLawsCF,
     PrimaryEquationsCF,
     VariablesCF,
-    BoundaryConditionsFractionalFlowCF,
+    BoundaryConditionsCFF,
     InitialConditionsCF,
     SolutionStrategyCF,
     pp.ModelGeometry,
@@ -1983,6 +2061,6 @@ class FractionalFlowModelSetupCF(  # type: ignore[misc]
 
     Fractional flow offer the possibility to provide non-linear terms in advective
     fluxes explicitely, without evaluating phase properties. This functionality is given
-    by :class:`BoundaryConditionsFractionalFlowCF`.
+    by :class:`BoundaryConditionsFF`.
 
     """
