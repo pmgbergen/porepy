@@ -726,50 +726,6 @@ def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
     return sc2c
 
 
-def scalar_divergence(sd: pp.Grid) -> sps.csr_matrix:
-    """
-    Get divergence operator for a grid.
-
-    The operator is easily accessible from the grid itself, so we keep it
-    here for completeness.
-
-    See also vector_divergence(g)
-
-    Args:
-        sd (pp.Grid): grid
-
-    Returns
-        divergence operator
-    """
-    return sd.cell_faces.T.tocsr()
-
-
-def vector_divergence(sd: pp.Grid) -> sps.csr_matrix:
-    """
-    Get vector divergence operator for a grid g
-
-    It is assumed that the first column corresponds to the x-equation of face
-    0, second column is y-equation etc. (and so on in nd>2). The next column is
-    then the x-equation for face 1. Correspondingly, the first row
-    represents x-component in first cell etc.
-
-    Args:
-        sd (pp.Grid): grid
-
-    Returns
-        vector_div (sparse csr matrix), dimensions: nd * (num_cells, num_faces)
-    """
-    # Scalar divergence
-    scalar_div = sd.cell_faces
-
-    # Vector extension, convert to coo-format to avoid odd errors when one
-    # grid dimension is 1 (this may return a bsr matrix)
-    # The order of arguments to sps.kron is important.
-    block_div = sps.kron(scalar_div, sps.eye(sd.dim)).tocsc()
-
-    return block_div.transpose().tocsr()
-
-
 def scalar_tensor_vector_prod(
     sd: pp.Grid, k: pp.SecondOrderTensor, subcell_topology: SubcellTopology
 ) -> tuple[sps.csr_matrix, np.ndarray, np.ndarray]:
