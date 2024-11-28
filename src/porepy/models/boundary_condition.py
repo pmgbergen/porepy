@@ -1,3 +1,14 @@
+"""Module containing general classes representing boundary conditions.
+
+- :class:`BoundaryConditionMixin`: Base class providing an interface to update BC values
+  which is accessed by the solution strategy mixin. It also provides some functionality
+  for individual BC.
+- :class:`BoundaryConditionsPrimaryVariables`: Intermediate base class helping to
+  cluster the BC updates of primary variables into 1 sub-routine. This is required
+  in models where the order of BC updates is critical.
+
+"""
+
 from functools import cached_property
 from typing import Callable, Sequence
 
@@ -223,9 +234,54 @@ class BoundaryConditionsPrimaryVariables(BoundaryConditionMixin):
     """Intermediate mixin layer to provide an interface for explicitely updating the BC
     values of primary variables.
 
-    This class can be used in combination of others to introduce an order into the
+    This class can be used in combination with BC classes to introduce an order into the
     BC update routine, if for example BC values of secondary quantities depend on BC
     values of primary variables.
+
+    Example:
+        Let's consider a system with two variables, ``x,y`` where we want to enforce a
+        relation ``y = y(x)`` on the boundary.
+
+        .. code::python
+
+            class BCPrimary(BoundaryConditionsPrimaryVariables):
+
+                def update_boundary_values_primary_variables(self) -> None:
+                    super().update_boundary_values_primary_variables()
+                    self.update_boundary_condition('x', self.bc_value_x)
+
+                def bc_value_x(bg: pp.BoundaryGrid) -> np.ndarray:
+                    # proceed to return some value
+                    ...
+
+            class BCSecondary(BoundaryConditionMixin):
+
+                def update_all_boundary_conditions(self) -> None:
+                    super().update_all_boundary_conditions()
+                    self.update_boundary_condition('y', self.bc_value_y)
+
+                def bc_value_y(bg: pp.BoundaryGrid) -> np.ndarray:
+                    x = self.x([bg]).value(self.equation_system)
+                    # proceed to return some value depending x
+                    ...
+
+            class MyBC(BCSecondary, BCPrimary):
+                ...
+
+        Notice that in all collective update methods, ``super()`` is called first.
+        The way this works for the model using ``MyBC`` is that the code in
+        ``BCSecondary`` is executed first, which in return executes the code of
+        ``BCPrimary`` first. I.e., the update order is the reverse order in the
+        inheritance tree. This is due to ``BCPrimary`` calling itself ``super()`` in
+        :meth:`update_all_boundary_conditions` first, in order to execute the filter
+        framework in the base class before any type of update.
+
+        When using this approach, the BC update for ``y`` can reliably fetch
+        the latest values for ``x`` on the boundary.
+
+        Notice also, that ``update_boundary_values_primary_variables`` has also a
+        ``super()`` call on top. This makes it compatible in the case of a third,
+        primary variable which should be updated in the same sub-routine as ``x``.
 
     """
 
