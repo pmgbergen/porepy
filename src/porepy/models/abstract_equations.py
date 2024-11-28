@@ -1,8 +1,15 @@
-"""Abstract equation classes.
+"""Module containing classes representing generalized equations and variables.
 
-Contains:
-    - BalanceEquation: Base class for vector and scalar balance equations.
-    - VariableMixin: Base class for variables.
+- :class:`EquationMixin`: Base equation class providing the interface for setting
+    equations. This interface is used by the solution strategy mixin.
+- :class:`BalanceEquation`: Intermediate base class for vector and scalar balance
+    equations.
+- :class:`LocalElimination`: Intermediate base class for local equations which
+    represent the elimination of some variable by a correlation/function dependent on
+    other variables.
+- :class:`VariableMixin`: Base class for variables, providing the interface for
+    creating variables. This interface is used by the solution strategy mixin.
+
 """
 
 from __future__ import annotations
@@ -13,11 +20,46 @@ from typing import Callable, Sequence, Union, cast
 import numpy as np
 
 import porepy as pp
+from porepy.numerics.ad.equation_system import GridEntity
 
 
 class EquationMixin(pp.PorePyModel):
     """General class for equations defining an interface to introduce equations into
-    a model."""
+    a model.
+
+    Example:
+        When creating multi-physics models, the order of equations will reflect
+        the order of inheritance of individual equation classes.
+
+        Say we have to equation classes combined into one multi-physics model:
+
+        .. code::python
+
+            class Equation1(EquationMixin):
+
+                def set_equations(self):
+                    super().set_equation()
+                    # proceed to set equation 1
+
+            class Equation2(EquationMixin):
+
+                def set_equations(self):
+                    super().set_equation()
+                    # proceed to set equation 2
+
+            class ModelEquations(Equation1, Equation2):
+                pass
+
+        Notice that in both ``set_equations`` the super-call comes first.
+        The way ``super()`` works now is, that ``Equation1`` will be called first,
+        which in return executes the code of ``Equation2`` first.
+        I.e., the order of equations introduced into the system is the reverse order
+        of equation classes in the inheritance tree of the combined class.
+
+        Notice also, that the combined class ``ModelEquations`` does not need an
+        implementation of ``set_equations``.
+
+    """
 
     def set_equations(self) -> None:
         """Method to be overridden to set equations on some grid.
@@ -25,10 +67,6 @@ class EquationMixin(pp.PorePyModel):
         The base class method does nothing and is implemented to provide the right
         signature and to help the super call to resolve the setting of equations in
         multi-physics models.
-
-        Note:
-            When creating multi-physics models, the order of equations will reflect
-            the order of inheritance of individual equation classes.
 
         """
         pass
@@ -129,7 +167,7 @@ class BalanceEquation(EquationMixin):
 
 
 class LocalElimination(EquationMixin):
-    """Generic class to introduce local equations on some grid.
+    """Mixin to introduce local equations on some grid.
 
     Provides functionality to close a model with dangling variables by introducing
     a closure of form :math:`x - \\tilde{x}(\\dots) = 0`, where :math:`\\tilde{x}` is
@@ -139,6 +177,13 @@ class LocalElimination(EquationMixin):
         This elimination happens locally in time and space. No values backwards in time
         and iterate sense are stored for :math:`\\tilde{x}`. This class assumes that
         previous iterate and time steps exist only for :math:`x` in some other equation.
+
+    Important:
+        For this mixin to work reliably, it must be above IC, BC and solution strategy
+        mixins in the inheritance order.
+        Since it fetches values for variables, update routines for IC, BC and solution
+        strategies (iterate values) must be executed before any routine here is
+        attached.
 
     Example:
         Considering a two-phase flow, the gas saturation could be given by some
@@ -164,7 +209,7 @@ class LocalElimination(EquationMixin):
     ]:
         """Storage of configurations of local eliminations.
 
-        The key is the name of the surrogate factory used for the local elimination.
+        The key is the name of the local equation introduced into the model.
         The value is a tuple containing
 
         1. references to the eliminated variable,
@@ -182,7 +227,7 @@ class LocalElimination(EquationMixin):
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
         func: Callable[..., tuple[np.ndarray, np.ndarray]],
         domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
-        dofs: dict = {"cells": 1},
+        equations_per_grid_entity: dict[GridEntity, int] = {"cells": 1},
     ) -> None:
         """Method to add a secondary equation eliminating a variable by some
         constitutive law depending on *other* variables.
@@ -194,13 +239,13 @@ class LocalElimination(EquationMixin):
         a secondary equation :math:`\\varphi - \\hat{\\varphi}(x) = 0`, with :math:`x`
         denoting the ``dependencies``.
 
-        It uses :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory` to
+        It uses the :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory` to
         provide AD representations of :math:`\\hat{\\varphi}` and to update its values
         and derivatives using ``func`` in the solutionstrategy.
 
         Note:
             While any type of grid can be passed in ``domains``, the equation is
-            formally introduced **only** on subdomains and interfaces, if any.
+            formally introduced **only** on subdomains and boundaries, if any.
             On boundary grids, the framework of local elimination provides a convenience
             functionality to automatically compute values for the eliminated variable
             on the boundary using ``func`` and store them.
@@ -227,9 +272,10 @@ class LocalElimination(EquationMixin):
             domains: A Sequence of grids on which the quantity and its dependencies are
                 defined and on which the equation should be introduces.
                 Used to call ``independent_quantity`` and ``dependencies``.
-            dofs: ``default={'cells':1}``
+            equations_per_grid_entity: ``default={'cells':1}``
 
-                Argument for when adding above equation to the equation system.
+                Argument for when adding above equation to the equation system and
+                creating a surrogate factory.
 
         """
         # separate these two because Boundary values for independent quantities are
@@ -250,20 +296,25 @@ class LocalElimination(EquationMixin):
             name=f"surrogate_for_{sec_var.name}_on_grids_{g_ids}",
             mdg=self.mdg,
             dependencies=dependencies,
+            dof_info=equations_per_grid_entity,
         )
 
+        equ_name = f"elimination_of_{sec_var.name}_on_grids_{g_ids}"
         local_equ = sec_var - sec_expr(non_boundaries)
-        local_equ.set_name(f"elimination_of_{sec_var.name}_on_grids_{g_ids}")
+        local_equ.set_name(equ_name)
         self.equation_system.set_equation(
-            local_equ, cast(list[pp.Grid] | list[pp.MortarGrid], non_boundaries), dofs
+            local_equ,
+            cast(list[pp.Grid] | list[pp.MortarGrid], non_boundaries),
+            equations_per_grid_entity,
         )
 
-        self.add_local_elimination(
-            sec_var, sec_expr, func, cast(pp.GridLikeSequence, domains)
+        self._add_local_elimination(
+            equ_name, sec_var, sec_expr, func, cast(pp.GridLikeSequence, domains)
         )
 
-    def add_local_elimination(
+    def _add_local_elimination(
         self,
+        local_equation_name: str,
         primary: pp.ad.MixedDimensionalVariable,
         expression: pp.ad.SurrogateFactory,
         func: Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
@@ -272,8 +323,8 @@ class LocalElimination(EquationMixin):
         """Register a surrogate factory used for local elimination with the model
         framework to have it's update automatized.
 
-        Updates are performed on boundaries (at the beginning of every time step),
-        and on internal grids before every non-linear solver iteration.
+        Regular updates are performed on boundaries (at the beginning of every time
+        step), and on internal domains before every non-linear solver iteration.
 
         See also:
 
@@ -282,6 +333,7 @@ class LocalElimination(EquationMixin):
             - :meth:`before_nonlinear_iteration`
 
         Parameters:
+            local_equation_name: The name of the local equation eliminating ``primary``.
             primary: The formally independent Ad operator which was eliminated by the
                 expression.
             expression: The secondary expression which eliminates ``primary``, with
@@ -300,7 +352,7 @@ class LocalElimination(EquationMixin):
             [g for g in grids if isinstance(g, (pp.Grid, pp.MortarGrid))],
         )
         self.__local_eliminations.update(
-            {expression.name: (primary, expression, func, domains, boundaries)}
+            {local_equation_name: (primary, expression, func, domains, boundaries)}
         )
 
     def update_all_boundary_conditions(self) -> None:
