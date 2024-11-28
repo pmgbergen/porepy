@@ -3,7 +3,6 @@ flow."""
 
 from __future__ import annotations
 
-import pathlib
 from typing import Literal, Sequence, TypedDict, cast
 
 import numpy as np
@@ -100,22 +99,17 @@ def outlet_faces(bg: pp.BoundaryGrid, sides: pp.domain.DomainSides) -> np.ndarra
     return outlet
 
 
-# defining inlet and outlet pressure
-p_OUTLET = 1.0
-p_INLET = 1.5
-# defining the amount of tracer comming into the domain
-z_inlet = 0.1
-
-
 class TracerIC(InitialConditionsFractions):
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Setting initial pressure equal to pressure on outflow boundary."""
-        return np.ones(sd.num_cells) * p_OUTLET
+        # Initial and outlet pressure are the same.
+        return np.ones(sd.num_cells)
 
     def initial_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
+        # No tracer in the domain at the beginning.
         if component.name == "tracer":
             return np.zeros(sd.num_cells)
         else:
@@ -156,8 +150,8 @@ class TracerBC(BoundaryConditionsFractions, _BoundaryConditionsAdvection):
             inlet = inlet_faces(bg, sides)
             outlet = outlet_faces(bg, sides)
 
-            p[inlet] = p_INLET
-            p[outlet] = p_OUTLET
+            p[inlet] = 1.5
+            p[outlet] = 1.0
 
         return p
 
@@ -168,12 +162,13 @@ class TracerBC(BoundaryConditionsFractions, _BoundaryConditionsAdvection):
 
         z = np.zeros(bg.num_cells)
 
+        # 10% tracer inflow into matrix
         if bg.parent.dim == 2:
             if component.name == "tracer":
                 sides = self.domain_boundary_sides(bg)
                 inlet = inlet_faces(bg, sides)
 
-                z[inlet] = z_inlet
+                z[inlet] = 0.1
             else:
                 assert (
                     False
@@ -195,73 +190,69 @@ class TracerFlowSetup(  # type: ignore[misc]
     problem."""
 
 
-solid = pp.SolidConstants(porosity=0.1, permeability=1e-11, normal_permeability=1e-19)
+# If executed as main, run simulation
+if __name__ == "__main__":
+    # initial time step 60 seconds
+    dt_init = 60
+    # Simulation time 2 hour
+    T_end = 2 * 60 * 60
+    # min max time step size is 6 seconds and 10 minutes respectively
+    dt_min_max = (0.1 * dt_init, 10 * 60)
+    # parameters for Newton solver
+    max_iterations = 80
+    newton_tol = 1e-6
+    newton_tol_increment = newton_tol
 
-# initial time step 1 second
-dt_init = 1
-# Simulation time 1 hour
-T_end = dt_init * 60 * 60  # simulating 1 hour
-# min max time step size is 1/10 second and 1 minute respectively
-dt_min_max = (0.1 * dt_init, 60 * dt_init)
-# parameters for Newton solver
-max_iterations = 80
-newton_tol = 1e-8
-newton_tol_increment = newton_tol
+    time_manager = pp.TimeManager(
+        schedule=[0, T_end],
+        dt_init=dt_init,
+        dt_min_max=dt_min_max,
+        iter_max=max_iterations,
+        iter_optimal_range=(2, 10),
+        iter_relax_factors=(0.8, 1.2),
+        recomp_factor=0.8,
+        recomp_max=5,
+    )
 
-time_manager = pp.TimeManager(
-    schedule=np.arange(0, T_end, 10 * 60),  # schedule every 10 minutes
-    dt_init=dt_init,
-    dt_min_max=(0.1 * dt_init, 60 * dt_init),
-    iter_max=max_iterations,
-    iter_optimal_range=(2, 10),
-    iter_relax_factors=(0.9, 1.1),
-    recomp_factor=0.5,
-    recomp_max=5,
-)
+    params = {
+        "material_constants": {
+            # solid with impermeable fractures
+            "solid": pp.SolidConstants(
+                porosity=0.1, permeability=1e-7, normal_permeability=1e-19
+            ),
+        },
+        # The respective DOFs are eliminated by default. These flags are for
+        # demonstration.
+        "eliminate_reference_phase": True,
+        "eliminate_reference_component": True,
+        # We use upwinding in the pressure equation, no fractional flow (default).
+        "fractional_flow": False,
+        "time_manager": time_manager,
+        "max_iterations": max_iterations,
+        "nl_convergence_tol": newton_tol_increment,
+        "nl_convergence_tol_res": newton_tol,
+        "progressbars": True,
+    }
 
-params = {
-    "material_constants": {
-        # solid with impermeable fractures
-        "solid": pp.SolidConstants(
-            porosity=0.1, permeability=1e-11, normal_permeability=1e-19
-        ),
-    },
-    # The respective DOFs are eliminated by default. These flags are for demonstration.
-    "eliminate_reference_phase": True,
-    "eliminate_reference_component": True,
-    # We use an inconsistent discretization in the pressure equation, no fractional flow
-    "fractional_flow": False,
-    "time_manager": time_manager,
-    "max_iterations": max_iterations,
-    "nl_convergence_tol": newton_tol_increment,
-    "nl_convergence_tol_res": newton_tol,
-    "restart_options": {
-        "restart": True,
-        "is_mdg_pvd": True,
-        "pvd_file": pathlib.Path("./visualization/data.pvd"),
-    },
-}
-
-# NOTE mypy has some issues with the composed CF protocol, which is part of some of the
-# mixins. For some reasons it thinks this class has tracer_transport_equation_names
-# as an attribute, even though it does not have that mixin among the base classes.
-model = TracerFlowSetup(params)  # type:ignore[abstract]
-pp.run_time_dependent_model(model, params)
-pp.plot_grid(
-    model.mdg,
-    "pressure",
-    figsize=(10, 8),
-    linewidth=0.2,
-    title="Pressure distribution",
-    plot_2d=True,
-    if_plot=True,
-)
-pp.plot_grid(
-    model.mdg,
-    "z_tracer",
-    figsize=(10, 8),
-    linewidth=0.2,
-    title="Pressure distribution",
-    plot_2d=True,
-    if_plot=True,
-)
+    # NOTE mypy has some issues with the composed CF protocol, which is part of some of
+    # the mixins. For some reasons it thinks this class has
+    # tracer_transport_equation_names as an attribute, even though it does not have that
+    # mixin among the base classes.
+    model = TracerFlowSetup(params)  # type:ignore[abstract]
+    pp.run_time_dependent_model(model, params)
+    pp.plot_grid(
+        model.mdg,
+        "pressure",
+        figsize=(10, 8),
+        linewidth=0.2,
+        title="Pressure distribution",
+        plot_2d=True,
+    )
+    pp.plot_grid(
+        model.mdg,
+        "z_tracer",
+        figsize=(10, 8),
+        linewidth=0.2,
+        title="Tracer distribution after 2 hours",
+        plot_2d=True,
+    )

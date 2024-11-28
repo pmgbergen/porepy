@@ -1,11 +1,11 @@
-"""A module containing mixins for defining fluid mixtures and relatd variables in a
+"""A module containing mixins for defining fluid mixtures and related variables in a
 PorePy model.
 
 While the mixins operate on some base assumptions, they are highly customizable by
 inheritance and the user is encouraged to read up on them.
 
 Important:
-    The framework does not support the variable switiching approach.
+    The framework does not support the variable switching approach.
 
     Variables are persistent and the user must be familiar with the DOFs implemented
     in the class :class:`_MixtureDOFHandler` (whose methods are not supposed to be
@@ -103,7 +103,7 @@ def is_fractional_flow(model: pp.PorePyModel) -> bool:
         True if ``model.params['fractional_flow'] == True`. Defaults to False.
 
     """
-    return bool(model.params.get("eliminate_reference_component", False))
+    return bool(model.params.get("fractional_flow", False))
 
 
 def get_equilibrium_type(model: pp.PorePyModel) -> str | None:
@@ -705,8 +705,8 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 "Cannot create fluid mixture variables before defining a fluid mixture."
             )
 
-        # NOTE: The creation of variables seems repetative (it is), but it is done this
-        # way to preserve a certain order (component-wise, phase-wise and familiy-wise
+        # NOTE: The creation of variables seems repetitive (it is), but it is done this
+        # way to preserve a certain order (component-wise, phase-wise and family-wise
         # for each family of fractions)
 
         # Creation of feed fractions
@@ -808,7 +808,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         """Getter method to create a callable representing the tracer fraction of an
         active tracer in a compound, on a list of subdomains or boundaries.
 
-        The base method creates tracer fractions as an independend variables
+        The base method creates tracer fractions as an independent variables
         (transportable), after asserting the tracer is indeed in that compound.
 
         Parameters:
@@ -938,7 +938,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             fraction is not necessarily 1, hence an unknown.
 
         Parameters:
-            component: A componend in the fluid mixture.
+            component: A component in the fluid mixture.
             phase: A phase in the fluid mixture.
 
         Returns:
@@ -956,7 +956,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         # NOTE Extended fractions are in general always unknowns, even in
         # 1 component, multiphase case (they are some value below 1 if a phase vanishes)
-        # Only in the case with 1 component and 1 phase, the extendeded fraction is
+        # Only in the case with 1 component and 1 phase, the extended fraction is
         # also a scalar 1, since the 1 modelled phase cannot vanish.
         if self.fluid.num_components == self.fluid.num_phases == 1:
 
@@ -1000,7 +1000,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
            unity.
 
         Parameters:
-            component: A componend in the fluid mixture.
+            component: A component in the fluid mixture.
             phase: A phase in the fluid mixture.
 
         Returns:
@@ -1081,7 +1081,7 @@ class FluidMixin(pp.PorePyModel):
     providing it as an attribute :attr:`fluid`.
 
     Fluid properties are by definition expressed through respective phase properties,
-    which can be overriden here as part of the constitutive modelling.
+    which can be overridden here as part of the constitutive modelling.
 
     The following methods are factories to provide functions for phase properties:
 
