@@ -323,7 +323,9 @@ class TwoVariableEnergyBalanceEquations(
         energy.set_name("fluid_internal_energy")
         return energy
 
-    def mobility_rho_h(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def advection_weight_energy_balance(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
         """The non-linear weight in the (advective) enthalpy flux.
 
         In the fractional flow setting, this returns a time-dependent dense array on the
@@ -357,7 +359,7 @@ class TwoVariableEnergyBalanceEquations(
                 ],
             )  # / self.total_mobility(domains)
         else:
-            op = super().mobility_rho_h(domains)
+            op = super().advection_weight_energy_balance(domains)
 
         op.set_name("advected_enthalpy")
         return op
@@ -374,7 +376,9 @@ class TwoVariableEnergyBalanceEquations(
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             # # NOTE The advected enthalpy (Neumann-type flux) must be consistent with
             # # the total mass flux
-            op = self.mobility_rho_h(domains) * self.darcy_flux(domains)
+            op = self.advection_weight_energy_balance(domains) * self.darcy_flux(
+                domains
+            )
             return op
 
         # Check that the domains are grids, not interfaces
@@ -389,7 +393,7 @@ class TwoVariableEnergyBalanceEquations(
         boundary_operator_enthalpy = (
             self._combine_boundary_operators(  # type: ignore[call-arg]
                 subdomains=domains,
-                dirichlet_operator=self.mobility_rho_h,
+                dirichlet_operator=self.advection_weight_energy_balance,
                 neumann_operator=self.enthalpy_flux,
                 robin_operator=None,
                 bc_type=self.bc_type_advective_flux,
@@ -398,7 +402,7 @@ class TwoVariableEnergyBalanceEquations(
         )
 
         discr = self.mobility_discretization(domains)
-        weight = self.mobility_rho_h(domains)
+        weight = self.advection_weight_energy_balance(domains)
         flux = self.advective_flux(
             domains,
             weight,
@@ -416,7 +420,7 @@ class TwoVariableEnergyBalanceEquations(
         :class:`MobilityCF`."""
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        weight = self.mobility_rho_h(subdomains)
+        weight = self.advection_weight_energy_balance(subdomains)
         flux = self.interface_advective_flux(
             interfaces,
             weight,
@@ -434,7 +438,7 @@ class TwoVariableEnergyBalanceEquations(
         :class:`MobilityCF`."""
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        weight = self.mobility_rho_h(subdomains)
+        weight = self.advection_weight_energy_balance(subdomains)
         flux = self.well_advective_flux(
             interfaces,
             weight,
@@ -457,14 +461,6 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     This equation is defined on all subdomains. Due to a single pressure and interface
     flux variable, there is no need for additional equations as is the case in the
     pressure equation.
-
-    Note:
-        This is a sophisticated version of
-        :class:`~porepy.models.fluid_mass_balance.MassBalanceEquation` where the
-        non-linear weights in the flux term stem from a multiphase, multicomponent
-        mixture.
-
-        There is room for unification and recycling of code. TODO
 
     """
 
@@ -501,15 +497,12 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-
     mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
-    """See
-    :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
     interface_mobility_discretization: Callable[
         [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
     ]
-    """See
-    :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
     bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`BoundaryConditionsCF`."""
@@ -595,7 +588,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         mass_density.set_name(f"component_mass_{component.name}")
         return mass_density
 
-    def advective_weight_component_flux(
+    def advection_weight_component_mass_balance(
         self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         """The non-linear weight in the advective component flux.
@@ -636,7 +629,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         flux multiplied with a non-linear weight.
 
         See Also:
-            :meth:`advective_weight_component_flux`
+            :meth:`advection_weight_component_mass_balance`
 
         Can be called on the boundary to obtain a representation of user-given Neumann
         data.
@@ -644,7 +637,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         """
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
             # NOTE consistent Neumann-type flux based on the total flux
-            op = self.advective_weight_component_flux(
+            op = self.advection_weight_component_mass_balance(
                 component, domains
             ) * self.darcy_flux(domains)
             return op
@@ -655,13 +648,13 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         domains = cast(list[pp.Grid], domains)
 
         discr = self.mobility_discretization(domains)
-        weight = self.advective_weight_component_flux(component, domains)
+        weight = self.advection_weight_component_mass_balance(component, domains)
 
         # Use a partially evaluated function call to functions to mimic
         # functions solely depend on a sequence of grids
         weight_inlet_bc = cast(
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            partial(self.advective_weight_component_flux, component),
+            partial(self.advection_weight_component_mass_balance, component),
         )
         fluid_flux_neumann_bc = cast(
             Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
@@ -692,7 +685,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         self, component: pp.Component, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
         """Interface component flux using a the interface darcy flux and
-        :meth:`advective_weight_component_flux`.
+        :meth:`advection_weight_component_mass_balance`.
 
         See Also:
             :attr:`interface_advective_flux`
@@ -700,7 +693,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        weight = self.advective_weight_component_flux(component, subdomains)
+        weight = self.advection_weight_component_mass_balance(component, subdomains)
         flux: pp.ad.Operator = self.interface_advective_flux(interfaces, weight, discr)
         flux.set_name(f"interface_component_flux_{component.name}")
         return flux
@@ -709,7 +702,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         self, component: pp.Component, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
         """Well component flux using a the well flux and
-        :meth:`advective_weight_component_flux`.
+        :meth:`advection_weight_component_mass_balance`.
 
         See Also:
             :attr:`well_advective_flux`
@@ -717,7 +710,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        weight = self.advective_weight_component_flux(component, subdomains)
+        weight = self.advection_weight_component_mass_balance(component, subdomains)
         flux: pp.ad.Operator = self.well_advective_flux(interfaces, weight, discr)
         flux.set_name(f"well_component_flux_{component.name}")
         return flux

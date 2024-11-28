@@ -180,7 +180,9 @@ class MassBalanceEquations(pp.BalanceEquation):
         mass.set_name("fluid_mass")
         return mass
 
-    def mobility_rho(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+    def advection_weight_mass_balance(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
         """Fluid density divided by viscosity.
 
         Note:
@@ -201,12 +203,12 @@ class MassBalanceEquations(pp.BalanceEquation):
         """Fluid flux as Darcy flux times density and mobility.
 
         Note:
-            The advected entity in the fluid flux is given by :meth:`mobility_rho`.
-            When using upwinding, Dirichlet-type data for pressure and temperature
-            must also be provided on the Neumann-boundary when there is
-            an in-flux into the domain.
-            The advected entity must provide values on the boundary in this case, since
-            the upstream value of it is on the boundary.
+            The advected entity in the fluid flux is given by
+            :meth:`advection_weight_mass_balance`. When using upwinding, Dirichlet-type
+            data for pressure and temperature must also be provided on the
+            Neumann-boundary when there is an in-flux into the domain. The advected
+            entity must provide values on the boundary in this case, since the upstream
+            value of it is on the boundary.
 
         Parameters:
             domains: List of subdomains or boundary grids.
@@ -234,11 +236,11 @@ class MassBalanceEquations(pp.BalanceEquation):
         domains = cast(list[pp.Grid], domains)
 
         discr = self.mobility_discretization(domains)
-        mob_rho = self.mobility_rho(domains)
+        mob_rho = self.advection_weight_mass_balance(domains)
 
         boundary_operator = self._combine_boundary_operators(
             subdomains=domains,
-            dirichlet_operator=self.mobility_rho,
+            dirichlet_operator=self.advection_weight_mass_balance,
             neumann_operator=self.fluid_flux,
             # Robin operator is not relevant for advective fluxes
             robin_operator=None,
@@ -277,7 +279,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.mobility_rho(subdomains)
+        mob_rho = self.advection_weight_mass_balance(subdomains)
         # Call to constitutive law for advective fluxes.
         flux: pp.ad.Operator = self.interface_advective_flux(interfaces, mob_rho, discr)
         flux.set_name("interface_fluid_flux")
@@ -295,7 +297,7 @@ class MassBalanceEquations(pp.BalanceEquation):
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
         discr = self.interface_mobility_discretization(interfaces)
-        mob_rho = self.mobility_rho(subdomains)
+        mob_rho = self.advection_weight_mass_balance(subdomains)
         # Call to constitutive law for advective fluxes.
         flux: pp.ad.Operator = self.well_advective_flux(interfaces, mob_rho, discr)
         flux.set_name("well_fluid_flux")

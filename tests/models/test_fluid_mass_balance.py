@@ -170,6 +170,9 @@ def test_tested_vs_testable_methods_single_phase_flow(
 @pytest.mark.parametrize(
     "method_name, expected_value, dimension_restriction",
     [
+        # Combination of mobility and fluid density = rho/mu
+        # = rho_ref * exp(c_f * (p - p_ref)) / mu = 1000 * exp(4e-10 * 2e7) /  0.001
+        ("advection_weight_mass_balance", 1008032.0855042734, None),
         ("aperture", np.array([1, 1, 1, 1, 0.01, 0.01, 0.01, 0.01, 0.01]), None),
         ("combine_boundary_operators_darcy_flux", np.zeros(24), None),
         # Darcy fluxes (with unitary values for the viscosity).
@@ -304,9 +307,6 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        # Combination of mobility and fluid density = rho/mu
-        # = rho_ref * exp(c_f * (p - p_ref)) / mu = 1000 * exp(4e-10 * 2e7) /  0.001
-        ("mobility_rho", 1008032.0855042734, None),
         ("normal_permeability", 1.0, None),
         ("permeability", 1e-20, None),
         ("porosity", 7e-3, None),
@@ -348,7 +348,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
         # ("reference_pressure", 0, None),
         ("skin_factor", 0, None),
         ("tangential_component", np.array([[1.0, 0.0]]), 0),  # check only for 0d
-        # Must be the same in the 1-phase, 1-component case as mobility_rho
+        # Must be the same in the 1-phase, 1-component case as advection_weight_mass_balance
         ("total_mobility", 1008032.0855042734, None),
         ("well_fluid_flux", 0, 2),  # use dim_restriction=2 to ignore well flux
         ("well_flux_equation", 0, 2),  # use dim_restriction=2 to ignore well equation
