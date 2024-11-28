@@ -1269,7 +1269,8 @@ def _assemble_matrices(
     if g.dim == 2:
         n_rot_face = g.num_faces
         n_rot_cell = g.num_cells
-        div_rot = pp.fvutils.scalar_divergence(g)
+        div_rot = g.divergence(n=1)
+
     else:
         n_rot_face = g.num_faces * g.dim
         n_rot_cell = g.num_cells * g.dim
@@ -1316,7 +1317,7 @@ def _assemble_matrices(
         [
             pp.fvutils.vector_divergence(g),
             div_rot,
-            pp.fvutils.scalar_divergence(g),
+            g.divergence(n=1),
         ],
         format="csr",
     )
