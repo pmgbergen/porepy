@@ -7,7 +7,6 @@ keep them separate, to avoid breaking existing code (legacy models).
 
 from __future__ import annotations
 
-import abc
 import logging
 import time
 import warnings
@@ -22,7 +21,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class SolutionStrategy(abc.ABC, pp.PorePyModel):
+class SolutionStrategy(pp.PorePyModel):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
 

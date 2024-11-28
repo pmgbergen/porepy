@@ -889,7 +889,7 @@ else:
 
         """
 
-    class CompositionalFlowModelProtocol(Protocol):
+    class CompositionalFlowModelProtocol(PorePyModel, Protocol):
         """Protocol declaring a collection of mixed-in methods specific to the
         compositional flow setting.
 
@@ -897,77 +897,6 @@ else:
         some mixins, but implemented in others.
 
         """
-
-        @property
-        def _is_ref_phase_eliminated(self) -> bool:
-            """Property returning a flag from the model params, indicating whether the
-            reference phase fractions (molar/massic and saturation) were eliminated by unity
-            of fractions.
-
-            Can be passed as ``params['eliminate_reference_phase'] = True``.
-
-            Defaults to True.
-
-            """
-
-        @property
-        def _is_ref_comp_eliminated(self) -> bool:
-            """Property returning a flag from the model params, indicating whether the
-            reference component's overall fraction was eliminated by unity of fractions.
-
-            This also impacts the number of component mass balance equations.
-
-            Can be passed as ``params['eliminate_reference_component'] = True``.
-
-            Defaults to True.
-
-            """
-
-        @property
-        def equilibrium_type(self) -> Optional[str]:
-            """Returns the user-defined equilibrium type, if any.
-
-            Can be passed as ``params['equilibrium_type'] = 'p-T'`` for example.
-            Use the target state of the local equilibrium as value (``'p-T'``, ``'p-h'``,
-            ...) and additional keywords like ``'unified-p-T'``.
-
-            Defaults to None for CF models without equilibrium.
-
-            """
-
-        @property
-        def _rediscretize_mpfa(self) -> bool:
-            """Property returning a flag from the model params, indicating whether the
-            MPFA should be consistently re-discretized or upwinding is used.
-
-            Can be passed as ``params['rediscretize_mpfa'] = True``.
-
-            Defaults to False.
-
-            """
-
-        @property
-        def _reduce_linear_system(self) -> bool:
-            """Property returning a flag from the model params, indicating whether the
-            global linear system should be reduced via Schur complement using
-            :meth:`primary_equation_names` and :meth:`primary_variable_names`.
-
-            Can be passed as ``params['reduce_linear_system'] = True``.
-
-            Defaults to False.
-
-            """
-
-        @property
-        def _fractional_flow(self) -> bool:
-            """Property returning a flag from the model params, indicating whether the
-            fractional flow formulation is used or not.
-
-            Can be passed as ``params['fractional_flow'] = True``.
-
-            Defaults to False.
-
-            """
 
         @property
         def overall_fraction_variables(self) -> list[str]:

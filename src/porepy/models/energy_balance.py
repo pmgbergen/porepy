@@ -51,11 +51,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
     """
-    mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid mobility. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FluidMobility`.
-
-    """
+    phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Mobility of a phase. Normally provided by a mixin instance of
+    :class:`~porepy.models.fluid_property_library.FluidMobility`."""
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
@@ -138,6 +136,12 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
     bc_data_enthalpy_flux_key: str
 
+    @staticmethod
+    def primary_equation_name():
+        """Returns the name of the energy balance equation introduced by this class,
+        which is a primary PDE on all subdomains."""
+        return "energy_balance_equation"
+
     def set_equations(self) -> None:
         """Set the equations for the energy balance problem.
 
@@ -176,7 +180,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux = self.energy_flux(subdomains)
         source = self.energy_source(subdomains)
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name("energy_balance_equation")
+        eq.set_name(EnergyBalanceEquations.primary_equation_name())
         return eq
 
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -264,21 +268,26 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         return flux
 
     def mobility_rho_h(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """ "Non-linear weight in the advective enthalpy flux.
+        """Non-linear weight in the advective enthalpy flux.
 
         Parameters:
             domains: A list of either subdomains or boundary grids.
 
         Returns:
-            The expression :math:`\\frac{\\rho h}{\\mu}` in operator form.
+            The expression :math:`\\sum_{j}\\frac{\\rho_j h_j}{\\mu_j}`, with :math:`j`
+            being a phase in the fluid, in operator form.
 
         """
-        result = (
-            self.fluid.specific_enthalpy(domains)
-            * self.fluid.density(domains)
-            * self.mobility(domains)
+        op = pp.ad.sum_operator_list(
+            [
+                phase.specific_enthalpy(domains)
+                * phase.density(domains)
+                * self.phase_mobility(phase, domains)
+                for phase in self.fluid.phases
+            ],
+            name="advected_enthalpy",
         )
-        return result
+        return op
 
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Enthalpy flux.

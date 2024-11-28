@@ -35,6 +35,11 @@ from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
 __all__ = [
+    "is_reference_phase_eliminated",
+    "is_reference_component_eliminated",
+    "is_fractional_flow",
+    "get_equilibrium_type",
+    "has_unified_equilibrium",
     "CompositionalVariables",
     "FluidMixin",
 ]
@@ -62,7 +67,86 @@ def _get_surrogate_factory_as_property(
     )
 
 
-class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
+# NOTE The following methods are outsourced for compatibility reasons.
+# They can be used with any model.
+def is_reference_phase_eliminated(model: pp.PorePyModel) -> bool:
+    """
+    Parameters:
+        model: A PorePy model.
+
+    Returns:
+        True if ``model.params['eliminate_reference_phase'] == True`. Defaults to True.
+
+    """
+    return bool(model.params.get("eliminate_reference_phase", True))
+
+
+def is_reference_component_eliminated(model: pp.PorePyModel) -> bool:
+    """
+    Parameters:
+        model: A PorePy model.
+
+    Returns:
+        True if ``model.params['eliminate_reference_component'] == True`. Defaults to
+        True.
+
+    """
+    return bool(model.params.get("eliminate_reference_component", True))
+
+
+def is_fractional_flow(model: pp.PorePyModel) -> bool:
+    """
+    Parameters:
+        model: A PorePy model.
+
+    Returns:
+        True if ``model.params['fractional_flow'] == True`. Defaults to False.
+
+    """
+    return bool(model.params.get("eliminate_reference_component", False))
+
+
+def get_equilibrium_type(model: pp.PorePyModel) -> str | None:
+    """
+    Parameters:
+        model: A PorePy model.
+
+    Returns:
+        The local equilibrium type stored in ``model.params['equilibrium_type']`.
+        Defaults to None.
+
+        Valid equilibrium types are any combination of to state functions fixed at
+        equilibrium, e.g. ``'p-T'``, ``'p-h'``.
+
+        Additional qualifiers also also allowed, e.g. ``'unified-p-h'``.
+
+    """
+    et = model.params.get("equilibrium_type", None)
+    if et is not None:
+        return str(et)
+    else:
+        return None
+
+
+def has_unified_equilibrium(model: pp.PorePyModel) -> bool:
+    """
+    Parameters:
+        model: A PorePy model.
+
+    Returns:
+        True, if the keyword ``'unified'`` is in ``model.params['equilibrium_type']``,
+        if given at all.
+        Defaults to False.
+
+    """
+    et = str(get_equilibrium_type(model)).lower()
+    if "unified" in et:
+        return True
+    else:
+        return False
+
+
+class _MixtureDOFHandler(CompositionalFlowModelProtocol):
     """A class to help resolve the independent fractional variables of an arbitrary
     mixture, and respectively the DOFs.
 
@@ -126,37 +210,12 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
         ``'eliminate_reference_phase'``, which can be set in the model's :attr:`params`.
 
         Finally, the ``'equilibrium_type'`` set in the model's :attr:`params` is used
-        to determine the indepency of partial and extended fractions of components
+        to determine the independency of partial and extended fractions of components
         in phases.
 
     """
 
     # Logic methods determining existence of DOFs
-
-    @property
-    def _has_equilibrium(self) -> bool:
-        """Helper method to access the model parameters and check if the
-        equilibrium type is defined. Defaults to False."""
-
-        equilibrium_type = self.params.get("equilibrium_type", None)
-
-        if equilibrium_type is None:
-            return False
-        else:
-            return True
-
-    @property
-    def _has_unified_equilibrium(self) -> bool:
-        """Helper method to access the model parameters and check if the
-        equilibrium type is defined and if it is unified."""
-        if self._has_equilibrium:
-            # NOTE _has_equilibrium already checks that the value is not none.
-            if "unified" in str(self.params["equilibrium_type"]):
-                return True
-            else:
-                return False
-        else:
-            return False
 
     def has_independent_fraction(self, instance: Phase | Component) -> bool:
         """Checks whether the ``instance`` has an independent variable for the
@@ -188,7 +247,7 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
             idx = instances.index(instance)
             ref_idx = self.fluid.reference_phase_index
             num_instances = self.fluid.num_phases
-            eliminated = self._is_ref_phase_eliminated
+            eliminated = pp.is_reference_phase_eliminated(self)
         elif isinstance(instance, Component):
             instances = list(self.fluid.components)
             if instance not in instances:
@@ -196,7 +255,7 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
             idx = instances.index(instance)
             ref_idx = self.fluid.reference_component_index
             num_instances = self.fluid.num_components
-            eliminated = self._is_ref_comp_eliminated
+            eliminated = pp.is_reference_component_eliminated(self)
         else:
             raise TypeError(
                 f"Unknown type {type(instance)}. Expecting phase or component."
@@ -258,11 +317,8 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
         :attr:`~porepy.compositional.base.Phase.partial_fraction_of` a ``component`` in
         a ``phase`` is an independent variable or not.
 
-        If the ``'equilibrium_type'`` in :attr:`params` indicates that any *unified*
-        equilibrium is included in the model, i.e.
-        ``'unified' in params['equilibrium_type'] == True``, partial fractions are
-        always dependent, since they are obtained by normalization of extended
-        fractions.
+        If the model contains a unified local equilibrium, partial fractions are always
+        dependent, since they are obtained by normalization of extended fractions.
 
         If there is no equilibrium or a non-unified equilibrium, partial fractions can
         be independent variables.
@@ -289,6 +345,10 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
             making it a genuine variable. It would only increase the system size
             unnecessarily.
 
+        See also:
+
+            :func:`get_equilibrium_type`
+
         Paramters:
             component: Any component in the :attr:`fluid`.
             phase: Any phase in the :attr:`fluid`.
@@ -307,7 +367,7 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
         if component not in self.fluid.components:
             raise ValueError(f"Component {component} not in fluid mixture.")
 
-        if self._has_unified_equilibrium:
+        if has_unified_equilibrium(self):
             return False
         else:
             if component not in phase:
@@ -339,13 +399,16 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
         :attr:`~porepy.compositional.base.Phase.extended_fraction_of` a ``component`` in
         a ``phase`` is an independent variable or not.
 
-        Extended fractions are only used if there is a unified equilibrium defintion,
-        i.e. ``'unified' in params['equilibrium_type'] == True``.
+        Extended fractions are only used if there is a unified equilibrium defintion.
 
         In that case, if the ``component`` is modelled in the ``phase``, the respective
         extended fraction is always an independent variable.
         Since for vanished phases the extended fractions do not necessarily fulfill the
         unity constraint, no extended fraction can be eliminated.
+
+        See also:
+
+            :func:`get_equilibrium_type`
 
         Paramters:
             component: Any component in the :attr:`fluid`.
@@ -358,8 +421,7 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
                 The unified setting expects all components to be modelled in all phases.
 
         Returns:
-            True, if the ``'equilibrium_type'`` in :attr:`params` contains
-            ``'unified'``. False otherwise.
+            True, the model has a unified local equilibrium defined. False otherwise.
 
         """
         if phase not in self.fluid.phases:
@@ -367,7 +429,7 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
         if component not in self.fluid.components:
             raise ValueError(f"Component {component} not in fluid mixture.")
 
-        if self._has_unified_equilibrium:
+        if "unified" in str(pp.get_equilibrium_type(self)).lower():
             if component not in phase:
                 raise CompositionalModellingError(
                     f"Component {component} not in phase {phase}."
@@ -469,7 +531,7 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
         """Names of independent phase :attr:`~porepy.compositional.base.Phase.fraction`
         variables created for this model."""
         names: list[str] = []
-        if self._has_equilibrium:
+        if pp.get_equilibrium_type(self) is not None:
             for phase in self.fluid.phases:
                 if self.has_independent_fraction(phase):
                     names.append(self._phase_fraction_variable(phase))
@@ -503,7 +565,7 @@ class _MixtureDOFHandler(pp.PorePyModel, CompositionalFlowModelProtocol):
         for phase in self.fluid.phases:
             for comp in phase:
                 append = False
-                if self._has_unified_equilibrium:
+                if pp.has_unified_equilibrium(self):
                     if self.has_independent_extended_fraction(comp, phase):
                         append = True
                 elif self.has_independent_partial_fraction(comp, phase):
@@ -596,7 +658,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                         phase.extended_fraction_of[component](subdomains).value(
                             self.equation_system, state
                         )
-                        if self._has_unified_equilibrium
+                        if pp.has_unified_equilibrium(self)
                         else phase.partial_fraction_of[component](subdomains).value(
                             self.equation_system, state
                         )
@@ -830,7 +892,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single_phase_fraction")
 
-        elif not self._has_equilibrium:
+        elif pp.get_equilibrium_type(self) is None:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 raise CompositionalModellingError(
@@ -904,7 +966,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 )
 
         # If no unified equilibrium, calling the extended fractions will raise an error
-        elif not self._has_unified_equilibrium:
+        elif not has_unified_equilibrium(self):
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 raise CompositionalModellingError(
@@ -986,7 +1048,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 return x_r
 
         # Case of unified equilibrium: Partial fractions are obtained by normalization
-        elif self._has_unified_equilibrium:
+        elif has_unified_equilibrium(self):
             # NOTE the fraction of the phase's reference component is covered above
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 xn = phase.extended_fraction_of[component](
@@ -1245,15 +1307,13 @@ class FluidMixin(pp.PorePyModel):
         Example:
 
             Let's assume a general mixture with multiple components and phases, which
-            uses the :class:`CompositionalVariables`, and either
-            :attr:`_MixtureDOFHandler._has_unified_equilibrium` or
-            :attr:`_MixtureDOFHandler._has_equilibrium` defined. I.e., the fluid and
-            phase properties are not characterized by some mixed-in, heuristic law, but
-            by a local phase equilibrium system or some interpolation. The values of
-            properties like density are then dependent on some variables. This
-            information is used to evaluate those variables and provide the information
-            to flash calculations or look-up, and subsequently to populate the Jacobians
-            of the property.
+            uses the :class:`CompositionalVariables`, and an equilibrium is defined.
+            I.e., the fluid and phase properties are not characterized by some mixed-in,
+            heuristic law, but by a local phase equilibrium system or some
+            interpolation. The values of properties like density are then dependent on
+            some variables. This information is used to evaluate those variables and
+            provide the information to flash calculations or look-up, and subsequently
+            to populate the Jacobians of the property.
 
             The above mentioned logic can then be translated into code the following
             way:
@@ -1267,7 +1327,7 @@ class FluidMixin(pp.PorePyModel):
                     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
 
                         dependencies = [self.pressure]
-                        if self._has_unified_equilibrium:
+                        if 'unified' in pp.get_equilibrium_type(self).lower():
 
                             dependencies +=  [self.temperature] + [
                                 phase.extended_fraction_of[component]
@@ -1277,7 +1337,7 @@ class FluidMixin(pp.PorePyModel):
                                 )
                             ]
 
-                        elif self._has_equilibrium:
+                        elif pp.get_equilibrium_type(self):
 
                             dependencies += [self.temperature] + [
                                 phase.partial_fraction_of[component]

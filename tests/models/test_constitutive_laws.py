@@ -52,7 +52,6 @@ solid_values.update(
         ("mass_balance", "mobility_rho", None),
         ("mass_balance", "fluid.reference_phase.viscosity", None),
         ("mass_balance", "fluid_source", None),
-        ("mass_balance", "mobility", None),
         ("mass_balance", "total_mobility", None),
         ("mass_balance", "fluid.density", None),
         ("mass_balance", "aperture", None),

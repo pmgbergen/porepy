@@ -8,8 +8,8 @@ import porepy as pp
 import porepy.compositional as ppc
 from porepy.models.compositional_flow import (
     BoundaryConditionsCF,
-    CFModelSetup,
     InitialConditionsCF,
+    ModelSetupCF,
     PrimaryEquationsCF,
 )
 
@@ -117,10 +117,8 @@ class DriesnerBrineFlowModel(
     InitialConditions,
     BoundaryConditions,
     ModelEquations,
-    CFModelSetup,
+    ModelSetupCF,
 ):
-    def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
-        return saturation
 
     @property
     def vtk_sampler(self):
