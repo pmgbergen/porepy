@@ -279,32 +279,6 @@ def _add_mixin(mixin, parent):
     return cls
 
 
-# TODO: Purge in favour of pp.solid_values.granite
-granite_values = {
-    "biot_coefficient": 0.8,
-    "permeability": 1e-20,
-    "density": 2700,
-    "porosity": 7e-3,
-    "shear_modulus": 16.67 * pp.GIGA,
-    "lame_lambda": 11.11 * pp.GIGA,
-    "specific_heat_capacity": 790,
-    "thermal_conductivity": 2.5,
-    "thermal_expansion": 1e-5,
-    "fracture_normal_stiffness": 1529,
-    "maximum_elastic_fracture_opening": 1e-4,
-    "fracture_gap": 1e-4,
-    "residual_aperture": 0.01,
-}
-water_values = {
-    "specific_heat_capacity": 4180,
-    "compressibility": 4e-10,
-    "viscosity": 1e-3,
-    "density": 1000,
-    "thermal_conductivity": 0.6,
-    "thermal_expansion": 2.1e-4,
-}
-
-
 def compare_scaled_primary_variables(
     setup_0: pp.SolutionStrategy,
     setup_1: pp.SolutionStrategy,
