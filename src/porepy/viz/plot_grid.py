@@ -527,7 +527,16 @@ def _color_map(
     """
     cmap = plt.get_cmap(cmap_type)
     scalar_map = mpl.cm.ScalarMappable(cmap=cmap)
+    # For constant data, perturb the data slightly to generate a color map.
+    if extr_value[0] == extr_value[1]:
+        if extr_value[0] == 0:
+            eps = 1e-6  # Arbitrary small value.
+        else:
+            eps = 1e-1 * extr_value[0]  # 10% of the value.
+        extr_value[0] -= eps
+        extr_value[1] += eps
     scalar_map.set_array(extr_value)
+    # Set the limits of the color map.
     scalar_map.set_clim(vmin=extr_value[0], vmax=extr_value[1])
     return scalar_map
 
