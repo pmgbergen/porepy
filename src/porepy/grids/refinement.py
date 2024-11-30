@@ -112,7 +112,10 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
 
     # Template array of node indices for refined cells.
     indices_template = np.vstack((np.arange(ratio), np.arange(ratio) + 1)).ravel("F")
+    indices_template = np.repeat(np.arange(ratio), 2)
     nd = np.r_[np.diff(cell_nodes.indices)[1::2], 0]
+
+    old_2_new_nodes = {}
 
     # The refinement must work also for grids that are not equidistant. While it might
     # be possible to do the refinemnet in a vectorized fashion, looping over the cells
@@ -144,15 +147,21 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
 
         # Local cell-node (thus cell-face) relations of the new grid. This will give a
         # linear ordering of the new nodes.
-        new_indices.append(shift + indices_template)
-        offset_new_indices = new_indices[-1][-1]
+        #offset_new_indices = new_indices[-1][-1]
         
+        loc_new_ind = []
+
         # Add coordinate of the startpoint to the node array if relevant
         if if_add_loc[0]:
             x[:, pos] = g.nodes[:, start]
+            old_2_new_nodes[start] = pos
+            loc_new_ind.append(pos)
             pos += 1
+        else:
+            loc_new_ind.append(old_2_new_nodes[start])
 
-
+        loc_new_ind += list(pos + indices_template[:-2])
+        
         # Add coordinates of the internal nodes. The coordinates added here run from
         # closest to the start node to closest to the end node. Reshape is needed since
         # we may add more than one node at a time (in contrast to the assignments in the
@@ -167,19 +176,38 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
         # Add coordinate of the endpoint of this interval if relevant
         if if_add_loc[-1]:
             x[:, pos] = g.nodes[:, end]
+            old_2_new_nodes[end] = pos
+            loc_new_ind.append(pos)
             pos += 1
+        else:
+            loc_new_ind.append(old_2_new_nodes[end])
 
+        new_indices.append(np.array(loc_new_ind))          
         debug = True
         #assert shift == offset_new_indices
 
     # For 1d grids, there is a 1-1 relation between faces and nodes
     face_nodes = sps.identity(x.shape[1], format="csc")
+
+    # The grid is 1d, so the face indices are the same as the node indices stored in
+    # new_indices.
     cell_face_ind = np.hstack(new_indices)
+
+    # The signs are -1 for the first node of each cell, and 1 for the second. Other
+    # possibilities would be possible, but this should work.
+    # Find the first occurrence of each node.
+    _, first_occurrences = np.unique(cell_face_ind, return_index=True)
+    # Initialize the signs array with -1, and set the first occurrences to 1.
+    signs = np.full(cell_face_ind.size, -1)
+    signs[first_occurrences] = 1
+
+    # We have the cell-face relation. The index pointer assigns two indices to each
+    # cell, again, this is 1d.s
     cell_faces = sps.csc_matrix(
         (
-            np.ones(indices.size, dtype=bool),
-            indices,
-            np.arange(0, indices.size + 1, 2),
+            signs,
+            cell_face_ind,
+            np.arange(0, cell_face_ind.size + 1, 2),
         )
     )
     g = Grid(1, x, face_nodes, cell_faces, "Refined 1d grid")
