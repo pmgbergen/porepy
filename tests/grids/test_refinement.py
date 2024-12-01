@@ -7,6 +7,7 @@
 - :func:`porepy.fracs.meshing.cart_grid`
 
 """
+
 from __future__ import division
 
 import numpy as np
@@ -18,6 +19,7 @@ from porepy.grids import refinement
 from porepy.grids.simplex import TriangleGrid
 from porepy.grids.structured import TensorGrid
 from porepy.applications.test_utils.arrays import compare_arrays
+import scipy.sparse as sps
 
 
 class TestGridPerturbation:
@@ -38,25 +40,88 @@ class TestGridPerturbation:
 
 
 class TestGridRefinement1D:
-    @pytest.mark.parametrize(
-        "g,target_nodes",
-        [
-            (TensorGrid(np.array([0, 2, 4])), np.arange(5)),  # uniform
-            (TensorGrid(np.array([0, 2, 6])), np.array([0, 1, 2, 4, 6])),  # non-uniform
-        ],
-    )
-    def test_refinement_grid_1D(self, g, target_nodes):
-        h = refinement.refine_grid_1d(g, ratio=2)
-        assert np.allclose(h.nodes[0], target_nodes)
+    """Tests for the 1D grid refinement functions.
 
-    def test_refinement_grid_1d_general_orientation(self):
-        x = np.array([0, 2, 6]) * np.ones((3, 1))
-        g = TensorGrid(x[0])
-        g.nodes = x
-        h = refinement.refine_grid_1d(g, ratio=2)
-        assert np.allclose(
-            h.nodes, np.array([[0, 1, 2, 4, 6], [0, 1, 2, 4, 6], [0, 1, 2, 4, 6]])
+    The test focuses on the topology of the refined grid, also in cases with non-uniform
+    grid spacing, permuted node/cell orderings and split nodes.
+
+    Geometric aspects (whatever that would be, perhaps grids not aligned with the
+    x-axis) are not tested, as the chance of errors in the geometric computations is
+    considered low.
+
+    """
+
+    def compare_refined_grids(self, g: pp.Grid, g_ref: pp.Grid, ratio: int) -> None:
+        """Helper function to compare the refined grid with the original grid.
+
+        See comments in the below code for which properties are compared.
+
+        Parameters:
+            g: The original grid.
+            g_ref: The refined grid.
+            ratio: The ratio of the number of cells in the refined grid to the original
+                grid.
+
+        """
+
+        # The two grids should cover the same domain.
+        assert np.sum(g.cell_volumes) == np.sum(g_ref.cell_volumes)
+
+        # If the ratio is given, all cells should be refined by this ratio.
+        if ratio is not None:
+            assert np.allclose(g_ref.num_cells / g.num_cells, ratio)
+
+        # There should be as many faces as nodes in a 1d grid. Check that the face-node
+        # map is 1-1, and that there are as many node coordinates as there are nodes.
+        assert g_ref.face_nodes.shape[0] == g_ref.face_nodes.shape[1]
+        assert g_ref.face_nodes.shape[0] == g_ref.nodes.shape[1]
+
+        # These are 1d grids, thus the number of boundary faces should be the same in
+        # the two grids. Exploit this to check the refined cell-face mapping, which has
+        # a somewhat non-trivial construction.
+        num_boundary_g = np.sum(np.sum(g.cell_faces, axis=1) != 0)
+        num_boundary_g_ref = np.sum(np.sum(g_ref.cell_faces, axis=1) != 0)
+        assert num_boundary_g == num_boundary_g_ref
+
+    @pytest.mark.parametrize("ratio", [2, 3])
+    def test_refinement_grid_1D(self, ratio: int):
+        """Test the refinement of a 1D grid
+
+        Parameters:
+            ratio: The ratio of the number of cells in the refined grid to the original
+                grid.
+
+        """
+        # First create four grids with increasing complexity, then refine each of them
+        # and verify that the refined grid has the expected properties.
+
+        # A simple uniform grid.
+        g_0 = pp.TensorGrid(np.array([0, 1, 2, 3, 4]))
+
+        # A grid with non-uniform spacing.
+        g_1 = pp.TensorGrid(np.array([0, 1, 2, 2.5, 3, 4]))
+
+        # A grid with a permuted node/face (they can be considered identical in 1d) and
+        # cell ordering: The nodes lie along the x-axis, but in the order [1, 0, 2, 3].
+        # The cells are ordered (with increasing x-coordinates) [1, 0, 2].
+        x = np.array([[1, 0, 2, 3], [0, 0, 0, 0], [0, 0, 0, 0]])
+        fn = sps.identity(4, format="csr")
+        cf = sps.csc_array(np.array([[-1, 1, 0], [0, -1, 0], [1, 0, -1], [0, 0, -1]]))
+        g_2 = pp.Grid(dim=1, nodes=x, face_nodes=fn, cell_faces=cf, name="")
+
+        # A grid where one node (coordinate x=2) has been split, as would happen if two
+        # 1d grids representing fractures intersect.
+        x = np.array([[0, 1, 2, 2, 3], [0, 0, 0, 0, 0], [0, 0, 0, 0, 0]])
+        fn = sps.identity(5, format="csr")
+        cf = sps.csc_array(
+            np.array([[-1, 1, 0, 0, 0], [0, -1, 1, 0, 0], [0, 0, 0, -1, 1]]).T
         )
+        g_3 = pp.Grid(dim=1, nodes=x, face_nodes=fn, cell_faces=cf, name="")
+
+        for g in [g_0, g_1, g_2, g_3]:
+            g.compute_geometry()
+            g_ref = pp.refinement.refine_grid_1d(g, ratio)
+            self.compare_refined_grids(g, g_ref, ratio)
 
 
 class TestGridRefinement2DSimplex:
@@ -287,7 +352,9 @@ class TestRefinementMortarGrid:
             # The ordering of the cells in the new 1d grid may be flipped on
             # some systems; therefore allow two configurations
             assert np.logical_or(
-                np.allclose(low_to_mortar_known_avg, intf.secondary_to_mortar_avg().toarray()),
+                np.allclose(
+                    low_to_mortar_known_avg, intf.secondary_to_mortar_avg().toarray()
+                ),
                 np.allclose(
                     low_to_mortar_known_avg,
                     intf.secondary_to_mortar_avg().toarray()[::-1],
@@ -297,7 +364,8 @@ class TestRefinementMortarGrid:
             if low_to_mortar_known_int is not None:
                 assert np.logical_or(
                     np.allclose(
-                        low_to_mortar_known_int, intf.secondary_to_mortar_int().toarray()
+                        low_to_mortar_known_int,
+                        intf.secondary_to_mortar_int().toarray(),
                     ),
                     np.allclose(
                         low_to_mortar_known_int,
