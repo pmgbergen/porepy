@@ -1138,7 +1138,7 @@ class ConstitutiveLawsCF(
 
 
 # endregion
-# region SOLUTION STRATEGY, including separate treatment of BC and IC
+# region BC, IC, Solution strategy
 
 
 class _BoundaryConditionsAdvection(PorePyModel):
@@ -1178,6 +1178,101 @@ class _BoundaryConditionsAdvection(PorePyModel):
     def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Returns the BC type of the advective flux for consistency reasons."""
         return self.bc_type_advective_flux(sd)
+
+
+class BoundaryConditionsFractions(
+    BoundaryConditionsPrimaryVariables, CompositionalFlowModelProtocol
+):
+    """Mixin providing boundary values for overall fractions of components and tracer
+    fractions in compounds (primary fractions).
+
+    Note:
+        As for the enthalpy, these variables are only in specific cases accessed on the
+        boundary. But they are required in case phase properties depend on them, and
+        subsequently a consistent evaluation of non-linear terms in advective fluxes is
+        required.
+
+        A case where overall fractions appear explicitely on the boundary, is the
+        single-phase, multi-component model. In this case the partial fractions of the
+        single phase are equal to the overall fractions.
+
+    """
+
+    def update_boundary_values_primary_variables(self) -> None:
+        """Calls the user-provided data for overall fractions and tracer fractions after
+        a super-call.
+
+        See also:
+
+            - :meth:`bc_values_overall_fraction`
+            - :meth:`bc_values_tracer_fraction`
+
+        """
+        super().update_boundary_values_primary_variables()
+
+        for component in self.fluid.components:
+            # Update of tracer fractions on Dirichlet boundary
+            if isinstance(component, ppc.Compound):
+                for tracer in component.active_tracers:
+                    bc_vals = cast(
+                        Callable[[pp.BoundaryGrid], np.ndarray],
+                        partial(self.bc_values_tracer_fraction, tracer, component),
+                    )
+                    self.update_boundary_condition(
+                        self._tracer_fraction_variable(tracer, component),
+                        function=bc_vals,
+                    )
+
+            # Update of independent overall fractions on Dirichlet boundary
+            if self.has_independent_fraction(component):
+                bc_vals = cast(
+                    Callable[[pp.BoundaryGrid], np.ndarray],
+                    partial(self.bc_values_overall_fraction, component),
+                )
+                self.update_boundary_condition(
+                    name=self._overall_fraction_variable(component),
+                    function=bc_vals,
+                )
+
+    def bc_values_overall_fraction(
+        self, component: pp.Component, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        """BC values for overall fraction of a component (primary variable).
+
+        Used to evaluate secondary expressions and variables on the boundary.
+
+        Parameters:
+            component: A component in the fluid mixture.
+            bg: A boundary grid in the domain.
+
+        Returns:
+            An array with ``shape=(bg.num_cells,)`` containing the value of
+            the overall fraction.
+
+        """
+        return np.zeros(bg.num_cells)
+
+    def bc_values_tracer_fraction(
+        self,
+        tracer: pp.Component,
+        compound: ppc.Compound,
+        bg: pp.BoundaryGrid,
+    ) -> np.ndarray:
+        """BC values for active tracer fractions (primary variable).
+
+        Used to evaluate secondary expressions and variables on the boundary.
+
+        Parameters:
+            tracer: A tracer in the ``compound``.
+            compound: A component in the fluid mixture.
+            bg: A boundary grid in the domain.
+
+        Returns:
+            An array with ``shape=(bg.num_cells,)`` containing the value of
+            the overall fraction.
+
+        """
+        return np.zeros(bg.num_cells)
 
 
 class BoundaryConditionsPhaseProperties(
@@ -1360,101 +1455,6 @@ class BoundaryConditionsFF(pp.BoundaryConditionMixin, CompositionalFlowModelProt
 
         Returns:
             By default a zero array with shape ``(boundary_grid.num_cells,)``.
-
-        """
-        return np.zeros(bg.num_cells)
-
-
-class BoundaryConditionsFractions(
-    BoundaryConditionsPrimaryVariables, CompositionalFlowModelProtocol
-):
-    """Mixin providing boundary values for overall fractions of components and tracer
-    fractions in compounds (primary fractions).
-
-    Note:
-        As for the enthalpy, these variables are only in specific cases accessed on the
-        boundary. But they are required in case phase properties depend on them, and
-        subsequently a consistent evaluation of non-linear terms in advective fluxes is
-        required.
-
-        A case where overall fractions appear explicitely on the boundary, is the
-        single-phase, multi-component model. In this case the partial fractions of the
-        single phase are equal to the overall fractions.
-
-    """
-
-    def update_boundary_values_primary_variables(self) -> None:
-        """Calls the user-provided data for overall fractions and tracer fractions after
-        a super-call.
-
-        See also:
-
-            - :meth:`bc_values_overall_fraction`
-            - :meth:`bc_values_tracer_fraction`
-
-        """
-        super().update_boundary_values_primary_variables()
-
-        for component in self.fluid.components:
-            # Update of tracer fractions on Dirichlet boundary
-            if isinstance(component, ppc.Compound):
-                for tracer in component.active_tracers:
-                    bc_vals = cast(
-                        Callable[[pp.BoundaryGrid], np.ndarray],
-                        partial(self.bc_values_tracer_fraction, tracer, component),
-                    )
-                    self.update_boundary_condition(
-                        self._tracer_fraction_variable(tracer, component),
-                        function=bc_vals,
-                    )
-
-            # Update of independent overall fractions on Dirichlet boundary
-            if self.has_independent_fraction(component):
-                bc_vals = cast(
-                    Callable[[pp.BoundaryGrid], np.ndarray],
-                    partial(self.bc_values_overall_fraction, component),
-                )
-                self.update_boundary_condition(
-                    name=self._overall_fraction_variable(component),
-                    function=bc_vals,
-                )
-
-    def bc_values_overall_fraction(
-        self, component: pp.Component, bg: pp.BoundaryGrid
-    ) -> np.ndarray:
-        """BC values for overall fraction of a component (primary variable).
-
-        Used to evaluate secondary expressions and variables on the boundary.
-
-        Parameters:
-            component: A component in the fluid mixture.
-            bg: A boundary grid in the domain.
-
-        Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the value of
-            the overall fraction.
-
-        """
-        return np.zeros(bg.num_cells)
-
-    def bc_values_tracer_fraction(
-        self,
-        tracer: pp.Component,
-        compound: ppc.Compound,
-        bg: pp.BoundaryGrid,
-    ) -> np.ndarray:
-        """BC values for active tracer fractions (primary variable).
-
-        Used to evaluate secondary expressions and variables on the boundary.
-
-        Parameters:
-            tracer: A tracer in the ``compound``.
-            compound: A component in the fluid mixture.
-            bg: A boundary grid in the domain.
-
-        Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the value of
-            the overall fraction.
 
         """
         return np.zeros(bg.num_cells)

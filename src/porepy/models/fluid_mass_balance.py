@@ -22,6 +22,8 @@ import numpy as np
 
 import porepy as pp
 
+from .boundary_condition import BoundaryConditionsPrimaryVariables
+
 logger = logging.getLogger(__name__)
 
 
@@ -379,7 +381,7 @@ class ConstitutiveLawsSinglePhaseFlow(
     """
 
 
-class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
+class BoundaryConditionsSinglePhaseFlow(BoundaryConditionsPrimaryVariables):
     """Boundary conditions for single-phase flow."""
 
     bc_data_fluid_flux_key: str = "fluid_flux"
@@ -492,13 +494,17 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         super().update_all_boundary_conditions()
 
         self.update_boundary_condition(
-            name=self.pressure_variable, function=self.bc_values_pressure
-        )
-        self.update_boundary_condition(
             name=self.bc_data_darcy_flux_key, function=self.bc_values_darcy_flux
         )
         self.update_boundary_condition(
             name=self.bc_data_fluid_flux_key, function=self.bc_values_fluid_flux
+        )
+
+    def update_boundary_values_primary_variables(self) -> None:
+        """Updates the pressure on the boundary, as the primary variable for flow."""
+        super().update_boundary_values_primary_variables()
+        self.update_boundary_condition(
+            name=self.pressure_variable, function=self.bc_values_pressure
         )
 
 
