@@ -683,7 +683,7 @@ class ConstitutiveLawsEnergyBalance(
     """Collect constitutive laws for the energy balance."""
 
 
-class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
+class BoundaryConditionsEnergyBalance(BoundaryConditionsPrimaryVariables):
     """Boundary conditions for the energy balance.
 
     Boundary type and value for both diffusive Fourier flux and advective enthalpy flux.
@@ -797,7 +797,20 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         return np.zeros(boundary_grid.num_cells)
 
     def update_all_boundary_conditions(self) -> None:
-        """Set values for the temperature and the Fourier flux on boundaries.
+        """Set values for the enthalpy and the Fourier flux on boundaries."""
+        super().update_all_boundary_conditions()
+
+        # Update Neumann conditions for Fourier flux
+        self.update_boundary_condition(
+            name=self.bc_data_fourier_flux_key, function=self.bc_values_fourier_flux
+        )
+        # Update enthalpy flux on boundary (hyperbolic BC)
+        self.update_boundary_condition(
+            name=self.bc_data_enthalpy_flux_key, function=self.bc_values_enthalpy_flux
+        )
+
+    def update_boundary_values_primary_variables(self) -> None:
+        """Updates the temperature on the boundary, as the primary variable for energy.
 
         Note:
             This assumes as of now that Dirichlet-type BC are provided only for
@@ -806,19 +819,9 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
             primary variables.
 
         """
-        super().update_all_boundary_conditions()
-
-        # Update Neumann conditions
-        self.update_boundary_condition(
-            name=self.bc_data_fourier_flux_key, function=self.bc_values_fourier_flux
-        )
-        # Update Dirichlet conditions
+        super().update_boundary_values_primary_variables()
         self.update_boundary_condition(
             name=self.temperature_variable, function=self.bc_values_temperature
-        )
-        #
-        self.update_boundary_condition(
-            name=self.bc_data_enthalpy_flux_key, function=self.bc_values_enthalpy_flux
         )
 
 
