@@ -308,10 +308,7 @@ class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         return source
 
 
-class TwoVariableEnergyBalanceEquations(
-    energy.EnergyBalanceEquations,
-    CompositionalFlowModelProtocol,
-):
+class TwoVariableEnergyBalanceEquations(energy.EnergyBalanceEquations):
     """Mixed-dimensional balance of total energy in a fluid mixture, formulated with an
     independent (specific fluid) enthalpy variable in the accumulation term *and* a
     temperature variable in the Fourier flux.
@@ -336,38 +333,15 @@ class TwoVariableEnergyBalanceEquations(
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`EnthalpyVariable`."""
 
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.constitutive_laws.DarcyFlux`."""
     total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-    phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
     fractional_phase_mobility: Callable[
         [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
-    mobility_discretization: Callable[[list[pp.Grid]], pp.ad.UpwindAd]
-    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-    interface_mobility_discretization: Callable[
-        [list[pp.MortarGrid]], pp.ad.UpwindCouplingAd
-    ]
-    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-
-    bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
-    """See :class:`BoundaryConditionsCF`."""
-
     bc_data_fractional_flow_energy_key: str
     """See :class:`BoundaryConditionsCF`."""
-
-    def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Overwrites the parent method to give the name assigned by
-        :meth:`primary_equation_name`."""
-        eq = super().energy_balance_equation(subdomains)
-        # NOTE use same name to throw error if one tries to use two energy balance
-        # equations in the same model.
-        eq.set_name(energy.EnergyBalanceEquations.primary_equation_name())
-        return eq
 
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Returns the internal energy of the fluid using the independent
@@ -428,91 +402,6 @@ class TwoVariableEnergyBalanceEquations(
 
         op.set_name("advected_enthalpy")
         return op
-
-    def enthalpy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """Returns the advective enthalpy flux, using the Darcy flux and the non-linear
-        weight given by :meth:`advective_weight_enthalpy_flux`.
-
-        Can be called on boundaries to obtain a representation of user-given Neumann
-        data on inlet faces.
-
-        """
-        # BC representation on the Neumann boundary
-        if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-            # # NOTE The advected enthalpy (Neumann-type flux) must be consistent with
-            # # the total mass flux
-            op = self.advection_weight_energy_balance(domains) * self.darcy_flux(
-                domains
-            )
-            return op
-
-        # Check that the domains are grids, not interfaces
-        if not all([isinstance(g, pp.Grid) for g in domains]):
-            raise ValueError(
-                "Domains must consist entirely of subdomains for the enthalpy flux."
-            )
-        domains = cast(list[pp.Grid], domains)
-
-        # NOTE Boundary conditions are different from the pressure equation
-        # This is consistent with the usage of darcy_flux in advective_flux
-        boundary_operator_enthalpy = (
-            self._combine_boundary_operators(  # type: ignore[call-arg]
-                subdomains=domains,
-                dirichlet_operator=self.advection_weight_energy_balance,
-                neumann_operator=self.enthalpy_flux,
-                robin_operator=None,
-                bc_type=self.bc_type_advective_flux,
-                name="bc_values_enthalpy_flux",
-            )
-        )
-
-        discr = self.mobility_discretization(domains)
-        weight = self.advection_weight_energy_balance(domains)
-        flux = self.advective_flux(
-            domains,
-            weight,
-            discr,
-            boundary_operator_enthalpy,
-            self.interface_enthalpy_flux,
-        )
-        flux.set_name("enthalpy_flux")
-        return flux
-
-    def interface_enthalpy_flux_equation(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.Operator:
-        """Uses the enthalpy mobility and the discretization implemented by
-        :class:`MobilityCF`."""
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        discr = self.interface_mobility_discretization(interfaces)
-        weight = self.advection_weight_energy_balance(subdomains)
-        flux = self.interface_advective_flux(
-            interfaces,
-            weight,
-            discr,
-        )
-
-        eq = self.interface_enthalpy_flux(interfaces) - flux
-        eq.set_name("interface_enthalpy_flux_equation")
-        return eq
-
-    def well_enthalpy_flux_equation(
-        self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.Operator:
-        """Uses the enthalpy mobility and the discretization implemented by
-        :class:`MobilityCF`."""
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        discr = self.interface_mobility_discretization(interfaces)
-        weight = self.advection_weight_energy_balance(subdomains)
-        flux = self.well_advective_flux(
-            interfaces,
-            weight,
-            discr,
-        )
-
-        eq = self.well_enthalpy_flux(interfaces) - flux
-        eq.set_name("well_enthalpy_flux_equation")
-        return eq
 
 
 class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelProtocol):
