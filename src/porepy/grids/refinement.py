@@ -108,7 +108,7 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
 
     # When looping over cells in the old grid, we will hit upon all internal nodes
     # twice, but they should only be added to the refined grid the first time. We
-    # therefore need to keep track of whether an node in the old grid should be added
+    # therefore need to keep track of whether a node in the old grid should be added
     # and, if not, the node index in the new grid by which it is already present.
     #
     # Construct an array that indicates whether an item in the cell-node relation
@@ -172,7 +172,7 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
             + g.nodes[:, end].reshape((-1, 1)) * theta
         )
 
-        # Register the indices of the new nodes and increasen the counter.
+        # Register the indices of the new nodes and increase the counter.
         loc_new_ind += list(node_counter + indices_template)
         node_counter += ratio - 1
 
