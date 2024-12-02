@@ -76,12 +76,54 @@ class TestGridRefinement1D:
         assert g_ref.face_nodes.shape[0] == g_ref.face_nodes.shape[1]
         assert g_ref.face_nodes.shape[0] == g_ref.nodes.shape[1]
 
+        # Also check that the face-node map is 1-1.
+        assert np.linalg.det(g_ref.face_nodes.toarray()) == 1
+
         # These are 1d grids, thus the number of boundary faces should be the same in
         # the two grids. Exploit this to check the refined cell-face mapping, which has
         # a somewhat non-trivial construction.
         num_boundary_g = np.sum(np.sum(g.cell_faces, axis=1) != 0)
         num_boundary_g_ref = np.sum(np.sum(g_ref.cell_faces, axis=1) != 0)
         assert num_boundary_g == num_boundary_g_ref
+
+        # Check that the refined grid has the right node coordinates. It is not
+        # meaningful to directly check the order of the nodes, as the API for the
+        # refinement function does not give any guarantees of the cell/node ordering,
+        # nor on the relation between the topology of the original and refined grid.
+        # Still, we know the node coordinates of the old grid, and can calculate the
+        # expected node coordinates of the refined grid and verify that the right nodes
+        # are in place. Also note that if the cell-node relation of the refined grid is
+        # somehow shuffled, so that cells are overlapping, this would lead to too large
+        # a volume, and the first assertion would fail (unless the original grid is also
+        # broken, in which case the test will quite likely still fail).
+
+        # Shortcut: Assume the grids are algined with the x-axis, so that ordering nodes
+        # etc. is easy. This is not a critical assumption, but it makes the test easier.
+        # Failure here signifies that a test grid has been created that violates the
+        # assumption - if so, either generalize the below test or change the grid.
+        assert np.allclose(g.nodes[1:], 0)
+        assert np.allclose(g_ref.nodes[1:], 0)
+
+        # Sort the nodes in the old grid and find the grid spacing.
+        x_old = np.sort(g.nodes[0])
+        dx = np.diff(x_old) / ratio
+        # Initialize with the first node.
+        x_expected = [x_old[0]]
+        # Loop over all intervals, add nodes between the old nodes provided the grid
+        # spacing is positive (zero grid size indicates a split node, in which case no
+        # nodes should be added [this may not be true for a broken original grid, but we
+        # disregard that possibility]).
+        for i in range(1, len(x_old)):
+            if dx[i - 1] > 0:
+                x_expected.extend(
+                    [x_old[i - 1] + j * dx[i - 1] for j in range(1, ratio)]
+                )
+            # Always add the old node at the end of the interval.
+            x_expected.append(x_old[i])
+
+        # Sort also the nodes of the refined grid and compare with the expected nodes.
+        x_ref = np.sort(g_ref.nodes[0])
+        assert np.allclose(x_ref, np.asarray(x_expected))
 
     @pytest.mark.parametrize("ratio", [2, 3])
     def test_refinement_grid_1D(self, ratio: int):
