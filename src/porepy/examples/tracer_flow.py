@@ -31,6 +31,7 @@ class WaterDict(TypedDict):
     thermal_conductivity: float
     thermal_expansion: float
     viscosity: float
+    name: str
 
 
 class DomainX(pp.PorePyModel):
@@ -72,7 +73,7 @@ class TracerFluid:
         """Mixed in method defining water as the reference component and a simple
         tracer as the second component."""
 
-        component_1 = pp.FluidComponent(name="water", **cast(WaterDict, water))
+        component_1 = pp.FluidComponent(**cast(WaterDict, water))
         component_2 = pp.FluidComponent(name="tracer")
         return [component_1, component_2]
 
