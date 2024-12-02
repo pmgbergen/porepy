@@ -42,12 +42,8 @@ class TestGridPerturbation:
 class TestGridRefinement1D:
     """Tests for the 1D grid refinement functions.
 
-    The test focuses on the topology of the refined grid, also in cases with non-uniform
-    grid spacing, permuted node/cell orderings and split nodes.
-
-    Geometric aspects (whatever that would be, perhaps grids not aligned with the
-    x-axis) are not tested, as the chance of errors in the geometric computations is
-    considered low.
+    The test are in effect sanity checks on the refined grid, also in cases with
+    non-uniform grid spacing, permuted node/cell orderings and split nodes.
 
     """
 
