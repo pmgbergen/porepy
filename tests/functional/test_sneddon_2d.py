@@ -542,6 +542,13 @@ def test_sneddon_2d():
 
     It computes the average error across orientations and evaluates the
     convergence rate (EOC) through log-log regression.
+    
+    NOTE: We assume that the fracture half-length a = 1 and the domain is (0,1)^2 for the following reasons:
+    1. Convergence tends to be problematic if the domain is changed from (0,1) to another size configuration,
+       suggesting the presence of a bug.
+    2. While a total fracture length significantly larger than the domain shows convergence, convergence issues arise
+       when the fracture length is smaller, potentially due to numerical artifacts that occur when the fracture tip
+       approaches the boundary of the simulation domain.
 
     Raises:
     -------
