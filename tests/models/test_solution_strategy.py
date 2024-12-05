@@ -47,7 +47,7 @@ def create_restart_model(
     solid_vals: dict, fluid_vals: dict, uy_north: float, restart: bool
 ):
     # Create fractured setup
-    fractured_setup = create_fractured_setup(solid_vals, fluid_vals, uy_north)
+    fractured_setup = create_fractured_setup(solid_vals, fluid_vals, {}, uy_north)
 
     # Fetch parameters for enhancing them
     params = fractured_setup.params
@@ -263,9 +263,8 @@ def test_targeted_rediscretization(model_class):
         "full_rediscretization": True,
         "cartesian": True,
         # Make flow problem non-linear:
-        "material_constants": {"fluid": pp.FluidConstants({"compressibility": 1})},
+        "material_constants": {"fluid": pp.FluidComponent(compressibility=1.0)},
     }
-    # {"fracture_indices": [0, 1]}
     # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = models._add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.

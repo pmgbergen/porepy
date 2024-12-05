@@ -42,15 +42,19 @@ from tests.functional.setups.manu_flow_incomp_frac_3d import (
 class ManuCompExactSolution3d:
     """Class containing the exact manufactured solution for the verification setup."""
 
-    def __init__(self, setup):
+    def __init__(self, setup: pp.PorePyModel):
         # Model setup
         self.setup = setup
 
         # Retrieve material constant from the setup
-        rho_0 = self.setup.fluid.density()  # [kg * m^-3]  Reference fluid density
-        p_0 = self.setup.fluid.pressure()  # [Pa] Reference fluid pressure
-        c_f = self.setup.fluid.compressibility()  # [Pa^-1]  Fluid compressibility
-        phi_0 = self.setup.solid.porosity()  # [-] Reference porosity
+        # [kg * m^-3]  Reference fluid density
+        rho_0 = self.setup.fluid.reference_component.density
+        # [Pa] Reference fluid pressure
+        p_0 = self.setup.reference_variable_values.pressure
+        # [Pa^-1]  Fluid compressibility
+        c_f = self.setup.fluid.reference_component.compressibility
+        # [-] Reference porosity
+        phi_0 = self.setup.solid.porosity
 
         # Symbolic variables
         x, y, z, t = sym.symbols("x y z t")

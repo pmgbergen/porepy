@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, Sequence
+from typing import Callable
 
 import numpy as np
 
@@ -10,7 +10,7 @@ import porepy as pp
 from porepy.models.constitutive_laws import LinearElasticMechanicalStress
 
 
-class VerificationUtils:
+class VerificationUtils(pp.PorePyModel):
     """Mixin class storing useful utility methods.
 
     The intended use is to mix this class with a utlilty class, specific to a
@@ -24,38 +24,9 @@ class VerificationUtils:
 
     """
 
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
-
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of storing and scaling numerical values
-    representing fluid-related quantities. Normally, this is set by an instance of
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    params: dict
-    """Model parameters dictionary."""
-
     pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
-
-    """
-
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of storing and scaling numerical values
-    representing solid-related quantities. Normally, this is set by an instance of
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -68,34 +39,11 @@ class VerificationUtils:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategySinglePhaseFlow`.
 
     """
-    time_manager: pp.TimeManager
-    """Time manager. Normally set by an instance of a subclass of
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
-    units: pp.Units
-    """Units object, containing the scaling of base magnitudes."""
-
-    nd: int
 
     bc_type_mechanics: Callable[[pp.BoundaryGrid], np.ndarray]
 
     mechanical_stress: Callable[
         [pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable
-    ]
-
-    _combine_boundary_operators: Callable[
-        [
-            Sequence[pp.Grid],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[pp.Grid], pp.BoundaryCondition],
-            str,
-            int,
-        ],
-        pp.ad.Operator,
     ]
 
     def face_displacement(self, sd: pp.Grid) -> np.ndarray:

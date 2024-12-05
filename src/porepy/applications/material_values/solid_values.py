@@ -173,7 +173,6 @@ According to the MRST book, the skin factor is some value between -6 and 100.
 extended_granite_values_for_testing = granite.copy()
 extended_granite_values_for_testing.update(
     {
-        "characteristic_displacement": 0.2,  # [m]
         "dilation_angle": 0.1,  # [rad]
         "fracture_gap": 1e-3,  # [m]
         "fracture_normal_stiffness": 1.1e8,  # [Pa m^-1]
@@ -181,7 +180,6 @@ extended_granite_values_for_testing.update(
         "normal_permeability": 5.0e-15,  # [m^2]
         "residual_aperture": 1e-3,  # [m]
         "skin_factor": 37.0,  # [-]
-        "temperature": 293.15,  # [K]
         "well_radius": 0.1,  # [m]
     }
 )

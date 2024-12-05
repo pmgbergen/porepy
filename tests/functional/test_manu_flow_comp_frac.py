@@ -48,6 +48,7 @@ from tests.functional.setups.manu_flow_comp_2d_frac import (
     ManuCompFlowSetup2d,
     manu_comp_fluid,
     manu_comp_solid,
+    manu_comp_ref_vals,
 )
 from tests.functional.setups.manu_flow_comp_3d_frac import ManuCompFlowSetup3d
 
@@ -63,9 +64,21 @@ def material_constants() -> dict:
         constant classes.
 
     """
-    solid_constants = pp.SolidConstants(manu_comp_solid)
-    fluid_constants = pp.FluidConstants(manu_comp_fluid)
+    solid_constants = pp.SolidConstants(**manu_comp_solid)
+    fluid_constants = pp.FluidComponent(**manu_comp_fluid)
     return {"solid": solid_constants, "fluid": fluid_constants}
+
+
+@pytest.fixture(scope="module")
+def reference_values() -> pp.ReferenceVariableValues:
+    """Reference values for pressure and temperature.
+    Use default values provided in the module where the setup class is included.
+
+    Returns:
+        Dictionary containing the reference value data structure.
+
+    """
+    return pp.ReferenceVariableValues(**manu_comp_ref_vals)
 
 
 # --> [TEST_1] Relative L2-errors on Cartesian grid for three different times
@@ -73,7 +86,9 @@ def material_constants() -> dict:
 
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
-def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
+def actual_l2_errors(
+    material_constants: dict, reference_values: pp.ReferenceVariableValues
+) -> list[list[dict[str, float]]]:
     """Run verification setups and retrieve results for the scheduled times.
 
     Parameters:
@@ -91,6 +106,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     model_params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
+        "reference_variable_values": reference_values,
         "meshing_arguments": {"cell_size": 0.125},
         "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
     }
@@ -99,7 +115,8 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
     for model in [ManuCompFlowSetup2d, ManuCompFlowSetup3d]:
-        setup = model(deepcopy(model_params))  # Make deep copy of params to avoid nasty bugs.
+        # Make deep copy of params to avoid nasty bugs.
+        setup = model(deepcopy(model_params))
         pp.run_time_dependent_model(setup, {})
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
@@ -132,14 +149,14 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     desired_errors_2d = [
         {  # t = 0.5 [s]
             "error_matrix_pressure": 0.05860315482644138,
-            "error_matrix_flux": 0.01728816711273373,
+            "error_matrix_flux": 0.018937,
             "error_frac_pressure": 4.761115466428997,
             "error_frac_flux": 0.0027528176884234297,
             "error_intf_flux": 3.0521278709541946,
         },
         {  # t = 1.0 [s]
             "error_matrix_pressure": 0.056952568619002386,
-            "error_matrix_flux": 0.017206997517806834,
+            "error_matrix_flux": 0.018810296317497734,
             "error_frac_pressure": 4.7258340277590865,
             "error_frac_flux": 0.0036119330001357737,
             "error_intf_flux": 3.1023316529076546,
@@ -149,14 +166,14 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     desired_errors_3d = [
         {  # t = 0.5 [s]
             "error_matrix_pressure": 0.044142110025893674,
-            "error_matrix_flux": 0.020240531408035483,
+            "error_matrix_flux": 0.021537430865696688,
             "error_frac_pressure": 7.345638542028673,
             "error_frac_flux": 0.04968518024390149,
             "error_intf_flux": 5.150695781155413,
         },
         {  # t = 1.0 [s]
             "error_matrix_pressure": 0.043341944057014324,
-            "error_matrix_flux": 0.02031093722149098,
+            "error_matrix_flux": 0.021683233504298377,
             "error_frac_pressure": 7.139915887008252,
             "error_frac_flux": 0.049748152094622,
             "error_intf_flux": 5.228345273854552,
@@ -166,12 +183,12 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     return [desired_errors_2d, desired_errors_3d]
 
 
-@pytest.mark.parametrize("dim_idx", [0, 1])
+@pytest.mark.parametrize("time_idx", [0, 1])
 @pytest.mark.parametrize(
     "var",
     ["matrix_pressure", "matrix_flux", "frac_pressure", "frac_flux", "intf_flux"],
 )
-@pytest.mark.parametrize("time_idx", [0, 1])
+@pytest.mark.parametrize("dim_idx", [0, 1])
 def test_relative_l2_errors_cartesian_grid(
     dim_idx: int,
     var: str,
@@ -220,7 +237,9 @@ def test_relative_l2_errors_cartesian_grid(
 
 # ----> Retrieve actual order of convergence
 @pytest.fixture(scope="module")
-def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
+def actual_ooc(
+    material_constants: dict, reference_values: pp.ReferenceVariableValues
+) -> list[list[dict[str, float]]]:
     """Retrieve actual order of convergence.
 
     Cartesian and simplices for 2d. Cartesian only for 3d.
@@ -258,6 +277,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                 params = {
                     "grid_type": grid_type,
                     "material_constants": material_constants,
+                    "reference_variable_values": reference_values,
                     "meshing_arguments": {"cell_size": 0.125},
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d
@@ -298,7 +318,7 @@ def desired_ooc() -> list[list[dict[str, float]]]:
             "ooc_frac_flux": 1.9207078517903355,
             "ooc_frac_pressure": 2.007469314704246,
             "ooc_intf_flux": 1.9975718577542623,
-            "ooc_matrix_flux": 1.5071850357496581,
+            "ooc_matrix_flux": 1.546429949959296,
             "ooc_matrix_pressure": 2.2739632526704496,
         },
         {  # simplex
@@ -315,7 +335,7 @@ def desired_ooc() -> list[list[dict[str, float]]]:
             "ooc_frac_flux": 2.011343043274247,
             "ooc_frac_pressure": 1.985302288174025,
             "ooc_intf_flux": 1.9998583923263855,
-            "ooc_matrix_flux": 1.6009304954707668,
+            "ooc_matrix_flux": 1.666566001372842,
             "ooc_matrix_pressure": 2.1529911615181723,
         }
     ]

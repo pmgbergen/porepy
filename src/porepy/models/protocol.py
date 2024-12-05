@@ -2,6 +2,17 @@
 in an instance of a PorePy model. The proper implementations of these methods can be
 found in various classes within the models directiory.
 
+Note that the protocol framework is accessed by static type checkes only!
+
+Warning:
+    For developers:
+
+    Do not bring the ``typing.Protocol`` class in any form into the mixin framework
+    of PorePy! Use it exclusively in ``if``-sections for ``typing.TYPE_CHECKING``.
+
+    Protocols use ``__slot__`` which leads to unforeseeable behaviour when combined
+    with multiple inheritance and mixing.
+
 """
 
 from pathlib import Path
@@ -15,7 +26,8 @@ import scipy.sparse as sps
 # and returns None.
 if not TYPE_CHECKING:
     # This branch is accessed in python runtime.
-    class PorePyModel(Protocol):
+    # NOTE See Warning in module docstring before attempting anything here.
+    class PorePyModel:
         """This is an empty placeholder of the protocol, used mainly for type hints."""
 
 else:
@@ -492,19 +504,24 @@ else:
         params: dict
         """Dictionary of parameters."""
         units: pp.Units
-        """Units of the model.
+        """Units of the model provided in ``params['units']``."""
+        reference_variable_values: pp.ReferenceVariableValues
+        """The model reference values for variables, converted to simulation
+        :attr:`units`.
 
-        See also :meth:`set_units`.
+        Reference values can be provided through ``params['reference_values']``.
 
         """
-        fluid: pp.FluidConstants
-        """Fluid constants.
+        solid: pp.SolidConstants
+        """Solid constants. Can be provided through
+        ``params['material_constants']['solid']``.
 
         See also :meth:`set_materials`.
 
         """
-        solid: pp.SolidConstants
-        """Solid constants.
+        numerical: pp.NumericalConstants
+        """Numerical constants. Can be provided through
+        ``params['material_constants']['numerical']``.
 
         See also :meth:`set_materials`.
 
@@ -549,24 +566,61 @@ else:
 
             """
 
+    class FluidProtocol(Protocol):
+        """This protocol provides declarations of methods defined in the
+        :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
+
+        fluid: pp.Fluid[pp.FluidComponent, pp.Phase[pp.FluidComponent]]
+        """Fluid object.
+
+        See also :meth:`create_fluid`.
+
+        """
+
+        def create_fluid(self) -> None:
+            """Create the :attr:`fluid` object based on the default or user-provided
+            context of components and phases.
+
+            See also:
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                get_components`
+
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                get_phase_configuration` respectively.
+
+            """
+
+        def assign_thermodynamic_properties_to_phases(self) -> None:
+            """Assigns callable properties to the dynamic phase objects, after the
+            fluid and all variables are defined.
+
+            See also:
+                :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
+                assign_thermodynamic_properties_to_phases`.
+
+            """
+
     class VariableProtocol(Protocol):
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""
 
-        def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
-            """Perturbation of a variable from its reference value.
+        def perturbation_from_reference(
+            self, variable_name: str, grids: list[pp.Grid]
+        ) -> pp.ad.Operator:
+            """Perturbation of some quantity ``name`` from its reference value.
 
-            The parameter :code:`variable_name` should be the name of a variable so that
-            :code:`self.variable_name()` and `self.reference_variable_name()` are valid
-            calls. These methods will be provided by mixin classes; normally this will
-            be a subclass of :class:`VariableMixin`.
+            The parameter ``name`` should be the name of a mixed-in method, returning an
+            AD operator for given ``grids``.
 
-            The returned operator will be of the form
-            :code:`self.variable_name(grids) - self.reference_variable_name(grids)`.
+            ``name`` should also be defined in the model's :attr:`reference_values`.
+
+            This method calls the model method with given ``name`` on given ``grids`` to
+            create an operator ``A``. It then fetches the respective reference value and
+            wraps it into an AD scalar ``A_0``. The return value is an operator ``A - A_0``.
 
             Parameters:
-                variable_name: Name of the variable.
-                grids: List of subdomain or interface grids on which the variable is
+                name: Name of the quantity to be perturbed from a reference value.
+                grids: List of subdomain or interface grids on which the quantity is
                     defined.
 
             Returns:
@@ -761,6 +815,7 @@ else:
         BoundaryConditionProtocol,
         EquationProtocol,
         VariableProtocol,
+        FluidProtocol,
         ModelGeometryProtocol,
         DataSavingProtocol,
         SolutionStrategyProtocol,
