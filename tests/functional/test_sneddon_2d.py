@@ -17,31 +17,34 @@ import pytest
 config.DISABLE_JIT = True
 
 
-def compute_eta(pointset_centers: np.ndarray, point: np.ndarray):
+def compute_eta(pointset_centers: np.ndarray, center: np.ndarray) -> np.ndarray:
     """
-    Compute the distance of bem segments centers to the
-    fracture centre.
+    Compute the distance fracture points to the fracture centre.
 
-    Parameter
-    ---------
-    pointset_centers: array containing centers of bem segments
-    point: fracture centre, middle point of the square domain
+    Parameter::
+    pointset: Array containing coordinates on the fracture
+    center: fracture centre
+     
+    Return:
+        Array of distances each point in pointset to the center 
 
     """
-    return pp.geometry.distances.point_pointset(pointset_centers, point)
+    return pp.geometry.distances.point_pointset(pointset_centers, center)
 
 
 def get_bem_centers(a: float, h: float, n: int, theta: float, center: np.ndarray) -> np.ndarray:
     """
     Compute coordinates of the centers of the bem segments
 
-    Parameter
-    ---------
-    a: half fracture length
-    h: bem segment length
-    n: number of bem segments
-    theta: orientation of the fracture
-    center: center of the fracture
+    Parameters:
+        a: half fracture length
+        h: bem segment length
+        n: number of bem segments
+        theta: orientation of the fracture
+        center: center of the fracture
+    
+    Return:
+        Array of BEM centers
     """
     
     # Coordinate system (4.5.1) in page 57 in in book Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics
@@ -58,18 +61,19 @@ def get_bem_centers(a: float, h: float, n: int, theta: float, center: np.ndarray
 
 def analytical_displacements(a: float, eta: np.ndarray, p0: float, G: float, poi: float ) -> np.ndarray:
     """
-    Compute Sneddon's analytical solution for the pressurized crack
-    problem in question.
+    Compute Sneddon's analytical solution for the pressurized fracture.
     
     Source: Sneddon Fourier transforms 1951 page 425 eq 92 
 
-    Parameter
-    ---------
-    a: half fracture length
-    eta: distance from fracture centre
-    p0: pressure
-    G: shear modulus
-    poi: poisson ratio
+    Parameter:
+        a: half fracture length
+        eta: distance from fracture centre
+        p0: pressure
+        G: shear modulus
+        poi: poisson ratio
+    
+    Return
+        List of analytical normal displacement jumps. 
     """
     cons = (1 - poi) / G * p0 * a * 2
     return cons * np.sqrt(1 - np.power(eta / a, 2))
