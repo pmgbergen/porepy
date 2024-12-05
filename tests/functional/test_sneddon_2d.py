@@ -325,9 +325,30 @@ class MomentumBalanceGeometryBC(
 
 
 
-def simulation(frac_pts, theta_rad, h, a=1.5, height=1, length=1, p0=1e-4, G=1, poi=0.25):
-     
-    lam = 2 * G * poi / (1 - 2 * poi)  # Lame parameter
+def simulation(frac_pts: np.ndarray, theta_rad: np.ndarray, h: np.ndarray,
+               a: float =1.5, height: float = 1., length: float= 1.,
+               p0: float =1e-4, G: float = 1.0, poi: float=0.25):
+    
+    """
+    Simulates a 2D fracture linear elasticity problem using a momentum balance model and 
+    computes the relative L2 error between numerical and analytical displacement jumps.
+
+    Parameters:
+        frac_pts: Array of coordinates specifying the fracture points in the domain.
+        theta_rad: Array of angles (in radians) defining the orientation of the fractures.
+        h: Array of cell sizes used for meshing the domain.
+        a:  Half length of the fracture
+        height: Height of the domain.
+        length: Length of the domain.
+        p0: Initial constant pressure applied inside the fracture.
+        G: Shear modulus of the material.
+        poi: Poisson's ratio of the material.
+
+    Returns:
+        e: The relative L2 error between the analytical and numerical displacement jumps
+        on the fracture.
+    """
+    lam = 2 * G * poi / (1 - 2 * poi)  # Convertion formula from shear modulus and poission to lame lambda parameter 
     solid = pp.SolidConstants(shear_modulus = G, lame_lambda = lam)
 
     
