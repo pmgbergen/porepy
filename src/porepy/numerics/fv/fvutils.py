@@ -557,9 +557,8 @@ def remove_nonlocal_contribution(
         pp.matrix_operations.zero_rows(mat, eliminate_ind)
 
 
-def expand_indices_nd(ind: np.ndarray, nd: int, direction="F") -> np.ndarray:
-    """
-    Expand indices from scalar to vector form.
+def expand_indices_nd(ind: np.ndarray, nd: int, order="F") -> np.ndarray:
+    """Expand indices from scalar to vector form.
 
     Examples:
     >>> i = np.array([0, 1, 3])
@@ -569,18 +568,21 @@ def expand_indices_nd(ind: np.ndarray, nd: int, direction="F") -> np.ndarray:
     >>> expand_indices_nd(i, 3, "C")
     (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
 
-    Args:
-        ind
-        nd
-        direction
+    Parameters:
+        ind: Indices to be expanded.
+        nd: Dimension of the vector.
+        order: Order of the expansion. "F" for Fortran, "C" for C. Default is "F".
 
-    Returns
+    Returns:
+        np.ndarray: Expanded indices.
 
     """
+    if nd == 1:
+        return ind
     dim_inds = np.arange(nd)
     dim_inds = dim_inds[:, np.newaxis]  # Prepare for broadcasting
     new_ind = nd * ind + dim_inds
-    new_ind = new_ind.ravel(direction)
+    new_ind = new_ind.ravel(order)
     return new_ind
 
 
