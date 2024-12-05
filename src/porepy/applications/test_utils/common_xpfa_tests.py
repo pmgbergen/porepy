@@ -282,7 +282,7 @@ def set_params_and_discretize_gravity(g, ambient_dim, method, periodic=False):
     vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
         discr.vector_source_matrix_key
     ]
-    div = g.divergence(n=1)
+    div = g.divergence(dim=1)
     return flux, vector_source, div
 
 

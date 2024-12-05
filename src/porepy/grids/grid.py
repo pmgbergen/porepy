@@ -1070,32 +1070,34 @@ class Grid:
         values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
-    def divergence(self, n: int) -> sps.csr_matrix:
+    def divergence(self, dim: int) -> sps.csr_matrix:
         """Get divergence operator for the grid.
 
-        If we compute the divergence of a matrix (n=2), it is assumed that the first
+        If dim>=2, it is assumed that the first
         column corresponds to the x-equation of face 0, second column is y-equation etc.
-        (and so on in nd>2). The next column is then the x-equation for face 1.
+        The next column is then the x-equation for face 1.
         Correspondingly, the first row represents x-component in first cell etc.
 
         Parameters:
-            n: Rank of the tensor of which we want to compute the divergence.
+            dim: Dimension of the quantity of which we want to compute the divergence.
 
         Returns:
-            Divergence operator as a rank n-1 tensor.
+            Divergence operator. Dimensions: dim * (num_cells, num_faces)
         """
-        if n == 1:  # Rank 1 tensor (vector), the divergence is a scalar
+        if dim == 1:  # The divergence is a scalar
             return self.cell_faces.T.tocsr()
-        elif n == 2:  # Rank 2 tensor, the divergence is a vector
+        elif dim in [2, 3]:  # The divergence is a vector
             # Scalar divergence
             scalar_div = self.cell_faces
             # Vector extension, convert to coo-format to avoid odd errors when one
             # grid dimension is 1 (this may return a bsr matrix)
             # The order of arguments to sps.kron is important.
-            block_div = sps.kron(scalar_div, sps.eye(self.dim)).tocsc()
+            block_div = sps.kron(scalar_div, sps.eye(dim)).tocsc()
             return block_div.transpose().tocsr()
         else:
-            raise ValueError(f"Divergence of tensor-rank {n} not supported")
+            raise ValueError(
+                f"Should not use divergence operator on quantity of dimension {dim}"
+            )
 
     def trace(self, dim: int = 1) -> sps.csr_matrix:
         """Get trace operator for the grid.

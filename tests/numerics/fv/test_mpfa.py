@@ -958,7 +958,7 @@ class TestMpfaPressureReconstructionMatrices:
             g, k, bc, eta=0, inverter="python"
         )
 
-        div = g.divergence(n=1)
+        div = g.divergence(dim=1)
 
         P = sps.linalg.spsolve(div * flux, -div * bound_flux * p_b)
 
@@ -993,7 +993,7 @@ class TestMpfaPressureReconstructionMatrices:
             g, k, bc, eta=0, inverter="python"
         )
 
-        div = g.divergence(n=1)
+        div = g.divergence(dim=1)
 
         P = sps.linalg.spsolve(div * flux, -div * bound_flux * p_b.ravel("F"))
 
@@ -1024,7 +1024,7 @@ class TestMpfaPressureReconstructionMatrices:
             g, k, bc, eta=0, inverter="python"
         )
 
-        div = g.divergence(n=1)
+        div = g.divergence(dim=1)
 
         hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=g)
         P = sps.linalg.spsolve(div * hf2f * flux, -div * hf2f * bound_flux * p_b)
@@ -1157,7 +1157,7 @@ class TestRobinBoundaryCondition:
             g, k, bnd, inverter="python"
         )
 
-        div = g.divergence(n=1)
+        div = g.divergence(dim=1)
 
         rob_ex = [robin_weight * 0.25, robin_weight * 0.75, 1, 1]
         u_bound = np.zeros(g.num_faces)
@@ -1189,7 +1189,7 @@ class TestRobinBoundaryCondition:
             g, k, bnd, inverter="python"
         )
 
-        div = g.divergence(n=1)
+        div = g.divergence(dim=1)
 
         u_bound = np.zeros(g.num_faces)
         u_bound[dir_ind] = p_bound
