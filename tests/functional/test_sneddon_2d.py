@@ -96,8 +96,6 @@ def get_bc_val(g: pp.Grid, bound_faces, xf, h, poi, alpha, du):
     Compute analytical displacement using the BEM method for the pressurized crack
     problem in question.
     
-
-
     Parameter
     ---------
     g: grid object
@@ -159,18 +157,19 @@ def get_bc_val(g: pp.Grid, bound_faces, xf, h, poi, alpha, du):
 
 def assign_bem(g: pp.Grid, h:float, bound_faces: np.ndarray, theta: float, bem_centers: np.ndarray, u_a: np.ndarray, poi: float) -> np.ndarray:
     """
-    Compute analytical displacement using the BEM method for the pressurized crack
-    problem in question.
+    Compute analytical displacement using the BEM method for the Sneddon problem.
 
     Parameter
-    ---------
-    g: Subdomain grid
-    h: bem segment length
-    bound_faces: boundary faces
-    theta: fracture orientation
-    bem_centers: bem segments centers
-    u_a: Sneddon's analytical relative normal displacement
-    poi: Poisson ratio
+        g: Subdomain grid
+        h: bem segment length
+        bound_faces: boundary faces
+        theta: fracture orientation
+        bem_centers: bem segments centers
+        u_a: Sneddon's analytical relative normal displacement
+        poi: Poisson ratio
+    
+    Return:
+        Semi-analytical boundary displacement values 
     """
 
     bc_val = np.zeros((g.dim, g.num_faces))
@@ -201,16 +200,16 @@ def run_analytical_displacements(gb: pp.GridLike, a: float, p0: float, G: float,
     Source: Sneddon Fourier transforms 1951 page 425 eq 92 
 
     Parameter
-    ---------
-    gb: Grid object
-    a: Half fracture length of fracture
-    eta: Distance from fracture centre
-    p0: Internal constant pressure inside the fracture
-    G: Shear modulus
-    poi: Poisson ratio
-    height,length: Height and length of domain
+        gb: Grid object
+        a: Half fracture length of fracture
+        eta: Distance from fracture centre
+        p0: Internal constant pressure inside the fracture
+        G: Shear modulus
+        poi: Poisson ratio
+        height,length: Height and length of domain
     
-    Return:  A tuple containing two vectors: a list of distances from the fracture center to each fracture coordinate, and the corresponding analytical apertures.
+    Return:  
+        A tuple containing two vectors: a list of distances from the fracture center to each fracture coordinate, and the corresponding analytical apertures.
     """
     ambient_dim = gb.dim_max()
     g_1 = gb.subdomains(dim=ambient_dim - 1)[0]
