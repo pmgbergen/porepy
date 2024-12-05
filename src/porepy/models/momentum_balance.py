@@ -24,7 +24,6 @@ import porepy as pp
 from porepy.models.abstract_equations import VariableMixin
 
 from . import constitutive_laws
-from .boundary_condition import BoundaryConditionsPrimaryVariables
 
 logger = logging.getLogger(__name__)
 
@@ -791,7 +790,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         return self.mdg.dim_min() < self.nd
 
 
-class BoundaryConditionsMomentumBalance(BoundaryConditionsPrimaryVariables):
+class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     """Boundary conditions for the momentum balance."""
 
     displacement_variable: str

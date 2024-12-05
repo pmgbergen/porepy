@@ -22,8 +22,6 @@ import numpy as np
 
 import porepy as pp
 
-from .boundary_condition import BoundaryConditionsPrimaryVariables
-
 logger = logging.getLogger(__name__)
 
 
@@ -381,7 +379,7 @@ class ConstitutiveLawsSinglePhaseFlow(
     """
 
 
-class BoundaryConditionsSinglePhaseFlow(BoundaryConditionsPrimaryVariables):
+class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     """Boundary conditions for single-phase flow."""
 
     bc_data_fluid_flux_key: str = "fluid_flux"
