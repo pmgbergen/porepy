@@ -86,67 +86,134 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
     # cell-face relation. Since the grid is 1d, nodes and faces are equivalent, and
     # notation used mostly refers to nodes instead of faces.
 
-    # Cell-node relation
-    cell_nodes = g.cell_nodes()
+    # Cell-node relation. Enforce csc format to make sure we use the right data.
+    cell_nodes = g.cell_nodes().tocsc()
     nodes, cells, _ = sparse_array_to_row_col_data(cell_nodes)
 
-    # Every cell will contribute (ratio - 1) new nodes
+    # Every cell will contribute (ratio - 1) new nodes.
     num_new_nodes = (ratio - 1) * g.num_cells + g.num_nodes
+
+    # Data structure for the new nodes.
     x = np.zeros((3, num_new_nodes))
-    # Coordinates for splitting of cells
+
+    # Line-length parametrization between 0 and 1. This will be used to define the
+    # coordinates of the new nodes (between nodes in the old grid).
     theta = np.arange(1, ratio) / float(ratio)
-    pos = 0
-    shift = 0
+    # Counter used to keep track of how many nodes have been added to the new grid.
+    node_counter = 0
 
-    # Array that indicates whether an item in the cell-node relation represents a node
-    # not listed before (e.g. whether this is the first or second occurrence of the
-    # cell)
-    if_add = np.r_[1, np.ediff1d(cell_nodes.indices)].astype(bool)
+    # The refinement must work also for grids that are not equidistant. While it might
+    # be possible to do the refinemnet in a vectorized fashion, looping over the cells
+    # and refining them one by one is a simpler solution.
 
-    indices = np.empty(0, dtype=int)
-    # Template array of node indices for refined cells
-    ind = np.vstack((np.arange(ratio), np.arange(ratio) + 1)).flatten("F")
-    nd = np.r_[np.diff(cell_nodes.indices)[1::2], 0]
+    # When looping over cells in the old grid, we will hit upon all internal nodes
+    # twice, but they should only be added to the refined grid the first time. We
+    # therefore need to keep track of whether a node in the old grid should be added
+    # and, if not, the node index in the new grid by which it is already present.
+    #
+    # Construct an array that indicates whether an item in the cell-node relation
+    # represents a node not listed before (e.g. whether this is the first or second
+    # occurrence of the cell).
+    _, first_occ = np.unique(cell_nodes.indices, return_index=True)
+    # By default, the nodes should not be added; overwrite this for the first
+    # occurrence.
+    node_to_be_added = np.zeros(cell_nodes.indices.size, dtype=bool)
+    node_to_be_added[first_occ] = True
+    # Map node indices from the old to the new grid.
+    old_2_new_nodes = {}
+
+    # Holder for the new indices.
+    new_indices: list[np.ndarray] = []
+
+    # Template array of node indices for refined nodes (those not present in the old
+    # grid). The actual node indices are found by adding node_counter as an offset, see
+    # below code. Splitting a cell into 'ratio' parts requires 'ratio'-1 new nodes (not
+    # counting the existing nodes of the old grid), hence the size of the template.
+    indices_template = np.repeat(np.arange(ratio - 1), 2)
 
     # Loop over all old cells and refine them.
     for c in np.arange(g.num_cells):
-        # Find start and end nodes of the old cell
+        # Find start and end nodes of the old cell. First the location in the sparse
+        # storage.
         loc = slice(cell_nodes.indptr[c], cell_nodes.indptr[c + 1])
+        # Then the actual indices. EK note to self: This will be correct also if the
+        # nodes are not ordered linearly (start+1 != end).
         start, end = cell_nodes.indices[loc]
 
         # Flags for whether this is the first occurrences of the nodes of the old cell.
-        # If so, they should be added to the new node array
-        if_add_loc = if_add[loc]
+        # If so, they should be added to the new node array.
+        node_to_be_added_loc = node_to_be_added[loc]
 
-        # Local cell-node (thus cell-face) relations of the new grid
-        indices = np.r_[indices, shift + ind]
+        # Local cell-node (thus cell-face) relations of the new grid.
+        loc_new_ind = []
 
-        # Add coordinate of the startpoint to the node array if relevant
-        if if_add_loc[0]:
-            x[:, pos : (pos + 1)] = g.nodes[:, start, np.newaxis]
-            pos += 1
+        # Add coordinate of the startpoint to the node array if relevant.
+        if node_to_be_added_loc[0]:
+            # Register the new coordinate.
+            x[:, node_counter] = g.nodes[:, start]
+            # Associate the node index 'start' in the old grid with the index
+            # 'node_counter' in the new grid.
+            old_2_new_nodes[start] = node_counter
+            # Add the node index to the local new indices.
+            loc_new_ind.append(node_counter)
+            # Increase node counter.
+            node_counter += 1
+        else:
+            # This node has already been added to the refined grid. Use the node map to
+            # find the right index.
+            loc_new_ind.append(old_2_new_nodes[start])
 
-        # Add coordinates of the internal nodes
-        x[:, pos : (pos + ratio - 1)] = g.nodes[:, start, np.newaxis] * theta + g.nodes[
-            :, end, np.newaxis
-        ] * (1 - theta)
-        pos += ratio - 1
-        shift += ratio + (2 - np.sum(if_add_loc) * (1 - nd[c])) - nd[c]
+        # Add coordinates of the internal nodes (those not present in the old grid). The
+        # coordinates added here run from closest to the start node to closest to the
+        # end node. Reshape is needed since we may add more than one node at a time (in
+        # contrast to the assignments in the if-statements above and below).
+        x[:, node_counter : (node_counter + ratio - 1)] = (
+            g.nodes[:, start].reshape((-1, 1)) * (1 - theta)
+            + g.nodes[:, end].reshape((-1, 1)) * theta
+        )
 
-        # Add coordinate to the endpoint, if relevant
-        if if_add_loc[1]:
-            x[:, pos : (pos + 1)] = g.nodes[:, end, np.newaxis]
-            pos += 1
+        # Register the indices of the new nodes and increase the counter.
+        loc_new_ind += list(node_counter + indices_template)
+        node_counter += ratio - 1
 
-    # For 1d grids, there is a 1-1 relation between faces and nodes
+        # Add coordinate of the endpoint of this interval if relevant. See corresponding
+        # if-statement above for comments.
+        if node_to_be_added_loc[-1]:
+            x[:, node_counter] = g.nodes[:, end]
+            old_2_new_nodes[end] = node_counter
+            loc_new_ind.append(node_counter)
+            node_counter += 1
+        else:
+            loc_new_ind.append(old_2_new_nodes[end])
+
+        new_indices.append(np.array(loc_new_ind))
+
+    # For 1d grids, there is a 1-1 relation between faces and nodes.
     face_nodes = sps.identity(x.shape[1], format="csc")
+
+    # The grid is 1d, so the face indices are the same as the node indices stored in
+    # new_indices.
+    cell_face_ind = np.hstack(new_indices)
+
+    # The signs are -1 for the first node of each cell, and 1 for the second. Other
+    # possibilities would be possible, but this should work.
+    #
+    # Find the first occurrence of each node.
+    _, first_occurrences = np.unique(cell_face_ind, return_index=True)
+    # Initialize the signs array with -1, and set the first occurrences to 1.
+    signs = np.full(cell_face_ind.size, -1)
+    signs[first_occurrences] = 1
+
+    # We have the cell-face relation. The index pointer assigns two indices to each
+    # cell, as will always be the case for a 1d grid.
     cell_faces = sps.csc_matrix(
         (
-            np.ones(indices.size, dtype=bool),
-            indices,
-            np.arange(0, indices.size + 1, 2),
+            signs,
+            cell_face_ind,
+            np.arange(0, cell_face_ind.size + 1, 2),
         )
     )
+    # Construct grid, compute geometry, done.
     g = Grid(1, x, face_nodes, cell_faces, "Refined 1d grid")
     g.compute_geometry()
 
