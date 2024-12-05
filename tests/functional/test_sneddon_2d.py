@@ -385,7 +385,7 @@ def simulation(frac_pts: np.ndarray, theta_rad: np.ndarray, h: np.ndarray,
 
 
   
-def compute_frac_pts(theta_rad, a, height, length):
+def compute_frac_pts(theta_rad: float, a: float, height: float, length:float) -> np.ndarray:
     """
     Assuming the fracture center is at the coordinate (height/2, length/2),
     compute the endpoints of a fracture given its orientation and fracture length.
@@ -417,7 +417,18 @@ def compute_frac_pts(theta_rad, a, height, length):
     frac_pts = np.array([[x_0, y_0], [x_1, y_1]]).T
     return frac_pts
 
-def compute_eoc(h, e):
+def compute_eoc(h: np.ndarray, e: np.ndarray) -> np.ndarray:
+    """
+    Compute the Error Order of Convergence (EOC) based on error and mesh size.
+
+    Parameters:
+        h: Array of mesh sizes corresponding to simulation results.
+        e: Array of error values for the corresponding mesh sizes.
+
+    Returns:
+        eoc: Array of EOC values computed for consecutive levels of refinement.
+    """
+    
     # Compute the Error Order of Convergence (EOC)
     eoc = np.zeros(len(e) - 1)
     for i in range(len(e) - 1):
@@ -426,8 +437,26 @@ def compute_eoc(h, e):
 
     
 
-def compute_convergence(h_list, theta_list, a=1, height=1, length=1):
-    # Compute Error for big fracture length
+def compute_convergence(
+    h_list: np.ndarray, 
+    theta_list: np.ndarray, 
+    a: float = 1, 
+    height: float = 1, 
+    length: float = 1
+) -> np.ndarray:
+    """
+    Compute the convergence behavior for the Sneddon problem across mesh refinements and orientations.
+
+    Parameters:
+        h_list: Array of mesh sizes for simulations.
+        theta_list: Array of fracture orientations (in degrees).
+        a: Half-length of the fracture.
+        height: Height of the simulation domain.
+        length: Length of the simulation domain. 
+
+    Returns:
+        A 2D array where rows correspond to different orientations and columns to mesh sizes.
+    """    # Compute Error for big fracture length
     err = np.zeros(( len(theta_list), len(h_list)))  
     for k in range(0, len(theta_list)):
         theta_rad = math.radians(90 - theta_list[k])
@@ -441,6 +470,20 @@ def compute_convergence(h_list, theta_list, a=1, height=1, length=1):
 
 
 def test_sneddon_2d():
+    """
+    Test function to verify 2D Sneddon problem convergence.
+
+    The function performs a convergence experiment for a 2D fracture problem
+    by iterating over fracture orientations and mesh refinements.
+
+    It computes the average error across orientations and evaluates the 
+    convergence rate (EOC) through log-log regression.
+
+    Raises:
+    -------
+    AssertionError
+        If the estimated EOC is not greater than 1.0.
+    """
     
     # Simulation settings    
     num_refs = 4 # Number of refinements
