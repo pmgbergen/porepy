@@ -77,34 +77,36 @@ def analytical_displacements(a: float, eta: np.ndarray, p0: float, G: float, poi
 
 def transform(xc: np.ndarray, x: np.ndarray, alpha: float) -> np.ndarray:
     """
-    Coordinate transofrmation for the BEM method
+    Translation and rotation coordinate transformation of boundary face coordinates for the BEM method
 
     Parameter
-    ---------
-    xc: coordinates of BEM segment centre
-    x: coordinates of boundary faces
-    alpha: fracture orientation
+        xc: Coordinates of BEM segment centre
+        x: Coordinates of boundary faces
+        alpha: Fracture orientation
+    Return:
+        Transformed coordinates 
     """
     x_bar = np.zeros_like(x)
+    # Terms in (7.4.6) in Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics page 168
     x_bar[0, :] = (x[0, :] - xc[0]) * np.cos(alpha) + (x[1, :] - xc[1]) * np.sin(alpha)
     x_bar[1, :] = -(x[0, :] - xc[0]) * np.sin(alpha) + (x[1, :] - xc[1]) * np.cos(alpha)
     return x_bar
 
 
-def get_bc_val(g: pp.Grid, bound_faces, xf, h, poi, alpha, du):
+def get_bc_val(g: pp.GridLike, bound_faces: np.ndarray, xf: np.ndarray, h: float, poi: float, alpha: float, du: float) -> np.ndarray:
     """
-    Compute analytical displacement using the BEM method for the pressurized crack
-    problem in question.
+    Compute semi-analytical displacement on the boundary using the BEM method for the Sneddon problem.
     
     Parameter
-    ---------
-    g: grid object
-    bound_faces: boundary faces
-    xf: coordinates of boundary faces
-    h: bem segment length
-    poi: Poisson ratio
-    alpha: fracture orientation
-    du: Sneddon's analytical relative normal displacement
+        g: Grid object 
+        bound_faces: Index lists for boundary faces
+        xf: Coordinates of boundary faces
+        h: BEM segment length
+        poi: Poisson ratio
+        alpha: Fracture orientation
+        du: Sneddon's analytical relative normal displacement
+    Return:
+        Boundary values for the displacement
     """
     
     # Equations for f2,f3,f4.f5 can be found in book Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics pages 57, 84-92, 168
