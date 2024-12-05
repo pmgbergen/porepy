@@ -193,7 +193,7 @@ def assign_bem(g: pp.Grid, h:float, bound_faces: np.ndarray, theta: float, bem_c
 
 
 
-def run_analytical_displacements(gb: pp.Grid, a: float, p0: float, G: float, poi: float, height: float, length: float) -> tuple:
+def run_analytical_displacements(gb: pp.GridLike, a: float, p0: float, G: float, poi: float, height: float, length: float) -> tuple:
     """
     Compute Sneddon's analytical solution for the pressurized crack
     problem in question.
@@ -203,12 +203,14 @@ def run_analytical_displacements(gb: pp.Grid, a: float, p0: float, G: float, poi
     Parameter
     ---------
     gb: Grid object
-    a: half fracture length
-    eta: distance from fracture centre
-    p0: pressure
-    G: shear modulus
-    poi: poisson ratio
+    a: Half fracture length of fracture
+    eta: Distance from fracture centre
+    p0: Internal constant pressure inside the fracture
+    G: Shear modulus
+    poi: Poisson ratio
     height,length: Height and length of domain
+    
+    Return:  A tuple containing two vectors: a list of distances from the fracture center to each fracture coordinate, and the corresponding analytical apertures.
     """
     ambient_dim = gb.dim_max()
     g_1 = gb.subdomains(dim=ambient_dim - 1)[0]
@@ -368,10 +370,11 @@ def simulation(frac_pts: np.ndarray, theta_rad: np.ndarray, h: np.ndarray,
 
     model = MomentumBalanceGeometryBC(params)
     pp.run_time_dependent_model(model, params)
-    
+
     frac_sd = model.mdg.subdomains(dim=model.nd - 1)
     nd_vec_to_normal = model.normal_component(frac_sd)
 
+    # Comuting the numerical displacement jump along the fracture on the fracture cell centers.
     u_n: pp.ad.Operator = nd_vec_to_normal @ model.displacement_jump(frac_sd)
     u_n = u_n.value(model.equation_system)
     
