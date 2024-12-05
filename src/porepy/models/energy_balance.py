@@ -19,8 +19,6 @@ import numpy as np
 
 import porepy as pp
 
-from .boundary_condition import BoundaryConditionsPrimaryVariables
-
 
 class EnergyBalanceEquations(pp.BalanceEquation):
     """Mixed-dimensional energy balance equation.
@@ -683,7 +681,7 @@ class ConstitutiveLawsEnergyBalance(
     """Collect constitutive laws for the energy balance."""
 
 
-class BoundaryConditionsEnergyBalance(BoundaryConditionsPrimaryVariables):
+class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     """Boundary conditions for the energy balance.
 
     Boundary type and value for both diffusive Fourier flux and advective enthalpy flux.
@@ -825,7 +823,7 @@ class BoundaryConditionsEnergyBalance(BoundaryConditionsPrimaryVariables):
         )
 
 
-class BoundaryConditionsEnthalpy(BoundaryConditionsPrimaryVariables):
+class BoundaryConditionsEnthalpy(pp.BoundaryConditionMixin):
     """Mixin for providing BC values for an independent enthalpy variable.
 
     Note:

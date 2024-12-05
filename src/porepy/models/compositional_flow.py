@@ -104,7 +104,6 @@ import porepy.compositional as ppc
 from . import energy_balance as energy
 from . import fluid_mass_balance as mass
 from . import mass_and_energy_balance as mass_energy
-from .boundary_condition import BoundaryConditionsPrimaryVariables
 from .constitutive_laws import ThermalConductivityCF
 from .protocol import CompositionalFlowModelProtocol, PorePyModel
 
@@ -1004,6 +1003,10 @@ class ConstitutiveLawsCF(
     ThermalConductivityCF,
     ConstitutiveLawsSolidSkeletonCF,
     pp.constitutive_laws.FluidMobility,
+    # Contains the Upwind for the enthalpy flux, otherwise not required.
+    # TODO Consider putting discretizations strictly outside of classes providing
+    # heuristics for thermodynamic properties.
+    pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FouriersLaw,
@@ -1070,7 +1073,7 @@ class _BoundaryConditionsAdvection(PorePyModel):
 
 
 class BoundaryConditionsFractions(
-    BoundaryConditionsPrimaryVariables, CompositionalFlowModelProtocol
+    pp.BoundaryConditionMixin, CompositionalFlowModelProtocol
 ):
     """Mixin providing boundary values for overall fractions of components and tracer
     fractions in compounds (primary fractions).
@@ -1376,77 +1379,6 @@ class BoundaryConditionsCF(
     boundary, depending on primary variables."""
 
 
-class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
-    """Extension of the initial condition mixing to provide a method which initializes
-    values and derivative values for phase properties.
-
-    This class assumes that phase properties are given as surrogate factories, which
-    can get values assigned after initial values for their dependencies are set.
-
-    """
-
-    def initial_condition(self) -> None:
-        """Calls :meth:`set_initial_values_phase_properties` after the super-call."""
-        super().initial_condition()
-        self.set_initial_values_phase_properties()
-
-    def set_initial_values_phase_properties(self) -> None:
-        """Method to set the initial values and derivative values of phase
-        properties, which are surrogate factories with some dependencies.
-
-        This method also fills all time and iterate indices with the initial values.
-        Derivative values are only stored for the current iterate.
-
-        """
-        subdomains = self.mdg.subdomains()
-        ni = self.iterate_indices.size
-        nt = self.time_step_indices.size
-
-        # Set the initial values on individual grids for the iterate indices
-        for grid in subdomains:
-            for phase in self.fluid.phases:
-                dep_vals = [
-                    d([grid]).value(self.equation_system)
-                    for d in self.dependencies_of_phase_properties(phase)
-                ]
-
-                phase_props = phase.compute_properties(
-                    *cast(list[np.ndarray], dep_vals)
-                )
-
-                # Set values and derivative values for current current index
-                update_phase_properties(grid, phase, phase_props, ni)
-
-                # progress iterate values to all iterate indices
-                # NOTE need the if-checks to satisfy mypy, since the properties are
-                # type aliases containing some other type as well.
-                for _ in self.iterate_indices:
-                    if isinstance(phase.density, pp.ad.SurrogateFactory):
-                        phase.density.progress_iterate_values_on_grid(
-                            phase_props.rho, grid, depth=ni
-                        )
-                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                        phase.specific_enthalpy.progress_iterate_values_on_grid(
-                            phase_props.h, grid, depth=ni
-                        )
-                    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-                        phase.viscosity.progress_iterate_values_on_grid(
-                            phase_props.mu, grid, depth=ni
-                        )
-                    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
-                        phase.thermal_conductivity.progress_iterate_values_on_grid(
-                            phase_props.kappa, grid, depth=ni
-                        )
-                # Copy values to all time step indices
-                for _ in self.time_step_indices:
-                    if isinstance(phase.density, pp.ad.SurrogateFactory):
-                        phase.density.progress_values_in_time([grid], depth=nt)
-                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                        phase.specific_enthalpy.progress_values_in_time(
-                            [grid], depth=nt
-                        )
-
-
 class InitialConditionsFractions(
     pp.InitialConditionMixin, CompositionalFlowModelProtocol
 ):
@@ -1528,6 +1460,77 @@ class InitialConditionsFractions(
 
         """
         return np.zeros(sd.num_cells)
+
+
+class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
+    """Extension of the initial condition mixing to provide a method which initializes
+    values and derivative values for phase properties.
+
+    This class assumes that phase properties are given as surrogate factories, which
+    can get values assigned after initial values for their dependencies are set.
+
+    """
+
+    def initial_condition(self) -> None:
+        """Calls :meth:`set_initial_values_phase_properties` after the super-call."""
+        super().initial_condition()
+        self.set_initial_values_phase_properties()
+
+    def set_initial_values_phase_properties(self) -> None:
+        """Method to set the initial values and derivative values of phase
+        properties, which are surrogate factories with some dependencies.
+
+        This method also fills all time and iterate indices with the initial values.
+        Derivative values are only stored for the current iterate.
+
+        """
+        subdomains = self.mdg.subdomains()
+        ni = self.iterate_indices.size
+        nt = self.time_step_indices.size
+
+        # Set the initial values on individual grids for the iterate indices
+        for grid in subdomains:
+            for phase in self.fluid.phases:
+                dep_vals = [
+                    d([grid]).value(self.equation_system)
+                    for d in self.dependencies_of_phase_properties(phase)
+                ]
+
+                phase_props = phase.compute_properties(
+                    *cast(list[np.ndarray], dep_vals)
+                )
+
+                # Set values and derivative values for current current index
+                update_phase_properties(grid, phase, phase_props, ni)
+
+                # progress iterate values to all iterate indices
+                # NOTE need the if-checks to satisfy mypy, since the properties are
+                # type aliases containing some other type as well.
+                for _ in self.iterate_indices:
+                    if isinstance(phase.density, pp.ad.SurrogateFactory):
+                        phase.density.progress_iterate_values_on_grid(
+                            phase_props.rho, grid, depth=ni
+                        )
+                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                        phase.specific_enthalpy.progress_iterate_values_on_grid(
+                            phase_props.h, grid, depth=ni
+                        )
+                    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+                        phase.viscosity.progress_iterate_values_on_grid(
+                            phase_props.mu, grid, depth=ni
+                        )
+                    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
+                        phase.thermal_conductivity.progress_iterate_values_on_grid(
+                            phase_props.kappa, grid, depth=ni
+                        )
+                # Copy values to all time step indices
+                for _ in self.time_step_indices:
+                    if isinstance(phase.density, pp.ad.SurrogateFactory):
+                        phase.density.progress_values_in_time([grid], depth=nt)
+                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                        phase.specific_enthalpy.progress_values_in_time(
+                            [grid], depth=nt
+                        )
 
 
 class InitialConditionsCF(
