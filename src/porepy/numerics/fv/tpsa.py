@@ -171,8 +171,8 @@ class Tpsa:
         # Deal with rotation variable being 1d if g.dim == 2, 3d if g.dim == 3
         >>> num_rot_face = nf if g.dim == 2 else 3 * nf
         >>> num_rot_cell = nc if g.dim == 2 else 3 * nc
-        >>> div_scalar = pp.fvutils.scalar_divergence(g)
-        >>> div_vector = pp.fvutils.vector_divergence(g)
+        >>> div_scalar = g.divergence(n=1)
+        >>> div_vector = g.divergence(n=2)
         >>> div_rot = div_scalar if g.dim == 2 else div_vec
 
         >>> matrices = data[pp.DISCRETIZATION_MATRICES][key]
