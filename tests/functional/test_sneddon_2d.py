@@ -327,7 +327,7 @@ class MomentumBalanceGeometryBC(
 
 def simulation(frac_pts: np.ndarray, theta_rad: np.ndarray, h: np.ndarray,
                a: float =1.5, height: float = 1., length: float= 1.,
-               p0: float =1e-4, G: float = 1.0, poi: float=0.25):
+               p0: float =1e-4, G: float = 1.0, poi: float=0.25) -> float:
     
     """
     Simulates a 2D fracture linear elasticity problem using a momentum balance model and 
@@ -381,16 +381,27 @@ def simulation(frac_pts: np.ndarray, theta_rad: np.ndarray, h: np.ndarray,
                     frac_sd[0], u_a, u_n, is_scalar=False, is_cc=True, relative=True
                     )
     
-    
-    # Transform cell center points to distance from fracture center eta 
-    fracture_center = np.array([length / 2, height / 2, 0]) 
-    eta = compute_eta( frac_sd[0].cell_centers, fracture_center)   
-    
-    return e, eta, u_a, u_n
+    return e
 
 
   
-def compute_frac_pts(theta_rad,a, height, length):
+def compute_frac_pts(theta_rad, a, height, length):
+    """
+    Assuming the fracture center is at the coordinate (height/2, length/2),
+    compute the endpoints of a fracture given its orientation and fracture length.
+    
+    Parameters:
+    theta_rad: Angle of the fracture in radians
+    a: Half-length of the fracture.
+    height: Height of the domain.
+    length: Width of the domain.
+
+    Returns:
+
+        frac_pts : A 2x2 array where each column represents the coordinates of an end point of the fracture in 2D.
+            The first column corresponds to one end point, and the second column corresponds to the other.
+
+    """
     # Rotate the fracture with an angle theta_rad
     y_0 = height / 2 - a * np.cos(theta_rad)
     x_0 = length / 2 - a * np.sin(theta_rad)
@@ -422,7 +433,7 @@ def compute_convergence(h_list, theta_list, a=1, height=1, length=1):
         theta_rad = math.radians(90 - theta_list[k])
         frac_pts = compute_frac_pts(theta_rad,a, height=height, length=length)   
         for i in range(0, len(h_list)):
-            e, _, _, _ = simulation(frac_pts, theta_rad, h_list[i], a=a, height=height, length=length)
+            e = simulation(frac_pts, theta_rad, h_list[i], a=a, height=height, length=length)
             err[k, i] = e
         print(f"a: {a}, (height,length) = ({height}, {length}) theta: {theta_list[k]}, EOC: {compute_eoc(h_list, err[k, :])}")
     
