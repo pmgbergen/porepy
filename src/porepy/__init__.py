@@ -200,20 +200,21 @@ from porepy.compositional.base import Component, Phase, Fluid
 from porepy.compositional.compositional_mixins import *
 
 # "Primary" models
-from porepy.models import fluid_mass_balance, momentum_balance
+from porepy.models import energy_balance, fluid_mass_balance, momentum_balance
 
 # "Secondary" models inheriting from primary models
 from porepy.models import (
     poromechanics,
-    energy_balance,
     mass_and_energy_balance,
     thermoporomechanics,
 )
+from porepy.models import compositional_flow
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.models.momentum_balance import MomentumBalance
 from porepy.models.poromechanics import Poromechanics
 from porepy.models.thermoporomechanics import Thermoporomechanics
 from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
+from porepy.models.compositional_flow import ModelSetupCF, ModelSetupCFF
 
 
 # Visualization

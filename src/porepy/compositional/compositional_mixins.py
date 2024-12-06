@@ -26,7 +26,6 @@ from typing import Callable, Optional, Sequence, cast
 import numpy as np
 
 import porepy as pp
-from porepy.models.protocol import CompositionalFlowModelProtocol
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
@@ -146,7 +145,7 @@ def has_unified_equilibrium(model: pp.PorePyModel) -> bool:
         return False
 
 
-class _MixtureDOFHandler(CompositionalFlowModelProtocol):
+class _MixtureDOFHandler(pp.PorePyModel):
     """A class to help resolve the independent fractional variables of an arbitrary
     mixture, and respectively the DOFs.
 

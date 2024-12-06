@@ -655,7 +655,7 @@ class ManuCompBoundaryConditions(
 
 
 # -----> Balance equations
-class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+class ManuCompBalanceEquation(pp.fluid_mass_balance.TotalMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
