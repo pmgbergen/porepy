@@ -466,14 +466,6 @@ def compute_frac_pts(
     y_1 = height / 2 + a * np.cos(theta_rad)
     x_1 = length / 2 + a * np.sin(theta_rad)
 
-    def vector_length(x0, y0, x1, y1):
-        point1 = np.array([x0, y0])
-        point2 = np.array([x1, y1])
-        return np.linalg.norm(point2 - point1)
-
-    print(
-        f"Frac points, ({x_0, y_0} ), ({x_1, y_1} ) with half length {vector_length(x_0,y_0, x_1, y_1)/2}"
-    )
     frac_pts = np.array([[x_0, y_0], [x_1, y_1]]).T
     return frac_pts
 
@@ -516,9 +508,11 @@ def compute_convergence(
 
     Returns:
         A 2D array where rows correspond to different orientations and columns to mesh sizes.
-    """  # Compute Error for big fracture length
+    """  
+    # Compute error for each orientation of the fracture 
     err = np.zeros((len(theta_list), len(h_list)))
     for k in range(0, len(theta_list)):
+        
         theta_rad = math.radians(90 - theta_list[k])
         frac_pts = compute_frac_pts(theta_rad, a, height=height, length=length)
         for i in range(0, len(h_list)):
@@ -526,9 +520,6 @@ def compute_convergence(
                 frac_pts, theta_rad, h_list[i], a=a, height=height, length=length
             )
             err[k, i] = e
-        print(
-            f"a: {a}, (height,length) = ({height}, {length}) theta: {theta_list[k]}, EOC: {compute_eoc(h_list, err[k, :])}"
-        )
 
     return err
 
