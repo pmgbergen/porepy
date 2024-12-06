@@ -31,6 +31,7 @@ conductivity between 290K (16.85C) and 295K (21.85C).
 """
 
 water = {
+    "name": "water",
     "compressibility": 4.559 * 1e-10,  # [Pa^-1], isentropic compressibility
     "density": 998.2,  # [kg m^-3]
     "specific_heat_capacity": 4182.0,  # [J kg^-1 K^-1], isochoric specific heat
