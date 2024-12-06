@@ -39,7 +39,7 @@
 
     // List of branches to benchmark. If not provided, defaults to "main"
     // (for git) or "default" (for mercurial).
-    "branches": ["develop"], // for git
+    "branches": ["asv_profiling"], // for git YZ: TO BE REPLACED WITH develop
     // "branches": ["default"],    // for mercurial
 
     // The DVCS being used.  If not set, it will be automatically
