@@ -30,9 +30,6 @@ import subprocess
 import warnings
 from typing import Optional, Type
 
-# VizTracer is missing stubs or py.typed marker, hence we ignore type errors.
-from viztracer import VizTracer  # type: ignore[import]
-
 import porepy as pp
 
 # Models 1 and 4 use FractureSolidConstants class, others use its parent SolidConstants.
@@ -211,6 +208,9 @@ def run_model_with_tracer(args, model) -> None:
         None
 
     """
+    # VizTracer is missing stubs or py.typed marker, hence we ignore type errors.
+    from viztracer import VizTracer  # type: ignore[import]
+
     if args.save_file == "":
         save_file: str = (
             f"profiling_{args.physics}_{args.geometry}_{args.grid_refinement}.json"
