@@ -1,6 +1,6 @@
 """
 Class types:
-    MassBalanceEquations defines subdomain and interface equations through the
+    TotalMassBalanceEquations defines subdomain and interface equations through the
         terms entering. Darcy type interface relation is assumed.
     Specific ConstitutiveLaws and specific SolutionStrategy for both incompressible
     and compressible case.
@@ -25,14 +25,12 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class MassBalanceEquations(pp.BalanceEquation):
-    """Mixed-dimensional mass balance equation.
+class TotalMassBalanceEquations(pp.BalanceEquation):
+    """Mixed-dimensional mass balance equation of total mass (pressure equation).
 
     Balance equation for all subdomains and Darcy-type flux relation on all interfaces
     of codimension one and Peaceman flux relation on interfaces of codimension two
     (well-fracture intersections).
-
-    This is a balance of total mass, also known as pressure equation.
 
     """
 
@@ -153,7 +151,7 @@ class MassBalanceEquations(pp.BalanceEquation):
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name(MassBalanceEquations.primary_equation_name())
+        eq.set_name(TotalMassBalanceEquations.primary_equation_name())
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -235,11 +233,39 @@ class MassBalanceEquations(pp.BalanceEquation):
         # Now we can cast the domains
         domains = cast(list[pp.Grid], domains)
 
-        discr = self.mobility_discretization(domains)
-        mob_rho = self.advection_weight_mass_balance(domains)
+        flux = self.advective_flux(
+            domains,
+            self.advection_weight_mass_balance(domains),
+            self.mobility_discretization(domains),
+            self.boundary_fluid_flux(domains),
+            self.interface_fluid_flux,
+        )
+        flux.set_name("fluid_flux")
+        return flux
 
-        boundary_operator = self._combine_boundary_operators(
-            subdomains=domains,
+    def boundary_fluid_flux(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
+        """Combined representation of the fluid flux on the boundaries of
+        ``subdomains``.
+
+        This base uses the :meth:`fluid_flux` as the Neumann-type operator, and the
+        :meth:`advection_weight_mass_balance` as the Dirichlet-type operator.
+        The former assumes that the total fluid flux on the Neumann-type boundary is
+        explicitly given by the user.
+
+        The boundary fluid flux is used in Upwinding (see :meth:`advective_flux`), i.e.
+        it is a massic flux. Note however, that this is a numerical approximation of
+        the other-wise diffusive total fluid flux.
+
+        Parameters:
+            subdomains: A sequence of grids on whose boundaries the fluid flux is
+                accessed.
+
+        Returns:
+            The massic fluid flux on the boundary to be used for the Upwinding scheme.
+
+        """
+        return self._combine_boundary_operators(
+            subdomains=subdomains,
             dirichlet_operator=self.advection_weight_mass_balance,
             neumann_operator=self.fluid_flux,
             # Robin operator is not relevant for advective fluxes
@@ -247,11 +273,6 @@ class MassBalanceEquations(pp.BalanceEquation):
             bc_type=self.bc_type_fluid_flux,
             name="bc_values_fluid_flux",
         )
-        flux = self.advective_flux(
-            domains, mob_rho, discr, boundary_operator, self.interface_fluid_flux
-        )
-        flux.set_name("fluid_flux")
-        return flux
 
     def interface_flux_equation(
         self, interfaces: list[pp.MortarGrid]
@@ -859,7 +880,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 # For this reason, we ignore the error here, and rely on the tests to catch any
 # inconsistencies.
 class SinglePhaseFlow(  # type: ignore[misc]
-    MassBalanceEquations,
+    TotalMassBalanceEquations,
     VariablesSinglePhaseFlow,
     ConstitutiveLawsSinglePhaseFlow,
     BoundaryConditionsSinglePhaseFlow,

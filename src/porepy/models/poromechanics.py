@@ -17,11 +17,9 @@ Suggested references:
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Union
+from typing import Callable, Union
 
 import porepy as pp
-import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as momentum
 
 
 class ConstitutiveLawsPoromechanics(
@@ -70,22 +68,22 @@ class ConstitutiveLawsPoromechanics(
 
 
 class EquationsPoromechanics(
-    momentum.MomentumBalanceEquations,
-    mass.MassBalanceEquations,
+    pp.momentum_balance.MomentumBalanceEquations,
+    pp.fluid_mass_balance.TotalMassBalanceEquations,
 ):
     """Combines mass and momentum balance equations."""
 
 
 class VariablesPoromechanics(
-    momentum.VariablesMomentumBalance,
-    mass.VariablesSinglePhaseFlow,
+    pp.momentum_balance.VariablesMomentumBalance,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
 ):
     """Combines mass and momentum balance variables."""
 
 
 class BoundaryConditionsPoromechanics(
-    mass.BoundaryConditionsSinglePhaseFlow,
-    momentum.BoundaryConditionsMomentumBalance,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    pp.momentum_balance.BoundaryConditionsMomentumBalance,
 ):
     """Combines mass and momentum balance boundary conditions.
 
@@ -105,16 +103,16 @@ class BoundaryConditionsPoromechanics(
 
 
 class InitialConditionsPoromechanics(
-    mass.InitialConditionsSinglePhaseFlow,
-    momentum.InitialConditionsMomentumBalance,
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+    pp.momentum_balance.InitialConditionsMomentumBalance,
 ):
     """Combines initial conditions for mass and momentum balance, and associated
     primary variables."""
 
 
 class SolutionStrategyPoromechanics(
-    mass.SolutionStrategySinglePhaseFlow,
-    momentum.SolutionStrategyMomentumBalance,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
+    pp.momentum_balance.SolutionStrategyMomentumBalance,
 ):
     """Combines mass and momentum balance solution strategies.
 
@@ -135,18 +133,6 @@ class SolutionStrategyPoromechanics(
     """Method that defines the Biot tensor. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
     """
-
-    def __init__(self, params: Optional[dict] = None) -> None:
-        """Initialize the solution strategy.
-
-        Parameters:
-            params: Dictionary of parameters.
-
-        """
-        # Initialize the solution strategy for the fluid mass balance subproblem.
-        mass.SolutionStrategySinglePhaseFlow.__init__(self, params=params)
-        # Initialize the solution strategy for the momentum balance subproblem.
-        momentum.SolutionStrategyMomentumBalance.__init__(self, params=params)
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""

@@ -12,12 +12,9 @@ from porepy.applications.material_values.fluid_values import water
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.compositional.compositional_mixins import CompositionalVariables
 from porepy.models.compositional_flow import (
-    _BoundaryConditionsAdvection,  # TODO remove once fixed
-)
-from porepy.models.compositional_flow import (
-    BoundaryConditionsFractions,
+    BoundaryConditionsCF,
     ComponentMassBalanceEquations,
-    InitialConditionsFractions,
+    InitialConditionsCF,
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
@@ -35,6 +32,7 @@ class WaterDict(TypedDict):
 
 
 class DomainX(pp.PorePyModel):
+    """Unit square domain with two line fractures forming a X."""
 
     def set_domain(self) -> None:
         """Setting a 2d unit square as matrix."""
@@ -100,7 +98,13 @@ def outlet_faces(bg: pp.BoundaryGrid, sides: pp.domain.DomainSides) -> np.ndarra
     return outlet
 
 
-class TracerIC(InitialConditionsFractions):
+class TracerIC(InitialConditionsCF):
+    """Initial conditions for pressure and tracer fraction.
+
+    Mixes in the initial pressure values, and inherits the IC treatment for
+    multi-component fluids.
+
+    """
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Setting initial pressure equal to pressure on outflow boundary."""
@@ -110,6 +114,7 @@ class TracerIC(InitialConditionsFractions):
     def initial_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
+        """Setting initial tracer overall fraction to zero."""
         # No tracer in the domain at the beginning.
         if component.name == "tracer":
             return np.zeros(sd.num_cells)
@@ -117,7 +122,13 @@ class TracerIC(InitialConditionsFractions):
             assert False, "This will never happen since water is a dependent component."
 
 
-class TracerBC(BoundaryConditionsFractions, _BoundaryConditionsAdvection):
+class TracerBC(BoundaryConditionsCF):
+    """Boundary conditions for pressure, flow and tracer.
+
+    Mixes in the BC for pressure and the boundary type definition, and inherits the
+    BC treatment for multi-component fluids.
+
+    """
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Flagging the inlet and outlet faces as Dirichlet boundary, where pressure
@@ -139,6 +150,11 @@ class TracerBC(BoundaryConditionsFractions, _BoundaryConditionsAdvection):
             dirichlet_faces[sides.all_bf] = dirichlet
 
         return pp.BoundaryCondition(sd, dirichlet_faces, "dir")
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Returns for the upwinding discretization the same inlet and outlet faces
+        marked as 'dir' as for the elliptic discretization."""
+        return self.bc_type_darcy_flux(sd)
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Defines some non-trivial values on inlet and outlet faces of the matrix."""

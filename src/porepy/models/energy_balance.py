@@ -20,8 +20,8 @@ import numpy as np
 import porepy as pp
 
 
-class EnergyBalanceEquations(pp.BalanceEquation):
-    """Mixed-dimensional energy balance equation.
+class TotalEnergyBalanceEquations(pp.BalanceEquation):
+    """Mixed-dimensional balance equation of total energy.
 
     Balance equation for all subdomains and advective and diffusive fluxes internally
     and on all interfaces of codimension one and advection on interfaces of codimension
@@ -178,7 +178,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux = self.energy_flux(subdomains)
         source = self.energy_source(subdomains)
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name(EnergyBalanceEquations.primary_equation_name())
+        eq.set_name(TotalEnergyBalanceEquations.primary_equation_name())
         return eq
 
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:

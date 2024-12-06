@@ -7,20 +7,20 @@ for models concretized in terms of phases, components and thermal setting.
 The following equations are available:
 
 - :class:`ComponentMassBalanceEquations`: While the :class:`~porepy.models.
-  fluid_mass_balance.MassBalanceEquations` represent the balance of total mass
+  fluid_mass_balance.TotalMassBalanceEquations` represent the balance of total mass
   (pressure equation), this equation represent the balance equation of individual
   components in the fluid mixture. Interface fluxes are handled using the overall
   Darcy interface flux implemented in the pressure equations and an adapted non-linear
   term. It introduces a single equation, all interface equations are introduced by
-  :class:`~porepy.models.fluid_mass_balance.MassBalanceEquations`.
-- :class:`DiffusiveMassBalanceEquations`: A diffusive variant of the total mass balance,
-  where the total mobility is an isotropic contribution to the permeability tensor.
-  To be used in a fractional flow model. Expensive, since it requires a
+  :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations`.
+- :class:`DiffusiveTotalMassBalanceEquations`: A diffusive variant of the total mass
+  balance, where the total mobility is an isotropic contribution to the permeability
+  tensor. To be used in a fractional flow model. Expensive, since it requires a
   re-discretization of the MPFA, but numerically consistent.
-- :class:`TwoVariableEnergyBalanceEquations`: A specialized total energy balance using
-  an independent (specific fluid) enthalpy variable in the accumulation term.
+- :class:`TwoVariableTotalEnergyBalanceEquations`: A specialized total energy balance
+  using an independent (specific fluid) enthalpy variable in the accumulation term.
   Otherwise completely analogous to its base
-  :class:`~porepy.models.energy_balance.EnergyBalanceEquations`.
+  :class:`~porepy.models.energy_balance.TotalEnergyBalanceEquations`.
 - :class:`TracerTransportEquations`: A special set of transport equations for
   :class:`~porepy.compositional.base.Compound` and tracer contained therein.
   Analogous to :class:`ComponentMassBalanceEquations`, but with a modified accumulation
@@ -44,7 +44,7 @@ A collective
 
 Following IC mixins are available:
 
-- :class:`InitialConditionsFractions`: Provides an interface to set initial conditions
+- :class:`InitialConditionsCF`: Provides an interface to set initial conditions
   for overall fractions and active tracer fractions, if any. Other fractions are for now
   not covered since they are considered secondary and their initialization can be done
   based on the primary fractions.
@@ -52,26 +52,28 @@ Following IC mixins are available:
   phase properties are represented by :class:`~porepy.numerics.ad.surrogate_operator.
   SurrogateFactory`. Their initialization is dependent on variable values, and is
   automatized to happen after the variables are initialized.
-- :class:`InitialConditionsCF`: A collection of above initialization routines, and
-  the IC mixins for mass & energy, including an independent enthalpy variable.
+- :class:`InitialConditionsFlowAndTransport`: A collection of above initialization
+  routines, and the IC mixins for mass & energy, including an independent enthalpy
+  variable.
 
 Following BC mixins are available:
 
-- :class:`BoundaryConditionsFractions`: The analogy to
-  :class:`InitialConditionsFractions` but for BC.
+- :class:`BoundaryConditionsCF`: The analogy to
+  :class:`InitialConditionsCF` but for BC.
 - :class:'BoundaryConditionsPhaseProperties': The analogy to
   :class:`InitialConditionsPhaseProperties` but for BC. Their update can be automatized
   to happen after values for variables are set on the boundary.
-- :class:`BoundaryConditionsFF`: An alternative to
+- :class:`BoundaryConditionsFractionalFlow`: An alternative to
   :class:`BoundaryConditionsPhaseProperties` for the fractional flow setting, where
   various non-linear terms in fluxes can be given explicitly on the boundary,
   instead of providing variable values which in return compute phase properties
   appearing in those expressions.
-- :class:`BoundaryConditionsCF`: A collection of BC update routines for primary
-  variables and phase properties as surrogate factories, including those from
+- :class:`BoundaryConditionsFlowAndTransport`: A collection of BC update routines for
+  primary variables and phase properties as surrogate factories, including those from
   mass & energy, enthalpy and fractions.
-- :class:`BoundaryConditionsCFF`: The alternative to :class:`BoundaryConditionsCF` for
-  the fractional flow setting with explicit values for non-linear weights in fluxes.
+- :class:`BoundaryConditionsFractionalFlowAndTransport`: The alternative to
+  :class:`BoundaryConditionsFlowAndTransport` for the fractional flow setting with
+  explicit values for non-linear weights in fluxes.
 
 The :class:`SolutionStrategyCF` handles the general Cf model, with or without fractional
 flow simulation, and provides means to re-discretize the MPFA in the diffusive setting,
@@ -101,11 +103,7 @@ import numpy as np
 import porepy as pp
 import porepy.compositional as ppc
 
-from . import energy_balance as energy
-from . import fluid_mass_balance as mass
-from . import mass_and_energy_balance as mass_energy
-from .constitutive_laws import ThermalConductivityCF
-from .protocol import CompositionalFlowModelProtocol, PorePyModel
+from .protocol import CompositionalFlowModelProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -170,10 +168,10 @@ def update_phase_properties(
             )
 
 
-# region general PDEs used in the (fractional) CF
+# region general PDEs used in the (fractional) multiphase, multicomponent flow.
 
 
-class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelProtocol):
+class DiffusiveTotalMassBalanceEquations(pp.BalanceEquation):
     """Mixed-dimensional balance of total mass in a fluid mixture.
 
     Also referred to as *pressure equation*.
@@ -190,7 +188,7 @@ class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     See also:
 
         For an equation using upwinding for the total mass, see
-        :class:`~porepy.models.fluid_mass_balance.MassBalanceEquations`.
+        :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations`.
 
     """
 
@@ -256,7 +254,9 @@ class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         # NOTE use same name to raise an error if one attempts to set both, diffusive
         # and regular mass balance equations
-        eq.set_name(mass.MassBalanceEquations.primary_equation_name())
+        eq.set_name(
+            pp.fluid_mass_balance.TotalMassBalanceEquations.primary_equation_name()
+        )
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -307,7 +307,9 @@ class DiffusiveMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         return source
 
 
-class TwoVariableEnergyBalanceEquations(energy.EnergyBalanceEquations):
+class TwoVariableTotalEnergyBalanceEquations(
+    pp.energy_balance.TotalEnergyBalanceEquations
+):
     """Mixed-dimensional balance of total energy in a fluid mixture, formulated with an
     independent (specific fluid) enthalpy variable in the accumulation term *and* a
     temperature variable in the Fourier flux.
@@ -406,8 +408,6 @@ class TwoVariableEnergyBalanceEquations(energy.EnergyBalanceEquations):
 class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelProtocol):
     """Mixed-dimensional balance of mass in a fluid mixture for present components.
 
-    The total mass balance is the sum of all component mass balances.
-
     Since feed fractions per independent component are unknowns, the model requires
     additional transport equations to close the system.
 
@@ -415,13 +415,27 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     flux variable, there is no need for additional equations as is the case in the
     pressure equation.
 
+    Important:
+        The component mass balance equations expect the total mass balance (pressure
+        equation) to be part of the system. It handles the mixed-dimensional part.
+
+        Also, it relies on the Upwind discretization implemented there, especially on
+        the definition of the boundary faces as either Neumann-type or Dirichlet-type.
+        This is for memory and sanity reasons. The alternative would be to give every
+        component mass balance the opportunity to define the advective flux on the
+        boundary (not supported).
+
+        In any case, the total mass flux on the boundary is the sum of each component
+        flux on the boundary (advection). For this reason, this class overrides the
+        representation of the total mass flux on the boundary given by
+        :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations.
+        boundary_fluid_flux`.
+
     """
 
     porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """See :class:`ConstitutiveLawsSolidSkeletonCF`."""
 
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.constitutive_laws.DarcyFlux`."""
     advective_flux: Callable[
         [
             list[pp.Grid],
@@ -457,11 +471,14 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
-    bc_type_advective_flux: Callable[[pp.Grid], pp.BoundaryCondition]
-    """See :class:`BoundaryConditionsCF`."""
+    bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
+    """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
+    """
 
     bc_data_fractional_flow_component_key: Callable[[pp.Component], str]
-    """See :class:`BoundaryConditionsCF`"""
+    """See :class:`BoundaryConditionsFractionalFlow`."""
+    bc_data_component_flux_key: Callable[[pp.Component], str]
+    """See :class:`BoundaryConditionsCF`."""
 
     def _mass_balance_equation_name(self, component: pp.Component) -> str:
         """Method returning a name to be given to the mass balance equation of a
@@ -490,16 +507,16 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
         for component in self.fluid.components:
             if self.has_independent_fraction(component):
-                sd_eq = self.mass_balance_equation_for_component(component, subdomains)
+                sd_eq = self.component_mass_balance_equation(component, subdomains)
                 self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
 
-    def mass_balance_equation_for_component(
+    def component_mass_balance_equation(
         self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Mass balance equation for subdomains for a given component.
 
         Parameters:
-            component: A transportable fluid component in the mixture.
+            component: A component in the :attr:`fluid`.
             subdomains: List of subdomains.
 
         Returns:
@@ -508,17 +525,17 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         """
         # Assemble the terms of the mass balance equation.
         accumulation = self.volume_integral(
-            self.fluid_mass_for_component(component, subdomains), subdomains, dim=1
+            self.component_mass(component, subdomains), subdomains, dim=1
         )
-        flux = self.fluid_flux_for_component(component, subdomains)
-        source = self.fluid_source_of_component(component, subdomains)
+        flux = self.component_flux(component, subdomains)
+        source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name(self._mass_balance_equation_name(component))
         return eq
 
-    def fluid_mass_for_component(
+    def component_mass(
         self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         r"""Returns the accumulation term in a ``component``'s mass balance equation
@@ -531,6 +548,13 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
             \Phi \rho \z_{\eta},
 
         in AD operator form on the given ``subdomains``.
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            subdomains: A list of subdomains on which above operator is called.
+
+        Returns:
+            Above expression in AD operator form.
 
         """
         mass_density = (
@@ -556,6 +580,13 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         Creates a boundary operator, in case explicit values for fractional flow BC are
         used.
 
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            domains: A list of subdomains or boundaries on which the operator is called.
+
+        Returns:
+            The non-linear weight in AD operator form.
+
         """
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
@@ -575,66 +606,104 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         op.set_name(f"advected_mass_{component.name}")
         return op
 
-    def fluid_flux_for_component(
+    def component_flux(
         self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """A fractional component mass flux, where the total flux consists of the Darcy
-        flux multiplied with a non-linear weight.
-
-        See Also:
-            :meth:`advection_weight_component_mass_balance`
+        """The advective flux for the component mass balance equation.
 
         Can be called on the boundary to obtain a representation of user-given Neumann
         data.
 
+        See Also:
+            :meth:`advection_weight_component_mass_balance`
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            domains: A list of subdomains or boundaries on which the operator is called.
+
+        Returns:
+            If called with boundary grids, the Neumann data for the mass flux are
+            returned wrapped in a dense array.
+
+            If called with subdomains, the complete flux (including BC operators) is
+            returned as an AD operator.
+
         """
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-            # NOTE consistent Neumann-type flux based on the total flux
-            op = self.advection_weight_component_mass_balance(
-                component, domains
-            ) * self.darcy_flux(domains)
-            return op
+            return self.create_boundary_operator(
+                self.bc_data_component_flux_key(component),
+                cast(Sequence[pp.BoundaryGrid], domains),
+            )
 
         # Verify that the domains are subdomains.
         if not all(isinstance(d, pp.Grid) for d in domains):
-            raise ValueError("domains must consist entirely of subdomains.")
+            raise ValueError("Domains must consist entirely of subdomains.")
         domains = cast(list[pp.Grid], domains)
 
-        discr = self.mobility_discretization(domains)
-        weight = self.advection_weight_component_mass_balance(component, domains)
-
-        # Use a partially evaluated function call to functions to mimic
-        # functions solely depend on a sequence of grids
-        weight_inlet_bc = cast(
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            partial(self.advection_weight_component_mass_balance, component),
-        )
-        fluid_flux_neumann_bc = cast(
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            partial(self.fluid_flux_for_component, component),
-        )
-        interface_flux = cast(
-            Callable[[list[pp.MortarGrid]], pp.ad.Operator],
-            partial(self.interface_flux_for_component, component),
-        )
-
-        # NOTE Boundary conditions are different from the pressure equation
-        # This is consistent with the usage of darcy_flux in advective_flux
-        boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
-            subdomains=domains,
-            dirichlet_operator=weight_inlet_bc,
-            neumann_operator=fluid_flux_neumann_bc,
-            robin_operator=None,
-            bc_type=self.bc_type_advective_flux,
-            name=f"bc_values_component_flux_{component.name}",
-        )
         flux = self.advective_flux(
-            domains, weight, discr, boundary_operator, interface_flux
+            domains,
+            self.advection_weight_component_mass_balance(component, domains),
+            self.mobility_discretization(domains),
+            self.boundary_component_flux(component, domains),
+            cast(
+                Callable[[list[pp.MortarGrid]], pp.ad.Operator],
+                partial(self.interface_component_flux, component),
+            ),
         )
         flux.set_name(f"component_flux_{component.name}")
         return flux
 
-    def interface_flux_for_component(
+    def boundary_component_flux(
+        self, component: pp.Component, domains: Sequence[pp.Grid]
+    ) -> pp.ad.Operator:
+        """
+        Parameters:
+            component: A component in the :attr:`fluid`.
+
+        Returns:
+            An operator representing the combined BC data for the advective flux on the
+            boundary
+            (see :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`).
+
+        """
+        return self._combine_boundary_operators(  # type: ignore[call-arg]
+            subdomains=domains,
+            dirichlet_operator=cast(
+                Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+                partial(self.advection_weight_component_mass_balance, component),
+            ),
+            neumann_operator=cast(
+                Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
+                partial(self.component_flux, component),
+            ),
+            robin_operator=None,
+            bc_type=self.bc_type_fluid_flux,
+            name=f"bc_values_component_flux_{component.name}",
+        )
+
+    def boundary_fluid_flux(self, subdomains: Sequence[pp.Grid]) -> pp.ad.Operator:
+        """Overrides the total fluid flux on the boundary in the pressure equation for
+        consistency.
+
+        In the multi-component case, the total in/out-flux of mass is given by summing
+        over the in/out-fluxes of individual components.
+        For this reason, the respective term in :class:`~porepy.models.
+        fluid_mass_balance.TotalMassBalanceEquations` needs to be overridden.
+
+        Important:
+            When combining equation classes into a collective mixin, this class must be
+            above the total mass balance for the override to hold.
+
+        """
+        return pp.ad.sum_operator_list(
+            [
+                self.boundary_component_flux(component, subdomains)
+                for component in self.fluid.components
+            ],
+            "bc_values_total_fluid_flux",
+        )
+
+    def interface_component_flux(
         self, component: pp.Component, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
         """Interface component flux using a the interface darcy flux and
@@ -642,6 +711,13 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
         See Also:
             :attr:`interface_advective_flux`
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            interfaces: A list of mortar grids in the :attr:`mdg` grid.
+
+        Returns:
+            The interface flux of mass corresponding to the given component.
 
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
@@ -651,7 +727,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         flux.set_name(f"interface_component_flux_{component.name}")
         return flux
 
-    def well_flux_for_component(
+    def well_component_flux(
         self, component: pp.Component, interfaces: list[pp.MortarGrid]
     ) -> pp.ad.Operator:
         """Well component flux using a the well flux and
@@ -659,6 +735,13 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
         See Also:
             :attr:`well_advective_flux`
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            interfaces: A list of mortar grids in the :attr:`mdg` grid.
+
+        Returns:
+            The well flux of mass corresponding to the given component.
 
         """
         subdomains = self.interfaces_to_subdomains(interfaces)
@@ -668,16 +751,24 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         flux.set_name(f"well_component_flux_{component.name}")
         return flux
 
-    def fluid_source_of_component(
+    def component_source(
         self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Source term in a component's mass balance equation.
 
         Analogous to
-        :meth:`~porepy.models.fluid_mass_balance.MassBalanceEquations.fluid_source`,
-        but using :meth:`interface_flux_for_component` and
-        :meth:`well_flux_for_component` to obtain the correct, fractional flow accross
+        :meth:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations.fluid_source`
+        , but using :meth:`interface_component_flux` and :meth:`well_component_flux` to
+        obtain the correct component flux accross
         interfaces.
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            subdomains: A list of subdomains in the :attr:`mdg`.
+
+        Returns:
+            The base method returns the sources corresponding to the fluxes in the
+            mixed-dimensional setting.
 
         """
         # Interdimensional fluxes manifest as source terms in lower-dimensional
@@ -690,15 +781,15 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
             self.mdg, well_subdomains, well_interfaces
         )
         subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
-        source = projection.mortar_to_secondary_int @ self.interface_flux_for_component(
+        source = projection.mortar_to_secondary_int @ self.interface_component_flux(
             component, interfaces
         )
         source.set_name(f"interface_component_flux_source_{component.name}")
         well_fluxes = (
             well_projection.mortar_to_secondary_int
-            @ self.well_flux_for_component(component, well_interfaces)
+            @ self.well_component_flux(component, well_interfaces)
             - well_projection.mortar_to_primary_int
-            @ self.well_flux_for_component(component, well_interfaces)
+            @ self.well_component_flux(component, well_interfaces)
         )
         well_fluxes.set_name(f"well_component_flux_source_{component.name}")
         source += subdomain_projection.cell_restriction(subdomains) @ (
@@ -750,14 +841,14 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
 
                 for tracer in component.active_tracers:
                     if self.has_independent_tracer_fraction(tracer, component):
-                        sd_eq = self.transport_equation_for_tracer(
+                        sd_eq = self.tracer_transport_equation(
                             tracer, component, subdomains
                         )
                         self.equation_system.set_equation(
                             sd_eq, subdomains, {"cells": 1}
                         )
 
-    def transport_equation_for_tracer(
+    def tracer_transport_equation(
         self,
         tracer: pp.Component,
         compound: ppc.Compound,
@@ -776,17 +867,17 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
         """
         # Assemble the terms of the mass balance equation.
         accumulation = self.volume_integral(
-            self.mass_for_tracer(tracer, compound, subdomains), subdomains, dim=1
+            self.tracer_mass(tracer, compound, subdomains), subdomains, dim=1
         )
-        flux = self.fluid_flux_for_component(compound, subdomains)
-        source = self.fluid_source_of_component(compound, subdomains)
+        flux = self.component_flux(compound, subdomains)
+        source = self.component_source(compound, subdomains)
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name(self._tracer_transport_equation_name(tracer, compound))
         return eq
 
-    def mass_for_tracer(
+    def tracer_mass(
         self,
         tracer: pp.Component,
         compound: ppc.Compound,
@@ -822,30 +913,32 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
 
 
 # endregion
-# region INTERMEDIATE CF MODEL MIXINS: collecting variables, equations, const. laws
+# region Intermediate mixins collecting variables, equations and constitutive laws.
 
 
 class PrimaryEquationsCF(
-    mass.MassBalanceEquations,
+    TwoVariableTotalEnergyBalanceEquations,
     TracerTransportEquations,
     ComponentMassBalanceEquations,
-    TwoVariableEnergyBalanceEquations,
+    pp.fluid_mass_balance.TotalMassBalanceEquations,
 ):
     """A collection of primary equations in the CF setting.
 
     They are PDEs consisting of
 
-    - 1 pressure equation
-    - 1 energy balance
-    - mass balance equations per component
-    - transport equation for each tracer in every compound.
+    - 1 pressure equation,
+    - mass balance equations per component,
+    - transport equation for each tracer in every compound,
+    - 1 energy balance,
+
+    in this order (reverse order to the base classes).
 
     """
 
 
 class VariablesCF(
-    mass_energy.VariablesFluidMassAndEnergy,
-    energy.EnthalpyVariable,
+    pp.mass_and_energy_balance.VariablesFluidMassAndEnergy,
+    pp.energy_balance.EnthalpyVariable,
     ppc.CompositionalVariables,
 ):
     """Bundles standard variables for non-isothermal flow (pressure and temperature)
@@ -924,14 +1017,22 @@ class ConstitutiveLawsSolidSkeletonCF(
             subdomains: A list of subdomains
 
         Returns:
-            The value of :meth:`diffusive_permeability` wrapped into an isotropic,
-            second-order tensor.
+            In the fractional flow setting, the method returns the value of
+            :meth:`diffusive_permeability` wrapped into an isotropic, second-order
+            tensor.
+
+            Otherwise a super-call is performed to obtain a the permeability.
+            By default, the
+            :class:`~porepy.models.constitutive_laws.ConstantPermeability` is mixed in.
 
         """
-        op = self.isotropic_second_order_tensor(
-            subdomains, self.diffusive_permeability(subdomains)
-        )
-        op.set_name("diffusive_tensor_darcy")
+        if pp.is_fractional_flow(self):
+            op = self.isotropic_second_order_tensor(
+                subdomains, self.diffusive_permeability(subdomains)
+            )
+            op.set_name("diffusive_tensor_darcy")
+        else:
+            op = super().permeability(subdomains)
         return op
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
@@ -970,38 +1071,12 @@ class ConstitutiveLawsSolidSkeletonCF(
         """
         return phase.saturation(domains)
 
-    def solid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Internal energy of the solid.
-
-        Note:
-            This must override the definition of solid internal energy which is
-            (for some reasons) defined in the basic energy balance equation. TODO
-
-        Parameters:
-            subdomains: List of subdomains.
-
-        Returns:
-            Operator representing the solid energy.
-
-        """
-        c_p = self.solid_specific_heat_capacity(subdomains)
-        energy = (
-            (pp.ad.Scalar(1) - self.porosity(subdomains))
-            * self.solid_density(subdomains)
-            * c_p
-            * self.temperature(subdomains)
-        )
-        energy.set_name("solid_internal_energy")
-        return energy
-
 
 class ConstitutiveLawsCF(
     # NOTE must be on top to overwrite phase properties as general surrogate factories
     ppc.FluidMixin,
-    # must be on top to overwrite mobility and thermal conductivity from base class
-    # constitutive laws
-    ThermalConductivityCF,
     ConstitutiveLawsSolidSkeletonCF,
+    pp.constitutive_laws.ThermalConductivityCF,
     pp.constitutive_laws.FluidMobility,
     # Contains the Upwind for the enthalpy flux, otherwise not required.
     # TODO Consider putting discretizations strictly outside of classes providing
@@ -1030,53 +1105,12 @@ class ConstitutiveLawsCF(
 
 
 # endregion
-# region BC, IC, Solution strategy
+# region Boundary condition mixins for multiphase, multicomponent flow.
 
 
-class _BoundaryConditionsAdvection(PorePyModel):
-    """Temporary class fixing some inconsistencies for hyperbolic-type BC.
-
-    FIXME throughout the package.
-
-    """
-
-    def bc_type_advective_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Returns the BC type of hyperbolic boundary condition in the advective flux.
-
-        Consider an advective flux :math:`f \\mathbf{m}`.
-        While the BC type for :math:`\\mathbf{m}` is defined by
-        :meth:`bc_type_darcy_flux`, the user can define Dirichlet-type faces where
-        mass or energy in form of :math:`f` enters the system, independent of the values
-        of :math:`\\mathbf{m}` (which can be zero).
-
-        Note:
-            Mass as well as energy are advected.
-
-        Important:
-            Due to how Upwinding is implemented, the boundaries here must all be flagged
-            as `dir`, though the concept of Dirichlet and Neumann is not applicable
-            here. This function should not be modified by the user, but it is left here
-            to fix inconsistencies with parent methods used for advective fluxes.
-
-        Base implementation sets all faces to Dirichlet-type.
-
-        """
-        return pp.BoundaryCondition(sd, self.domain_boundary_sides(sd).all_bf, "dir")
-
-    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Returns the BC type of the advective flux for consistency reasons."""
-        return self.bc_type_advective_flux(sd)
-
-    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Returns the BC type of the advective flux for consistency reasons."""
-        return self.bc_type_advective_flux(sd)
-
-
-class BoundaryConditionsFractions(
-    pp.BoundaryConditionMixin, CompositionalFlowModelProtocol
-):
-    """Mixin providing boundary values for overall fractions of components and tracer
-    fractions in compounds (primary fractions).
+class BoundaryConditionsCF(pp.BoundaryConditionMixin, CompositionalFlowModelProtocol):
+    """Mixin providing boundary values for primary variables concering multi-component
+    flow, and component flux values.
 
     Note:
         As for the enthalpy, these variables are only in specific cases accessed on the
@@ -1088,7 +1122,39 @@ class BoundaryConditionsFractions(
         single-phase, multi-component model. In this case the partial fractions of the
         single phase are equal to the overall fractions.
 
+        The component flux values on the other hand, appear in every equation where
+        Neumann-type data is given for the advective flux in the component mass balance
+        equations.
+
+    Important:
+        In theory, each component flux can be given either as Neumann-type (mass flux)
+        or Dirichlet-type (advection weight times volumetric flux) on the boundary for
+        the Upwind discretization.
+
+        With current states of implementations, this requires individual Upwind classes
+        and respective storage of matrices, which can easily explode.
+
+        For this reason, the discretization-type of the advected mass on the
+        boundary is only given by ``bc_type_fluid_flux`` for *all* advective mass fluxes
+        (component mass balance). Its implementation is mixed in by :class:`~porepy.
+        models.mass_and_energy_balance.BoundaryConditionsMassAndEnergy`.
+
     """
+
+    def update_all_boundary_conditions(self) -> None:
+        """After the super-call, an update of component flux values on the boundary
+        is performed for **all** components."""
+        super().update_all_boundary_conditions()
+
+        for component in self.fluid.components:
+            # The component has otherwise no component mass balance equation.
+            self.update_boundary_condition(
+                name=self.bc_data_component_flux_key(component),
+                function=cast(
+                    Callable[[pp.BoundaryGrid], np.ndarray],
+                    partial(self.bc_values_component_flux, component),
+                ),
+            )
 
     def update_boundary_values_primary_variables(self) -> None:
         """Calls the user-provided data for overall fractions and tracer fractions after
@@ -1126,6 +1192,20 @@ class BoundaryConditionsFractions(
                     function=bc_vals,
                 )
 
+    def bc_data_component_flux_key(self, component: pp.Component) -> str:
+        r"""
+        Parameters:
+            component: A component in the :attr:`fluid`.
+
+        Returns:
+            The name under which BC data in the form of
+            :math:`\mathbf{f}\cdot\mathbf{n}` for the advective flux :math:`\mathbf{f}`
+            in :class:`ComponentMassBalance` are stored in the dictionaries in the
+            :attr:`mdg`.
+
+        """
+        return f"component_flux_{component.name}"
+
     def bc_values_overall_fraction(
         self, component: pp.Component, bg: pp.BoundaryGrid
     ) -> np.ndarray:
@@ -1134,7 +1214,7 @@ class BoundaryConditionsFractions(
         Used to evaluate secondary expressions and variables on the boundary.
 
         Parameters:
-            component: A component in the fluid mixture.
+            component: A component in the :attr:`fluid`.
             bg: A boundary grid in the domain.
 
         Returns:
@@ -1166,10 +1246,38 @@ class BoundaryConditionsFractions(
         """
         return np.zeros(bg.num_cells)
 
+    def bc_values_component_flux(
+        self, component: pp.Component, bg: pp.BoundaryGrid
+    ) -> np.ndarray:
+        r"""**Massic** component flux values on the boundary flagged as ``'neu'`` by
+        :meth:`bc_type_fluid_flux`.
 
-class BoundaryConditionsPhaseProperties(
-    pp.BoundaryConditionMixin, CompositionalFlowModelProtocol
-):
+        The value of the component flux is given by :math:`\mathbf{f}\cdot\mathbf{n}`,
+        where :math:`\mathbf{f} = a\mathbf{d}`. I.e. the massic component flux is
+        given by the Darcy flux and an additional advection weight.
+
+        Important:
+            The component flux must be given for **each** component on the boundary,
+            also for the (dependent) reference component. Otherwise the total advective
+            flux on the boundary cannot be consistently computed.
+
+        See also:
+            :class:`ComponentMassBalance`
+
+        Parameters:
+            component: A component in the :attr:`fluid`.
+            bg: Boundary grid to provide values for.
+
+        Returns:
+            An array with ``shape=(bg.num_cells,)`` containing the mass
+            component flux values on the provided boundary grid.
+            Defaults to a zero array.
+
+        """
+        return np.zeros(bg.num_cells)
+
+
+class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
     """Intermediate mixin layer to provide an interface for calculating values of phase
     properties on the boundary, which are represented by surrogate factories.
 
@@ -1184,7 +1292,7 @@ class BoundaryConditionsPhaseProperties(
         The users themselves must implement zero values on non-inlet/outlet
         boundaries if specified.
 
-        For a more direct approach, see :class:`BoundaryConditionsFF`,
+        For a more direct approach, see :class:`BoundaryConditionsFractionalFlow`,
         where the value of the non-linear terms in the advection must be given
         directly.
 
@@ -1244,7 +1352,9 @@ class BoundaryConditionsPhaseProperties(
                     )
 
 
-class BoundaryConditionsFF(pp.BoundaryConditionMixin, CompositionalFlowModelProtocol):
+class BoundaryConditionsFractionalFlow(
+    pp.BoundaryConditionMixin, CompositionalFlowModelProtocol
+):
     """Analogous to :class:`BoundaryConditionsPhaseProperties`, but providing means to
     define values of the non-linear terms in fluxes directly without using their full
     expression.
@@ -1256,11 +1366,6 @@ class BoundaryConditionsFF(pp.BoundaryConditionMixin, CompositionalFlowModelProt
     bc_data_fractional_flow_energy_key: str = "bc_data_fractional_flow_energy"
     """Key to store the BC values for the non-linear weight in the advective flux in the
     energy balance equation, for the case where explicit values are provided."""
-
-    def bc_data_fractional_flow_component_key(self, component: pp.Component) -> str:
-        """Key to store the BC values of the non-linear weight in the advective flux
-        of a component's mass balance equation"""
-        return f"bc_data_fractional_flow_{component.name}"
 
     def update_all_boundary_conditions(self) -> None:
         """Calls :meth:`update_boundary_values_fractional_flow` after the super-call.
@@ -1278,6 +1383,11 @@ class BoundaryConditionsFF(pp.BoundaryConditionMixin, CompositionalFlowModelProt
                 "Computing boundary values of fractional weights without flagging a"
                 + " fractional flow setting in model parameters."
             )
+
+    def bc_data_fractional_flow_component_key(self, component: pp.Component) -> str:
+        """Key to store the BC values of the non-linear weight in the advective flux
+        of a component's mass balance equation"""
+        return f"bc_data_fractional_flow_{component.name}"
 
     def update_boundary_values_fractional_flow(self) -> None:
         """Evaluates user provided data for non-linear terms in advective fluxes on the
@@ -1328,7 +1438,7 @@ class BoundaryConditionsFF(pp.BoundaryConditionMixin, CompositionalFlowModelProt
         ``component`` is entering the system on some inlet faces in relative terms.
 
         Parameters:
-            component: A component in the fluid mixture.
+            component: A component in the :attr:`fluid`.
             bg: A boundary grid in the mixed-dimensional grid.
 
         Returns:
@@ -1352,36 +1462,36 @@ class BoundaryConditionsFF(pp.BoundaryConditionMixin, CompositionalFlowModelProt
         return np.zeros(bg.num_cells)
 
 
-class BoundaryConditionsCFF(
-    _BoundaryConditionsAdvection,
-    # put on top for override of update_all_boundary_values, which includes sub-routine
-    # for fractional flow.
-    BoundaryConditionsFF,
-    mass_energy.BoundaryConditionsFluidMassAndEnergy,
-    energy.BoundaryConditionsEnthalpy,
-    BoundaryConditionsFractions,
-):
-    """Collection of BC value routines required for CF in the fractional flow
-    formulation."""
-
-
-class BoundaryConditionsCF(
-    _BoundaryConditionsAdvection,
+class BoundaryConditionsFlowAndTransport(
     # put on top for override of update_all_boundary_values, which includes sub-routine
     # for updating phase properties on boundaries.
     BoundaryConditionsPhaseProperties,
-    mass_energy.BoundaryConditionsFluidMassAndEnergy,
-    energy.BoundaryConditionsEnthalpy,
-    BoundaryConditionsFractions,
+    pp.energy_balance.BoundaryConditionsEnthalpy,
+    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
+    BoundaryConditionsCF,
 ):
     """Collection of BC values update routines required for CF, where phase properties
     are represented by surrogate factories and values need to be computed on the
     boundary, depending on primary variables."""
 
 
-class InitialConditionsFractions(
-    pp.InitialConditionMixin, CompositionalFlowModelProtocol
+class BoundaryConditionsFractionalFlowAndTransport(
+    # put on top for override of update_all_boundary_values, which includes sub-routine
+    # for fractional flow.
+    BoundaryConditionsFractionalFlow,
+    pp.energy_balance.BoundaryConditionsEnthalpy,
+    pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
+    BoundaryConditionsCF,
 ):
+    """Collection of BC value routines required for CF in the fractional flow
+    formulation."""
+
+
+# endregion
+# region Initial condition mixins for multiphase, multicomponent flow.
+
+
+class InitialConditionsCF(pp.InitialConditionMixin, CompositionalFlowModelProtocol):
     """Class providing interfaces to set initial values for various fractions in a
     general multi-component mixture.
 
@@ -1434,7 +1544,7 @@ class InitialConditionsFractions(
     ) -> np.ndarray:
         """
         Parameters:
-            component: A component in the fluid mixture with an independent overall
+            component: A component in the :attr:`fluid` with an independent overall
                 fraction.
             sd: A subdomain in the md-grid.
 
@@ -1451,7 +1561,7 @@ class InitialConditionsFractions(
         """
         Parameters:
             tracer: An active tracer in the ``compound``.
-            component: A compound in the fluid mixture.
+            component: A compound in the :attr:`fluid`.
             sd: A subdomain in the md-grid.
 
         Returns:
@@ -1533,18 +1643,21 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
                         )
 
 
-class InitialConditionsCF(
+class InitialConditionsFlowAndTransport(
     # put this on top because it overrides initial_condition
     InitialConditionsPhaseProperties,
-    mass_energy.InitialConditionsMassAndEnergy,
-    energy.InitialConditionsEnthalpy,
-    InitialConditionsFractions,
+    pp.mass_and_energy_balance.InitialConditionsMassAndEnergy,
+    pp.energy_balance.InitialConditionsEnthalpy,
+    InitialConditionsCF,
 ):
     """Collection of initialization procedures for the general CF model."""
 
 
+# endregion
+
+
 class SolutionStrategyCF(
-    mass_energy.SolutionStrategyFluidMassAndEnergy,
+    pp.mass_and_energy_balance.SolutionStrategyFluidMassAndEnergy,
     CompositionalFlowModelProtocol,
 ):
     """Solution strategy for general compositional flow.
@@ -1725,8 +1838,8 @@ class SolutionStrategyCF(
 
         return (
             [
-                mass.MassBalanceEquations.primary_equation_name(),
-                energy.EnergyBalanceEquations.primary_equation_name(),
+                pp.fluid_mass_balance.TotalMassBalanceEquations.primary_equation_name(),
+                pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name(),
             ]
             + self.component_mass_balance_equation_names()
             + self.tracer_transport_equation_names()
@@ -1885,16 +1998,13 @@ class SolutionStrategyCF(
         return sol
 
 
-# endregion
-
-
 class ModelSetupCF(  # type: ignore[misc]
     # const. laws on top to overwrite what is used in inherited mass and energy balance
     ConstitutiveLawsCF,
     PrimaryEquationsCF,
     VariablesCF,
-    BoundaryConditionsCF,
-    InitialConditionsCF,
+    BoundaryConditionsFlowAndTransport,
+    InitialConditionsFlowAndTransport,
     SolutionStrategyCF,
     pp.ModelGeometry,
     pp.DataSavingMixin,
@@ -1942,8 +2052,8 @@ class ModelSetupCFF(  # type: ignore[misc]
     ConstitutiveLawsCF,
     PrimaryEquationsCF,
     VariablesCF,
-    BoundaryConditionsCFF,
-    InitialConditionsCF,
+    BoundaryConditionsFractionalFlowAndTransport,
+    InitialConditionsFlowAndTransport,
     SolutionStrategyCF,
     pp.ModelGeometry,
     pp.DataSavingMixin,
@@ -1953,6 +2063,6 @@ class ModelSetupCFF(  # type: ignore[misc]
 
     Fractional flow offer the possibility to provide non-linear terms in advective
     fluxes explicitely, without evaluating phase properties. This functionality is given
-    by :class:`BoundaryConditionsFF`.
+    by :class:`BoundaryConditionsFractionalFlow`.
 
     """

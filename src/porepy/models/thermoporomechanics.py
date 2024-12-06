@@ -24,10 +24,6 @@ from typing import Callable, Union
 
 import porepy as pp
 
-from . import energy_balance as energy
-from . import fluid_mass_balance as mass
-from . import momentum_balance as momentum
-
 
 class ConstitutiveLawsThermoporomechanics(
     # Combined effects
@@ -86,25 +82,25 @@ class ConstitutiveLawsThermoporomechanics(
 
 
 class EquationsThermoporomechanics(
-    energy.EnergyBalanceEquations,
-    mass.MassBalanceEquations,
-    momentum.MomentumBalanceEquations,
+    pp.energy_balance.TotalEnergyBalanceEquations,
+    pp.fluid_mass_balance.TotalMassBalanceEquations,
+    pp.momentum_balance.MomentumBalanceEquations,
 ):
     """Combines energy, mass and momentum balance equations."""
 
 
 class VariablesThermoporomechanics(
-    energy.VariablesEnergyBalance,
-    mass.VariablesSinglePhaseFlow,
-    momentum.VariablesMomentumBalance,
+    pp.energy_balance.VariablesEnergyBalance,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
+    pp.momentum_balance.VariablesMomentumBalance,
 ):
     """Combines mass and momentum balance variables."""
 
 
 class BoundaryConditionsThermoporomechanics(
-    energy.BoundaryConditionsEnergyBalance,
-    mass.BoundaryConditionsSinglePhaseFlow,
-    momentum.BoundaryConditionsMomentumBalance,
+    pp.energy_balance.BoundaryConditionsEnergyBalance,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    pp.momentum_balance.BoundaryConditionsMomentumBalance,
 ):
     """Combines energy, mass and momentum balance boundary conditions.
 
@@ -117,18 +113,18 @@ class BoundaryConditionsThermoporomechanics(
 
 
 class InitialConditionsThermoporomechanics(
-    energy.InitialConditionsEnergy,
-    mass.BoundaryConditionsSinglePhaseFlow,
-    momentum.BoundaryConditionsMomentumBalance,
+    pp.energy_balance.InitialConditionsEnergy,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    pp.momentum_balance.BoundaryConditionsMomentumBalance,
 ):
     """Combines initial conditions for energy, mass and momentum balance and associated
     primary variables."""
 
 
 class SolutionStrategyThermoporomechanics(
-    energy.SolutionStrategyEnergyBalance,
-    mass.SolutionStrategySinglePhaseFlow,
-    momentum.SolutionStrategyMomentumBalance,
+    pp.energy_balance.SolutionStrategyEnergyBalance,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
+    pp.momentum_balance.SolutionStrategyMomentumBalance,
 ):
     """Combines mass and momentum balance solution strategies.
 

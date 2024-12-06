@@ -4,20 +4,17 @@ from __future__ import annotations
 
 import porepy as pp
 
-from . import energy_balance as energy
-from . import fluid_mass_balance as mass
-
 
 class EquationsFluidMassAndEnergy(
-    energy.EnergyBalanceEquations,
-    mass.MassBalanceEquations,
+    pp.energy_balance.TotalEnergyBalanceEquations,
+    pp.fluid_mass_balance.TotalMassBalanceEquations,
 ):
     """Combine fluid mass and energy balance equations."""
 
 
 class VariablesFluidMassAndEnergy(
-    energy.VariablesEnergyBalance,
-    mass.VariablesSinglePhaseFlow,
+    pp.energy_balance.VariablesEnergyBalance,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
 ):
     """Combine fluid mass and energy balance variables."""
 
@@ -50,8 +47,8 @@ class ConstitutiveLawFluidMassAndEnergy(
 
 
 class BoundaryConditionsFluidMassAndEnergy(
-    energy.BoundaryConditionsEnergyBalance,
-    mass.BoundaryConditionsSinglePhaseFlow,
+    pp.energy_balance.BoundaryConditionsEnergyBalance,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
 ):
     """Combine fluid mass and energy balance boundary conditions."""
 
@@ -59,8 +56,8 @@ class BoundaryConditionsFluidMassAndEnergy(
 
 
 class InitialConditionsMassAndEnergy(
-    energy.InitialConditionsEnergy,
-    mass.InitialConditionsSinglePhaseFlow,
+    pp.energy_balance.InitialConditionsEnergy,
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
 ):
     """Combining initial conditions for fluid mass and energy balance."""
 
@@ -68,8 +65,8 @@ class InitialConditionsMassAndEnergy(
 
 
 class SolutionStrategyFluidMassAndEnergy(
-    energy.SolutionStrategyEnergyBalance,
-    mass.SolutionStrategySinglePhaseFlow,
+    pp.energy_balance.SolutionStrategyEnergyBalance,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
 ):
     """Combine fluid mass and energy balance solution strategies.
 
