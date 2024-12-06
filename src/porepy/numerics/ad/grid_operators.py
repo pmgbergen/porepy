@@ -589,7 +589,7 @@ class Trace:
                     # TEMPORARY CONSTRUCT: Use the divergence operator as a trace.
                     # It would be better to define a dedicated function for this,
                     # perhaps in the grid itself.
-                    div = np.abs(pp.fvutils.scalar_divergence(sd))
+                    div = np.abs(sd.divergence(n=1))
 
                     # Restrict global cell values to the local grid, use transpose of div
                     # to map cell values to faces.
@@ -693,10 +693,10 @@ class Divergence(Operator):
 
         """
         if self.dim == 1:
-            mat = [pp.fvutils.scalar_divergence(sd) for sd in self.subdomains]
+            mat = [sd.divergence(n=1) for sd in self.subdomains]
         else:
             mat = [
-                sps.kron(pp.fvutils.scalar_divergence(sd), sps.eye(self.dim))
+                sps.kron(sd.divergence(n=1), sps.eye(self.dim))
                 for sd in self.subdomains
             ]
         matrix = sps.block_diag(mat)
