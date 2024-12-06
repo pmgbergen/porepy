@@ -1,6 +1,6 @@
 """
 This is a setup class for solving linear elasticity with contact between the fractures.
-We do not consider any fluid, and solve only for the linear elasticity coupled to the contact.
+We do not consider any fluid, and solve only for the linear elasticity for a open pressurized fracture.
 """
 
 from matplotlib import pyplot as plt
