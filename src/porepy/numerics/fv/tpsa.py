@@ -334,9 +334,6 @@ class Tpsa:
         """Discretize linear elasticity equation using a two-point stress approximation
         (TPSA).
 
-        Optionally, the discretization can include microrotations, in the form of a
-        Cosserat material.
-
         The method constructs a set of discretization matrices for the balance of linear
         and angular momentum, as well as conservation of solid mass.
 
@@ -356,15 +353,6 @@ class Tpsa:
 
             - bc: ``class:~porepy.params.bc.BoundaryConditionVectorial``
                 Boundary conditions for the displacement variable.
-            - bc_rot: ``class:~porepy.params.bc.BoundaryConditionVectorial``
-                Boundary condition for the rotation variable. Will only be considered if
-                the Cosserat parameter is provided. Robin conditions are not
-                implemnented and will raise an error.
-
-            - cosserat_parameter (optional): np.ndarray giving the Cosserat parameter,
-                which can be considered a parameter for diffusion of microrotations.
-                Should have length equal to the number of cells. If not provided, the
-                Cosserat parameter is set to zero.
 
         matrix_dictionary will be updated with the following entries:
             - stress: ``sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)``
@@ -539,60 +527,14 @@ class Tpsa:
 
         # Fetch parameters for the mechanical behavior.
         stiffness: FourthOrderTensor = parameter_dictionary["fourth_order_tensor"]
-        # The Cosserat parameter, if present. If this is None, the Cosserat parameter is
-        # considered to be zero. In practice, we will set all Cosserat discretization
-        # matrices to zero with no explicit computations.
-        cosserat_values: np.ndarray | None = parameter_dictionary.get(
-            "cosserat_parameter", None
-        )
 
         # Boundary condition object. Use the keyword 'bc' here to be compatible with the
         # implementation in mpsa.py, although symmetry with the boundary conditions for
         # rotation seems to call for a keyword like 'bc_disp'.
         bnd_disp: pp.BoundaryConditionVectorial = parameter_dictionary["bc"]
 
-        # Boundary conditions for the rotation variable. This should only be used if
-        # the Cosserat parameter is non-zero. Since the rotation variable is scalar if
-        # nd == 2 and vector if nd == 3, the type of boundary condition depends on the
-        # dimension.
-        bnd_rot: pp.BoundaryCondition | pp.BoundaryConditionVectorial | None = (
-            parameter_dictionary.get("bc_rot", None)
-        )
-
-        # Check that the type of boundary condition is consistent with the dimension.
-        # This is a bit awkward, since it requires an if-else on the client side, but
-        # the alternative is to always use a vectorial boundary condition and make a
-        # hack to interpret the vectorial condition as a scalar one for 2d problems.
-        # Note that, if the Cosserat parameter is zero or not provided, all of this is
-        # irrelevant.
-        if nd == 2:
-            if isinstance(bnd_rot, pp.BoundaryConditionVectorial):
-                raise ValueError(
-                    "Boundary conditions for rotations should be scalar if nd == 2"
-                )
-        elif nd == 3:
-            if isinstance(bnd_rot, pp.BoundaryCondition):
-                raise ValueError(
-                    "Boundary conditions for rotations should be vectorial if nd == 3"
-                )
-
-        # Sanity check: If the Cosserat parameter is None, the boundary conditions for
-        # the rotation variable are not relevant.
-        if bnd_rot is not None and cosserat_values is None:
-            warnings.warn(
-                "Boundary conditions for rotations are only relevant if the Cosserat "
-                "parameter is non-zero."
-            )
-        if bnd_rot is not None and np.sum(bnd_rot.is_rob) > 0:
-            # The implementation should not be difficult, but has not been prioritized.
-            raise NotImplementedError(
-                "Robin conditions for rotations have not been implemented."
-            )
-
         # Map the stiffness tensor to the face-wise ordering.
         mu = stiffness.mu[numbering.ci]
-        if cosserat_values is not None:
-            cosserat_parameter = cosserat_values[numbering.ci]
 
         # BoundaryConditionVectorial has an attribute 'basis', to be used with Robin
         # boundary conditions (see mpsa.py). This is not implemented for tpsa.
@@ -634,10 +576,6 @@ class Tpsa:
 
         # Construct filters that are used to isolate faces with different types of
         # boundary conditions assigned. We do this only for the displacement variable.
-        # For the rotation variable (in the case of a non-zero Cosserat parameter) we
-        # only need to deal with Dirichlet and Neumann conditions on a diffusion problem
-        # (Robin conditions have not been implemented, see above), which is relatively
-        # easy and handled on the fly.
         filters = self._create_filters(bnd_disp, numbering, sd)
 
         # Compute various distance measures, and also the discretization coefficients
@@ -739,16 +677,6 @@ class Tpsa:
             @ sd.cell_faces
         )
 
-        # Take the harmonic average of the Cosserat parameter. For zero Cosserat
-        # parameters, this involves a division by zero. This gives no actual problem,
-        # but filtering would have been more elegant.
-        if cosserat_values is not None:
-            t_cosserat = sd.face_areas / np.bincount(
-                numbering.fi,
-                weights=1 / (cosserat_parameter / dist.dist_fc_cc),
-                minlength=nf,
-            )
-
         # A rotation in 2d has a single degree of freedom, while a 3d rotation has 3
         # degrees of freedom. This necessitates (or at least is most easily realized) by
         # a split into a 2d and a 3d code. In the below implementation, we refer to two
@@ -790,27 +718,6 @@ class Tpsa:
             # contribution from Neumann boundaries.
             stress_rotation = -filters.neu_notpass_nd @ Rn_hat @ c2f_maps.c2f_compl
 
-            # We know that the boundary condition for the rotation variable is a
-            # vectorial condition.
-            bnd_rot = cast(pp.BoundaryConditionVectorial, bnd_rot)
-
-            if cosserat_values is not None:
-                # Use the discretization of the vector Laplace problem. The
-                # transmissibility will be the same in all directions.
-                rotation_diffusion, bound_rotation_diffusion = (
-                    self._vector_laplace_matrices(
-                        sd,
-                        np.tile(t_cosserat, (nd, 1)),
-                        bnd_rot,
-                        numbering,
-                        c2f_maps.b2f_rob_compl,
-                    )
-                )
-            else:
-                # If the Cosserat parameter is zero, the diffusion operator is zero.
-                rotation_diffusion = sps.csr_matrix((nf * nd, nc * nd))
-                bound_rotation_diffusion = sps.csr_matrix((nf * nd, nf * nd))
-
         elif nd == 2:
             # In this case, \hat{R}_k^n and \bar{R}_k^n differ, and read, respectively
             #   \hat{R}_k^n = [[n2], [-n1]],
@@ -837,42 +744,6 @@ class Tpsa:
             stress_rotation = (
                 -filters.neu_notpass_nd @ Rn_hat @ c2f_maps.c2f_compl_scalar_2_nd
             )
-
-            # Diffusion operator on the rotation if relevant.
-            if cosserat_values is not None:
-                # In 2d, the rotation is a scalar variable and we can treat this by
-                # what is essentially a tpfa discretization.
-
-                # EK note: The Cosserat option will be purged in a future update. For
-                # now we use this assert to ensure that the Cosserat option is not used
-                # with a non-empty boundary condition.
-                assert bnd_rot is not None
-
-                t_cosserat_bnd = np.zeros(nf)
-                t_cosserat_bnd[bnd_rot.is_dir] = t_cosserat[bnd_rot.is_dir]
-                # The boundary condition should simply be imposed.
-                t_cosserat_bnd[bnd_rot.is_neu] = 1
-                t_cosserat[bnd_rot.is_neu] = 0
-
-                rotation_diffusion = -sps.coo_matrix(
-                    (
-                        t_cosserat[numbering.fi] * numbering.sgn,
-                        (numbering.fi, numbering.ci),
-                    ),
-                    shape=(nf, nc),
-                ).tocsr()
-
-                bound_rotation_diffusion = sps.coo_matrix(
-                    (
-                        t_cosserat_bnd[numbering.fi] * numbering.sgn,
-                        (numbering.fi, numbering.fi),
-                    ),
-                    shape=(nf, nf),
-                ).tocsr()
-
-            else:
-                rotation_diffusion = sps.csr_matrix((nf, nc))
-                bound_rotation_diffusion = sps.csr_matrix((nf, nf))
 
         # The rotation generated by the cell center displacements is computed from the
         # average displacement over the faces, multiplied by Rn_bar.
@@ -975,7 +846,6 @@ class Tpsa:
         matrix_dictionary[self.stress_rotation_matrix_key] = stress_rotation
         matrix_dictionary[self.stress_total_pressure_matrix_key] = stress_total_pressure
         matrix_dictionary[self.rotation_displacement_matrix_key] = rotation_displacement
-        matrix_dictionary[self.rotation_diffusion_matrix_key] = rotation_diffusion
         matrix_dictionary[self.mass_total_pressure_matrix_key] = mass_total_pressure
         matrix_dictionary[self.mass_displacement_matrix_key] = mass_displacement
 
@@ -983,9 +853,6 @@ class Tpsa:
         matrix_dictionary[self.bound_stress_matrix_key] = bound_stress
         matrix_dictionary[self.bound_mass_displacement_matrix_key] = (
             bound_mass_displacement
-        )
-        matrix_dictionary[self.bound_rotation_diffusion_matrix_key] = (
-            bound_rotation_diffusion
         )
         matrix_dictionary[self.bound_rotation_displacement_matrix_key] = (
             bound_rotation_displacement
