@@ -1,7 +1,3 @@
-"""
-This is a setup class for solving linear elasticity with contact between the fractures.
-We do not consider any fluid, and solve only for the linear elasticity for a open pressurized fracture.
-"""
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -527,12 +523,15 @@ def compute_convergence(
 def test_sneddon_2d():
     """
     Test function to 2D Sneddon problem convergence for the MPSA method.
+    
+    This is a setup for comparing the analytical solution (also known as Sneddon's solution) with the numerical solution for linear elasticity
+    in the case of an open fracture subjected to a constant pressure p0. Fluid effects are not considered.
+    For reference about the implementation, see Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics Chapter 5.3 Pressurized crack problem.
+    Also like to note that this is a reimplementation of Sneddon solutation described in https://doi.org/10.1007/s10596-020-10002-5.
 
-    The function performs a convergence experiment for a 2D fracture problem
-    by iterating over fracture orientations and mesh refinements.
-
-    It computes the average error across orientations and evaluates the
-    convergence rate (EOC) through log-log regression.
+    The tests performs a convergence study for a 2D fracture problem by iterating over fracture orientations and
+    mesh refinements. It computes the average error across orientations and evaluates the convergence rate (EOC)
+    through log-log linear regression.
     
     NOTE: We assume that the fracture half-length a = 1 and the domain is (0,1)^2 for the following reasons:
     1. Convergence tends to be problematic if the domain is changed from (0,1) to another size configuration,
