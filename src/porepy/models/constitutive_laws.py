@@ -2518,9 +2518,8 @@ class AdvectiveFlux(pp.PorePyModel):
 
 
 class EnthalpyFromTemperature(FluidEnthalpyFromTemperature):
-    """Class for representing the ethalpy, computed from the perturbation from a
-    reference temperature, for both fluid and solid.
-    """
+    """Class for representing the enthalpy, computed from the perturbation from a
+    reference temperature, for both fluid and solid."""
 
     enthalpy_keyword: str
     """Keyword used to identify the enthalpy flux discretization. Normally"

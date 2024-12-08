@@ -1644,10 +1644,12 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
 
 
 class InitialConditionsFlowAndTransport(
-    # put this on top because it overrides initial_condition
+    # Put this on top because it overrides initial_condition
     InitialConditionsPhaseProperties,
-    pp.mass_and_energy_balance.InitialConditionsMassAndEnergy,
+    # Put this above mass and energy, in case enthalpy is evaluated depending on
+    # p, T and fractions
     pp.energy_balance.InitialConditionsEnthalpy,
+    pp.mass_and_energy_balance.InitialConditionsMassAndEnergy,
     InitialConditionsCF,
 ):
     """Collection of initialization procedures for the general CF model."""
