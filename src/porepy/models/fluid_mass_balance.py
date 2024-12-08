@@ -256,6 +256,12 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
         it is a massic flux. Note however, that this is a numerical approximation of
         the other-wise diffusive total fluid flux.
 
+        Note:
+            This operator does not necessarily contain flux values per se. If
+            ``bc_type_fluid_flux`` indicates that the in/out-flux is given using
+            Dirichlet-type data, the values correspond to the values of the non-linear
+            weight in the massic flux.
+
         Parameters:
             subdomains: A sequence of grids on whose boundaries the fluid flux is
                 accessed.

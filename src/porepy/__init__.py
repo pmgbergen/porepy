@@ -175,6 +175,7 @@ from porepy.numerics.time_step_control import TimeManager
 from porepy import models
 from porepy.models.abstract_equations import (
     BalanceEquation,
+    LocalElimination,
     VariableMixin,
 )
 from porepy.models.boundary_condition import BoundaryConditionMixin
