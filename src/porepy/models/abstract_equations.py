@@ -317,7 +317,7 @@ class LocalElimination(EquationMixin):
         local_equation_name: str,
         primary: pp.ad.MixedDimensionalVariable,
         expression: pp.ad.SurrogateFactory,
-        func: Callable[[tuple[np.ndarray, ...]], tuple[np.ndarray, np.ndarray]],
+        func: Callable[..., tuple[np.ndarray, np.ndarray]],
         grids: pp.GridLikeSequence,
     ) -> None:
         """Register a surrogate factory used for local elimination with the model
@@ -354,6 +354,29 @@ class LocalElimination(EquationMixin):
         self.__local_eliminations.update(
             {local_equation_name: (primary, expression, func, domains, boundaries)}
         )
+
+        # Must initialize values for the surrogate operator after it is created.
+        # NOTE This cannot be done in the initial_condition routine, because that one is
+        # called before set_equations. That order cannot be changed for most of the
+        # mechanics models, because their equations have the initial conditions in them.
+        for grid in domains:
+            X = [
+                d(cast(list[pp.Grid] | list[pp.MortarGrid], [grid])).value(
+                    self.equation_system
+                )
+                for d in expression._dependencies
+            ]
+            val, diff = func(*X)
+            # Update values and derivatives of surrogate operator.
+            expression.set_values_on_grid(val, grid)
+            expression.set_derivatives_on_grid(diff, grid)
+
+            # Update value of the variable which was eliminated.
+            self.equation_system.set_variable_values(
+                val,
+                [v for v in primary.sub_vars if v.domain == grid],
+                iterate_index=0,
+            )
 
     def update_all_boundary_conditions(self) -> None:
         """Attaches to the BC update routine via super call and provides an update for
@@ -397,46 +420,6 @@ class LocalElimination(EquationMixin):
                 return bc_vals
 
             self.update_boundary_condition(eliminatedvar.name, bc_values_prim)
-
-    def initial_condition(self) -> None:
-        """Attaches to the initialization routine via super-call and computes the
-        initial values for constitutive expressions, after values for variables have
-        been set.
-
-        Provides initial values for the surrogate operator, but also for the variable
-        which was eliminated. I.e., the local equation is fulfilled at the beginning.
-
-        """
-
-        # Same remark as in override of update_all_boundary_conditions
-        if isinstance(self, pp.SolutionStrategy):
-            super().initial_condition()  # type:ignore[safe-super]
-        else:
-            raise TypeError(
-                f"Model class {type(self)} does not have a SolutionStrategy included."
-            )
-
-        for elimination in self.__local_eliminations.values():
-            eliminatedvar, expr, f, domains, _ = elimination
-            # Initialization is performed grid-wise.
-            for grid in domains:
-                X = [
-                    d(cast(list[pp.Grid] | list[pp.MortarGrid], [grid])).value(
-                        self.equation_system
-                    )
-                    for d in expr._dependencies
-                ]
-                val, diff = f(*X)
-                # Update values and derivatives of surrogate operator.
-                expr.set_values_on_grid(val, grid)
-                expr.set_derivatives_on_grid(diff, grid)
-
-                # Update value of the variable which was eliminated.
-                self.equation_system.set_variable_values(
-                    val,
-                    [v for v in eliminatedvar.sub_vars if v.domain == grid],
-                    iterate_index=0,
-                )
 
     def before_nonlinear_iteration(self) -> None:
         """Attaches to the non-linear iteration routines and performes an update

@@ -64,10 +64,14 @@ CF modelling.
 It exists only to test the solution strategy for CF with surrogate operators as phase
 properties, and the framework of local equations and eliminations.
 
+Note however, that this model serves also as an integration test for surrogate operators
+and local equations (LocalEliminations).
+
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from typing import Callable, Literal, Sequence, cast
 
@@ -110,6 +114,23 @@ class LinearTracerSaveData:
 
     """
 
+    # Below fields have default values since they are used only in the 3-phase set-up.
+
+    errors_saturations: np.ndarray = field(default_factory=lambda: np.zeros(3))
+    """L2-errors for phase saturations for the 3-phase setup."""
+    errors_phase_fractions: np.ndarray = field(default_factory=lambda: np.zeros(3))
+    """L2-errors for phase fractions."""
+    errors_partial_fractions: np.ndarray = field(
+        default_factory=lambda: np.zeros((3, 2))
+    )
+    """L2-errors for partial fractions, relative to the overall fraction of the tracer.
+
+    The partial fractions are expected to be equal to the overall fractions."""
+    error_T: pp.number = 0.0
+    """Error in Temperature, which should be zero in the isothermal setting."""
+    error_h: pp.number = 0.0
+    """Error in fluid enthalpy, which should be zero in the isothermal setting."""
+
 
 class LinearTracerExactSolution1D:
     """Class implementing the analytical solution of the pressure profile and the
@@ -120,9 +141,9 @@ class LinearTracerExactSolution1D:
     z_tracer_inlet: float = 0.8
     """Amount of tracer flowing in."""
 
-    p_inlet: float = 2.
+    p_inlet: float = 2.0
     """Pressure at the inlet."""
-    p_outlet: float = 1.
+    p_outlet: float = 1.0
     """Pressure at the outlet."""
 
     def __init__(self, tracer_model: TracerFlowSetup_1p) -> None:
@@ -130,14 +151,15 @@ class LinearTracerExactSolution1D:
         self._mu = tracer_model.fluid.reference_component.viscosity
         self._rho = tracer_model.fluid.reference_component.density
         self._perm = tracer_model.solid.permeability
-        self._L = tracer_model.units.convert_units(tracer_model.pipe_length, 'm')
-        
+        self._L = tracer_model.units.convert_units(tracer_model.pipe_length, "m")
 
     def pressure(self, sd: pp.Grid) -> np.ndarray:
         """Linear pressure profile depending on inlet and outlet pressure, and the
         x-coordinates of the grid's cell centers."""
-        return self.p_inlet + (self.p_outlet - self.p_inlet) / self._L * sd.cell_centers[0]
-    
+        return (
+            self.p_inlet + (self.p_outlet - self.p_inlet) / self._L * sd.cell_centers[0]
+        )
+
     def tracer_fraction(self, sd: pp.Grid, t: float) -> np.ndarray:
         """The tracer fraction in the cell centers depending on time t."""
         _, nx = sd.cell_centers.shape
@@ -147,17 +169,17 @@ class LinearTracerExactSolution1D:
 
         z_inflow = np.ones(nx) * (self.z_tracer_inlet - self.z_tracer_initial)
         # super-positioning final solution and initial solution.
-        z_inflow[sd.cell_centers[0] > front_x] = 0.
+        z_inflow[sd.cell_centers[0] > front_x] = 0.0
 
         return z_0 + z_inflow
-    
+
     def diffused_tracer_fraction(self, sd: pp.Grid, t: float) -> np.ndarray:
         """Returns a tracer fraction assuming the numerical scheme is diffusive due
         to Upwinding and backward Euler.
-        
-        
+
+
         """
-    
+
     def darcy_flux(self, sd: pp.Grid) -> np.ndarray:
         """Returns the Darcy flux on all faces, including inlet and outlet."""
         p = self.pressure(sd)
@@ -169,8 +191,7 @@ class LinearTracerExactSolution1D:
         T = self._perm / dx  # transmissibility
 
         flux_internal = [
-            2 / (1/T[i] + 1 / T[i + 1]) * dp_
-            for i, dp_ in enumerate(dp)
+            2 / (1 / T[i] + 1 / T[i + 1]) * dp_ for i, dp_ in enumerate(dp)
         ]
 
         flux_inlet = (self.p_inlet - p[0]) / (dx[0] / 2) * self._perm
@@ -189,19 +210,19 @@ class LinearTracerExactSolution1D:
     def front_position(self, sd: pp.Grid, t: float) -> float:
         """Returns the position of the front along the x-axis at a given time t."""
         return self.flow_velocity(sd) * t
-    
+
     def cfl(self, sd: pp.Grid, dt: float) -> float:
         """Returns the CFL number ``v * dt / dx`` assuming a uniform dx"""
         # assumes uniform cartesian grid
         return self.flow_velocity(sd) * dt / np.ediff1d(sd.cell_centers[0])[0]
-    
+
     def dt_from_cfl(self, sd: pp.Grid, eps: float = 1e-8) -> float:
         """Returns the maximal time step size which does not violate the CFL condition
         ``v * dt / dx <=1``, minus a threshhold ``eps`` to avoid numerical issues."""
         return np.ediff1d(sd.cell_centers[0])[0] / self.flow_velocity(sd) - eps
 
 
-class LinearTracerDataSaving(VerificationDataSaving, pp.PorePyModel):
+class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
     """Mixin class to safe data relevant for tests."""
 
     exact_sol: LinearTracerExactSolution1D
@@ -230,7 +251,11 @@ class LinearTracerDataSaving(VerificationDataSaving, pp.PorePyModel):
                 sds[0], exact_z_tracer, approx_z_tracer, is_scalar=True, is_cc=True
             ),
             error_p=ConvergenceAnalysis.l2_error(
-                sds[0], exact_p, approx_p, is_scalar=True, is_cc=True,
+                sds[0],
+                exact_p,
+                approx_p,
+                is_scalar=True,
+                is_cc=True,
             ),
             t=t,
             dt=dt,
@@ -251,7 +276,7 @@ class SimplePipe2D(pp.PorePyModel):
 
     """
 
-    pipe_length: float = 10.
+    pipe_length: float = 10.0
     """Pipe length of domain in meters."""
 
     @property
@@ -374,7 +399,7 @@ class TracerFlowSetup_1p(
     pp.compositional_flow.BoundaryConditionsCF,
     TracerIC_1p,
     pp.compositional_flow.InitialConditionsCF,
-    LinearTracerDataSaving,
+    LinearTracerDataSaving_1p,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
     """Tracer setup with 2 components and 1 phase."""
@@ -414,8 +439,92 @@ class TrivialEoS(pp.compositional.EquationOfState):
         )
 
 
+class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
+    """Extension of the 1-phase scenario to check the errors in the additional variables."""
+
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
+    def collect_data(self) -> LinearTracerSaveData:
+        """Adds errors for additional fractions, and the energy variables."""
+        data = super().collect_data()
+        sds = self.mdg.subdomains()
+
+        # T and h are expected to stay zero (trivial IC and BC) in the isothermal setting
+        approx_h = self.enthalpy(sds).value(self.equation_system)
+        exact_h = np.zeros(approx_h.shape)
+        approx_T = self.temperature(sds).value(self.equation_system)
+        exact_T = np.zeros(approx_T.shape)
+
+        data.error_h = ConvergenceAnalysis.l2_error(
+            sds[0],
+            exact_h,
+            approx_h,
+            is_scalar=True,
+            is_cc=True,
+        )
+        data.error_T = ConvergenceAnalysis.l2_error(
+            sds[0],
+            exact_T,
+            approx_T,
+            is_scalar=True,
+            is_cc=True,
+        )
+
+        # Phase fractions and saturations are expected to be 1/3 (equal mass distribution)
+        exact_sy = np.ones(exact_h.shape) / 3.0
+
+        errors_s = []
+        errors_y = []
+        errors_x: list[list] = []
+        for phase in self.fluid.phases:
+            approx_s = phase.saturation(sds).value(self.equation_system)
+            approx_y = phase.fraction(sds).value(self.equation_system)
+            errors_s.append(
+                ConvergenceAnalysis.l2_error(
+                    sds[0],
+                    exact_sy,
+                    approx_s,
+                    is_scalar=True,
+                    is_cc=True,
+                )
+            )
+            errors_y.append(
+                ConvergenceAnalysis.l2_error(
+                    sds[0],
+                    exact_sy,
+                    approx_y,
+                    is_scalar=True,
+                    is_cc=True,
+                )
+            )
+
+            # errors for partial fractions: Should be equal to overall fraction of
+            # respective component
+            errors_x.append([])
+            for component in self.fluid.components:
+                approx_x = phase.partial_fraction_of[component](sds).value(
+                    self.equation_system
+                )
+                exact_x = component.fraction(sds).value(self.equation_system)
+                errors_x[-1].append(
+                    ConvergenceAnalysis.l2_error(
+                        sds[0], exact_x, approx_x, is_scalar=True, is_cc=True
+                    )
+                )
+
+        data.errors_phase_fractions = np.array(errors_y)
+        data.errors_saturations = np.array(errors_s)
+        data.errors_partial_fractions = np.array(errors_x)
+
+        return data
+
+
 class TracerFluid_3p(TracerFluid_1p):
     """2-component, 3-phase tracer fluid with 3 unitary phases (all properties are 1)."""
+
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Formal dependency of phase properties, though never used in dummy EoS."""
 
     def get_phase_configuration(
         self, components: Sequence[pp.Component]
@@ -427,10 +536,15 @@ class TracerFluid_3p(TracerFluid_1p):
         state = pp.compositional.PhysicalState.liquid
         return [(eos, state, "1"), (eos, state, "2"), (eos, state, "3")]
 
+    def dependencies_of_phase_properties(
+        self, phase: pp.Phase
+    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+        return [self.enthalpy]
+
 
 def saturation_function(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """The saturation functions are of form ``s(x) = 1/3``, i.e. no derivatives."""
-    return (np.ones(x.shape) / 3, np.zeros(x.shape))
+    return (np.ones(x.shape) / 3, np.zeros((1, x.shape[0])))
 
 
 class ModelClosure_3p(pp.LocalElimination):
@@ -562,6 +676,7 @@ class ModelClosure_3p(pp.LocalElimination):
 
 
 class TracerFlowSetup_3p(
+    SimplePipe2D,
     # putting this constitutive law above the fluid to have enthalpy as a function,
     # and not a surrogate operator,
     # pp.constitutive_laws.FluidEnthalpyFromTemperature,
@@ -569,7 +684,7 @@ class TracerFlowSetup_3p(
     TracerIC_1p,
     TracerBC_1p,
     ModelClosure_3p,
-    LinearTracerDataSaving,
+    LinearTracerDataSaving_3p,
     pp.compositional_flow.ModelSetupCF,
 ):
     """Exaggerated model for tracer flow, which includes 2 additional phases.
@@ -640,44 +755,3 @@ class TracerFlowSetup_3p(
             return enthalpy
 
         return h
-
-
-
-# material_constants = {
-#     "solid": pp.SolidConstants(porosity=1., permeability=1., residual_aperture=1),
-# }
-# time_manager = pp.TimeManager([0, 10, 30, 80, 100], 5, True)
-# model_params = {
-#     "material_constants": material_constants,
-#     "time_manager": time_manager,
-#     'num_cells': 10,
-#     'prepare_simulation': False,
-# }
-# model = TracerFlowSetup_1p(model_params)
-# model.prepare_simulation()
-# pp.run_time_dependent_model(model, model_params)
-# pp.plot_grid(
-#     model.mdg,
-#     "pressure",
-#     figsize=(10, 8),
-#     linewidth=0.2,
-#     title="Pressure distribution",
-#     plot_2d=True,
-# )
-# pp.plot_grid(
-#     model.mdg,
-#     "z_tracer",
-#     figsize=(10, 8),
-#     linewidth=0.2,
-#     title="Tracer distribution after 2 hours",
-#     plot_2d=True,
-# )
-
-# dt = 10.
-# sol = LinearTracerExactSolution1D(model)
-# sd = model.mdg.subdomains()[0]
-# print(sol.pressure(sd))
-# print(sol.flow_velocity(sd))
-# print(sol.tracer_fraction(sd, dt))
-# print(sol.cfl(sd, dt) <= 1.)
-# print(sol.dt_from_cfl(sd))
