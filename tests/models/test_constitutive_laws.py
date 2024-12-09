@@ -49,10 +49,10 @@ solid_values.update(
 @pytest.mark.parametrize(
     "model_type,method_name,only_codimension",
     [  # Fluid mass balance
-        ("mass_balance", "mobility_rho", None),
+        ("mass_balance", "advection_weight_mass_balance", None),
         ("mass_balance", "fluid.reference_phase.viscosity", None),
         ("mass_balance", "fluid_source", None),
-        ("mass_balance", "mobility", None),
+        ("mass_balance", "total_mobility", None),
         ("mass_balance", "fluid.density", None),
         ("mass_balance", "aperture", None),
         ("mass_balance", "darcy_flux", None),

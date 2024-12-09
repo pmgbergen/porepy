@@ -65,6 +65,8 @@ __all__ = [
     "EquationOfState",
     "Phase",
     "Fluid",
+    "ComponentLike",
+    "PhaseLike",
 ]
 
 
@@ -540,7 +542,7 @@ class Phase(Generic[ComponentLike]):
 
         """
 
-        self.fugacity_coefficient_of: dict[ComponentLike, ExtendedDomainFunctionType]
+        self.fugacity_coefficient_of: dict[Component, ExtendedDomainFunctionType]
         """Fugacitiy coefficients per component in this phase.
 
         Dimensionless, scalar field.
@@ -579,7 +581,7 @@ class Phase(Generic[ComponentLike]):
 
         """
 
-        self.extended_fraction_of: dict[ComponentLike, DomainFunctionType]
+        self.extended_fraction_of: dict[Component, DomainFunctionType]
         """Extended molar fractions per component in a phase, used in the unified
         phase equilibrium formulation (see :attr:`partial_fraction_of`).
 
@@ -591,7 +593,7 @@ class Phase(Generic[ComponentLike]):
 
         """
 
-        self.partial_fraction_of: dict[ComponentLike, DomainFunctionType]
+        self.partial_fraction_of: dict[Component, DomainFunctionType]
         """Partial (physical) fraction of a component, relative to the phase fraction.
 
         Dimensionless, scalar field bound to the interval ``[0, 1]``.
