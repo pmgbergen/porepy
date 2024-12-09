@@ -2,8 +2,8 @@ r"""Model setups for testing the CF framework.
 
 Two models are implemented, a single-phase, 2-component model and a 3-phase, 2-component
 model.
-The domain is a pipe modelled as a 2D cartesian grid with a single line of cells, i.e.
-actually a 1D-problem blown up to a 2D-problem for simplicity.
+The domain is a pipe of length ``L`` modelled as a 2D cartesian grid with a single line
+of cells, i.e. actually a 1D-problem blown up to a 2D-problem for simplicity.
 
 **Single-phase, 2-components:**
 
@@ -17,7 +17,7 @@ Due to assumptions on the fluid properties, the pressure equation is reduced to
     \nabla \cdot (K \nabla p) = 0
 
 Giving boundary conditions ``p_i`` and ``p_o`` on inlet and outlet respectively, the
-analytical solution is simply ``p(x, t) = p_i + (p_o - p_i)x``, a linear gradient from
+analytical solution is simply ``p(x, t) = p_i + x(p_o - p_i)/L``, a linear gradient from
 inlet to outlet. The velocity of the flow is roughly ``c = |K(p_o - p_i)|``, assuming a
 isotropic absolute permeability and not taking into account what the flux discretization
 does.
@@ -61,8 +61,7 @@ simply introducing an equation `` h - h_mix = 0``, where the fluid mixture entha
 
 This model is absolutely useless. Only use it if you want to showcase bad practices in
 CF modelling.
-It exists only to test the solution strategy for CF with surrogate operators as phase
-properties, and the framework of local equations and eliminations.
+It exists only to test the solution strategy for CF..
 
 Note however, that this model serves also as an integration test for surrogate operators
 and local equations (LocalEliminations).
