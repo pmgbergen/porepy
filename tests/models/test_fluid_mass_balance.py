@@ -354,17 +354,6 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        # # Mobility = 1 / mu
-        # ("mobility", 1.0 / (water_values["viscosity"]), None),
-        # # Combination of mobility and fluid density = rho / mu
-        # # Mobility_rho = rho_ref * exp(c_f * (p - p_ref)) / mu
-        # (
-        #     "mobility_rho",
-        #     water_values["density"]
-        #     * np.exp(water_values["compressibility"] * 200 * pp.BAR)
-        #     / water_values["viscosity"],
-        #     None,
-        # ),
         ("normal_permeability", granite_values["normal_permeability"], None),
         ("permeability", granite_values["permeability"], None),
         ("porosity", granite_values["porosity"], None),
