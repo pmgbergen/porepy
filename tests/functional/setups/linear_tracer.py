@@ -61,7 +61,7 @@ simply introducing an equation `` h - h_mix = 0``, where the fluid mixture entha
 
 This model is absolutely useless. Only use it if you want to showcase bad practices in
 CF modelling.
-It exists only to test the solution strategy for CF..
+It exists only to test the solution strategy for CF.
 
 Note however, that this model serves also as an integration test for surrogate operators
 and local equations (LocalEliminations).
