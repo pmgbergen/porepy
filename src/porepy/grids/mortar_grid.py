@@ -154,10 +154,10 @@ class MortarGrid:
         self.cell_centers: np.ndarray = np.hstack(
             [g.cell_centers for g in self.side_grids.values()]
         )
-        """Cell centers of each cell in the side grids."""
+        """Cell centers of each cell in the side grids with ``shape=(3, num_cells)``"""
 
         self.nodes: np.ndarray = np.hstack([g.nodes for g in self.side_grids.values()])
-        """Nodes in the side grids."""
+        """Nodes in the side grids with ``shape=(3, num_nodes)``."""
 
         # Set projections
         if not (primary_secondary is None):
