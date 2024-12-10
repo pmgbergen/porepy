@@ -30,6 +30,9 @@ if not TYPE_CHECKING:
     class PorePyModel:
         """This is an empty placeholder of the protocol, used mainly for type hints."""
 
+    class CompositionalFlowModelProtocol:
+        """This is an empty placeholder of the protocol, used mainly for type hints."""
+
 else:
     # This branch is accessed by mypy and linters.
 
@@ -75,6 +78,9 @@ else:
             four Cartesian cells.
 
             """
+
+        def set_well_network(self) -> None:
+            """Assign well network class :attr:`well_network`."""
 
         def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
@@ -566,6 +572,21 @@ else:
 
             """
 
+        def initial_condition(self) -> None:
+            """Set the initial condition for the problem.
+
+            For each solution index stored in ``self.time_step_indices`` and
+            ``self.iterate_indices`` a zero initial value will be assigned.
+
+            """
+
+        def before_nonlinear_iteration(self) -> None:
+            """Method to be called at the start of every non-linear iteration.
+
+            Possible usage is to update non-linear parameters, discretizations etc.
+
+            """
+
     class FluidProtocol(Protocol):
         """This protocol provides declarations of methods defined in the
         :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
@@ -589,6 +610,7 @@ else:
                 get_phase_configuration` respectively.
 
             """
+            return None
 
         def assign_thermodynamic_properties_to_phases(self) -> None:
             """Assigns callable properties to the dynamic phase objects, after the
@@ -597,6 +619,18 @@ else:
             See also:
                 :meth:`~porepy.compositional.compositional_mixins.FluidMixin.
                 assign_thermodynamic_properties_to_phases`.
+
+            """
+            return None
+
+        def dependencies_of_phase_properties(
+            self, phase: pp.Phase
+        ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+            """Returns the Callables representing variables, on which the thermodynamic
+            properties of phases depend.
+
+            For a more detailed explanation, see :meth:`~porepy.compositional.
+            compositional_mixins.dependencies_of_phase_properties.`
 
             """
 
@@ -629,7 +663,7 @@ else:
             """
 
         def create_variables(self) -> None:
-            """Assign primary variables to subdomains and interfaces of the mixed-
+            """Introduce variables to subdomains and interfaces of the mixed-
             dimensional grid."""
 
     class BoundaryConditionProtocol(Protocol):
@@ -696,6 +730,25 @@ else:
             Note:
                 One can use the convenience method `update_boundary_condition` for each
                 boundary condition value.
+
+            """
+
+        def update_boundary_condition(
+            self,
+            name: str,
+            function: Callable[[pp.BoundaryGrid], np.ndarray],
+        ) -> None:
+            """This method is the unified procedure of updating a boundary condition.
+
+            It shifts the boundary condition values in time and stores the current
+            iterate data (current time step) as the most recent previous time step data.
+            Next, it evaluates the boundary condition values for the new time step and
+            stores them in the iterate data.
+
+            Parameters:
+                name: Name of the operator defined on the boundary.
+                function: A callable that provides the boundary condition values on a
+                    given boundary grid.
 
             """
 
@@ -835,3 +888,85 @@ else:
             runtime, since it is not an abstract base class.
 
         """
+
+    class CompositionalFlowModelProtocol(PorePyModel, Protocol):
+        """Protocol declaring a collection of mixed-in methods specific to the
+        compositional flow setting.
+
+        This protocol does not contain all methods, only those which are expected in
+        some mixins, but implemented in others.
+
+        """
+
+        @property
+        def overall_fraction_variables(self) -> list[str]:
+            """Names of independent overall
+            :attr:`~porepy.compositional.base.Component.fraction` variables created for
+            a model."""
+
+        @property
+        def tracer_fraction_variables(self) -> list[str]:
+            """Names of independent
+            :attr:`~porepy.compositional.base.Compound.tracer_fraction_of` -variables
+            created for a model."""
+
+        def component_mass_balance_equation_names(self) -> list[str]:
+            """Returns the names of component mass balance equations in the model,
+            which are primary PDEs on all subdomains for each independent fluid
+            component."""
+
+        def tracer_transport_equation_names(self) -> list[str]:
+            """Returns the names of transport equations in the model, which are primary
+            PDEs on all subdomains for each tracer in each compound in the fluid."""
+
+        def has_independent_fraction(self, instance: pp.Phase | pp.Component) -> bool:
+            """Checks whether the ``instance`` has an independent variable for the
+            fraction of total mass associated with it (
+            :attr:`~porepy.compositional.base.Component.fraction` of a component,
+            :attr:`~porepy.compositional.base.Phase.fraction` of a phase
+            )
+
+            Works the same for both components and phases.
+
+            Parameters:
+                instance: A phase or a component in the :attr:`fluid`.
+
+            Raises:
+                ValueError: If the ``instance`` is not in the fluid mixture.
+                TypeError: If ``instance`` is neither a phase nor a component.
+
+            Returns:
+                False, if there is only 1 instance (of phases or component) in the fluid
+                mixture, or it is the reference instance and it was eliminated.
+                Otherwise it returns True.
+
+            """
+
+        def has_independent_tracer_fraction(
+            self, tracer: pp.Component, compound: pp.compositional.Compound
+        ) -> bool:
+            """Checks if the :attr:`~porepy.compositional.base.Compound.tracer_fraction_of`
+            a ``tracer`` in the ``compound`` is an independent variable.
+
+            Paramters:
+                tracer: An active tracer in one of the compounds in the
+                    :attr:`fluid`.
+                compound: A component/compound in the :attr:`fluid`'s
+                    :attr:`~porepy.compositional.base.Fluid.components`.
+
+            Raises:
+                ValueError: If the ``compound`` is not in the :attr:`fluid`.
+
+            Returns:
+                True, if the ``tracer`` is in the compound``, False otherwise.
+
+            """
+
+        def _overall_fraction_variable(self, component: pp.Component) -> str:
+            """Returns the name of the fraction variable assigned to ``component``."""
+
+        def _tracer_fraction_variable(
+            self, tracer: pp.Component, compound: pp.compositional.Compound
+        ) -> str:
+            """Returns the name of the tracer fraction variable assigned to tracer in a
+            compound."""
