@@ -3,9 +3,9 @@ This module contains functional tests for approximations to the set of equations
 modeling the 2d and 3d, *compressible* flow with a single, fully embedded vertical
 fracture.
 
-The manufactured solution for the compressible flow verification is obtained as a
-natural extension of the incompressible case, see [1]. The non-linearity is included
-via the dependency of the fluid density with the fluid pressure:
+The manufactured solution for the compressible flow verification is presented in
+Section 6.1 from [1]. The non-linearity is included via the dependency of the fluid
+density with the fluid pressure:
 
 .. math::
 
@@ -19,7 +19,7 @@ values, except for the reference porosity :math:`\\phi_0 = 0.1` and normal perme
 Tests:
 
     [TEST_1] Relative L2-error on Cartesian grids for primary and secondary variables
-      for three different times for 2d and 3d.
+      for two different times for 2d and 3d.
 
     [TEST_2] Observed order of convergence (using four levels of refinement for 2d and
       three levels of refinement for 3d) for primary and secondary variables. Order
