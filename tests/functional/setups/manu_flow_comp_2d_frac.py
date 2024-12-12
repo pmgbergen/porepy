@@ -3,8 +3,8 @@ This module contains a code verification implementation for a manufactured solut
 the two-dimensional, compressible, single phase flow with a single, fully embedded
 vertical fracture in the middle of the domain.
 
-The exact solution was obtained by extending the solution from the incompressible
-case [1].
+The exact solution is the 2d version of the 3d manufactured solution presented in
+Section 6.1 from [1].
 
 In particular, we have added a pressure-dependent density which obeys the following
 constitutive relationship:
@@ -19,9 +19,9 @@ fluid compressibility.
 
 References:
 
-    - [1] Varela, J., Ahmed, E., Keilegavlen, E., Nordbotten, J. M., & Radu, F. A.
-      (2022). A posteriori error estimates for hierarchical mixed-dimensional
-      elliptic equations. Journal of Numerical Mathematics.
+    - [1] Stefansson, I., Varela, J., Keilegavlen, E., & Berre, I. (2024). Flexible and
+      rigorous numerical modelling of multiphysics processes in fractured porous
+      media using PorePy. Results in Applied Mathematics, 21, 100428.
 
 """
 from __future__ import annotations
