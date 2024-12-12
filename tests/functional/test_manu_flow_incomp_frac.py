@@ -9,8 +9,8 @@ from [1] (i.e., the bubble function is scaled to obtain a better conditioned sys
 
 Tests:
 
-    [TEST_1] Relative L2-error on Cartesian grids for primary and secondary variables
-      for three different times for 2d and 3d.
+    [TEST_1] Relative L2-errors on Cartesian grids for primary and secondary variables
+      for 2d and 3d.
 
     [TEST_2] Observed order of convergence (using four levels of refinement for 2d and
       three levels of refinement for 3d) for primary and secondary variables. Order

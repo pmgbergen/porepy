@@ -20,7 +20,7 @@ the exact pressure and displacement solutions, we use the ones employed in [3].
 Tests:
 
     [TEST_1] Relative L2-error on Cartesian grids for primary and secondary variables
-      for three different times for 2d and 3d.
+      for two different times for 2d and 3d.
 
     [TEST_2] Observed order of convergence (using four levels of refinement for 2d and
       three levels of refinement for 3d) for primary and secondary variables. Order
