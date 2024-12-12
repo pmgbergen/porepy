@@ -503,7 +503,7 @@ class ConvergenceAnalysis:
                 ``is_scalar=False`` for displacement.
             is_cc: Whether the variable is associated to cell centers. Use ``False``
                 for variables associated to face centers. For example, ``is_cc=True``
-                for pressures, whereas ``is_scalar=False`` for subdomain fluxes.
+                for pressures, whereas ``is_cc=False`` for subdomain fluxes.
             relative: Compute the relative error (if True) or the absolute error (if
                 False).
             parameter_weight: Array containing the parameter weight, producing a
