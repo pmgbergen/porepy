@@ -208,8 +208,10 @@ from porepy.models import (
     poromechanics,
     mass_and_energy_balance,
     thermoporomechanics,
+    compositional_flow,
 )
-from porepy.models import compositional_flow
+
+# Full model classes.
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.models.momentum_balance import MomentumBalance
 from porepy.models.poromechanics import Poromechanics
