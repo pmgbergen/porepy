@@ -16,8 +16,8 @@ class InitialConditionMixin(pp.PorePyModel):
     IC is critical.
 
     Example:
-        Let's consider a system with two variables, ``x,y`` where we want to enforce a
-        relation ``y = y(x)`` in the beginning.
+        Let's consider a system with two variables, ``x, y``, where ``y`` is a secondary
+        variable and we want to initialize the system using a relation ``y = y(x)``.
 
         .. code::python
 
@@ -57,16 +57,12 @@ class InitialConditionMixin(pp.PorePyModel):
             class MyIC(ICSecondary, ICPrimary):
                 ...
 
-        Notice that in all collective initialization methods, ``super()`` is called
-        first. The way this works for the model using ``MyIC`` is that the code in
+        Notice that in all initialization methods, ``super()`` is called first. For the
+        model using ``MyIC``, because of the order of inheritance, the code in
         ``ICSecondary`` is executed first, which in return executes the code of
         ``ICPrimary`` first. I.e., the update order is the reverse order in the
-        inheritance tree. This is due to ``ICPrimary`` calling itself ``super()`` in
-        :meth:`initial_condition` first, in order to initialize the complete system
-        with trivial values in the solution strategy.
-
-        When using this approach, the IC update for ``y`` can reliably fetch
-        the latest values for ``x`` on the boundary.
+        inheritance tree. Thus, when using this approach, the IC update for ``y`` can
+        reliably fetch the latest values for ``x`` on the boundary.
 
         Notice also, that ``set_initial_values_primary_variables`` has also a
         ``super()`` call on top. This makes it compatible in the case of a third,

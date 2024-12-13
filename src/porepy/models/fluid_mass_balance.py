@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class TotalMassBalanceEquations(pp.BalanceEquation):
-    """Mixed-dimensional mass balance equation of total mass (pressure equation).
+    """Mixed-dimensional balance equation for total mass (pressure equation).
 
     Balance equation for all subdomains and Darcy-type flux relation on all interfaces
     of codimension one and Peaceman flux relation on interfaces of codimension two
@@ -254,7 +254,7 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
 
         The boundary fluid flux is used in Upwinding (see :meth:`advective_flux`), i.e.
         it is a massic flux. Note however, that this is a numerical approximation of
-        the other-wise diffusive total fluid flux.
+        the otherwise diffusive total fluid flux.
 
         Note:
             This operator does not necessarily contain flux values per se. If
@@ -547,11 +547,12 @@ class InitialConditionsSinglePhaseFlow(pp.InitialConditionMixin):
             - :meth:`initial_pressure`
 
         """
-        # super call for compatibility with multi-physics
+        # Super call for compatibility with multi-physics.
         super().set_initial_values_primary_variables()
 
         for sd in self.mdg.subdomains():
-            # Need to cast the return value to variable, because it is types as operator
+            # Need to cast the return value to variable, because it is typed as
+            # operator.
             self.equation_system.set_variable_values(
                 self.initial_pressure(sd),
                 [cast(pp.ad.Variable, self.pressure([sd]))],
@@ -609,9 +610,9 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
     def create_variables(self) -> None:
         """Introduces the following variables into the system:
 
-        1. pressure variable on all subdomains
-        2. Darcy flux variable on all interfaces with codimension 1
-        3. Well flux variable on all interfaces with codimension 2
+        1. Pressure variable on all subdomains.
+        2. Darcy flux variable on all interfaces with codimension 1.
+        3. Well flux variable on all interfaces with codimension 2.
 
         """
         super().create_variables()
