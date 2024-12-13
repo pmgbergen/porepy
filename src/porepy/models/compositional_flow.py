@@ -15,8 +15,9 @@ The following equations are available:
   :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations`.
 - :class:`DiffusiveTotalMassBalanceEquations`: A diffusive variant of the total mass
   balance, where the total mobility is an isotropic contribution to the permeability
-  tensor. To be used in a fractional flow model. Expensive, since it requires a
-  re-discretization of the MPFA, but numerically consistent.
+  tensor. To be used in a fractional flow model. This model is computationally
+  expensive, since it requires a re-discretization of the MPFA, but also numerically
+  consistent.
 - :class:`TwoVariableTotalEnergyBalanceEquations`: A specialized total energy balance
   using an independent (specific fluid) enthalpy variable in the accumulation term.
   Otherwise completely analogous to its base
@@ -26,12 +27,12 @@ The following equations are available:
   Analogous to :class:`ComponentMassBalanceEquations`, but with a modified accumulation
   term to account for the relative tracer fractions.
 
-Primary equations include a total mass balance, component balance and the some energy
-balance equation. A collection for non-isothermal, non-diffusive flow is given in
+The primary equations include a total mass balance, component balance and the some
+energy balance equation. A collection for non-isothermal, non-diffusive flow is given in
 :class:`PrimaryEquationsCF`.
 
-Primary variables are assumed to be a single pressure (no capillarity), an enthalpy or
-temperature variable, and overall fraction variables. They are collected in
+The primary variables are assumed to be a single pressure (no capillarity), an enthalpy
+or temperature variable, and overall fraction variables. They are collected in
 :class:`VariablesCF`.
 
 In a general setting, where phase properties are given by :class:`~porepy.numerics.ad.
@@ -42,7 +43,7 @@ computation of respective values during the simulation.
 
 A collective
 
-Following IC mixins are available:
+The following IC mixins are available:
 
 - :class:`InitialConditionsCF`: Provides an interface to set initial conditions
   for overall fractions and active tracer fractions, if any. Other fractions are for now
@@ -56,7 +57,7 @@ Following IC mixins are available:
   routines, and the IC mixins for mass & energy, including an independent enthalpy
   variable.
 
-Following BC mixins are available:
+The following BC mixins are available:
 
 - :class:`BoundaryConditionsCF`: The analogy to
   :class:`InitialConditionsCF` but for BC.
@@ -181,9 +182,8 @@ class DiffusiveTotalMassBalanceEquations(pp.BalanceEquation):
     (well-fracture intersections).
 
     Note:
-        This balance equation assumes that the total mobility is part of the
-        diffusive, second-order tensor in the non-linear (MPFA) discretization of the
-        Darcy flux.
+        This balance equation assumes that the total mobility is part of the diffusive,
+        second-order tensor in the non-linear (MPFA) discretization of the Darcy flux.
 
     See also:
 
@@ -253,7 +253,7 @@ class DiffusiveTotalMassBalanceEquations(pp.BalanceEquation):
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         # NOTE use same name to raise an error if one attempts to set both, diffusive
-        # and regular mass balance equations
+        # and regular mass balance equations.
         eq.set_name(
             pp.fluid_mass_balance.TotalMassBalanceEquations.primary_equation_name()
         )
@@ -314,8 +314,8 @@ class TwoVariableTotalEnergyBalanceEquations(
     independent (specific fluid) enthalpy variable in the accumulation term *and* a
     temperature variable in the Fourier flux.
 
-    Balance equation for all subdomains and advective and diffusive fluxes
-    (Fourier flux) internally and on all interfaces of codimension one and advection on
+    Balance equation for all subdomains and advective and diffusive fluxes (Fourier
+    flux) internally and on all interfaces of codimension one and advection on
     interfaces of codimension two (well-fracture intersections).
 
     Defines an advective weight to be used in the advective flux, assuming the total
@@ -799,12 +799,12 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
 
 class TracerTransportEquations(ComponentMassBalanceEquations):
-    """Simple transport equations for every tracer in a fluid component, which is
-    a compound.
+    """Simple transport equations for every tracer in a fluid component, which is a
+    compound.
 
-    The only difference to the compound's mass balance
-    (given by :class:`ComponentMassBalanceEquations`) is, that the accumulation term
-    is additionally weighed with the relative tracer fraction fraction.
+    The only difference to the compound's mass balance (given by
+    :class:`ComponentMassBalanceEquations`) is, that the accumulation term is
+    additionally weighed with the relative tracer fraction fraction.
 
     """
 
@@ -994,7 +994,7 @@ class ConstitutiveLawsSolidSkeletonCF(
             constant.
 
         Parameters:
-            subdomains: A list of subdomains
+            subdomains: A list of subdomains.
 
         Returns:
             The cell-wise, scalar, isotropic permeability, composed of the total
@@ -1014,7 +1014,7 @@ class ConstitutiveLawsSolidSkeletonCF(
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """
         Parameters:
-            subdomains: A list of subdomains
+            subdomains: A list of subdomains.
 
         Returns:
             In the fractional flow setting, the method returns the value of

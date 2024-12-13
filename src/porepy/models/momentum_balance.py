@@ -484,9 +484,9 @@ class VariablesMomentumBalance(VariableMixin):
     def create_variables(self) -> None:
         """Introduces the following variables into the system:
 
-        1. displacement variable on all subdomains
-        2. displacement variable on all interfaces with codimension 1
-        3. contact traction variable on all subdomains
+        1. Displacement variable on all subdomains.
+        2. Displacement variable on all interfaces with codimension 1.
+        3. Contact traction variable on all subdomains.
 
         """
         super().create_variables()
@@ -871,7 +871,7 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
             - :meth:`initial_displacement`
 
         """
-        # super call for compatibility with multi-physics
+        # Super call for compatibility with multi-physics.
         super().set_initial_values_primary_variables()
 
         for sd in self.mdg.subdomains():

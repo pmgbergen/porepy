@@ -491,10 +491,10 @@ class VariablesEnergyBalance(pp.VariableMixin):
     def create_variables(self) -> None:
         """Introduces the following variables into the system:
 
-        1. temperature variable on all subdomains
-        2. Fourier flux variable on all interfaces with codimension 1
+        1. temperature variable on all subdomains.
+        2. Fourier flux variable on all interfaces with codimension 1.
         3. enthalpy flux variable on all interfaces with codimension 1
-        4. enthalpy flux variable on all interfaces with codimension 2
+        4. enthalpy flux variable on all interfaces with codimension 2.
 
         """
         super().create_variables()
@@ -621,7 +621,7 @@ class EnthalpyVariable(pp.VariableMixin):
     def create_variables(self) -> None:
         """Introduces the following variables into the system:
 
-        1. enthalpy variable on all subdomains.
+        1. Enthalpy variable on all subdomains.
 
         """
         super().create_variables()
@@ -641,8 +641,8 @@ class EnthalpyVariable(pp.VariableMixin):
             domains: List of subdomains or list of boundary grids.
 
         Raises:
-            ValueError: If the passed sequence of domains does not consist entirely
-                of instances of boundary grid.
+            ValueError: If the passed sequence of domains does not consist entirely of
+                instances of boundary grid.
 
         Returns:
             A mixed-dimensional variable representing the enthalpy, if called with a
@@ -827,9 +827,9 @@ class BoundaryConditionsEnthalpy(pp.BoundaryConditionMixin):
     """Mixin for providing BC values for an independent enthalpy variable.
 
     Note:
-        Though strictly speaking not appearing in the flux terms, this method
-        is required for completeness reasons. E.g., for cases where phase properties
-        depend on the fluid enthalpy. They subsequently appear in non-linear weight of
+        Though strictly speaking not appearing in the flux terms, this method is
+        required for completeness reasons. E.g., for cases where phase properties depend
+        on the fluid enthalpy. They subsequently appear in non-linear weight of
         advective fluxes.
 
     """
@@ -872,11 +872,12 @@ class InitialConditionsEnergy(pp.InitialConditionMixin):
             - :meth:`initial_temperature`
 
         """
-        # super call for compatibility with multi-physics
+        # Super call for compatibility with multi-physics.
         super().set_initial_values_primary_variables()
 
         for sd in self.mdg.subdomains():
-            # Need to cast the return value to variable, because it is types as operator
+            # Need to cast the return value to variable, because it is types as
+            # operator.
             self.equation_system.set_variable_values(
                 self.initial_temperature(sd),
                 [cast(pp.ad.Variable, self.temperature([sd]))],
