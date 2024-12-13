@@ -37,8 +37,7 @@ class BoundaryConditionMixin(pp.PorePyModel):
                     self.update_boundary_condition('x', self.bc_value_x)
 
                 def bc_value_x(bg: pp.BoundaryGrid) -> np.ndarray:
-                    # proceed to return some value
-                    ...
+                    # proceed to return some value ...
 
             class BCSecondary(BoundaryConditionMixin):
 
@@ -47,23 +46,21 @@ class BoundaryConditionMixin(pp.PorePyModel):
                     self.update_boundary_condition('y', self.bc_value_y)
 
                 def bc_value_y(bg: pp.BoundaryGrid) -> np.ndarray:
-                    x = self.x([bg]).value(self.equation_system)
-                    # proceed to return some value depending x
-                    ...
+                    x = self.x([bg]).value(self.equation_system) # proceed to return
+                    some value depending x ...
 
             class MyBC(BCSecondary, BCPrimary):
                 ...
 
-        Notice that in all collective update methods, ``super()`` is called first.
-        The way this works for the model using ``MyBC`` is that the code in
-        ``BCSecondary`` is executed first, which in return executes the code of
-        ``BCPrimary`` first. I.e., the update order is the reverse order in the
-        inheritance tree. This is due to ``BCPrimary`` calling itself ``super()`` in
-        :meth:`update_all_boundary_conditions` first, in order to execute the filter
-        framework in the base class before any type of update.
+        Notice that in all update methods, ``super()`` is called first. Due to the order
+        of inheritance, a model using ``MyBC`` will first execute ``BCSecondary``. Will
+        will again first executes the code of ``BCPrimary``. I.e., the update order is
+        the reverse order in the inheritance tree. This is due to ``BCPrimary`` calling
+        itself ``super()`` in :meth:`update_all_boundary_conditions` first, in order to
+        execute the filter framework in the base class before any type of update.
 
-        When using this approach, the BC update for ``y`` can reliably fetch
-        the latest values for ``x`` on the boundary.
+        When using this approach, the BC update for ``y`` can reliably fetch the latest
+        values for ``x`` on the boundary.
 
         Notice also, that ``update_boundary_values_primary_variables`` has also a
         ``super()`` call on top. This makes it compatible in the case of a third,

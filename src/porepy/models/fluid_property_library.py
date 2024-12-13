@@ -244,7 +244,7 @@ class FluidMobility(pp.PorePyModel):
         r"""Discretization of the fluid mobility.
 
         This includes any non-linear, scalar expression :math:`a` in front of the
-        advective flux
+        advective flux.
 
         .. math::
 
@@ -331,9 +331,9 @@ class FluidMobility(pp.PorePyModel):
             Above expression in operator form.
 
         """
-        # distinguish between single-phase case and multi-phase case: usage of rel-perm
-        # Makes this class compatible with single-phase models, without requiring some
-        # rel-perm mixin
+        # Distinguish between single-phase case and multi-phase case: Usage of rel-perm
+        # makes this class compatible with single-phase models, without requiring some
+        # rel-perm mixin.
         if self.fluid.num_phases > 1:
             mobility = self.relative_permeability(phase, domains) / phase.viscosity(
                 domains

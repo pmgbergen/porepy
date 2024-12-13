@@ -663,8 +663,8 @@ else:
             """
 
         def create_variables(self) -> None:
-            """Introduce variables to subdomains and interfaces of the mixed-
-            dimensional grid."""
+            """Introduce variables to subdomains and interfaces of the mixed-dimensional
+            grid."""
 
     class BoundaryConditionProtocol(Protocol):
         """This protocol provides declarations of methods and properties related to

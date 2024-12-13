@@ -174,9 +174,10 @@ class LocalElimination(EquationMixin):
     some function to be evaluated depending on specified variables.
 
     Note:
-        This elimination happens locally in time and space. No values backwards in time
-        and iterate sense are stored for :math:`\\tilde{x}`. This class assumes that
-        previous iterate and time steps exist only for :math:`x` in some other equation.
+        This elimination happens locally in time and space (that is, it is applied to
+        all cells in the provided grids). No values backwards in time and iterate sense
+        are stored for :math:`\\tilde{x}`. This class only assumes that previous iterate
+        and time steps exist for :math:`x` in some other equation.
 
     Important:
         For this mixin to work reliably, it must be above IC, BC and solution strategy
@@ -210,13 +211,13 @@ class LocalElimination(EquationMixin):
         """Storage of configurations of local eliminations.
 
         The key is the name of the local equation introduced into the model.
-        The value is a tuple containing
+        The value is a tuple containing:
 
-        1. references to the eliminated variable,
-        2. the surrogate factory itself,
-        3. a callable which is the functional representation of the elimination,
-        4. a sequence of internal grids on which the variable was eliminated,
-        5. and a sequence of boundary grids for consistent BC.
+            1. References to the eliminated variable.
+            2. The surrogate factory itself.
+            3. A callable which is the functional representation of the elimination.
+            4. A sequence of internal grids on which the variable was eliminated.
+            5. A sequence of boundary grids for consistent BC.
 
         """
         return {}
@@ -227,7 +228,7 @@ class LocalElimination(EquationMixin):
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
         func: Callable[..., tuple[np.ndarray, np.ndarray]],
         domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
-        equations_per_grid_entity: dict[GridEntity, int] = {"cells": 1},
+        equations_per_grid_entity: None | dict[GridEntity, int],
     ) -> None:
         """Method to add a secondary equation eliminating a variable by some
         constitutive law depending on *other* variables.
@@ -278,19 +279,22 @@ class LocalElimination(EquationMixin):
                 creating a surrogate factory.
 
         """
-        # separate these two because Boundary values for independent quantities are
-        # stored differently
+        if equations_per_grid_entity is None:
+            equations_per_grid_entity = {"cells": 1}
+
+        # Separate these two because Boundary values for independent quantities are
+        # stored differently.
         non_boundaries = cast(
             pp.SubdomainsOrBoundaries,
             [g for g in domains if isinstance(g, (pp.Grid, pp.MortarGrid))],
         )
 
-        # cast to Variable, because most models have functions returning variables
-        # like pressure and temperature, typed as returning Operator
+        # Cast to Variable, because most models have functions returning variables
+        # like pressure and temperature, typed as returning Operator.
         sec_var = cast(
             pp.ad.MixedDimensionalVariable, independent_quantity(non_boundaries)
         )
-        g_ids = [d.id for d in non_boundaries]
+        g_ids = [g.id for g in non_boundaries]
 
         sec_expr = pp.ad.SurrogateFactory(
             name=f"surrogate_for_{sec_var.name}_on_grids_{g_ids}",
@@ -321,7 +325,7 @@ class LocalElimination(EquationMixin):
         grids: pp.GridLikeSequence,
     ) -> None:
         """Register a surrogate factory used for local elimination with the model
-        framework to have it's update automatized.
+        framework to have its update automatized.
 
         Regular updates are performed on boundaries (at the beginning of every time
         step), and on internal domains before every non-linear solver iteration.
@@ -360,12 +364,17 @@ class LocalElimination(EquationMixin):
         # called before set_equations. That order cannot be changed for most of the
         # mechanics models, because their equations have the initial conditions in them.
         for grid in domains:
+            # Loop over all the dependencies (which are primary variables) of the
+            # expression in the order they were specified for the expression (this is
+            # critical!). Evaluate the primary variable (casting is necceary for mypy)
+            # and store its value in X. 
             X = [
-                d(cast(list[pp.Grid] | list[pp.MortarGrid], [grid])).value(
+                prim_var(cast(list[pp.Grid] | list[pp.MortarGrid], [grid])).value(
                     self.equation_system
                 )
-                for d in expression._dependencies
+                for prim_var in expression._dependencies
             ]
+            # Evaluate the function and its derivative.
             val, diff = func(*X)
             # Update values and derivatives of surrogate operator.
             expression.set_values_on_grid(val, grid)
@@ -388,8 +397,8 @@ class LocalElimination(EquationMixin):
 
         """
 
-        # Mypy complains about the parent (the protocol) having a trivial body.
-        # We ignore the safe-super check here, but do not comprosie safety by explicitly
+        # Mypy complains about the parent (the protocol) having a trivial body. We
+        # ignore the safe-super check here, but do not comprosie safety by explicitly
         # checking the inheritance tree.
         if isinstance(self, pp.BoundaryConditionMixin):
             super().update_all_boundary_conditions()  # type:ignore[safe-super]
@@ -402,7 +411,7 @@ class LocalElimination(EquationMixin):
         for elimination in self.__local_eliminations.values():
             eliminatedvar, expr, func, _, bgs = elimination
 
-            # skip if not eliminated on boundary
+            # Skip if not eliminated on boundary.
             if not bgs:
                 continue
 
@@ -410,9 +419,11 @@ class LocalElimination(EquationMixin):
                 bc_vals: np.ndarray
 
                 if bg in bgs:
+                    # Loop over dependencies, evaluate them and store their values in X.
                     X = [
                         d([bg]).value(self.equation_system) for d in expr._dependencies
                     ]
+                    # On the boundary we need only the values, not the derivatives.
                     bc_vals, _ = func(*X)
                 else:
                     bc_vals = np.zeros(bg.num_cells)
@@ -431,7 +442,7 @@ class LocalElimination(EquationMixin):
 
         """
 
-        # Same remark as in override of update_all_boundary_conditions
+        # Same remark as in override of update_all_boundary_conditions.
         if isinstance(self, pp.SolutionStrategy):
             super().before_nonlinear_iteration()  # type:ignore[safe-super]
         else:

@@ -2025,7 +2025,7 @@ class ThermalConductivityCF(ThermalConductivityLTE):
         """Normal thermal conductivity of the fluid.
 
         This is a constitutive law choosing the thermal conductivity of the fluid in the
-        higher-dimensional domains as the normal conductivity.
+        lower-dimensional domains as the normal conductivity.
 
         Parameters:
             interfaces: List of interface grids.
@@ -2038,7 +2038,7 @@ class ThermalConductivityCF(ThermalConductivityLTE):
 
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
-        # this is a constitutive law based on Banshoya 2023
+        # This is a constitutive law based on Banshoya 2023.
         normal_conductivity = projection.secondary_to_mortar_avg @ (
             self.fluid.thermal_conductivity(subdomains)
         )
