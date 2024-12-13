@@ -741,7 +741,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             for comp in phase:
                 phase.extended_fraction_of[comp] = self.extended_fraction(comp, phase)
 
-        # Creation of partial fractions
+        # Creation of partial fractions.
         for phase in self.fluid.phases:
             phase.partial_fraction_of = dict()
             for comp in phase:
