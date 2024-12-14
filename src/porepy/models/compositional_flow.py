@@ -76,7 +76,7 @@ The following BC mixins are available:
   :class:`BoundaryConditionsFlowAndTransport` for the fractional flow setting with
   explicit values for non-linear weights in fluxes.
 
-The :class:`SolutionStrategyCF` handles the general Cf model, with or without fractional
+The :class:`SolutionStrategyCF` handles the general CF model, with or without fractional
 flow simulation, and provides means to re-discretize the MPFA in the diffusive setting,
 and to eliminate local, secondary equations via Schur-complement. Those equations are
 required in any case to close the general multi-phase setting.
@@ -110,7 +110,7 @@ logger = logging.getLogger(__name__)
 
 
 def update_phase_properties(
-    grid: pp.Grid,
+    sd: pp.Grid,
     phase: pp.Phase,
     props: ppc.PhaseProperties,
     depth: int,
@@ -124,7 +124,7 @@ def update_phase_properties(
     :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`.
 
     Parameters:
-        grid: A grid in the md-domain.
+        sd: A subdomain grid in the md-domain.
         phase: Any phase.
         props: A phase property structure containing the new values to be set.
         depth: An integer used to shift existing iterate values backwards.
@@ -133,39 +133,39 @@ def update_phase_properties(
             If True, updates also the derivative values.
         use_extended_derivatives: ``default=False``
 
-            If True, and if ``update_derivatives==True``, uses the extend
-            derivatives of the ``state``.
+            If True, and if ``update_derivatives==True``, uses the extended derivatives
+            of the ``state``.
 
             To be used in the the CFLE setting with the unified equilibrium formulation.
 
     """
     if isinstance(phase.density, pp.ad.SurrogateFactory):
-        phase.density.progress_iterate_values_on_grid(props.rho, grid, depth=depth)
+        phase.density.progress_iterate_values_on_grid(props.rho, sd, depth=depth)
         if update_derivatives:
             phase.density.set_derivatives_on_grid(
-                props.drho_ext if use_extended_derivatives else props.drho, grid
+                props.drho_ext if use_extended_derivatives else props.drho, sd
             )
     if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
         phase.specific_enthalpy.progress_iterate_values_on_grid(
-            props.h, grid, depth=depth
+            props.h, sd, depth=depth
         )
         if update_derivatives:
             phase.specific_enthalpy.set_derivatives_on_grid(
-                props.dh_ext if use_extended_derivatives else props.dh, grid
+                props.dh_ext if use_extended_derivatives else props.dh, sd
             )
     if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-        phase.viscosity.progress_iterate_values_on_grid(props.mu, grid, depth=depth)
+        phase.viscosity.progress_iterate_values_on_grid(props.mu, sd, depth=depth)
         if update_derivatives:
             phase.viscosity.set_derivatives_on_grid(
-                props.dmu_ext if use_extended_derivatives else props.dmu, grid
+                props.dmu_ext if use_extended_derivatives else props.dmu, sd
             )
     if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
         phase.thermal_conductivity.progress_iterate_values_on_grid(
-            props.kappa, grid, depth=depth
+            props.kappa, sd, depth=depth
         )
         if update_derivatives:
             phase.thermal_conductivity.set_derivatives_on_grid(
-                props.dkappa_ext if use_extended_derivatives else props.dkappa, grid
+                props.dkappa_ext if use_extended_derivatives else props.dkappa, sd
             )
 
 
@@ -184,11 +184,9 @@ class DiffusiveTotalMassBalanceEquations(pp.BalanceEquation):
     Note:
         This balance equation assumes that the total mobility is part of the diffusive,
         second-order tensor in the non-linear (MPFA) discretization of the Darcy flux.
-
-    See also:
-
-        For an equation using upwinding for the total mass, see
-        :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations`.
+        This is in contrast to the similar 
+        :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations`, where the
+        mobilities are represented by upwinding.
 
     """
 
@@ -417,13 +415,14 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
     Important:
         The component mass balance equations expect the total mass balance (pressure
-        equation) to be part of the system. It handles the mixed-dimensional part.
+        equation) to be part of the system. That equation defines interface fluxes
+        between subdomains, which are used by the present class to advect components.
 
-        Also, it relies on the Upwind discretization implemented there, especially on
-        the definition of the boundary faces as either Neumann-type or Dirichlet-type.
-        This is for memory and sanity reasons. The alternative would be to give every
-        component mass balance the opportunity to define the advective flux on the
-        boundary (not supported).
+        Also, this class relies on the Upwind discretization implemented there,
+        especially on the definition of the boundary faces as either Neumann-type or
+        Dirichlet-type. This is for memory and sanity reasons. The alternative would be
+        to give every component mass balance the opportunity to define the advective
+        flux on the boundary (not supported).
 
         In any case, the total mass flux on the boundary is the sum of each component
         flux on the boundary (advection). For this reason, this class overrides the
@@ -804,7 +803,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
 
     The only difference to the compound's mass balance (given by
     :class:`ComponentMassBalanceEquations`) is, that the accumulation term is
-    additionally weighed with the relative tracer fraction fraction.
+    additionally weighed with the relative tracer fraction.
 
     """
 
@@ -990,16 +989,17 @@ class ConstitutiveLawsSolidSkeletonCF(
         """Required by constitutive laws implementing differentiable MPFA/TPFA.
 
         Important:
-            This implementation does not cover absolute permeabilities which are not
-            constant.
+            This implementation does not cover absolute permeabilities which are state
+            dependent (e.g. dependent on the divergence of displacement, or on the
+            fracture jump).
 
         Parameters:
             subdomains: A list of subdomains.
 
         Returns:
             The cell-wise, scalar, isotropic permeability, composed of the total
-            mobility and the absolut permeability of the underlying solid.
-            Used for the diffusive tensor in the fractional flow formulation.
+            mobility and the absolut permeability of the underlying solid. Used for the
+            diffusive tensor in the fractional flow formulation.
 
         """
         abs_perm = pp.wrap_as_dense_ad_array(
@@ -1218,8 +1218,8 @@ class BoundaryConditionsCF(pp.BoundaryConditionMixin, CompositionalFlowModelProt
             bg: A boundary grid in the domain.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the value of
-            the overall fraction.
+            An array with ``shape=(bg.num_cells,)`` containing the value of the overall
+            fraction.
 
         """
         return np.zeros(bg.num_cells)
@@ -1240,8 +1240,8 @@ class BoundaryConditionsCF(pp.BoundaryConditionMixin, CompositionalFlowModelProt
             bg: A boundary grid in the domain.
 
         Returns:
-            An array with ``shape=(bg.num_cells,)`` containing the value of
-            the overall fraction.
+            An array with ``shape=(bg.num_cells,)`` containing the value of the overall
+            fraction.
 
         """
         return np.zeros(bg.num_cells)
@@ -1403,7 +1403,7 @@ class BoundaryConditionsFractionalFlow(
 
         """
 
-        # Updating BC values of non-linear weights in component mass balance equations
+        # Updating BC values of non-linear weights in component mass balance equations.
         # Dependent components are skipped.
         for component in self.fluid.components:
             # NOTE the independency of overall fractions is used to characterize the
@@ -1598,7 +1598,7 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
         ni = self.iterate_indices.size
         nt = self.time_step_indices.size
 
-        # Set the initial values on individual grids for the iterate indices
+        # Set the initial values on individual grids for the iterate indices.
         for grid in subdomains:
             for phase in self.fluid.phases:
                 dep_vals = [
@@ -1610,10 +1610,10 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
                     *cast(list[np.ndarray], dep_vals)
                 )
 
-                # Set values and derivative values for current current index
+                # Set values and derivative values for current current index.
                 update_phase_properties(grid, phase, phase_props, ni)
 
-                # progress iterate values to all iterate indices
+                # Progress iterate values to all iterate indices.
                 # NOTE need the if-checks to satisfy mypy, since the properties are
                 # type aliases containing some other type as well.
                 for _ in self.iterate_indices:
@@ -1633,7 +1633,7 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
                         phase.thermal_conductivity.progress_iterate_values_on_grid(
                             phase_props.kappa, grid, depth=ni
                         )
-                # Copy values to all time step indices
+                # Copy values to all time step indices.
                 for _ in self.time_step_indices:
                     if isinstance(phase.density, pp.ad.SurrogateFactory):
                         phase.density.progress_values_in_time([grid], depth=nt)
@@ -1668,13 +1668,13 @@ class SolutionStrategyCF(
     discretizations of the diffusive parts of pressure and energy equation without
     upwinding.
 
-    It provides a sub-routine to update thermodynamic phase properties which are
-    assumed to be given by surrogate factories. The values and derivative values must
-    respectively be updated before re-discretization. This update is performed
-    before every nonlinear iteration. An update in time is performed after convergence.
+    It provides a sub-routine to update thermodynamic phase properties which are assumed
+    to be given by surrogate factories. The values and derivative values must
+    respectively be updated before re-discretization. This update is performed before
+    every nonlinear iteration. An update in time is performed after convergence.
 
-    It also provides utilities for defining primary equations and variables
-    to eliminate local equations via Schur complement.
+    It also provides utilities for defining primary equations and variables to eliminate
+    local equations via Schur complement.
 
     The initialization parameters can contain the following entries:
 
@@ -1834,7 +1834,7 @@ class SolutionStrategyCF(
             interface variables and respective subdomain variables on some subdomain
             cells, are not included.
 
-            This might have an effect on the Schur complement in the solution strategy
+            This might have an effect on the Schur complement in the solution strategy.
 
         """
 
@@ -2038,8 +2038,8 @@ class ModelSetupCF(  # type: ignore[misc]
     - transport equations for each independent component
     - tracer transport equations
 
-    The secondary block of equations must be provided using constitutive relations
-    or an equilibrium model for the fluid.
+    The secondary block of equations must be provided using constitutive relations or an
+    equilibrium model for the fluid.
 
     Note:
         The model inherits the md-treatment of Darcy flux, advective enthalpy flux and

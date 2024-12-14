@@ -945,8 +945,9 @@ else:
         def has_independent_tracer_fraction(
             self, tracer: pp.Component, compound: pp.compositional.Compound
         ) -> bool:
-            """Checks if the :attr:`~porepy.compositional.base.Compound.tracer_fraction_of`
-            a ``tracer`` in the ``compound`` is an independent variable.
+            """Checks if the 
+            :attr:`~porepy.compositional.base.Compound.tracer_fraction_of` a ``tracer``
+            in the ``compound`` is an independent variable.
 
             Paramters:
                 tracer: An active tracer in one of the compounds in the
