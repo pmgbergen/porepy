@@ -129,8 +129,8 @@ class Compound(Component, Generic[ComponentLike]):
     """A compound is a simplified, but meaningfully generalized, set of chemical species
     inside a mixture, for which it makes sense to treat it as a single component.
 
-    It is represents one species, the solvent, and contains arbitrary many active
-    tracers (pseudo-components).
+    It represents one species, the solvent, and contains arbitrary many active tracers
+    (pseudo-components).
 
     A compound can appear in multiple phases and its thermodynamic properties are
     determined by the tracers present.

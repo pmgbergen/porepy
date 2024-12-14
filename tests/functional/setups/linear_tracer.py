@@ -2,7 +2,7 @@ r"""Model setups for testing the CF framework.
 
 Two models are implemented, a single-phase, 2-component model and a 3-phase, 2-component
 model.
-The domain is a pipe of length ``L`` modelled as a 2D cartesian grid with a single line
+The domain is a pipe of length ``L`` modelled as a 2D Cartesian grid with a single line
 of cells, i.e. actually a 1D-problem blown up to a 2D-problem for simplicity.
 
 **Single-phase, 2-components:**
@@ -176,7 +176,6 @@ class LinearTracerExactSolution1D:
         """Returns a tracer fraction assuming the numerical scheme is diffusive due
         to Upwinding and backward Euler.
 
-
         """
 
     def darcy_flux(self, sd: pp.Grid) -> np.ndarray:
@@ -265,13 +264,13 @@ class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
 class SimplePipe2D(pp.PorePyModel):
     """Simple 2D channel with a length ~10 m and aspect ratio of 1:10.
 
-    A cartesian grid is used and the width and is chosen such that it is
-    a single line of cells mimiking a 1D problem.
+    A cartesian grid is used and the width and is chosen such that it is a single line
+    of cells mimiking a 1D problem.
      _ _ _ _ _
     |_|_|_|_|_|
 
-    The cells are all unit squares with side length ``10/ nx``, where ``nx`` is given
-    in the model parameters.
+    The cells are all unit squares with side length ``10/ nx``, where ``nx`` is given in
+    the model parameters.
 
     """
 
@@ -308,11 +307,12 @@ class SimplePipe2D(pp.PorePyModel):
 
 
 class TracerFluid_1p:
-    """Incompressible 2-component, 1-phase fluid with unit properties (everything is 1)."""
+    """Incompressible 2-component, 1-phase fluid with unit properties (everything is 1).
+    """
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
         # This fluid will be used for the heuristic thermodynamic properties of the
-        # single phase
+        # single phase.
         component_1 = pp.FluidComponent(
             name="fluid",
             compressibility=0,
@@ -417,13 +417,13 @@ class TrivialEoS(pp.compositional.EquationOfState):
     """Trivial EoS returning 1 for every property and zero derivatives."""
 
     def compute_phase_properties(self, phase_state, *thermodynamic_input):
-        # number of derivatives and number of values per derivative
+        # Number of derivatives and number of values per derivative.
         nd = len(thermodynamic_input)
         nx = len(thermodynamic_input[0])
 
-        # zero derivative
+        # Zero derivative.
         d = np.zeros((nd, nx))
-        # trivial values
+        # Trivial values.
         v = np.ones(nx)
         return pp.compositional.PhaseProperties(
             h=v.copy(),
@@ -439,7 +439,8 @@ class TrivialEoS(pp.compositional.EquationOfState):
 
 
 class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
-    """Extension of the 1-phase scenario to check the errors in the additional variables."""
+    """Extension of the 1-phase scenario to check the errors in the additional
+    variables."""
 
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -449,7 +450,8 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
         data = super().collect_data()
         sds = self.mdg.subdomains()
 
-        # T and h are expected to stay zero (trivial IC and BC) in the isothermal setting
+        # T and h are expected to stay zero (trivial IC and BC) in the isothermal
+        # setting.
         approx_h = self.enthalpy(sds).value(self.equation_system)
         exact_h = np.zeros(approx_h.shape)
         approx_T = self.temperature(sds).value(self.equation_system)
@@ -470,7 +472,8 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
             is_cc=True,
         )
 
-        # Phase fractions and saturations are expected to be 1/3 (equal mass distribution)
+        # Phase fractions and saturations are expected to be 1/3 (equal mass
+        # distribution).
         exact_sy = np.ones(exact_h.shape) / 3.0
 
         errors_s = []
@@ -520,7 +523,8 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
 
 
 class TracerFluid_3p(TracerFluid_1p):
-    """2-component, 3-phase tracer fluid with 3 unitary phases (all properties are 1)."""
+    """2-component, 3-phase tracer fluid with 3 unitary phases (all properties are 1).
+    """
 
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Formal dependency of phase properties, though never used in dummy EoS."""
@@ -570,7 +574,7 @@ class ModelClosure_3p(pp.LocalElimination):
             if phase != self.fluid.reference_phase:
                 self.eliminate_locally(
                     phase.saturation,
-                    # choose any scalar variable to inform the framework about the DOFs
+                    # Choose any scalar variable to inform the framework about the DOFs.
                     [self.enthalpy],
                     saturation_function,
                     # Eliminate the saturation on subdomains and boundaries, and let the
@@ -600,19 +604,18 @@ class ModelClosure_3p(pp.LocalElimination):
         """Closes the system by introducing local mass balance equations for the
         tracer.
 
-        There are 3 remaining dangling variables, the partial tracer fractions.
-        (other partial fraction is eliminated by unity by default).
+        There are 3 remaining dangling variables, the partial tracer fractions. Other
+        partial fraction is eliminated by unity by default.
 
-        The first equation is the local mass conservation for the tracer.
-        The second and third equation are pseudo-equilibrium equations, relating the
-        partial fractions with each other using a K-value of 1 (same amount in every
-        phase)
+        The first equation is the local mass conservation for the tracer. The second and
+        third equation are pseudo-equilibrium equations, relating the partial fractions
+        with each other using a K-value of 1 (same amount in every phase)
 
         """
         sds = self.mdg.subdomains()
         _, tracer = self.fluid.components
         rphase = self.fluid.reference_phase
-        # local mass conservation for the tracer
+        # Local mass conservation for the tracer.
         op = tracer.fraction(sds) - pp.ad.sum_operator_list(
             [
                 phase.fraction(sds) * phase.partial_fraction_of[tracer](sds)
@@ -625,8 +628,8 @@ class ModelClosure_3p(pp.LocalElimination):
         indpendent_phases = [p for p in self.fluid.phases if p != rphase]
         assert len(indpendent_phases) == 2
 
-        # K-value equations for tracer, with K-value 1, distributing the tracer
-        # equally accross all phases.
+        # K-value equations for tracer, with K-value 1, distributing the tracer equally
+        # accross all phases.
         op = rphase.partial_fraction_of[tracer](sds) - indpendent_phases[
             0
         ].partial_fraction_of[tracer](sds)
