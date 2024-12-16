@@ -27,7 +27,7 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (0.5) * np.ones(nc)
+        vals = (2.0) * np.ones(nc) * 1.0e-6 # 2 MW / (m C)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -57,18 +57,18 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
         drho = np.vstack((drhodp, drhodH, drhodz))
 
         # specific enthalpy of phase
-        h = self.vtk_sampler.sampled_could.point_data["H_l"]
+        h = self.vtk_sampler.sampled_could.point_data["H_l"] * 1.0e-6
         dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 0]
         dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 1]
         dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_l"][:, 2]
-        dh = np.vstack((dhdp, dhdH, dhdz))
+        dh = np.vstack((dhdp, dhdH, dhdz)) * 1.0e-6
 
         # dynamic viscosity of phase
-        mu = self.vtk_sampler.sampled_could.point_data["mu_l"]
+        mu = self.vtk_sampler.sampled_could.point_data["mu_l"] * 1.0e-6
         dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 0]
         dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 1]
         dmudp = self.vtk_sampler.sampled_could.point_data["grad_mu_l"][:, 2]
-        dmu = np.vstack((dmudp, dmudH, dmudz))
+        dmu = np.vstack((dmudp, dmudH, dmudz)) * 1.0e-6
 
         # thermal conductivity of phase
         kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
@@ -112,7 +112,7 @@ class GasDriesnerCorrelations(ppc.AbstractEoS):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (1.0e-2) * np.ones(nc)
+        vals = (2.0) * np.ones(nc) * 1.0e-6 # 2 MW / (m C)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -143,18 +143,18 @@ class GasDriesnerCorrelations(ppc.AbstractEoS):
         drho = np.vstack((drhodp, drhodH, drhodz))
 
         # specific enthalpy of phase
-        h = self.vtk_sampler.sampled_could.point_data["H_v"]
+        h = self.vtk_sampler.sampled_could.point_data["H_v"] * 1.0e-6
         dhdz = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 0]
         dhdH = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 1]
         dhdp = self.vtk_sampler.sampled_could.point_data["grad_H_v"][:, 2]
-        dh = np.vstack((dhdp, dhdH, dhdz))
+        dh = np.vstack((dhdp, dhdH, dhdz)) * 1.0e-6
 
         # dynamic viscosity of phase
-        mu = self.vtk_sampler.sampled_could.point_data["mu_v"]
+        mu = self.vtk_sampler.sampled_could.point_data["mu_v"] * 1.0e-6
         dmudz = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 0]
         dmudH = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 1]
         dmudp = self.vtk_sampler.sampled_could.point_data["grad_mu_v"][:, 2]
-        dmu = np.vstack((dmudp, dmudH, dmudz))
+        dmu = np.vstack((dmudp, dmudH, dmudz)) * 1.0e-6
 
         # thermal conductivity of phase
         kappa, dkappa = self.kappa(*thermodynamic_input)  # (n,), (3, n) array
@@ -269,6 +269,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         dS_vdH = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 1]
         dS_vdp = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 2]
         dS_v = np.vstack((dS_vdp, dS_vdH, dS_vdz))
+        S_v = np.clip(S_v, 0.0,1.0)
         return S_v, dS_v
 
     def temperature_func(
@@ -305,6 +306,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         dX_wdH = -self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 1]
         dX_wdp = -self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 2]
         dX_w = np.vstack((dX_wdp, dX_wdH, dX_wdz))
+        X_w = np.clip(X_w, 0.0, 1.0)
         return X_w, dX_w
 
     def NaCl_liq_func(
@@ -322,6 +324,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         dX_sdH = self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 1]
         dX_sdp = self.vtk_sampler.sampled_could.point_data["grad_Xl"][:, 2]
         dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
+        X_s = np.clip(X_s, 0.0, 1.0)
         return X_s, dX_s
 
     def H2O_gas_func(
@@ -339,6 +342,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         dX_wdH = -self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 1]
         dX_wdp = -self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 2]
         dX_w = np.vstack((dX_wdp, dX_wdH, dX_wdz))
+        X_w = np.clip(X_w, 0.0, 1.0)
         return X_w, dX_w
 
     def NaCl_gas_func(
@@ -356,6 +360,7 @@ class SecondaryEquations(SecondaryEquationsMixin):
         dX_sdH = self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 1]
         dX_sdp = self.vtk_sampler.sampled_could.point_data["grad_Xv"][:, 2]
         dX_s = np.vstack((dX_sdp, dX_sdH, dX_sdz))
+        X_s = np.clip(X_s, 0.0, 1.0)
         return X_s, dX_s
 
     def set_equations(self) -> None:
