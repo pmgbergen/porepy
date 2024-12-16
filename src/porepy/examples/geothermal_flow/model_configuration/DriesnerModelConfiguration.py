@@ -32,28 +32,37 @@ class BoundaryConditions(BoundaryConditionsCF):
         return pp.BoundaryCondition(sd, facet_idx, "dir")
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
-        p_inlet = 20.0e6
-        p_outlet = 15.0e6
-        p = p_outlet * np.ones(boundary_grid.num_cells)
-        p[inlet_idx] = p_inlet
-        p[outlet_idx] = p_outlet
+        p_inlet = 50.0
+        p_outlet = 25.0
+        xc = boundary_grid.cell_centers.T
+        p_linear = lambda x: (x[0] * p_outlet + (2000.0 - x[0]) * p_inlet) / 2000.0
+        p = np.array(list(map(p_linear, xc)))
         return p
 
+    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
+        t_inlet = 623.15
+        t_outlet = 423.15
+        T = t_outlet * np.ones(boundary_grid.num_cells)
+        T[inlet_idx] = t_inlet
+        T[outlet_idx] = t_outlet
+        return T
+
     def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        h_inlet = 2.2e6
-        h_outlet = 1.5e6
-        h = h_outlet * np.ones(boundary_grid.num_cells)
-        h[inlet_idx] = h_inlet
+        p = self.bc_values_pressure(boundary_grid)
+        t = self.bc_values_temperature(boundary_grid)
+        z_NaCl = np.zeros_like(p)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
         return h
 
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
-        z_init = 0.1
-        z_inlet = 0.01
+        z_init = 0.0
+        z_inlet = 0.0
         if component.name == "H2O":
             z_H2O = (1 - z_init) * np.ones(boundary_grid.num_cells)
             z_H2O[inlet_idx] = 1 - z_inlet
@@ -63,31 +72,34 @@ class BoundaryConditions(BoundaryConditionsCF):
             z_NaCl[inlet_idx] = z_inlet
             return z_NaCl
 
-    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        inlet_idx, outlet_idx = self.get_inlet_outlet_sides(boundary_grid)
-        t_inlet = 400.0
-        t_outlet = 400.0
-        T = t_outlet * np.ones(boundary_grid.num_cells)
-        T[inlet_idx] = t_inlet
-        T[outlet_idx] = t_outlet
-        return T
-
-
 class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        p_init = 15.0e6
-        return np.ones(sd.num_cells) * p_init
+        p_inlet = 50.0
+        p_outlet = 25.0
+        xc = sd.cell_centers.T
+        p_linear = lambda x: (x[0] * p_outlet + (2000.0 - x[0]) * p_inlet) / 2000.0
+        p_init = np.array(list(map(p_linear, xc)))
+        return p_init
+
+    def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
+        t_init = 423.15
+        return np.ones(sd.num_cells) * t_init
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        h_init = 1.5e6
-        return np.ones(sd.num_cells) * h_init
+        p = self.initial_pressure(sd)
+        t = self.initial_temperature(sd)
+        z_NaCl = np.zeros_like(p)
+        par_points = np.array((z_NaCl, t, p)).T
+        self.vtk_sampler_ptz.sample_at(par_points)
+        h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
+        return h_init
 
     def initial_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
-        z = 0.1
+        z = 0.0
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:
@@ -137,8 +149,8 @@ class DriesnerBrineFlowModel(
 
     @property
     def vtk_sampler_ptz(self):
-        return self._vtk_sampler_phz
+        return self._vtk_sampler_ptz
 
     @vtk_sampler_ptz.setter
     def vtk_sampler_ptz(self, vtk_sampler):
-        self._vtk_sampler_phz = vtk_sampler
+        self._vtk_sampler_ptz = vtk_sampler

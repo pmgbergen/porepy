@@ -273,3 +273,10 @@ def ent_predicate(x, y, z, bounds):
     z_pre = __above_z_predicate(x, y, z, bounds)
     x_and_y_pre = np.logical_and(x_pre, y_pre)
     return np.logical_and(z_pre, x_and_y_pre)
+
+def inside_predicate(x, y, z, bounds):
+    x_range_pre = x_range_predicate(x, y, z, bounds)
+    y_range_pre = y_range_predicate(x, y, z, bounds)
+    z_range_pre = z_range_predicate(x, y, z, bounds)
+    yz_pre = np.logical_and(y_range_pre, z_range_pre)
+    return np.logical_and(x_range_pre, yz_pre)

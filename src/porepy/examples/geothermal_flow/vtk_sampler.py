@@ -98,14 +98,7 @@ class VTKSampler:
 
         point_cloud = pyvista.PolyData(x_par)
         self.sampled_could = point_cloud.sample(self._search_space)
-        check_enclosed_points = point_cloud.select_enclosed_points(
-            self.boundary_surface, check_surface=False
-        )
-        external_idx = np.logical_not(
-            check_enclosed_points.point_data["SelectedPoints"]
-        )
-        self.__release_memory_of(point_cloud)
-        self.__release_memory_of(check_enclosed_points)
+        external_idx = self.__points_out_side_parametric_space(x_par)
         if self.taylor_extended_q:
             self.__taylor_expansion(x_par, external_idx)
 
@@ -144,6 +137,12 @@ class VTKSampler:
         )
         te = time.time()
         print("VTKSampler:: Time for loading interpolation space: ", te - tb)
+
+    def __points_out_side_parametric_space(self, xv):
+        bounds = self.search_space.bounds
+        # facets predicates
+        predicate = cp.inside_predicate(*xv.T, bounds)
+        return np.logical_not(predicate)
 
     def __map_external_points_to_surface(self, xv):
         bounds = self.search_space.bounds
