@@ -313,59 +313,6 @@ class Upwind(Discretization):
             bc_discr_dir, sps.eye(num_components)
         ).tocsr()
 
-    def cfl(self, sd: pp.Grid, data: dict, d_name="darcy_flux") -> float:
-        """Return the time step according to the CFL condition.
-
-        Note: the vector field is assumed to be given as the normal velocity,
-        weighted with the face area, at each face.
-
-        We assume the following sub-dictionary to be present in the data dictionary:
-            parameter_dictionary, storing all parameters.
-                Stored in ``data[pp.PARAMETERS][self.keyword]``.
-
-        parameter_dictionary contains the entries:
-            - d_name: :class:`~numpy.ndarray` of ``shape=(sd.num_faces,)``
-
-        The name of data in the input dictionary (data) are:
-        darcy_flux: :class:`~numpy.ndarray`, ``shape=(sd.num_faces,)``
-            Normal velocity at each face, weighted by the face area.
-
-        Parameters:
-            g: Grid, or a subclass, with geometry fields computed.
-            data: Dictionary to store the data.
-            d_name: Keyword for discharge entry in data dictionary
-
-        Returns:
-            Time step according to CFL condition.
-
-        """
-        if sd.dim == 0:
-            return np.inf
-        # Retrieve the data.
-        parameter_dictionary = data[pp.PARAMETERS][self.keyword]
-        darcy_flux = parameter_dictionary[d_name]
-        phi = parameter_dictionary["mass_weight"]
-
-        faces, cells, _ = sparse_array_to_row_col_data(sd.cell_faces)
-
-        # Detect and remove the faces which have zero in darcy_flux.
-        not_zero = ~np.isclose(np.zeros(faces.size), darcy_flux[faces], atol=0)
-        if not np.any(not_zero):
-            return np.inf
-
-        cells = cells[not_zero]
-        faces = faces[not_zero]
-
-        # Compute discrete distance cell to face centers.
-        dist_vector = sd.face_centers[:, faces] - sd.cell_centers[:, cells]
-        # Element-wise scalar products between the distance vectors and the
-        # normals
-        dist = np.einsum("ij,ij->j", dist_vector, sd.face_normals[:, faces])
-        # Additionally, we consider the phi (porosity) and the cell-mapping.
-        coeff = phi[cells]
-        # deltaT is deltaX/darcy_flux with coefficient.
-        return np.amin(np.abs(np.divide(dist, darcy_flux[faces])) * coeff)
-
     def darcy_flux(
         self, sd: pp.Grid, beta: np.ndarray, cell_apertures=None
     ) -> np.ndarray:
