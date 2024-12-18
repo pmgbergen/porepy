@@ -76,15 +76,17 @@ class Upwind(Discretization):
             - bc_val : :class:`~numpy.ndarray` of ``shape=(boundary_grid.num_cells,)``
 
         matrix_dictionary contains the entries:
-            - self.upwind_matrix_key: :class:``~scipy.sparse.csr_matrix`` of
+            - self.upwind_matrix_key: :class:`~scipy.sparse.csr_matrix` of
                 ``shape=(sd.num_faces, sd.num_cells)`` Upwind matrix obtained from the
                 discretization.
-            - self.bound_transport_dir_matrix_key: :class:``~scipy.sparse.csr_matrix``
-                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side which contains
-                the Dirichlet boundary conditions.
-            - self.bound_transport_neu_matrix_key: :class:``~scipy.sparse.csr_matrix``
-                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side which contains the Neumann
-                boundary conditions.
+            - self.bound_transport_dir_matrix_key: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side containing the
+                discretization matrix for contributions from Dirichlet boundary
+                conditions.
+            - self.bound_transport_neu_matrix_key: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side containing the
+                discretization matrix for contributions from Neumann boundary
+                conditions.
 
         The matrix_dictionary entries are normally set by calling :meth:`Upwind.discretize`.
 
@@ -173,22 +175,21 @@ class Upwind(Discretization):
                 Boundary conditions for the advected property.
             - darcy_flux: :class:`~numpy.ndarray` of ``shape=(sd.num_faces,)``
                 Normal velocity at each face, weighted by the face area.
-                Values of the boundary conditions. The dictionary has at most the
-                following keys: 'dir' and 'neu', for Dirichlet and Neumann boundary
-                conditions, respectively.
             - num_components: ``int`` (optional)
                 Number of components to be advected. Defaults to 1.
 
         matrix_dictionary will be updated with the following entries:
-            - self.upwind_matrix_key: :class:``~scipy.sparse.csr_matrix`` of
+            - self.upwind_matrix_key: :class:`~scipy.sparse.csr_matrix` of
                 ``shape=(sd.num_faces, sd.num_cells)`` Upwind matrix obtained from the
                 discretization.
-            - self.bound_transport_dir_matrix_key: :class:``~scipy.sparse.csr_matrix``
-                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side which contains
-                the Dirichlet boundary conditions.
-            - self.bound_transport_neu_matrix_key: :class:``~scipy.sparse.csr_matrix``
-                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side which contains the Neumann
-                boundary conditions.
+            - self.bound_transport_dir_matrix_key: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side containing the
+                discretization matrix for contributions from Dirichlet boundary
+                conditions.
+            - self.bound_transport_neu_matrix_key: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side containing the
+                discretization matrix for contributions from Neumann boundary
+                conditions.
 
         Parameters:
             sd: Grid, or a subclass, with geometry fields computed.
@@ -286,7 +287,7 @@ class Upwind(Discretization):
         # caution. The below implementation follows the following steps:
         #
         # 1) On Neumann boundaries the prescribed boundary value should effectively be
-        # added to the adjacent cell, with the convention that influx (so positive
+        # added to the adjacent cell, with the convention that influx (so negative
         # boundary value) should correspond to accumulation.
         # 2) On Dirichlet boundaries, we consider only inflow boundaries. Outflow
         # boundaries are treated by the standard discretization.
