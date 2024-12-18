@@ -5,13 +5,15 @@ import time
 import numpy as np
 
 import porepy as pp
+
 from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (
     DriesnerBrineFlowModel as FlowModel,
 )
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # geometry description horizontal case
-from model_configuration.geometry_description.geometry_market import SimpleGeometryHorizontal as ModelGeometry
+from model_configuration.geometry_description.geometry_market import SimpleGeometryHorizontal as ModelGeometryH
+from model_configuration.geometry_description.geometry_market import SimpleGeometryVertical as ModelGeometryV
 
 # Figure 4 single with high pressure (hP) condition
 from model_configuration.bc_description.bc_market import BC_single_phase_high_pressure as BC_hP
@@ -25,35 +27,51 @@ from model_configuration.ic_description.ic_market import IC_single_phase_moderat
 from model_configuration.bc_description.bc_market import BC_single_phase_low_pressure as BC_lP
 from model_configuration.ic_description.ic_market import IC_single_phase_low_pressure as IC_lP
 
+
+# Main directives
+case_name = "case_mP"
+geometry_case = "vertical"
+
+final_times = {
+"horizontal" : [91250.0, 43800.0, 547500.0],
+"vertical" : [273750.0, 127750.0, 547500.0]
+}
+
 day = 86400
 # Configuration dictionary mapping cases to their specific classes
 simulation_cases = {
     "case_hP": {
-        "tf":  91250.0 * day,  # final time [250 years]
+        "tf":  final_times[geometry_case][0] * day,  # final time [250 years]
         "dt":  365.0 * day,  # final time [1 years]
         "bc": BC_hP,
         "ic": IC_hP
     },
     "case_mP": {
-        "tf":  43800.0 * day,  # final time [120 years]
+        "tf":  final_times[geometry_case][1] * day,  # final time [120 years]
         "dt":  365.0 * day,  # final time [1 years]
         "bc": BC_mP,
         "ic": IC_mP
     },
     "case_lP": {
-        "tf":  547500.0 * day,  # final time [1500 years]
+        "tf":  final_times[geometry_case][2] * day,  # final time [1500 years]
         "dt":  365.0 * day,  # final time [1 years]
         "bc": BC_lP,
         "ic": IC_lP
     },
 }
 
-case_name = "case_mP"
+geometry_cases = {
+    "horizontal": ModelGeometryH,
+    "vertical": ModelGeometryV,
+}
+
 
 tf = simulation_cases[case_name]["tf"]
 dt = simulation_cases[case_name]["dt"]
 BoundaryConditions = simulation_cases[case_name]["bc"]
 InitialConditions = simulation_cases[case_name]["ic"]
+ModelGeometry = geometry_cases[geometry_case]
+
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
