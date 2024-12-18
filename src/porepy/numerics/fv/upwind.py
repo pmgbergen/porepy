@@ -32,22 +32,23 @@ class Upwind(Discretization):
         """
         self.bound_transport_neu_matrix_key = "rhs_neu"
         """Keyword used to identify the discretization matrix for contributions from
-        Dirichlet boundaries. Defaults to 'rhs_neu'.
+        Neumann boundaries. Defaults to 'rhs_neu'.
 
         """
 
         # Key used to set the advective flux in the parameter dictionary.
         self._flux_array_key = "darcy_flux"
-        """Keyword used to identify the parameter matrix for face fluxes.
+        """Keyword used to identify the parameter matrix for face fluxes. Defaults to
+        'darcy_flux'.
 
         """
 
     def ndof(self, sd: pp.Grid) -> int:
         """Return the number of degrees of freedom associated to the method. In this
-        case number of cells (concentration dof).
+        case number of cells.
 
         Parameters:
-            sd: Grid, or a subclass.
+            sd: Subdomain grid.
 
         Returns:
             The number of degrees of freedom.
@@ -75,25 +76,27 @@ class Upwind(Discretization):
             - bc_val : :class:`~numpy.ndarray` of ``shape=(boundary_grid.num_cells,)``
 
         matrix_dictionary contains the entries:
-            - transport: :class:``~scipy.sparse.csr_matrix` of
-                ``shape=(sd.num_cells, g_num_cells)``
-                Upwind matrix obtained from the discretization.
-            - rhs_dir: :class:``~scipy.sparse.csr_matrix` of ``shape=(g_num_cells)``
-                Right-hand side which contains the Dirichlet boundary conditions.
-            - rhs_neu: :class:``~scipy.sparse.csr_matrix` of ``shape=(g_num_cells)``
-                Right-hand side which contains the Neumann boundary conditions.
+            - self.upwind_matrix_key: :class:``~scipy.sparse.csr_matrix`` of
+                ``shape=(sd.num_faces, sd.num_cells)`` Upwind matrix obtained from the
+                discretization.
+            - self.bound_transport_dir_matrix_key: :class:``~scipy.sparse.csr_matrix``
+                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side which contains
+                the Dirichlet boundary conditions.
+            - self.bound_transport_neu_matrix_key: :class:``~scipy.sparse.csr_matrix``
+                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side which contains the Neumann
+                boundary conditions.
 
-        The latter are normally set by calling :meth:`Upwind.discretize`.
+        The matrix_dictionary entries are normally set by calling :meth:`Upwind.discretize`.
 
         Parameters:
             sd: Computational grid, with geometry fields computed.
             data: Dictionary containing stored discretization data and parameters.
 
         Returns:
-            scipy.sparse.csr_matrix: ``shape=(sd.num_cells, sd.num_cells)``
-                System matrix of this discretization.
-            np.ndarray: Right hand side vector with representation of boundary
-                conditions. The size of the vector will depend on the discretization.
+            scipy.sparse.csr_matrix: ``shape=(sd.num_cells, sd.num_cells)`` System
+                matrix of this discretization.
+            np.ndarray: ``shape=(sd.num_cells,)`` Right hand side vector with
+                representation of boundary conditions.
 
         """
         matrix_dictionary: dict[str, sps.spmatrix] = data[pp.DISCRETIZATION_MATRICES][
@@ -177,13 +180,15 @@ class Upwind(Discretization):
                 Number of components to be advected. Defaults to 1.
 
         matrix_dictionary will be updated with the following entries:
-            - transport: :class:``~scipy.sparse.csr_matrix` of
-                ``shape=(sd.num_cells, g_num_cells)``
-                Upwind matrix obtained from the discretization.
-            - rhs_dir: :class:``~scipy.sparse.csr_matrix` of ``shape=(g_num_cells)``
-                Right-hand side which contains the Dirichlet boundary conditions.
-            - rhs_neu: :class:``~scipy.sparse.csr_matrix` of ``shape=(g_num_cells)``
-                Right-hand side which contains the Neumann boundary conditions.
+            - self.upwind_matrix_key: :class:``~scipy.sparse.csr_matrix`` of
+                ``shape=(sd.num_faces, sd.num_cells)`` Upwind matrix obtained from the
+                discretization.
+            - self.bound_transport_dir_matrix_key: :class:``~scipy.sparse.csr_matrix``
+                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side which contains
+                the Dirichlet boundary conditions.
+            - self.bound_transport_neu_matrix_key: :class:``~scipy.sparse.csr_matrix``
+                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side which contains the Neumann
+                boundary conditions.
 
         Parameters:
             sd: Grid, or a subclass, with geometry fields computed.
@@ -369,7 +374,7 @@ class Upwind(Discretization):
         the face area and aperture.
 
         Parameters:
-            g: Grid, or a subclass, with geometry fields computed.
+            sd: Grid, or a subclass, with geometry fields computed.
             beta: ``shape=(3,1)``
                 Array which represents the constant velocity.
             cell_apertures: ``shape=(sd.num_faces,)``
@@ -404,23 +409,36 @@ class Upwind(Discretization):
 
 class UpwindCoupling(InterfaceDiscretization):
     def __init__(self, keyword: str) -> None:
-        # Keywords for accessing discretization matrices
         self.keyword = keyword
-
-        # Trace operator for the primary grid.
+        """Keyword for accessing discretization matrices in the matrix_dictionary.
+        Defaults to 'trace'."""
         self.trace_primary_matrix_key = "trace"
-        # Inverse trace operator (face -> cell).
+        """Keyword used to identify the trace operator for the primary grid.
+        Defaults to 'trace'."""
+
         self.inv_trace_primary_matrix_key = "inv_trace"
-        # Matrix for filtering upwind values from the primary grid.
+        """Keyword used to identify the inverse trace operator (face -> cell).
+        Defaults to 'inv_trace'."""
+
         self.upwind_primary_matrix_key = "upwind_primary"
-        # Matrix for filtering upwind values from the secondary grid.
+        """Keyword used to identify the matrix for filtering upwind values from the
+        primary grid. Defaults to 'upwind_primary'."""
+
         self.upwind_secondary_matrix_key = "upwind_secondary"
-        # Matrix that carries the fluxes.
+        """Keyword used to identify the matrix for filtering upwind values from the
+        secondary grid. Defaults to 'upwind_secondary'."""
+
         self.flux_matrix_key = "flux"
-        # Discretization of the mortar variable.
+        """Keyword used to identify the matrix that carries the fluxes.
+        Defaults to 'flux'."""
+
         self.mortar_discr_matrix_key = "mortar_discr"
+        """Keyword used to identify the discretization of the mortar variable.
+        Defaults to 'mortar_discr'."""
 
         self._flux_array_key = "darcy_flux"
+        """Keyword used to identify the parameter matrix for face fluxes.
+        Defaults to 'darcy_flux'."""
 
     def key(self) -> str:
         return self.keyword + "_"
