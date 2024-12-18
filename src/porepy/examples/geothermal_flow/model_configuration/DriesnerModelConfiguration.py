@@ -1,5 +1,6 @@
-import numpy as np
+from typing import Union, Literal
 
+import numpy as np
 import porepy as pp
 import porepy.compositional as ppc
 from porepy.models.compositional_flow import (
@@ -154,3 +155,26 @@ class DriesnerBrineFlowModel(
     @vtk_sampler_ptz.setter
     def vtk_sampler_ptz(self, vtk_sampler):
         self._vtk_sampler_ptz = vtk_sampler
+
+    def gravity_force(
+            self,
+            subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
+            material: Literal["fluid", "solid"],
+    ) -> pp.ad.Operator:
+
+        overall_rho = self.fluid_density(subdomains)
+
+        # Keeping the following line for quantitative verification purposes
+        # rho_avg = np.sum(overall_rho.value(self.equation_system) * subdomains[0].cell_volumes) / np.sum(subdomains[0].cell_volumes)
+
+        scaling = 1.0e-6
+        g_constant = pp.GRAVITY_ACCELERATION
+        val = self.fluid.convert_units(g_constant, "m*s^-2") * scaling
+        size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        overall_gravity_flux = pp.wrap_as_dense_ad_array(val, size=size)
+
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
+        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+        overall_gravity_flux = pp.ad.Scalar(-1) * e_n @ (overall_rho * overall_gravity_flux)
+        overall_gravity_flux.set_name("overall gravity flux")
+        return overall_gravity_flux
