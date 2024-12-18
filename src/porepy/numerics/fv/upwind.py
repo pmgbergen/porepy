@@ -324,7 +324,7 @@ class Upwind(Discretization):
             sd: Grid, or a subclass, with geometry fields computed.
             beta: ``shape=(3,1)``
                 Array which represents the constant velocity.
-            cell_apertures: ``shape=(sd.num_faces,)``
+            cell_apertures: ``shape=(sd.num_cells,)``
                 Array of apertures
 
         Returns:
