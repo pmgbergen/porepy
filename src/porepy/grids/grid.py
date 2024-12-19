@@ -1120,7 +1120,7 @@ class Grid:
         rows = pp.fvutils.expand_indices_nd(bound_faces, dim)
         cols = pp.fvutils.expand_indices_nd(bound_cells, dim)
         trace = sps.coo_matrix(
-            (np.ones(bound_faces.size), (rows, cols)),
+            (np.ones(bound_faces.size * dim), (rows, cols)),
             shape=(self.num_faces * dim, self.num_cells * dim),
         ).tocsr()
         return trace
