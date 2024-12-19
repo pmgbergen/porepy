@@ -27,6 +27,7 @@ from porepy.examples.terzaghi_biot import (
     PseudoOneDimensionalColumn,
     TerzaghiDataSaving,
     TerzaghiPoromechanicsBoundaryConditions,
+    TerzaghiInitialConditions,
     TerzaghiSetup,
     TerzaghiSolutionStrategy,
     TerzaghiUtils,
@@ -38,6 +39,7 @@ from porepy.examples.terzaghi_biot import (
 class TerzaghiSetupPoromechanics(
     PseudoOneDimensionalColumn,
     TerzaghiPoromechanicsBoundaryConditions,
+    TerzaghiInitialConditions,
     TerzaghiSolutionStrategy,
     TerzaghiUtils,
     TerzaghiDataSaving,

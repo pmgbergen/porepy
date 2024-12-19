@@ -1,5 +1,14 @@
+"""Module containing general classes representing boundary conditions.
+
+- :class:`BoundaryConditionMixin`: Base class providing an interface to update BC values
+  which is accessed by the solution strategy mixin. It also provides some functionality
+  for individual BC, and to introduce an order in the update such that primary variables
+  are updated first.
+
+"""
+
 from functools import cached_property
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Sequence
 
 import numpy as np
 
@@ -9,8 +18,53 @@ import porepy as pp
 class BoundaryConditionMixin(pp.PorePyModel):
     """Mixin class for boundary conditions.
 
-    This class is intended to be used together with the other model classes providing
-    generic functionality for boundary conditions.
+    This class is intended to be derived for individual physics models to provide
+    boundary conditions for the variables introduced therein.
+
+    It provides functionality to introduce an order into the BC update routine, if for
+    example BC values of secondary quantities depend on BC values of primary variables.
+
+    Example:
+        Let's consider a system with two variables, ``x,y`` where we want to enforce a
+        relation ``y = y(x)`` on the boundary.
+
+        .. code::python
+
+            class BCPrimary(BoundaryConditionMixin):
+
+                def update_boundary_values_primary_variables(self) -> None:
+                    super().update_boundary_values_primary_variables()
+                    self.update_boundary_condition('x', self.bc_value_x)
+
+                def bc_value_x(bg: pp.BoundaryGrid) -> np.ndarray:
+                    # proceed to return some value ...
+
+            class BCSecondary(BoundaryConditionMixin):
+
+                def update_all_boundary_conditions(self) -> None:
+                    super().update_all_boundary_conditions()
+                    self.update_boundary_condition('y', self.bc_value_y)
+
+                def bc_value_y(bg: pp.BoundaryGrid) -> np.ndarray:
+                    x = self.x([bg]).value(self.equation_system) # proceed to return
+                    some value depending x ...
+
+            class MyBC(BCSecondary, BCPrimary):
+                ...
+
+        Notice that in all update methods, ``super()`` is called first. Due to the order
+        of inheritance, a model using ``MyBC`` will first execute ``BCSecondary``. Will
+        will again first executes the code of ``BCPrimary``. I.e., the update order is
+        the reverse order in the inheritance tree. This is due to ``BCPrimary`` calling
+        itself ``super()`` in :meth:`update_all_boundary_conditions` first, in order to
+        execute the filter framework in the base class before any type of update.
+
+        When using this approach, the BC update for ``y`` can reliably fetch the latest
+        values for ``x`` on the boundary.
+
+        Notice also, that ``update_boundary_values_primary_variables`` has also a
+        ``super()`` call on top. This makes it compatible in the case of a third,
+        primary variable which should be updated in the same sub-routine as ``x``.
 
     """
 
@@ -25,6 +79,17 @@ class BoundaryConditionMixin(pp.PorePyModel):
         """
         for name, bc_type_callable in self.__bc_type_storage.items():
             self._update_bc_type_filter(name=name, bc_type_callable=bc_type_callable)
+
+        self.update_boundary_values_primary_variables()
+
+    def update_boundary_values_primary_variables(self) -> None:
+        """Method to set boundary values for primary variables.
+
+        The base method does nothing except provide an interface and compatibility for
+        super-calls to model-specific boundary condition setting.
+
+        """
+        pass
 
     def update_boundary_condition(
         self,
@@ -89,7 +154,7 @@ class BoundaryConditionMixin(pp.PorePyModel):
 
         """
         if not all(isinstance(x, pp.BoundaryGrid) for x in domains):
-            raise ValueError("domains must consist entirely of the boundary grids.")
+            raise ValueError("Domains must consist entirely of the boundary grids.")
         return pp.ad.TimeDependentDenseArray(name=name, domains=domains)
 
     def _combine_boundary_operators(
@@ -97,9 +162,7 @@ class BoundaryConditionMixin(pp.PorePyModel):
         subdomains: Sequence[pp.Grid],
         dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-        robin_operator: Optional[
-            Union[None, Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]]
-        ],
+        robin_operator: None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
         name: str,
         dim: int = 1,
