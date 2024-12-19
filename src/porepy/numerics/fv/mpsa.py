@@ -506,7 +506,7 @@ class Mpsa(Discretization):
         stress = matrix_dictionary["stress"]
         bound_stress = matrix_dictionary["bound_stress"]
 
-        div = sd.divergence(n=2)
+        div = sd.divergence(dim=2)
         # Assemble matrix.
         if stress.shape[0] != sd.dim * sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(sd=sd)
