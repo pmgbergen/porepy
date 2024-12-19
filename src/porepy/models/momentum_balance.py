@@ -486,7 +486,7 @@ class VariablesMomentumBalance(VariableMixin):
 
         1. Displacement variable on all subdomains.
         2. Displacement variable on all interfaces with codimension 1.
-        3. Contact traction variable on all subdomains.
+        3. Contact traction variable on all fracture subdomains.
 
         """
         super().create_variables()

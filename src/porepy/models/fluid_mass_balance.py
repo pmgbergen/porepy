@@ -113,7 +113,17 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
     @staticmethod
     def primary_equation_name() -> str:
         """Returns the string which is used to name the pressure equation on all
-        subdomains, which is the primary PDE set by this class."""
+        subdomains, which is the primary PDE set by this class.
+
+        Important:
+            When using this class in a mixin-setting, do not use
+            ``self.primary_equation_name()``, as other equations might have this method
+            implemented as well.
+
+            This is a static method, utilize it. I.e., use
+            ``TotalMassBalanceEquations.primary_equation_name()``.
+
+        """
         return "mass_balance_equation"
 
     def set_equations(self) -> None:
@@ -181,7 +191,7 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
     def advection_weight_mass_balance(
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """Fluid density divided by viscosity.
+        """Fluid density divided by viscosity [kg * m^(-3) * Pa^(-1) * s^(-1)].
 
         Note:
             Depending on the literature, this may also be called total mobility (CF).
@@ -560,7 +570,10 @@ class InitialConditionsSinglePhaseFlow(pp.InitialConditionMixin):
             )
 
     def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        """
+        """Method returning the initial pressure values for a given grid.
+
+        Override this method to provide different initial conditions.
+
         Parameters:
             sd: A subdomain in the md-grid.
 

@@ -114,7 +114,7 @@ def get_equilibrium_type(model: pp.PorePyModel) -> str | None:
         The local equilibrium type stored in ``model.params['equilibrium_type']`.
         Defaults to None.
 
-        Valid equilibrium types are any combination of to state functions fixed at
+        Expected equilibrium types are any combination of to state functions fixed at
         equilibrium, e.g. ``'p-T'``, ``'p-h'``.
 
         Additional qualifiers also also allowed, e.g. ``'unified-p-h'``.
@@ -134,8 +134,7 @@ def has_unified_equilibrium(model: pp.PorePyModel) -> bool:
 
     Returns:
         True, if the keyword ``'unified'`` is in ``model.params['equilibrium_type']``,
-        if given at all.
-        Defaults to False.
+        if given at all. Defaults to False.
 
     """
     et = str(get_equilibrium_type(model)).lower()
@@ -246,7 +245,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
             idx = instances.index(instance)
             ref_idx = self.fluid.reference_phase_index
             num_instances = self.fluid.num_phases
-            eliminated = pp.is_reference_phase_eliminated(self)
+            eliminated = is_reference_phase_eliminated(self)
         elif isinstance(instance, Component):
             instances = list(self.fluid.components)
             if instance not in instances:
@@ -254,7 +253,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
             idx = instances.index(instance)
             ref_idx = self.fluid.reference_component_index
             num_instances = self.fluid.num_components
-            eliminated = pp.is_reference_component_eliminated(self)
+            eliminated = is_reference_component_eliminated(self)
         else:
             raise TypeError(
                 f"Unknown type {type(instance)}. Expecting phase or component."
@@ -428,7 +427,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         if component not in self.fluid.components:
             raise ValueError(f"Component {component} not in fluid mixture.")
 
-        if "unified" in str(pp.get_equilibrium_type(self)).lower():
+        if "unified" in str(get_equilibrium_type(self)).lower():
             if component not in phase:
                 raise CompositionalModellingError(
                     f"Component {component} not in phase {phase}."
@@ -530,7 +529,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         """Names of independent phase :attr:`~porepy.compositional.base.Phase.fraction`
         variables created for this model."""
         names: list[str] = []
-        if pp.get_equilibrium_type(self) is not None:
+        if get_equilibrium_type(self) is not None:
             for phase in self.fluid.phases:
                 if self.has_independent_fraction(phase):
                     names.append(self._phase_fraction_variable(phase))
@@ -564,7 +563,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         for phase in self.fluid.phases:
             for comp in phase:
                 append = False
-                if pp.has_unified_equilibrium(self):
+                if has_unified_equilibrium(self):
                     if self.has_independent_extended_fraction(comp, phase):
                         append = True
                 elif self.has_independent_partial_fraction(comp, phase):
@@ -657,7 +656,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                         phase.extended_fraction_of[component](subdomains).value(
                             self.equation_system, state
                         )
-                        if pp.has_unified_equilibrium(self)
+                        if has_unified_equilibrium(self)
                         else phase.partial_fraction_of[component](subdomains).value(
                             self.equation_system, state
                         )
@@ -891,7 +890,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single_phase_fraction")
 
-        elif pp.get_equilibrium_type(self) is None:
+        elif get_equilibrium_type(self) is None:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 raise CompositionalModellingError(

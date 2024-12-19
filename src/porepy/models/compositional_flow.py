@@ -1,5 +1,8 @@
 """Model mixins for compositional flow (CF) and fractional flow (CFF).
 
+Also serves as a basis for compositional flow with local equilibrium formulations
+(CFLE).
+
 The CF settings is general in terms of number of phases, number of components and
 thermal conditions. It therefore does not contain a runnable model, but building blocks
 for models concretized in terms of phases, components and thermal setting.
@@ -12,7 +15,10 @@ The following equations are available:
   components in the fluid mixture. Interface fluxes are handled using the overall
   Darcy interface flux implemented in the pressure equations and an adapted non-linear
   term. It introduces a single equation, all interface equations are introduced by
-  :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations`.
+  :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations`. Interface fluxes
+  for individual components are computed using the total interface flux and a
+  corresponding weight. As of now, the component mass balance equations are purely
+  advective.
 - :class:`DiffusiveTotalMassBalanceEquations`: A diffusive variant of the total mass
   balance, where the total mobility is an isotropic contribution to the permeability
   tensor. To be used in a fractional flow model. This model is computationally
@@ -35,13 +41,12 @@ The primary variables are assumed to be a single pressure (no capillarity), an e
 or temperature variable, and overall fraction variables. They are collected in
 :class:`VariablesCF`.
 
-In a general setting, where phase properties are given by :class:`~porepy.numerics.ad.
-surrogate_operator.SurrogateFactory`, special IC and BC classes handling the consistent
-update are given by :class:`InitialConditionsPhaseProperties` and
-:class:`BoundaryConditionsPhaseProperties` respectively. They handle the automatized
-computation of respective values during the simulation.
-
-A collective
+Considering solely the flow formulation without constitutive modelling, where phase
+properties are given by :class:`~porepy.numerics.ad.surrogate_operator.SurrogateFactory`
+, special IC and BC classes handling the consistent update are given by
+:class:`InitialConditionsPhaseProperties` and :class:`BoundaryConditionsPhaseProperties`
+respectively. They handle the automatized computation of respective values during the
+simulation.
 
 The following IC mixins are available:
 
@@ -102,7 +107,7 @@ from typing import Callable, Optional, Sequence, cast
 import numpy as np
 
 import porepy as pp
-import porepy.compositional as ppc
+import porepy.compositional as compositional
 
 from .protocol import CompositionalFlowModelProtocol
 
@@ -112,7 +117,7 @@ logger = logging.getLogger(__name__)
 def update_phase_properties(
     sd: pp.Grid,
     phase: pp.Phase,
-    props: ppc.PhaseProperties,
+    props: compositional.PhaseProperties,
     depth: int,
     update_derivatives: bool = True,
     use_extended_derivatives: bool = False,
@@ -136,7 +141,8 @@ def update_phase_properties(
             If True, and if ``update_derivatives==True``, uses the extended derivatives
             of the ``state``.
 
-            To be used in the the CFLE setting with the unified equilibrium formulation.
+            To be used in the the CFLE setting with the unified equilibrium formulation,
+            where partial fractions are obtained by normalization of extended fractions.
 
     """
     if isinstance(phase.density, pp.ad.SurrogateFactory):
@@ -172,116 +178,63 @@ def update_phase_properties(
 # region general PDEs used in the (fractional) multiphase, multicomponent flow.
 
 
-class DiffusiveTotalMassBalanceEquations(pp.BalanceEquation):
-    """Mixed-dimensional balance of total mass in a fluid mixture.
+class DiffusiveTotalMassBalanceEquations(
+    pp.fluid_mass_balance.TotalMassBalanceEquations
+):
+    """A version of the pressure equation (total mass balance) which does not rely on
+    upwinding of non-linear weights in the flux.
 
-    Also referred to as *pressure equation*.
+    This balance equation assumes that the total mobility is part of the diffusive,
+    second-order tensor in the non-linear (MPFA) discretization of the Darcy flux.
 
-    Balance equation for all subdomains and Darcy-type flux relation on all interfaces
-    of codimension one and Peaceman flux relation on interfaces of codimension two
-    (well-fracture intersections).
-
-    Note:
-        This balance equation assumes that the total mobility is part of the diffusive,
-        second-order tensor in the non-linear (MPFA) discretization of the Darcy flux.
-        This is in contrast to the similar
-        :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations`, where the
-        mobilities are represented by upwinding.
+    It **requires** a re-discretization of the flux (MPFA) for a correct computation
+    of the flux at every iteration.
 
     """
 
     darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
-
-    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """See :class:`ConstitutiveLawsSolidSkeletonCF`."""
-
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
     well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
     """See :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`."""
-    interface_darcy_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
-    well_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
-    """See :class:`~porepy.models.constitutive_laws.PiecmannWellFlux`."""
 
     def set_equations(self) -> None:
-        """Set the equations for the mass balance problem.
-
-        A mass balance equation is set for all subdomains and a Darcy-type flux relation
-        is set for all interfaces of codimension one.
-
-        """
+        """After the super-call, this method asserts additionally that the model is
+        using the fractional flow framework."""
         super().set_equations()
 
-        assert pp.is_fractional_flow(
-            self
-        ), "fractional flow flag must be True in model params"
-        subdomains = self.mdg.subdomains()
-        codim_1_interfaces = self.mdg.interfaces(codim=1)
-        # TODO: If wells are integrated for nd=2 models, consider refactoring sorting of
-        # interfaces into method returning either "normal" or well interfaces.
-        codim_2_interfaces = self.mdg.interfaces(codim=2)
-        sd_eq = self.mass_balance_equation(subdomains)
-        intf_eq = self.interface_darcy_flux_equation(codim_1_interfaces)
-        well_eq = self.well_flux_equation(codim_2_interfaces)
-        self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
-        self.equation_system.set_equation(intf_eq, codim_1_interfaces, {"cells": 1})
-        self.equation_system.set_equation(well_eq, codim_2_interfaces, {"cells": 1})
+        assert self.params[
+            "rediscretize_mpfa"
+        ], "Model params['rediscretize_mpfa'] must be flagged as True."
 
-    def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Pressure equation (or total mass balance) for subdomains.
+    def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """The fluid flux is given solely by the :attr:`darcy_flux`, assuming the total
+        mobility is part of the (non-linear) diffuse tensor.
+
+        Parameters:
+            domains: List of subdomains or boundary grids.
+
+        Returns:
+            Whatever :attr:`darcy_flux` returns.
+
+        """
+        return self.darcy_flux(domains)
+
+    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Modified source term using the :attr:`interface_darcy_flux` and
+        :attr:`well_flux`, assuming they represent the total flux of mass accross
+        interfaces.
 
         Parameters:
             subdomains: List of subdomains.
 
         Returns:
-            Operator representing the mass balance equation.
+            Operator representing the source term [kg * s^-1].
 
         """
-        # Assemble the terms of the mass balance equation.
-        accumulation = self.volume_integral(
-            self.fluid_mass(subdomains), subdomains, dim=1
-        )
-        flux = self.fluid_flux(subdomains)
-        source = self.fluid_source(subdomains)
-
-        # Feed the terms to the general balance equation method.
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        # NOTE use same name to raise an error if one attempts to set both, diffusive
-        # and regular mass balance equations.
-        eq.set_name(
-            pp.fluid_mass_balance.TotalMassBalanceEquations.primary_equation_name()
-        )
-        return eq
-
-    def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        r"""Returns the accumulation term in the pressure equation
-        :math:`\Phi\rho`, using the
-        :attr:`~ConstitutiveLawsSolidSkeletonCF.permeability` and the
-        :attr:`~porepy.compositional.base.FluidMixture.density` of the fluid mixture, in
-        AD operator form on a given set of ``subdomains``."""
-        mass_density = self.fluid.density(subdomains) * self.porosity(subdomains)
-        mass_density.set_name("total_fluid_mass")
-        return mass_density
-
-    def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        """The fluid flux is given by the :attr:`darcy_flux`, assuming the total
-        mobility is part of the (non-linear) diffuse tensor."""
-        return self.darcy_flux(domains)
-
-    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Source terms in the pressure equation, accounting for the interface fluxes
-        from higher-dimensional neighbouring subdomains, as well as from wells.
-
-        The interface flux variable and the well flux variable are used to account for
-        mass passing between subdomains and wells.
-
-        """
-        # Interdimensional fluxes manifest as source terms in lower-dimensional
-        # subdomains.
         interfaces = self.subdomains_to_interfaces(subdomains, [1])
         well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
         well_subdomains = self.interfaces_to_subdomains(well_interfaces)
@@ -290,6 +243,9 @@ class DiffusiveTotalMassBalanceEquations(pp.BalanceEquation):
             self.mdg, well_subdomains, well_interfaces
         )
         subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
+        # Here are the differences compared to the version using upwinding: We use the
+        # interface and well flux (variables) directly, without UpwindCoupling for the
+        # non-linear terms.
         source = projection.mortar_to_secondary_int @ self.interface_darcy_flux(
             interfaces
         )
@@ -301,7 +257,7 @@ class DiffusiveTotalMassBalanceEquations(pp.BalanceEquation):
         source += subdomain_projection.cell_restriction(subdomains) @ (
             subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
         )
-        source.set_name("total_fluid_source")
+        source.set_name("fluid_source")
         return source
 
 
@@ -322,10 +278,10 @@ class TwoVariableTotalEnergyBalanceEquations(
     Notes:
         1. Since enthalpy is an independent variable, models using this balance need
            a local equation relating temperature to the fluid enthalpy.
-        2. (Developers) Room for unification with :mod:`~porepy.models.energy_balance`.
-        3. This class relies on an interface enthalpy flux variable, which is put into
-           relation with the interface darcy. It can be eliminated by using the
-           interface darcy flux, weighed with the transported enthalpy. TODO
+        2. This class relies on an interface enthalpy flux variable, which is put into
+           relation with the interface darcy flux. It can be eliminated by using the
+           interface darcy flux, weighed with the transported enthalpy. Room for
+           optimization.
 
     """
 
@@ -377,14 +333,14 @@ class TwoVariableTotalEnergyBalanceEquations(
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if pp.is_fractional_flow(self) and all(
+        if compositional.is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_energy_key,
                 cast(Sequence[pp.BoundaryGrid], domains),
             )
-        elif pp.is_fractional_flow(self):
+        elif compositional.is_fractional_flow(self):
             # TODO is it worth reducing the operator tree size, by pulling the division
             # by total mobility out of the sum?
             op = pp.ad.sum_operator_list(
@@ -396,6 +352,9 @@ class TwoVariableTotalEnergyBalanceEquations(
                     for phase in self.fluid.phases
                 ],
             )  # / self.total_mobility(domains)
+        # If the fractional-flow framework is not used, the weight corresponds to the
+        # advected enthalpy and a super call is performed (where the respective term is
+        # implemented).
         else:
             op = super().advection_weight_energy_balance(domains)
 
@@ -411,7 +370,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
     This equation is defined on all subdomains. Due to a single pressure and interface
     flux variable, there is no need for additional equations as is the case in the
-    pressure equation.
+    pressure equation. The interface flux for individual components is computed using
+    the total interface flux provided by the pressure equation, a respective weight and
+    upwind-coupling discretization.
 
     Important:
         The component mass balance equations expect the total mass balance (pressure
@@ -569,15 +530,16 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     ) -> pp.ad.Operator:
         """The non-linear weight in the advective component flux.
 
-        It uses the ``component``'s :meth:`~porepy.models.fluid_property_library.
-        FluidMobility.fractional_component_mobility`, assuming the flux contains the
-        total mobility in the diffusive tensor.
+        In the standard formulation, this term represents the mass of the component,
+        advected by the Darcy flux. The advected quantity then has the physical
+        dimensions [kg * m^(-3) * Pa^(-1) * s^(-1)].
 
-        This is consistent with the fractional flow formulation, based on overall
-        fractions.
-
-        Creates a boundary operator, in case explicit values for fractional flow BC are
-        used.
+        In the fractional flow formulation, it uses the ``component``'s
+        :meth:`~porepy.models.fluid_property_library.FluidMobility.
+        fractional_component_mobility`, assuming the flux contains the total mobility
+        in the diffusive tensor. Creates a boundary operator, in case explicit values
+        for fractional flow BC are used.
+        The advected quantity is dimensionless in this case.
 
         Parameters:
             component: A component in the :attr:`fluid`.
@@ -590,14 +552,14 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if pp.is_fractional_flow(self) and all(
+        if compositional.is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_component_key(component),
                 cast(Sequence[pp.BoundaryGrid], domains),
             )
-        elif pp.is_fractional_flow(self):
+        elif compositional.is_fractional_flow(self):
             op = self.fractional_component_mobility(component, domains)
         else:
             op = self.component_mobility(component, domains)
@@ -684,14 +646,25 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         """Overrides the total fluid flux on the boundary in the pressure equation for
         consistency.
 
-        In the multi-component case, the total in/out-flux of mass is given by summing
-        over the in/out-fluxes of individual components.
-        For this reason, the respective term in :class:`~porepy.models.
-        fluid_mass_balance.TotalMassBalanceEquations` needs to be overridden.
+        In the multi-component case, an in/out-flux of mass can be provided for
+        individual components. In this case though, the total flux accross the boundary
+        is not a quantity which can be given independently. The total flux is given
+        consistently by summing over individual component mass fluxes crossing the
+        boundary. The respective term on the boundary in the total mass balance equation
+        is hence not an explicit term, but implicitly computed. For this reason,
+        :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations.
+        boundary_fluid_flux` needs to be overridden.
 
         Important:
             When combining equation classes into a collective mixin, this class must be
             above the total mass balance for the override to hold.
+
+        Parameters:
+            subdomains: A list of subdomains.
+
+        Returns:
+            The total fluid flux accross the boundaries corresponding to ``subdomains``,
+            given as a sum of fluxes accross boundaries of individual components.
 
         """
         return pp.ad.sum_operator_list(
@@ -810,7 +783,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
     def _tracer_transport_equation_name(
         self,
         tracer: pp.Component,
-        component: ppc.Compound,
+        component: compositional.Compound,
     ) -> str:
         """Method returning a name to be given to the transport equation of an active
         tracer in a compound."""
@@ -823,7 +796,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
         return [
             self._tracer_transport_equation_name(tracer, component)
             for component in self.fluid.components
-            if isinstance(component, ppc.Compound)
+            if isinstance(component, compositional.Compound)
             for tracer in component.active_tracers
             if self.has_independent_tracer_fraction(tracer, component)
         ]
@@ -836,7 +809,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
         subdomains = self.mdg.subdomains()
 
         for component in self.fluid.components:
-            if isinstance(component, ppc.Compound):
+            if isinstance(component, compositional.Compound):
 
                 for tracer in component.active_tracers:
                     if self.has_independent_tracer_fraction(tracer, component):
@@ -850,7 +823,7 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
     def tracer_transport_equation(
         self,
         tracer: pp.Component,
-        compound: ppc.Compound,
+        compound: compositional.Compound,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
         """Mass balance equation for subdomains for a given compound.
@@ -879,22 +852,22 @@ class TracerTransportEquations(ComponentMassBalanceEquations):
     def tracer_mass(
         self,
         tracer: pp.Component,
-        compound: ppc.Compound,
+        compound: compositional.Compound,
         subdomains: list[pp.Grid],
     ) -> pp.ad.Operator:
-        r"""The accumulated mass of a tracer, for a given tracer in a fluid compound in
+        r"""The accumulated mass of a tracer :math:`k` in a fluid compound :math:`i` in
         the overall fraction formulation, i.e. cell-wise volume integral of
 
         .. math::
 
-            \Phi \left(\sum_j \rho_j s_j\right) z_j c_i,
+            \Phi \left(\sum_j \rho_j s_j\right) z_i c_k,
 
         which is essentially the accumulation of the compound mass scaled with the
         tracer fraction.
 
         Parameters:
             tracer: An active tracer in the ``compound``.
-            component: A compound in the fluid mixture with a mass balance equation.
+            component: A compound in the fluid mixture.
             subdomains: List of subdomains.
 
         Returns:
@@ -938,7 +911,7 @@ class PrimaryEquationsCF(
 class VariablesCF(
     pp.mass_and_energy_balance.VariablesFluidMassAndEnergy,
     pp.energy_balance.EnthalpyVariable,
-    ppc.CompositionalVariables,
+    compositional.CompositionalVariables,
 ):
     """Bundles standard variables for non-isothermal flow (pressure and temperature)
     with fractional variables and an independent enthalpy variable."""
@@ -956,14 +929,6 @@ class ConstitutiveLawsSolidSkeletonCF(
     It additionally provides constitutive laws defining the relative and normal
     permeability functions in the compositional framework, based on saturations and
     mobilities.
-
-    It also provides an operator representing the pore volume, used to define
-    the :meth:`volume` which is used for isochoric flash calculations.
-
-    TODO Is this the right place to implement :meth:`volume`?
-    TODO Omar noted that relative permeabilities depend in general on all saturation
-    variables, not only on the saturation for which phase it is meant. This requires
-    re-evaluationg the signature.
 
     """
 
@@ -1012,21 +977,31 @@ class ConstitutiveLawsSolidSkeletonCF(
         return op
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """
+        """An extended definition of permeability, enabling a non-linear representation
+        including the total mobility.
+
+        The latter is used in the fractional flow formulation.
+
+        Otherwise a super-call is performed to use whatever constitutive law is mixed
+        in.
+
+        Note:
+            See note in :meth:`diffusive_permability` on compatibility of other,
+            non-linear terms which can appear in the permeability tensor.
+
+            In the non-fractional-flow setting, this method is compatible with any other
+            constitutive law for permeability.
+
         Parameters:
             subdomains: A list of subdomains.
 
         Returns:
-            In the fractional flow setting, the method returns the value of
-            :meth:`diffusive_permeability` wrapped into an isotropic, second-order
-            tensor.
-
-            Otherwise a super-call is performed to obtain a the permeability.
-            By default, the
-            :class:`~porepy.models.constitutive_laws.ConstantPermeability` is mixed in.
+            The permeability in operator form either in [m^2] or in
+            [kg * m^(-1) * Pa^(-1) * s^(-1)] in the fractional flow formulation,
+            as a second-order tensor.
 
         """
-        if pp.is_fractional_flow(self):
+        if compositional.is_fractional_flow(self):
             op = self.isotropic_second_order_tensor(
                 subdomains, self.diffusive_permeability(subdomains)
             )
@@ -1074,7 +1049,7 @@ class ConstitutiveLawsSolidSkeletonCF(
 
 class ConstitutiveLawsCF(
     # NOTE must be on top to overwrite phase properties as general surrogate factories
-    ppc.FluidMixin,
+    compositional.FluidMixin,
     ConstitutiveLawsSolidSkeletonCF,
     pp.constitutive_laws.ThermalConductivityCF,
     pp.constitutive_laws.FluidMobility,
@@ -1147,7 +1122,9 @@ class BoundaryConditionsCF(pp.BoundaryConditionMixin, CompositionalFlowModelProt
         super().update_all_boundary_conditions()
 
         for component in self.fluid.components:
-            # The component has otherwise no component mass balance equation.
+            # NOTE We need the massic boundary flux for all components, also the
+            # dependent one, since the total flux on the boundary is computed using the
+            # user-provided values in bc_values_component_flux.
             self.update_boundary_condition(
                 name=self.bc_data_component_flux_key(component),
                 function=cast(
@@ -1170,7 +1147,7 @@ class BoundaryConditionsCF(pp.BoundaryConditionMixin, CompositionalFlowModelProt
 
         for component in self.fluid.components:
             # Update of tracer fractions on Dirichlet boundary
-            if isinstance(component, ppc.Compound):
+            if isinstance(component, compositional.Compound):
                 for tracer in component.active_tracers:
                     bc_vals = cast(
                         Callable[[pp.BoundaryGrid], np.ndarray],
@@ -1227,7 +1204,7 @@ class BoundaryConditionsCF(pp.BoundaryConditionMixin, CompositionalFlowModelProt
     def bc_values_tracer_fraction(
         self,
         tracer: pp.Component,
-        compound: ppc.Compound,
+        compound: compositional.Compound,
         bg: pp.BoundaryGrid,
     ) -> np.ndarray:
         """BC values for active tracer fractions (primary variable).
@@ -1376,7 +1353,7 @@ class BoundaryConditionsFractionalFlow(
 
         """
         super().update_all_boundary_conditions()
-        if pp.is_fractional_flow(self):
+        if compositional.is_fractional_flow(self):
             self.update_boundary_values_fractional_flow()
         else:
             raise pp.compositional.CompositionalModellingError(
@@ -1525,7 +1502,7 @@ class InitialConditionsCF(pp.InitialConditionMixin, CompositionalFlowModelProtoc
                     )
 
                 # All tracer fractions must have an initial value
-                if isinstance(component, ppc.Compound):
+                if isinstance(component, compositional.Compound):
                     for tracer in component.active_tracers:
                         if self.has_independent_tracer_fraction(tracer, component):
                             self.equation_system.set_variable_values(
@@ -1556,7 +1533,7 @@ class InitialConditionsCF(pp.InitialConditionMixin, CompositionalFlowModelProtoc
         return np.zeros(sd.num_cells)
 
     def initial_tracer_fraction(
-        self, tracer: pp.Component, compound: ppc.Compound, sd: pp.Grid
+        self, tracer: pp.Component, compound: compositional.Compound, sd: pp.Grid
     ) -> np.ndarray:
         """
         Parameters:
@@ -1763,10 +1740,10 @@ class SolutionStrategyCF(
         super().prepare_simulation()
         duration = time.time() - start
 
-        p_elim = pp.is_reference_phase_eliminated(self)
-        c_elim = pp.is_reference_component_eliminated(self)
-        is_ff = pp.is_fractional_flow(self)
-        et = pp.get_equilibrium_type(self)
+        p_elim = compositional.is_reference_phase_eliminated(self)
+        c_elim = compositional.is_reference_component_eliminated(self)
+        is_ff = compositional.is_fractional_flow(self)
+        et = compositional.get_equilibrium_type(self)
         var_names = set([v.name for v in self.equation_system.variables])
         dofs = self.equation_system.num_dofs()
         dofs_loc = dofs / len(var_names)

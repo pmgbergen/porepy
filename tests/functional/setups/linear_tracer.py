@@ -18,9 +18,9 @@ Due to assumptions on the fluid properties, the pressure equation is reduced to
 
 Giving boundary conditions ``p_i`` and ``p_o`` on inlet and outlet respectively, the
 analytical solution is simply ``p(x, t) = p_i + x(p_o - p_i)/L``, a linear gradient from
-inlet to outlet. The velocity of the flow is roughly ``c = |K(p_o - p_i)|``, assuming a
-isotropic absolute permeability and not taking into account what the flux discretization
-does.
+inlet to outlet. The velocity of the flow is ``c = |K(p_o - p_i)|``, assuming a
+isotropic absolute permeability. Note that the flux discretization is exact in the
+linear case.
 
 The advection equation for the tracer is then simply
 
@@ -181,10 +181,10 @@ class LinearTracerExactSolution1D:
     def darcy_flux(self, sd: pp.Grid) -> np.ndarray:
         """Returns the Darcy flux on all faces, including inlet and outlet."""
         p = self.pressure(sd)
-        dp = np.ediff1d(np.flip(p))
+        dp = np.diff(np.flip(p))
 
         # assuming cartesian grid with square cells.
-        dx = np.ones(p.shape) * np.ediff1d(sd.cell_centers[0])[0]
+        dx = np.ones(p.shape) * np.diff(sd.cell_centers[0])[0]
 
         T = self._perm / dx  # transmissibility
 
@@ -212,12 +212,12 @@ class LinearTracerExactSolution1D:
     def cfl(self, sd: pp.Grid, dt: float) -> float:
         """Returns the CFL number ``v * dt / dx`` assuming a uniform dx"""
         # assumes uniform cartesian grid
-        return self.flow_velocity(sd) * dt / np.ediff1d(sd.cell_centers[0])[0]
+        return self.flow_velocity(sd) * dt / np.diff(sd.cell_centers[0])[0]
 
     def dt_from_cfl(self, sd: pp.Grid, eps: float = 1e-8) -> float:
         """Returns the maximal time step size which does not violate the CFL condition
         ``v * dt / dx <=1``, minus a threshhold ``eps`` to avoid numerical issues."""
-        return np.ediff1d(sd.cell_centers[0])[0] / self.flow_velocity(sd) - eps
+        return np.diff(sd.cell_centers[0])[0] / self.flow_velocity(sd) - eps
 
 
 class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):

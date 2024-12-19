@@ -268,7 +268,7 @@ class TotalEnergyBalanceEquations(pp.BalanceEquation):
     def advection_weight_energy_balance(
         self, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        """Non-linear weight in the advective enthalpy flux.
+        """Advected enthalpy [J * m^(-3) * Pa^(-1) * s^(-1)].
 
         Parameters:
             domains: A list of either subdomains or boundary grids.
