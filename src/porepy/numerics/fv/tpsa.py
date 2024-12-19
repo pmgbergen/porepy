@@ -695,7 +695,7 @@ class Tpsa:
             # In this case, \hat{R}_k^n = \bar{R}_k^n is the 3x3 matrix given in the
             # Tpsa paper,
             #
-            #    R^n = [[0, -n2, n0], [n2, 0, -n0], [-n1, n0, 0]]
+            #    R^n = [[0, -n2, n1], [n2, 0, -n0], [-n1, n0, 0]]
             #
             # However, for efficient implementation we will use a utility function for
             # matrix construction available in PorePy which, it turns out, requires a
