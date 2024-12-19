@@ -785,6 +785,7 @@ class MixedDimensionalGrid:
                 self._boundary_grid_data[bg_new] = self._boundary_grid_data[bg_old]
                 self._subdomain_to_boundary_grid[sd_new] = bg_new
                 # Compute the projections to the new boundary grid.
+                bg_new.compute_geometry()
                 bg_new.set_projections()
                 del self._boundary_grid_data[bg_old]
                 del self._subdomain_to_boundary_grid[sd_old]
