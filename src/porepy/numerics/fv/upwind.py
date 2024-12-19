@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import numpy as np
 import scipy.sparse as sps
@@ -59,36 +59,38 @@ class Upwind(Discretization):
     def assemble_matrix_rhs(
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:
-        """Return matrix and rhs for an upwind discretization of a linear transport
-        problem.
+        """Return the matrix and right-hand side for an upwind discretization of a
+        linear transport problem.
 
         To stay true with a legacy format, the assembled system includes scaling with
         the advective flux field.
 
         We assume the following two sub-dictionaries to be present in the data
         dictionary:
-            parameter_dictionary, storing all parameters.
-                Stored in ``data[pp.PARAMETERS][self.keyword]``.
-            matrix_dictionary, for storage of discretization matrices.
-                Stored in ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``
+            - parameter_dictionary, storing all parameters. Stored in
+              ``data[pp.PARAMETERS][self.keyword]``.
+            - matrix_dictionary, for storage of discretization matrices. Stored in
+              ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``.
 
         parameter_dictionary contains the entries:
-            - bc_val : :class:`~numpy.ndarray` of ``shape=(boundary_grid.num_cells,)``
+            - bc_values: :class:`~numpy.ndarray` of
+              ``shape=(boundary_grid.num_cells,)``.
 
         matrix_dictionary contains the entries:
-            - self.upwind_matrix_key: :class:`~scipy.sparse.csr_matrix` of
-                ``shape=(sd.num_faces, sd.num_cells)`` Upwind matrix obtained from the
+            - ``self.upwind_matrix_key``: :class:`~scipy.sparse.csr_matrix` of
+                ``shape=(sd.num_faces, sd.num_cells)``. Upwind matrix obtained from the
                 discretization.
-            - self.bound_transport_dir_matrix_key: :class:`~scipy.sparse.csr_matrix`
-                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side containing the
-                discretization matrix for contributions from Dirichlet boundary
+            - ``self.bound_transport_dir_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)``. Right-hand side containing
+                the discretization matrix for contributions from Dirichlet boundary
                 conditions.
-            - self.bound_transport_neu_matrix_key: :class:`~scipy.sparse.csr_matrix`
-                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side containing the
-                discretization matrix for contributions from Neumann boundary
+            - ``self.bound_transport_neu_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)``. Right-hand side containing
+                the discretization matrix for contributions from Neumann boundary
                 conditions.
 
-        The matrix_dictionary entries are normally set by calling :meth:`Upwind.discretize`.
+        The matrix_dictionary entries are normally set by calling
+        :meth:`Upwind.discretize`.
 
         Parameters:
             sd: Computational grid, with geometry fields computed.
@@ -153,8 +155,8 @@ class Upwind(Discretization):
         return matrix, rhs
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
-        """Return the matrix and righ-hand side for an upstream discretization based on
-        a scalar flux field.
+        """Discretize the matrix and right-hand side for an upstream discretization
+        based on a scalar flux field.
 
         The vector field is assumed to be given as the normal velocity, weighted with
         the face area, at each face. The discretization is *not* scaled with the fluxes,
@@ -165,31 +167,32 @@ class Upwind(Discretization):
 
         We assume the following two sub-dictionaries to be present in the data
         dictionary:
-            parameter_dictionary, storing all parameters.
-                Stored in ``data[pp.PARAMETERS][self.keyword]``.
-            matrix_dictionary, for storage of discretization matrices.
-                Stored in ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``
+            - parameter_dictionary, storing all parameters. Stored in
+              ``data[pp.PARAMETERS][self.keyword]``.
+            - matrix_dictionary, for storage of discretization matrices. Stored in
+              ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``.
 
         parameter_dictionary contains the entries:
             - bc: :class:`~porepy.params.BoundaryCondition`.
                 Boundary conditions for the advected property.
-            - darcy_flux: :class:`~numpy.ndarray` of ``shape=(sd.num_faces,)``
-                Normal velocity at each face, weighted by the face area.
-            - num_components: ``int`` (optional)
-                Number of components to be advected. Defaults to 1.
+            - ``self._flux_array_key``: :class:`~numpy.ndarray` of
+              ``shape=(sd.num_faces,)``. Normal velocity at each face, weighted by the
+              face area.
+            - num_components: ``int`` (optional). Number of components to be advected.
+              Defaults to 1.
 
         matrix_dictionary will be updated with the following entries:
-            - self.upwind_matrix_key: :class:`~scipy.sparse.csr_matrix` of
-                ``shape=(sd.num_faces, sd.num_cells)`` Upwind matrix obtained from the
+            - ``self.upwind_matrix_key``: :class:`~scipy.sparse.csr_matrix` of
+                ``shape=(sd.num_faces, sd.num_cells)``. Upwind matrix obtained from the
                 discretization.
-            - self.bound_transport_dir_matrix_key: :class:`~scipy.sparse.csr_matrix`
-                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side containing the
-                discretization matrix for contributions from Dirichlet boundary
+            - ``self.bound_transport_dir_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)``. Right-hand side containing
+                the discretization matrix for contributions from Dirichlet boundary
                 conditions.
-            - self.bound_transport_neu_matrix_key: :class:`~scipy.sparse.csr_matrix`
-                of ``shape=(sd.num_faces, sd.num_faces)`` Right-hand side containing the
-                discretization matrix for contributions from Neumann boundary
-                conditions.
+            - ``self.bound_transport_neu_matrix_key````:
+              :class:`~scipy.sparse.csr_matrix` of
+              ``shape=(sd.num_faces, sd.num_faces)``. Right-hand side containing the
+              discretization matrix for contributions from Neumann boundary conditions.
 
         Parameters:
             sd: Grid, or a subclass, with geometry fields computed.
@@ -317,9 +320,8 @@ class Upwind(Discretization):
     def darcy_flux(
         self, sd: pp.Grid, beta: np.ndarray, cell_apertures=None
     ) -> np.ndarray:
-        """
-        Return the normal component of the velocity, for each face, weighted by
-        the face area and aperture.
+        """Return the normal component of the velocity, for each face, weighted by the
+        face area and aperture.
 
         Parameters:
             sd: Grid, or a subclass, with geometry fields computed.
@@ -402,10 +404,59 @@ class UpwindCoupling(InterfaceDiscretization):
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_intf: Dict,
+        data_primary: dict,
+        data_secondary: dict,
+        data_intf: dict,
     ) -> None:
+        """Discretize the matrix for a coupled upstream discretization based on a scalar
+        flux field on the higher dimensional domain.
+
+        In the following, we denote with "primary" the higher-dimensional domain and
+        with "secondary" the lower-dimensional domain.
+
+        We assume the following two sub-dictionaries to be present in the ``data_intf``
+        dictionary:
+            - parameter_dictionary, storing all parameters. Stored in
+              ``data_intf[pp.PARAMETERS][self.keyword]``.
+            - matrix_dictionary, for storage of discretization matrices. Stored in
+              ``data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]``.
+
+        parameter_dictionary contains the entries:
+            - ``self._flux_array_key``: :class:`~numpy.ndarray` of
+              ``shape=(sd_primary.num_faces,)``. Normal velocity at each face of the
+              primary grid, weighted by the face area.
+
+        matrix_dictionary will be updated with the following entries:
+            - ``self.inv_trace_primary_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+              of ``shape=(sd_primary.num_faces, sd_primary.num_cells)``. Inverse trace
+              operator.
+            - ``self.trace_primary_matrix_key``: :class:`~scipy.sparse.csr_matrix` of
+              ``shape=(sd_primary.num_faces, sd_primary.num_cells)``. Trace operator.
+            - ``self.upwind_primary_matrix_key``: :class:`~scipy.sparse.csr_matrix` of
+                ``shape=(sd.num_faces, sd.num_cells)``. Upwind matrix for the
+                primary domain.
+            - ``self.upwind_secondary_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)``. Upwind matrix for the
+                secondary domain.
+            - ``self.flux_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)``. Flux matrix.
+            - ``self.mortar_discr_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(intf.num_cells, intf.num_cells)``. Identity matrix for the
+                mortar variable.
+
+        Parameters:
+            sd_primary: Grid, or a subclass, of the primary domain, with geometry fields
+                computed.
+            sd_secondary: Grid, or a subclass, of the secondary domain, with geometry
+                fields computed.
+            intf: MortarGrid, or a subclass, of the interface domain, with geometry
+                fields computed.
+            data_primary: Data dictionary for the primary domain.
+            data_secondary: Data dictionary for the secondary domain.
+            data_intf: Data dictionary for the interface domain.
+
+        """
+
         # First check if the grid dimensions are compatible with the implementation. It
         # is not difficult to cover the case of equal dimensions, it will require trace
         # operators for both grids, but it has not yet been done.
@@ -456,33 +507,66 @@ class UpwindCoupling(InterfaceDiscretization):
         sd_primary: pp.Grid,
         sd_secondary: pp.Grid,
         intf: pp.MortarGrid,
-        data_primary: Dict,
-        data_secondary: Dict,
-        data_intf,
+        data_primary: dict,
+        data_secondary: dict,
+        data_intf: dict,
         matrix: sps.spmatrix,
-    ) -> Tuple[sps.spmatrix, np.ndarray]:
-        """
-        Construct the matrix (and right-hand side) for the coupling conditions.
-        Note: the right-hand side is not implemented now.
+    ) -> tuple[sps.spmatrix, np.ndarray]:
+        """Construct the matrix (and right-hand side) for the coupling conditions.
+
+        Note:
+            The right-hand side is not implemented now.
+
+        In the following, we denote with "primary" the higher-dimensional domain and
+        with "secondary" the lower-dimensional domain.
+
+        We assume the following two sub-dictionaries to be present in the ``data_intf``
+        dictionary:
+            - parameter_dictionary, storing all parameters. Stored in
+              ``data_intf[pp.PARAMETERS][self.keyword]``.
+            - matrix_dictionary, for storage of discretization matrices. Stored in
+              ``data_intf[pp.DISCRETIZATION_MATRICES][self.keyword]``.
+
+        parameter_dictionary contains the entries:
+            - ``self._flux_array_key``: :class:`~numpy.ndarray` of
+              ``shape=(sd_primary.num_faces,)``. Normal velocity at each face of the
+              primary grid, weighted by the face area.
+
+        matrix_dictionary contains the following entries:
+            - ``self.inv_trace_primary_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+              of ``shape=(sd_primary.num_faces, sd_primary.num_cells)``. Inverse trace
+              operator.
+            - ``self.trace_primary_matrix_key``: :class:`~scipy.sparse.csr_matrix` of
+              ``shape=(sd_primary.num_faces, sd_primary.num_cells)``. Trace operator.
+            - ``self.upwind_primary_matrix_key``: :class:`~scipy.sparse.csr_matrix` of
+                ``shape=(sd.num_faces, sd.num_cells)``. Upwind matrix for the
+                primary domain.
+            - ``self.upwind_secondary_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)``. Upwind matrix for the
+                secondary domain.
+            - ``self.flux_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(sd.num_faces, sd.num_faces)``. Flux matrix.
+            - ``self.mortar_discr_matrix_key``: :class:`~scipy.sparse.csr_matrix`
+                of ``shape=(intf.num_cells, intf.num_cells)``. Identity matrix for the
+                mortar variable.
 
         Parameters:
-            sd_primary: grid of higher dimension
-            sd_secondary: grid of lower dimension
-            data_primary: dictionary which stores the data for the higher dimensional
-                grid
-            data_secondary: dictionary which stores the data for the lower dimensional
-                grid
-            data_intf: dictionary which stores the data for the edges of the mdg
+            sd_primary: Grid of the primary domain.
+            sd_secondary: Grid of the secondary domain.
+            intf: MortarGrid of the interface domain.
+            data_primary: Data dictionary for the primary domain.
+            data_secondary: Data dictionary for the secondary domain.
+            data_intf: Data dictionary for the edges of the mixed-dimensional grid.
             matrix: Uncoupled discretization matrix.
 
         Returns:
-            cc: block matrix which store the contribution of the coupling
-                condition. See the abstract coupling class for a more detailed
-                description.
+            matrix: Block matrix storing the contribution of the coupling condition. See
+            the abstract coupling class for a more detailed description.
+            rhs: Right-hand side of the coupling condition. Not implemented.
 
         """
 
-        matrix_dictionary: Dict[str, sps.spmatrix] = data_intf[
+        matrix_dictionary: dict[str, sps.spmatrix] = data_intf[
             pp.DISCRETIZATION_MATRICES
         ][self.keyword]
         # Retrieve the number of degrees of both grids.
