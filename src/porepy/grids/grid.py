@@ -40,9 +40,9 @@ class Grid:
 
     Parameters:
         dim: Grid dimension.
-        nodes: ``shape=(ambient_dimension, num_nodes)``
+        nodes: ``shape=(3, num_nodes)``
 
-            Node coordinates, where ``ambient_dimension`` is the dimension of the grid.
+            Node coordinates.
         face_nodes: ``shape=(num_nodes, num_faces)``
 
             A map from faces to respective nodes spanning the face.
@@ -88,7 +88,7 @@ class Grid:
         """Grid dimension. Should be in ``{0, 1, 2, 3}``."""
 
         self.nodes: np.ndarray = nodes
-        """An array with ``shape=(ambient_dimension, num_nodes)`` containing node
+        """An array with ``shape=(3, num_nodes)`` containing node
         coordinates column-wise."""
 
         # Force topological information to be stored as integers. The known subclasses
@@ -199,8 +199,8 @@ class Grid:
         """
 
         self.frac_pairs: np.ndarray = np.array([[]], dtype=int)
-        """Indices of faces that are geometrically coinciding, but
-        lay on different side of a lower-dimensional grid.
+        """Indices of faces that are geometrically coinciding, but lay on different side
+        of a lower-dimensional grid.
 
         """
 
@@ -232,13 +232,13 @@ class Grid:
 
         """
         self.face_centers: np.ndarray
-        """Centers of all faces. ``(shape=(ambient_dimension, num_faces))``.
+        """Centers of all faces. ``(shape=(3, num_faces))``.
         Available after calling :meth:`~compute_geometry`.
 
         """
         self.face_normals: np.ndarray
         """An array containing column-wise normal vectors of all faces with
-        ``shape=(ambient_dimenaion, num_faces)``.
+        ``shape=(3, num_faces)``.
 
         See also :attr:`cell_faces`.
 
@@ -247,7 +247,7 @@ class Grid:
         """
         self.cell_centers: np.ndarray
         """An array containing column-wise the centers of all cells with
-        ``shape=(ambient_dimension, num_cells)``.
+        ``shape=(3, num_cells)``.
 
         Available after calling :meth:`~compute_geometry`.
 
