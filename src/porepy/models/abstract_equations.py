@@ -31,7 +31,7 @@ class EquationMixin(pp.PorePyModel):
         When creating multi-physics models, the order of equations will reflect
         the order of inheritance of individual equation classes.
 
-        Say we have to equation classes combined into one multi-physics model:
+        Say we have two equation classes combined into one multi-physics model:
 
         .. code::python
 
@@ -50,11 +50,11 @@ class EquationMixin(pp.PorePyModel):
             class ModelEquations(Equation1, Equation2):
                 pass
 
-        Notice that in both ``set_equations`` the super-call comes first.
-        The way ``super()`` works now is, that ``Equation1`` will be called first,
-        which in return executes the code of ``Equation2`` first.
-        I.e., the order of equations introduced into the system is the reverse order
-        of equation classes in the inheritance tree of the combined class.
+        Notice that in both ``set_equations`` the super-call comes first. The way
+        ``super()`` works is that ``Equation1`` will be called first, which in return
+        executes the code of ``Equation2`` first. I.e., the order of equations
+        introduced into the system is the reverse order of equation classes in the
+        inheritance tree of the combined class.
 
         Notice also, that the combined class ``ModelEquations`` does not need an
         implementation of ``set_equations``.
@@ -367,7 +367,7 @@ class LocalElimination(EquationMixin):
             # Loop over all the dependencies (which are primary variables) of the
             # expression in the order they were specified for the expression (this is
             # critical!). Evaluate the primary variable (casting is necceary for mypy)
-            # and store its value in X. 
+            # and store its value in X.
             X = [
                 prim_var(cast(list[pp.Grid] | list[pp.MortarGrid], [grid])).value(
                     self.equation_system
