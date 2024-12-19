@@ -606,7 +606,7 @@ class TestPropagationCriteria:
         # Project to interface
         intf = self.mdg.subdomain_pair_to_interface((self.sd_primary, self.g_l))
         d_j = self.mdg.interface_data(intf)
-        trace = np.abs(self.sd_primary.divergence(n=2)).T
+        trace = np.abs(self.sd_primary.divergence(dim=2)).T
         u_j = intf.primary_to_mortar_avg(nd=self.nd) * trace * u_h
         pp.set_solution_values(
             name=self.model.mortar_displacement_variable,
