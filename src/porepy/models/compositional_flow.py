@@ -33,8 +33,8 @@ The following equations are available:
   Analogous to :class:`ComponentMassBalanceEquations`, but with a modified accumulation
   term to account for the relative tracer fractions.
 
-The primary equations include a total mass balance, component balance and the some
-energy balance equation. A collection for non-isothermal, non-diffusive flow is given in
+The primary equations include a total mass balance, component balance and the energy
+balance equation. A collection for non-isothermal, non-diffusive flow is given in
 :class:`PrimaryEquationsCF`.
 
 The primary variables are assumed to be a single pressure (no capillarity), an enthalpy
