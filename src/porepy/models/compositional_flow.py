@@ -184,7 +184,7 @@ class DiffusiveTotalMassBalanceEquations(pp.BalanceEquation):
     Note:
         This balance equation assumes that the total mobility is part of the diffusive,
         second-order tensor in the non-linear (MPFA) discretization of the Darcy flux.
-        This is in contrast to the similar 
+        This is in contrast to the similar
         :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations`, where the
         mobilities are represented by upwinding.
 
