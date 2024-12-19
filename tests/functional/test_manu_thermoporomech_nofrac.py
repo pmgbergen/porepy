@@ -5,7 +5,7 @@ modeling the 2d and 3d flow in non-isothermal deformable porous media.
 Tests:
 
     [TEST_1] Relative L2-error on Cartesian grids for primary and secondary variables
-      for three different times for 2d and 3d.
+      for two different times for 2d and 3d.
 
     [TEST_2] Observed order of convergence (using four levels of refinement for 2d and
       three levels of refinement for 3d) for primary and secondary variables. Order of
@@ -369,5 +369,5 @@ def test_order_of_convergence(
                 desired_ooc[dim_idx][grid_type_idx]["ooc_" + var],
                 actual_ooc[dim_idx][grid_type_idx]["ooc_" + var],
                 atol=1e-1,  # allow for an absolute difference of 0.1 in OOC
-                rtol=5e-1,  # allow for 5% of relative difference in OOC
+                rtol=5e-2,  # allow for 5% of relative difference in OOC
             )
