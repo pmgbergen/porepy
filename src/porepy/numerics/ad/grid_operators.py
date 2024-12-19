@@ -692,13 +692,7 @@ class Divergence(Operator):
             multiple subdomains.
 
         """
-        if self.dim == 1:
-            mat = [sd.divergence(dim=1) for sd in self.subdomains]
-        else:
-            mat = [
-                sps.kron(sd.divergence(dim=1), sps.eye(self.dim))
-                for sd in self.subdomains
-            ]
+        mat = [sd.divergence(dim=self.dim) for sd in self.subdomains]
         matrix = sps.block_diag(mat)
         return matrix
 
