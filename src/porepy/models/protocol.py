@@ -610,7 +610,6 @@ else:
                 get_phase_configuration` respectively.
 
             """
-            return None
 
         def assign_thermodynamic_properties_to_phases(self) -> None:
             """Assigns callable properties to the dynamic phase objects, after the
@@ -621,7 +620,6 @@ else:
                 assign_thermodynamic_properties_to_phases`.
 
             """
-            return None
 
         def dependencies_of_phase_properties(
             self, phase: pp.Phase

@@ -27,7 +27,7 @@ class EquationMixin(pp.PorePyModel):
     """General class for equations defining an interface to introduce equations into
     a model.
 
-    Example:
+    Note:
         When creating multi-physics models, the order of equations will reflect
         the order of inheritance of individual equation classes.
 
@@ -319,7 +319,7 @@ class LocalElimination(EquationMixin):
     def _add_local_elimination(
         self,
         local_equation_name: str,
-        primary: pp.ad.MixedDimensionalVariable,
+        independent_operator: pp.ad.MixedDimensionalVariable,
         expression: pp.ad.SurrogateFactory,
         func: Callable[..., tuple[np.ndarray, np.ndarray]],
         grids: pp.GridLikeSequence,
@@ -337,11 +337,12 @@ class LocalElimination(EquationMixin):
             - :meth:`before_nonlinear_iteration`
 
         Parameters:
-            local_equation_name: The name of the local equation eliminating ``primary``.
-            primary: The formally independent Ad operator which was eliminated by the
-                expression.
-            expression: The secondary expression which eliminates ``primary``, with
-                some dependencies on primary variables.
+            local_equation_name: The name of the local equation eliminating
+                ``independent_operator``.
+            independent_operator: The formally independent Ad operator which was
+                eliminated by the expression.
+            expression: The secondary expression which eliminates
+                ``independent_operator``, with some dependencies on other variables.
             func: A numerical function returning value and derivative values to be
                 inserted into ``expression`` when updateing.
 
@@ -356,7 +357,15 @@ class LocalElimination(EquationMixin):
             [g for g in grids if isinstance(g, (pp.Grid, pp.MortarGrid))],
         )
         self.__local_eliminations.update(
-            {local_equation_name: (primary, expression, func, domains, boundaries)}
+            {
+                local_equation_name: (
+                    independent_operator,
+                    expression,
+                    func,
+                    domains,
+                    boundaries,
+                )
+            }
         )
 
         # Must initialize values for the surrogate operator after it is created.
@@ -383,7 +392,7 @@ class LocalElimination(EquationMixin):
             # Update value of the variable which was eliminated.
             self.equation_system.set_variable_values(
                 val,
-                [v for v in primary.sub_vars if v.domain == grid],
+                [v for v in independent_operator.sub_vars if v.domain == grid],
                 iterate_index=0,
             )
 
@@ -398,7 +407,7 @@ class LocalElimination(EquationMixin):
         """
 
         # Mypy complains about the parent (the protocol) having a trivial body. We
-        # ignore the safe-super check here, but do not comprosie safety by explicitly
+        # ignore the safe-super check here, but do not compromise safety by explicitly
         # checking the inheritance tree.
         if isinstance(self, pp.BoundaryConditionMixin):
             super().update_all_boundary_conditions()  # type:ignore[safe-super]
@@ -433,9 +442,8 @@ class LocalElimination(EquationMixin):
             self.update_boundary_condition(eliminatedvar.name, bc_values_prim)
 
     def before_nonlinear_iteration(self) -> None:
-        """Attaches to the non-linear iteration routines and performes an update
-        of the constitutive expressions before an iteration of the non-linear solver
-        is performed.
+        """Attaches to the non-linear iteration routines and performes an update of the
+        surrogate operators before an iteration of the non-linear solver is performed.
 
         Updates both value and derivatives for the surrogate operators used in local
         eliminations.
