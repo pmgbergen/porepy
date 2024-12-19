@@ -1070,7 +1070,7 @@ class Grid:
         values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
-    def divergence(self, dim: int) -> sps.csr_matrix:
+    def divergence(self, dim: Literal[1, 2, 3]) -> sps.csr_matrix:
         """Get divergence operator for the grid.
 
         If dim>=2, it is assumed that the first
@@ -1081,17 +1081,19 @@ class Grid:
         Parameters:
             dim: Dimension of the quantity of which we want to compute the divergence.
 
+        Raises:
+            ValueError: If ``dim`` is not 1, 2 or 3.
+
         Returns:
             Divergence operator. Dimensions: dim * (num_cells, num_faces)
+
         """
         if dim == 1:  # The divergence is a scalar
             return self.cell_faces.T.tocsr()
         elif dim in [2, 3]:  # The divergence is a vector
             # Scalar divergence
             scalar_div = self.cell_faces
-            # Vector extension, convert to coo-format to avoid odd errors when one
-            # grid dimension is 1 (this may return a bsr matrix)
-            # The order of arguments to sps.kron is important.
+            # Vector extension by Kronecker product.
             block_div = sps.kron(scalar_div, sps.eye(dim)).tocsc()
             return block_div.transpose().tocsr()
         else:
@@ -1107,6 +1109,7 @@ class Grid:
 
         Returns:
             Trace operator as a rank dim-1 tensor.
+
         """
         bound_faces = self.get_all_boundary_faces()
         # Get the cells neighboring the boundary.
