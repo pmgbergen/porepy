@@ -581,34 +581,24 @@ class Trace:
         cell_projections, face_projections = _subgrid_projections(subdomains, self.dim)
 
         trace: list[sps.spmatrix] = []
-        inv_trace: list[sps.spmatrix] = []
 
         if len(subdomains) > 0:
             for sd in subdomains:
                 if self._is_scalar:
-                    # TEMPORARY CONSTRUCT: Use the divergence operator as a trace.
-                    # It would be better to define a dedicated function for this,
-                    # perhaps in the grid itself.
-                    div = np.abs(sd.divergence(dim=1))
-
+                    # Local trace operator.
+                    sd_trace = sd.trace(dim=1)
                     # Restrict global cell values to the local grid, use transpose of div
                     # to map cell values to faces.
-                    trace.append(div.T * cell_projections[sd].T)
-                    # Similarly restrict a global face quantity to the local grid, then
-                    # map back to cells.
-                    inv_trace.append(div * face_projections[sd].T)
+                    trace.append(sd_trace * cell_projections[sd].T)
+
                 else:
                     raise NotImplementedError("kronecker")
         else:
             trace = [sps.csr_matrix((0, 0))]
-            inv_trace = [sps.csr_matrix((0, 0))]
-        # Stack both trace and inv_trace vertically to make them into mappings to
-        # global quantities.
-        # Wrap the stacked matrices into an Ad object
+        # Stack trace vertically to make them into mappings to global quantities. Wrap
+        # the stacked matrices into an Ad object
         self.trace = SparseArray(sps.bmat([[m] for m in trace]).tocsr())
         """ Matrix of trace projections from cells to faces."""
-        self.inv_trace = SparseArray(sps.bmat([[m] for m in inv_trace]).tocsr())
-        """ Matrix of inverse trace projections from faces to cells."""
 
     def __repr__(self) -> str:
         s = (
