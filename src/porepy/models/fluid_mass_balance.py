@@ -348,7 +348,7 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
             - interface flow from neighboring subdomains of higher dimension.
             - well flow from neighboring subdomains of lower and higher dimension.
 
-        .. note::
+        Note:
             When overriding this method to assign internal fluid sources, one is advised
             to call the base class method and add the new contribution, thus ensuring
             that the source term includes the contribution from the interface fluxes.
