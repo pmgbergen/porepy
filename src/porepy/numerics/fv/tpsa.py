@@ -172,7 +172,7 @@ class Tpsa:
         >>> num_rot_face = nf if g.dim == 2 else 3 * nf
         >>> num_rot_cell = nc if g.dim == 2 else 3 * nc
         >>> div_scalar = g.divergence(dim=1)
-        >>> div_vector = g.divergence(dim=2)
+        >>> div_vector = g.divergence(dim=3)
         >>> div_rot = div_scalar if g.dim == 2 else div_vec
 
         >>> matrices = data[pp.DISCRETIZATION_MATRICES][key]

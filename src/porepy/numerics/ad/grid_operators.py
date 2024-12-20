@@ -586,7 +586,7 @@ class Trace:
             for sd in subdomains:
                 if self._is_scalar:
                     # Local trace operator.
-                    sd_trace = sd.trace(dim=1)
+                    sd_trace = sd.trace(dim=self.dim)
                     # Restrict global cell values to the local grid.
                     trace.append(sd_trace * cell_projections[sd].T)
 
