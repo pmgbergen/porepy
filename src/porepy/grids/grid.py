@@ -1073,9 +1073,9 @@ class Grid:
     def divergence(self, dim: Literal[1, 2, 3]) -> sps.csr_matrix:
         """Get divergence operator for the grid.
 
-        If dim>=2, it is assumed that the first column corresponds to the x-equation of
-        face 0, second column is y-equation etc. The next column is then the x-equation
-        for face 1. Correspondingly, the first row represents x-component in first cell
+        If dim>=2, it is assumed that the first row corresponds to the x-equation of
+        face 0, second row is y-equation etc. The next row is then the x-equation for
+        face 1. Correspondingly, the first column represents x-component in first cell
         etc.
 
         Parameters:
@@ -1088,13 +1088,13 @@ class Grid:
             Divergence operator. Dimensions: dim * (num_cells, num_faces)
 
         """
-        if dim == 1:  # The divergence of a scalar
+        if dim == 1:  # The divergence of a scalar.
             return self.cell_faces.T.tocsr()
-        elif dim in [2, 3]:  # The divergence of a vector
-            # Scalar divergence
+        elif dim in [2, 3]:  # The divergence of a vector.
+            # Scalar divergence.
             scalar_div = self.cell_faces
             # Vector extension by Kronecker product.
-            block_div = sps.kron(scalar_div, sps.eye(dim)).tocsc()
+            block_div = sps.kron(scalar_div, sps.eye(dim))
             return block_div.T.tocsr()
         else:
             raise ValueError(
@@ -1108,7 +1108,7 @@ class Grid:
             dim: Dimension of the tensor we want to compute the trace of.
 
         Returns:
-            Trace operator. Dimensions: dim * (num_faces, num_cells)
+            Trace operator. Dimensions: dim * (num_faces, num_cells).
 
         """
         bound_faces = self.get_all_boundary_faces()
@@ -1126,8 +1126,8 @@ class Grid:
         return trace
 
     def _check_tags(self) -> None:
-        """Check if all the standard tags are specified in :attr:`tags`,
-        and the tag arrays have correct sizes.
+        """Check if all the standard tags are specified in :attr:`tags`, and the tag
+        arrays have correct sizes.
 
         Raises:
             ValueError: If any inconsistency among tags is found.

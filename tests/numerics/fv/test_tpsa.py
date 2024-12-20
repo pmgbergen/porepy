@@ -1266,15 +1266,11 @@ def _assemble_matrices(
 
     """
     # Deal with the different dimensions of the rotation variable.
-    if g.dim == 2:
-        n_rot_face = g.num_faces
-        n_rot_cell = g.num_cells
-        div_rot = g.divergence(dim=1)
-
-    else:
-        n_rot_face = g.num_faces * g.dim
-        n_rot_cell = g.num_cells * g.dim
-        div_rot = g.divergence(dim=2)
+    rot_dim = g.dim if g.dim == 3 else 1
+    
+    n_rot_face = g.num_faces * rot_dim
+    n_rot_cell = g.num_cells * rot_dim
+    div_rot = g.divergence(dim=rot_dim)
 
     flux = sps.block_array(
         [
@@ -1315,7 +1311,7 @@ def _assemble_matrices(
 
     div = sps.block_diag(
         [
-            g.divergence(dim=2),
+            g.divergence(dim=g.dim),
             div_rot,
             g.divergence(dim=1),
         ],

@@ -196,7 +196,7 @@ class TestDivergenceTrace:
         return bf
 
     def _bound_int_ind(self, g: pp.Grid, dim: int) -> tuple[np.ndarray, np.ndarray]:
-        """Find the indices correspodning to  boundary and internal faces of a grid.
+        """Find the indices corresponding to boundary and internal faces of a grid.
 
         The indices are expanded to account for the dimension 'dim' of an operator (e.g.
         the divergence operator).
@@ -225,7 +225,7 @@ class TestDivergenceTrace:
     def test_divergence(self, dim: int) -> None:
         """Test the divergence operator for a number of grids.
 
-        See the delow documenation for details on the test.
+        See the below documentation for details on the test.
 
         Parameters:
             dim: The dimension of the divergence operator.
