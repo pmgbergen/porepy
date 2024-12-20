@@ -46,7 +46,7 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
     """
-    total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Total fluid mobility. Normally provided by a mixin instance of
     :class:`~porepy.models.fluid_property_library.FluidMobility`.
 
@@ -205,7 +205,7 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
             Operator representing the fluid density times mobility [s * m^-2].
 
         """
-        return self.total_mobility(domains)
+        return self.total_mass_mobility(domains)
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Fluid flux as Darcy flux times density and mobility.
