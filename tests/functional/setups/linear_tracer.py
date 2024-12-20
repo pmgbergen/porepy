@@ -78,6 +78,7 @@ import numpy as np
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.examples.tracer_flow import TracerFlowSetup
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 
@@ -305,10 +306,13 @@ class SimplePipe2D(pp.PorePyModel):
     def meshing_arguments(self) -> dict:
         return {"cell_size": self._dx}
 
+    def set_fractures(self) -> None:
+        """No fractures."""
+        self._fractures = []
+
 
 class TracerFluid_1p:
-    """Incompressible 2-component, 1-phase fluid with unit properties (everything is 1).
-    """
+    """Incompressible 2-component, 1-phase fluid with unit properties (everything is 1)."""
 
     def get_components(self) -> Sequence[pp.FluidComponent]:
         # This fluid will be used for the heuristic thermodynamic properties of the
@@ -390,16 +394,10 @@ class TracerBC_1p(pp.PorePyModel):
 class TracerFlowSetup_1p(
     SimplePipe2D,
     TracerFluid_1p,
-    pp.compositional.CompositionalVariables,
-    pp.compositional_flow.ComponentMassBalanceEquations,
-    # Mixin IC/BC for CF and do not put them as bases for TracerIC/BC. The latter will
-    # be reused for the other model, which has the former in the base CF setup.
-    TracerBC_1p,
-    pp.compositional_flow.BoundaryConditionsMulticomponent,
     TracerIC_1p,
-    pp.compositional_flow.InitialConditionsFractions,
+    TracerBC_1p,
     LinearTracerDataSaving_1p,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    TracerFlowSetup,
 ):
     """Tracer setup with 2 components and 1 phase."""
 
@@ -523,8 +521,7 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
 
 
 class TracerFluid_3p(TracerFluid_1p):
-    """2-component, 3-phase tracer fluid with 3 unitary phases (all properties are 1).
-    """
+    """2-component, 3-phase tracer fluid with 3 unitary phases (all properties are 1)."""
 
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Formal dependency of phase properties, though never used in dummy EoS."""
@@ -580,7 +577,7 @@ class ModelClosure_3p(pp.LocalElimination):
                     # Eliminate the saturation on subdomains and boundaries, and let the
                     # framework handle the IC/BC using the function.
                     self.mdg.subdomains() + self.mdg.boundaries(),
-                    {'cells': 1},
+                    {"cells": 1},
                 )
 
     def _set_enthalpy_closure(self) -> None:
@@ -712,8 +709,9 @@ class TracerFlowSetup_3p(
     # NOTE Due to how the constitutive law for EnthalpyFromTemperature is implemented,
     # we have an MRO issue here. We cannot put FluidEnthalpyFromTemperature above
     # because it is part of EnthalpyFromTemperature which is used for heuristic laws
-    # for the solid in CompositionalFlowSetup. This will be resolved at some point in the future
-    # when the solid is generalized (and respectively the constitutive laws for it).
+    # for the solid in CompositionalFlowSetup. This will be resolved at some point in
+    # the future when the solid is generalized (and respectively the constitutive laws
+    # for it).
 
     def fluid_specific_heat_capacity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """
