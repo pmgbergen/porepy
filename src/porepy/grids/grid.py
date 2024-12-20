@@ -1070,7 +1070,7 @@ class Grid:
         values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
-    def divergence(self, dim: Literal[1, 2, 3]) -> sps.csr_matrix:
+    def divergence(self, dim: int) -> sps.csr_matrix:
         """Get divergence operator for the grid.
 
         If dim>=2, it is assumed that the first row corresponds to the x-equation of
@@ -1082,7 +1082,7 @@ class Grid:
             dim: Dimension of the quantity of which we want to compute the divergence.
 
         Raises:
-            ValueError: If ``dim`` is not 1, 2 or 3.
+            ValueError: If ``dim`` is not strictly positive.
 
         Returns:
             Divergence operator. Dimensions: dim * (num_cells, num_faces)
@@ -1090,7 +1090,7 @@ class Grid:
         """
         if dim == 1:  # The divergence of a scalar.
             return self.cell_faces.T.tocsr()
-        elif dim in [2, 3]:  # The divergence of a vector.
+        elif dim > 1:  # The divergence of a vector.
             # Scalar divergence.
             scalar_div = self.cell_faces
             # Vector extension by Kronecker product.
