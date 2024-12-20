@@ -28,10 +28,6 @@ The following equations are available:
   using an independent (specific fluid) enthalpy variable in the accumulation term.
   Otherwise completely analogous to its base
   :class:`~porepy.models.energy_balance.TotalEnergyBalanceEquations`.
-- :class:`TracerTransportEquations`: A special set of transport equations for
-  :class:`~porepy.compositional.base.Compound` and tracer contained therein.
-  Analogous to :class:`ComponentMassBalanceEquations`, but with a modified accumulation
-  term to account for the relative tracer fractions.
 
 The primary equations include a total mass balance, component balance and the energy
 balance equation. A collection for non-isothermal, non-diffusive flow is given in
@@ -760,127 +756,12 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         return source
 
 
-class TracerTransportEquations(ComponentMassBalanceEquations):
-    """Simple transport equations for every tracer in a fluid component, which is a
-    compound.
-
-    The only difference to the compound's mass balance (given by
-    :class:`ComponentMassBalanceEquations`) is, that the accumulation term is
-    additionally weighed with the relative tracer fraction.
-
-    """
-
-    def _tracer_transport_equation_name(
-        self,
-        tracer: pp.Component,
-        component: compositional.Compound,
-    ) -> str:
-        """Method returning a name to be given to the transport equation of an active
-        tracer in a compound."""
-        return f"tracer_transport_equation_{tracer.name}_{component.name}"
-
-    def tracer_transport_equation_names(self) -> list[str]:
-        """Returns the names of transport equations set by this class,
-        which are primary PDEs on all subdomains for each tracer in each compound in the
-        fluid mixture."""
-        return [
-            self._tracer_transport_equation_name(tracer, component)
-            for component in self.fluid.components
-            if isinstance(component, compositional.Compound)
-            for tracer in component.active_tracers
-            if self.has_independent_tracer_fraction(tracer, component)
-        ]
-
-    def set_equations(self) -> None:
-        """Transport equations are set for all active tracers in each compound in the
-        fluid mixture."""
-        super().set_equations()
-
-        subdomains = self.mdg.subdomains()
-
-        for component in self.fluid.components:
-            if isinstance(component, compositional.Compound):
-
-                for tracer in component.active_tracers:
-                    if self.has_independent_tracer_fraction(tracer, component):
-                        sd_eq = self.tracer_transport_equation(
-                            tracer, component, subdomains
-                        )
-                        self.equation_system.set_equation(
-                            sd_eq, subdomains, {"cells": 1}
-                        )
-
-    def tracer_transport_equation(
-        self,
-        tracer: pp.Component,
-        compound: compositional.Compound,
-        subdomains: list[pp.Grid],
-    ) -> pp.ad.Operator:
-        """Mass balance equation for subdomains for a given compound.
-
-        Parameters:
-            tracer: An active tracer in the ``compound``.
-            compound: A transportable fluid compound in the mixture.
-            subdomains: List of subdomains.
-
-        Returns:
-            Operator representing the mass balance equation.
-
-        """
-        # Assemble the terms of the mass balance equation.
-        accumulation = self.volume_integral(
-            self.tracer_mass(tracer, compound, subdomains), subdomains, dim=1
-        )
-        flux = self.component_flux(compound, subdomains)
-        source = self.component_source(compound, subdomains)
-
-        # Feed the terms to the general balance equation method.
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name(self._tracer_transport_equation_name(tracer, compound))
-        return eq
-
-    def tracer_mass(
-        self,
-        tracer: pp.Component,
-        compound: compositional.Compound,
-        subdomains: list[pp.Grid],
-    ) -> pp.ad.Operator:
-        r"""The accumulated mass of a tracer :math:`k` in a fluid compound :math:`i` in
-        the overall fraction formulation, i.e. cell-wise volume integral of
-
-        .. math::
-
-            \Phi \left(\sum_j \rho_j s_j\right) z_i c_k,
-
-        which is essentially the accumulation of the compound mass scaled with the
-        tracer fraction.
-
-        Parameters:
-            tracer: An active tracer in the ``compound``.
-            component: A compound in the fluid mixture.
-            subdomains: List of subdomains.
-
-        Returns:
-            Operator representing above expression.
-
-        """
-        mass_density = (
-            self.porosity(subdomains)
-            * self.fluid.density(subdomains)
-            * compound.fraction(subdomains)
-            * compound.tracer_fraction_of[tracer](subdomains)
-        )
-        mass_density.set_name(f"solute_mass_{tracer.name}_{compound.name}")
-        return mass_density
-
-
 # endregion
 # region Intermediate mixins collecting variables, equations and constitutive laws.
 
 
 class PrimaryEquationsCF(
     TwoVariableTotalEnergyBalanceEquations,
-    TracerTransportEquations,
     ComponentMassBalanceEquations,
     pp.fluid_mass_balance.TotalMassBalanceEquations,
 ):
@@ -890,7 +771,6 @@ class PrimaryEquationsCF(
 
     - 1 pressure equation,
     - mass balance equations per component,
-    - transport equation for each tracer in every compound,
     - 1 energy balance,
 
     in this order (reverse order to the base classes).
@@ -1805,14 +1685,10 @@ class SolutionStrategyCF(
 
         """
 
-        return (
-            [
-                pp.fluid_mass_balance.TotalMassBalanceEquations.primary_equation_name(),
-                pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name(),
-            ]
-            + self.component_mass_balance_equation_names()
-            + self.tracer_transport_equation_names()
-        )
+        return [
+            pp.fluid_mass_balance.TotalMassBalanceEquations.primary_equation_name(),
+            pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name(),
+        ] + self.component_mass_balance_equation_names()
 
     def secondary_equation_names(self) -> list[str]:
         """Returns a list of secondary equations, which is defined as the complement
@@ -2003,7 +1879,6 @@ class ModelSetupCF(  # type: ignore[misc]
     - pressure equation / transport of total mass
     - energy balance / transport of total energy
     - transport equations for each independent component
-    - tracer transport equations
 
     The secondary block of equations must be provided using constitutive relations or an
     equilibrium model for the fluid.

@@ -913,10 +913,6 @@ else:
             which are primary PDEs on all subdomains for each independent fluid
             component."""
 
-        def tracer_transport_equation_names(self) -> list[str]:
-            """Returns the names of transport equations in the model, which are primary
-            PDEs on all subdomains for each tracer in each compound in the fluid."""
-
         def has_independent_fraction(self, instance: pp.Phase | pp.Component) -> bool:
             """Checks whether the ``instance`` has an independent variable for the
             fraction of total mass associated with it (
