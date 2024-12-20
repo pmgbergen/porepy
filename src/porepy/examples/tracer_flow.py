@@ -12,9 +12,9 @@ from porepy.applications.material_values.fluid_values import water
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.compositional.compositional_mixins import CompositionalVariables
 from porepy.models.compositional_flow import (
-    BoundaryConditionsCF,
+    BoundaryConditionsMulticomponent,
     ComponentMassBalanceEquations,
-    InitialConditionsCF,
+    InitialConditionsFractions,
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
@@ -98,7 +98,7 @@ def outlet_faces(bg: pp.BoundaryGrid, sides: pp.domain.DomainSides) -> np.ndarra
     return outlet
 
 
-class TracerIC(InitialConditionsCF):
+class TracerIC(InitialConditionsFractions):
     """Initial conditions for pressure and tracer fraction.
 
     Mixes in the initial pressure values, and inherits the IC treatment for
@@ -122,7 +122,7 @@ class TracerIC(InitialConditionsCF):
             assert False, "This will never happen since water is a dependent component."
 
 
-class TracerBC(BoundaryConditionsCF):
+class TracerBC(BoundaryConditionsMulticomponent):
     """Boundary conditions for pressure, flow and tracer.
 
     Mixes in the BC for pressure and the boundary type definition, and inherits the

@@ -395,9 +395,9 @@ class TracerFlowSetup_1p(
     # Mixin IC/BC for CF and do not put them as bases for TracerIC/BC. The latter will
     # be reused for the other model, which has the former in the base CF setup.
     TracerBC_1p,
-    pp.compositional_flow.BoundaryConditionsCF,
+    pp.compositional_flow.BoundaryConditionsMulticomponent,
     TracerIC_1p,
-    pp.compositional_flow.InitialConditionsCF,
+    pp.compositional_flow.InitialConditionsFractions,
     LinearTracerDataSaving_1p,
     pp.fluid_mass_balance.SinglePhaseFlow,
 ):
@@ -688,7 +688,7 @@ class TracerFlowSetup_3p(
     TracerBC_1p,
     ModelClosure_3p,
     LinearTracerDataSaving_3p,
-    pp.compositional_flow.ModelSetupCF,
+    pp.compositional_flow.CompositionalFlowSetup,
 ):
     """Exaggerated model for tracer flow, which includes 2 additional phases.
     Solution should be the same as the 1-p case, with partial fractions being equal to
@@ -712,7 +712,7 @@ class TracerFlowSetup_3p(
     # NOTE Due to how the constitutive law for EnthalpyFromTemperature is implemented,
     # we have an MRO issue here. We cannot put FluidEnthalpyFromTemperature above
     # because it is part of EnthalpyFromTemperature which is used for heuristic laws
-    # for the solid in ModelSetupCF. This will be resolved at some point in the future
+    # for the solid in CompositionalFlowSetup. This will be resolved at some point in the future
     # when the solid is generalized (and respectively the constitutive laws for it).
 
     def fluid_specific_heat_capacity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
