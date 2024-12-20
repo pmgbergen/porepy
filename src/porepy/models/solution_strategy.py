@@ -679,6 +679,16 @@ class SolutionStrategy(pp.PorePyModel):
         """
         return True
 
+    def _is_reference_phase_eliminated(self) -> bool:
+        """Returns True if ``params['eliminate_reference_phase'] == True`.
+        Defaults to True."""
+        return bool(self.params.get("eliminate_reference_phase", True))
+
+    def _is_reference_component_eliminated(self) -> bool:
+        """Returns True if ``params['eliminate_reference_component'] == True`.
+        Defaults to True."""
+        return bool(self.params.get("eliminate_reference_component", True))
+
     def update_time_dependent_ad_arrays(self) -> None:
         """Update the time dependent arrays before a new time step.
 

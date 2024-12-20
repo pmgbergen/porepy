@@ -34,9 +34,6 @@ from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
 __all__ = [
-    "is_reference_phase_eliminated",
-    "is_reference_component_eliminated",
-    "is_fractional_flow",
     "get_equilibrium_type",
     "has_unified_equilibrium",
     "CompositionalVariables",
@@ -66,45 +63,7 @@ def _get_surrogate_factory_as_property(
     )
 
 
-# NOTE The following methods are outsourced for compatibility reasons.
-# They can be used with any model.
-def is_reference_phase_eliminated(model: pp.PorePyModel) -> bool:
-    """
-    Parameters:
-        model: A PorePy model.
-
-    Returns:
-        True if ``model.params['eliminate_reference_phase'] == True`. Defaults to True.
-
-    """
-    return bool(model.params.get("eliminate_reference_phase", True))
-
-
-def is_reference_component_eliminated(model: pp.PorePyModel) -> bool:
-    """
-    Parameters:
-        model: A PorePy model.
-
-    Returns:
-        True if ``model.params['eliminate_reference_component'] == True`. Defaults to
-        True.
-
-    """
-    return bool(model.params.get("eliminate_reference_component", True))
-
-
-def is_fractional_flow(model: pp.PorePyModel) -> bool:
-    """
-    Parameters:
-        model: A PorePy model.
-
-    Returns:
-        True if ``model.params['fractional_flow'] == True`. Defaults to False.
-
-    """
-    return bool(model.params.get("fractional_flow", False))
-
-
+# TODO move below two inquires once flash and CFLE are merged.
 def get_equilibrium_type(model: pp.PorePyModel) -> str | None:
     """
     Parameters:
@@ -245,7 +204,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
             idx = instances.index(instance)
             ref_idx = self.fluid.reference_phase_index
             num_instances = self.fluid.num_phases
-            eliminated = is_reference_phase_eliminated(self)
+            eliminated = self._is_reference_phase_eliminated()
         elif isinstance(instance, Component):
             instances = list(self.fluid.components)
             if instance not in instances:
@@ -253,7 +212,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
             idx = instances.index(instance)
             ref_idx = self.fluid.reference_component_index
             num_instances = self.fluid.num_components
-            eliminated = is_reference_component_eliminated(self)
+            eliminated = self._is_reference_component_eliminated()
         else:
             raise TypeError(
                 f"Unknown type {type(instance)}. Expecting phase or component."
