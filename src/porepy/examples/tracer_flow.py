@@ -252,9 +252,7 @@ if __name__ == "__main__":
     }
 
     # NOTE mypy has some issues with the composed CF protocol, which is part of some of
-    # the mixins. For some reasons it thinks this class has
-    # tracer_transport_equation_names as an attribute, even though it does not have that
-    # mixin among the base classes.
+    # the mixins.
     model = TracerFlowSetup(params)  # type:ignore[abstract]
     pp.run_time_dependent_model(model, params)
     pp.plot_grid(
