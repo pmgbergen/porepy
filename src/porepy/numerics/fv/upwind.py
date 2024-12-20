@@ -475,9 +475,9 @@ class UpwindCoupling(InterfaceDiscretization):
         # Mapping from upper dim cells to faces.
         # The mortars always points from upper to lower, so we don't flip any signs. The
         # mapping will be non-zero also for faces not adjacent to the mortar grid,
-        # however, we wil hit it with mortar projections, thus kill those elements
+        # however, we wil hit it with mortar projections, thus kill those elements.
         inv_trace_h = np.abs(sd_primary.divergence(dim=1))
-        # We also need a trace-like projection from cells to faces
+        # We also need a trace-like projection from cells to faces.
         trace_h = inv_trace_h.T
 
         matrix_dictionary[self.inv_trace_primary_matrix_key] = inv_trace_h

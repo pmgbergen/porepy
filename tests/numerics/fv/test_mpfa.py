@@ -11,6 +11,7 @@ Content:
     - Gravity related tests.
 
 """
+
 import abc
 import random
 from math import pi

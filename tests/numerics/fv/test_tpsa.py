@@ -295,7 +295,7 @@ class TestTpsaTailoredGrid:
         c_c2f_avg_0 = 1 - c2f_avg_0
         c_c2f_avg_6 = 1 - c2f_avg_6
 
-        # Discretization of the boundary condition. 
+        # Discretization of the boundary condition.
         bound_stress = np.zeros((4, 14))
         bound_stress[0, 0] = -stress_0
         bound_stress[1, 1] = -stress_0
@@ -1022,7 +1022,7 @@ def test_compression_tension(g: pp.Grid, driving_bc_type: str, tensile: bool):
     east boundary.
 
     Parameters:
-        g: Grid object. driving_bc_type: Type of boundary condition to apply. 
+        g: Grid object. driving_bc_type: Type of boundary condition to apply.
         tensile: If True, the boundary conditions are reversed, such that the force is
             tensile, rather than compressive.
 
@@ -1315,7 +1315,7 @@ def _assemble_matrices(
 
     div = sps.block_diag(
         [
-            g.=divergence(dim=2),
+            g.divergence(dim=2),
             div_rot,
             g.divergence(dim=1),
         ],
@@ -1406,10 +1406,10 @@ def _set_bc_by_direction(
     # easy to insert values in the correct order.
     bc_str = np.zeros(g.num_faces, dtype="object")
 
-    directions = ['south', 'east', 'north', 'west']
+    directions = ["south", "east", "north", "west"]
     types = [type_south, type_east, type_north, type_west]
     if g.dim == 3:
-        directions += ['bottom', 'top']
+        directions += ["bottom", "top"]
         types += [type_bottom, type_top]
 
     for direction, bc_type in zip(directions, types):
@@ -1435,9 +1435,9 @@ def _set_bc_by_direction(
     d[pp.PARAMETERS][KEYWORD]["bc_rot"] = bc_rot
 
     bc_val = np.zeros((g.dim, g.num_faces))
-    bc_val[1, np.where(getattr(domain, 'south'))[0]] = 0.1
-    bc_val[0, np.where(getattr(domain, 'east'))[0]] = -0.1
+    bc_val[1, np.where(getattr(domain, "south"))[0]] = 0.1
+    bc_val[0, np.where(getattr(domain, "east"))[0]] = -0.1
     if g.dim == 3:
-        bc_val[2, np.where(getattr(domain, 'bottom'))[0]] = 0.1
+        bc_val[2, np.where(getattr(domain, "bottom"))[0]] = 0.1
 
     return bc_val
