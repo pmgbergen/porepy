@@ -18,7 +18,7 @@ import copy
 import itertools
 import warnings
 from itertools import count
-from typing import Any, Literal, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
