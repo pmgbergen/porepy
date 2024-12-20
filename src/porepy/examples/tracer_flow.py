@@ -8,7 +8,7 @@ from typing import Literal, Sequence, TypedDict, cast
 import numpy as np
 
 import porepy as pp
-from porepy.applications.material_values.fluid_values import water
+from porepy.applications.material_values.fluid_values import water as _water
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.compositional.compositional_mixins import CompositionalVariables
 from porepy.models.compositional_flow import (
@@ -29,6 +29,10 @@ class WaterDict(TypedDict):
     thermal_expansion: float
     viscosity: float
     name: str
+
+
+# Casting this to help mypy
+water = cast(WaterDict, _water)
 
 
 class DomainX(pp.PorePyModel):
@@ -71,7 +75,7 @@ class TracerFluid:
         """Mixed in method defining water as the reference component and a simple
         tracer as the second component."""
 
-        component_1 = pp.FluidComponent(**cast(WaterDict, water))
+        component_1 = pp.FluidComponent(**water)
         component_2 = pp.FluidComponent(name="tracer")
         return [component_1, component_2]
 
@@ -80,9 +84,9 @@ def inlet_faces(bg: pp.BoundaryGrid, sides: pp.domain.DomainSides) -> np.ndarray
     """Helper function to define a snippet of the western boundary as the inlet."""
 
     inlet = np.zeros(bg.num_cells, dtype=bool)
-    inlet[sides.west] = True
-    inlet &= bg.cell_centers[1] >= 0.4
-    inlet &= bg.cell_centers[1] <= 0.6
+    inlet[sides.north] = True
+    inlet &= bg.cell_centers[0] >= 0.4
+    inlet &= bg.cell_centers[0] <= 0.6
 
     return inlet
 
@@ -91,9 +95,9 @@ def outlet_faces(bg: pp.BoundaryGrid, sides: pp.domain.DomainSides) -> np.ndarra
     """Helper function to define a snippet of the eastern boundary as the inlet."""
 
     outlet = np.zeros(bg.num_cells, dtype=bool)
-    outlet[sides.east] = True
-    outlet &= bg.cell_centers[1] >= 0.4
-    outlet &= bg.cell_centers[1] <= 0.6
+    outlet[sides.south] = True
+    outlet &= bg.cell_centers[0] >= 0.4
+    outlet &= bg.cell_centers[0] <= 0.6
 
     return outlet
 
@@ -115,11 +119,11 @@ class TracerIC(InitialConditionsFractions):
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         """Setting initial tracer overall fraction to zero."""
+
+        assert component.name == "tracer", "Only the tracer is independent."
+
         # No tracer in the domain at the beginning.
-        if component.name == "tracer":
-            return np.zeros(sd.num_cells)
-        else:
-            assert False, "This will never happen since water is a dependent component."
+        return np.zeros(sd.num_cells)
 
 
 class TracerBC(BoundaryConditionsMulticomponent):
@@ -179,17 +183,14 @@ class TracerBC(BoundaryConditionsMulticomponent):
 
         z = np.zeros(bg.num_cells)
 
+        assert component.name == "tracer", "Only the tracer is independent."
+
         # 10% tracer inflow into matrix
         if bg.parent.dim == 2:
-            if component.name == "tracer":
-                sides = self.domain_boundary_sides(bg)
-                inlet = inlet_faces(bg, sides)
+            sides = self.domain_boundary_sides(bg)
+            inlet = inlet_faces(bg, sides)
 
-                z[inlet] = 0.1
-            else:
-                assert (
-                    False
-                ), "This will never happen since water is a dependent component."
+            z[inlet] = 0.1
 
         return z
 
