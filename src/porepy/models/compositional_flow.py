@@ -182,13 +182,29 @@ def update_phase_properties(
             )
 
 
+def is_fractional_flow(model: pp.PorePyModel) -> bool:
+    """Checking the model parameters for the ``'fractional_flow'`` flag.
+
+    This check is separated from the models and their mixins for compatibility reasons
+    since it is mainly used in the CF framework.
+
+    Parameters:
+        model: A PorePy model.
+
+    Returns:
+        True if ``model.params['fractional_flow'] == True`. Defaults to False.
+
+    """
+    return bool(model.params.get("fractional_flow", False))
+
+
 def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     """Performs a log of some model parameters and properties relevant for the CF
     framework."""
 
-    p_elim = compositional.is_reference_phase_eliminated(model)
-    c_elim = compositional.is_reference_component_eliminated(model)
-    is_ff = compositional.is_fractional_flow(model)
+    p_elim = model._is_reference_phase_eliminated()
+    c_elim = model._is_reference_component_eliminated()
+    is_ff = is_fractional_flow(model)
     et = compositional.get_equilibrium_type(model)
     schur = model.params.get("reduce_linear_system", False)
     darcy = model.params.get("rediscretize_darcy_flux", False)
@@ -362,14 +378,14 @@ class TwoVariableTotalEnergyBalanceEquations(
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if compositional.is_fractional_flow(self) and all(
+        if is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_energy_key,
                 cast(Sequence[pp.BoundaryGrid], domains),
             )
-        elif compositional.is_fractional_flow(self):
+        elif is_fractional_flow(self):
             # TODO is it worth reducing the operator tree size, by pulling the division
             # by total mobility out of the sum?
             op = pp.ad.sum_operator_list(
@@ -581,14 +597,14 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
         op: pp.ad.Operator | pp.ad.TimeDependentDenseArray
 
-        if compositional.is_fractional_flow(self) and all(
+        if is_fractional_flow(self) and all(
             [isinstance(g, pp.BoundaryGrid) for g in domains]
         ):
             op = self.create_boundary_operator(
                 self.bc_data_fractional_flow_component_key(component),
                 cast(Sequence[pp.BoundaryGrid], domains),
             )
-        elif compositional.is_fractional_flow(self):
+        elif is_fractional_flow(self):
             op = self.fractional_component_mass_mobility(component, domains)
         else:
             op = self.component_mass_mobility(component, domains)
@@ -914,7 +930,7 @@ class ConstitutiveLawsSolidSkeletonCF(
             as a second-order tensor.
 
         """
-        if compositional.is_fractional_flow(self):
+        if is_fractional_flow(self):
             op = self.isotropic_second_order_tensor(
                 subdomains, self.diffusive_permeability(subdomains)
             )
@@ -1268,7 +1284,7 @@ class BoundaryConditionsFractionalFlow(
 
         """
         super().update_all_boundary_conditions()
-        if compositional.is_fractional_flow(self):
+        if is_fractional_flow(self):
             self.update_boundary_values_fractional_flow()
         else:
             raise pp.compositional.CompositionalModellingError(

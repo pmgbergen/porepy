@@ -584,6 +584,14 @@ else:
 
             """
 
+        def _is_reference_phase_eliminated(self) -> bool:
+            """Returns True if ``params['eliminate_reference_phase'] == True`.
+            Defaults to True."""
+
+        def _is_reference_component_eliminated(self) -> bool:
+            """Returns True if ``params['eliminate_reference_component'] == True`.
+            Defaults to True."""
+
         def initial_condition(self) -> None:
             """Set the initial condition for the problem.
 
