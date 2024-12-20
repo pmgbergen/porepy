@@ -182,13 +182,14 @@ class DiffusiveTotalMassBalanceEquations(
     pp.fluid_mass_balance.TotalMassBalanceEquations
 ):
     """A version of the pressure equation (total mass balance) which does not rely on
-    upwinding of non-linear weights in the flux.
+    upwinding of non-linear weights in the fluid flux on both subdomains and interfaces.
 
-    This balance equation assumes that the total mobility is part of the diffusive,
-    second-order tensor in the non-linear (MPFA) discretization of the Darcy flux.
+    This balance equation assumes that the transported mass and mobility terms are part
+    of the diffusive, second-order tensor in the non-linear (MPFA) discretization of the
+    Darcy flux. Correspondingly, the fluxes are not volumetric anymore, but massic.
 
     It **requires** a re-discretization of the flux (MPFA) for a correct computation
-    of the flux at every iteration.
+    of the flux at every iteration due to a non-linear tensor.
 
     """
 
@@ -223,42 +224,31 @@ class DiffusiveTotalMassBalanceEquations(
         """
         return self.darcy_flux(domains)
 
-    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Modified source term using the :attr:`interface_darcy_flux` and
-        :attr:`well_flux`, assuming they represent the total flux of mass accross
-        interfaces.
+    def interface_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """The interface fluid flux is given solely by the :attr:`interface_darcy_flux`,
+        assuming it is a massic flux.
 
         Parameters:
-            subdomains: List of subdomains.
+            interfaces: List of mortar grids.
 
         Returns:
-            Operator representing the source term [kg * s^-1].
+            Whatever :attr:`interface_darcy_flux` returns.
 
         """
-        interfaces = self.subdomains_to_interfaces(subdomains, [1])
-        well_interfaces = self.subdomains_to_interfaces(subdomains, [2])
-        well_subdomains = self.interfaces_to_subdomains(well_interfaces)
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
-        well_projection = pp.ad.MortarProjections(
-            self.mdg, well_subdomains, well_interfaces
-        )
-        subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
-        # Here are the differences compared to the version using upwinding: We use the
-        # interface and well flux (variables) directly, without UpwindCoupling for the
-        # non-linear terms.
-        source = projection.mortar_to_secondary_int @ self.interface_darcy_flux(
-            interfaces
-        )
-        source.set_name("interface_fluid_flux_source")
-        well_fluxes = well_projection.mortar_to_secondary_int @ self.well_flux(
-            well_interfaces
-        ) - well_projection.mortar_to_primary_int @ self.well_flux(interfaces)
-        well_fluxes.set_name("well_fluid_flux_source")
-        source += subdomain_projection.cell_restriction(subdomains) @ (
-            subdomain_projection.cell_prolongation(well_subdomains) @ well_fluxes
-        )
-        source.set_name("fluid_source")
-        return source
+        return self.interface_darcy_flux(interfaces)
+
+    def well_fluid_flux(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """The well fluid flux is given solely by the :attr:`well_flux`,
+        assuming it is a massic flux.
+
+        Parameters:
+            interfaces: List of mortar grids.
+
+        Returns:
+            Whatever :attr:`well_flux` returns.
+
+        """
+        return self.well_flux(interfaces)
 
 
 class TwoVariableTotalEnergyBalanceEquations(
