@@ -18,7 +18,7 @@ import copy
 import itertools
 import warnings
 from itertools import count
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -1073,10 +1073,10 @@ class Grid:
     def divergence(self, dim: Literal[1, 2, 3]) -> sps.csr_matrix:
         """Get divergence operator for the grid.
 
-        If dim>=2, it is assumed that the first
-        column corresponds to the x-equation of face 0, second column is y-equation etc.
-        The next column is then the x-equation for face 1.
-        Correspondingly, the first row represents x-component in first cell etc.
+        If dim>=2, it is assumed that the first column corresponds to the x-equation of
+        face 0, second column is y-equation etc. The next column is then the x-equation
+        for face 1. Correspondingly, the first row represents x-component in first cell
+        etc.
 
         Parameters:
             dim: Dimension of the quantity of which we want to compute the divergence.
@@ -1088,17 +1088,17 @@ class Grid:
             Divergence operator. Dimensions: dim * (num_cells, num_faces)
 
         """
-        if dim == 1:  # The divergence is a scalar
+        if dim == 1:  # The divergence of a scalar
             return self.cell_faces.T.tocsr()
-        elif dim in [2, 3]:  # The divergence is a vector
+        elif dim in [2, 3]:  # The divergence of a vector
             # Scalar divergence
             scalar_div = self.cell_faces
             # Vector extension by Kronecker product.
             block_div = sps.kron(scalar_div, sps.eye(dim)).tocsc()
-            return block_div.transpose().tocsr()
+            return block_div.T.tocsr()
         else:
             raise ValueError(
-                f"Should not use divergence operator on quantity of dimension {dim}"
+                f"Should not use divergence operator on quantity of dimension {dim}."
             )
 
     def trace(self, dim: int = 1) -> sps.csr_matrix:
@@ -1108,7 +1108,7 @@ class Grid:
             dim: Dimension of the tensor we want to compute the trace of.
 
         Returns:
-            Trace operator as a rank dim-1 tensor.
+            Trace operator. Dimensions: dim * (num_faces, num_cells)
 
         """
         bound_faces = self.get_all_boundary_faces()

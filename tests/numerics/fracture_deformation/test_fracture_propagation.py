@@ -582,6 +582,7 @@ class TestPropagationCriteria:
         values for u and parameters.
 
     """
+
     @pytest.fixture(autouse=True)
     def setup(self):
         self.model = pp.ConformingFracturePropagation({})

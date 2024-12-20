@@ -142,7 +142,7 @@ class TestDivergenceTrace:
             2. 3d Cartesian grid with 2x2x2 cells.
             3. 2d structured triangle grid with 2x2 cells.
             4. 3d structured tetrahedral grid with 2x2x2 cells.
-            5  A 1d grid with two cells, and with the middle node split.
+            5. A 1d grid with two cells, and with the middle node split.
 
         Returns:
             A list of grids.
@@ -155,9 +155,7 @@ class TestDivergenceTrace:
 
         x = np.array([[0, 0.5, 0.5, 1], [0, 0, 0, 0], [0, 0, 0, 0]])
         fn = sps.identity(4, format="csr")
-        cf = sps.csc_matrix(
-            np.array([[-1, 1, 0, 0], [0, 0, -1, 1]]).T
-        )
+        cf = sps.csc_matrix(np.array([[-1, 1, 0, 0], [0, 0, -1, 1]]).T)
         g5 = pp.Grid(dim=1, nodes=x, face_nodes=fn, cell_faces=cf, name="")
 
         grid_list = [g1, g2, g3, g4, g5]
@@ -167,8 +165,8 @@ class TestDivergenceTrace:
         return grid_list
 
     def _boundary_faces(self, g: pp.Grid) -> np.ndarray:
-        """Find the boundary faces of the grid. 
-        
+        """Find the boundary faces of the grid.
+
         The boundary faces are identified by geometrically checking if the face center
         is at the boundary of the domain, which is assumed to be of unit size. For 1d
         grids, we also know that faces with center at x=0.5 are boundary faces. This
@@ -178,21 +176,24 @@ class TestDivergenceTrace:
 
         Parameters:
             g: The grid for which the boundary faces should be found.
-            
+
         Returns:
             np.ndarray: The indices of the boundary faces.
 
         """
 
-        bf = np.where(np.logical_or(np.any(g.face_centers[:g.dim] == 0, axis=0),
-             np.any(g.face_centers[:g.dim] == 1, axis=0)))[0]
+        bf = np.where(
+            np.logical_or(
+                np.any(g.face_centers[: g.dim] == 0, axis=0),
+                np.any(g.face_centers[: g.dim] == 1, axis=0),
+            )
+        )[0]
 
         if g.dim == 1:
             bf = np.hstack((bf, np.where(g.face_centers[0] == 0.5)[0]))
-        
+
         bf.sort()
         return bf
-    
 
     def _bound_int_ind(self, g: pp.Grid, dim: int) -> tuple[np.ndarray, np.ndarray]:
         """Find the indices correspodning to  boundary and internal faces of a grid.
@@ -220,7 +221,6 @@ class TestDivergenceTrace:
 
         return bound_ind, int_face_ind
 
-
     @pytest.mark.parametrize("dim", [1, 2])
     def test_divergence(self, dim: int) -> None:
         """Test the divergence operator for a number of grids.
@@ -236,7 +236,7 @@ class TestDivergenceTrace:
             # Divergence operator to be tested.
             div = g.divergence(dim=dim).toarray()
             # First a simple shape check.
-            assert div.shape == (dim *g.num_cells, dim * g.num_faces)
+            assert div.shape == (dim * g.num_cells, dim * g.num_faces)
 
             # Indices of boundary and internal faces.
             bound_ind, int_face_ind = self._bound_int_ind(g, dim)
@@ -272,7 +272,10 @@ class TestDivergenceTrace:
             # Vector from cell center to face center, and face normal. All are expanded
             # (repeated) to match the repeats in ci and fi, if dim > 1 (each cell-face
             # combination occurs more than once).
-            fc_cc = np.repeat(g.face_centers, dim, axis=1)[:, fi] - np.repeat(g.cell_centers, dim, axis=1)[:, ci]
+            fc_cc = (
+                np.repeat(g.face_centers, dim, axis=1)[:, fi]
+                - np.repeat(g.cell_centers, dim, axis=1)[:, ci]
+            )
             n = np.repeat(g.face_normals, dim, axis=1)[:, fi]
 
             # Norm of the vector from cell center to face center.
@@ -304,13 +307,13 @@ class TestDivergenceTrace:
 
             # Non-zero elements in the trace matrix.
             fi, ci, sgn = sps.find(trace)
-            
+
             # The trace matrix should be a mapping from cells to faces, expanded to
             # deal with 'dim' quantities.
             assert trace.shape == (dim * g.num_faces, dim * g.num_cells)
 
             # The trace matrix should be mapping values without altering them, hence
-            # all non-zero values should be 1. 
+            # all non-zero values should be 1.
             assert np.all(sgn == 1)
 
             # Each face index should occur at most once.
