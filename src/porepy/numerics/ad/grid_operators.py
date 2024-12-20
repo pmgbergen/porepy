@@ -581,34 +581,23 @@ class Trace:
         cell_projections, face_projections = _subgrid_projections(subdomains, self.dim)
 
         trace: list[sps.spmatrix] = []
-        inv_trace: list[sps.spmatrix] = []
 
         if len(subdomains) > 0:
             for sd in subdomains:
                 if self._is_scalar:
-                    # TEMPORARY CONSTRUCT: Use the divergence operator as a trace.
-                    # It would be better to define a dedicated function for this,
-                    # perhaps in the grid itself.
-                    div = np.abs(pp.fvutils.scalar_divergence(sd))
+                    # Local trace operator.
+                    sd_trace = sd.trace(dim=self.dim)
+                    # Restrict global cell values to the local grid.
+                    trace.append(sd_trace * cell_projections[sd].T)
 
-                    # Restrict global cell values to the local grid, use transpose of div
-                    # to map cell values to faces.
-                    trace.append(div.T * cell_projections[sd].T)
-                    # Similarly restrict a global face quantity to the local grid, then
-                    # map back to cells.
-                    inv_trace.append(div * face_projections[sd].T)
                 else:
                     raise NotImplementedError("kronecker")
         else:
             trace = [sps.csr_matrix((0, 0))]
-            inv_trace = [sps.csr_matrix((0, 0))]
-        # Stack both trace and inv_trace vertically to make them into mappings to
-        # global quantities.
-        # Wrap the stacked matrices into an Ad object
+        # Stack trace vertically to make them into mappings to global quantities. Wrap
+        # the stacked matrices into an AD object.
         self.trace = SparseArray(sps.bmat([[m] for m in trace]).tocsr())
         """ Matrix of trace projections from cells to faces."""
-        self.inv_trace = SparseArray(sps.bmat([[m] for m in inv_trace]).tocsr())
-        """ Matrix of inverse trace projections from faces to cells."""
 
     def __repr__(self) -> str:
         s = (
@@ -692,13 +681,7 @@ class Divergence(Operator):
             multiple subdomains.
 
         """
-        if self.dim == 1:
-            mat = [pp.fvutils.scalar_divergence(sd) for sd in self.subdomains]
-        else:
-            mat = [
-                sps.kron(pp.fvutils.scalar_divergence(sd), sps.eye(self.dim))
-                for sd in self.subdomains
-            ]
+        mat = [sd.divergence(dim=self.dim) for sd in self.subdomains]
         matrix = sps.block_diag(mat)
         return matrix
 

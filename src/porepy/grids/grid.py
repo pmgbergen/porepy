@@ -1070,9 +1070,64 @@ class Grid:
         values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
+    def divergence(self, dim: int) -> sps.csr_matrix:
+        """Get divergence operator for the grid.
+
+        If dim>=2, it is assumed that the first row corresponds to the x-equation of
+        face 0, second row is y-equation etc. The next row is then the x-equation for
+        face 1. Correspondingly, the first column represents x-component in first cell
+        etc.
+
+        Parameters:
+            dim: Dimension of the quantity of which we want to compute the divergence.
+
+        Raises:
+            ValueError: If ``dim`` is not strictly positive.
+
+        Returns:
+            Divergence operator. Dimensions: dim * (num_cells, num_faces)
+
+        """
+        if dim == 1:  # The divergence of a scalar.
+            return self.cell_faces.T.tocsr()
+        elif dim > 1:  # The divergence of a vector.
+            # Scalar divergence.
+            scalar_div = self.cell_faces
+            # Vector extension by Kronecker product.
+            block_div = sps.kron(scalar_div, sps.eye(dim))
+            return block_div.T.tocsr()
+        else:
+            raise ValueError(
+                f"Should not use divergence operator on quantity of dimension {dim}."
+            )
+
+    def trace(self, dim: int = 1) -> sps.csr_matrix:
+        """Get trace operator for the grid.
+
+        Parameters:
+            dim: Dimension of the tensor we want to compute the trace of.
+
+        Returns:
+            Trace operator. Dimensions: dim * (num_faces, num_cells).
+
+        """
+        bound_faces = self.get_all_boundary_faces()
+        # Get the cells neighboring the boundary.
+        _, bound_cells = self.signs_and_cells_of_boundary_faces(bound_faces)
+        # Expand the indices to the correct size. The trace operator is a mapping from
+        # cells to faces, so we need boundary cells in the columns and boundary faces in
+        # the rows.
+        rows = pp.fvutils.expand_indices_nd(bound_faces, dim)
+        cols = pp.fvutils.expand_indices_nd(bound_cells, dim)
+        trace = sps.coo_matrix(
+            (np.ones(bound_faces.size * dim), (rows, cols)),
+            shape=(self.num_faces * dim, self.num_cells * dim),
+        ).tocsr()
+        return trace
+
     def _check_tags(self) -> None:
-        """Check if all the standard tags are specified in :attr:`tags`,
-        and the tag arrays have correct sizes.
+        """Check if all the standard tags are specified in :attr:`tags`, and the tag
+        arrays have correct sizes.
 
         Raises:
             ValueError: If any inconsistency among tags is found.
