@@ -401,7 +401,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ("tangential_component", np.array([[1.0, 0.0]]), 0),  # Check only for 0d.
         # Same as advection weight in 1-phase, 1-component cast
         (
-            "total_mobility",
+            "total_mass_mobility",
             water_values["density"]
             * np.exp(water_values["compressibility"] * 200 * pp.BAR)
             / water_values["viscosity"],
@@ -497,15 +497,15 @@ def test_ad_operator_methods_single_phase_flow(
     "method_name, p_or_c, expected_value",
     [
         ('phase_mobility', 'phase', 1 / water_values['viscosity']),
-        ('fractional_phase_mobility', 'phase', 1),
+        ('fractional_phase_mass_mobility', 'phase', 1),
         (
-            'component_mobility',
+            'component_mass_mobility',
             'component',
             water_values["density"]
             * np.exp(water_values["compressibility"] * 200 * pp.BAR)
             / water_values["viscosity"],
         ),
-        ('fractional_component_mobility', 'component', 1),
+        ('fractional_component_mass_mobility', 'component', 1),
     ]
 )
 def test_mobility_single_phase_flow(

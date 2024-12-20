@@ -275,8 +275,8 @@ class FluidMobility(pp.PorePyModel):
         """
         return pp.ad.UpwindCouplingAd(self.mobility_keyword, interfaces)
 
-    def total_mobility(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-        r"""Total mobility of the fluid mixture is given by
+    def total_mass_mobility(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        r"""Total mass mobility of the fluid mixture is given by
 
         .. math::
 
@@ -296,7 +296,7 @@ class FluidMobility(pp.PorePyModel):
             Above expression in operator form.
 
         """
-        name = "total_mobility"
+        name = "total_mass_mobility"
         mobility = pp.ad.sum_operator_list(
             [
                 phase.density(domains) * self.phase_mobility(phase, domains)
@@ -320,8 +320,8 @@ class FluidMobility(pp.PorePyModel):
 
         Important:
             Contrary to all other mobility methods implemented here, this one does not
-            contain any massic term. This is for consistency reasons with the
-            literature.
+            contain any mass term, it is a volumetric term for consistency reasons with
+            the literature.
 
         Parameters:
             phase: A phase in the fluid mixture.
@@ -344,7 +344,7 @@ class FluidMobility(pp.PorePyModel):
         mobility.set_name(f"phase_mobility_{phase.name}")
         return mobility
 
-    def component_mobility(
+    def component_mass_mobility(
         self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         r"""Non-linear term in the advective flux in a component mass balance equation.
@@ -391,14 +391,14 @@ class FluidMobility(pp.PorePyModel):
                 domains
             ) * self.phase_mobility(self.fluid.reference_phase, domains)
 
-        mobility.set_name(f"component_mobility_{component.name}")
+        mobility.set_name(f"component_mass_mobility_{component.name}")
         return mobility
 
-    def fractional_component_mobility(
+    def fractional_component_mass_mobility(
         self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
-        r"""Returns the :meth:`component_mobility` divided by the
-        :meth:`total_mobility` for a component :math:`\eta`.
+        r"""Returns the :meth:`component_mass_mobility` divided by the
+        :meth:`total_mass_mobility` for a component :math:`\eta`.
 
         To be used in component mass balance equations in a fractional flow setup, where
         the total mobility is part of the non-linear diffusive tensor in the Darcy flux.
@@ -417,17 +417,17 @@ class FluidMobility(pp.PorePyModel):
             The term :math:`f_{\eta}` in above expession in operator form.
 
         """
-        frac_mob = self.component_mobility(component, domains) / self.total_mobility(
-            domains
-        )
-        frac_mob.set_name(f"fractional_component_mobility_{component.name}")
+        frac_mob = self.component_mass_mobility(
+            component, domains
+        ) / self.total_mass_mobility(domains)
+        frac_mob.set_name(f"fractional_component_mass_mobility_{component.name}")
         return frac_mob
 
-    def fractional_phase_mobility(
+    def fractional_phase_mass_mobility(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
         r"""Returns the product of the ``phase`` density and :meth:`phase_mobility`
-        divided by the :meth:`total_mobility`.
+        divided by the :meth:`total_mass_mobility`.
 
         To be used in balance equations in a fractional flow setup, where the total
         mobility is part of the non-linear diffusive tensor in the Darcy flux.
@@ -451,9 +451,9 @@ class FluidMobility(pp.PorePyModel):
         frac_mob = (
             phase.density(domains)
             * self.phase_mobility(phase, domains)
-            / self.total_mobility(domains)
+            / self.total_mass_mobility(domains)
         )
-        frac_mob.set_name(f"fractional_phase_mobility_{phase.name}")
+        frac_mob.set_name(f"fractional_phase_mass_mobility_{phase.name}")
         return frac_mob
 
 

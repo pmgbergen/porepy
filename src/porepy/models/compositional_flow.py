@@ -317,9 +317,9 @@ class TwoVariableTotalEnergyBalanceEquations(
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`EnthalpyVariable`."""
 
-    total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-    fractional_phase_mobility: Callable[
+    fractional_phase_mass_mobility: Callable[
         [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
@@ -375,12 +375,12 @@ class TwoVariableTotalEnergyBalanceEquations(
             op = pp.ad.sum_operator_list(
                 [
                     phase.specific_enthalpy(domains)
-                    * self.fractional_phase_mobility(phase, domains)
+                    * self.fractional_phase_mass_mobility(phase, domains)
                     # * phase.density(domains)
                     # * self.phase_mobility(phase, domains)
                     for phase in self.fluid.phases
                 ],
-            )  # / self.total_mobility(domains)
+            )  # / self.total_mass_mobility(domains)
         # If the fractional-flow framework is not used, the weight corresponds to the
         # advected enthalpy and a super call is performed (where the respective term is
         # implemented).
@@ -445,11 +445,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     ]
     """See :class:`~porepy.models.constitutive_laws.AdvectiveFlux`."""
 
-    fractional_component_mobility: Callable[
+    fractional_component_mass_mobility: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-    component_mobility: Callable[
+    component_mass_mobility: Callable[
         [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
@@ -565,7 +565,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
         In the fractional flow formulation, it uses the ``component``'s
         :meth:`~porepy.models.fluid_property_library.FluidMobility.
-        fractional_component_mobility`, assuming the flux contains the total mobility
+        fractional_component_mass_mobility`, assuming the flux contains the total mobility
         in the diffusive tensor. Creates a boundary operator, in case explicit values
         for fractional flow BC are used.
         The advected quantity is dimensionless in this case.
@@ -589,9 +589,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
                 cast(Sequence[pp.BoundaryGrid], domains),
             )
         elif compositional.is_fractional_flow(self):
-            op = self.fractional_component_mobility(component, domains)
+            op = self.fractional_component_mass_mobility(component, domains)
         else:
-            op = self.component_mobility(component, domains)
+            op = self.component_mass_mobility(component, domains)
 
         op.set_name(f"advected_mass_{component.name}")
         return op
@@ -845,7 +845,7 @@ class ConstitutiveLawsSolidSkeletonCF(
 
     """
 
-    total_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -885,7 +885,7 @@ class ConstitutiveLawsSolidSkeletonCF(
             size=sum(sd.num_cells for sd in subdomains),
             name="absolute_permeability",
         )
-        op = self.total_mobility(subdomains) * abs_perm
+        op = self.total_mass_mobility(subdomains) * abs_perm
         op.set_name("isotropic_permeability")
         return op
 
@@ -1719,11 +1719,11 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
         # The list is empty if nothing was added during set_nonlinear_discretizations
         if self._nonlinear_flux_discretizations:
             tic = time.time()
-            # Uniquify to save computational time, then discretize.
-            unique_discr = pp.ad._ad_utils.uniquify_discretization_list(
+            # Get unique discretizations to save computational time, then discretize.
+            unique_discretizations = pp.ad._ad_utils.uniquify_discretization_list(
                 self._nonlinear_flux_discretizations
             )
-            pp.ad._ad_utils.discretize_from_list(unique_discr, self.mdg)
+            pp.ad._ad_utils.discretize_from_list(unique_discretizations, self.mdg)
             logger.info(
                 "Re-discretized nonlinear fluxes in {} seconds".format(
                     time.time() - tic
