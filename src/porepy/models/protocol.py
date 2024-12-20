@@ -541,6 +541,18 @@ else:
         nonlinear_solver_statistics: pp.SolverStatistics
         """Solver statistics for the nonlinear solver."""
 
+        def __init__(self, params: Optional[dict] = None):
+            """Initialize the solution strategy.
+
+            The solution strategy is the only mixin in a model with a constructor,
+            taking all the model parameters and storing them as an attribute for further
+            steps.
+
+            Parameters:
+                params: Parameters for the solution strategy. Defaults to None.
+
+            """
+
         @property
         def time_step_indices(self) -> np.ndarray:
             """Indices for storing time step solutions.
@@ -584,6 +596,37 @@ else:
             """Method to be called at the start of every non-linear iteration.
 
             Possible usage is to update non-linear parameters, discretizations etc.
+
+            """
+
+        def after_nonlinear_convergence(self) -> None:
+            """Method to be called after every non-linear iteration.
+
+            Possible usage is to distribute information on the solution, visualization, etc.
+
+            """
+
+        def set_nonlinear_discretizations(self) -> None:
+            """Set the list of nonlinear discretizations.
+
+            This method is called before the discretization is performed. It is intended to
+            be used to set the list of nonlinear discretizations.
+
+            """
+
+        def solve_linear_system(self) -> np.ndarray:
+            """Solve linear system.
+
+            Default method is a direct solver. The linear solver is chosen in the
+            initialize_linear_solver of this model. Implemented options are
+                - scipy.sparse.spsolve with and without call to umfpack
+                - pypardiso.spsolve
+
+            See also:
+                :meth:`initialize_linear_solver`
+
+            Returns:
+                np.ndarray: Solution vector.
 
             """
 
