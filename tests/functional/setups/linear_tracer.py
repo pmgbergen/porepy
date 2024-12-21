@@ -685,7 +685,7 @@ class TracerFlowSetup_3p(
     TracerBC_1p,
     ModelClosure_3p,
     LinearTracerDataSaving_3p,
-    pp.compositional_flow.CompositionalFlowSetup,
+    pp.compositional_flow.CompositionalFlowTemplate,
 ):
     """Exaggerated model for tracer flow, which includes 2 additional phases.
     Solution should be the same as the 1-p case, with partial fractions being equal to
@@ -709,7 +709,7 @@ class TracerFlowSetup_3p(
     # NOTE Due to how the constitutive law for EnthalpyFromTemperature is implemented,
     # we have an MRO issue here. We cannot put FluidEnthalpyFromTemperature above
     # because it is part of EnthalpyFromTemperature which is used for heuristic laws
-    # for the solid in CompositionalFlowSetup. This will be resolved at some point in
+    # for the solid in CompositionalFlowTemplate. This will be resolved at some point in
     # the future when the solid is generalized (and respectively the constitutive laws
     # for it).
 
