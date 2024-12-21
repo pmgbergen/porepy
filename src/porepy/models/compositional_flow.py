@@ -1638,7 +1638,12 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
 
         """
         self.update_thermodynamic_properties_of_phases()
-        super().before_nonlinear_iteration()
+        # NOTE mypy complaints about trivial body of protocol.
+        # But this is a mixin. We assert it is indeed a solution strategy and proceed
+        assert isinstance(
+            self, pp.SolutionStrategy
+        ), "This is a mixin. Require SolutionStrategy as base."
+        super().before_nonlinear_iteration()  # type:ignore[safe-super]
 
     def after_nonlinear_convergence(self) -> None:
         """Progresses phase properties in time, if they are surrogate factories.
@@ -1649,7 +1654,10 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         The progression is performed after the super-call.
 
         """
-        super().after_nonlinear_convergence()
+        assert isinstance(
+            self, pp.SolutionStrategy
+        ), "This is a mixin. Require SolutionStrategy as base."
+        super().after_nonlinear_convergence()  # type:ignore[safe-super]
 
         subdomains = self.mdg.subdomains()
         nt = self.time_step_indices.size
@@ -1715,7 +1723,10 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
         """After the super-call, this method adds the
         :meth:`fourier_flux_discretization` and the :meth:`darcy_flux_discretization`
         to the update framework using :meth:`add_nonlinear_flux_discretization`."""
-        super().set_nonlinear_discretizations()
+        assert isinstance(
+            self, pp.SolutionStrategy
+        ), "This is a mixin. Require SolutionStrategy as base."
+        super().set_nonlinear_discretizations()  # type:ignore[safe-super]
 
         subdomains = self.mdg.subdomains()
 
@@ -1755,7 +1766,10 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
 
         """
         self.rediscretize_fluxes()
-        super().before_nonlinear_iteration()
+        assert isinstance(
+            self, pp.SolutionStrategy
+        ), "This is a mixin. Require SolutionStrategy as base."
+        super().before_nonlinear_iteration()  # type:ignore[safe-super]
 
 
 class SolutionStrategySchurComplement(pp.PorePyModel):
