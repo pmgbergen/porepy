@@ -83,7 +83,7 @@ class InitialConditionMixin(pp.PorePyModel):
         # Then run the functionality given by this class.
 
         # Mypy complains about the parent (the protocol) having a trivial body.
-        # We ignore the safe-super check here, but do not comprosie safety by explicitly
+        # We ignore the safe-super check here, but do not compromise safety by explicitly
         # checking the inheritance tree.
         if isinstance(self, pp.SolutionStrategy):
             super().initial_condition()  # type:ignore[safe-super]
