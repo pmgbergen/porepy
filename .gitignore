@@ -183,6 +183,3 @@ nbproject/
 *.py_o
 *.txt
 *.lprof
-
-# Related to asv continuous profiling
-.asv
