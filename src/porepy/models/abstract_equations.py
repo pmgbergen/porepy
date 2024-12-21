@@ -73,7 +73,7 @@ class EquationMixin(pp.PorePyModel):
 
 
 class BalanceEquation(EquationMixin):
-    """Generic class for vector balance equations.
+    """Generic class for scalar and vector balance equations.
 
     In the only known use case, the balance equation is the momentum balance equation,
 
