@@ -1700,7 +1700,11 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
     def __init__(self, params: Optional[dict] = None) -> None:
-        super().__init__(params)
+
+        assert isinstance(
+            self, pp.SolutionStrategy
+        ), "This is a mixin. Require SolutionStrategy as base."
+        super().__init__(params)  # type:ignore[safe-super]
 
         self._nonlinear_flux_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
         """Separate container for fluxes which need to be re-discretized. The separation

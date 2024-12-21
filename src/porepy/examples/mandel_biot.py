@@ -1354,10 +1354,10 @@ class MandelInitialConditions:
     exact_sol: MandelExactSolution
     """Exact solution object."""
 
-    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         return self.exact_sol.pressure(sd, 0)
 
-    def initial_displacement(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_displacement(self, sd: pp.Grid) -> np.ndarray:
         return self.exact_sol.displacement(sd, 0)
 
 

@@ -335,7 +335,7 @@ class TracerIC_1p:
 
     exact_sol: LinearTracerExactSolution1D
 
-    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Setting initial pressure equal to pressure on outflow boundary."""
         # Initial and outlet pressure are the same.
         return np.ones(sd.num_cells) * self.exact_sol.p_outlet

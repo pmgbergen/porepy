@@ -630,7 +630,7 @@ class EnthalpyVariable(pp.VariableMixin):
         self.equation_system.create_variables(
             self.enthalpy_variable,
             subdomains=self.mdg.subdomains(),
-            tags={"si_units": "J * mol ^ -1"},
+            tags={"si_units": "J * kg^-1"},
         )
 
     def enthalpy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -864,12 +864,65 @@ class InitialConditionsEnergy(pp.InitialConditionMixin):
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`VariablesEnergyBalance`."""
 
+    interface_fourier_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """See :class:`VariablesEnergyBalance`."""
+
+    interface_enthalpy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """See :class:`VariablesEnergyBalance`."""
+
+    well_enthalpy_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
+    """See :class:`VariablesEnergyBalance`."""
+
+    def initial_condition(self):
+        """After the super-call, it sets initial values for the interface Fourier flux,
+        interface enthalpy flux and well enthalpy flux.
+
+        See also:
+
+            - :meth:`ic_values_interface_fourier_flux`
+            - :meth:`ic_values_interface_enthalpy_flux`
+            - :meth:`ic_values_well_enthalpy_flux`
+            - Note on :meth:`~porepy.models.fluid_mass_balance.
+              InitialConditionsSinglePhaseFlow.initial_condition` for mass balance.
+
+        """
+        # This super call will execute set_initial_values_primary_variables first and
+        # provide IC values for temperatue, which can be accessed in the ic values for
+        # for energy fluxes.
+        super().initial_condition()
+
+        for intf in self.mdg.interfaces():
+
+            if intf.codim == 1:
+                self.equation_system.set_variable_values(
+                    self.ic_values_interface_fourier_flux(intf),
+                    [cast(pp.ad.Variable, self.interface_fourier_flux([intf]))],
+                    iterate_index=0,
+                )
+
+                self.equation_system.set_variable_values(
+                    self.ic_values_interface_enthalpy_flux(intf),
+                    [cast(pp.ad.Variable, self.interface_enthalpy_flux([intf]))],
+                    iterate_index=0,
+                )
+
+            if intf.codim == 2:
+                self.equation_system.set_variable_values(
+                    self.ic_values_well_enthalpy_flux(intf),
+                    [cast(pp.ad.Variable, self.well_enthalpy_flux([intf]))],
+                    iterate_index=0,
+                )
+
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for temperature at iterate index 0.
 
         See also:
 
-            - :meth:`initial_temperature`
+            - :meth:`ic_values_temperature`
 
         """
         # Super call for compatibility with multi-physics.
@@ -879,21 +932,81 @@ class InitialConditionsEnergy(pp.InitialConditionMixin):
             # Need to cast the return value to variable, because it is types as
             # operator.
             self.equation_system.set_variable_values(
-                self.initial_temperature(sd),
+                self.ic_values_temperature(sd),
                 [cast(pp.ad.Variable, self.temperature([sd]))],
                 iterate_index=0,
             )
 
-    def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
-        """
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        """Method returning the initial temperature values for a given grid.
+
+        Override this method to provide different initial conditions.
+
         Parameters:
             sd: A subdomain in the md-grid.
 
         Returns:
-            The initial pressure values on that subdomain. Defaults to zero array.
+            The initial temperature values on that subdomain with
+            ``shape=(sd.num_calles,)``. Defaults to zero array.
 
         """
         return np.zeros(sd.num_cells)
+
+    def ic_values_interface_fourier_flux(self, intf: pp.MortarGrid) -> np.ndarray:
+        """Method returning the initial interface Fourier flux values on a given
+        interface.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method is only called for interfaces with codimension 1.
+
+        Parameters:
+            intf: A mortar grid in the md-grid.
+
+        Returns:
+            The initial interface Fourier flux values with
+            ``shape=(interface.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(intf.num_cells)
+
+    def ic_values_interface_enthalpy_flux(self, intf: pp.MortarGrid) -> np.ndarray:
+        """Method returning the initial interface enthalpy flux values on a given
+        interface.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method is only called for interfaces with codimension 1.
+
+        Parameters:
+            intf: A mortar grid in the md-grid.
+
+        Returns:
+            The initial interface enthalpy flux values with
+            ``shape=(interface.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(intf.num_cells)
+
+    def ic_values_well_enthalpy_flux(self, intf: pp.MortarGrid) -> np.ndarray:
+        """Method returning the initial well enthalpy flux values on a given interface.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method is only called for interfaces with codimension 2.
+
+        Parameters:
+            intf: A mortar grid in the md-grid.
+
+        Returns:
+            The initial well enthalpy flux values with ``shape=(interface.num_cells,)``.
+            Defaults to zero array.
+
+        """
+        return np.zeros(intf.num_cells)
 
 
 class InitialConditionsEnthalpy(pp.InitialConditionMixin):
@@ -915,13 +1028,16 @@ class InitialConditionsEnthalpy(pp.InitialConditionMixin):
             )
 
     def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        """
+        """Initial values for (specific fluid) enthalpy.
+
+        Override this method to customize the initialization.
+
         Parameters:
             sd: A subdomain in the md-grid.
 
         Returns:
-            The initial specific fluid enthalpy values on that subdomain.
-            Defaults to zero array.
+            The initial specific fluid enthalpy values on that subdomain with
+            ``shape=(sd.num_cells,)``. Defaults to zero array.
 
         """
         return np.zeros(sd.num_cells)

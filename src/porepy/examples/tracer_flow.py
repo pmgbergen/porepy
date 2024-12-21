@@ -110,7 +110,7 @@ class TracerIC(InitialConditionsFractions):
 
     """
 
-    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Setting initial pressure equal to pressure on outflow boundary."""
         # Initial and outlet pressure are the same.
         return np.ones(sd.num_cells)
