@@ -386,8 +386,8 @@ class TwoVariableTotalEnergyBalanceEquations(
                 cast(Sequence[pp.BoundaryGrid], domains),
             )
         elif is_fractional_flow(self):
-            # TODO is it worth reducing the operator tree size, by pulling the division
-            # by total mobility out of the sum?
+            # Implementation NOTE: The operator tree size can be reduced, by pulling the
+            # division by total mobility out of the sum. Consider at some point.
             op = pp.ad.sum_operator_list(
                 [
                     phase.specific_enthalpy(domains)
@@ -396,11 +396,11 @@ class TwoVariableTotalEnergyBalanceEquations(
                     # * self.phase_mobility(phase, domains)
                     for phase in self.fluid.phases
                 ],
-            )  # / self.total_mass_mobility(domains)
-        # If the fractional-flow framework is not used, the weight corresponds to the
-        # advected enthalpy and a super call is performed (where the respective term is
-        # implemented).
+            )  # / self.total_mobility(domains)
         else:
+            # If the fractional-flow framework is not used, the weight corresponds to
+            # the advected enthalpy and a super call is performed (where the respective
+            # term is implemented).
             op = super().advection_weight_energy_balance(domains)
 
         op.set_name("advected_enthalpy")
