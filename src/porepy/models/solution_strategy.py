@@ -121,6 +121,11 @@ class SolutionStrategy(abc.ABC, pp.PorePyModel):
         """Run at the start of simulation. Used for initialization etc."""
         # Set the material and geometry of the problem. The geometry method must be
         # implemented in a ModelGeometry class.
+
+        # THIS IS AN INTENTIONAL SLOWDOWN TO TEST PROFILING
+        import time
+        time.sleep(1)
+
         self.set_materials()
         self.set_geometry()
 
