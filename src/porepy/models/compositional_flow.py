@@ -91,10 +91,10 @@ The following solution strategy mixins are available:
 - :class:`SolutionStrategyCFF`: Like the previous strategy but with
   :class:`SolutionStrategyNonlinearMPFA` as an additional base.
 
-The two setups, :class:`CompositionalFlowSetup` and
-:class:`CompositionalFractionalFlowSetup` are skeletons for non-isothermal, multiphase,
-multicomponent flow & transport models. They do not contain the constitutive modelling
-of fluid properties though and are hence not runable.
+The two template models, :class:`CompositionalFlowTemplate` and
+:class:`CompositionalFractionalFlowTemplate` are starting points for non-isothermal,
+multiphase, multicomponent flow & transport models. They do not contain the constitutive
+modelling of fluid properties though and are hence not runable.
 The steps required by users to close the setups and obtain runable models are:
 
 1. Define a fluid with all its phases and components.
@@ -2078,7 +2078,7 @@ class SolutionStrategyCFF(
 # endregion
 
 
-class CompositionalFlowSetup(  # type: ignore[misc]
+class CompositionalFlowTemplate(  # type: ignore[misc]
     ConstitutiveLawsCF,
     PrimaryEquationsCF,
     VariablesCF,
@@ -2129,7 +2129,7 @@ class CompositionalFlowSetup(  # type: ignore[misc]
     """
 
 
-class CompositionalFractionalFlowSetup(  # type: ignore[misc]
+class CompositionalFractionalFlowTemplate(  # type: ignore[misc]
     ConstitutiveLawsCF,
     PrimaryEquationsCF,
     VariablesCF,
@@ -2139,7 +2139,7 @@ class CompositionalFractionalFlowSetup(  # type: ignore[misc]
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
-    """Similar to :class:`CompositionalFlowSetup`, with the difference being the
+    """Similar to :class:`CompositionalFlowTemplate`, with the difference being the
     mixed-in BC values class.
 
     Fractional flow offer the possibility to provide non-linear terms in advective
