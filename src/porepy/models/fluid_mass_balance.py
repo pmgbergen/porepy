@@ -549,12 +549,58 @@ class InitialConditionsSinglePhaseFlow(pp.InitialConditionMixin):
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`VariablesSinglePhaseFlow`."""
 
+    interface_darcy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """See :class:`VariablesSinglePhaseFlow`."""
+
+    well_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
+    """See :class:`VariablesSinglePhaseFlow`."""
+
+    def initial_condition(self):
+        """After the super-call, it sets initial values for the interface darcy flux
+        and well flux.
+
+        Note:
+            Pressure is considered primary and the interface fluxes can in theory be
+            constructed from it in simple cases. This makes them secondary variables
+            indirectly but in practice they are treated as primary variables.
+
+            Uses cases requiring a consistent initialization will benefit from the
+            order here in the initialization routine.
+
+        See also:
+
+            - :meth:`ic_values_interface_darcy_flux`
+            - :meth:`ic_values_well_flux`
+
+        """
+        # This super call will execute set_initial_values_primary_variables first and
+        # provide IC values for pressure, which can be accessed in ic_values_well_flux
+        # for example.
+        super().initial_condition()
+
+        for intf in self.mdg.interfaces():
+            if intf.codim == 1:
+                self.equation_system.set_variable_values(
+                    self.ic_values_interface_darcy_flux(intf),
+                    [cast(pp.ad.Variable, self.interface_darcy_flux([intf]))],
+                    iterate_index=0,
+                )
+
+            if intf.codim == 2:
+                self.equation_system.set_variable_values(
+                    self.ic_values_well_flux(intf),
+                    [cast(pp.ad.Variable, self.well_flux([intf]))],
+                    iterate_index=0,
+                )
+
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for pressure at iterate index 0.
 
         See also:
 
-            - :meth:`initial_pressure`
+            - :meth:`ic_values_pressure`
 
         """
         # Super call for compatibility with multi-physics.
@@ -564,12 +610,12 @@ class InitialConditionsSinglePhaseFlow(pp.InitialConditionMixin):
             # Need to cast the return value to variable, because it is typed as
             # operator.
             self.equation_system.set_variable_values(
-                self.initial_pressure(sd),
+                self.ic_values_pressure(sd),
                 [cast(pp.ad.Variable, self.pressure([sd]))],
                 iterate_index=0,
             )
 
-    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Method returning the initial pressure values for a given grid.
 
         Override this method to provide different initial conditions.
@@ -578,10 +624,48 @@ class InitialConditionsSinglePhaseFlow(pp.InitialConditionMixin):
             sd: A subdomain in the md-grid.
 
         Returns:
-            The initial pressure values on that subdomain. Defaults to zero array.
+            The initial pressure values on that subdomain with
+            ``shape=(sd.num_calles,)``. Defaults to zero array.
 
         """
         return np.zeros(sd.num_cells)
+
+    def ic_values_interface_darcy_flux(self, intf: pp.MortarGrid) -> np.ndarray:
+        """Method returning the initial interface Darcy flux values on a given
+        interface.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method is only called for interfaces with codimension 1.
+
+        Parameters:
+            intf: A mortar grid in the md-grid.
+
+        Returns:
+            The initial interface Darcy flux values with
+            ``shape=(interface.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(intf.num_cells)
+
+    def ic_values_well_flux(self, intf: pp.MortarGrid) -> np.ndarray:
+        """Method returning the initial well flux values on a given interface.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method is only called for interfaces with codimension 2.
+
+        Parameters:
+            intf: A mortar grid in the md-grid.
+
+        Returns:
+            The initial interface well flux values with
+            ``shape=(interface.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(intf.num_cells)
 
 
 class VariablesSinglePhaseFlow(pp.VariableMixin):

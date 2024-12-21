@@ -629,7 +629,7 @@ class TerzaghiInitialConditions:
 
     """
 
-    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         vertical_load = self.applied_load()  # scaled [Pa]
         initial_p = vertical_load * np.ones(sd.num_cells)
         return initial_p
