@@ -796,7 +796,7 @@ def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
 
     """
     faces_cells, cells, _ = sparse_array_to_row_col_data(sd.cell_faces)
-    nodes_faces, faces, _ = sparse_array_to_row_col_data(sd.face_nodes)
+    nodes_faces, _, _ = sparse_array_to_row_col_data(sd.face_nodes)
 
     # Use trivial cell values (not relevant here)
     cell_value = np.zeros(sd.num_cells)
