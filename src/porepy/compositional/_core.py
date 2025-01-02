@@ -169,5 +169,5 @@ class PhysicalState(Enum):
 
     """
 
-    liquid: int = 0
-    gas: int = 1
+    liquid = 0
+    gas = 1
