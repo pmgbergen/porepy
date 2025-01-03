@@ -241,7 +241,7 @@ class TestUpwind:
         param_dictionary: dict = data[pp.PARAMETERS][upwind_obj.keyword]
         flux_arr = param_dictionary[upwind_obj._flux_array_key]
         flux_mat = sps.dia_matrix((flux_arr, 0), shape=(sd.num_faces, sd.num_faces))
-        div: sps.spmatrix = pp.fvutils.scalar_divergence(sd)
+        div: sps.spmatrix = sd.divergence(dim=1)
 
         bc_values: np.ndarray = param_dictionary["bc_values"]
         bc_discr_dir: sps.spmatrix = matrix_dictionary[

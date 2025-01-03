@@ -117,7 +117,7 @@ class Upwind(Discretization):
         flux_arr = parameter_dictionary[self._flux_array_key]
         flux_mat = sps.dia_matrix((flux_arr, 0), shape=(sd.num_faces, sd.num_faces))
 
-        div: sps.spmatrix = pp.fvutils.scalar_divergence(sd)
+        div: sps.spmatrix = sd.divergence(dim=1)
 
         if div.shape[1] != upwind.shape[0]:
             # It should not be difficult to fix this, however it requires some thinking
@@ -298,7 +298,7 @@ class Upwind(Discretization):
         # For Neumann faces we need to assign the sign of the divergence, to counteract
         # multiplication with the same sign when the divergence is applied (e.g. in
         # self.assemble_matrix).
-        sgn_div = pp.fvutils.scalar_divergence(sd).sum(axis=0).A.squeeze()
+        sgn_div = sd.divergence(dim=1).sum(axis=0).A.squeeze()
 
         bc_discr_neu = sps.coo_matrix(
             (sgn_div[neumann_ind], (neumann_ind, neumann_ind)),
@@ -476,7 +476,7 @@ class UpwindCoupling(InterfaceDiscretization):
         # The mortars always points from upper to lower, so we don't flip any signs. The
         # mapping will be non-zero also for faces not adjacent to the mortar grid,
         # however, we wil hit it with mortar projections, thus kill those elements.
-        inv_trace_h = np.abs(pp.fvutils.scalar_divergence(sd_primary))
+        inv_trace_h = np.abs(sd_primary.divergence(dim=1))
         # We also need a trace-like projection from cells to faces.
         trace_h = inv_trace_h.T
 

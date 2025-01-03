@@ -460,29 +460,25 @@ def test_trace(mdg: pp.MixedDimensionalGrid):
 
     This test is not ideal. It follows the implementation of Trace relatively closely,
     but nevertheless provides some coverage, especially if Trace is carelessly changed.
-    The test constructs the expected md trace and inv_trace matrices and compares them
-    to the ones of Trace. Also checks that an error is raised if a non-scalar trace is
+    The test constructs the expected mixed-dimensional trace matrix and compares it to
+    the ones of Trace. Also checks that an error is raised if a non-scalar trace is
     constructed (not implemented).
     """
     # The operator should work on any subset of mdg.subdomains.
     subdomains = mdg.subdomains(dim=1)
 
     # Construct expected matrices.
-    traces, inv_traces = list(), list()
+    traces = []
 
     # Contruct projections to the subdomains for cell and face quantities.
-    cell_projections, face_projections = pp.ad.grid_operators._subgrid_projections(
-        subdomains, dim=1
-    )
+    cell_projections, _ = pp.ad.grid_operators._subgrid_projections(subdomains, dim=1)
     for sd in subdomains:
         local_block = np.abs(sd.cell_faces.tocsr())
         traces.append(local_block * cell_projections[sd].T)
-        inv_traces.append(local_block.T * face_projections[sd].T)
 
     # Compare to operator class.
     op = pp.ad.Trace(subdomains)
     _compare_matrices(op.trace, sps.bmat([[m] for m in traces]))
-    _compare_matrices(op.inv_trace, sps.bmat([[m] for m in inv_traces]))
 
     # As of the writing of this test, Trace is not implemented for vector values. If it
     # is ever extended, the test should be extended accordingly (e.g. parametrized with
