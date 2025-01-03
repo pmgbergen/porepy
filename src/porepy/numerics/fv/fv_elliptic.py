@@ -85,7 +85,7 @@ class FVElliptic(Discretization):
         flux = matrix_dictionary[self.flux_matrix_key]
         bound_flux = matrix_dictionary[self.bound_flux_matrix_key]
 
-        div = pp.fvutils.scalar_divergence(sd)
+        div = sd.divergence(dim=1)
 
         # Assemble matrix.
         if flux.shape[0] != sd.num_faces:
