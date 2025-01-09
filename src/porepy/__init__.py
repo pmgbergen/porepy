@@ -25,7 +25,7 @@ import configparser
 import warnings
 
 
-__version__ = "1.8.0"
+__version__ = "1.10.0"
 
 # Try to read the config file from the directory where python process was launched
 try:
@@ -83,7 +83,8 @@ from porepy.params.data import (
 
 from porepy.applications.material_values import fluid_values
 from porepy.applications.material_values import solid_values
-
+from porepy.applications.material_values import reference_values
+from porepy.applications.material_values import numerical_values
 
 # Grids
 from porepy.grids.grid import Grid
@@ -147,6 +148,9 @@ from porepy.numerics.fracture_deformation.conforming_propagation import (
     ConformingFracturePropagation,
 )
 
+# The protocol must be imported before anything related to models.
+from porepy.models.protocol import PorePyModel
+
 # Related to models and solvers
 from porepy.numerics.nonlinear.nonlinear_solvers import NewtonSolver
 from porepy.numerics.linear_solvers import LinearSolver
@@ -176,17 +180,23 @@ from porepy.models.abstract_equations import (
 from porepy.models.boundary_condition import BoundaryConditionMixin
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units
-from porepy.models.material_constants import (
-    FluidConstants,
-    SolidConstants,
-    MaterialConstants,
-)
-
 
 from porepy.viz.data_saving_model_mixin import DataSavingMixin
 from porepy.viz.diagnostics_mixin import DiagnosticsMixin
 from porepy.models.solution_strategy import SolutionStrategy
 from porepy.models import constitutive_laws
+
+# composite subpackage
+from . import compositional
+from porepy.compositional.materials import (
+    FluidComponent,
+    SolidConstants,
+    NumericalConstants,
+    Constants,
+    ReferenceVariableValues,
+)
+from porepy.compositional.base import Component, Phase, Fluid
+from porepy.compositional.compositional_mixins import CompositionalVariables, FluidMixin
 
 # "Primary" models
 from porepy.models import fluid_mass_balance, momentum_balance
@@ -198,6 +208,11 @@ from porepy.models import (
     mass_and_energy_balance,
     thermoporomechanics,
 )
+from porepy.models.fluid_mass_balance import SinglePhaseFlow
+from porepy.models.momentum_balance import MomentumBalance
+from porepy.models.poromechanics import Poromechanics
+from porepy.models.thermoporomechanics import Thermoporomechanics
+from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
 
 
 # Visualization
@@ -228,6 +243,3 @@ from porepy.applications.md_grids import (
 from porepy.applications.boundary_conditions import model_boundary_conditions
 from porepy.applications import test_utils
 from porepy import applications
-
-# composite subpackage
-from . import compositional

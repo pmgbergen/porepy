@@ -527,7 +527,16 @@ def _color_map(
     """
     cmap = plt.get_cmap(cmap_type)
     scalar_map = mpl.cm.ScalarMappable(cmap=cmap)
+    # For constant data, perturb the data slightly to generate a color map.
+    if extr_value[0] == extr_value[1]:
+        if extr_value[0] == 0:
+            eps = 1e-6  # Arbitrary small value.
+        else:
+            eps = 1e-1 * extr_value[0]  # 10% of the value.
+        extr_value[0] -= eps
+        extr_value[1] += eps
     scalar_map.set_array(extr_value)
+    # Set the limits of the color map.
     scalar_map.set_clim(vmin=extr_value[0], vmax=extr_value[1])
     return scalar_map
 
@@ -787,7 +796,7 @@ def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
 
     """
     faces_cells, cells, _ = sparse_array_to_row_col_data(sd.cell_faces)
-    nodes_faces, faces, _ = sparse_array_to_row_col_data(sd.face_nodes)
+    nodes_faces, _, _ = sparse_array_to_row_col_data(sd.face_nodes)
 
     # Use trivial cell values (not relevant here)
     cell_value = np.zeros(sd.num_cells)

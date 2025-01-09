@@ -20,7 +20,7 @@ the exact pressure and displacement solutions, we use the ones employed in [3].
 Tests:
 
     [TEST_1] Relative L2-error on Cartesian grids for primary and secondary variables
-      for three different times for 2d and 3d.
+      for two different times for 2d and 3d.
 
     [TEST_2] Observed order of convergence (using four levels of refinement for 2d and
       three levels of refinement for 3d) for primary and secondary variables. Order
@@ -65,8 +65,8 @@ def material_constants() -> dict:
         constant classes.
 
     """
-    fluid_constants = pp.FluidConstants({"compressibility": 0.02})
-    solid_constants = pp.SolidConstants({"biot_coefficient": 0.5})
+    fluid_constants = pp.FluidComponent(compressibility=0.02)
+    solid_constants = pp.SolidConstants(biot_coefficient=0.5)
     return {"solid": solid_constants, "fluid": fluid_constants}
 
 
@@ -90,7 +90,7 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     """
 
     # Define model parameters (same for 2d and 3d).
-    params = {
+    model_params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.25},
@@ -102,8 +102,9 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
     for model in [ManuPoroMechSetup2d, ManuPoroMechSetup3d]:
-        setup = model(deepcopy(params))  # Make deep copy of params to avoid nasty bugs.
-        pp.run_time_dependent_model(setup, {})
+        # Make deep copy of params to avoid nasty bugs.
+        setup = model(deepcopy(model_params))
+        pp.run_time_dependent_model(setup)
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
         for result in setup.results:
@@ -131,30 +132,30 @@ def desired_l2_errors() -> list[list[dict[str, float]]]:
     desired_errors_2d = [
         {  # t = 0.5 [s]
             "error_pressure": 0.20711096997503695,
-            "error_flux": 0.10810627224942725,
+            "error_flux": 0.11345122446471026,
             "error_displacement": 0.3953172876400884,
-            "error_force": 0.16377962778847108,
+            "error_force": 0.17104363665680572,
         },
         {  # t = 1.0 [s]
             "error_pressure": 0.1987998797257252,
-            "error_flux": 0.08957210872187034,
+            "error_flux": 0.09295559743883297,
             "error_displacement": 0.3952120364196121,
-            "error_force": 0.1637924594814397,
+            "error_force": 0.17107465087060394,
         },
     ]
 
     desired_errors_3d = [
         {  # t = 0.5 [s]
             "error_pressure": 0.2164612681791387,
-            "error_flux": 0.10469929694089308,
+            "error_flux": 0.107242413579278,
             "error_displacement": 0.44379951512274146,
-            "error_force": 0.22059921122808707,
+            "error_force": 0.23004990504030878,
         },
         {  # t = 1.0[s]
             "error_pressure": 0.2128131032248365,
-            "error_flux": 0.09661636990837687,
+            "error_flux": 0.09872012243139877,
             "error_displacement": 0.4437474284152431,
-            "error_force": 0.2206087610242069,
+            "error_force": 0.230068537690508,
         },
     ]
 
@@ -288,8 +289,8 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     desired_ooc_2d = [
         {  # Cartesian
             "ooc_displacement": 1.9927774927713546,
-            "ooc_flux": 2.077738849468982,
-            "ooc_force": 1.5799927442621455,
+            "ooc_flux": 2.0951646701871427,
+            "ooc_force": 1.6253118564790916,
             "ooc_pressure": 2.0879033104990397,
         },
         {  # simplex
@@ -303,8 +304,8 @@ def desired_ooc() -> list[list[dict[str, float]]]:
     desired_ooc_3d = [
         {  # Cartesian
             "ooc_displacement": 1.937336984736465,
-            "ooc_flux": 2.0646358924022863,
-            "ooc_force": 1.2933666910552015,
+            "ooc_flux": 2.076230389431763,
+            "ooc_force": 1.3277517560496654,
             "ooc_pressure": 2.097775030326012,
         }
     ]
@@ -359,5 +360,5 @@ def test_order_of_convergence(
                 desired_ooc[dim_idx][grid_type_idx]["ooc_" + var],
                 actual_ooc[dim_idx][grid_type_idx]["ooc_" + var],
                 atol=1e-1,  # allow for an absolute difference of 0.1 in OOC
-                rtol=5e-1,  # allow for 5% of relative difference in OOC
+                rtol=5e-2,  # allow for 5% of relative difference in OOC
             )

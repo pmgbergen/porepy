@@ -91,7 +91,10 @@ class SolutionStrategyBiot(SolutionStrategyPoromechanics):
         """Set the material constants."""
         super().set_materials()
         # Check that fluid compressibility is zero, otherwise Biot class doesn't hold
-        assert self.fluid.compressibility() == 0
+        # NOTE Biot is tested for 1 phase 1 component.
+        assert self.fluid.num_components == 1
+        assert self.fluid.num_phases == 1
+        assert self.fluid.reference_component.compressibility == 0
 
 
 class ConstitutiveLawsBiot(

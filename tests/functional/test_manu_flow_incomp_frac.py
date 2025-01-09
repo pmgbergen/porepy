@@ -9,8 +9,8 @@ from [1] (i.e., the bubble function is scaled to obtain a better conditioned sys
 
 Tests:
 
-    [TEST_1] Relative L2-error on Cartesian grids for primary and secondary variables
-      for three different times for 2d and 3d.
+    [TEST_1] Relative L2-errors on Cartesian grids for primary and secondary variables
+      for 2d and 3d.
 
     [TEST_2] Observed order of convergence (using four levels of refinement for 2d and
       three levels of refinement for 3d) for primary and secondary variables. Order
@@ -25,6 +25,7 @@ References:
       elliptic equations. Journal of Numerical Mathematics.
 
 """
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -54,8 +55,8 @@ def material_constants() -> dict:
         constant classes.
 
     """
-    solid_constants = pp.SolidConstants(manu_incomp_solid)
-    fluid_constants = pp.FluidConstants(manu_incomp_fluid)
+    solid_constants = pp.SolidConstants(**manu_incomp_solid)
+    fluid_constants = pp.FluidComponent(**manu_incomp_fluid)
     return {"solid": solid_constants, "fluid": fluid_constants}
 
 
@@ -77,7 +78,7 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
     """
 
     # Define model parameters (same for 2d and 3d).
-    params = {
+    model_params = {
         "grid_type": "cartesian",
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.125},
@@ -87,8 +88,9 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
     errors: list[dict[str, float]] = []
     # Loop through models, i.e., 2d and 3d
     for model in [ManuIncompFlowSetup2d, ManuIncompFlowSetup3d]:
-        setup = model(deepcopy(params))  # make deep copy of params to avoid nasty bugs
-        pp.run_time_dependent_model(setup, {})
+        # Make deep copy of params to avoid nasty bugs.
+        setup = model(deepcopy(model_params))
+        pp.run_time_dependent_model(setup)
         errors.append(
             {
                 "error_matrix_pressure": setup.results[0].error_matrix_pressure,
@@ -114,7 +116,7 @@ def desired_l2_errors() -> list[dict[str, float]]:
     # Desired errors for 2d
     desired_errors_2d = {
         "error_matrix_pressure": 0.060732124330406576,
-        "error_matrix_flux": 0.01828457897868048,
+        "error_matrix_flux": 0.019884589070890718,
         "error_frac_pressure": 4.984308951373194,
         "error_frac_flux": 0.0019904878330327946,
         "error_intf_flux": 3.1453166913070185,
@@ -123,7 +125,7 @@ def desired_l2_errors() -> list[dict[str, float]]:
     # Desired error for 3d
     desired_errors_3d = {
         "error_matrix_pressure": 1.3822466693314728,
-        "error_matrix_flux": 1.2603123149160123,
+        "error_matrix_flux": 1.0879261547986523,
         "error_frac_pressure": 6.272401337799361,
         "error_frac_flux": 0.044759629637959035,
         "error_intf_flux": 5.291360607983224,
@@ -253,7 +255,7 @@ def desired_ooc() -> list[list[dict[str, float]]]:
             "ooc_frac_flux": 1.3967607529647372,
             "ooc_frac_pressure": 1.8534965991529369,
             "ooc_intf_flux": 1.9986496319323037,
-            "ooc_matrix_flux": 1.660155297595291,
+            "ooc_matrix_flux": 1.7008944272450548,
             "ooc_matrix_pressure": 1.900941278698522,
         },
         {  # simplex
@@ -270,7 +272,7 @@ def desired_ooc() -> list[list[dict[str, float]]]:
             "ooc_frac_flux": 2.0540239290134323,
             "ooc_frac_pressure": 2.01831767379812,
             "ooc_intf_flux": 2.005622051446942,
-            "ooc_matrix_flux": 2.1319834447112367,
+            "ooc_matrix_flux": 2.064200262931642,
             "ooc_matrix_pressure": 2.007165614273335,
         }
     ]
@@ -326,5 +328,5 @@ def test_order_of_convergence(
                 desired_ooc[dim_idx][grid_type_idx]["ooc_" + var],
                 actual_ooc[dim_idx][grid_type_idx]["ooc_" + var],
                 atol=1e-1,  # allow for an absolute difference of 0.1 in OOC
-                rtol=5e-1,  # allow for 5% of relative difference in OOC
+                rtol=5e-2,  # allow for 5% of relative difference in OOC
             )

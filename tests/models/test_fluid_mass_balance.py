@@ -16,21 +16,26 @@ We provide two tests:
 from __future__ import annotations
 
 import copy
-from typing import Callable, Literal, Optional
+from typing import Literal, Optional
 
 import numpy as np
 import pytest
 import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models, well_models
-from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
-
+from porepy.applications.material_values.solid_values import (
+    extended_granite_values_for_testing as granite_values,
+)
+from porepy.applications.material_values.fluid_values import (
+    extended_water_values_for_testing as water_values,
+)
 
 @pytest.fixture(scope="function")
 def model_setup():
@@ -61,9 +66,8 @@ def model_setup():
         """Single phase flow model in a domain with two intersecting fractures."""
 
     # Material constants
-    solid = pp.SolidConstants(models.granite_values)
-    fluid = pp.FluidConstants(models.water_values)
-
+    solid = pp.SolidConstants(**granite_values)
+    fluid = pp.FluidComponent(**water_values)
     # Declare model parameters
     params = {
         "material_constants": {"solid": solid, "fluid": fluid},
@@ -149,7 +153,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
         all_testable_methods: List of all testable methods.
 
     """
-    # Failure here could be mean two things:
+    # Failure here could mean two things:
     #
     #   (1) The `all_tested_methods` fixture is an empty list due to the tests
     #       from `test_ad_operator_methods_single_phase_flow` not being collected (see
@@ -167,39 +171,45 @@ def test_tested_vs_testable_methods_single_phase_flow(
     assert all_tested_methods == all_testable_methods
 
 
+# NOTE: The tests for darcy_flux, fluid_flux, fluid_flux, fluid_source,
+# interface_darcy_flux_equation, interface_fluid_flux, interface_flux_equation,
+# mass_balance_equation, normal_permeability, skin_factor, and pressure_trace were based
+# on different water fluid values in PorePy 1.10.0 and prior. The new expected values
+# for each test are copied from the test's output. We rely on the correctness of the
+# previous tests for this choice.
 @pytest.mark.parametrize(
     "method_name, expected_value, dimension_restriction",
     [
-        ("aperture", np.array([1, 1, 1, 1, 0.01, 0.01, 0.01, 0.01, 0.01]), None),
+        ("aperture", np.array([1, 1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3]), None),
         ("combine_boundary_operators_darcy_flux", np.zeros(24), None),
-        # Darcy fluxes (with unitary values for the viscosity).
+        # Darcy flux.
         (
             "darcy_flux",
             np.array(
                 [
+                    -2.0e-10,
+                    -1.0e-12,
+                    2.0e-10,
+                    -2.0e-10,
+                    -1.0e-12,
+                    2.0e-10,
+                    -2.0e-10,
+                    -2.0e-10,
+                    -1.0e-12,
+                    -1.0e-12,
+                    2.0e-10,
+                    2.0e-10,
+                    1.0e-12,
+                    1.0e-12,
+                    1.0e-12,
+                    1.0e-12,
                     -4.0e-13,
                     -1.0e-12,
                     4.0e-13,
+                    1.0e-12,
                     -4.0e-13,
                     -1.0e-12,
                     4.0e-13,
-                    -4.0e-13,
-                    -4.0e-13,
-                    -1.0e-12,
-                    -1.0e-12,
-                    4.0e-13,
-                    4.0e-13,
-                    1.0e-12,
-                    1.0e-12,
-                    1.0e-12,
-                    1.0e-12,
-                    -8.0e-15,
-                    -1.0e-12,
-                    8.0e-15,
-                    1.0e-12,
-                    -8.0e-15,
-                    -1.0e-12,
-                    8.0e-15,
                     1.0e-12,
                 ]
             ),
@@ -210,38 +220,36 @@ def test_tested_vs_testable_methods_single_phase_flow(
             np.array([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.2]),
             None,
         ),
-        ("fluid_compressibility", 4e-10, None),
-        # rho = rho_ref * exp(c_f * (p - p_ref))
-        ("fluid_density", 1000 * np.exp(4e-10 * 200 * pp.BAR), None),
+        ("fluid_compressibility", water_values["compressibility"], None),
         # Values of the mass fluxes (i.e., scaling with rho/mu is incorporated).
         (
             "fluid_flux",
             np.array(
                 [
-                    -4.00000000e-07,
-                    -1.00803209e-06,
-                    4.03212834e-07,
-                    -4.00000000e-07,
-                    -1.00803209e-06,
-                    4.03212834e-07,
-                    -4.00000000e-07,
-                    -4.00000000e-07,
-                    -1.00803209e-06,
-                    -1.00803209e-06,
-                    4.03212834e-07,
-                    4.03212834e-07,
-                    1.00803209e-06,
-                    1.00803209e-06,
-                    1.00803209e-06,
-                    1.00803209e-06,
-                    -8.00000000e-09,
-                    -1.00803209e-06,
-                    8.06425668e-09,
-                    1.00803209e-06,
-                    -8.00000000e-09,
-                    -1.00803209e-06,
-                    8.06425668e-09,
-                    1.00803209e-06,
+                    -1.99241517e-04,
+                    -1.00533254e-06,
+                    2.01066509e-04,
+                    -1.99241517e-04,
+                    -1.00533254e-06,
+                    2.01066509e-04,
+                    -1.99241517e-04,
+                    -1.99241517e-04,
+                    -1.00533254e-06,
+                    -1.00533254e-06,
+                    2.01066509e-04,
+                    2.01066509e-04,
+                    1.00533254e-06,
+                    1.00533254e-06,
+                    1.00533254e-06,
+                    1.00533254e-06,
+                    -3.98483034e-07,
+                    -1.00533254e-06,
+                    4.02133017e-07,
+                    1.00533254e-06,
+                    -3.98483034e-07,
+                    -1.00533254e-06,
+                    4.02133017e-07,
+                    1.00533254e-06,
                 ]
             ),
             None,
@@ -251,15 +259,15 @@ def test_tested_vs_testable_methods_single_phase_flow(
             "fluid_mass",
             np.array(
                 [
-                    1.76405615e00,
-                    1.76405615e00,
-                    1.76405615e00,
-                    1.76405615e00,
-                    3.52811230e-02,
-                    3.52811230e-02,
-                    3.52811230e-02,
-                    3.52811230e-02,
-                    7.05622460e-04,
+                    3.27386543e00,
+                    3.27386543e00,
+                    3.27386543e00,
+                    3.27386543e00,
+                    6.54773085e-03,
+                    6.54773085e-03,
+                    6.54773085e-03,
+                    6.54773085e-03,
+                    1.30954617e-05,
                 ]
             ),
             None,
@@ -270,90 +278,134 @@ def test_tested_vs_testable_methods_single_phase_flow(
             np.array(
                 [
                     [
-                        0.00000000e00,
-                        0.00000000e00,
-                        0.00000000e00,
-                        0.00000000e00,
-                        2.01606417e-06,
-                        2.01606417e-06,
-                        2.01606417e-06,
-                        2.01606417e-06,
-                        4.03212834e-06,
+                        0.0,
+                        0.0,
+                        0.0,
+                        0.0,
+                        2.01066509e-06,
+                        2.01066509e-06,
+                        2.01066509e-06,
+                        2.01066509e-06,
+                        4.02133017e-06,
                     ]
                 ]
             ),
             None,
         ),
-        ("fluid_viscosity", 0.001, None),
-        ("interface_darcy_flux_equation", 5e9, None),
-        ("interface_fluid_flux", 1.00803209e-06, None),
-        ("interface_flux_equation", 5e9, None),
+        ("interface_darcy_flux_equation", 5.00001e-07, None),
+        ("interface_fluid_flux", 1.00533254e-06, None),
+        ("interface_flux_equation", 5.00001e-07, None),
         ("interface_vector_source_darcy_flux", 0, None),
         (
             "mass_balance_equation",
             np.array(
                 [
-                    1.40589657e-02,
-                    1.40589689e-02,
-                    1.40589689e-02,
-                    1.40589721e-02,
-                    2.80122961e-04,
-                    2.80123025e-04,
-                    2.80122961e-04,
-                    2.80123025e-04,
-                    1.59033151e-06,
+                    3.01159202e-02,
+                    3.01177451e-02,
+                    3.01177451e-02,
+                    3.01195701e-02,
+                    5.88240034e-05,
+                    5.88276534e-05,
+                    5.88240034e-05,
+                    5.88276534e-05,
+                    -3.90246847e-06,
                 ]
             ),
             None,
         ),
-        ("mobility", 1 / 0.001, None),
-        # Combination of mobility and fluid density = rho/mu
-        # = rho_ref * exp(c_f * (p - p_ref)) / mu = 1000 * exp(4e-10 * 2e7) /  0.001
-        ("mobility_rho", 1008032.0855042734, None),
-        ("normal_permeability", 1.0, None),
-        ("permeability", 1e-20, None),
-        ("porosity", 7e-3, None),
+        # Mobility = 1 / mu
+        ("mobility", 1.0 / (water_values["viscosity"]), None),
+        # Combination of mobility and fluid density = rho / mu
+        # Mobility_rho = rho_ref * exp(c_f * (p - p_ref)) / mu
+        (
+            "mobility_rho",
+            water_values["density"]
+            * np.exp(water_values["compressibility"] * 200 * pp.BAR)
+            / water_values["viscosity"],
+            None,
+        ),
+        ("normal_permeability", granite_values["normal_permeability"], None),
+        ("permeability", granite_values["permeability"], None),
+        ("porosity", granite_values["porosity"], None),
         ("pressure", 200 * pp.BAR, None),
         # pressure_exponential = exp(c_f * (p - p_ref))
-        ("pressure_exponential", np.exp(4e-10 * 200 * pp.BAR), None),
+        (
+            "pressure_exponential",
+            np.exp(water_values["compressibility"] * 200 * pp.BAR),
+            None,
+        ),
         (
             "pressure_trace",
             np.array(
                 [
                     0.00e00,
-                    -3.00e07,
+                    19900000,
                     0.00e00,
                     0.00e00,
-                    -3.00e07,
+                    19900000,
                     0.00e00,
                     0.00e00,
                     0.00e00,
-                    -3.00e07,
-                    -3.00e07,
+                    19900000,
+                    19900000,
                     0.00e00,
                     0.00e00,
-                    -3.00e07,
-                    -3.00e07,
-                    -3.00e07,
-                    -3.00e07,
+                    19900000,
+                    19900000,
+                    19900000,
+                    19900000,
                     0.00e00,
-                    -2.48e09,
+                    -29999999.99999999,
                     0.00e00,
-                    -2.48e09,
+                    -29999999.99999999,
                     0.00e00,
-                    -2.48e09,
+                    -29999999.99999999,
                     0.00e00,
-                    -2.48e09,
+                    -29999999.99999999,
                 ]
             ),
             None,
         ),
-        ("reference_pressure", 0, None),
-        ("skin_factor", 0, None),
-        ("tangential_component", np.array([[1.0, 0.0]]), 0),  # check only for 0d
-        ("well_fluid_flux", 0, 2),  # use dim_restriction=2 to ignore well flux
-        ("well_flux_equation", 0, 2),  # use dim_restriction=2 to ignore well equation
-        ("well_radius", 0.1, None),
+        # ("reference_pressure", 0, None),
+        ("skin_factor", granite_values["skin_factor"], None),
+        ("tangential_component", np.array([[1.0, 0.0]]), 0),  # Check only for 0d.
+        ("well_fluid_flux", 0, 2),  # Use dim_restriction=2 to ignore well flux.
+        ("well_flux_equation", 0, 2),  # Use dim_restriction=2 to ignore well equation.
+        ("well_radius", granite_values["well_radius"], None),
+        # Testing of methods with deeper namespace.
+        # rho = rho_ref * exp(c_f * (p - p_ref))
+        (
+            "fluid.density",
+            water_values["density"]
+            * np.exp(water_values["compressibility"] * 200 * pp.BAR),
+            None,
+        ),
+        # specific_volume = 1 / (rho_ref * exp(c_f * (p - p_ref)))
+        (
+            "fluid.specific_volume",
+            1.0
+            / (
+                water_values["density"]
+                * np.exp(water_values["compressibility"] * 200 * pp.BAR)
+            ),
+            None,
+        ),
+        (
+            "fluid.reference_phase.density",
+            water_values["density"]
+            * np.exp(water_values["compressibility"] * 200 * pp.BAR),
+            None,
+        ),
+        (
+            "fluid.reference_phase.specific_volume",
+            1.0
+            / (
+                water_values["density"]
+                * np.exp(water_values["compressibility"] * 200 * pp.BAR)
+            ),
+            None,
+        ),
+        ("fluid.reference_phase.viscosity", water_values["viscosity"], None),
     ],
 )
 def test_ad_operator_methods_single_phase_flow(
@@ -374,8 +426,14 @@ def test_ad_operator_methods_single_phase_flow(
             compactness, only tested in one dimension.
 
     """
-    # Get the method to be tested in callable form..
-    method: Callable = getattr(model_setup, method_name)
+    # Processing name space.
+    method_namespace = method_name.split(".")
+    owner = model_setup
+    # loop top to bottom through namespace to get to the actual method defined on some
+    # grids and returning an operator.
+    for name in method_namespace:
+        method = getattr(owner, name)
+        owner = method
 
     # Obtain list of subdomain or interface grids where the method is defined.
     domains = models.subdomains_or_interfaces_from_method_name(
@@ -409,7 +467,7 @@ def test_unit_conversion(units):
 
     Parameters:
         units (dict): Dictionary with keys as those in
-            :class:`~pp.models.material_constants.MaterialConstants`.
+            :class:`~pp.compositional.materials.Constants`.
 
     """
 
@@ -418,34 +476,44 @@ def test_unit_conversion(units):
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
             """Ensure nontrivial solution."""
-            vals = self.fluid.pressure() * np.ones(boundary_grid.num_cells)
+            vals = self.reference_variable_values.pressure * np.ones(
+                boundary_grid.num_cells
+            )
             faces = self.domain_boundary_sides(boundary_grid).east
-            vals[faces] += self.fluid.convert_units(1e5, "Pa")
+            vals[faces] += self.units.convert_units(1e5, "Pa")
             return vals
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing
-    fluid_vals = pp.fluid_values.extended_water_values_for_testing
-    solid = pp.SolidConstants(solid_vals)
-    fluid = pp.FluidConstants(fluid_vals)
+    fluid_vals = water_values
+    numerical_vals = pp.numerical_values.extended_numerical_values_for_testing
+    ref_vals = pp.reference_values.extended_reference_values_for_testing
+    solid = pp.SolidConstants(**solid_vals)
+    fluid = pp.FluidComponent(**fluid_vals)
+    numerical = pp.NumericalConstants(**numerical_vals)
+    reference_values = pp.ReferenceVariableValues(**ref_vals)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
-        "material_constants": {"solid": solid, "fluid": fluid},
+        "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
+        "reference_variable_values": reference_values,
+    }
+    solver_params = {
         "nl_convergence_tol_res": 1e-12,
         "nl_convergence_tol": 1,
     }
     reference_params = copy.deepcopy(params)
     reference_params["file_name"] = "unit_conversion_reference"
+    reference_solver_params = copy.deepcopy(solver_params)
 
     # Create model and run simulation
     setup_0 = Model(reference_params)
-    pp.run_time_dependent_model(setup_0, reference_params)
+    pp.run_time_dependent_model(setup_0, reference_solver_params)
 
     params["units"] = pp.Units(**units)
     setup_1 = Model(params)
 
-    pp.run_time_dependent_model(setup_1, params)
+    pp.run_time_dependent_model(setup_1, solver_params)
     variables = [setup_1.pressure_variable, setup_1.interface_darcy_flux_variable]
     variable_units = ["Pa", "Pa * m^2 * s^-1"]
     models.compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
@@ -463,7 +531,7 @@ class WellModel(
     models.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
     well_models.WellPermeability,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     pass
 
@@ -478,14 +546,14 @@ def test_well_incompressible_pressure_values():
     params = {
         # Set impermeable matrix
         "material_constants": {
-            "solid": pp.SolidConstants({"permeability": 1e-6 / 4, "well_radius": 0.01})
+            "solid": pp.SolidConstants(permeability=1e-6 / 4, well_radius=0.01)
         },
         # Use only the horizontal fracture of OrthogonalFractures3d
         "fracture_indices": [2],
     }
 
     setup = WellModel(params)
-    pp.run_time_dependent_model(setup, params)
+    pp.run_time_dependent_model(setup)
     # Check that the matrix pressure is close to linear in z
     matrix = setup.mdg.subdomains(dim=3)[0]
     matrix_pressure = setup.pressure([matrix]).value(setup.equation_system)
@@ -605,9 +673,7 @@ def model_setup_gravity(
     }
     params.update(model_params)
     params["material_constants"] = {
-        "solid": pp.SolidConstants(
-            {"normal_permeability": kn, "residual_aperture": aperture}
-        )
+        "solid": pp.SolidConstants(normal_permeability=kn, residual_aperture=aperture)
     }
     if dimension == 2:
         Geometry = SquareDomainOrthogonalFractures
@@ -660,15 +726,15 @@ def model_setup_gravity(
             if np.isclose(gravity_angle, 0):
                 # Normalize by the GravityForce class' default value.
                 default = (
-                    self.fluid.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
-                    * self.fluid.density()
+                    self.units.convert_units(pp.GRAVITY_ACCELERATION, "m*s^-2")
+                    * self.fluid.reference_component.density
                 )
                 return super().gravity_force(grids, material) / default
             num_cells = int(np.sum([g.num_cells for g in grids]))
             values = np.zeros((self.nd, num_cells))
             # Angle of zero means force vector of [0, -1]
-            values[1] = self.fluid.convert_units(-np.cos(gravity_angle), "m*s^-2")
-            values[0] = self.fluid.convert_units(np.sin(gravity_angle), "m*s^-2")
+            values[1] = self.units.convert_units(-np.cos(gravity_angle), "m*s^-2")
+            values[0] = self.units.convert_units(np.sin(gravity_angle), "m*s^-2")
             source = pp.wrap_as_dense_ad_array(values.ravel("F"), name="gravity force")
             return source
 

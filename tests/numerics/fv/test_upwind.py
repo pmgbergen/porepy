@@ -7,6 +7,7 @@ to assemble_matrix_rhs (the latter functionality is in a sense outdated, but kep
 legacy reasons).
 
 """
+
 from __future__ import division
 
 import numpy as np
@@ -70,12 +71,9 @@ def rotation_data_market():
 
 @pytest.fixture()
 def references_market():
+    """Reference lhs for different test cases."""
     t1_lhs_known = np.array([[2, 0, 0], [-2, 2, 0], [0, -2, 0]])
-    t1_deltaT_known = 1 / 12
-
     t2_lhs_known = np.array([[0, -2, 0], [0, 2, -2], [0, 0, 2]])
-    t2_deltaT_known = 1 / 12
-
     t3_lhs_known = np.array(
         [
             [1, 0, 0, 0, 0, 0],
@@ -86,8 +84,6 @@ def references_market():
             [0, 0, 0, 0, -1, 0],
         ]
     )
-    t3_deltaT_known = 1 / 12
-
     t4_lhs_known = np.array(
         [
             [0, -1, 0, 0, 0, 0],
@@ -98,8 +94,6 @@ def references_market():
             [0, 0, 0, 0, 0, 1],
         ]
     )
-    t4_deltaT_known = 1 / 12
-
     t5_lhs_known = 0.25 * np.array(
         [
             [1, 0, 0, 0, 0, 0, 0, 0],
@@ -112,8 +106,6 @@ def references_market():
             [0, 0, 0, 0, 0, 0, -1, 0],
         ]
     )
-    t5_deltaT_known = 1 / 4
-
     t6_lhs_known = 0.25 * np.array(
         [
             [0, -1, 0, 0, 0, 0, 0, 0],
@@ -126,20 +118,10 @@ def references_market():
             [0, 0, 0, 0, 0, 0, 0, 1],
         ]
     )
-    t6_deltaT_known = 1 / 4
-
     t7_lhs_known = np.array([[1, -1, 0, 0], [0, 1, 0, 0], [0, 0, 0, -1], [-1, 0, 0, 1]])
-    t7_deltaT_known = 1 / 6
-
     t8_lhs_known = np.array([[1, 0, 0, -1], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, -1, 1]])
-    t8_deltaT_known = 1 / 6
-
     t9_lhs_known = np.array([[1, 0, 0], [-1, 1, 0], [0, -1, 0]])
-    t9_deltaT_known = 1 / 6
-
     t10_lhs_known = np.array([[0, -1, 0], [0, 1, -1], [0, 0, 1]])
-    t10_deltaT_known = 1 / 6
-
     t11_lhs_known = 0.5 * np.array(
         [
             [1, 0, 0, 0, 0, 0],
@@ -150,8 +132,6 @@ def references_market():
             [0, 0, 0, 0, -1, 0],
         ]
     )
-    t11_deltaT_known = 1 / 6
-
     t12_lhs_known = 0.5 * np.array(
         [
             [0, -1, 0, 0, 0, 0],
@@ -162,53 +142,31 @@ def references_market():
             [0, 0, 0, 0, 0, 1],
         ]
     )
-    t12_deltaT_known = 1 / 6
-
     t13_lhs_known = np.array(
         [[1, -1, 0, 0], [0, 1, 0, 0], [0, 0, 0, -1], [-1, 0, 0, 1]]
     )
-    t13_deltaT_known = 1 / 6
-
     t14_lhs_known = np.array(
         [[1, 0, 0, -1], [-1, 0, 0, 0], [0, 0, 1, 0], [0, 0, -1, 1]]
     )
-    t14_deltaT_known = 1 / 6
-
     t15_lhs_known = np.array([[2, 0, 0], [-2, 2, 0], [0, -2, 2]])
-    t15_deltaT_known = 1 / 12
-
     t16_lhs_known = np.array([[2, -2, 0], [0, 2, -2], [0, 0, 2]])
-    t16_deltaT_known = 1 / 12
-
     collection = {
-        "test_1d_darcy_flux_positive": (t1_lhs_known, t1_deltaT_known),
-        "test_1d_darcy_flux_negative": (t2_lhs_known, t2_deltaT_known),
-        "test_2d_cart_darcy_flux_positive": (t3_lhs_known, t3_deltaT_known),
-        "test_2d_cart_darcy_flux_negative": (t4_lhs_known, t4_deltaT_known),
-        "test_3d_cart_darcy_flux_positive": (t5_lhs_known, t5_deltaT_known),
-        "test_3d_cart_darcy_flux_negative": (t6_lhs_known, t6_deltaT_known),
-        "test_2d_simplex_darcy_flux_positive": (t7_lhs_known, t7_deltaT_known),
-        "test_2d_simplex_darcy_flux_negative": (t8_lhs_known, t8_deltaT_known),
-        "test_tilted_1d_darcy_flux_positive": (t9_lhs_known, t9_deltaT_known),
-        "test_tilted_1d_darcy_flux_negative": (t10_lhs_known, t10_deltaT_known),
-        "test_tilted_2d_cart_darcy_flux_positive": (
-            t11_lhs_known,
-            t11_deltaT_known,
-        ),
-        "test_tilted_2d_cart_darcy_flux_negative": (
-            t12_lhs_known,
-            t12_deltaT_known,
-        ),
-        "test_tilted_2d_simplex_darcy_flux_positive": (
-            t13_lhs_known,
-            t13_deltaT_known,
-        ),
-        "test_tilted_2d_simplex_darcy_flux_negative": (
-            t14_lhs_known,
-            t14_deltaT_known,
-        ),
-        "test_1d_darcy_flux_positive_rhs_dir": (t15_lhs_known, t15_deltaT_known),
-        "test_1d_darcy_flux_negative_rhs_dir": (t16_lhs_known, t16_deltaT_known),
+        "test_1d_darcy_flux_positive": t1_lhs_known,
+        "test_1d_darcy_flux_negative": t2_lhs_known,
+        "test_2d_cart_darcy_flux_positive": t3_lhs_known,
+        "test_2d_cart_darcy_flux_negative": t4_lhs_known,
+        "test_3d_cart_darcy_flux_positive": t5_lhs_known,
+        "test_3d_cart_darcy_flux_negative": t6_lhs_known,
+        "test_2d_simplex_darcy_flux_positive": t7_lhs_known,
+        "test_2d_simplex_darcy_flux_negative": t8_lhs_known,
+        "test_tilted_1d_darcy_flux_positive": t9_lhs_known,
+        "test_tilted_1d_darcy_flux_negative": t10_lhs_known,
+        "test_tilted_2d_cart_darcy_flux_positive": t11_lhs_known,
+        "test_tilted_2d_cart_darcy_flux_negative": t12_lhs_known,
+        "test_tilted_2d_simplex_darcy_flux_positive": t13_lhs_known,
+        "test_tilted_2d_simplex_darcy_flux_negative": t14_lhs_known,
+        "test_1d_darcy_flux_positive_rhs_dir": t15_lhs_known,
+        "test_1d_darcy_flux_negative_rhs_dir": t16_lhs_known,
     }
     return collection
 
@@ -283,7 +241,7 @@ class TestUpwind:
         param_dictionary: dict = data[pp.PARAMETERS][upwind_obj.keyword]
         flux_arr = param_dictionary[upwind_obj._flux_array_key]
         flux_mat = sps.dia_matrix((flux_arr, 0), shape=(sd.num_faces, sd.num_faces))
-        div: sps.spmatrix = pp.fvutils.scalar_divergence(sd)
+        div: sps.spmatrix = sd.divergence(dim=1)
 
         bc_values: np.ndarray = param_dictionary["bc_values"]
         bc_discr_dir: sps.spmatrix = matrix_dictionary[
@@ -389,17 +347,15 @@ class TestUpwind:
             sd, test_name, bc_type, angle, vector
         )
 
-        # compute matrix and delta_t
+        # compute matrix
         lhs, rhs = self._compose_algebraic_representation(sd, upwind_obj, data)
-        deltaT = upwind_obj.cfl(sd, data)
 
-        # retrieve references
-        lhs_known, deltaT_known = self._reference_collection[test_name]
+        # Retrieve reference lhs.
+        lhs_known = self._reference_collection[test_name]
 
         rtol = 1e-15
         atol = rtol
         assert np.allclose(lhs.todense(), lhs_known, rtol, atol)
-        assert np.allclose(deltaT, deltaT_known, rtol, atol)
         if bc_type == "dir":
             # retrieve extra references
             rhs_known = self._rhs_collection[test_name]
