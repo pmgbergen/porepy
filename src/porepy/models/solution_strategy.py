@@ -596,14 +596,12 @@ class SolutionStrategy(abc.ABC):
                 allowing for definiting relative criteria.
 
         Returns:
-            float: Residual norm.
+            float: Residual norm; np.nan if the residual is None.
 
         """
-        residual_norm = (
-            np.nan
-            if residual is None
-            else np.linalg.norm(residual) / np.sqrt(residual.size)
-        )
+        if residual is None:
+            return np.nan
+        residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
         return residual_norm
 
     def compute_nonlinear_increment_norm(
