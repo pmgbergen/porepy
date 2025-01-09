@@ -53,14 +53,14 @@ def test_export_chosen_times(times_to_export):
         constant_dt=True,
     )
 
-    params = {
+    model_params = {
         "time_manager": time_manager,
         "times_to_export": times_to_export,
     }
 
-    model = DataSavingModelMixinSetup(params)
+    model = DataSavingModelMixinSetup(model_params)
     model.exported_times = []
-    pp.run_time_dependent_model(model, params)
+    pp.run_time_dependent_model(model)
 
     # The actual test of exported times based on the log stored in model.exported_times:
     if times_to_export is None:

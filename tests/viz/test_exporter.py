@@ -17,6 +17,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Generator, Any
 
 import numpy as np
 import pytest
@@ -58,7 +59,7 @@ class SingleSubdomain:
 
 
 @pytest.fixture
-def setup() -> ExporterTestSetup:
+def setup() -> Generator[ExporterTestSetup, Any, Any]:
     """Method to deliver a setup to all tests, and remove any temporary directory."""
 
     # Setup
@@ -696,7 +697,6 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "specific_storage": 4e-1,  # [Pa^-1]
             "thermal_conductivity": 3.1,  # [W * m^-1 * K^-1]
             "thermal_expansion": 9.6e-2,  # [K^-1]
-            "temperature": 2,  # [K]
         }
         nontrivial_fluid = {
             "compressibility": 1e-1,  # [Pa^-1], isentropic compressibility
@@ -705,22 +705,27 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "thermal_conductivity": 0.5,  # [kg m^-3]
             "thermal_expansion": 2.068e-1,  # [K^-1]
             "viscosity": 1.002e-1,  # [Pa s], absolute viscosity
-            "pressure": 1,  # [Pa]
-            "temperature": 2,  # [K]
+        }
+        nontrivial_reference_values = {
+            'pressure': 1.0,  # [Pa]
+            'temperature': 2.0,  # [K]
         }
 
-        params = {
+        model_params = {
             "suppress_export": False,
             "units": units,
             "file_name": file_name,
             "folder_name": setup.folder,
             "material_constants": {
-                "solid": pp.SolidConstants(nontrivial_solid),
-                "fluid": pp.FluidConstants(nontrivial_fluid),
+                "solid": pp.SolidConstants(**nontrivial_solid),
+                "fluid": pp.FluidComponent(**nontrivial_fluid),
             },
+            "reference_variable_values": pp.ReferenceVariableValues(
+                **nontrivial_reference_values
+            ),
         }
-        model = TailoredThermoporomechanics(params=params)
-        pp.run_time_dependent_model(model, {})
+        model = TailoredThermoporomechanics(params=model_params)
+        pp.run_time_dependent_model(model)
 
     units_scaled = pp.Units(m=3.14, kg=42.0, K=3.79)
     units_unscaled = pp.Units()

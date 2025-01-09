@@ -8,6 +8,7 @@ from copy import deepcopy
 from typing import Literal, Optional, Union
 
 import numpy as np
+from scipy import sparse as sps
 from scipy import stats
 
 import porepy as pp
@@ -119,8 +120,12 @@ class ConvergenceAnalysis:
         """
 
         # Initialize setup and retrieve spatial and temporal data
-        setup = model_class(deepcopy(model_params))  # make a deep copy of dictionary
-        setup.prepare_simulation()
+        setup: pp.PorePyModel = model_class(
+            deepcopy(model_params)
+        )  # make a deep copy of dictionary
+        # The typing of PorePyModel was added to support linters as much as possible.
+        # But the protocols do not contain all methods provided by SolutionStrategy.
+        setup.prepare_simulation()  # type: ignore[attr-defined]
 
         # Store initial setup
         self._init_setup = setup
@@ -181,7 +186,7 @@ class ConvergenceAnalysis:
                 setattr(setup.results[-1], "cell_diameter", setup.mdg.diameter())
             else:
                 # Run time-dependent model
-                pp.run_time_dependent_model(setup, deepcopy(self.model_params[level]))
+                pp.run_time_dependent_model(setup)
                 # Complement information in results
                 setattr(setup.results[-1], "cell_diameter", setup.mdg.diameter())
                 setattr(setup.results[-1], "dt", setup.time_manager.dt)
@@ -479,6 +484,7 @@ class ConvergenceAnalysis:
         is_scalar: bool,
         is_cc: bool,
         relative: bool = False,
+        parameter_weight: Optional[np.ndarray] = None,
     ) -> pp.number:
         """Compute discrete L2-error as given in [1].
 
@@ -497,31 +503,65 @@ class ConvergenceAnalysis:
                 ``is_scalar=False`` for displacement.
             is_cc: Whether the variable is associated to cell centers. Use ``False``
                 for variables associated to face centers. For example, ``is_cc=True``
-                for pressures, whereas ``is_scalar=False`` for subdomain fluxes.
-            relative: Compute the relative error (if True) or the absolute error (if False).
+                for pressures, whereas ``is_cc=False`` for subdomain fluxes.
+            relative: Compute the relative error (if True) or the absolute error (if
+                False).
+            parameter_weight: Array containing the parameter weight, producing a
+                weighted norm. If given, the array size must equal the number of faces
+                or cells in the grid.
+
 
         Returns:
             Discrete L2-error between the true and approximated arrays.
 
+        Raises:
+            NotImplementedError: If a mortar grid is given and is_cc is False.
+            ZeroDivisionError: If the denominator in the relative error is zero.
+            ValueError: If the parameter weight has an invalid size.
+
         References:
 
-            - [1] Nordbotten, J. M. (2016). Stable cell-centered finite volume
-              discretization for Biot equations. SIAM Journal on Numerical Analysis,
-              54(2), 942-968.
+            - [1] Nordbotten and Keilegavlen, Two-point stress approximation: A simple
+              and robust finite volume method for linearized (poro-)elasticity and
+              Stokes flow.
+
 
         """
-        # Sanity check
+        # Sanity check.
         if isinstance(grid, pp.MortarGrid) and not is_cc:
             raise NotImplementedError("Interface variables can only be cell-centered.")
 
-        # Obtain proper measure, e.g., cell volumes for cell-centered quantities and face
-        # areas for face-centered quantities.
+        # Obtain proper measure, e.g., cell volumes for cell-centered quantities and the
+        # volume of the pyramids spanned by the face and its neighboring cell centers
+        # for face-centered quantities (see Eq. A1.12 from [1]).
         if is_cc:
+            num_faces_or_cells = grid.num_cells
             meas = grid.cell_volumes
         else:
             assert isinstance(grid, pp.Grid)  # to please mypy
-            meas = grid.face_areas
-
+            num_faces_or_cells = grid.num_faces
+            # Retrieve face indices, cell indices, and signs for the cell faces.
+            fi, ci, sgn = sps.find(grid.cell_faces)
+            # Compute the distance between face centers and cell centers.
+            fc_cc = grid.face_centers[::, fi] - grid.cell_centers[::, ci]
+            # Retrieve face normals (which include face area weighting).
+            n = grid.face_normals[::, fi]
+            # Compute the distance between face centers and cell centers along the
+            # normal direction.
+            dist_fc_cc = np.abs(np.sum(fc_cc * n, axis=0))
+            # Compute the distance between cell centers. Use bincount to sum the
+            # distances for each face, effectively computing the total distance between
+            # the face centers and their two neighboring cells.
+            dist_cc_cc = np.bincount(fi, weights=dist_fc_cc, minlength=grid.num_cells)
+            # Compute the measure as the average distance between cell centers divided
+            # by the grid dimension. This corresponds to the volume of a n-dimensional
+            # pyramid, see https://en.wikipedia.org/wiki/Hyperpyramid.
+            meas = dist_cc_cc / grid.dim
+        if parameter_weight is not None:
+            # The parameter weight is denoted by \gamma in Eq. A1.12 from [1].
+            if parameter_weight.size != num_faces_or_cells:
+                raise ValueError("Invalid size of parameter weight.")
+            meas *= parameter_weight
         if not is_scalar:
             meas = meas.repeat(grid.dim)
 
@@ -531,7 +571,8 @@ class ConvergenceAnalysis:
             np.sqrt(np.sum(meas * np.abs(true_array) ** 2)) if relative else 1.0
         )
 
-        # Deal with the case when the denominator is zero when computing the relative error.
+        # Deal with the case when the denominator is zero when computing the relative
+        # error.
         if np.isclose(denominator, 0):
             raise ZeroDivisionError("Attempted division by zero.")
 

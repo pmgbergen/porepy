@@ -7,12 +7,12 @@ Contains:
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, Union
+from typing import Union, cast
 
 import porepy as pp
 
 
-class BalanceEquation:
+class BalanceEquation(pp.PorePyModel):
     """Generic class for vector balance equations.
 
     In the only known use case, the balance equation is the momentum balance equation,
@@ -21,42 +21,6 @@ class BalanceEquation:
 
     with momentum frequently being zero. All terms need to be specified in order to
     define an equation.
-
-    """
-
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    wrap_grid_attribute: Callable[[Sequence[pp.GridLike], str, int], pp.ad.DenseArray]
-    """Wrap a grid attribute as a DenseArray. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-
-    """Function that returns the specific volume of a subdomain or interface.
-
-    Normally provided by a mixin of instance
-    :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
-    basis: Callable[[Sequence[pp.GridLike], int], list[pp.ad.SparseArray]]
-    """Basis for the local coordinate system. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    time_manager: pp.TimeManager
-    """Time manager. Normally set by a mixin instance of
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    ad_time_step: pp.ad.Scalar
-    """Time step as an automatic differentiation scalar. Normally set in
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
 
     """
 
@@ -88,7 +52,6 @@ class BalanceEquation:
             Operator for the balance equation.
 
         """
-
         dt_operator = pp.ad.time_derivatives.dt
         dt = self.ad_time_step
         div = pp.ad.Divergence(subdomains, dim=dim)
@@ -105,11 +68,11 @@ class BalanceEquation:
         Includes cell volumes and specific volume.
 
         Parameters:
-            integrand: Operator for the integrand. Assumed to be a cell-wise scalar or
-                vector quantity, cf. :code:`dim` argument.
+            integrand: Operator for the integrand. Assumed to be a cell-wise scalar
+                or vector quantity, cf. :code:`dim` argument.
             grids: List of subdomains or interfaces to be integrated over.
-            dim: Spatial dimension of the integrand. dim = 1 for scalar problems, dim >
-                1 for vector problems.
+            dim: Spatial dimension of the integrand. dim = 1 for scalar problems,
+                dim > 1 for vector problems.
 
         Returns:
             Operator for the volume integral.
@@ -118,16 +81,12 @@ class BalanceEquation:
             ValueError: If the grids are not all subdomains or all interfaces.
 
         """
-
         assert all(isinstance(g, pp.MortarGrid) for g in grids) or all(
             isinstance(g, pp.Grid) for g in grids
         ), "Grids must be either all subdomains or all interfaces."
 
         # First account for cell volumes.
-        # Ignore mypy complaint about unexpected keyword arguments.
-        cell_volumes = self.wrap_grid_attribute(  # type: ignore[call-arg]
-            grids, "cell_volumes", dim=1
-        )
+        cell_volumes = self.wrap_grid_attribute(grids, "cell_volumes", dim=1)
 
         # Next, include the effects of reduced dimensions, expressed as specific
         # volumes.
@@ -137,10 +96,9 @@ class BalanceEquation:
         else:
             # For vector problems, we need to expand the volume array from cell-wise
             # scalar values to cell-wise vectors. We do this by left multiplication with
-            #  e_i and summing over i.
-            basis: list[pp.ad.SparseArray] = self.basis(
-                grids, dim=dim  # type: ignore[call-arg]
-            )
+            # e_i and summing over i.
+            basis = self.basis(grids, dim=dim)
+
             volumes_nd = pp.ad.sum_operator_list(
                 [e @ (cell_volumes * self.specific_volume(grids)) for e in basis]
             )
@@ -148,7 +106,7 @@ class BalanceEquation:
             return volumes_nd * integrand
 
 
-class VariableMixin:
+class VariableMixin(pp.PorePyModel):
     """Mixin class for variables.
 
     This class is intended to be used together with the other model classes providing
@@ -160,27 +118,34 @@ class VariableMixin:
 
     """
 
-    def perturbation_from_reference(self, variable_name: str, grids: list[pp.Grid]):
-        """Perturbation of a variable from its reference value.
+    def perturbation_from_reference(self, name: str, grids: list[pp.Grid]):
+        """Perturbation of some quantity ``name`` from its reference value.
 
-        The parameter :code:`variable_name` should be the name of a variable so that
-        :code:`self.variable_name()` and `self.reference_variable_name()` are valid
-        calls. These methods will be provided by mixin classes; normally this will be a
-        subclass of :class:`VariableMixin`.
+        The parameter ``name`` should be the name of a mixed-in method, returning an
+        AD operator for given ``grids``.
 
-        The returned operator will be of the form
-        :code:`self.variable_name(grids) - self.reference_variable_name(grids)`.
+        ``name`` should also be defined in the model's :attr:`reference_values`.
+
+        This method calls the model method with given ``name`` on given ``grids`` to
+        create an operator ``A``. It then fetches the respective reference value and
+        wraps it into an AD scalar ``A_0``. The return value is an operator ``A - A_0``.
 
         Parameters:
-            variable_name: Name of the variable.
-            grids: List of subdomain or interface grids on which the variable is defined.
+            name: Name of the quantity to be perturbed from a reference value.
+            grids: List of subdomain or interface grids on which the quantity is
+                defined.
 
         Returns:
             Operator for the perturbation.
 
         """
-        var = getattr(self, variable_name)
-        var_ref = getattr(self, "reference_" + variable_name)
-        d_var = var(grids) - var_ref(grids)
-        d_var.set_name(variable_name + "_perturbation")
-        return d_var
+        quantity = getattr(self, name)
+        # This will throw an error if the attribute is not callable
+        quantity_op = cast(pp.ad.Operator, quantity(grids))
+        # the reference values are a data class instance storing only numbers
+        quantity_ref = cast(pp.number, getattr(self.reference_variable_values, name))
+        # The casting reflects the expected outcome, and is used to help linters find
+        # the set_name method
+        quantity_perturbed = quantity_op - pp.ad.Scalar(quantity_ref)
+        quantity_perturbed.set_name(f"{name}_perturbation")
+        return quantity_perturbed

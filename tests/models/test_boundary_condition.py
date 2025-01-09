@@ -2,7 +2,7 @@
 
 """
 
-from typing import Callable, Sequence
+from typing import Sequence
 
 import numpy as np
 import pytest
@@ -12,7 +12,6 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils.models import MassBalance as MassBalance_
-from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
 from porepy.models.momentum_balance import MomentumBalance
 
 
@@ -25,8 +24,6 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
     """
 
     custom_bc_neumann_key = "custom_bc_neumann"
-
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def update_all_boundary_conditions(self) -> None:
         super().update_all_boundary_conditions()
@@ -58,7 +55,7 @@ class CustomBoundaryCondition(pp.BoundaryConditionMixin):
         )
         return self._combine_boundary_operators(
             subdomains=subdomains,
-            dirichlet_operator=self.fluid_density,
+            dirichlet_operator=self.fluid.density,
             neumann_operator=op,
             robin_operator=op,
             bc_type=self.bc_type_dummy,
@@ -82,7 +79,7 @@ def test_boundary_condition_mixin(t_end: int):
     setup = MassBalance()
     setup.time_manager.dt = 1
     setup.time_manager.time_final = t_end
-    pp.run_time_dependent_model(setup, params={})
+    pp.run_time_dependent_model(setup)
 
     subdomains = setup.mdg.subdomains()
 
@@ -92,7 +89,7 @@ def test_boundary_condition_mixin(t_end: int):
         bc_val = bc_operator.value(setup.equation_system)
 
         # Testing the Dirichlet values. They should be equal to the fluid density.
-        expected_val = setup.fluid.density()
+        expected_val = setup.fluid.reference_component.density
         assert np.allclose(bc_val[bc_type.is_dir], expected_val)
         assert not np.allclose(bc_val[bc_type.is_neu], expected_val)
 
@@ -339,7 +336,7 @@ class CommonMassEnergyBalance(
     SquareDomainOrthogonalFractures,
     BCValuesDirichletIndices,
     BCValuesFlux,
-    MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     """Base mass and energy balance setup.
 
@@ -382,7 +379,7 @@ class MomentumBalanceRobin(BCRobin, CommonMomentumBalance):
 
     """
 
-
+    
 def run_model(balance_class, alpha):
     params = {
         "times_to_export": [],
@@ -392,13 +389,13 @@ def run_model(balance_class, alpha):
 
     params["alpha"] = alpha
     instance = balance_class(params)
-    pp.run_time_dependent_model(instance, params)
+    pp.run_time_dependent_model(instance)
     sd = instance.mdg.subdomains(dim=2)[0]
 
     if isinstance(instance, MomentumBalance):
         displacement = instance.displacement([sd]).value(instance.equation_system)
         return {"displacement": displacement}
-    elif isinstance(instance, MassAndEnergyBalance):
+    elif isinstance(instance, pp.MassAndEnergyBalance):
         pressure = instance.pressure([sd]).value(instance.equation_system)
         temperature = instance.temperature([sd]).value(instance.equation_system)
         return {"temperature": temperature, "pressure": pressure}

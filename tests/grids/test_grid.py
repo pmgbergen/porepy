@@ -3,6 +3,7 @@
 * Specific tests for Simplex and Structured Grids
 * Tests for the mortar grid.
 """
+
 import os
 import pickle
 
@@ -67,11 +68,283 @@ def test_closest_cell_out_of_plane():
     assert ind.size == 1
 
 
-def test_cell_face_as_dense():
-    g = pp.CartGrid(np.array([2, 1]))
-    cf = g.cell_face_as_dense()
-    known = np.array([[-1, 0, 1, -1, -1, 0, 1], [0, 1, -1, 0, 1, -1, -1]])
-    assert np.allclose(cf, known)
+@pytest.mark.parametrize(
+    "g",
+    [
+        pp.PointGrid(np.array([0, 0, 0])),
+        pp.CartGrid(np.array([2])),
+        pp.CartGrid(np.array([2, 2])),
+        pp.CartGrid(np.array([2, 2, 2])),
+        pp.StructuredTriangleGrid(np.array([2, 2])),
+        pp.StructuredTetrahedralGrid(np.array([2, 2, 2])),
+    ],
+)
+def test_cell_faces_as_dense(g: pp.Grid):
+    """Test that the cell_faces_as_dense method works as expected.
+
+    The test is based on constructing the dense version of the cell-face relation, using
+    the relevant method in the grid class, and reconstructing the sparse version from
+    the dense version using the known (or supposed, in case of bugs) structure of the
+    dense version.
+
+    Parameters:
+        g: The grid for which the test should be run.
+
+    """
+    # Get the sparse and dense versions of the cell-face relation.
+    cf_sparse = g.cell_faces
+    cf_dense = g.cell_faces_as_dense()
+
+    # Number of faces in the grid.
+    nf, nc = g.num_faces, g.num_cells
+
+    # All (possible) face indices. All of these will occur at least once (or else
+    # something is wrong, but the test should still work).
+    face_ind = np.arange(nf)
+
+    # In the dense cell-face relation, there are as many columns as there are faces, and
+    # the elements in the faces are the indices of the cells neighboring the face. The
+    # cells in the first row have positive sign in the sparse cell-face relation (that
+    # is, the face normal vectors point out of the cells), while the row contains cells
+    # with negative sign. A negative number in the dense cell-face relation signifies
+    # that the face is on the boundary, and that there is no neighboring cell on that
+    # side of the face.
+
+    # Logical array to identify actual cells in the first and second row
+    internal_cell_0 = cf_dense[0] >= 0
+    internal_cell_1 = cf_dense[1] >= 0
+
+    # Form the rows, columns and data for the reconstructed sparse cell-face relation.
+    # The rows are the indices of those faces that are internal. Pick indices from the
+    # first row of the dense relation, then the second.
+    rows = np.concatenate([face_ind[internal_cell_0], face_ind[internal_cell_1]])
+    # The columns are the indices of the cells that are neighbors to the faces. Again do
+    # filtering to only catch actual cells.
+    cols = np.concatenate([cf_dense[0, internal_cell_0], cf_dense[1, internal_cell_1]])
+    # The data is 1 for the first row, and -1 for the second.
+    data = np.concatenate(
+        [np.ones(np.sum(internal_cell_0)), -np.ones(np.sum(internal_cell_1))]
+    )
+
+    # Reconstruct the sparse cell-face relation.
+    reconstructed = sps.coo_matrix((data, (rows, cols)), shape=(nf, nc)).tocsr()
+    # The original and reconstructed cell-face relations should be the same.
+    assert np.allclose(reconstructed.toarray(), cf_sparse.toarray())
+
+
+class TestDivergenceTrace:
+
+    def create_grids(self) -> list[pp.Grid]:
+        """Create grids used for testing the divergence and trace operators.
+
+        The grids are:
+            1. 2d Cartesian grid with 2x2 cells.
+            2. 3d Cartesian grid with 2x2x2 cells.
+            3. 2d structured triangle grid with 2x2 cells.
+            4. 3d structured tetrahedral grid with 2x2x2 cells.
+            5. A 1d grid with two cells, and with the middle node split.
+
+        Returns:
+            A list of grids.
+
+        """
+        g1 = pp.CartGrid([2, 2], [1, 1])
+        g2 = pp.CartGrid([2, 2, 2], [1, 1, 1])
+        g3 = pp.StructuredTriangleGrid([2, 2], [1, 1])
+        g4 = pp.StructuredTetrahedralGrid([2, 2, 2], [1, 1, 1])
+
+        x = np.array([[0, 0.5, 0.5, 1], [0, 0, 0, 0], [0, 0, 0, 0]])
+        fn = sps.identity(4, format="csr")
+        cf = sps.csc_matrix(np.array([[-1, 1, 0, 0], [0, 0, -1, 1]]).T)
+        g5 = pp.Grid(dim=1, nodes=x, face_nodes=fn, cell_faces=cf, name="")
+
+        grid_list = [g1, g2, g3, g4, g5]
+
+        for g in grid_list:
+            g.compute_geometry()
+        return grid_list
+
+    def _boundary_faces(self, g: pp.Grid) -> np.ndarray:
+        """Find the boundary faces of the grid.
+
+        The boundary faces are identified by geometrically checking if the face center
+        is at the boundary of the domain, which is assumed to be of unit size. For 1d
+        grids, we also know that faces with center at x=0.5 are boundary faces. This
+        construction is not general, but it allows us to find the boundary faces without
+        using boundary tags and similar, and thus provide a real check of the
+        implementation of the divergence and trace operators.
+
+        Parameters:
+            g: The grid for which the boundary faces should be found.
+
+        Returns:
+            np.ndarray: The indices of the boundary faces.
+
+        """
+
+        bf = np.where(
+            np.logical_or(
+                np.any(g.face_centers[: g.dim] == 0, axis=0),
+                np.any(g.face_centers[: g.dim] == 1, axis=0),
+            )
+        )[0]
+
+        if g.dim == 1:
+            bf = np.hstack((bf, np.where(g.face_centers[0] == 0.5)[0]))
+
+        bf.sort()
+        return bf
+
+    def _bound_int_ind(self, g: pp.Grid, dim: int) -> tuple[np.ndarray, np.ndarray]:
+        """Find the indices corresponding to boundary and internal faces of a grid.
+
+        The indices are expanded to account for the dimension 'dim' of an operator (e.g.
+        the divergence operator).
+
+        Parameters:
+            g: The grid for which the indices should be found.
+            dim: The dimension of the operator.
+
+        Returns:
+            tuple with the indices corresponding to the boundary and internal faces.
+
+        """
+
+        # Faces on the boundary, and the indices of these faces in the divergence
+        # matrix. These will be identical if dim=1, but for dim > 1, there will be dim
+        # boundary indices for each boundary face.
+        bound_faces = self._boundary_faces(g)
+        bound_ind = pp.fvutils.expand_indices_nd(bound_faces, dim)
+        # The indices corresponding to internal faces are the complement of the boundary
+        # indices.
+        int_face_ind = np.setdiff1d(np.arange(g.num_faces * dim), bound_ind)
+
+        return bound_ind, int_face_ind
+
+    @pytest.mark.parametrize("dim", [1, 2])
+    def test_divergence(self, dim: int) -> None:
+        """Test the divergence operator for a number of grids.
+
+        See the below documentation for details on the test.
+
+        Parameters:
+            dim: The dimension of the divergence operator.
+
+        """
+        for g in self.create_grids():
+
+            # Divergence operator to be tested.
+            div = g.divergence(dim=dim).toarray()
+            # First a simple shape check.
+            assert div.shape == (dim * g.num_cells, dim * g.num_faces)
+
+            # Indices of boundary and internal faces.
+            bound_ind, int_face_ind = self._bound_int_ind(g, dim)
+
+            # Absolute value of the divergence, used to count the number of occurrences.
+            abs_div = np.abs(div)
+            # There should be exactly two occurrences of each internal face in the
+            # divergence matrix. They should have opposite signs, thus their sum should
+            # be zero. No similar test for the boundary faces, as this is also tested
+            # below (num_occ_bound). This is actually also partly true for the internal
+            # faces (in that case we need both num_occ_ind and the geometric test
+            # below), but we do overlapping tests since debugging a problem with
+            # opposite signs is much easier here than for the geometric test.
+            assert np.allclose(np.sum(abs_div[:, int_face_ind], axis=0), 2)
+            assert np.allclose(np.sum(div[:, int_face_ind], axis=0), 0)
+
+            # Find non-zero elements in the divergence matrix.
+            ci, fi, sgn = sps.find(div)
+
+            # There shoud be exactly one occurrence of each boundary face in the
+            # divergence matrix.
+            num_occ_bound = np.array([np.sum(i == fi) for i in bound_ind])
+            assert np.allclose(num_occ_bound, 1)
+            # There should be exactly two occurrences of each internal face in the
+            # divergence matrix.
+            num_occ_int = np.array([np.sum(i == fi) for i in int_face_ind])
+            assert np.allclose(num_occ_int, 2)
+
+            # As a final check, the sign of the divergence should be such that the
+            # divergence is positive if the face normal points out of the cell, and
+            # negative if it points into the cell.
+
+            # Vector from cell center to face center, and face normal. All are expanded
+            # (repeated) to match the repeats in ci and fi, if dim > 1 (each cell-face
+            # combination occurs more than once).
+            fc_cc = (
+                np.repeat(g.face_centers, dim, axis=1)[:, fi]
+                - np.repeat(g.cell_centers, dim, axis=1)[:, ci]
+            )
+            n = np.repeat(g.face_normals, dim, axis=1)[:, fi]
+
+            # Norm of the vector from cell center to face center.
+            nrm_fc_cc = np.linalg.norm(fc_cc, axis=0)
+            # Norm of the same vector, prolonged a little bit in the direction of the
+            # face normal.
+            nrm_fc_cc_n = np.linalg.norm(fc_cc + 1e-3 * n, axis=0)
+
+            # The normal vector points out of the cell if the prolonged vector is longer
+            # than the original vector. Convert this binary information into 1 and -1
+            # for True and False.
+            outward = 2 * (nrm_fc_cc_n > nrm_fc_cc) - 1
+            # The sign of the divergence should be positive for outward pointing
+            # normals, and negative for inward pointing normals.
+            assert np.allclose(sgn, outward)
+
+    @pytest.mark.parametrize("dim", [1, 2])
+    def test_trace(self, dim):
+        """Test the trace operator for a number of grids.
+
+        Parameters:
+            dim: The dimension of the trace operator.
+
+        """
+        for g in self.create_grids():
+            trace = g.trace(dim=dim).toarray()
+            # Indices of boundary and internal faces.
+            bound_ind, _ = self._bound_int_ind(g, dim)
+
+            # Non-zero elements in the trace matrix.
+            fi, ci, sgn = sps.find(trace)
+
+            # The trace matrix should be a mapping from cells to faces, expanded to
+            # deal with 'dim' quantities.
+            assert trace.shape == (dim * g.num_faces, dim * g.num_cells)
+
+            # The trace matrix should be mapping values without altering them, hence
+            # all non-zero values should be 1.
+            assert np.all(sgn == 1)
+
+            # Each face index should occur at most once.
+            assert fi.size == np.unique(fi).size
+
+            # All boundary indices should be in the trace matrix, and the trace matrix
+            # should only contain boundary indices. This implicitly checks that the
+            # trace matrix contains no internal indices.
+            assert np.all(np.isin(fi, bound_ind))
+            assert np.all(np.isin(bound_ind, fi))
+
+            # Finally try to verify that the trace matrix maps from the correct cell to
+            # the correct face. Ideally this should have been tested using geometric
+            # arguments, as this would have provided independent verification from the
+            # topology-based information used to construct the trace matrix. However,
+            # EK's attempts at doing so failed, so we have to rely on the topology-based
+            # test below. This is not ideal, but it is better than nothing.
+
+            # Construct a cell-face relation matrix expanded 'dim' times, and eliminate
+            # zeros.
+            cf = sps.kron(g.cell_faces, sps.eye(dim)).tocsr()
+            cf.eliminate_zeros()
+
+            # Loop over the boundary indices.
+            for face_ind in bound_ind:
+                # Find the cells that neighbor the face.
+                cells = cf[face_ind].indices
+                # There should be exactly one cell that neighbors the face.
+                assert cells.size == 1
+                # The trace matrix should contain the cell indices for the face.
+                assert np.all(ci[fi == face_ind] == cells[0])
 
 
 # ----- Boundary tests ----- #

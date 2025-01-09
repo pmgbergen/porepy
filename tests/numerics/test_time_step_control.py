@@ -374,13 +374,13 @@ class TestParameterInputs:
             constant_dt=True,
         )
 
-        params = {
+        model_params = {
             "time_manager": time_manager,
             "times_to_export": [],
         }
 
-        model = SinglePhaseFlow(params)
-        pp.run_time_dependent_model(model, params)
+        model = SinglePhaseFlow(model_params)
+        pp.run_time_dependent_model(model)
         performed_time_steps = model.time_manager.time_index
 
         assert performed_time_steps == num_time_steps
@@ -813,16 +813,16 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         residual: np.ndarray,
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
-    ) -> tuple[float, float, bool, bool]:
+    ) -> tuple[bool, bool]:
         if self.num_nonlinear_iters < self.num_nonlinear_iterations[self.time_step_idx]:
             # Neither converged nor diverged
-            return 0.5, 0.5, False, False
+            return False, False
         if self.time_step_converged[self.time_step_idx] is True:
             # Converged
-            return 0, 0.5, True, False
+            return True, False
         if self.time_step_converged[self.time_step_idx] is False:
             # Diverged
-            return 1, 0.5, False, True
+            return False, True
         assert (
             False
         ), "Nonlinear solver did not stop iterating after the iteration limit."

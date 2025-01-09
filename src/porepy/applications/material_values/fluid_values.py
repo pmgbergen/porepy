@@ -4,7 +4,7 @@ For now we provide parameter values for the following fluids:
 * Water (at 20 degrees Celsius)
 
 The dictionary containing parameter values is obtained by e.g. pp.fluid_values.water.
-They can be used in a simulation by passing `fluid = pp.FluidConstants(pp.fluid_values.
+They can be used in a simulation by passing `fluid = pp.FluidComponent(**pp.fluid_values.
 water)` as a material parameter on model initiation.
 
 
@@ -31,6 +31,7 @@ conductivity between 290K (16.85C) and 295K (21.85C).
 """
 
 water = {
+    "name": "water",
     "compressibility": 4.559 * 1e-10,  # [Pa^-1], isentropic compressibility
     "density": 998.2,  # [kg m^-3]
     "specific_heat_capacity": 4182.0,  # [J kg^-1 K^-1], isochoric specific heat
@@ -50,7 +51,5 @@ extended_water_values_for_testing = water.copy()
 extended_water_values_for_testing.update(
     {
         "normal_thermal_conductivity": 0.5975,  # [kg m^-3]
-        "pressure": 101325,  # [Pa]
-        "temperature": 293.15,  # [K]
     }
 )
