@@ -70,8 +70,8 @@ class DisplacementJump(pp.PorePyModel):
         # from the interface to the fracture, and finally to the local coordinates.
         rotated_jumps: pp.ad.Operator = (
             self.local_coordinates(subdomains)
-            @ mortar_projection.mortar_to_secondary_avg
-            @ mortar_projection.sign_of_mortar_sides
+            @ mortar_projection.mortar_to_secondary_avg()
+            @ mortar_projection.sign_of_mortar_sides()
             @ self.interface_displacement(interfaces)
         )
         rotated_jumps.set_name("Rotated_displacement_jump")
@@ -231,7 +231,7 @@ class DimensionReduction(pp.PorePyModel):
                 v_h = trace.trace @ self.specific_volume(neighbor_sds)
             else:
                 v_h = self.specific_volume(neighbor_sds)
-            v = projection.primary_to_mortar_avg @ v_h
+            v = projection.primary_to_mortar_avg() @ v_h
             v.set_name("specific_volume")
             return v
 
@@ -414,8 +414,8 @@ class DisplacementJumpAperture(DimensionReduction):
                 # and then to the lower-dimensional subdomains. The resulting compound
                 # projection is used  to map apertures and to count the number of neighbors.
                 parent_cells_to_intersection_cells = (
-                    mortar_projection.mortar_to_secondary_avg
-                    @ mortar_projection.primary_to_mortar_avg
+                    mortar_projection.mortar_to_secondary_avg()
+                    @ mortar_projection.primary_to_mortar_avg()
                     @ parent_and_subdomain_projection.face_prolongation(
                         parent_subdomains
                     )
@@ -798,7 +798,7 @@ class DarcysLaw(pp.PorePyModel):
         pressure_trace = (
             discr.bound_pressure_cell() @ p
             + discr.bound_pressure_face()
-            @ (projection.mortar_to_primary_int @ self.interface_darcy_flux(interfaces))
+            @ (projection.mortar_to_primary_int() @ self.interface_darcy_flux(interfaces))
             + discr.bound_pressure_face() @ boundary_operator
             + discr.bound_pressure_vector_source()
             @ self.vector_source_darcy_flux(subdomains)
@@ -859,7 +859,7 @@ class DarcysLaw(pp.PorePyModel):
             + discr.bound_flux()
             @ (
                 boundary_operator
-                + intf_projection.mortar_to_primary_int
+                + intf_projection.mortar_to_primary_int()
                 @ self.interface_darcy_flux(interfaces)
             )
             + discr.vector_source() @ self.vector_source_darcy_flux(domains)
@@ -919,14 +919,14 @@ class DarcysLaw(pp.PorePyModel):
         # We assume here that :meth:`aperture` is implemented to give a meaningful value
         # also for subdomains of co-dimension > 1.
         normal_gradient = pp.ad.Scalar(2) * (
-            projection.secondary_to_mortar_avg @ self.aperture(subdomains) ** Scalar(-1)
+            projection.secondary_to_mortar_avg() @ self.aperture(subdomains) ** Scalar(-1)
         )
         normal_gradient.set_name("normal_gradient")
 
         # Project the two pressures to the interface and multiply with the normal
         # diffusivity.
-        pressure_l = projection.secondary_to_mortar_avg @ self.pressure(subdomains)
-        pressure_h = projection.primary_to_mortar_avg @ self.pressure_trace(subdomains)
+        pressure_l = projection.secondary_to_mortar_avg() @ self.pressure(subdomains)
+        pressure_h = projection.primary_to_mortar_avg() @ self.pressure_trace(subdomains)
         eq = self.interface_darcy_flux(interfaces) - self.volume_integral(
             self.normal_permeability(interfaces)
             * (
@@ -994,7 +994,7 @@ class DarcysLaw(pp.PorePyModel):
         )
         # int? @EK
         vector_source = (
-            projection.secondary_to_mortar_avg
+            projection.secondary_to_mortar_avg()
             @ self.vector_source_darcy_flux(subdomain_neighbors)
         )
         # Make dot product with vector source in two steps. First multiply the vector
@@ -1254,7 +1254,7 @@ class AdTpfaFlux(pp.PorePyModel):
             + t_bnd
             * (
                 boundary_value_operator
-                + intf_projection.mortar_to_primary_int
+                + intf_projection.mortar_to_primary_int()
                 @ getattr(self, "interface_" + flux_name)(interfaces)
             )
             + vector_source_d
@@ -1315,7 +1315,7 @@ class AdTpfaFlux(pp.PorePyModel):
 
         # Project the interface flux to the primary grid, preparing for discretization
         # on internal boundaries.
-        projected_internal_flux = projection.mortar_to_primary_int @ getattr(
+        projected_internal_flux = projection.mortar_to_primary_int() @ getattr(
             self, "interface_" + flux_name
         )(interfaces)
 
@@ -1799,14 +1799,14 @@ class PeacemanWellFlux(pp.PorePyModel):
 
         well_index = self.volume_integral(
             pp.ad.Scalar(2 * np.pi)
-            * projection.primary_to_mortar_avg
+            * projection.primary_to_mortar_avg()
             @ (isotropic_permeability / (f_log(r_e / r_w) + skin_factor)),
             interfaces,
             1,
         )
         eq: pp.ad.Operator = self.well_flux(interfaces) - well_index * (
-            projection.primary_to_mortar_avg @ self.pressure(subdomains)
-            - projection.secondary_to_mortar_avg @ self.pressure(subdomains)
+            projection.primary_to_mortar_avg() @ self.pressure(subdomains)
+            - projection.secondary_to_mortar_avg() @ self.pressure(subdomains)
         )
         eq.set_name("well_flux_equation")
         return eq
@@ -2088,7 +2088,7 @@ class FouriersLaw(pp.PorePyModel):
             discr.bound_pressure_cell() @ t  # "pressure" is a legacy misnomer
             + discr.bound_pressure_face()
             @ (
-                projection.mortar_to_primary_int
+                projection.mortar_to_primary_int()
                 @ self.interface_fourier_flux(interfaces)
             )
             + discr.bound_pressure_face() @ boundary_operator_fourier
@@ -2136,7 +2136,7 @@ class FouriersLaw(pp.PorePyModel):
             + discr.bound_flux()
             @ (
                 boundary_operator_fourier
-                + projection.mortar_to_primary_int
+                + projection.mortar_to_primary_int()
                 @ self.interface_fourier_flux(interfaces)
             )
             + discr.vector_source() @ self.vector_source_fourier_flux(subdomains)
@@ -2192,7 +2192,7 @@ class FouriersLaw(pp.PorePyModel):
         # Gradient operator in the normal direction. The collapsed distance is
         # :math:`\frac{a}{2}` on either side of the fracture.
         normal_gradient = pp.ad.Scalar(2) * (
-            projection.secondary_to_mortar_avg @ self.aperture(subdomains) ** Scalar(-1)
+            projection.secondary_to_mortar_avg() @ self.aperture(subdomains) ** Scalar(-1)
         )
         normal_gradient.set_name("normal_gradient")
 
@@ -2200,10 +2200,10 @@ class FouriersLaw(pp.PorePyModel):
         # conductivity.
         # See comments in :meth:`interface_darcy_flux_equation` for more information on
         # the terms in the below equation.
-        temperature_h = projection.primary_to_mortar_avg @ self.temperature_trace(
+        temperature_h = projection.primary_to_mortar_avg() @ self.temperature_trace(
             subdomains
         )
-        temperature_l = projection.secondary_to_mortar_avg @ self.temperature(
+        temperature_l = projection.secondary_to_mortar_avg() @ self.temperature(
             subdomains
         )
         eq = self.interface_fourier_flux(interfaces) - self.volume_integral(
@@ -2398,7 +2398,7 @@ class AdvectiveFlux(pp.PorePyModel):
         if interface_flux is not None:
             flux += (
                 discr.bound_transport_neu()
-                @ mortar_projection.mortar_to_primary_int
+                @ mortar_projection.mortar_to_primary_int()
                 @ interface_flux(interfaces)
             )
         else:
@@ -2438,11 +2438,11 @@ class AdvectiveFlux(pp.PorePyModel):
         # weights and the interface Darcy flux.
         interface_flux: pp.ad.Operator = self.interface_darcy_flux(interfaces) * (
             discr.upwind_primary()
-            @ mortar_projection.primary_to_mortar_avg
+            @ mortar_projection.primary_to_mortar_avg()
             @ trace.trace
             @ advected_entity
             + discr.upwind_secondary()
-            @ mortar_projection.secondary_to_mortar_avg
+            @ mortar_projection.secondary_to_mortar_avg()
             @ advected_entity
         )
         return interface_flux
@@ -2477,10 +2477,10 @@ class AdvectiveFlux(pp.PorePyModel):
         # weights and the interface Darcy flux.
         interface_flux: pp.ad.Operator = self.well_flux(interfaces) * (
             discr.upwind_primary()
-            @ mortar_projection.primary_to_mortar_avg
+            @ mortar_projection.primary_to_mortar_avg()
             @ advected_entity
             + discr.upwind_secondary()
-            @ mortar_projection.secondary_to_mortar_avg
+            @ mortar_projection.secondary_to_mortar_avg()
             @ advected_entity
         )
         return interface_flux
@@ -2744,7 +2744,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
             discr.stress() @ self.displacement(domains)
             + discr.bound_stress() @ boundary_operator
             + discr.bound_stress()
-            @ proj.mortar_to_primary_avg
+            @ proj.mortar_to_primary_avg()
             @ self.interface_displacement(interfaces)
         )
         stress.set_name("mechanical_stress")
@@ -2814,8 +2814,8 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         # to the interface, and switching the sign of the traction depending on the
         # sign of the mortar sides.
         nondim_traction = (
-            mortar_projection.sign_of_mortar_sides
-            @ mortar_projection.secondary_to_mortar_int
+            mortar_projection.sign_of_mortar_sides()
+            @ mortar_projection.secondary_to_mortar_int()
             @ subdomain_projection.cell_prolongation(fracture_subdomains)
             @ self.local_coordinates(fracture_subdomains).transpose()
             @ self.contact_traction(fracture_subdomains)
@@ -2967,7 +2967,7 @@ class PressureStress(LinearElasticMechanicalStress):
         # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
         stress = outwards_normal * (
             scalar_to_nd
-            @ mortar_projection.secondary_to_mortar_avg
+            @ mortar_projection.secondary_to_mortar_avg()
             @ self.pressure(subdomains)
         )
         stress.set_name("fracture_pressure_stress")
@@ -3877,7 +3877,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         ) @ (
             boundary_operator
             + sd_projection.face_restriction(subdomains)
-            @ mortar_projection.mortar_to_primary_avg
+            @ mortar_projection.mortar_to_primary_avg()
             @ self.interface_displacement(interfaces)
         )
         # Divide by cell volumes to counteract integration. The displacement_divergence
