@@ -118,7 +118,7 @@ class SubdomainProjections:
         """Construct prolongation from subdomain to global cell quantities.
 
         Parameters:
-            subdomains: One or several subdomains to which the prolongation should 
+            subdomains: One or several subdomains to which the prolongation should
                 apply.
 
         Raises:
@@ -284,7 +284,7 @@ class MortarProjections:
 
         for intf in interfaces:
             # Check the data of projections for both intensive and extensive quantities.
-            # If both have essentially unit values, the interface is conforming. 
+            # If both have essentially unit values, the interface is conforming.
             for proj in [intf.mortar_to_primary_int(), intf.mortar_to_primary_avg()]:
                 if not np.allclose(proj.data, 1, atol=1e-10):
                     is_conforming_primary = False
@@ -346,9 +346,8 @@ class MortarProjections:
         else:
             return SparseArray(sps.block_diag(mats), name="SignOfMortarSides")
 
-
     def mortar_to_primary_int(self) -> Operator:
-        """ Construct a matrix that projects from mortar grids to primary grids for
+        """Construct a matrix that projects from mortar grids to primary grids for
         extensive quantities.
 
         Returns:
@@ -379,7 +378,7 @@ class MortarProjections:
         return mat
 
     def mortar_to_primary_avg(self) -> Operator:
-        """ Construct a matrix that projects from mortar grids to primary grids for
+        """Construct a matrix that projects from mortar grids to primary grids for
         intensive quantities.
 
         Returns:
@@ -405,7 +404,7 @@ class MortarProjections:
         return mat
 
     def primary_to_mortar_int(self) -> Operator:
-        """ Construct a matrix that projects from primary grids to mortar grids for
+        """Construct a matrix that projects from primary grids to mortar grids for
         extensive quantities.
 
         Returns:
@@ -430,7 +429,7 @@ class MortarProjections:
         return mat
 
     def primary_to_mortar_avg(self) -> Operator:
-        """ Construct a matrix that projects from primary grids to mortar grids for
+        """Construct a matrix that projects from primary grids to mortar grids for
         intensive quantities.
 
         Returns:
@@ -456,7 +455,7 @@ class MortarProjections:
         return mat
 
     def mortar_to_secondary_int(self) -> Operator:
-        """ Construct a matrix that projects from mortar grids to secondary grids for
+        """Construct a matrix that projects from mortar grids to secondary grids for
         extensive quantities.
 
         Returns:
@@ -483,7 +482,7 @@ class MortarProjections:
         return mat
 
     def mortar_to_secondary_avg(self) -> Operator:
-        """ Construct a matrix that projects from mortar grids to secondary grids for
+        """Construct a matrix that projects from mortar grids to secondary grids for
         intensive quantities.
 
         Returns:
@@ -508,13 +507,13 @@ class MortarProjections:
         return mat
 
     def secondary_to_mortar_int(self) -> Operator:
-        """ Construct a matrix that projects from secondary grids to mortar grids for
+        """Construct a matrix that projects from secondary grids to mortar grids for
         extensive quantities.
 
         Returns:
             Sparse matrix (in the Ad sense) that represents the projection.
 
-        """        
+        """
         if self._is_conforming_secondary and self._secondary_to_mortar is not None:
             return self._secondary_to_mortar
         elif (
@@ -533,13 +532,13 @@ class MortarProjections:
         return mat
 
     def secondary_to_mortar_avg(self) -> Operator:
-        """ Construct a matrix that projects from secondary grids to mortar grids for
+        """Construct a matrix that projects from secondary grids to mortar grids for
         intensive quantities.
 
         Returns:
             Sparse matrix (in the Ad sense) that represents the projection.
 
-        """        
+        """
         if self._is_conforming_secondary and self._secondary_to_mortar is not None:
             return self._secondary_to_mortar
         elif (
@@ -557,7 +556,9 @@ class MortarProjections:
             self._secondary_to_mortar_avg = mat
         return mat
 
-    def _construct_projection(self, proj_func: str, to_mortar: bool, is_primary: bool, name: str) -> Operator:
+    def _construct_projection(
+        self, proj_func: str, to_mortar: bool, is_primary: bool, name: str
+    ) -> Operator:
         """Helper method to construct a projection matrix, given information about the
         projection.
 
@@ -674,8 +675,10 @@ class MortarProjections:
         s = (
             f"Mortar projection for {self._num_edges} interfaces\n"
             f"Aimed at variables with dimension {self.dim}\n"
-            f"Projections to primary have dimensions {self.mortar_to_primary_avg().shape}\n"
-            f"Projections to secondary have dimensions {self.mortar_to_secondary_avg().shape}\n"
+            "Projections to primary have dimensions "
+            f"{self.mortar_to_primary_avg().shape}\n"
+            "Projections to secondary have dimensions "
+            f"{self.mortar_to_secondary_avg().shape}\n"
         )
         return s
 
@@ -870,7 +873,8 @@ class Divergence(Operator):
 def _cell_projections(
     subdomains: Sequence[pp.Grid], dim: int
 ) -> dict[pp.Grid, sps.spmatrix]:
-    """Construct prolongation matrices for cell-based quantities from individual subdomains to a set of subdomains.
+    """Construct prolongation matrices for cell-based quantities from individual
+    subdomains to a set of subdomains.
 
     Parameters:
         subdomains: List of grids representing subdomains.
@@ -909,7 +913,8 @@ def _cell_projections(
 def _face_projections(
     subdomains: Sequence[pp.Grid], dim: int
 ) -> dict[pp.Grid, sps.spmatrix]:
-    """Construct prolongation matrices for face-based quantities from individual subdomains to a set of subdomains.
+    """Construct prolongation matrices for face-based quantities from individual
+    subdomains to a set of subdomains.
 
     Parameters:
         subdomains: List of grids representing subdomains.
@@ -918,7 +923,7 @@ def _face_projections(
 
     Returns:
         face_projection: Dictionary with the individual subdomains as keys and
-        projection matrices for face-based quantities as items.
+            projection matrices for face-based quantities as items.
 
     The global face numbering is set according to the order of the input subdomains.
 
