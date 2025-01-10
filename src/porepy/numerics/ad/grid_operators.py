@@ -26,11 +26,18 @@ __all__ = [
 class SubdomainProjections:
     """Wrapper class for generating projection to and from subdomains.
 
-    One use case in when variables are defined on only some subdomains.
-
     The class should be used through the methods {cell, face}_{projection, restriction}.
 
-    See also MortarProjections for projections to and from mortar subdomains.
+    Parameters:
+        subdomains: List of grids for which the projections should map to and from.
+        dim: Dimension of the quantities to be mapped. Will typically be 1 (for scalar
+            quantities) or Nd (the ambient dimension, for vector quantities).
+
+    Raises:
+        ValueError: If a subdomain occur more than once in the input list.
+
+    See also:
+        MortarProjections for projections to and from mortar subdomains.
 
     """
 
@@ -74,23 +81,22 @@ class SubdomainProjections:
         self._tot_num_cells: int = sum([g.num_cells for g in subdomains])
         self._tot_num_faces: int = sum([g.num_faces for g in subdomains])
 
-        self._cell_projection, self._face_projection = _subgrid_projections(
-            subdomains, self.dim
-        )
-
     def cell_restriction(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct restrictions from global to subdomain cell quantities.
 
         Parameters:
             subdomains: One or several subdomains to which the projection should apply.
 
+        Raises:
+            ValueError: If subdomains is not a list.
+
         Returns:
             pp.ad.SparseArray: Matrix operator (in the Ad sense) that represents the
-            projection.
+                projection.
 
         """
         if not isinstance(subdomains, list):
-            raise ValueError(self._error_message())
+            raise ValueError("Subdomains should be a list of grids")
 
         if len(subdomains) > 0:
             # A key error will be raised if a grid in g is not known to
@@ -116,7 +122,8 @@ class SubdomainProjections:
 
         """
         if not isinstance(subdomains, list):
-            raise ValueError(self._error_message())
+            raise ValueError("Subdomains should be a list of grids")
+
         if len(subdomains) > 0:
             # A key error will be raised if a grid in g is not known to
             # self._cell_projection
@@ -125,7 +132,7 @@ class SubdomainProjections:
             mat = sps.bmat([[self._cell_projection[g] for g in subdomains]]).tocsc()
         else:
             # If the grid list is empty, we project from nothing to the full set of
-            # cells
+            # cells. CSC format is used for efficiency.
             mat = sps.csc_matrix((self._tot_num_cells * self.dim, 0))
         return pp.ad.SparseArray(mat, name="CellProlongation")
 
@@ -141,6 +148,9 @@ class SubdomainProjections:
                 projection.
 
         """
+        if not isinstance(subdomains, list):
+            raise ValueError("Subdomains should be a list of grids")
+
         if len(subdomains) > 0:
             # A key error will be raised if a grid in subdomains is not known to
             # self._face_projection
@@ -164,6 +174,9 @@ class SubdomainProjections:
             prolongation.
 
         """
+        if not isinstance(subdomains, list):
+            raise ValueError("Subdomains should be a list of grids")
+
         if len(subdomains) > 0:
             # A key error will be raised if a grid in subdomains is not known to
             # self._face_projection
@@ -172,7 +185,7 @@ class SubdomainProjections:
             mat = sps.bmat([[self._face_projection[g] for g in subdomains]]).tocsc()
         else:
             # If the grid list is empty, we project from nothing to the full set of
-            # faces
+            # faces.
             mat = sps.csc_matrix((self._tot_num_faces * self.dim, 0))
         return pp.ad.SparseArray(mat, name="FaceProlongation")
 
@@ -183,9 +196,6 @@ class SubdomainProjections:
             f"Aimed at variables with dimension {self.dim}\n"
         )
         return s
-
-    def _error_message(self):
-        return "Argument should be a subdomain grid or a list of subdomain grids"
 
 
 class MortarProjections:
