@@ -424,11 +424,9 @@ class DisplacementJumpAperture(DimensionReduction):
 
                 # Average weights are the number of cells in the parent subdomains
                 # contributing to each intersection cells.
-                average_weights = np.ravel(
-                    parent_cells_to_intersection_cells.value(self.equation_system).sum(
-                        axis=1
-                    )
-                )
+                weight_value = parent_cells_to_intersection_cells.value(self.equation_system)
+                assert isinstance(weight_value, np.ndarray)  # for mypy
+                average_weights = np.ravel(weight_value.sum(axis=1))
                 nonzero = average_weights > 0
                 average_weights[nonzero] = 1 / average_weights[nonzero]
                 # Wrap as a DenseArray

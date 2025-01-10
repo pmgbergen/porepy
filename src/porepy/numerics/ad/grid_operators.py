@@ -305,24 +305,24 @@ class MortarProjections:
         if self._is_conforming_primary:
             # Mapping for intensive and extensive quantities are the same, we can get
             # away with storing only one set of projections.
-            self._mortar_to_primary: Optional[dict[pp.Grid, sps.spmatrix]] = None
-            self._primary_to_mortar: Optional[dict[pp.Grid, sps.spmatrix]] = None
+            self._mortar_to_primary: Optional[SparseArray] = None
+            self._primary_to_mortar: Optional[SparseArray] = None
         else:
             # Here we need to store both intensive and extensive projections.
-            self._mortar_to_primary_int: Optional[dict[pp.Grid, sps.spmatrix]] = None
-            self._mortar_to_primary_avg: Optional[dict[pp.Grid, sps.spmatrix]] = None
-            self._primary_to_mortar_int: Optional[dict[pp.Grid, sps.spmatrix]] = None
-            self._primary_to_mortar_avg: Optional[dict[pp.Grid, sps.spmatrix]] = None
+            self._mortar_to_primary_int: Optional[SparseArray] = None
+            self._mortar_to_primary_avg: Optional[SparseArray] = None
+            self._primary_to_mortar_int: Optional[SparseArray] = None
+            self._primary_to_mortar_avg: Optional[SparseArray] = None
 
         # The case for secondary grids is analogous to the primary grids.
         if self._is_conforming_secondary:
-            self._mortar_to_secondary: Optional[dict[pp.Grid, sps.spmatrix]] = None
-            self._secondary_to_mortar: Optional[dict[pp.Grid, sps.spmatrix]] = None
+            self._mortar_to_secondary: Optional[SparseArray] = None
+            self._secondary_to_mortar: Optional[SparseArray] = None
         else:
-            self._mortar_to_secondary_int: Optional[dict[pp.Grid, sps.spmatrix]] = None
-            self._mortar_to_secondary_avg: Optional[dict[pp.Grid, sps.spmatrix]] = None
-            self._secondary_to_mortar_int: Optional[dict[pp.Grid, sps.spmatrix]] = None
-            self._secondary_to_mortar_avg: Optional[dict[pp.Grid, sps.spmatrix]] = None
+            self._mortar_to_secondary_int: Optional[SparseArray] = None
+            self._mortar_to_secondary_avg: Optional[SparseArray] = None
+            self._secondary_to_mortar_int: Optional[SparseArray] = None
+            self._secondary_to_mortar_avg: Optional[SparseArray] = None
 
     def sign_of_mortar_sides(self) -> SparseArray:
         """Construct a matrix that gives the sign of the mortar sides.
@@ -346,7 +346,7 @@ class MortarProjections:
         else:
             return SparseArray(sps.block_diag(mats), name="SignOfMortarSides")
 
-    def mortar_to_primary_int(self) -> Operator:
+    def mortar_to_primary_int(self) -> SparseArray:
         """Construct a matrix that projects from mortar grids to primary grids for
         extensive quantities.
 
@@ -377,7 +377,7 @@ class MortarProjections:
             self._mortar_to_primary_int = mat
         return mat
 
-    def mortar_to_primary_avg(self) -> Operator:
+    def mortar_to_primary_avg(self) -> SparseArray:
         """Construct a matrix that projects from mortar grids to primary grids for
         intensive quantities.
 
@@ -403,7 +403,7 @@ class MortarProjections:
             self._mortar_to_primary_avg = mat
         return mat
 
-    def primary_to_mortar_int(self) -> Operator:
+    def primary_to_mortar_int(self) -> SparseArray:
         """Construct a matrix that projects from primary grids to mortar grids for
         extensive quantities.
 
@@ -428,7 +428,7 @@ class MortarProjections:
             self._primary_to_mortar_int = mat
         return mat
 
-    def primary_to_mortar_avg(self) -> Operator:
+    def primary_to_mortar_avg(self) -> SparseArray:
         """Construct a matrix that projects from primary grids to mortar grids for
         intensive quantities.
 
@@ -454,7 +454,7 @@ class MortarProjections:
             self._primary_to_mortar_avg = mat
         return mat
 
-    def mortar_to_secondary_int(self) -> Operator:
+    def mortar_to_secondary_int(self) -> SparseArray:
         """Construct a matrix that projects from mortar grids to secondary grids for
         extensive quantities.
 
@@ -481,7 +481,7 @@ class MortarProjections:
             self._mortar_to_secondary_int = mat
         return mat
 
-    def mortar_to_secondary_avg(self) -> Operator:
+    def mortar_to_secondary_avg(self) -> SparseArray:
         """Construct a matrix that projects from mortar grids to secondary grids for
         intensive quantities.
 
@@ -506,7 +506,7 @@ class MortarProjections:
             self._mortar_to_secondary_avg = mat
         return mat
 
-    def secondary_to_mortar_int(self) -> Operator:
+    def secondary_to_mortar_int(self) -> SparseArray:
         """Construct a matrix that projects from secondary grids to mortar grids for
         extensive quantities.
 
@@ -531,7 +531,7 @@ class MortarProjections:
             self._secondary_to_mortar_int = mat
         return mat
 
-    def secondary_to_mortar_avg(self) -> Operator:
+    def secondary_to_mortar_avg(self) -> SparseArray:
         """Construct a matrix that projects from secondary grids to mortar grids for
         intensive quantities.
 
@@ -558,7 +558,7 @@ class MortarProjections:
 
     def _construct_projection(
         self, proj_func: str, to_mortar: bool, is_primary: bool, name: str
-    ) -> Operator:
+    ) -> SparseArray:
         """Helper method to construct a projection matrix, given information about the
         projection.
 
