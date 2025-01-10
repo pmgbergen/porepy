@@ -679,7 +679,7 @@ class ModelGeometry(pp.PorePyModel):
         # must logically be integration, not average. This also means that the normals
         # have length equal to cell_volume on mortar grids, by analogy to face_area for
         # subdomains.
-        outwards_normals = mortar_projection.primary_to_mortar_int @ flipped_normals
+        outwards_normals = mortar_projection.primary_to_mortar_int() @ flipped_normals
         outwards_normals.set_name("outwards_internal_boundary_normals")
 
         # Normalize by face area if requested.
