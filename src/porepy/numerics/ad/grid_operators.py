@@ -61,6 +61,10 @@ class SubdomainProjections:
         self._name = "SubdomainProjection"
         self.dim = dim
         self._is_scalar: bool = dim == 1
+        
+        # Store the list of subdomains. This will be needed to construct the projection
+        # matrices.
+        self._all_subdomains = subdomains
 
         # Uniquify the list of subdomains. There is no need to have the same subdomain
         # represented several times.
@@ -81,6 +85,11 @@ class SubdomainProjections:
         self._tot_num_cells: int = sum([g.num_cells for g in subdomains])
         self._tot_num_faces: int = sum([g.num_faces for g in subdomains])
 
+        # Initialize storage for the projection matrices. These will be constructed
+        # lazily, when the projection is requested, and then stored for later use.
+        self._cell_projections: Optional[dict[pp.Grid, sps.spmatrix]] = None
+        self._face_projection: Optional[dict[pp.Grid, sps.spmatrix]] = None
+
     def cell_restriction(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct restrictions from global to subdomain cell quantities.
 
@@ -97,6 +106,10 @@ class SubdomainProjections:
         """
         if not isinstance(subdomains, list):
             raise ValueError("Subdomains should be a list of grids")
+
+        if self._cell_projections is None:
+            # Construct and store projection matrices for cells.
+            self._cell_projections = _cell_projections(self._all_subdomains, self.dim)        
 
         if len(subdomains) > 0:
             # A key error will be raised if a grid in g is not known to
@@ -123,6 +136,10 @@ class SubdomainProjections:
         """
         if not isinstance(subdomains, list):
             raise ValueError("Subdomains should be a list of grids")
+
+        if self._cell_projections is None:
+            # Construct and store projection matrices for cells.
+            self._cell_projections = _cell_projections(self._all_subdomains, self.dim)        
 
         if len(subdomains) > 0:
             # A key error will be raised if a grid in g is not known to
@@ -151,6 +168,10 @@ class SubdomainProjections:
         if not isinstance(subdomains, list):
             raise ValueError("Subdomains should be a list of grids")
 
+        if self._face_projections is None:
+            # Construct and store projection matrices for faces.
+            self._face_projections = _face_projections(self._all_subdomains, self.dim)        
+
         if len(subdomains) > 0:
             # A key error will be raised if a grid in subdomains is not known to
             # self._face_projection
@@ -176,6 +197,10 @@ class SubdomainProjections:
         """
         if not isinstance(subdomains, list):
             raise ValueError("Subdomains should be a list of grids")
+
+        if self._face_projections is None:
+            # Construct and store projection matrices for faces.
+            self._face_projections = _face_projections(self._all_subdomains, self.dim)        
 
         if len(subdomains) > 0:
             # A key error will be raised if a grid in subdomains is not known to
