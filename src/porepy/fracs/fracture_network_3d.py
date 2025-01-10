@@ -2014,7 +2014,9 @@ class FractureNetwork3d(object):
         boundary_tags = self.tags.get("boundary", [False] * len(self.fractures))
         if keep_box:
             for pnt in self.domain.polytope:
-                self.add(pp.PlaneFracture(pnt))
+                new_frac = pp.PlaneFracture(pnt)
+                new_frac.index = len(self.fractures)
+                self.fractures.append(new_frac)
                 boundary_tags.append(True)
         self.tags["boundary"] = boundary_tags
 
