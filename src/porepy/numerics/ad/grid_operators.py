@@ -66,16 +66,8 @@ class SubdomainProjections:
         # matrices.
         self._all_subdomains = subdomains
 
-        # Uniquify the list of subdomains. There is no need to have the same subdomain
-        # represented several times.
+        # Request that the subdomains are unique.
         if len(set(subdomains)) < len(subdomains):
-            # The problem here is that the subdomain projections are stored in a dict,
-            # with the subdomanis as keys. If the same subdomain is represented twice,
-            # the first projection will be overwritten by the second, thus the order
-            # of the subdomains will be lost. There is no easy way to handle this, the
-            # only option is to fix the error on the caller side. An internal fix would
-            # entail changing the storage format for the projection, potentially needing
-            # a lot of memory.
             raise ValueError("Subdomains must be unique")
 
         self._num_grids: int = len(subdomains)
@@ -107,15 +99,14 @@ class SubdomainProjections:
         if not isinstance(subdomains, list):
             raise ValueError("Subdomains should be a list of grids")
 
+        # Construct and store projection matrices for cells if necessary.
         if self._cell_projections is None:
-            # Construct and store projection matrices for cells.
             self._cell_projections = _cell_projections(self._all_subdomains, self.dim)
 
         if len(subdomains) > 0:
             # A key error will be raised if a grid in g is not known to
-            # self._cell_projection
-            # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
-            # be much less than the number of columns.
+            # self._cell_projection. Use csr format, since the number of rows can be
+            # much less than the number of columns.
             mat = sps.bmat([[self._cell_projections[g].T] for g in subdomains]).tocsr()
         else:
             # If the grid list is empty, we project from the full set of cells to
@@ -127,11 +118,15 @@ class SubdomainProjections:
         """Construct prolongation from subdomain to global cell quantities.
 
         Parameters:
-            subdomains: One or several subdomains to which the prolongation should apply.
+            subdomains: One or several subdomains to which the prolongation should 
+                apply.
+
+        Raises:
+            ValueError: If subdomains is not a list.
 
         Returns:
             pp.ad.SparseArray: Matrix operator (in the Ad sense) that represent the
-            prolongation.
+                prolongation.
 
         """
         if not isinstance(subdomains, list):
@@ -143,22 +138,24 @@ class SubdomainProjections:
 
         if len(subdomains) > 0:
             # A key error will be raised if a grid in g is not known to
-            # self._cell_projection
-            # IMPLEMENTATION NOTE: Use csc format, since the number of columns can
-            # be much less than the number of rows.
+            # self._cell_projection.  Use csc format, since the number of columns can be
+            # much less than the number of rows.
             mat = sps.bmat([[self._cell_projections[g] for g in subdomains]]).tocsc()
         else:
             # If the grid list is empty, we project from nothing to the full set of
-            # cells. CSC format is used for efficiency.
+            # cells.
             mat = sps.csc_matrix((self._tot_num_cells * self.dim, 0))
+
         return pp.ad.SparseArray(mat, name="CellProlongation")
 
     def face_restriction(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct restrictions from global to subdomain face quantities.
 
         Parameters:
-            subdomains: One or several subdomains to which
-                the projection should apply.
+            subdomains: One or several subdomains to which the projection should apply.
+
+        Raises:
+            ValueError: If subdomains is not a list.
 
         Returns:
             pp.ad.SparseArray: Matrix operator (in the Ad sense) that represent the
@@ -174,9 +171,8 @@ class SubdomainProjections:
 
         if len(subdomains) > 0:
             # A key error will be raised if a grid in subdomains is not known to
-            # self._face_projection
-            # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
-            # be much less than the number of columns.
+            # self._face_projection. Use csr format, since the number of rows can be
+            # much less than the number of columns.
             mat = sps.bmat([[self._face_projections[g].T] for g in subdomains]).tocsr()
         else:
             # If the grid list is empty, we project from the full set of faces to
@@ -190,6 +186,9 @@ class SubdomainProjections:
         Parameters:
             subdomains: One or several subdomains to which the prolongation should apply.
 
+        Raises:
+            ValueError: If subdomains is not a list.
+
         Returns:
             pp.ad.SparseArray: Matrix operator (in the Ad sense) that represent the
             prolongation.
@@ -199,14 +198,13 @@ class SubdomainProjections:
             raise ValueError("Subdomains should be a list of grids")
 
         if self._face_projections is None:
-            # Construct and store projection matrices for faces.
+            # Construct and store projection matrices for faces if necessary.
             self._face_projections = _face_projections(self._all_subdomains, self.dim)
 
         if len(subdomains) > 0:
             # A key error will be raised if a grid in subdomains is not known to
-            # self._face_projection
-            # IMPLEMENTATION NOTE: Use csc format, since the number of columns can
-            # be far smaller than the number of rows.
+            # self._face_projection. Use csc format, since the number of columns can be
+            # far smaller than the number of rows.
             mat = sps.bmat([[self._face_projections[g] for g in subdomains]]).tocsc()
         else:
             # If the grid list is empty, we project from nothing to the full set of
@@ -226,34 +224,23 @@ class SubdomainProjections:
 class MortarProjections:
     """Wrapper class to generate projections to and from MortarGrids.
 
-    Attributes:
-        mortar_to_primary_int (pp.ad.SparseArray): Matrix of projections from the mortar
-            grid to the primary grid. Intended for extensive quantities (so fluxes).
-            Represented as an Ad Matrix operator.
-        mortar_to_primary_avg (pp.ad.SparseArray): Matrix of projections from the mortar
-            grid to the primary grid. Intended for intensive quantities (so pressures).
-            Represented as an Ad Matrix operator.
-        primary_to_mortar_int (pp.ad.SparseArray): Matrix of projections from the primary
-            grid to the mortar grid. Intended for extensive quantities (so fluxes).
-            Represented as an Ad Matrix operator.
-        primary_to_mortar_avg (pp.ad.SparseArray): Matrix of projections from the primary
-            grid to the mortar grid. Intended for intensive quantities (so pressures).
-            Represented as an Ad Matrix operator.
-        mortar_to_secondary_int (pp.ad.SparseArray): Matrix of projections from the mortar
-            grid to the secondary grid. Intended for extensive quantities (so fluxes).
-            Represented as an Ad Matrix operator.
-        mortar_to_secondary_avg (pp.ad.SparseArray): Matrix of projections from the mortar
-            grid to the secondary grid. Intended for intensive quantities (so pressures).
-            Represented as an Ad Matrix operator.
-        secondary_to_mortar_int (pp.ad.SparseArray): Matrix of projections from the secondary
-            grid to the mortar grid. Intended for extensive quantities (so fluxes).
-            Represented as an Ad Matrix operator.
-        secondary_to_mortar_avg (pp.ad.SparseArray): Matrix of projections from the secondary
-            grid to the mortar grid. Intended for intensive quantities (so pressures).
-            Represented as an Ad Matrix operator.
-        sign_of_mortar_sides (pp.ad.SparseArray): Matrix representation that assigns signs
-            to two mortar sides. Needed to implement a jump operator in contact
-            mechanics.
+    The projections will be ordered according to the ordering in grids, or the order of
+    the MixedDimensionalGrid iteration over grids. It is critical that the same ordering
+    is used by other operators in the Ad framework.
+
+    Parameters:
+        mdg: Mixed-dimensional grid.
+        interfaces: List of MortarGrids for which the projections should map to and
+            from.
+        subdomains: List of grids for which the projections should map to and from.
+        dim: Dimension of the quantities to be mapped. Will typically be 1 (for scalar
+            quantities) or Nd (the ambient dimension, for vector quantities).
+
+    Raises:
+        ValueError: If a subdomain occur more than once in the input list.
+
+    See also:
+        MortarProjections for projections to and from mortar subdomains.
 
     """
 
@@ -265,10 +252,6 @@ class MortarProjections:
         dim: int = 1,
     ) -> None:
         """Construct mortar projection object.
-
-        The projections will be ordered according to the ordering in grids, or the order
-        of the MixedDimensionalGrid iteration over grids. It is critical that the same
-        ordering is used by other operators.
 
         Parameters:
             mdg: Mixed-dimensional grid.
@@ -285,23 +268,29 @@ class MortarProjections:
         self._num_edges: int = len(interfaces)
         self.dim: int = dim
 
-        # Store the list of subdomains and interfaces. This will be needed to construct
-        # the projection matrices.
+        # Store the list of subdomains and interfaces, as well as the mixed-dimensional
+        # grid. These will be needed to construct the projection matrices.
         self._subdomains = subdomains
         self._interfaces = interfaces
         self._mdg = mdg
 
         # Check if all interfaces are conforming. If so, we can use the same projection
-        # for intensive and extensive quantities.
+        # for intensive and extensive quantities. This must be done separately for
+        # mappings to primary and secondary grids. A more fine-grained check would be to
+        # consider each interface separately, but this does not seem worthwhile given
+        # the current usage of non-conforming grids.
         is_conforming_primary = True
         is_conforming_secondary = True
+
         for intf in interfaces:
-            for proj in [intf.mortar_to_primary_int(), intf.primary_to_mortar_int()]:
+            # Check the data of projections for both intensive and extensive quantities.
+            # If both have essentially unit values, the interface is conforming. 
+            for proj in [intf.mortar_to_primary_int(), intf.mortar_to_primary_avg()]:
                 if not np.allclose(proj.data, 1, atol=1e-10):
                     is_conforming_primary = False
             for proj in [
                 intf.mortar_to_secondary_int(),
-                intf.secondary_to_mortar_int(),
+                intf.mortar_to_secondary_avg(),
             ]:
                 if not np.allclose(proj.data, 1, atol=1e-10):
                     is_conforming_secondary = False
@@ -309,10 +298,13 @@ class MortarProjections:
         self._is_conforming_primary = is_conforming_primary
         self._is_conforming_secondary = is_conforming_secondary
 
-        # Storage for the projection matrices. These will be constructed lazily, when the
-        # projection is requested, and then stored for later use. Depending on whether
-        # the interfaces are conforming or not, we need to store different projections.
+        # Storage for the projection matrices. These will be constructed lazily, when
+        # the projection is requested, and then stored for later use. Depending on
+        # whether the interfaces are conforming or not, we need to store different
+        # projections.
         if self._is_conforming_primary:
+            # Mapping for intensive and extensive quantities are the same, we can get
+            # away with storing only one set of projections.
             self._mortar_to_primary: Optional[dict[pp.Grid, sps.spmatrix]] = None
             self._primary_to_mortar: Optional[dict[pp.Grid, sps.spmatrix]] = None
         else:
@@ -322,6 +314,7 @@ class MortarProjections:
             self._primary_to_mortar_int: Optional[dict[pp.Grid, sps.spmatrix]] = None
             self._primary_to_mortar_avg: Optional[dict[pp.Grid, sps.spmatrix]] = None
 
+        # The case for secondary grids is analogous to the primary grids.
         if self._is_conforming_secondary:
             self._mortar_to_secondary: Optional[dict[pp.Grid, sps.spmatrix]] = None
             self._secondary_to_mortar: Optional[dict[pp.Grid, sps.spmatrix]] = None
@@ -332,8 +325,20 @@ class MortarProjections:
             self._secondary_to_mortar_avg: Optional[dict[pp.Grid, sps.spmatrix]] = None
 
     def sign_of_mortar_sides(self) -> SparseArray:
+        """Construct a matrix that gives the sign of the mortar sides.
+
+        The matrix is a block diagonal matrix, where each block corresponds to a mortar
+        grid.
+
+        Returns:
+            Sparse matrix (in the Ad sense) that represents the sign of the mortar
+            sides.
+
+        """
+        # Shortcut for the case where there are no interfaces.
         if len(self._interfaces) == 0:
             return SparseArray(sps.bmat([[None]]), name="SignOfMortarSides")
+
         mats = []
         for intf in self._interfaces:
             assert isinstance(intf, pp.MortarGrid)  # Appease mypy
@@ -341,66 +346,19 @@ class MortarProjections:
         else:
             return SparseArray(sps.block_diag(mats), name="SignOfMortarSides")
 
-    def _construct_projection(self, proj_func, to_mortar, is_primary, name):
-
-        if is_primary:
-            non_mortar_size = self.dim * np.sum(
-                [sd.num_faces for sd in self._subdomains], dtype=int
-            )
-        else:
-            non_mortar_size = self.dim * np.sum(
-                [sd.num_cells for sd in self._subdomains], dtype=int
-            )
-        # Shortcut for the case where there are no interfaces. We then just need to return
-        # a zero matrix of the right size.
-        if len(self._interfaces) == 0:
-            if to_mortar:
-                return SparseArray(sps.csr_matrix((0, non_mortar_size)), name=name)
-            else:
-                return SparseArray(sps.csc_matrix((non_mortar_size, 0)), name=name)
-
-        codim = np.unique([intf.codim for intf in self._interfaces])
-        if codim.size > 1:
-            raise ValueError("All interfaces must have the same codimension")
-        if codim[0] not in (1, 2):
-            raise ValueError("Unsupported codimension")
-
-        if codim[0] == 1 and is_primary:
-            projections = _face_projections(self._subdomains, self.dim)
-        else:  # codim[0] == 2 or projection to or from secondary
-            projections = _cell_projections(self._subdomains, self.dim)
-
-        proj_mats = []
-        for intf in self._interfaces:
-            if is_primary:
-                sd, _ = self._mdg.interface_to_subdomain_pair(intf)
-            else:
-                _, sd = self._mdg.interface_to_subdomain_pair(intf)
-            if sd in self._subdomains:
-                if to_mortar:
-                    loc_mat = getattr(intf, proj_func)(self.dim) @ projections[sd].T
-                else:
-                    loc_mat = projections[sd] @ getattr(intf, proj_func)(self.dim)
-
-                proj_mats.append(
-                    pp.matrix_operations.optimized_compressed_storage(loc_mat)
-                )
-            else:
-                # Can we use a better format than csr/s here?
-                if to_mortar:
-                    mat = sps.csr_matrix((intf.num_cells * self.dim, non_mortar_size))
-                else:
-                    mat = sps.csc_matrix((non_mortar_size, intf.num_cells * self.dim))
-
-                proj_mats.append(pp.matrix_operations.optimized_compressed_storage(mat))
-
-        if to_mortar:
-            return self._bmat([[m] for m in proj_mats], name=name)
-        else:
-            return self._bmat([proj_mats], name=name)
 
     def mortar_to_primary_int(self) -> Operator:
-        # Retrieved cached projection if it exists.
+        """ Construct a matrix that projects from mortar grids to primary grids for
+        extensive quantities.
+
+        Returns:
+            Sparse matrix (in the Ad sense) that represents the projection.
+
+        """
+
+        # Retrieved cached projection if it exists. EK note: I tried to include this
+        # logic also in the helper method _construct_projection, but that led to too
+        # complex logic, so I found it better to keep it here.
         if self._is_conforming_primary and self._mortar_to_primary is not None:
             return self._mortar_to_primary
         elif (
@@ -408,9 +366,12 @@ class MortarProjections:
         ):
             return self._mortar_to_primary_int
 
+        # Call helper method to construct the projection matrix.
         mat = self._construct_projection(
             "mortar_to_primary_int", False, True, "MortarToPrimaryInt"
         )
+
+        # Store the projection matrix for later use. Then return.
         if self._is_conforming_primary:
             self._mortar_to_primary = mat
         else:
@@ -418,8 +379,15 @@ class MortarProjections:
         return mat
 
     def mortar_to_primary_avg(self) -> Operator:
+        """ Construct a matrix that projects from mortar grids to primary grids for
+        intensive quantities.
 
-        # Retrieve cached projection if it exists.
+        Returns:
+            Sparse matrix (in the Ad sense) that represents the projection.
+
+        """
+        # See method mortar_to_primary_int for some comments on the logic here.
+
         if self._is_conforming_primary and self._mortar_to_primary is not None:
             return self._mortar_to_primary
         elif (
@@ -437,8 +405,14 @@ class MortarProjections:
         return mat
 
     def primary_to_mortar_int(self) -> Operator:
+        """ Construct a matrix that projects from primary grids to mortar grids for
+        extensive quantities.
 
-        # Retrieve cached projection if it exists.
+        Returns:
+            Sparse matrix (in the Ad sense) that represents the projection.
+
+        """
+        # See method mortar_to_primary_int for some comments on the logic here.
         if self._is_conforming_primary and self._primary_to_mortar is not None:
             return self._primary_to_mortar
         elif (
@@ -456,7 +430,14 @@ class MortarProjections:
         return mat
 
     def primary_to_mortar_avg(self) -> Operator:
-        # Retrieve cached projection if it exists.
+        """ Construct a matrix that projects from primary grids to mortar grids for
+        intensive quantities.
+
+        Returns:
+            Sparse matrix (in the Ad sense) that represents the projection.
+
+        """
+        # See method mortar_to_primary_int for some comments on the logic here.
         if self._is_conforming_primary and self._primary_to_mortar is not None:
             return self._primary_to_mortar
         elif (
@@ -475,7 +456,14 @@ class MortarProjections:
         return mat
 
     def mortar_to_secondary_int(self) -> Operator:
-        # Retrieve cached projection if it exists.
+        """ Construct a matrix that projects from mortar grids to secondary grids for
+        extensive quantities.
+
+        Returns:
+            Sparse matrix (in the Ad sense) that represents the projection.
+
+        """
+        # See method mortar_to_primary_int for some comments on the logic here.
         if self._is_conforming_secondary and self._mortar_to_secondary is not None:
             return self._mortar_to_secondary
         elif (
@@ -495,7 +483,13 @@ class MortarProjections:
         return mat
 
     def mortar_to_secondary_avg(self) -> Operator:
-        # Retrieve cached projection if it exists.
+        """ Construct a matrix that projects from mortar grids to secondary grids for
+        intensive quantities.
+
+        Returns:
+            Sparse matrix (in the Ad sense) that represents the projection.
+
+        """
         if self._is_conforming_secondary and self._mortar_to_secondary is not None:
             return self._mortar_to_secondary
         elif (
@@ -514,7 +508,13 @@ class MortarProjections:
         return mat
 
     def secondary_to_mortar_int(self) -> Operator:
-        # Retrieve cached projection if it exists.
+        """ Construct a matrix that projects from secondary grids to mortar grids for
+        extensive quantities.
+
+        Returns:
+            Sparse matrix (in the Ad sense) that represents the projection.
+
+        """        
         if self._is_conforming_secondary and self._secondary_to_mortar is not None:
             return self._secondary_to_mortar
         elif (
@@ -533,7 +533,13 @@ class MortarProjections:
         return mat
 
     def secondary_to_mortar_avg(self) -> Operator:
-        # Retrieve cached projection if it exists.
+        """ Construct a matrix that projects from secondary grids to mortar grids for
+        intensive quantities.
+
+        Returns:
+            Sparse matrix (in the Ad sense) that represents the projection.
+
+        """        
         if self._is_conforming_secondary and self._secondary_to_mortar is not None:
             return self._secondary_to_mortar
         elif (
@@ -551,6 +557,107 @@ class MortarProjections:
             self._secondary_to_mortar_avg = mat
         return mat
 
+    def _construct_projection(self, proj_func: str, to_mortar: bool, is_primary: bool, name: str) -> Operator:
+        """Helper method to construct a projection matrix, given information about the
+        projection.
+
+        Parameters:
+            proj_func: Name of the projection function to use. Should correspond to a
+                projection method in the MortarGrid class.
+            to_mortar: If True, the projection is from subdomains to mortar grids. If
+                False, the projection is from mortar grids to subdomains.
+            is_primary: If True, the projection is to or from primary grids. If False, the
+                projection is to or from secondary grids.
+            name: Name of the operator.
+
+        Raises:
+            ValueError: If the interfaces have different codimensions.
+            ValueError: If the codimension is not 1 or 2.
+
+        Returns:
+            Matrix operator (in the Ad sense) that represents the projection.
+
+        """
+
+        # Bookkeeping for the size of the non-mortar part of the matrix.
+        if is_primary:
+            non_mortar_size = self.dim * np.sum(
+                [sd.num_faces for sd in self._subdomains], dtype=int
+            )
+        else:
+            non_mortar_size = self.dim * np.sum(
+                [sd.num_cells for sd in self._subdomains], dtype=int
+            )
+        # Shortcut for the case where there are no interfaces. We then just need to
+        # return a zero matrix of the right size.
+        if len(self._interfaces) == 0:
+            if to_mortar:
+                return SparseArray(sps.csr_matrix((0, non_mortar_size)), name=name)
+            else:
+                return SparseArray(sps.csc_matrix((non_mortar_size, 0)), name=name)
+
+        # Mappings to and from the primary grid should use face or cell projections,
+        # depending on whether the codimension is 1 or 2, respectively.
+        codim = np.unique([intf.codim for intf in self._interfaces])
+        if codim.size > 1:
+            # It should be possible to cover also this case, to the price of a more
+            # technical implementation. This is however not needed for the current
+            # usage of the class, so we raise an error.
+            raise ValueError("All interfaces must have the same codimension")
+        if codim[0] not in (1, 2):
+            # Codimension 0 would correspond to a domain decomposition-type method. This
+            # should be fully doable, but is not implemented. Codimension 3 is also not
+            # relevant for the current usage of the class.
+            raise ValueError("Unsupported codimension")
+
+        if codim[0] == 1 and is_primary:
+            # The mortar grid is assumed to lay on an internal boundary of the primary
+            # grid. That is, a cell in the mortar grid is associated with a face in the
+            # primary grid. We therefore need a face projection between the faces in
+            # self._subdomains and the set of all faces in the entire mixed-dimensional
+            # grid.
+            projections = _face_projections(self._subdomains, self.dim)
+        else:  # This is codim[0] == 2 or projection to or from secondary
+            # The mortar grid represents an interface embedded in the cells of the
+            # primary grid (codim 2) or the secondary grid. In any case, the mapping
+            # from self._subdomains to self.mdg should be a cell projection.
+            projections = _cell_projections(self._subdomains, self.dim)
+
+        proj_mats = []
+
+        # Loop over the interfaces and construct the projection matrices for each face
+        # and all relevant subdomains.
+        for intf in self._interfaces:
+            # Fetch relevant subdomains.
+            if is_primary:
+                sd, _ = self._mdg.interface_to_subdomain_pair(intf)
+            else:
+                _, sd = self._mdg.interface_to_subdomain_pair(intf)
+            if sd in self._subdomains:
+                # Construct the local projection matrix. Use getattr to obtain and call
+                # the correct projection method in the MortarGrid class.
+                if to_mortar:
+                    loc_mat = getattr(intf, proj_func)(self.dim) @ projections[sd].T
+                else:
+                    loc_mat = projections[sd] @ getattr(intf, proj_func)(self.dim)
+
+                proj_mats.append(
+                    pp.matrix_operations.optimized_compressed_storage(loc_mat)
+                )
+            else:
+                # Use dia format for empty matrices, to avoid memory overhead.
+                if to_mortar:
+                    mat = sps.dia_matrix((intf.num_cells * self.dim, non_mortar_size))
+                else:
+                    mat = sps.dia_matrix((non_mortar_size, intf.num_cells * self.dim))
+
+                proj_mats.append(pp.matrix_operations.optimized_compressed_storage(mat))
+
+        if to_mortar:
+            return self._bmat([[m] for m in proj_mats], name=name)
+        else:
+            return self._bmat([proj_mats], name=name)
+
     def _bmat(self, matrices, name):
         # Create block matrix, convert it to optimized storage format.
         if len(matrices[0]) == 0:
@@ -562,11 +669,13 @@ class MortarProjections:
         return SparseArray(block_matrix, name=name)
 
     def __repr__(self) -> str:
+        # EK note: Calling mortar_to_primary and secondary here makes this method rather
+        # slow. It is not clear how to do better, though.
         s = (
             f"Mortar projection for {self._num_edges} interfaces\n"
             f"Aimed at variables with dimension {self.dim}\n"
-            f"Projections to primary have dimensions {self.mortar_to_primary_avg.shape}\n"
-            f"Projections to secondary have dimensions {self.mortar_to_secondary_avg.shape}\n"
+            f"Projections to primary have dimensions {self.mortar_to_primary_avg().shape}\n"
+            f"Projections to secondary have dimensions {self.mortar_to_secondary_avg().shape}\n"
         )
         return s
 
