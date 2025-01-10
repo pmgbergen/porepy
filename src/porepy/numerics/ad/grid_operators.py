@@ -260,9 +260,7 @@ class MortarProjections:
         self._num_edges: int = len(interfaces)
         self.dim: int = dim
 
-        # Initialize projections
-        cell_projection, face_projection = _subgrid_projections(subdomains, self.dim)
-        
+
     def sign_of_mortar_sides(self) -> SparseArray:
         if len(interfaces) == 0:
             return SparseArray(
@@ -279,7 +277,7 @@ class MortarProjections:
 
     def mortar_to_primary_int(self) -> Operator:
 
-        _, face_projections = _subgrid_projections(self._subdomains, self.dim)
+        face_projections = _face_projections(self._subdomains, self.dim)
         proj_mats = []
         for intf in self._interfaces:
             sd_primary, _ = self._mdg.interface_to_subdomain_pair(intf)
@@ -299,7 +297,7 @@ class MortarProjections:
     def mortar_to_primary_avg(self) -> Operator:
 
         proj_mats = []
-        _, face_projections = _subgrid_projections(self._subdomains, self.dim)
+        face_projections = _face_projections(self._subdomains, self.dim)
         for intf in self._interfaces:
             sd_primary, _ = self._mdg.interface_to_subdomain_pair(intf)
             if sd_primary in self._subdomains:
@@ -316,7 +314,7 @@ class MortarProjections:
     def primary_to_mortar_int(self) -> Operator:
 
         proj_mats = []
-        _, face_projections = _subgrid_projections(self._subdomains, self.dim)
+        face_projections = _face_projections(self._subdomains, self.dim)
         for intf in self._interfaces:
             sd_primary, _ = self._mdg.interface_to_subdomain_pair(intf)
             if sd_primary in self._subdomains:
@@ -332,7 +330,7 @@ class MortarProjections:
     
     def primary_to_mortar_avg(self) -> Operator:
         proj_mats = []
-        _, face_projections = _subgrid_projections(self._subdomains, self.dim)
+        face_projections = _face_projections(self._subdomains, self.dim)
         for intf in self._interfaces:
             sd_primary, _ = self._mdg.interface_to_subdomain_pair(intf)
             if sd_primary in self._subdomains:
@@ -348,7 +346,7 @@ class MortarProjections:
 
     def mortar_to_secondary_int(self) -> Operator:
         proj_mats = []
-        cell_projection, _ = _subgrid_projections(self._subdomains, self.dim)
+        cell_projection = _cell_projections(self._subdomains, self.dim)
 
         for intf in self._interfaces:
             _, sd_secondary = self._mdg.interface_to_subdomain_pair(intf)
@@ -369,7 +367,7 @@ class MortarProjections:
 
     def mortar_to_secondary_avg(self) -> Operator:
         proj_mats = []
-        cell_projection, _ = _subgrid_projections(self._subdomains, self.dim)
+        cell_projection = _cell_projections(self._subdomains, self.dim)
 
         for intf in self._interfaces:
             _, sd_secondary = self._mdg.interface_to_subdomain_pair(intf)
@@ -390,7 +388,7 @@ class MortarProjections:
 
     def secondary_to_mortar_int(self) -> Operator:
         proj_mats = []
-        cell_projection, _ = _subgrid_projections(self._subdomains, self.dim)
+        cell_projection = _cell_projections(self._subdomains, self.dim)
 
         for intf in self._interfaces:
             _, sd_secondary = self._mdg.interface_to_subdomain_pair(intf)
@@ -411,7 +409,7 @@ class MortarProjections:
 
     def secondary_to_mortar_avg(self) -> Operator:
         proj_mats = []
-        cell_projection, _ = _subgrid_projections(self._subdomains, self.dim)
+        cell_projection = _cell_projections(self._subdomains, self.dim)
 
         for intf in self._interfaces:
             _, sd_secondary = self._mdg.interface_to_subdomain_pair(intf)
@@ -455,7 +453,7 @@ class BoundaryProjection:
     def __init__(
         self, mdg: pp.MixedDimensionalGrid, subdomains: Sequence[pp.Grid], dim: int = 1
     ) -> None:
-        _, face_projections = _subgrid_projections(subdomains, dim)
+        face_projections = _face_projections(subdomains, dim)
 
         # Size for the matrix, used for 0d subdomains.
         tot_num_faces = np.sum([sd.num_faces for sd in subdomains]) * dim
@@ -528,7 +526,7 @@ class Trace:
         self._is_scalar: bool = dim == 1
         self._num_grids: int = len(subdomains)
 
-        cell_projections, face_projections = _subgrid_projections(subdomains, self.dim)
+        cell_projections = _cell_projections(subdomains, self.dim)
 
         trace: list[sps.spmatrix] = []
 
@@ -636,10 +634,8 @@ class Divergence(Operator):
         return matrix
 
 
-def _subgrid_projections(
-    subdomains: Sequence[pp.Grid], dim: int
-) -> tuple[dict[pp.Grid, sps.spmatrix], dict[pp.Grid, sps.spmatrix]]:
-    """Construct prolongation matrices from individual subdomains to a set of subdomains.
+def _cell_projections(subdomains: Sequence[pp.Grid], dim: int) -> dict[pp.Grid, sps.spmatrix]:
+    """Construct prolongation matrices for cell-based quantities from individual subdomains to a set of subdomains.
 
     Parameters:
         subdomains: List of grids representing subdomains.
@@ -649,53 +645,61 @@ def _subgrid_projections(
     Returns:
         cell_projection: Dictionary with the individual subdomains as keys and
             projection matrices for cell-based quantities as items.
-        face_projection: Dictionary with the individual subdomains as keys and
-        projection matrices for face-based quantities as items.
 
-    The global cell and face numbering is set according to the order of the input
-    subdomains.
-
-    If the function is to be called with mortar or boundary grids, assign
-    num_faces attributes (value 0).
+    The global cell numbering is set according to the order of the input subdomains.
 
     """
-    face_projection: dict[pp.Grid, np.ndarray] = {}
     cell_projection: dict[pp.Grid, np.ndarray] = {}
     if len(subdomains) == 0:
-        return cell_projection, face_projection
+        return cell_projection
 
-    tot_num_faces = np.sum([g.num_faces for g in subdomains]) * dim
     tot_num_cells = np.sum([g.num_cells for g in subdomains]) * dim
-
-    face_offset = 0
     cell_offset = 0
 
     for sd in subdomains:
-        cell_ind = cell_offset + pp.fvutils.expand_indices_nd(
-            np.arange(sd.num_cells), dim
-        )
+        cell_ind = cell_offset + pp.fvutils.expand_indices_nd(np.arange(sd.num_cells), dim)
         cell_sz = sd.num_cells * dim
 
-        # Create matrix and convert to csc format, since the number of rows is (much)
-        # higher than the number of columns.
         cell_projection[sd] = sps.coo_matrix(
             (np.ones(cell_sz), (cell_ind, np.arange(cell_sz))),
             shape=(tot_num_cells, cell_sz),
         ).tocsc()
         cell_offset = cell_ind[-1] + 1
 
-        face_ind = face_offset + pp.fvutils.expand_indices_nd(
-            np.arange(sd.num_faces), dim
-        )
-        face_sz, cell_sz = sd.num_faces * dim, sd.num_cells * dim
+    return cell_projection
+
+def _face_projections(subdomains: Sequence[pp.Grid], dim: int) -> dict[pp.Grid, sps.spmatrix]:
+    """Construct prolongation matrices for face-based quantities from individual subdomains to a set of subdomains.
+
+    Parameters:
+        subdomains: List of grids representing subdomains.
+        dim: Dimension of the quantities to be projected. 1 corresponds to scalars, 2 to
+            a vector of two components etc.
+
+    Returns:
+        face_projection: Dictionary with the individual subdomains as keys and
+        projection matrices for face-based quantities as items.
+
+    The global face numbering is set according to the order of the input subdomains.
+
+    """
+    face_projection: dict[pp.Grid, np.ndarray] = {}
+    if len(subdomains) == 0:
+        return face_projection
+
+    tot_num_faces = np.sum([g.num_faces for g in subdomains]) * dim
+    face_offset = 0
+
+    for sd in subdomains:
+        face_ind = face_offset + pp.fvutils.expand_indices_nd(np.arange(sd.num_faces), dim)
+        face_sz = sd.num_faces * dim
+
         face_projection[sd] = sps.coo_matrix(
             (np.ones(face_sz), (face_ind, np.arange(face_sz))),
             shape=(tot_num_faces, face_sz),
-        ).tocsc()  # Again use csc storage, since num_cols < num_rows
+        ).tocsc()
 
-        # Correct start of the numbering for the next grid
         if sd.dim > 0:
-            # Point subdomains have no faces
             face_offset = face_ind[-1] + 1
 
-    return cell_projection, face_projection
+    return face_projection
