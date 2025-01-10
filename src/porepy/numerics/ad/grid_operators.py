@@ -88,7 +88,7 @@ class SubdomainProjections:
         # Initialize storage for the projection matrices. These will be constructed
         # lazily, when the projection is requested, and then stored for later use.
         self._cell_projections: Optional[dict[pp.Grid, sps.spmatrix]] = None
-        self._face_projection: Optional[dict[pp.Grid, sps.spmatrix]] = None
+        self._face_projections: Optional[dict[pp.Grid, sps.spmatrix]] = None
 
     def cell_restriction(self, subdomains: list[pp.Grid]) -> SparseArray:
         """Construct restrictions from global to subdomain cell quantities.
@@ -116,7 +116,7 @@ class SubdomainProjections:
             # self._cell_projection
             # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
             # be much less than the number of columns.
-            mat = sps.bmat([[self._cell_projection[g].T] for g in subdomains]).tocsr()
+            mat = sps.bmat([[self._cell_projections[g].T] for g in subdomains]).tocsr()
         else:
             # If the grid list is empty, we project from the full set of cells to
             # nothing.
@@ -146,7 +146,7 @@ class SubdomainProjections:
             # self._cell_projection
             # IMPLEMENTATION NOTE: Use csc format, since the number of columns can
             # be much less than the number of rows.
-            mat = sps.bmat([[self._cell_projection[g] for g in subdomains]]).tocsc()
+            mat = sps.bmat([[self._cell_projections[g] for g in subdomains]]).tocsc()
         else:
             # If the grid list is empty, we project from nothing to the full set of
             # cells. CSC format is used for efficiency.
@@ -177,7 +177,7 @@ class SubdomainProjections:
             # self._face_projection
             # IMPLEMENTATION NOTE: Use csr format, since the number of rows can
             # be much less than the number of columns.
-            mat = sps.bmat([[self._face_projection[g].T] for g in subdomains]).tocsr()
+            mat = sps.bmat([[self._face_projections[g].T] for g in subdomains]).tocsr()
         else:
             # If the grid list is empty, we project from the full set of faces to
             # nothing.
@@ -207,7 +207,7 @@ class SubdomainProjections:
             # self._face_projection
             # IMPLEMENTATION NOTE: Use csc format, since the number of columns can
             # be far smaller than the number of rows.
-            mat = sps.bmat([[self._face_projection[g] for g in subdomains]]).tocsc()
+            mat = sps.bmat([[self._face_projections[g] for g in subdomains]]).tocsc()
         else:
             # If the grid list is empty, we project from nothing to the full set of
             # faces.
@@ -289,34 +289,40 @@ class MortarProjections:
         # the projection matrices.
         self._subdomains = subdomains
         self._interfaces = interfaces
+        self._mdg = mdg
 
         # Check if all interfaces are conforming. If so, we can use the same projection
         # for intensive and extensive quantities.
-        is_conforming = True
+        is_conforming_primary = True
+        is_conforming_secondary = True
         for intf in interfaces:
-            mortar_to_primary = intf.mortar_to_primary_int()
-            primary_to_mortar = intf.primary_to_mortar_int()
-            if not np.allclose(mortar_to_primary.data, 1, atol=1e-10):
-                is_conforming = False
-            if not np.allclose(primary_to_mortar.data, 1, atol=1e-10):
-                is_conforming = False
+            for proj in [intf.mortar_to_primary_int(), intf.primary_to_mortar_int()]:
+                if not np.allclose(proj.data, 1, atol=1e-10):
+                    is_conforming_primary = False
+            for proj in [intf.mortar_to_secondary_int(), intf.secondary_to_mortar_int()]:
+                if not np.allclose(proj.data, 1, atol=1e-10):
+                    is_conforming_secondary = False
 
-        self._is_conforming = is_conforming        
+        self._is_conforming_primary = is_conforming_primary
+        self._is_conforming_secondary = is_conforming_secondary  
 
         # Storage for the projection matrices. These will be constructed lazily, when the
         # projection is requested, and then stored for later use. Depending on whether
         # the interfaces are conforming or not, we need to store different projections.
-        if is_conforming:
+        if self._is_conforming_primary:
             self._mortar_to_primary: Optional[dict[pp.Grid, sps.spmatrix]] = None
             self._primary_to_mortar: Optional[dict[pp.Grid, sps.spmatrix]] = None
-            self._mortar_to_secondary: Optional[dict[pp.Grid, sps.spmatrix]] = None
-            self._secondary_to_mortar: Optional[dict[pp.Grid, sps.spmatrix]] = None
         else:
             # Here we need to store both intensive and extensive projections.
             self._mortar_to_primary_int: Optional[dict[pp.Grid, sps.spmatrix]] = None
             self._mortar_to_primary_avg: Optional[dict[pp.Grid, sps.spmatrix]] = None
             self._primary_to_mortar_int: Optional[dict[pp.Grid, sps.spmatrix]] = None
             self._primary_to_mortar_avg: Optional[dict[pp.Grid, sps.spmatrix]] = None
+
+        if self._is_conforming_secondary:
+            self._mortar_to_secondary: Optional[dict[pp.Grid, sps.spmatrix]] = None
+            self._secondary_to_mortar: Optional[dict[pp.Grid, sps.spmatrix]] = None
+        else:
             self._mortar_to_secondary_int: Optional[dict[pp.Grid, sps.spmatrix]] = None
             self._mortar_to_secondary_avg: Optional[dict[pp.Grid, sps.spmatrix]] = None
             self._secondary_to_mortar_int: Optional[dict[pp.Grid, sps.spmatrix]] = None
@@ -337,11 +343,10 @@ class MortarProjections:
             )
 
     def mortar_to_primary_int(self) -> Operator:
-
         # Retrieved cached projection if it exists.
-        if self._is_conforming and self._mortar_to_primary is not None:
+        if self._is_conforming_primary and self._mortar_to_primary is not None:
             return self._mortar_to_primary
-        elif not self._is_conforming and self._mortar_to_primary_int is not None:
+        elif not self._is_conforming_primary and self._mortar_to_primary_int is not None:
             return self._mortar_to_primary_int
 
         # Construct the projection matrices.
@@ -360,8 +365,16 @@ class MortarProjections:
                 size = self.dim * sum([sd.num_faces for sd in self._subdomains])
                 proj_mats.append(sps.csr_matrix((size, intf.num_cells * self.dim)))
 
+        # Special case: If there are no interfaces, the above for-loop will not run, and
+        # we need to construct a zero matrix of the right size. Logically, this could
+        # have been an if-else statement, with the above for-loop in the else block, but
+        # this would have been less readable.
+        if len(self._interfaces) == 0:
+            tot_num_face_dims = np.sum([sd.num_faces for sd in self._subdomains], dtype=int) * self.dim
+            proj_mats.append(sps.csc_matrix((tot_num_face_dims, 0)))
+
         mat = self._bmat([proj_mats], name="MortarToPrimaryInt")
-        if self._is_conforming:
+        if self._is_conforming_primary:
             self._mortar_to_primary = mat
         else:
             self._mortar_to_primary_int = mat
@@ -371,9 +384,9 @@ class MortarProjections:
     def mortar_to_primary_avg(self) -> Operator:
 
         # Retrieve cached projection if it exists.
-        if self._is_conforming and self._mortar_to_primary is not None:
+        if self._is_conforming_primary and self._mortar_to_primary is not None:
             return self._mortar_to_primary
-        elif not self._is_conforming and self._mortar_to_primary_avg is not None:
+        elif not self._is_conforming_primary and self._mortar_to_primary_avg is not None:
             return self._mortar_to_primary_avg
 
         # Construct the projection matrices.
@@ -390,8 +403,17 @@ class MortarProjections:
             else:
                 size = self.dim * sum([sd.num_faces for sd in self._subdomains])
                 proj_mats.append(sps.csr_matrix((size, intf.num_cells * self.dim)))
+
+        # Special case: If there are no interfaces, the above for-loop will not run, and
+        # we need to construct a zero matrix of the right size. Logically, this could
+        # have been an if-else statement, with the above for-loop in the else block, but
+        # this would have been less readable.
+        if len(self._interfaces) == 0:
+            tot_num_face_dims = np.sum([sd.num_faces for sd in self._subdomains], dtype=int) * self.dim
+            proj_mats.append(sps.csc_matrix((tot_num_face_dims, 0)))
+
         mat = self._bmat([proj_mats], name="MortarToPrimaryAvg")
-        if self._is_conforming:
+        if self._is_conforming_primary:
             self._mortar_to_primary = mat
         else:
             self._mortar_to_primary_avg = mat
@@ -400,9 +422,9 @@ class MortarProjections:
     def primary_to_mortar_int(self) -> Operator:
 
         # Retrieve cached projection if it exists.
-        if self._is_conforming and self._primary_to_mortar is not None:
+        if self._is_conforming_primary and self._primary_to_mortar is not None:
             return self._primary_to_mortar
-        elif not self._is_conforming and self._primary_to_mortar_int is not None:
+        elif not self._is_conforming_primary and self._primary_to_mortar_int is not None:
             return self._primary_to_mortar_int
 
         # Construct the projection matrices.
@@ -419,8 +441,17 @@ class MortarProjections:
             else:
                 size = self.dim * sum([sd.num_faces for sd in self._subdomains])
                 proj_mats.append(sps.csr_matrix((intf.num_cells * self.dim, size)))
+
+        # Special case: If there are no interfaces, the above for-loop will not run, and
+        # we need to construct a zero matrix of the right size. Logically, this could
+        # have been an if-else statement, with the above for-loop in the else block, but
+        # this would have been less readable.
+        if len(self._interfaces) == 0:
+            tot_num_face_dims = np.sum([sd.num_faces for sd in self._subdomains], dtype=int) * self.dim
+            proj_mats.append(sps.csr_matrix((0, tot_num_face_dims)))
+
         mat = self._bmat([[m] for m in proj_mats], name="PrimaryToMortarInt")
-        if self._is_conforming:
+        if self._is_conforming_primary:
             self._primary_to_mortar = mat
         else:
             self._primary_to_mortar_int = mat
@@ -428,9 +459,9 @@ class MortarProjections:
     
     def primary_to_mortar_avg(self) -> Operator:
         # Retrieve cached projection if it exists.
-        if self._is_conforming and self._primary_to_mortar is not None:
+        if self._is_conforming_primary and self._primary_to_mortar is not None:
             return self._primary_to_mortar
-        elif not self._is_conforming and self._primary_to_mortar_avg is not None:
+        elif not self._is_conforming_primary and self._primary_to_mortar_avg is not None:
             return self._primary_to_mortar_avg
 
         # Construct the projection matrices.
@@ -447,8 +478,17 @@ class MortarProjections:
             else:
                 size = self.dim * sum([sd.num_faces for sd in self._subdomains])
                 proj_mats.append(sps.csr_matrix((intf.num_cells * self.dim, size)))
+
+        # Special case: If there are no interfaces, the above for-loop will not run, and
+        # we need to construct a zero matrix of the right size. Logically, this could
+        # have been an if-else statement, with the above for-loop in the else block, but
+        # this would have been less readable.
+        if len(self._interfaces) == 0:
+            tot_num_face_dims = np.sum([sd.num_faces for sd in self._subdomains], dtype=int) * self.dim
+            proj_mats.append(sps.csr_matrix((0, tot_num_face_dims)))
+
         mat = self._bmat([[m] for m in proj_mats], name="PrimaryToMortarAvg")
-        if self._is_conforming:
+        if self._is_conforming_primary:
             self._primary_to_mortar = mat
         else:
             self._primary_to_mortar_avg = mat
@@ -456,9 +496,9 @@ class MortarProjections:
 
     def mortar_to_secondary_int(self) -> Operator:
         # Retrieve cached projection if it exists.
-        if self._is_conforming and self._mortar_to_secondary is not None:
+        if self._is_conforming_secondary and self._mortar_to_secondary is not None:
             return self._mortar_to_secondary
-        elif not self._is_conforming and self._mortar_to_secondary_int is not None:
+        elif not self._is_conforming_secondary and self._mortar_to_secondary_int is not None:
             return self._mortar_to_secondary_int
 
         # Construct the projection matrices.
@@ -481,7 +521,7 @@ class MortarProjections:
             proj_mats.append(sps.csc_matrix((self.dim * sum([sd.num_cells for sd in self._subdomains]), 0)))
 
         mat = self._bmat([proj_mats], name="MortarToSecondaryInt")
-        if self._is_conforming:
+        if self._is_conforming_secondary:
             self._mortar_to_secondary = mat
         else:
             self._mortar_to_secondary_int = mat
@@ -489,9 +529,9 @@ class MortarProjections:
 
     def mortar_to_secondary_avg(self) -> Operator:
         # Retrieve cached projection if it exists.
-        if self._is_conforming and self._mortar_to_secondary is not None:
+        if self._is_conforming_secondary and self._mortar_to_secondary is not None:
             return self._mortar_to_secondary
-        elif not self._is_conforming and self._mortar_to_secondary_avg is not None:
+        elif not self._is_conforming_secondary and self._mortar_to_secondary_avg is not None:
             return self._mortar_to_secondary_avg
 
         # Construct the projection matrices.
@@ -514,7 +554,7 @@ class MortarProjections:
             proj_mats.append(sps.csc_matrix((self.dim * sum([sd.num_cells for sd in self._subdomains]), 0)))
 
         mat = self._bmat([proj_mats], name="MortarToSecondaryAvg")
-        if self._is_conforming:
+        if self._is_conforming_secondary:
             self._mortar_to_secondary = mat
         else:
             self._mortar_to_secondary_avg = mat
@@ -522,9 +562,9 @@ class MortarProjections:
 
     def secondary_to_mortar_int(self) -> Operator:
         # Retrieve cached projection if it exists.
-        if self._is_conforming and self._secondary_to_mortar is not None:
+        if self._is_conforming_secondary and self._secondary_to_mortar is not None:
             return self._secondary_to_mortar
-        elif not self._is_conforming and self._secondary_to_mortar_int is not None:
+        elif not self._is_conforming_secondary and self._secondary_to_mortar_int is not None:
             return self._secondary_to_mortar_int
 
         # Construct the projection matrices.
@@ -547,7 +587,7 @@ class MortarProjections:
             proj_mats.append(sps.csr_matrix((0, self.dim * sum([sd.num_cells for sd in self._subdomains]))))
 
         mat = self._bmat([[m] for m in proj_mats], name="SecondaryToMortarInt")
-        if self._is_conforming:
+        if self._is_conforming_secondary:
             self._secondary_to_mortar = mat
         else:
             self._secondary_to_mortar_int = mat
@@ -555,9 +595,9 @@ class MortarProjections:
 
     def secondary_to_mortar_avg(self) -> Operator:
         # Retrieve cached projection if it exists.
-        if self._is_conforming and self._secondary_to_mortar is not None:
+        if self._is_conforming_secondary and self._secondary_to_mortar is not None:
             return self._secondary_to_mortar
-        elif not self._is_conforming and self._secondary_to_mortar_avg is not None:
+        elif not self._is_conforming_secondary and self._secondary_to_mortar_avg is not None:
             return self._secondary_to_mortar_avg
 
         # Construct the projection matrices.
@@ -579,7 +619,7 @@ class MortarProjections:
             proj_mats.append(sps.csr_matrix((0, self.dim * sum([sd.num_cells for sd in self._subdomains]))))
 
         mat = self._bmat([[m] for m in proj_mats], name="SecondaryToMortarAvg")
-        if self._is_conforming:
+        if self._is_conforming_secondary:
             self._secondary_to_mortar = mat
         else:
             self._secondary_to_mortar_avg = mat
