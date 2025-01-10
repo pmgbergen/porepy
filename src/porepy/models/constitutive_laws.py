@@ -798,7 +798,10 @@ class DarcysLaw(pp.PorePyModel):
         pressure_trace = (
             discr.bound_pressure_cell() @ p
             + discr.bound_pressure_face()
-            @ (projection.mortar_to_primary_int() @ self.interface_darcy_flux(interfaces))
+            @ (
+                projection.mortar_to_primary_int()
+                @ self.interface_darcy_flux(interfaces)
+            )
             + discr.bound_pressure_face() @ boundary_operator
             + discr.bound_pressure_vector_source()
             @ self.vector_source_darcy_flux(subdomains)
@@ -919,14 +922,17 @@ class DarcysLaw(pp.PorePyModel):
         # We assume here that :meth:`aperture` is implemented to give a meaningful value
         # also for subdomains of co-dimension > 1.
         normal_gradient = pp.ad.Scalar(2) * (
-            projection.secondary_to_mortar_avg() @ self.aperture(subdomains) ** Scalar(-1)
+            projection.secondary_to_mortar_avg()
+            @ self.aperture(subdomains) ** Scalar(-1)
         )
         normal_gradient.set_name("normal_gradient")
 
         # Project the two pressures to the interface and multiply with the normal
         # diffusivity.
         pressure_l = projection.secondary_to_mortar_avg() @ self.pressure(subdomains)
-        pressure_h = projection.primary_to_mortar_avg() @ self.pressure_trace(subdomains)
+        pressure_h = projection.primary_to_mortar_avg() @ self.pressure_trace(
+            subdomains
+        )
         eq = self.interface_darcy_flux(interfaces) - self.volume_integral(
             self.normal_permeability(interfaces)
             * (
@@ -2192,7 +2198,8 @@ class FouriersLaw(pp.PorePyModel):
         # Gradient operator in the normal direction. The collapsed distance is
         # :math:`\frac{a}{2}` on either side of the fracture.
         normal_gradient = pp.ad.Scalar(2) * (
-            projection.secondary_to_mortar_avg() @ self.aperture(subdomains) ** Scalar(-1)
+            projection.secondary_to_mortar_avg()
+            @ self.aperture(subdomains) ** Scalar(-1)
         )
         normal_gradient.set_name("normal_gradient")
 

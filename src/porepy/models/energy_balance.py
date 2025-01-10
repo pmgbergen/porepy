@@ -431,10 +431,11 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         source = projection.mortar_to_secondary_int() @ flux
         # Add contribution from well interfaces
         source.set_name("interface_energy_source")
-        well_fluxes = well_projection.mortar_to_secondary_int() @ self.well_enthalpy_flux(
-            well_interfaces
-        ) - well_projection.mortar_to_primary_int() @ self.well_enthalpy_flux(
-            well_interfaces
+        well_fluxes = (
+            well_projection.mortar_to_secondary_int()
+            @ self.well_enthalpy_flux(well_interfaces)
+            - well_projection.mortar_to_primary_int()
+            @ self.well_enthalpy_flux(well_interfaces)
         )
         well_fluxes.set_name("well_enthalpy_flux_source")
         source += subdomain_projection.cell_restriction(subdomains) @ (
