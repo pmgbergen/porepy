@@ -29,12 +29,12 @@ class SubdomainProjections:
     The class should be used through the methods {cell, face}_{projection, restriction}.
 
     Parameters:
-        subdomains: List of grids for which the projections should map to and from.
+        subdomains: List of grids which the projections should map to and from.
         dim: Dimension of the quantities to be mapped. Will typically be 1 (for scalar
             quantities) or Nd (the ambient dimension, for vector quantities).
 
     Raises:
-        ValueError: If a subdomain occur more than once in the input list.
+        ValueError: If a subdomain occurs more than once in the input list.
 
     See also:
         MortarProjections for projections to and from mortar subdomains.
@@ -106,7 +106,7 @@ class SubdomainProjections:
         if len(subdomains) > 0:
             # A key error will be raised if a grid in g is not known to
             # self._cell_projection. Use csr format, since the number of rows can be
-            # much less than the number of columns.
+            # much smaller than the number of columns.
             mat = sps.bmat([[self._cell_projections[g].T] for g in subdomains]).tocsr()
         else:
             # If the grid list is empty, we project from the full set of cells to
@@ -139,7 +139,7 @@ class SubdomainProjections:
         if len(subdomains) > 0:
             # A key error will be raised if a grid in g is not known to
             # self._cell_projection.  Use csc format, since the number of columns can be
-            # much less than the number of rows.
+            # much smaller than the number of rows.
             mat = sps.bmat([[self._cell_projections[g] for g in subdomains]]).tocsc()
         else:
             # If the grid list is empty, we project from nothing to the full set of
@@ -172,7 +172,7 @@ class SubdomainProjections:
         if len(subdomains) > 0:
             # A key error will be raised if a grid in subdomains is not known to
             # self._face_projection. Use csr format, since the number of rows can be
-            # much less than the number of columns.
+            # much smaller than the number of columns.
             mat = sps.bmat([[self._face_projections[g].T] for g in subdomains]).tocsr()
         else:
             # If the grid list is empty, we project from the full set of faces to
@@ -230,14 +230,14 @@ class MortarProjections:
 
     Parameters:
         mdg: Mixed-dimensional grid.
-        interfaces: List of MortarGrids for which the projections should map to and
+        interfaces: List of MortarGrids which the projections should map to and
             from.
-        subdomains: List of grids for which the projections should map to and from.
+        subdomains: List of grids which the projections should map to and from.
         dim: Dimension of the quantities to be mapped. Will typically be 1 (for scalar
             quantities) or Nd (the ambient dimension, for vector quantities).
 
     Raises:
-        ValueError: If a subdomain occur more than once in the input list.
+        ValueError: If a subdomain occurs more than once in the input list.
 
     See also:
         MortarProjections for projections to and from mortar subdomains.
@@ -367,7 +367,7 @@ class MortarProjections:
 
         # Call helper method to construct the projection matrix.
         mat = self._construct_projection(
-            "mortar_to_primary_int", False, True, "MortarToPrimaryInt"
+            "mortar_to_primary_int", False, True, ""MortarToPrimaryInt""
         )
 
         # Store the projection matrix for later use. Then return.
