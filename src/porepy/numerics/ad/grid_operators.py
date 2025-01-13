@@ -361,6 +361,11 @@ class MortarProjections:
         """Construct a matrix that projects from mortar grids to primary grids for
         extensive quantities.
 
+        Note:
+            The returned matrix will have name "MortarToPrimary" if the interfaces are
+            conforming (when the averaging and integrating projections are identical),
+            and "MortarToPrimaryInt" otherwise.
+
         Returns:
             Sparse matrix (in the Ad sense) that represents the projection.
 
@@ -383,6 +388,9 @@ class MortarProjections:
 
         # Store the projection matrix for later use. Then return.
         if self._is_conforming_primary:
+            # The averaging and integrating projections are the same, so we will use a
+            # single storage for both. Set a neutral name for the matrix.
+            mat.name = "MortarToPrimary"
             self._mortar_to_primary = mat
         else:
             self._mortar_to_primary_int = mat
@@ -392,12 +400,16 @@ class MortarProjections:
         """Construct a matrix that projects from mortar grids to primary grids for
         intensive quantities.
 
+        Note:
+            The returned matrix will have name "MortarToPrimary" if the interfaces are
+            conforming (when the averaging and integrating projections are identical),
+            and "MortarToPrimaryAvg" otherwise.
+
         Returns:
             Sparse matrix (in the Ad sense) that represents the projection.
 
         """
         # See method mortar_to_primary_int for some comments on the logic here.
-
         if self._is_conforming_primary and self._mortar_to_primary is not None:
             return self._mortar_to_primary
         elif (
@@ -409,6 +421,7 @@ class MortarProjections:
             "mortar_to_primary_avg", False, True, "MortarToPrimaryAvg"
         )
         if self._is_conforming_primary:
+            mat.name = "MortarToPrimary"
             self._mortar_to_primary = mat
         else:
             self._mortar_to_primary_avg = mat
@@ -417,6 +430,11 @@ class MortarProjections:
     def primary_to_mortar_int(self) -> SparseArray:
         """Construct a matrix that projects from primary grids to mortar grids for
         extensive quantities.
+
+        Note:
+            The returned matrix will have name "PrimaryToMortar" if the interfaces are
+            conforming (when the averaging and integrating projections are identical),
+            and "PrimaryToMortarInt" otherwise.
 
         Returns:
             Sparse matrix (in the Ad sense) that represents the projection.
@@ -434,6 +452,7 @@ class MortarProjections:
             "primary_to_mortar_int", True, True, "PrimaryToMortarInt"
         )
         if self._is_conforming_primary:
+            mat.name = "PrimaryToMortar"
             self._primary_to_mortar = mat
         else:
             self._primary_to_mortar_int = mat
@@ -442,6 +461,11 @@ class MortarProjections:
     def primary_to_mortar_avg(self) -> SparseArray:
         """Construct a matrix that projects from primary grids to mortar grids for
         intensive quantities.
+
+        Note:
+            The returned matrix will have name "PrimaryToMortar" if the interfaces are
+            conforming (when the averaging and integrating projections are identical),
+            and "PrimaryToMortarAvg" otherwise.
 
         Returns:
             Sparse matrix (in the Ad sense) that represents the projection.
@@ -460,6 +484,7 @@ class MortarProjections:
         )
 
         if self._is_conforming_primary:
+            mat.name = "PrimaryToMortar"
             self._primary_to_mortar = mat
         else:
             self._primary_to_mortar_avg = mat
@@ -468,6 +493,11 @@ class MortarProjections:
     def mortar_to_secondary_int(self) -> SparseArray:
         """Construct a matrix that projects from mortar grids to secondary grids for
         extensive quantities.
+
+        Note:
+            The returned matrix will have name "MortarToSecondary" if the interfaces are
+            conforming (when the averaging and integrating projections are identical),
+            and "MortarToSecondaryInt" otherwise.
 
         Returns:
             Sparse matrix (in the Ad sense) that represents the projection.
@@ -487,6 +517,7 @@ class MortarProjections:
         )
 
         if self._is_conforming_secondary:
+            mat.name = "MortarToSecondary"
             self._mortar_to_secondary = mat
         else:
             self._mortar_to_secondary_int = mat
@@ -495,6 +526,11 @@ class MortarProjections:
     def mortar_to_secondary_avg(self) -> SparseArray:
         """Construct a matrix that projects from mortar grids to secondary grids for
         intensive quantities.
+
+        Note:
+            The returned matrix will have name "MortarToSecondary" if the interfaces are
+            conforming (when the averaging and integrating projections are identical),
+            and "MortarToSecondaryAvg" otherwise.
 
         Returns:
             Sparse matrix (in the Ad sense) that represents the projection.
@@ -512,6 +548,7 @@ class MortarProjections:
             "mortar_to_secondary_avg", False, False, "MortarToSecondaryAvg"
         )
         if self._is_conforming_secondary:
+            mat.name = "MortarToSecondary"
             self._mortar_to_secondary = mat
         else:
             self._mortar_to_secondary_avg = mat
@@ -520,6 +557,11 @@ class MortarProjections:
     def secondary_to_mortar_int(self) -> SparseArray:
         """Construct a matrix that projects from secondary grids to mortar grids for
         extensive quantities.
+
+        Note:
+            The returned matrix will have name "SecondaryToMortar" if the interfaces are
+            conforming (when the averaging and integrating projections are identical),
+            and "SecondaryToMortarInt" otherwise.
 
         Returns:
             Sparse matrix (in the Ad sense) that represents the projection.
@@ -537,6 +579,7 @@ class MortarProjections:
             "secondary_to_mortar_int", True, False, "SecondaryToMortarInt"
         )
         if self._is_conforming_secondary:
+            mat.name = "SecondaryToMortar"
             self._secondary_to_mortar = mat
         else:
             self._secondary_to_mortar_int = mat
@@ -545,6 +588,11 @@ class MortarProjections:
     def secondary_to_mortar_avg(self) -> SparseArray:
         """Construct a matrix that projects from secondary grids to mortar grids for
         intensive quantities.
+
+        Note:
+            The returned matrix will have name "SecondaryToMortar" if the interfaces are
+            conforming (when the averaging and integrating projections are identical),
+            and "SecondaryToMortarAvg" otherwise.
 
         Returns:
             Sparse matrix (in the Ad sense) that represents the projection.
@@ -562,6 +610,7 @@ class MortarProjections:
             "secondary_to_mortar_avg", True, False, "SecondaryToMortarAvg"
         )
         if self._is_conforming_secondary:
+            mat.name = "SecondaryToMortar"
             self._secondary_to_mortar = mat
         else:
             self._secondary_to_mortar_avg = mat
