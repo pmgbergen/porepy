@@ -228,6 +228,9 @@ class MortarProjections:
     the MixedDimensionalGrid iteration over grids. It is critical that the same ordering
     is used by other operators in the Ad framework.
 
+    For an explanation of the different projections, see the tutorial on subdomain
+    and interface projections.
+
     Parameters:
         mdg: Mixed-dimensional grid.
         interfaces: List of MortarGrids which the projections should map to and
@@ -236,11 +239,8 @@ class MortarProjections:
         dim: Dimension of the quantities to be mapped. Will typically be 1 (for scalar
             quantities) or Nd (the ambient dimension, for vector quantities).
 
-    Raises:
-        ValueError: If a subdomain occurs more than once in the input list.
-
     See also:
-        MortarProjections for projections to and from mortar subdomains.
+        SubdomainProjections for projections to and from subdomains.
 
     """
 
@@ -298,6 +298,9 @@ class MortarProjections:
         self._is_conforming_primary = is_conforming_primary
         self._is_conforming_secondary = is_conforming_secondary
 
+        # Storage for the operator giving sign of mortar sides.
+        self._sign_of_mortar_sides: Optional[SparseArray] = None
+
         # Storage for the projection matrices. These will be constructed lazily, when
         # the projection is requested, and then stored for later use. Depending on
         # whether the interfaces are conforming or not, we need to store different
@@ -335,16 +338,24 @@ class MortarProjections:
             sides.
 
         """
-        # Shortcut for the case where there are no interfaces.
-        if len(self._interfaces) == 0:
-            return SparseArray(sps.bmat([[None]]), name="SignOfMortarSides")
+        # Retrieve cached matrix if it exists.
+        if self._sign_of_mortar_sides is not None:
+            return self._sign_of_mortar_sides
 
-        mats = []
-        for intf in self._interfaces:
-            assert isinstance(intf, pp.MortarGrid)  # Appease mypy
-            mats.append(intf.sign_of_mortar_sides(self.dim))
+        if len(self._interfaces) == 0:
+            # Shortcut for the case where there are no interfaces.
+            block_mat = SparseArray(sps.bmat([[None]]), name="SignOfMortarSides")
         else:
-            return SparseArray(sps.block_diag(mats), name="SignOfMortarSides")
+            mats = []
+            for intf in self._interfaces:
+                assert isinstance(intf, pp.MortarGrid)  # Appease mypy
+                mats.append(intf.sign_of_mortar_sides(self.dim))
+            
+            block_mat = SparseArray(sps.block_diag(mats), name="SignOfMortarSides")
+
+        # Store the matrix for later use and return.A
+        self._sign_of_mortar_sides = block_mat
+        return block_mat
 
     def mortar_to_primary_int(self) -> SparseArray:
         """Construct a matrix that projects from mortar grids to primary grids for
@@ -367,7 +378,7 @@ class MortarProjections:
 
         # Call helper method to construct the projection matrix.
         mat = self._construct_projection(
-            "mortar_to_primary_int", False, True, ""MortarToPrimaryInt""
+            "mortar_to_primary_int", False, True, "MortarToPrimaryInt"
         )
 
         # Store the projection matrix for later use. Then return.
