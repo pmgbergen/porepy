@@ -350,7 +350,7 @@ class MortarProjections:
             for intf in self._interfaces:
                 assert isinstance(intf, pp.MortarGrid)  # Appease mypy
                 mats.append(intf.sign_of_mortar_sides(self.dim))
-            
+
             block_mat = SparseArray(sps.block_diag(mats), name="SignOfMortarSides")
 
         # Store the matrix for later use and return.A
@@ -381,16 +381,18 @@ class MortarProjections:
         ):
             return self._mortar_to_primary_int
 
-        # Call helper method to construct the projection matrix.
-        mat = self._construct_projection(
-            "mortar_to_primary_int", False, True, "MortarToPrimaryInt"
-        )
-
-        # Store the projection matrix for later use. Then return.
         if self._is_conforming_primary:
             # The averaging and integrating projections are the same, so we will use a
             # single storage for both. Set a neutral name for the matrix.
-            mat.name = "MortarToPrimary"
+            name = "MortarToPrimary"
+        else:
+            name = "MortarToPrimaryInt"
+
+        # Call helper method to construct the projection matrix.
+        mat = self._construct_projection("mortar_to_primary_int", False, True, name)
+
+        # Store the projection matrix for later use. Then return.
+        if self._is_conforming_primary:
             self._mortar_to_primary = mat
         else:
             self._mortar_to_primary_int = mat
@@ -417,11 +419,13 @@ class MortarProjections:
         ):
             return self._mortar_to_primary_avg
 
-        mat = self._construct_projection(
-            "mortar_to_primary_avg", False, True, "MortarToPrimaryAvg"
-        )
         if self._is_conforming_primary:
-            mat.name = "MortarToPrimary"
+            name = "MortarToPrimary"
+        else:
+            name = "MortarToPrimaryAvg"
+
+        mat = self._construct_projection("mortar_to_primary_avg", False, True, name)
+        if self._is_conforming_primary:
             self._mortar_to_primary = mat
         else:
             self._mortar_to_primary_avg = mat
@@ -448,11 +452,13 @@ class MortarProjections:
         ):
             return self._primary_to_mortar_int
 
-        mat = self._construct_projection(
-            "primary_to_mortar_int", True, True, "PrimaryToMortarInt"
-        )
         if self._is_conforming_primary:
-            mat.name = "PrimaryToMortar"
+            name = "PrimaryToMortar"
+        else:
+            name = "PrimaryToMortarInt"
+
+        mat = self._construct_projection("primary_to_mortar_int", True, True, name)
+        if self._is_conforming_primary:
             self._primary_to_mortar = mat
         else:
             self._primary_to_mortar_int = mat
@@ -479,12 +485,14 @@ class MortarProjections:
         ):
             return self._primary_to_mortar_avg
 
-        mat = self._construct_projection(
-            "primary_to_mortar_avg", True, True, "PrimaryToMortarAvg"
-        )
+        if self._is_conforming_primary:
+            name = "PrimaryToMortar"
+        else:
+            name = "PrimaryToMortarAvg"
+
+        mat = self._construct_projection("primary_to_mortar_avg", True, True, name)
 
         if self._is_conforming_primary:
-            mat.name = "PrimaryToMortar"
             self._primary_to_mortar = mat
         else:
             self._primary_to_mortar_avg = mat
@@ -512,12 +520,14 @@ class MortarProjections:
         ):
             return self._mortar_to_secondary_int
 
-        mat = self._construct_projection(
-            "mortar_to_secondary_int", False, False, "MortarToSecondaryInt"
-        )
+        if self._is_conforming_secondary:
+            name = "MortarToSecondary"
+        else:
+            name = "MortarToSecondaryInt"
+
+        mat = self._construct_projection("mortar_to_secondary_int", False, False, name)
 
         if self._is_conforming_secondary:
-            mat.name = "MortarToSecondary"
             self._mortar_to_secondary = mat
         else:
             self._mortar_to_secondary_int = mat
@@ -544,11 +554,14 @@ class MortarProjections:
         ):
             return self._mortar_to_secondary_avg
 
-        mat = self._construct_projection(
-            "mortar_to_secondary_avg", False, False, "MortarToSecondaryAvg"
-        )
         if self._is_conforming_secondary:
-            mat.name = "MortarToSecondary"
+            name = "MortarToSecondary"
+        else:
+            name = "MortarToSecondaryAvg"
+
+        mat = self._construct_projection("mortar_to_secondary_avg", False, False, name)
+
+        if self._is_conforming_secondary:
             self._mortar_to_secondary = mat
         else:
             self._mortar_to_secondary_avg = mat
@@ -575,11 +588,14 @@ class MortarProjections:
         ):
             return self._secondary_to_mortar_int
 
-        mat = self._construct_projection(
-            "secondary_to_mortar_int", True, False, "SecondaryToMortarInt"
-        )
         if self._is_conforming_secondary:
-            mat.name = "SecondaryToMortar"
+            name = "SecondaryToMortar"
+        else:
+            name = "SecondaryToMortarInt"
+
+        mat = self._construct_projection("secondary_to_mortar_int", True, False, name)
+
+        if self._is_conforming_secondary:
             self._secondary_to_mortar = mat
         else:
             self._secondary_to_mortar_int = mat
@@ -606,11 +622,13 @@ class MortarProjections:
         ):
             return self._secondary_to_mortar_avg
 
-        mat = self._construct_projection(
-            "secondary_to_mortar_avg", True, False, "SecondaryToMortarAvg"
-        )
         if self._is_conforming_secondary:
-            mat.name = "SecondaryToMortar"
+            name = "SecondaryToMortar"
+        else:
+            name = "SecondaryToMortarAvg"
+
+        mat = self._construct_projection("secondary_to_mortar_avg", True, False, name)
+        if self._is_conforming_secondary:
             self._secondary_to_mortar = mat
         else:
             self._secondary_to_mortar_avg = mat
