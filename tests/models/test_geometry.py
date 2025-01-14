@@ -540,6 +540,9 @@ def test_basis_normal_tangential_components(
 def test_local_coordinates(geometry_class: type[pp.ModelGeometry]) -> None:
     """Test the method to compute local fracture coordinates.
 
+    The actual generation of the local coordinates is tested in
+    test_tangential_normal_projection.py, so we only do a simple test here.
+
     Parameters:
         geometry_class: Class to test.
 
