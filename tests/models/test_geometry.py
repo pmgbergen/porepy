@@ -7,6 +7,13 @@ Testing covers:
         interfaces_to_subdomains
     Utility methods:
         domain_boundary_sides
+        wrap_grid_attribute
+        internal_boundary_normal_to_outwards
+        outwards_internal_boundary_normals
+    Basis vectors and local coordinates:
+        e_i
+        local_coordinates
+
 """
 
 from __future__ import annotations
@@ -51,14 +58,14 @@ def test_set_geometry(geometry_class: type[pp.ModelGeometry]):
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-@pytest.mark.parametrize("num_fracs", num_fracs_list)
+@pytest.mark.parametrize("num_fracs", [0, 3])
 def test_boundary_sides(geometry_class: type[pp.ModelGeometry], num_fracs):
     geometry = geometry_class()
     geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
 
-    # Fetch the bounding box for the domain
+    # Fetch the bounding box for the domain.
     box_min, box_max = pp.domain.mdg_minmax_coordinates(geometry.mdg)
 
     for sd in geometry.mdg.subdomains():
@@ -68,14 +75,14 @@ def test_boundary_sides(geometry_class: type[pp.ModelGeometry], num_fracs):
         all_bool = np.zeros(sd.num_faces, dtype=bool)
         all_bool[all_bf] = 1
 
-        # Check that only valid boundaries are picked
+        # Check that only valid boundaries are picked.
         domain_or_internal_bf = np.where(np.sum(np.abs(sd.cell_faces), axis=1) == 1)
         assert np.all(np.isin(all_bf, domain_or_internal_bf))
         frac_faces = sd.tags["fracture_faces"].nonzero()[0]
         assert np.all(np.logical_not(np.isin(all_bf, frac_faces)))
         assert np.all(all_bool == (east + west + north + south + top + bottom))
 
-        # Check that the coordinates of the
+        # Check that the coordinates of the face centers are at the boundary.
         for side, dim in zip([east, north, top], [0, 1, 2]):
             assert np.all(np.isclose(sd.face_centers[dim, side], box_max[dim]))
         for side, dim in zip([west, south, bottom], [0, 1, 2]):
@@ -91,7 +98,7 @@ def test_boundary_sides(geometry_class: type[pp.ModelGeometry], num_fracs):
 
         assert np.all(all_bool == (east + west + north + south + top + bottom))
 
-        # Check that the coordinates of the
+        # Check that the coordinates of the cell centers are at the boundary.
         for side, dim in zip([east, north, top], [0, 1, 2]):
             assert np.all(np.isclose(bg.cell_centers[dim, side], box_max[dim]))
         for side, dim in zip([west, south, bottom], [0, 1, 2]):
@@ -99,8 +106,7 @@ def test_boundary_sides(geometry_class: type[pp.ModelGeometry], num_fracs):
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-# Only test up to two fractures here, that should suffice.
-@pytest.mark.parametrize("num_fracs", [0, 1, 2])
+@pytest.mark.parametrize("num_fracs", [0, 3])
 def test_wrap_grid_attributes(
     geometry_class: type[pp.ModelGeometry], num_fracs
 ) -> None:
@@ -207,7 +213,7 @@ def test_subdomain_interface_methods(geometry_class: type[pp.ModelGeometry]) -> 
     """Test interfaces_to_subdomains and subdomains_to_interfaces.
 
     Parameters:
-        geometry_class:
+        geometry_class: Class to test.
 
     """
     geometry = geometry_class()
@@ -440,7 +446,6 @@ def test_basis_normal_tangential_components(
     geometry.params = {"fracture_indices": [i for i in range(2)]}
     geometry.units = pp.Units()
     geometry.set_geometry()
-    geometry.set_geometry()
     dim = geometry.nd
 
     # List of subdomains and interfaces. The latter are only needed for one test.
@@ -529,3 +534,28 @@ def test_basis_normal_tangential_components(
     )
 
     assert np.allclose((known_tangential_component - tangential_component).data, 0)
+
+
+@pytest.mark.parametrize("geometry_class", geometry_list)
+def test_local_coordinates(geometry_class: type[pp.ModelGeometry]) -> None:
+    """Test the method to compute local fracture coordinates.
+
+    The actual generation of the local coordinates is tested in
+    test_tangential_normal_projection.py, so we only do a simple test here.
+
+    Parameters:
+        geometry_class: Class to test.
+
+    """
+    geometry = geometry_class()
+    geometry.params = {"fracture_indices": [i for i in range(2)]}
+    geometry.units = pp.Units()
+    geometry.set_geometry()
+    global_to_local = geometry.local_coordinates(
+        geometry.mdg.subdomains(dim=geometry.nd - 1)
+    )
+    # The global to local operator should be a rotation matrix, and the inverse should
+    # be the transpose. This is checked by multiplying the matrix with its transpose,
+    # which should give the identity matrix.
+    val = global_to_local.value(pp.EquationSystem(geometry.mdg)).todense()
+    assert np.allclose(val @ val.T, np.eye(val.shape[0]))
