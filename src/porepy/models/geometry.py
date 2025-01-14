@@ -454,7 +454,7 @@ class ModelGeometry(pp.PorePyModel):
                 ].project_tangential_normal(sd.num_cells)
                 for sd in subdomains
             ]
-            local_coord_proj = sps.block_diag(local_coord_proj_list).tocsr()
+            local_coord_proj = sps.block_diag(local_coord_proj_list, format='csr')
         else:
             # Also treat no subdomains.
             local_coord_proj = sps.csr_matrix((0, 0))
