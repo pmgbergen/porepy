@@ -427,19 +427,23 @@ class ModelGeometry(pp.PorePyModel):
     def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
         """Ad wrapper around tangential_normal_projections for fractures.
 
+        The method constructs a projection from global to local coordinates for a list
+        of subdomains. The local coordinates are defined by the tangential and normal
+        directions of the subdomains, as defined by their tangential_normal_projection
+        attribute.
+
+        The inverse of this projection can be used to map quantities from local to
+        global coordinates. It can be constructed by transposing the projection returned
+        by this method.
+
         Parameters:
-            subdomains: List of subdomains for which to compute the local
-            coordinates.
+            subdomains: List of subdomains for which to compute the local coordinates.
 
         Returns:
-            Local coordinates as a pp.ad.SparseArray.
+            Projection from global to local coordinates as a pp.ad.SparseArray.
 
         """
-        # TODO: If we ever implement a mapping to reference space for all subdomains,
-        # the present method should be revisited.
-
         # For now, assert all subdomains are fractures, i.e. dim == nd - 1.
-        # TODO: Extend to all subdomains, not only codimension 1?
         assert all([sd.dim == self.nd - 1 for sd in subdomains])
         if len(subdomains) > 0:
             # Compute the local coordinates for each subdomain. For this, we use the
@@ -450,9 +454,9 @@ class ModelGeometry(pp.PorePyModel):
                 ].project_tangential_normal(sd.num_cells)
                 for sd in subdomains
             ]
-            local_coord_proj = sps.block_diag(local_coord_proj_list)
+            local_coord_proj = sps.block_diag(local_coord_proj_list, format="csr")
         else:
-            # Also treat no subdomains
+            # Also treat no subdomains.
             local_coord_proj = sps.csr_matrix((0, 0))
         return pp.ad.SparseArray(local_coord_proj)
 
