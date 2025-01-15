@@ -423,7 +423,7 @@ def test_ad_variable_evaluation():
     """Test that the values of Ad variables are as expected under evalutation
     (translation from the abstract Ad framework to forward mode).
 
-    Boththe atomic and mixed-dimensional variables are tested. The tests cover both the
+    Both the atomic and mixed-dimensional variables are tested. The tests cover both the
     current values of the variables (pp.ITERATE), and their values at previous
     iterations and time steps.
 
