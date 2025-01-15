@@ -14,6 +14,7 @@ from typing_extensions import TypeAlias
 import porepy as pp
 
 from . import _ad_utils
+from . import _ad_parser
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
@@ -211,6 +212,8 @@ class EquationSystem:
         and integer values denoting the number of DOFs per grid entity.
 
         """
+
+        self._ad_parser = _ad_parser.AdParser(self.mdg)
 
     def SubSystem(
         self,
@@ -1876,6 +1879,34 @@ class EquationSystem:
         # Prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
+
+    ### Evaluate Ad operators ----------------------------------------------------------
+
+    def operator_value(self, operator: pp.ad.Operator) -> np.ndarray:
+        """Evaluate an operator on the current state.
+
+        Parameters:
+            operator: Operator to evaluate.
+
+        Returns:
+            The operator evaluated on the current state.
+
+        """
+        state = self.get_variable_values(iterate_index=0)
+        return self._ad_parser.value(operator, state)
+    
+    def operator_value_and_jacobian(self, operator: pp.ad.Operator) -> pp.ad.AdArray:
+        """Evaluate an operator and its Jacobian on the current state.
+
+        Parameters:
+            operator: Operator to evaluate.
+
+        Returns:
+            Tuple containing the operator evaluated on the current state and its Jacobian.
+
+        """
+        state = self.get_variable_values(iterate_index=0)
+        return self._ad_parser.value_and_jacobian(operator, state)
 
     ### Special methods ----------------------------------------------------------------
 
