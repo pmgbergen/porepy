@@ -1721,7 +1721,15 @@ class Scalar(Operator):
         return f"(scalar, {self._value})"
 
     def __repr__(self) -> str:
-        return f"Wrapped scalar with value {self._value}"
+        # Normally, we will return a string with the value. However, for debugging of
+        # initialization, where self._value is not yet defined, we need a reasonable
+        # fallback (we can do without, but that results in annoying error messages while
+        # debugging).
+        try:
+            value = f"{self._value}"
+            return f"Wrapped scalar with value {value}"
+        except AttributeError:
+            return "Wrapped scalar with no value"
 
     def __str__(self) -> str:
         s = "Scalar"
