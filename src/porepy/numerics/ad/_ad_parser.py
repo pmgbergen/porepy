@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import porepy as pp
-from queue import PriorityQueue
+import heapq
 import networkx as nx
 
 import scipy.sparse as sps
@@ -46,7 +46,8 @@ class AdParser:
         # Convert the operator to a queue of operations
         queue = self._graph_to_queue(x)
 
-        for item in queue:
+        while queue:
+            item = heapq.heappop(queue)[-1]
             
             if item in self._cache:
                 # The value of this item has already been computed
@@ -257,7 +258,7 @@ class AdParser:
 
         # Now, we can iterate over the nodes in the tree in reverse order, and compute the
         # height of each node. 
-        height = {}
+        height: dict[pp.ad.Operator, int] = {}
         for node in nodes_bfs:
             if tree.out_degree(node) == 0:
                 height[node] = 0
@@ -270,14 +271,24 @@ class AdParser:
                 # all the children of a node have already been visited.
                 height[node] = max([height[child] for child in tree.successors(node)]) + 1
             
-        # Now, we can use a priority queue to sort the nodes by height. It could be that
-        # this is not necessary, and that we can just iterate over the nodes in the reverse
-        # BFS order, but EK is not sure.
-        queue = PriorityQueue(maxsize=len(height))
-        for node, priority in height.items():
-            queue.put((priority, node))        
+        # Now, we can use a heapq data structure to sort the nodes by height. It could
+        # be that this is not necessary, and that we can just iterate over the nodes in
+        # the reverse BFS order, but EK is not sure.
 
-        return queue
+        # Define a heap to store the nodes in prioritized order. We will fill it using
+        # the heapq module.
+        heap = []
+        # To break ties in the heap (operators with equal priority), we use an entry
+        # count, inspired by https://docs.python.org/3/library/heapq.html. This avoids
+        # the need to implement a comparison operator for the Operator class, which is
+        # not meaningful.
+        entry_count = 0
+
+        for node, priority in height.items():
+            heapq.heappush(heap, (priority, entry_count, node))
+            entry_count += 1
+
+        return heap
 
     def _get_error_message(
         self, operation: str, children: list[pp.ad.Operator], results: list
