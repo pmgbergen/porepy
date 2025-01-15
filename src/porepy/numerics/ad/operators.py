@@ -203,11 +203,11 @@ class Operator:
 
         Will be void if the operator is a leaf.
         """
+        ### PRIVATE
+        self._name = name if name is not None else ""
 
         self._initialize_children(operation=operation, children=children)
 
-        ### PRIVATE
-        self._name = name if name is not None else ""
 
     @property
     def interfaces(self):
@@ -263,7 +263,7 @@ class Operator:
             for counter, child in enumerate(children):
                 graph.add_nodes_from(child.nx_graph.nodes)
                 graph.add_edges_from(child.nx_graph.edges)
-                graph.add_edge(self, child, {"operand_id": counter})
+                graph.add_edge(self, child, operand_id=counter)
 
             self.nx_graph = graph
 
@@ -1423,7 +1423,6 @@ class SparseArray(Operator):
     """
 
     def __init__(self, mat: sps.spmatrix, name: Optional[str] = None) -> None:
-        super().__init__(name=name)
         self._mat = mat
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
@@ -1434,6 +1433,8 @@ class SparseArray(Operator):
         # TODO: Make readonly, see https://github.com/pmgbergen/porepy/issues/1214
         self._hash_value: str = self._compute_spmatrix_hash(mat)
         """String to uniquly identify the contents of the matrix."""
+        
+        super().__init__(name=name)
 
     def _key(self) -> str:
         return f"(sparse_array, hash={self._hash_value})"
@@ -1548,7 +1549,6 @@ class DenseArray(Operator):
             values: Numpy array to be represented.
 
         """
-        super().__init__(name=name)
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._values = values.astype(float, copy=False)
@@ -1558,6 +1558,7 @@ class DenseArray(Operator):
             self._values, usedforsecurity=False  # type: ignore[arg-type]
         ).hexdigest()
         """String to uniquly identify the array."""
+        super().__init__(name=name)
 
     def _key(self) -> str:
         return f"(dense_array, hash={self._hash_value})"
@@ -1825,6 +1826,11 @@ class Variable(TimeDependentOperator, IterativeOperator):
                 "Variables only supported on domains of type 'Grid' or 'MortarGrid'."
             )
 
+        self._id: int = next(Variable._ids)
+        """See :meth:`id`."""
+        self._g: GridLike = domain
+        """See :meth:`domain`"""
+
         # Block a mypy warning here: Domain is known to be GridLike (grid, mortar grid,
         # or boundary grid), thus the below wrapping in a list gives a list of GridLike,
         # but the super constructor expects a sequence of grids, sequence or mortar
@@ -1832,10 +1838,6 @@ class Variable(TimeDependentOperator, IterativeOperator):
         # circumvent the warning is not worth it.
         super().__init__(name=name, domains=[domain])  # type: ignore [arg-type]
 
-        self._id: int = next(Variable._ids)
-        """See :meth:`id`."""
-        self._g: GridLike = domain
-        """See :meth:`domain`"""
         # dofs per
         self._cells: int = ndof.get("cells", 0)
         self._faces: int = ndof.get("faces", 0)
