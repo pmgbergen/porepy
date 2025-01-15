@@ -1712,10 +1712,11 @@ class Scalar(Operator):
     """
 
     def __init__(self, value: float, name: Optional[str] = None) -> None:
-        super().__init__(name=name)
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._value = float(value)
+        # Call the super constructor after setting the value.
+        super().__init__(name=name)
 
     def _key(self) -> str:
         return f"(scalar, {self._value})"
