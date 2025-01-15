@@ -1893,7 +1893,7 @@ class EquationSystem:
 
         """
         state = self.get_variable_values(iterate_index=0)
-        return self._ad_parser.value(operator, state)
+        return self._ad_parser.value(operator, self, state)
     
     def operator_value_and_jacobian(self, operator: pp.ad.Operator) -> pp.ad.AdArray:
         """Evaluate an operator and its Jacobian on the current state.
@@ -1906,7 +1906,7 @@ class EquationSystem:
 
         """
         state = self.get_variable_values(iterate_index=0)
-        return self._ad_parser.value_and_jacobian(operator, state)
+        return self._ad_parser.value_and_jacobian(operator, self, state)
 
     ### Special methods ----------------------------------------------------------------
 
