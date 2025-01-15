@@ -12,6 +12,7 @@ from typing import Any, Callable, Literal, Optional, Sequence, TypeVar, Union, o
 
 import numpy as np
 import scipy.sparse as sps
+import networkx as nx
 
 import porepy as pp
 from porepy.utils.porepy_types import GridLike, GridLikeSequence
@@ -195,6 +196,8 @@ class Operator:
         Will be empty if the operator is a leaf.
         """
 
+        self.nx_graph: nx.DiGraph
+
         self.operation: Operator.Operations
         """Arithmetic or other operation represented by this operator.
 
@@ -250,6 +253,19 @@ class Operator:
         """
         self.children = [] if children is None else children
         self.operation = Operator.Operations.void if operation is None else operation
+
+        if children is None:
+            self.nx_graph = nx.DiGraph()
+            self.nx_graph.add_node(self)
+        else:
+            graph = nx.DiGraph()
+            graph.add_node(self)
+            for counter, child in enumerate(children):
+                graph.add_nodes_from(child.nx_graph.nodes)
+                graph.add_edges_from(child.nx_graph.edges)
+                graph.add_edge(self, child, {"operand_id": counter})
+
+            self.nx_graph = graph
 
     def is_leaf(self) -> bool:
         """Check if this operator is a leaf in the tree-representation of an expression.
