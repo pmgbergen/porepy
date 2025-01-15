@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 import porepy as pp
 from queue import PriorityQueue
