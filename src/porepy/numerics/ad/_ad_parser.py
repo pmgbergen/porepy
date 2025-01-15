@@ -14,16 +14,16 @@ class AdParser:
         self._mdg = mdg
         self._cache = {}
 
-    def value(self, x: pp.ad.Operator, state: np.ndarray | None) -> np.ndarray:
-        return self._evaluate(x, derivative=False, state=state)
+    def value(self, x: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None) -> np.ndarray:
+        return self._evaluate(x, derivative=False, eq_sys=eq_sys, state=state)
 
-    def value_and_jacobian(self, x: pp.ad.Operator, state: np.ndarray) -> pp.ad.AdArray:
-        return self._evaluate(x, derivative=True, state=state)
+    def value_and_jacobian(self, x: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray) -> pp.ad.AdArray:
+        return self._evaluate(x, derivative=True, eq_sys=eq_sys, state=state)
 
     def clear_cache(self):
         self._cache = {}
 
-    def _evaluate(self, x: pp.ad.Operator, derivative: bool, state: np.ndarray | None, eq_sys: pp.ad.EquationSystem) -> np.ndarray | pp.ad.AdArray:
+    def _evaluate(self, x: pp.ad.Operator, derivative: bool, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None) -> np.ndarray | pp.ad.AdArray:
         """Evaluate the operator x and its derivative if requested.
 
         A forward mode automatic differentiation is used to evaluate the operator x.
