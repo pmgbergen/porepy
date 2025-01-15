@@ -37,6 +37,9 @@ class AdParser:
         if state is None and derivative:
             raise ValueError("State must be provided when computing the derivative")
         
+        # What will happen here if state is None? On the other hand, it should be
+        # possible to evaluate the operator without a state, if the operator does not
+        # depend on the state (e.g. it is a numpy array).
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
         # Keep track of the latest value of the evalutation. This will eventually store
@@ -103,8 +106,10 @@ class AdParser:
         
     def _parse_operation(self, op: pp.ad.Operator, eq_sys: pp.ad.EquationSystem) -> np.ndarray | pp.ad.AdArray:
 
-        # Get the children of the operator
-        children = [op.nx_graph.nodes[child] for child in op.nx_graph.successors(op)]
+        # Get the children of the operator.
+        children = [child for child in op.nx_graph.successors(op)]
+        # Not sure if this assertion holds for larger trees of operators.
+        assert all([isinstance(child, pp.ad.Operator) for child in children])
 
         # Get the operand_id for each child and sort children based on this id
         sorted_children = sorted(children, key=lambda child: op.nx_graph.get_edge_data(op, child)['operand_id'])
