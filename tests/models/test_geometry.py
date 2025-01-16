@@ -37,27 +37,27 @@ geometry_list = [
 
 num_fracs_list = [0, 1, 2, 3]
 
+
 @pytest.fixture(scope="module")
 def geometries():
     geometries = {}
     for geometry_class in geometry_list:
         for num_fracs in num_fracs_list:
-            geometry= geometry_class()
-            geometry.params = {
-                "fracture_indices": [i for i in range(num_fracs)]
-            }
+            geometry = geometry_class()
+            geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
             geometry.units = pp.Units()
             geometry.set_geometry()
-            
+
             geometries[(geometry_class, num_fracs)] = geometry
-            
+
     return geometries
+
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 def test_set_geometry(geometry_class, geometries):
     """Test the method set_geometry."""
     # Testing with a single fracture should be sufficient here.
-    geometry = geometries[geometry_class,1]
+    geometry = geometries[geometry_class, 1]
     for attr in [
         "mdg",
         "domain",
@@ -117,8 +117,7 @@ def test_boundary_sides(geometries, geometry_class: type[pp.ModelGeometry], num_
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", [0, 3])
 def test_wrap_grid_attributes(
-    geometries,
-    geometry_class: type[pp.ModelGeometry], num_fracs
+    geometries, geometry_class: type[pp.ModelGeometry], num_fracs
 ) -> None:
     """Test that the grid attributes are wrapped correctly.
 
@@ -126,7 +125,7 @@ def test_wrap_grid_attributes(
     wrap a number of attributes, and check that the attributes are wrapped correctly.
 
     """
-    geometry  = geometries[geometry_class, num_fracs]
+    geometry = geometries[geometry_class, num_fracs]
     nd: int = geometry.nd
 
     # Various combinations of single and many subdomains
@@ -216,7 +215,9 @@ def test_wrap_grid_attributes(
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_subdomain_interface_methods(geometries, geometry_class: type[pp.ModelGeometry]) -> None:
+def test_subdomain_interface_methods(
+    geometries, geometry_class: type[pp.ModelGeometry]
+) -> None:
     """Test interfaces_to_subdomains and subdomains_to_interfaces.
 
     Parameters:
@@ -258,11 +259,11 @@ def test_subdomain_interface_methods(geometries, geometry_class: type[pp.ModelGe
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", [0, 1, 2, 3])
-def test_internal_boundary_normal_to_outwards(geometries,
-    geometry_class: type[pp.ModelGeometry], num_fracs
+def test_internal_boundary_normal_to_outwards(
+    geometries, geometry_class: type[pp.ModelGeometry], num_fracs
 ) -> None:
     # Define the geometry
-    
+
     geometry = geometries[geometry_class, num_fracs]
     dim = geometry.nd
 
@@ -328,7 +329,9 @@ def test_internal_boundary_normal_to_outwards(geometries,
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", [0, 1, 2, 3])
-def test_outwards_normals(geometries, geometry_class: type[pp.ModelGeometry], num_fracs) -> None:
+def test_outwards_normals(
+    geometries, geometry_class: type[pp.ModelGeometry], num_fracs
+) -> None:
     """Test :meth:`pp.ModelGeometry.outwards_internal_boundary_normals`.
 
     Parameters:
