@@ -123,6 +123,7 @@ class Operator:
             list.
 
     """
+    _nx_node_counter: int = count(0)
 
     class Operations(Enum):
         """Object representing all supported operations by the operator class.
@@ -256,14 +257,28 @@ class Operator:
 
         if children is None:
             self.nx_graph = nx.DiGraph()
-            self.nx_graph.add_node(self)
+            self.nx_graph.add_node(next(Operator._nx_node_counter), obj=self, root=True)
         else:
             graph = nx.DiGraph()
-            graph.add_node(self)
+            self_id = next(Operator._nx_node_counter)
+            graph.add_node(self_id, obj=self, root=True)
             for counter, child in enumerate(children):
-                graph.add_nodes_from(child.nx_graph.nodes)
-                graph.add_edges_from(child.nx_graph.edges)
-                graph.add_edge(self, child, operand_id=counter)
+
+                node_map = {}
+                for old_node_id in child.nx_graph.nodes:
+                    new_node_id = next(Operator._nx_node_counter)
+                    node_map[old_node_id] = new_node_id
+                    old_obj = child.nx_graph.nodes[old_node_id]["obj"]
+                    graph.add_node(new_node_id, obj=old_obj, root=False)
+                    if old_obj == child:
+                        graph.add_edge(self_id, new_node_id, operand_id=counter)
+
+                for edge in child.nx_graph.edges:
+                    graph.add_edge(
+                        node_map[edge[0]],
+                        node_map[edge[1]],
+                        operand_id=child.nx_graph.edges[edge]["operand_id"],
+                    )
 
             self.nx_graph = graph
 
