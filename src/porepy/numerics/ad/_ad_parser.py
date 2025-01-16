@@ -50,7 +50,10 @@ class AdParser:
         queue = self._graph_to_queue(x)
 
         while queue:
-            item = heapq.heappop(queue)[-1]
+            # Pop the next item from the queue
+            next_item = heapq.heappop(queue)
+            item = x.nx_graph.nodes[next_item[-1]]['obj']
+            
             
             if item in self._cache:
                 # The value of this item has already been computed
@@ -257,7 +260,13 @@ class AdParser:
         
     def _graph_to_queue(self, x: pp.ad.Operator) -> PriorityQueue:
 
-        tree = nx.bfs_tree(x.nx_graph, source=x)
+        root = None
+        for node in x.nx_graph.nodes:
+            if x.nx_graph.nodes[node]['root']:
+                root = node
+                break
+
+        tree = nx.bfs_tree(x.nx_graph, source=root)
         nodes_bfs = list(tree.nodes)
         nodes_bfs.reverse()
 
