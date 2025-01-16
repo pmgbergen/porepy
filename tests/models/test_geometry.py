@@ -39,7 +39,7 @@ num_fracs_list = [0, 1, 2, 3]
 
 
 @pytest.fixture(scope="module")
-def geometries():
+def geometries() -> dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry]:
     geometries = {}
     for geometry_class in geometry_list:
         for num_fracs in num_fracs_list:
@@ -54,7 +54,10 @@ def geometries():
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_set_geometry(geometry_class, geometries):
+def test_set_geometry(
+    geometries: dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry],
+    geometry_class: type[pp.ModelGeometry],
+) -> None:
     """Test the method set_geometry."""
     # Testing with a single fracture should be sufficient here.
     geometry = geometries[geometry_class, 1]
@@ -71,7 +74,11 @@ def test_set_geometry(geometry_class, geometries):
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", [0, 3])
-def test_boundary_sides(geometries, geometry_class: type[pp.ModelGeometry], num_fracs):
+def test_boundary_sides(
+    geometries: dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry],
+    geometry_class: type[pp.ModelGeometry],
+    num_fracs: int,
+) -> None:
     geometry = geometries[geometry_class, num_fracs]
 
     # Fetch the bounding box for the domain.
@@ -117,7 +124,9 @@ def test_boundary_sides(geometries, geometry_class: type[pp.ModelGeometry], num_
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", [0, 3])
 def test_wrap_grid_attributes(
-    geometries, geometry_class: type[pp.ModelGeometry], num_fracs
+    geometries: dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry],
+    geometry_class: type[pp.ModelGeometry],
+    num_fracs: int,
 ) -> None:
     """Test that the grid attributes are wrapped correctly.
 
@@ -216,7 +225,8 @@ def test_wrap_grid_attributes(
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 def test_subdomain_interface_methods(
-    geometries, geometry_class: type[pp.ModelGeometry]
+    geometries: dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry],
+    geometry_class: type[pp.ModelGeometry],
 ) -> None:
     """Test interfaces_to_subdomains and subdomains_to_interfaces.
 
@@ -260,7 +270,9 @@ def test_subdomain_interface_methods(
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", [0, 1, 2, 3])
 def test_internal_boundary_normal_to_outwards(
-    geometries, geometry_class: type[pp.ModelGeometry], num_fracs
+    geometries: dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry],
+    geometry_class: type[pp.ModelGeometry],
+    num_fracs: int,
 ) -> None:
     # Define the geometry
 
@@ -330,7 +342,9 @@ def test_internal_boundary_normal_to_outwards(
 @pytest.mark.parametrize("geometry_class", geometry_list)
 @pytest.mark.parametrize("num_fracs", [0, 1, 2, 3])
 def test_outwards_normals(
-    geometries, geometry_class: type[pp.ModelGeometry], num_fracs
+    geometries: dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry],
+    geometry_class: type[pp.ModelGeometry],
+    num_fracs: int,
 ) -> None:
     """Test :meth:`pp.ModelGeometry.outwards_internal_boundary_normals`.
 
@@ -434,7 +448,7 @@ def test_outwards_normals(
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
 def test_basis_normal_tangential_components(
-    geometries,
+    geometries: dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry],
     geometry_class: type[pp.ModelGeometry],
 ) -> None:
     """Test that methods to compute basis vectors and extract normal and tangential
@@ -536,7 +550,10 @@ def test_basis_normal_tangential_components(
 
 
 @pytest.mark.parametrize("geometry_class", geometry_list)
-def test_local_coordinates(geometries, geometry_class: type[pp.ModelGeometry]) -> None:
+def test_local_coordinates(
+    geometries: dict[tuple[type[pp.ModelGeometry], int], pp.ModelGeometry],
+    geometry_class: type[pp.ModelGeometry],
+) -> None:
     """Test the method to compute local fracture coordinates.
 
     The actual generation of the local coordinates is tested in
