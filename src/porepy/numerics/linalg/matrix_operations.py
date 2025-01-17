@@ -297,7 +297,7 @@ def slice_indices(
         indices: np.ndarray = A.indices[array_ind]
     elif isinstance(slice_ind, np.generic):
         # Special case for single index.
-        assert slice_ind.dtype == int  # For mypy.
+        assert isinstance(slice_ind, np.integer)  # For mypy.
         array_ind = slice(A.indptr[slice_ind], A.indptr[slice_ind + 1])
         indices = A.indices[array_ind]
     else:
