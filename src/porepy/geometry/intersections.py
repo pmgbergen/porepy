@@ -1729,12 +1729,6 @@ def triangulations(
     # to other cell shapes. This would require more general data structures, but should
     # not be too much of an effort.
     import shapely.geometry as shapely_geometry
-    import shapely.speedups as shapely_speedups
-
-    try:
-        shapely_speedups.enable()
-    except AttributeError:
-        pass
 
     n_1 = t_1.shape[1]
     n_2 = t_2.shape[1]
@@ -1893,13 +1887,6 @@ def surface_tessellations(
 
     # local imports
     import shapely.geometry as shapely_geometry
-    import shapely.speedups as shapely_speedups
-
-    try:
-        shapely_speedups.enable()
-    except AttributeError:
-        # Nothing to do here, but this may be slow.
-        pass
 
     def _min_max_coord(coord):
         # Convenience function to get max and minimum coordinates for a set of polygons
