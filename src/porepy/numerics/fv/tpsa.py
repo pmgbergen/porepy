@@ -782,7 +782,7 @@ class Tpsa:
 
         # Boundary condition for the mass conservation equation.
         bound_mass_displacement = normal_vector_nd @ (
-            filters.neu_rob_pass_nd @ inv_mu_face
+            -filters.neu_rob_pass_nd @ inv_mu_face
             + filters.dir_pass_nd
             + c2f_maps.b2f_rob
         )
