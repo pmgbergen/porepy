@@ -288,13 +288,18 @@ def slice_indices(
     assert A.getformat() == "csc" or A.getformat() == "csr"
     if np.asarray(slice_ind).dtype == "bool":
         # Convert to indices.
-        # First check for dimension
+        # First check for dimension.
         if slice_ind.size != A.indptr.size - 1:
             raise IndexError("boolean index did not match indexed array")
         slice_ind = np.where(slice_ind)[0]
-    if isinstance(slice_ind, int) or np.isscalar(slice_ind):
-        array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
+    if isinstance(slice_ind, int):
+        array_ind = slice(A.indptr[slice_ind], A.indptr[slice_ind + 1])
         indices: np.ndarray = A.indices[array_ind]
+    elif isinstance(slice_ind, np.generic):
+        # Special case for single index.
+        assert slice_ind.dtype == int  # For mypy.
+        array_ind = slice(A.indptr[slice_ind], A.indptr[slice_ind + 1])
+        indices = A.indices[array_ind]
     else:
         array_ind = mcolon(A.indptr[slice_ind], A.indptr[slice_ind + 1])
         indices = A.indices[array_ind]
