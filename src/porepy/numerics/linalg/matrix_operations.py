@@ -296,7 +296,7 @@ def slice_indices(
         array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
         indices: np.ndarray = A.indices[array_ind]
     elif slice_ind.size == 1:
-        array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
+        array_ind = slice(A.indptr[int(slice_ind[0])], A.indptr[int(slice_ind[0] + 1)])
         indices = A.indices[array_ind]
     else:
         array_ind = mcolon(A.indptr[slice_ind], A.indptr[slice_ind + 1])
@@ -342,7 +342,7 @@ def slice_mat(A: sps.spmatrix, ind: np.ndarray) -> sps.spmatrix:
     elif ind.size == 1:
         N = 1
         indptr = np.zeros(2)
-        ind_slice = slice(A.indptr[int(ind)], A.indptr[int(ind + 1)])
+        ind_slice = slice(A.indptr[int(ind[0])], A.indptr[int(ind[0] + 1)])
     else:
         N = ind.size
         indptr = np.zeros(ind.size + 1)
