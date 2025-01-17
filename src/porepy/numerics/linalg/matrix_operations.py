@@ -292,12 +292,9 @@ def slice_indices(
         if slice_ind.size != A.indptr.size - 1:
             raise IndexError("boolean index did not match indexed array")
         slice_ind = np.where(slice_ind)[0]
-    if isinstance(slice_ind, int):
+    if isinstance(slice_ind, int) or np.isscalar(slice_ind):
         array_ind = slice(A.indptr[int(slice_ind)], A.indptr[int(slice_ind + 1)])
         indices: np.ndarray = A.indices[array_ind]
-    elif slice_ind.size == 1:
-        array_ind = slice(A.indptr[int(slice_ind[0])], A.indptr[int(slice_ind[0] + 1)])
-        indices = A.indices[array_ind]
     else:
         array_ind = mcolon(A.indptr[slice_ind], A.indptr[slice_ind + 1])
         indices = A.indices[array_ind]
