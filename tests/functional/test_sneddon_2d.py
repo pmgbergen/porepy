@@ -1,21 +1,22 @@
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-
+import porepy as pp
+import numpy as np
+import pytest
 
 # ----> Retrieve actual order of convergence
 @pytest.fixture(scope="module")
 def actual_ooc(
-    material_constants: dict, reference_values: pp.ReferenceVariableValues
-) -> list[list[dict[str, float]]]:
+) -> float:
     """Retrieve actual order of convergence.
 
     """
+    
     ooc = []
     # Loop through the models
     ooc_setup: list[dict[str, float]] = []
     # Loop through grid type
     # We do not perform a convergence analysis with simplices in 3d
     grid_type = "simplex"
-    
         
     conv_analysis = ConvergenceAnalysis(
         model_class=model,
@@ -24,34 +25,30 @@ def actual_ooc(
         spatial_refinement_rate=2,
         temporal_refinement_rate=4,
     )
-    ooc_results = conv_analysis.order_of_convergence(conv_analysis.run_analysis())
-    ooc.append(ooc_results)
+    order = conv_analysis.order_of_convergence(conv_analysis.run_analysis())
+    
 
-    return ooc
+    return order 
 
 
 # ----> Set desired order of convergence
 @pytest.fixture(scope="module")
-def desired_ooc() -> list[list[dict[str, float]]]:
+def desired_ooc() -> float:
     """Set desired order of convergence.
 
     Returns:
         List of lists of dictionaries, containing the desired order of convergence.
 
     """
-    desired_ooc_2d = 1.8757689483196147        
+    desired_ooc_2d = 2.0      
  
     return desired_ooc_2d
 
 
-@pytest.mark.skipped  # reason: slow
-@pytest.mark.parametrize("grid_type_idx", [0, 1])
+
 def test_order_of_convergence(
-    var: str,
-    dim_idx: int,
-    grid_type_idx: int,
-    actual_ooc: list[list[dict[str, float]]],
-    desired_ooc: list[list[dict[str, float]]],
+    actual_ooc,
+    desired_ooc,
 ) -> None:
     """Test observed order of convergence.
 
@@ -73,21 +70,12 @@ def test_order_of_convergence(
 
     """
     # We require the order of convergence to always be larger than 1.0
-    if not (dim_idx == 1 and grid_type_idx == 1):  # no analysis for 3d and simplices
-        assert 1.0 < actual_ooc[dim_idx][grid_type_idx]["ooc_" + var]
+    assert 1.0 < actual_ooc
 
-    if grid_type_idx == 0:  # Cartesian
-        assert np.isclose(
-            desired_ooc[dim_idx][grid_type_idx]["ooc_" + var],
-            actual_ooc[dim_idx][grid_type_idx]["ooc_" + var],
-            atol=1e-3,  # allow for an absolute difference of 0.001 in OOC
-            rtol=1e-3,  # allow for 0.1% of relative difference in OOC
-        )
-    else:  # Simplex
-        if dim_idx == 0:  # no analysis for 3d and simplices
-            assert np.isclose(
-                desired_ooc[dim_idx][grid_type_idx]["ooc_" + var],
-                actual_ooc[dim_idx][grid_type_idx]["ooc_" + var],
-                atol=1e-1,  # allow for an absolute difference of 0.1 in OOC
-                rtol=5e-1,  # allow for 5% of relative difference in OOC
-            )
+
+    assert np.isclose(
+        desired_ooc,
+        actual_ooc,
+        atol=1e-1,  # allow for an absolute difference of 0.1 in OOC
+        rtol=5e-1,  # allow for 5% of relative difference in OOC
+    )

@@ -578,3 +578,7 @@ def test_sneddon_2d():
     log_avg_err = np.log(avg_err)
     slope, _ = np.polyfit(log_h, log_avg_err, 1)
     assert slope > 1.0, f"Estimated EOC is {slope}, which is not greater than 1"
+
+
+
+
