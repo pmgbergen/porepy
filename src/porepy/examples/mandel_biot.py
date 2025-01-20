@@ -23,9 +23,9 @@ References:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Callable, Literal, Union, cast
-import warnings
 
 import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
