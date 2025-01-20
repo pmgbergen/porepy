@@ -263,3 +263,100 @@ class ManuExactSneddon2dSetup:
         apertures = analytical_displacements(self.a, eta, self.p0, self.G, self.poi)
 
         return eta, apertures
+
+
+
+
+
+class ModifiedGeometry:
+    def set_domain(self) -> None:
+        """Defining a two-dimensional square domain with sidelength 2."""
+
+        self._domain = pp.Domain(
+            bounding_box={
+                "xmin": 0,
+                "ymin": 0,
+                "xmax": self.params["length"],
+                "ymax": self.params["height"],
+            }
+        )
+
+    def grid_type(self) -> str:
+        """Choosing the grid type for our domain."""
+        return self.params.get("grid_type", "simplex")
+
+    def set_fractures(self):
+
+        points = self.params["frac_pts"]
+        self._fractures = [pp.LineFracture(points)]
+
+
+class ModifiedBoundaryConditions:
+    def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
+        """Set boundary condition type for the problem."""
+        bounds = self.domain_boundary_sides(sd)
+
+        # Set the type of west and east boundaries to Dirichlet. North and south are
+        # Neumann by default.
+        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "dir")
+
+        frac_face = sd.tags["fracture_faces"]
+
+        bc.is_neu[:, frac_face] = False
+        bc.is_dir[:, frac_face] = True
+
+        return bc
+
+    def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        """Setting displacement boundary condition values.
+
+        This method returns an array of boundary condition values with the value 5t for
+        western boundaries and ones for the eastern boundary.
+
+        """
+
+        sd = bg.parent
+        if sd.dim < 2:
+            return np.zeros(self.nd * sd.num_faces)
+
+  
+        # apply sneddon analytical solution through BEM method
+        exact_sol = ManuExactSneddon2dSetup(self.params)
+        u_bc = exact_sol.exact_sol_global(sd)
+        
+        return bg.projection(2) @ u_bc.ravel("F")
+
+
+class PressureStressMixin:
+    def pressure(self, subdomains: pp.Grid):
+        # Return pressure in the fracture domain
+        mat = self.params["p0"] * np.ones(
+            sum(subdomain.num_cells for subdomain in subdomains)
+        )
+        return pp.ad.DenseArray(mat)
+
+    def stress_discretization(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.BiotAd | pp.ad.MpsaAd:
+        """Discretization of the stress tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Discretization operator for the stress tensor.
+
+        """
+        return pp.ad.MpsaAd(self.stress_keyword, subdomains)
+
+
+class MomentumBalanceGeometryBC(
+    PressureStressMixin,
+    ModifiedGeometry,
+    ModifiedBoundaryConditions,
+    pp.constitutive_laws.PressureStress,
+    pp.MomentumBalance,
+):
+    ...
+    """Adding geometry and modified boundary conditions to the default model."""
+
