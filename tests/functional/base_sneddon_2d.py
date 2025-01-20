@@ -59,37 +59,15 @@ class ModifiedBoundaryConditions:
 
         """
 
-        a, p0, G, poi = (
-            self.params["a"],
-            self.params["p0"],
-            self.params["material_constants"]["solid"].shear_modulus,
-            self.params["poi"],
-        )
-        theta, length, height = (
-            self.params["theta"],
-            self.params["length"],
-            self.params["height"],
-        )
-
         sd = bg.parent
-        # bg = self.mdg.subdomain_to_boundary_grid(sd) # technique to extract bg via sd
-
         if sd.dim < 2:
             return np.zeros(self.nd * sd.num_faces)
-        box_faces = sd.get_boundary_faces()
 
-        # Set the boundary values
-        u_bc = np.zeros((sd.dim, sd.num_faces))
-
+  
         # apply sneddon analytical solution through BEM method
-        n = 1000
-        h = 2 * a / n
-        center = np.array([length / 2, height / 2, 0])
-        bem_centers = manu_sneddon_2d.get_bem_centers(a, h, n, theta, center)
-        eta = manu_sneddon_2d.compute_eta(bem_centers, center)
-        u_a = -manu_sneddon_2d.analytical_displacements(a, eta, p0, G, poi)
-        u_bc = manu_sneddon_2d.assign_bem(sd, h / 2, box_faces, theta, bem_centers, u_a, poi)
-
+        exact_sol = manu_sneddon_2d.ManuExactSneddon2dSetup(self.params)
+        u_bc = exact_sol.exact_sol_global(sd)
+        
         return bg.projection(2) @ u_bc.ravel("F")
 
 
