@@ -222,12 +222,13 @@ class ManuExactSneddon2dSetup:
         n = 1000
         h = 2 * self.a / n
         box_faces = sd.get_boundary_faces()
+        u_bc = np.zeros((sd.dim, sd.num_faces))
 
         center = np.array([self.length / 2, self.height / 2, 0])
         bem_centers = get_bem_centers(self.a, h, n, self.theta, center)
         eta = compute_eta(bem_centers, center)
         u_a = -analytical_displacements(self.a, eta, self.p0, self.G, self.poi)
-        u_bc = assign_bem(sd, h / 2, box_faces, self.theta, bem_centers, u_a, poi)
+        u_bc = assign_bem(sd, h / 2, box_faces, self.theta, bem_centers, u_a, self.poi)
         return u_bc
     
 
