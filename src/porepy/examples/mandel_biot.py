@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable, Literal, Union, cast
+import warnings
 
 import matplotlib.colors as mcolors  # type: ignore
 import matplotlib.pyplot as plt
@@ -1022,6 +1023,18 @@ class MandelUtils(VerificationUtils):
             color_map: listed color map object.
 
         """
+        if self.grid_type() == "cartesian":
+            # A division by zero was discovered while running the Mandel-problem on a
+            # Cartesian grid. The issue was related to plotting, and the current
+            # solution is to skip the troublesome plotting if the grid type is
+            # Cartesian. The GitHub-issue for this is found at:
+            # https://github.com/pmgbergen/porepy/issues/1137
+            warnings.warn(
+                """Division by x-component of the normal vector for internal faces of
+                cells adjacent to the southern boundary causes division by zero for
+                cartesian grids."""
+            )
+            return
         sd = self.mdg.subdomains()[0]
         xf = sd.face_centers[0]
         nx = sd.face_normals[0]
