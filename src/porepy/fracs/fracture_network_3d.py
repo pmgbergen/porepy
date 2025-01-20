@@ -1460,8 +1460,8 @@ class FractureNetwork3d(object):
         # local numbering of points
         edges_2d = np.empty_like(edges_loc)
         for ei in range(edges_loc.shape[1]):
-            edges_2d[0, ei] = np.argwhere(p_ind_loc == edges_loc[0, ei])
-            edges_2d[1, ei] = np.argwhere(p_ind_loc == edges_loc[1, ei])
+            edges_2d[0, ei] = np.argmax(p_ind_loc == edges_loc[0, ei])
+            edges_2d[1, ei] = np.argmax(p_ind_loc == edges_loc[1, ei])
 
         assert edges_2d[:2].max() < p_loc.shape[1]
 
