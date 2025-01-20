@@ -172,6 +172,7 @@ def simulation(
         "theta": theta_rad,
         "p0": p0,
         "a": a,
+        "G": G,
         "poi": poi,
         "length": length,  # this info can be accessed via box, so remove these as well.
         "height": height,
@@ -186,9 +187,12 @@ def simulation(
     # Comuting the numerical displacement jump along the fracture on the fracture cell centers.
     u_n: pp.ad.Operator = nd_vec_to_normal @ model.displacement_jump(frac_sd)
     u_n = u_n.value(model.equation_system)
-
+    
+    exact_setup = manu_sneddon_2d.ManuExactSneddon2dSetup(params)
     # Checking convergence specifically on the fracture
-    u_a = manu_sneddon_2d.run_analytical_displacements(model.mdg, a, p0, G, poi, height, length)[1]
+    #u_a = manu_sneddon_2d.run_analytical_displacements(model.mdg, a, p0, G, poi, height, length)[1]
+    u_a = exact_setup.run_analytical_displacements(model.mdg)[1]
+  
     e = ConvergenceAnalysis.l2_error(
         frac_sd[0], u_a, u_n, is_scalar=False, is_cc=True, relative=True
     )
