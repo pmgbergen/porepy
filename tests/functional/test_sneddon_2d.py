@@ -2,56 +2,41 @@ from porepy.applications.convergence_analysis import ConvergenceAnalysis
 import porepy as pp
 import numpy as np
 import pytest
+import math
+import copy
+import  tests.functional.setups.manu_sneddon_2d as manu_sneddon_2d
 
-import test_sneddon_2d
 
-
-
-
-# ----> Retrieve actual L2-errors
-@pytest.fixture(scope="module")
-def actual_l2_errors(material_constants: dict) -> :
-    """Run verification setups and retrieve results for the scheduled times.
+def compute_frac_pts(
+    theta_rad: float, a: float, height: float, length: float
+) -> np.ndarray:
+    """
+    Assuming the fracture center is at the coordinate (height/2, length/2),
+    compute the endpoints of a fracture given its orientation and fracture length.
 
     Parameters:
-        material_constants: Dictionary containing the material constant classes.
+    theta_rad: Angle of the fracture in radians
+    a: Half-length of the fracture.
+    height: Height of the domain.
+    length: Width of the domain.
 
     Returns:
-        List of lists of dictionaries of actual relative errors. The outer list contains
-        two items, the first contains the results for 2d and the second contains the
-        results for 3d. Both inner lists contain three items each, each of which is a
-        dictionary of results for the scheduled times, i.e., 0.5 [s] and 1.0 [s].
+
+        frac_pts : A 2x2 array where each column represents the coordinates of an end point of the fracture in 2D.
+            The first column corresponds to one end point, and the second column corresponds to the other.
 
     """
+    # Rotate the fracture with an angle theta_rad
+    y_0 = height / 2 - a * np.cos(theta_rad)
+    x_0 = length / 2 - a * np.sin(theta_rad)
+    y_1 = height / 2 + a * np.cos(theta_rad)
+    x_1 = length / 2 + a * np.sin(theta_rad)
 
-    # Define model parameters
-    model_params = {
-        "grid_type": "cartesian",
-        "material_constants": material_constants,
-        "meshing_arguments": {"cell_size": 0.25},
-        "manufactured_solution": "nordbotten_2016",
-        "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
-    }
+    frac_pts = np.array([[x_0, y_0], [x_1, y_1]]).T
+    return frac_pts
 
-    # Retrieve actual L2-relative errors.
-    errors = []
-    # Loop through models, i.e., 2d and 3d.
-    model  = SneddonSetup2d()
-    
-    # Make deep copy of params to avoid nasty bugs.
-    setup = model(deepcopy(model_params))
-    pp.run_time_dependent_model(setup)
-    
-    errors_setup: list[dict[str, float]] = []
-    # Loop through results, i.e., results for each scheduled time.
-    for result in setup.results:
-        errors_setup.append(
-            {
-                "error_pressure": getattr(result, "error_pressure"),
-            }
-        )
-    errors.append(errors_setup)
-    return errors
+
+
 
 
 # ----> Retrieve actual order of convergence
@@ -59,29 +44,50 @@ def actual_l2_errors(material_constants: dict) -> :
 def actual_ooc(
 ) -> float:
     """Retrieve actual order of convergence.
-
     """
-    
-    
-       
-    
-    ooc = []
-    # Loop through the models
-    ooc_setup: list[dict[str, float]] = []
-    # Loop through grid type
-    # We do not perform a convergence analysis with simplices in 3d
-    grid_type = "simplex"
-        
-    conv_analysis = ConvergenceAnalysis(
-        model_class=model,
-        model_params=deepcopy(params),
-        levels=4,
-        spatial_refinement_rate=2,
-        temporal_refinement_rate=4,
-    )
-    order = conv_analysis.order_of_convergence(conv_analysis.run_analysis())
-    
 
+    # Orientation of fracture
+    num_theta = 6  # Number of iteration of theta
+    theta0 = 0  # Inital orientation of fracture
+    delta_theta = 10  # The difference in theta between each refinement
+    theta_list = (
+        theta0 + np.arange(0, num_theta) * delta_theta
+    )  # List of all the fracture orientations we run simulation on
+    
+    poi = 0.25
+    G = 1
+    lam = (
+        2 * G * poi / (1 - 2 * poi)
+    )  # Convertion formula from shear modulus and poission to lame lambda parameter
+    
+    solid = pp.SolidConstants(shear_modulus=G, lame_lambda=lam)
+    params = {
+        #"meshing_arguments": {"cell_size": h},
+        "prepare_simulation": True,
+        "material_constants": {"solid": solid},
+        #"theta": theta_rad,
+        "a" : 1.5,
+        "height": 1.0,
+        "length": 1.0,
+        "p0": 1e-4,
+        "G": G,
+        "poi": poi
+    }
+    
+    for k in range(0, len(theta_list)):
+        params["theta"] = math.radians(90 - theta_list[k])
+        params["frac_pts"]  = compute_frac_pts(params["theta"], params["a"], height=params["height"], length=params["length"])
+        model =  manu_sneddon_2d.MomentumBalanceGeometryBC
+   
+        conv_analysis = ConvergenceAnalysis(
+            model_class=model,
+            model_params= copy.deepcopy(params),
+            levels=4,
+            spatial_refinement_rate=2,
+            temporal_refinement_rate=4
+        )
+    
+    order = conv_analysis.order_of_convergence(conv_analysis.run_analysis())
     return order 
 
 
