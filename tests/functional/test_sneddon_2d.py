@@ -3,6 +3,57 @@ import porepy as pp
 import numpy as np
 import pytest
 
+import test_sneddon_2d
+
+
+
+
+# ----> Retrieve actual L2-errors
+@pytest.fixture(scope="module")
+def actual_l2_errors(material_constants: dict) -> :
+    """Run verification setups and retrieve results for the scheduled times.
+
+    Parameters:
+        material_constants: Dictionary containing the material constant classes.
+
+    Returns:
+        List of lists of dictionaries of actual relative errors. The outer list contains
+        two items, the first contains the results for 2d and the second contains the
+        results for 3d. Both inner lists contain three items each, each of which is a
+        dictionary of results for the scheduled times, i.e., 0.5 [s] and 1.0 [s].
+
+    """
+
+    # Define model parameters
+    model_params = {
+        "grid_type": "cartesian",
+        "material_constants": material_constants,
+        "meshing_arguments": {"cell_size": 0.25},
+        "manufactured_solution": "nordbotten_2016",
+        "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
+    }
+
+    # Retrieve actual L2-relative errors.
+    errors = []
+    # Loop through models, i.e., 2d and 3d.
+    model  = SneddonSetup2d()
+    
+    # Make deep copy of params to avoid nasty bugs.
+    setup = model(deepcopy(model_params))
+    pp.run_time_dependent_model(setup)
+    
+    errors_setup: list[dict[str, float]] = []
+    # Loop through results, i.e., results for each scheduled time.
+    for result in setup.results:
+        errors_setup.append(
+            {
+                "error_pressure": getattr(result, "error_pressure"),
+            }
+        )
+    errors.append(errors_setup)
+    return errors
+
+
 # ----> Retrieve actual order of convergence
 @pytest.fixture(scope="module")
 def actual_ooc(
@@ -10,6 +61,9 @@ def actual_ooc(
     """Retrieve actual order of convergence.
 
     """
+    
+    
+       
     
     ooc = []
     # Loop through the models
