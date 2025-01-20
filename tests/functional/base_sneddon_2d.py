@@ -190,8 +190,7 @@ def simulation(
     
     exact_setup = manu_sneddon_2d.ManuExactSneddon2dSetup(params)
     # Checking convergence specifically on the fracture
-    #u_a = manu_sneddon_2d.run_analytical_displacements(model.mdg, a, p0, G, poi, height, length)[1]
-    u_a = exact_setup.run_analytical_displacements(model.mdg)[1]
+    u_a = exact_setup.exact_sol_fracture(model.mdg)[1]
   
     e = ConvergenceAnalysis.l2_error(
         frac_sd[0], u_a, u_n, is_scalar=False, is_cc=True, relative=True
