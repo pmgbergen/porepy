@@ -239,3 +239,52 @@ def run_analytical_displacements(
     apertures = analytical_displacements(a, eta, p0, G, poi)
 
     return eta, apertures
+
+
+
+
+class ManuExactSneddon2dSetup:
+  
+    def __init__(self, setup):
+        # Initialize private variables from the setup dictionary
+        self.p0 = setup.get("p0")
+        self.a = setup.get("a")
+        self.G  = setup.get("G")
+        self.poi = setup.get("poi")
+        self.length = setup.get("length")
+        self.height = setup.get("height")
+         
+  
+
+
+    def run_analytical_displacements( self,
+    gb: pp.GridLike ) -> tuple:
+        """
+        Compute Sneddon's analytical solution for the pressurized crack
+        problem in question.
+
+        Source: Sneddon Fourier transforms 1951 page 425 eq 92
+
+        Parameter
+            gb: Grid object
+            a: Half fracture length of fracture
+            eta: Distance from fracture centre
+            p0: Internal constant pressure inside the fracture
+            G: Shear modulus
+            poi: Poisson ratio
+            height,length: Height and length of domain
+
+        Return:
+            A tuple containing two vectors: a list of distances from the fracture center to each fracture coordinate, and the corresponding analytical apertures.
+        """
+        ambient_dim = gb.dim_max()
+        g_1 = gb.subdomains(dim=ambient_dim - 1)[0]
+        fracture_center = np.array([self.length / 2, self.height / 2, 0])
+
+        fracture_faces = g_1.cell_centers
+
+        # compute distances from fracture centre with its corresponding apertures
+        eta = compute_eta(fracture_faces, fracture_center)
+        apertures = analytical_displacements(self.a, eta, self.p0, self.G, self.poi)
+
+        return eta, apertures
