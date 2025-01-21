@@ -506,7 +506,7 @@ class ConstantFluidThermalConductivity(pp.PorePyModel):
 
     def normal_thermal_conductivity(
         self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.Scalar:
+    ) -> pp.ad.Operator:
         """Constant normal thermal conductivity of the fluid given by the fluid
         constants stored in the fluid's reference component.
 
