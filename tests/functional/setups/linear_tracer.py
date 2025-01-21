@@ -74,6 +74,8 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Callable, Literal, Sequence, cast
 
+from scipy.special import erf
+
 import numpy as np
 
 import porepy as pp
@@ -96,10 +98,18 @@ class LinearTracerSaveData:
     exact_p: np.ndarray
     """Exact solution for pressure in space at time ``t``."""
 
+    diffused_z_tracer: np.ndarray
+    """Exact solution for tracer overall fraction in space at time ``t``. This 'exact'
+    solution accounts for diffusion due to upwinding."""
+
     error_z_tracer: pp.number
     """L2-error of approximate solution for tracer overall fraction."""
     error_p: pp.number
     """L2-error of approximate solution for pressure."""
+
+    error_diffused_z_tracer: pp.number
+    """L2-error of approximated solution compared with the analytical solution
+    accounting for diffusion due to upwinding."""
 
     t: pp.number
     """The time ``t`` at which this snapshot is taken."""
@@ -152,6 +162,7 @@ class LinearTracerExactSolution1D:
         self._rho = tracer_model.fluid.reference_component.density
         self._perm = tracer_model.solid.permeability
         self._L = tracer_model.units.convert_units(tracer_model.pipe_length, "m")
+        self._dx = tracer_model._dx
 
     def pressure(self, sd: pp.Grid) -> np.ndarray:
         """Linear pressure profile depending on inlet and outlet pressure, and the
@@ -173,11 +184,30 @@ class LinearTracerExactSolution1D:
 
         return z_0 + z_inflow
 
-    def diffused_tracer_fraction(self, sd: pp.Grid, t: float) -> np.ndarray:
+    def diffused_tracer_fraction(self, sd: pp.Grid, t: float, dt: float) -> np.ndarray:
         """Returns a tracer fraction assuming the numerical scheme is diffusive due
         to Upwinding and backward Euler.
 
         """
+        front_x = self.front_position(sd, t)
+        x = sd.cell_centers[0]
+        dx = self._dx
+
+        c = self.flow_velocity(sd)
+        gamma = self.cfl(sd, dt)
+
+        # Numerical diffusion coefficient due to Upwinding
+        # See lecture notes
+        # Aavatsmark - Bevarelsesmetoder for hyperbolske differensialligninger
+        D = np.abs(c) * dx / 2 * (1 + gamma)  # Engquist-Osher
+        # coefficient for scaling error function
+        eta = 2 * np.sqrt(D * t)
+        a = - (self.z_tracer_inlet - self.z_tracer_initial) / 2
+        # Using error function to construct diffused solution superposed
+        # with homogenous solution solution.
+        z_diffused = a * (1 + erf((x - front_x) / eta)) + self.z_tracer_inlet
+
+        return z_diffused
 
     def darcy_flux(self, sd: pp.Grid) -> np.ndarray:
         """Returns the Darcy flux on all faces, including inlet and outlet."""
@@ -185,7 +215,7 @@ class LinearTracerExactSolution1D:
         dp = np.diff(np.flip(p))
 
         # assuming cartesian grid with square cells.
-        dx = np.ones(p.shape) * np.diff(sd.cell_centers[0])[0]
+        dx = np.ones(p.shape) * self._dx
 
         T = self._perm / dx  # transmissibility
 
@@ -213,12 +243,12 @@ class LinearTracerExactSolution1D:
     def cfl(self, sd: pp.Grid, dt: float) -> float:
         """Returns the CFL number ``v * dt / dx`` assuming a uniform dx"""
         # assumes uniform cartesian grid
-        return self.flow_velocity(sd) * dt / np.diff(sd.cell_centers[0])[0]
+        return self.flow_velocity(sd) * dt / self._dx
 
     def dt_from_cfl(self, sd: pp.Grid, eps: float = 1e-8) -> float:
         """Returns the maximal time step size which does not violate the CFL condition
         ``v * dt / dx <=1``, minus a threshhold ``eps`` to avoid numerical issues."""
-        return np.diff(sd.cell_centers[0])[0] / self.flow_velocity(sd) - eps
+        return self._dx / self.flow_velocity(sd) - eps
 
 
 class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
@@ -240,12 +270,14 @@ class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
         exact_p = self.exact_sol.pressure(sds[0])
         approx_z_tracer = tracer.fraction(sds).value(self.equation_system)
         exact_z_tracer = self.exact_sol.tracer_fraction(sds[0], t)
+        diffused_z_tracer = self.exact_sol.diffused_tracer_fraction(sds[0], t, dt)
 
         return LinearTracerSaveData(
             approx_z_tracer=approx_z_tracer,
             approx_p=approx_p,
             exact_z_tracer=exact_z_tracer,
             exact_p=exact_p,
+            diffused_z_tracer=diffused_z_tracer,
             error_z_tracer=ConvergenceAnalysis.l2_error(
                 sds[0], exact_z_tracer, approx_z_tracer, is_scalar=True, is_cc=True
             ),
@@ -255,6 +287,9 @@ class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
                 approx_p,
                 is_scalar=True,
                 is_cc=True,
+            ),
+            error_diffused_z_tracer=ConvergenceAnalysis.l2_error(
+                sds[0], diffused_z_tracer, approx_z_tracer, is_scalar=True, is_cc=True,
             ),
             t=t,
             dt=dt,
@@ -288,7 +323,7 @@ class SimplePipe2D(pp.PorePyModel):
     def _dx(self) -> float:
         """Returns the cell size of the unit square cells using target length of 10 m
         and given number of cells (converted to simulation units)."""
-        return self.units.convert_units(10 / self._nx, "m")
+        return self.units.convert_units(self.pipe_length / self._nx, "m")
 
     def grid_type(self) -> Literal["cartesian"]:
         return "cartesian"
