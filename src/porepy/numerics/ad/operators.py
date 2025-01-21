@@ -94,7 +94,7 @@ def _get_previous_time_or_iterate(
             _get_previous_time_or_iterate(child, prev_time=prev_time, steps=steps)
             for child in op.children
         ]
-
+        new_op._set_nx_graph(children=new_op.children)
         return new_op
 
 
@@ -254,7 +254,9 @@ class Operator:
         """
         self.children = [] if children is None else children
         self.operation = Operator.Operations.void if operation is None else operation
+        self._set_nx_graph(children=children)
 
+    def _set_nx_graph(self, children: Optional[Sequence[Operator]] = None):
         if children is None:
             self.nx_graph = nx.DiGraph()
             self.nx_graph.add_node(next(Operator._nx_node_counter), obj=self, root=True)
@@ -1314,6 +1316,7 @@ class TimeDependentOperator(Operator):
         else:
             op.original_operator = self.original_operator
 
+        op._set_nx_graph()
         return op
 
 
@@ -1429,6 +1432,7 @@ class IterativeOperator(Operator):
         else:
             op.original_operator = self.original_operator
 
+        op._set_nx_graph()
         return op
 
 
