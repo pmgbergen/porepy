@@ -34,8 +34,8 @@ class AdParser:
 
         """
 
-        if state is None and derivative:
-            raise ValueError("State must be provided when computing the derivative")
+        if state is None:
+            state = eq_sys.get_variable_values(iterate_index=0)
         
         # What will happen here if state is None? On the other hand, it should be
         # possible to evaluate the operator without a state, if the operator does not
