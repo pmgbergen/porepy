@@ -798,14 +798,14 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
             self.mdg, well_subdomains, well_interfaces
         )
         subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
-        source = projection.mortar_to_secondary_int @ self.interface_component_flux(
+        source = projection.mortar_to_secondary_int() @ self.interface_component_flux(
             component, interfaces
         )
         source.set_name(f"interface_component_flux_source_{component.name}")
         well_fluxes = (
-            well_projection.mortar_to_secondary_int
+            well_projection.mortar_to_secondary_int()
             @ self.well_component_flux(component, well_interfaces)
-            - well_projection.mortar_to_primary_int
+            - well_projection.mortar_to_primary_int()
             @ self.well_component_flux(component, well_interfaces)
         )
         well_fluxes.set_name(f"well_component_flux_source_{component.name}")
@@ -955,7 +955,8 @@ class ConstitutiveLawsSolidSkeletonCF(
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
         normal_permeability = (
-            projection.secondary_to_mortar_avg @ self.diffusive_permeability(subdomains)
+            projection.secondary_to_mortar_avg()
+            @ self.diffusive_permeability(subdomains)
         )
         normal_permeability.set_name("normal_permeability")
         return normal_permeability

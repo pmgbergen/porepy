@@ -2027,7 +2027,7 @@ class ThermalConductivityCF(ThermalConductivityLTE):
 
     def normal_thermal_conductivity(
         self, interfaces: list[pp.MortarGrid]
-    ) -> pp.ad.Scalar:
+    ) -> pp.ad.Operator:
         """Normal thermal conductivity of the fluid.
 
         This is a constitutive law choosing the thermal conductivity of the fluid in the
@@ -2045,7 +2045,7 @@ class ThermalConductivityCF(ThermalConductivityLTE):
         projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
 
         # This is a constitutive law based on Banshoya 2023.
-        normal_conductivity = projection.secondary_to_mortar_avg @ (
+        normal_conductivity = projection.secondary_to_mortar_avg() @ (
             self.fluid.thermal_conductivity(subdomains)
         )
         normal_conductivity.set_name("norma_thermal_conductivity")
@@ -2070,7 +2070,7 @@ class FouriersLaw(pp.PorePyModel):
    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Scalar]
+    normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """Conductivity on a mortar grid. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.
 
