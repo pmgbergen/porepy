@@ -557,9 +557,8 @@ def remove_nonlocal_contribution(
         pp.matrix_operations.zero_rows(mat, eliminate_ind)
 
 
-def expand_indices_nd(ind: np.ndarray, nd: int, direction="F") -> np.ndarray:
-    """
-    Expand indices from scalar to vector form.
+def expand_indices_nd(ind: np.ndarray, nd: int, order="F") -> np.ndarray:
+    """Expand indices from scalar to vector form.
 
     Examples:
     >>> i = np.array([0, 1, 3])
@@ -569,18 +568,21 @@ def expand_indices_nd(ind: np.ndarray, nd: int, direction="F") -> np.ndarray:
     >>> expand_indices_nd(i, 3, "C")
     (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
 
-    Args:
-        ind
-        nd
-        direction
+    Parameters:
+        ind: Indices to be expanded.
+        nd: Dimension of the vector.
+        order: Order of the expansion. "F" for Fortran, "C" for C. Default is "F".
 
-    Returns
+    Returns:
+        np.ndarray: Expanded indices.
 
     """
+    if nd == 1:
+        return ind
     dim_inds = np.arange(nd)
     dim_inds = dim_inds[:, np.newaxis]  # Prepare for broadcasting
     new_ind = nd * ind + dim_inds
-    new_ind = new_ind.ravel(direction)
+    new_ind = new_ind.ravel(order)
     return new_ind
 
 
@@ -724,50 +726,6 @@ def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
         sc2c = sps.vstack([sc2c, this_dim])
 
     return sc2c
-
-
-def scalar_divergence(sd: pp.Grid) -> sps.csr_matrix:
-    """
-    Get divergence operator for a grid.
-
-    The operator is easily accessible from the grid itself, so we keep it
-    here for completeness.
-
-    See also vector_divergence(g)
-
-    Args:
-        sd (pp.Grid): grid
-
-    Returns
-        divergence operator
-    """
-    return sd.cell_faces.T.tocsr()
-
-
-def vector_divergence(sd: pp.Grid) -> sps.csr_matrix:
-    """
-    Get vector divergence operator for a grid g
-
-    It is assumed that the first column corresponds to the x-equation of face
-    0, second column is y-equation etc. (and so on in nd>2). The next column is
-    then the x-equation for face 1. Correspondingly, the first row
-    represents x-component in first cell etc.
-
-    Args:
-        sd (pp.Grid): grid
-
-    Returns
-        vector_div (sparse csr matrix), dimensions: nd * (num_cells, num_faces)
-    """
-    # Scalar divergence
-    scalar_div = sd.cell_faces
-
-    # Vector extension, convert to coo-format to avoid odd errors when one
-    # grid dimension is 1 (this may return a bsr matrix)
-    # The order of arguments to sps.kron is important.
-    block_div = sps.kron(scalar_div, sps.eye(sd.dim)).tocsc()
-
-    return block_div.transpose().tocsr()
 
 
 def scalar_tensor_vector_prod(

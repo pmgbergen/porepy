@@ -1,6 +1,6 @@
 future
 gmsh
-matplotlib < 3.10
+matplotlib < 3.11
 meshio >= 5.0
 networkx
 numba >= 0.57

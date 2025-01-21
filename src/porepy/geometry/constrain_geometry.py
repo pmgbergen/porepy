@@ -48,12 +48,7 @@ def lines_by_polygon(
 
     """
     import shapely.geometry as shapely_geometry
-    import shapely.speedups as shapely_speedups
 
-    try:
-        shapely_speedups.enable()
-    except AttributeError:
-        pass
     # it stores the points after the intersection
     int_pts = np.empty((2, 0))
     # define the polygon

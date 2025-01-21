@@ -1460,8 +1460,8 @@ class FractureNetwork3d(object):
         # local numbering of points
         edges_2d = np.empty_like(edges_loc)
         for ei in range(edges_loc.shape[1]):
-            edges_2d[0, ei] = np.argwhere(p_ind_loc == edges_loc[0, ei])
-            edges_2d[1, ei] = np.argwhere(p_ind_loc == edges_loc[1, ei])
+            edges_2d[0, ei] = np.argmax(p_ind_loc == edges_loc[0, ei])
+            edges_2d[1, ei] = np.argmax(p_ind_loc == edges_loc[1, ei])
 
         assert edges_2d[:2].max() < p_loc.shape[1]
 
@@ -1662,7 +1662,8 @@ class FractureNetwork3d(object):
                 # points should not be sorted. Splitting of non-convex fractures into
                 # convex subparts is handled below.
                 new_frac = pp.PlaneFracture(constrained_polys[sub_i], sort_points=False)
-                self.add(new_frac)
+                new_frac.index = len(self.fractures)
+                self.fractures.append(new_frac)
                 ind_map = np.hstack((ind_map, fi))
 
         # Now, we may modify the fractures for two reasons:
@@ -1989,7 +1990,9 @@ class FractureNetwork3d(object):
                 # thus a linear ordering should be fine also for a subpolygon.
                 verts = np.unique(triangles[tris])
                 # To be sure, check the convexity of the polygon.
-                self.add(pp.PlaneFracture(f.pts[:, verts], check_convexity=False))
+                new_frac = pp.PlaneFracture(f.pts[:, verts], check_convexity=False)
+                new_frac.index = len(self.fractures)
+                self.fractures.append(new_frac)
                 ind_map = np.hstack((ind_map, fi))
 
             # Finally, increase pointer to ind_map array
@@ -2011,7 +2014,9 @@ class FractureNetwork3d(object):
         boundary_tags = self.tags.get("boundary", [False] * len(self.fractures))
         if keep_box:
             for pnt in self.domain.polytope:
-                self.add(pp.PlaneFracture(pnt))
+                new_frac = pp.PlaneFracture(pnt)
+                new_frac.index = len(self.fractures)
+                self.fractures.append(new_frac)
                 boundary_tags.append(True)
         self.tags["boundary"] = boundary_tags
 
