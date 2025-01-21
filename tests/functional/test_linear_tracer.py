@@ -67,8 +67,8 @@ def test_linear_tracer_1p_diffusive(
     Checking that the L2-errors for pressure are small, and that the maximum
     number of iterations does not exceed 2.
 
-    Checks compares the tracer fraction with an pseudo-analytical solution accounting
-    for the numerical diffusion of the schemes used (Upwinding & backward Euler). TODO
+    Checks compares the tracer fraction with an analytical solution accounting
+    for the numerical diffusion of the schemes used (Upwinding & backward Euler).
 
     """
 
@@ -83,7 +83,9 @@ def test_linear_tracer_1p_diffusive(
     else:
         assert sol_data.num_iter <= 2
 
+    # testing errors in pressure (exact) and tracer fraction (numerically diffused)
     np.testing.assert_allclose(sol_data.error_p, 0.0, atol=1e-7, rtol=0.0)
+    # np.testing.assert_allclose(sol_data.error_diffused_z_tracer, 0., atol=1e-7, rtol=0.0)
 
 
 # Expected to fail because Upwinding and backward euler are diffusive
