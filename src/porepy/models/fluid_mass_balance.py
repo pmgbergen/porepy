@@ -370,13 +370,13 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
             self.mdg, well_subdomains, well_interfaces
         )
         subdomain_projection = pp.ad.SubdomainProjections(self.mdg.subdomains())
-        source = projection.mortar_to_secondary_int @ self.interface_fluid_flux(
+        source = projection.mortar_to_secondary_int() @ self.interface_fluid_flux(
             interfaces
         )
         source.set_name("interface_fluid_flux_source")
-        well_fluxes = well_projection.mortar_to_secondary_int @ self.well_fluid_flux(
+        well_fluxes = well_projection.mortar_to_secondary_int() @ self.well_fluid_flux(
             well_interfaces
-        ) - well_projection.mortar_to_primary_int @ self.well_fluid_flux(
+        ) - well_projection.mortar_to_primary_int() @ self.well_fluid_flux(
             well_interfaces
         )
         well_fluxes.set_name("well_fluid_flux_source")

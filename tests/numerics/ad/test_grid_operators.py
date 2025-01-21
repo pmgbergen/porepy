@@ -152,33 +152,33 @@ def test_mortar_projections_empty_list(mdg):
         subdomains=[], interfaces=mdg.interfaces(), mdg=mdg, dim=1
     )
     # From mortar to subdomains.
-    assert proj_no_subdomains.mortar_to_primary_int.shape == (0, n_mortar_cells)
-    assert proj_no_subdomains.mortar_to_secondary_int.shape == (0, n_mortar_cells)
+    assert proj_no_subdomains.mortar_to_primary_int().shape == (0, n_mortar_cells)
+    assert proj_no_subdomains.mortar_to_secondary_int().shape == (0, n_mortar_cells)
     # From subdomains to mortar.
-    assert proj_no_subdomains.primary_to_mortar_int.shape == (n_mortar_cells, 0)
-    assert proj_no_subdomains.secondary_to_mortar_int.shape == (n_mortar_cells, 0)
+    assert proj_no_subdomains.primary_to_mortar_int().shape == (n_mortar_cells, 0)
+    assert proj_no_subdomains.secondary_to_mortar_int().shape == (n_mortar_cells, 0)
 
     # Projection operator with empty list of interfaces.
     proj_no_interfaces = pp.ad.MortarProjections(
         subdomains=mdg.subdomains(), interfaces=[], mdg=mdg, dim=1
     )
     # From mortar to subdomains.
-    assert proj_no_interfaces.mortar_to_primary_int.shape == (n_faces, 0)
-    assert proj_no_interfaces.mortar_to_secondary_int.shape == (n_cells, 0)
+    assert proj_no_interfaces.mortar_to_primary_int().shape == (n_faces, 0)
+    assert proj_no_interfaces.mortar_to_secondary_int().shape == (n_cells, 0)
     # From subdomains to mortar.
-    assert proj_no_interfaces.primary_to_mortar_int.shape == (0, n_faces)
-    assert proj_no_interfaces.secondary_to_mortar_int.shape == (0, n_cells)
+    assert proj_no_interfaces.primary_to_mortar_int().shape == (0, n_faces)
+    assert proj_no_interfaces.secondary_to_mortar_int().shape == (0, n_cells)
 
     # Empty list of subdomains and interfaces.
     proj_no_subdomains_interfaces = pp.ad.MortarProjections(
         subdomains=[], interfaces=[], mdg=mdg, dim=1
     )
     # From mortar to subdomains.
-    assert proj_no_subdomains_interfaces.mortar_to_primary_int.shape == (0, 0)
-    assert proj_no_subdomains_interfaces.mortar_to_secondary_int.shape == (0, 0)
+    assert proj_no_subdomains_interfaces.mortar_to_primary_int().shape == (0, 0)
+    assert proj_no_subdomains_interfaces.mortar_to_secondary_int().shape == (0, 0)
     # From subdomains to mortar.
-    assert proj_no_subdomains_interfaces.primary_to_mortar_int.shape == (0, 0)
-    assert proj_no_subdomains_interfaces.secondary_to_mortar_int.shape == (0, 0)
+    assert proj_no_subdomains_interfaces.primary_to_mortar_int().shape == (0, 0)
+    assert proj_no_subdomains_interfaces.secondary_to_mortar_int().shape == (0, 0)
 
 
 @pytest.mark.parametrize("scalar", [True, False])
@@ -359,23 +359,23 @@ def test_mortar_projections(mdg, scalar, non_matching):
         )
 
         # Compare the known and computed projection matrices.
-        assert _compare_matrices(proj_known_primary_int, proj.mortar_to_primary_int)
-        assert _compare_matrices(proj_known_primary_avg, proj.mortar_to_primary_avg)
+        assert _compare_matrices(proj_known_primary_int, proj.mortar_to_primary_int())
+        assert _compare_matrices(proj_known_primary_avg, proj.mortar_to_primary_avg())
         # The mappings from primary to mortar are found by transposing the mappings from
         # mortar to primary, and then switching averaging and integration (this is just
         # how it is).
-        assert _compare_matrices(proj_known_primary_avg.T, proj.primary_to_mortar_int)
-        assert _compare_matrices(proj_known_primary_int.T, proj.primary_to_mortar_avg)
+        assert _compare_matrices(proj_known_primary_avg.T, proj.primary_to_mortar_int())
+        assert _compare_matrices(proj_known_primary_int.T, proj.primary_to_mortar_avg())
 
         # Same for the mapping to the secondary subdomains.
-        assert _compare_matrices(proj_known_secondary_int, proj.mortar_to_secondary_int)
-        assert _compare_matrices(proj_known_secondary_avg, proj.mortar_to_secondary_avg)
+        assert _compare_matrices(proj_known_secondary_int, proj.mortar_to_secondary_int())
+        assert _compare_matrices(proj_known_secondary_avg, proj.mortar_to_secondary_avg())
         # See the mapping from primary to mortar above for comments.
         assert _compare_matrices(
-            proj_known_secondary_avg.T, proj.secondary_to_mortar_int
+            proj_known_secondary_avg.T, proj.secondary_to_mortar_int()
         )
         assert _compare_matrices(
-            proj_known_secondary_int.T, proj.secondary_to_mortar_avg
+            proj_known_secondary_int.T, proj.secondary_to_mortar_avg()
         )
 
 
@@ -460,29 +460,25 @@ def test_trace(mdg: pp.MixedDimensionalGrid):
 
     This test is not ideal. It follows the implementation of Trace relatively closely,
     but nevertheless provides some coverage, especially if Trace is carelessly changed.
-    The test constructs the expected md trace and inv_trace matrices and compares them
-    to the ones of Trace. Also checks that an error is raised if a non-scalar trace is
+    The test constructs the expected mixed-dimensional trace matrix and compares it to
+    the ones of Trace. Also checks that an error is raised if a non-scalar trace is
     constructed (not implemented).
     """
     # The operator should work on any subset of mdg.subdomains.
     subdomains = mdg.subdomains(dim=1)
 
     # Construct expected matrices.
-    traces, inv_traces = list(), list()
+    traces = []
 
     # Contruct projections to the subdomains for cell and face quantities.
-    cell_projections, face_projections = pp.ad.grid_operators._subgrid_projections(
-        subdomains, dim=1
-    )
+    cell_projections = pp.ad.grid_operators._cell_projections(subdomains, dim=1)
     for sd in subdomains:
         local_block = np.abs(sd.cell_faces.tocsr())
         traces.append(local_block * cell_projections[sd].T)
-        inv_traces.append(local_block.T * face_projections[sd].T)
 
     # Compare to operator class.
     op = pp.ad.Trace(subdomains)
     _compare_matrices(op.trace, sps.bmat([[m] for m in traces]))
-    _compare_matrices(op.inv_trace, sps.bmat([[m] for m in inv_traces]))
 
     # As of the writing of this test, Trace is not implemented for vector values. If it
     # is ever extended, the test should be extended accordingly (e.g. parametrized with

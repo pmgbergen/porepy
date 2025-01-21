@@ -62,9 +62,7 @@ jobs:
     - name: Install external libraries
       run: |
         # Various packages that must be installed 
-        # Install libffi v7. This was (seemed to be) necessary in Nov 2022. The reason could be that
-        # ubuntu-latest was updated, libffi was removed, and scipy complained.
-        sudo apt-get install libglu1-mesa libgeos-dev libffi7
+        sudo apt-get install libglu1-mesa libgeos-dev libffi-dev
         export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
 
     - name: Install requirements
