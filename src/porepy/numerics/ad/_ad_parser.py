@@ -70,6 +70,10 @@ class AdParser:
                 # Who knows what this is?
                 raise ValueError(f"Unknown item {item}")
             
+        # Temporary construct: Clear cache to avoid storing values that are not valid
+        # for the next evaluation. This should be replaced by a more refined clearing
+        # strategy.
+        self.clear_cache()
         # We are done. Return.
         return current_val
 
