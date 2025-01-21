@@ -869,6 +869,18 @@ class Operator:
         # necessary recursion for complex operators.
         eq = self._parse_operator(self, system_manager, ad_base)
 
+
+            
+        if isinstance(eq, AdArray):
+            eq2 = system_manager.operator_value_and_jacobian(self, state)     
+            # If the result is an AdArray, we are done.
+            assert np.all(eq.val == eq2.val)
+            assert np.all(eq.jac.toarray() == eq2.jac.toarray())
+        else:
+            eq2 = system_manager.operator_value(self, state)
+            assert np.all(eq == eq2)
+
+
         return eq
 
     def find_variables_in_tree(self) -> Sequence[Variable | MixedDimensionalVariable]:
