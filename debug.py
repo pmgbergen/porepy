@@ -2,7 +2,7 @@ import porepy as pp
 import numpy as np
 import scipy.sparse as sps
 
-variable_val = np.ones(3)
+variable_val = 1 + np.arange(3)
 # This is the Jacobian matrix of the returned expression.
 jac = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
 
@@ -28,5 +28,9 @@ mat = pp.ad.SparseArray(jac)
 v1 = mat @ var
 v2 = v1 + v1
 v3 = v2 + v1
+v4 = v3.previous_timestep()
 
-eq_system.operator_value(v3)
+val = eq_system.operator_value_and_jacobian(v4)
+
+
+debug = []
