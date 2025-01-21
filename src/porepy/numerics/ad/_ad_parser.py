@@ -54,7 +54,6 @@ class AdParser:
             next_item = heapq.heappop(queue)
             item = x.nx_graph.nodes[next_item[-1]]['obj']
             
-            
             if item in self._cache:
                 # The value of this item has already been computed
                 current_val = self._cache[item]
@@ -109,17 +108,32 @@ class AdParser:
         
     def _parse_operation(self, op: pp.ad.Operator, eq_sys: pp.ad.EquationSystem) -> np.ndarray | pp.ad.AdArray:
 
+        def _op_to_node(x: pp.ad.Operator) -> int:
+            for node in x.nx_graph.nodes:
+                if x.nx_graph.nodes[node]['obj'] == x:
+                    return node
+            raise ValueError(f"Operator {x} not found in graph")
+
+        def _node_to_op(x: int) -> pp.ad.Operator:
+            return op.nx_graph.nodes[x]['obj']
+
+        op_as_node = None
+        for node in op.nx_graph.nodes:
+            if op.nx_graph.nodes[node]['obj'] == op:
+                op_as_node = node
+                break
+
         # Get the children of the operator.
-        children = [child for child in op.nx_graph.successors(op)]
+        children = [child for child in op.nx_graph.successors(op_as_node)]
         # Not sure if this assertion holds for larger trees of operators.
-        assert all([isinstance(child, pp.ad.Operator) for child in children])
+        #assert all([isinstance(_op_to_node(child), pp.ad.Operator) for child in children])
 
         # Get the operand_id for each child and sort children based on this id
-        sorted_children = sorted(children, key=lambda child: op.nx_graph.get_edge_data(op, child)['operand_id'])
+        sorted_children = sorted(children, key=lambda child: op.nx_graph.get_edge_data(_op_to_node(op), child)['operand_id'])
         
         # Get evaluation of the sorted children. If we get a key error here, something
         # is wrong with the order of evaluation.
-        child_values = [self._cache[child] for child in sorted_children]
+        child_values = [self._cache[_node_to_op(child)] for child in sorted_children]
 
         # Get the operation represented by op.
         operation = op.operation
