@@ -1882,7 +1882,7 @@ class EquationSystem:
 
     ### Evaluate Ad operators ----------------------------------------------------------
 
-    def operator_value(self, operator: pp.ad.Operator) -> np.ndarray:
+    def operator_value(self, operator: pp.ad.Operator, state=None) -> np.ndarray:
         """Evaluate an operator on the current state.
 
         Parameters:
@@ -1892,10 +1892,9 @@ class EquationSystem:
             The operator evaluated on the current state.
 
         """
-        state = self.get_variable_values(iterate_index=0)
         return self._ad_parser.value(operator, self, state)
     
-    def operator_value_and_jacobian(self, operator: pp.ad.Operator) -> pp.ad.AdArray:
+    def operator_value_and_jacobian(self, operator: pp.ad.Operator, state=None) -> pp.ad.AdArray:
         """Evaluate an operator and its Jacobian on the current state.
 
         Parameters:
@@ -1905,7 +1904,6 @@ class EquationSystem:
             Tuple containing the operator evaluated on the current state and its Jacobian.
 
         """
-        state = self.get_variable_values(iterate_index=0)
         return self._ad_parser.value_and_jacobian(operator, self, state)
 
     ### Special methods ----------------------------------------------------------------
