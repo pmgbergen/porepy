@@ -880,7 +880,10 @@ class Operator:
             assert np.all(eq.jac.toarray() == eq2.jac.toarray())
         else:
             eq2 = system_manager.operator_value(self, state)
-            assert np.all(eq == eq2)
+            if isinstance(eq, sps.spmatrix):
+                assert np.all(eq.toarray() == eq2.toarray())
+            else:
+                assert np.all(eq == eq2)
 
 
         return eq
