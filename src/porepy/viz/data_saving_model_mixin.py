@@ -242,7 +242,7 @@ class DataSavingMixin(pp.PorePyModel):
 class VerificationDataSaving(DataSavingMixin):
     """Class to store relevant data for a generic verification setup."""
 
-    results: list
+    results: list = []
     """List of objects containing the results of the verification."""
 
     def save_data_time_step(self) -> None:
