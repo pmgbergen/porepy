@@ -207,6 +207,7 @@ from porepy.models import (
     energy_balance,
     mass_and_energy_balance,
     thermoporomechanics,
+    fracture_damage,
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.models.momentum_balance import MomentumBalance
