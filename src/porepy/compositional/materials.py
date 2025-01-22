@@ -424,6 +424,25 @@ class SolidConstants(Constants):
 
 
 @dataclass(kw_only=True, eq=False)
+class FractureDamageSolidConstants(SolidConstants):
+    """Solid parameters for fracture damage models."""
+
+    SI_units: ClassVar[dict[str, str]] = SolidConstants.SI_units
+    SI_units.update(
+        {
+            "initial_dilation_damage": "-",
+            "initial_friction_damage": "-",
+            "dilation_damage_decay": "-",
+            "friction_damage_decay": "-",
+        }
+    )
+    initial_friction_damage: float = 1.0
+    friction_damage_decay: float = 0.0
+    initial_dilation_damage: float = 1.0
+    dilation_damage_decay: float = 0.0
+
+
+@dataclass(kw_only=True, eq=False)
 class NumericalConstants(Constants):
     """Data class containing numerical method parameters,
     including characteristic sizes.
