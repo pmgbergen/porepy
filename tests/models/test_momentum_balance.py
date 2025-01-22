@@ -165,9 +165,7 @@ def test_unit_conversion(units: dict, uy_north: float):
     )
 
 
-class LithostaticModel(
-    pp.constitutive_laws.GravityForce, pp.MomentumBalance
-):
+class LithostaticModel(pp.constitutive_laws.GravityForce, pp.MomentumBalance):
     """Model class to test the computation of lithostatic stress.
 
     The model sets up a column where the lateral sides (x-direction for 2d, x and y for
