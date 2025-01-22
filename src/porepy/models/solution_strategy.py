@@ -442,15 +442,18 @@ class SolutionStrategy(abc.ABC, pp.PorePyModel):
             self.time_manager.compute_time_step(
                 iterations=self.nonlinear_solver_statistics.num_iteration
             )
+        self.update_solution(solution)
 
+        self.convergence_status = True
+        self.save_data_time_step()
+
+    def update_solution(self, solution: np.ndarray) -> None:
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
         )
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
-        self.convergence_status = True
-        self.save_data_time_step()
 
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
