@@ -223,6 +223,7 @@ class SurrogateOperator(
 
         op = super().previous_timestep(steps=steps)
         op.children = [child.previous_timestep(steps=steps) for child in self.children]
+        op._set_nx_graph(op.children)
         return op
 
     def previous_iteration(self, steps: int = 1) -> SurrogateOperator:
@@ -230,6 +231,7 @@ class SurrogateOperator(
         obtained at the previous iteration."""
         op = super().previous_iteration(steps=steps)
         op.children = [child.previous_iteration(steps=steps) for child in self.children]
+        op._set_nx_graph(op.children)
         return op
 
     def func(self, *args: FloatType) -> float | np.ndarray | AdArray:
