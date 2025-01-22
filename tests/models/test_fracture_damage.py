@@ -106,6 +106,8 @@ class AnisotropicDamage3D(
 def test_anisotropic_damage_values():
     params_local = copy.deepcopy(damage.model_params)
     solid_params_local = {**damage.solid_params, **additional_solid_params["both"]}
+    # Set higher friction coefficient to improve convergence.
+    solid_params_local["friction_coefficient"] = 0.5
     params_local["material_constants"] = {
         "solid": FractureDamageSolidConstants(**solid_params_local)
     }
