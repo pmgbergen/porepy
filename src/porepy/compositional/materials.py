@@ -427,7 +427,8 @@ class SolidConstants(Constants):
 class FractureDamageSolidConstants(SolidConstants):
     """Solid parameters for fracture damage models."""
 
-    SI_units: ClassVar[dict[str, str]] = SolidConstants.SI_units
+    # NOTE this makes a deep copy of the solid constants dict.
+    SI_units: ClassVar[dict[str, str]] = dict(**SolidConstants.SI_units)
     SI_units.update(
         {
             "initial_dilation_damage": "-",
