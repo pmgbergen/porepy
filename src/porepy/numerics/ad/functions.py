@@ -36,6 +36,7 @@ __all__ = [
     "log",
     "abs",
     "l2_norm",
+    "safe_power",
     "sin",
     "cos",
     "tan",
@@ -139,6 +140,35 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     )
     jac = norm_jac * var.jac
     return pp.ad.AdArray(vals, jac)
+
+
+def safe_power(power: float, zero_val: float, var: AdArray) -> AdArray:
+    """Safe (negative) power of an AdArray.
+
+    The power is performed only for nonzeros in the variable, whereas zeros
+    are left as zeros. This is useful for avoiding division by zero in the
+    Jacobian.
+
+    Parameters:
+        numerator: AdArray representing the numerator.
+        denominator: AdArray representing the denominator.
+
+    Returns:
+        AdArray representing the safe division.
+
+    """
+    if isinstance(var, np.ndarray):
+        _val = var
+    else:
+        _val = var.val
+
+    nonzero_inds = np.abs(_val) > 1e-15
+    vals = np.ones_like(_val) * zero_val
+    vals[nonzero_inds] = _val[nonzero_inds] ** power
+    if isinstance(var, np.ndarray):
+        return vals
+    new_jac = var._diagvec_mul_jac(power * vals ** (power - 1.0))
+    return AdArray(vals, new_jac)
 
 
 # Trigonometric functions
