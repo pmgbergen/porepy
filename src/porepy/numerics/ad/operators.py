@@ -208,6 +208,7 @@ class Operator:
         self._name = name if name is not None else ""
 
         self._initialize_children(operation=operation, children=children)
+        self._cached_key: Optional[str] = None
 
 
     @property
@@ -1194,10 +1195,12 @@ class Operator:
             ValueError: If this method is called from the leave AD object.
 
         """
-        if self.operation == Operator.Operations.void or len(self.children) == 0:
-            raise ValueError("Base class operator must represent an operation.")
-        tmp = [self.operation.value] + [child._key() for child in self.children]
-        return " ".join(tmp)
+        if self._cached_key is None:
+            if self.operation == Operator.Operations.void or len(self.children) == 0:
+                raise ValueError("Base class operator must represent an operation.")
+            tmp = [self.operation.value] + [child._key() for child in self.children]
+            self._cached_key = " ".join(tmp)
+        return self._cached_key
 
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
@@ -1471,7 +1474,9 @@ class SparseArray(Operator):
         super().__init__(name=name)
 
     def _key(self) -> str:
-        return f"(sparse_array, hash={self._hash_value})"
+        if self._cached_key is None:
+            self._cached_key = f"(sparse_array, hash={self._hash_value})"
+        return self._cached_key
 
     def __repr__(self) -> str:
         return f"Matrix with shape {self._mat.shape} and {self._mat.data.size} elements"
@@ -1595,7 +1600,9 @@ class DenseArray(Operator):
         super().__init__(name=name)
 
     def _key(self) -> str:
-        return f"(dense_array, hash={self._hash_value})"
+        if self._cached_key is None:
+            self._cached_key = f"(dense_array, hash={self._hash_value})"
+        return self._cached_key
 
     def __repr__(self) -> str:
         return f"Wrapped numpy array of size {self._values.size}."
@@ -1674,8 +1681,10 @@ class TimeDependentDenseArray(TimeDependentOperator):
         super().__init__(name=name, domains=domains)
 
     def _key(self) -> str:
-        domain_ids = [domain.id for domain in self.domains]
-        return f"(time_dependent_dense_array, name={self.name}, domains={domain_ids})"
+        if self._cached_key is None:
+            domain_ids = [domain.id for domain in self.domains]
+            self._cached_key = f"(time_dependent_dense_array, name={self.name}, domains={domain_ids})"
+        return self._cached_key
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
         """Convert this array into numerical values.
@@ -1754,7 +1763,9 @@ class Scalar(Operator):
         super().__init__(name=name)
 
     def _key(self) -> str:
-        return f"(scalar, {self._value})"
+        if self._cached_key is None:
+            self._cached_key = f"(scalar, {self._value})"
+        return self._cached_key
 
     def __repr__(self) -> str:
         # Normally, we will return a string with the value. However, for debugging of
@@ -1881,8 +1892,9 @@ class Variable(TimeDependentOperator, IterativeOperator):
         self._tags: dict[str, Any] = tags if tags is not None else {}
 
     def _key(self):
-        # The names are unique for variables.
-        return f"(var, name={self.name}, domain={str(self.domain.id)})"
+        if self._cached_key is None:
+            self._cached_key = f"(var, name={self.name}, domain={str(self.domain.id)})"
+        return self._cached_key
 
     @property
     def id(self) -> int:
@@ -2008,8 +2020,10 @@ class MixedDimensionalVariable(Variable):
         # The MixedDimensionalVariable is not stored in the equation system but
         # constructed every time when needed. Thus, its id is updated and cannot be
         # relied on. Instead, we rely on the name, which is guaranteed to be unique.
-        domain_ids = [domain.id for domain in self.domains]
-        return f"(mdvar, name={self.name}, domains={domain_ids})"
+        if self._cached_key is None:
+            domain_ids = [domain.id for domain in self.domains]
+            self._cached_key = f"(mdvar, name={self.name}, domains={domain_ids})"
+        return self._cached_key
 
     def __init__(self, variables: list[Variable]) -> None:
         # IMPLEMENTATION NOTE VL
@@ -2115,6 +2129,7 @@ class MixedDimensionalVariable(Variable):
 
         self._initialize_children()
         self.copy_common_sub_tags()
+        self._cached_key: Optional[str] = None
 
     def __repr__(self) -> str:
         if len(self.sub_vars) == 0:
