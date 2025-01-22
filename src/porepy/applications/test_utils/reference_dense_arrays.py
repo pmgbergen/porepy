@@ -7956,3 +7956,37 @@ test_constitutive_laws: dict[str, dict] = {
         "isotropic_second_order_tensor": _diagonal_entries.ravel("F"),
     }
 }
+# test_damage_history.py
+test_damage_history: dict[str, dict] = {
+    "test_anisotropic_damage_values": {
+        "friction_damage": np.array(
+            [
+                [1.08964648],
+                [1.08990014],
+                [1.08042241],
+                [1.08088030],
+                [1.07850799],
+            ]
+        ),
+        # Dilation damage is the same as friction damage due to identical
+        # parameters.
+        "dilation_damage": np.array(
+            [
+                [1.08964648],
+                [1.08990014],
+                [1.08042241],
+                [1.0808803],
+                [1.07850799],
+            ]
+        ),
+        "damage_history": np.array(
+            [
+                [0.21859257],
+                [0.21294128],
+                [0.43575474],
+                [0.42439987],
+                [0.48393954],
+            ]
+        ),
+    }
+}
