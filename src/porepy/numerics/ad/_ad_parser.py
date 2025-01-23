@@ -122,7 +122,17 @@ class AdParser:
         self.clear_cache()
         # We are done. Return.
         return current_val
+    
+    def _op_to_node(self, op: pp.ad.Operator) -> int:
+        for node in op.nx_graph.nodes:
+            if op.nx_graph.nodes[node]['obj'] == op:
+                return node
+        raise ValueError(f"Operator {op} not found in graph")
 
+    def _node_to_op(self, op: pp.ad.Operator, ind: int) -> pp.ad.Operator:
+        return op.nx_graph.nodes[ind]['obj']    
+
+    # @profile
     def _parse_leaf(self, op: pp.ad.Operator, ad_base, eq_sys) -> np.ndarray | pp.ad.AdArray:
         """Parse a leaf node in the graph."""
         if isinstance(op, pp.ad.MixedDimensionalVariable):
@@ -158,15 +168,6 @@ class AdParser:
         
     def _parse_operation(self, op: pp.ad.Operator, eq_sys: pp.ad.EquationSystem) -> np.ndarray | pp.ad.AdArray:
 
-        def _op_to_node(x: pp.ad.Operator) -> int:
-            for node in x.nx_graph.nodes:
-                if x.nx_graph.nodes[node]['obj'] == x:
-                    return node
-            raise ValueError(f"Operator {x} not found in graph")
-
-        def _node_to_op(x: int) -> pp.ad.Operator:
-            return op.nx_graph.nodes[x]['obj']
-
         op_as_node = None
         for node in op.nx_graph.nodes:
             if op.nx_graph.nodes[node]['obj'] == op:
@@ -179,11 +180,11 @@ class AdParser:
         #assert all([isinstance(_op_to_node(child), pp.ad.Operator) for child in children])
 
         # Get the operand_id for each child and sort children based on this id
-        sorted_children = sorted(children, key=lambda child: op.nx_graph.get_edge_data(_op_to_node(op), child)['operand_id'])
+        sorted_children = sorted(children, key=lambda child: op.nx_graph.get_edge_data(self._op_to_node(op), child)['operand_id'])
         
         # Get evaluation of the sorted children. If we get a key error here, something
         # is wrong with the order of evaluation.
-        child_values = [self._cache[_node_to_op(child)] for child in sorted_children]
+        child_values = [self._cache[self._node_to_op(op, child)] for child in sorted_children]
 
         # Get the operation represented by op.
         operation = op.operation
