@@ -215,7 +215,7 @@ class ManuExactSneddon2dSetup:
         self.theta = setup.get("theta")
 
         self.a = setup.get("a")
-        self.G  = setup.get("G")
+        self.shear_modulus  = setup.get("material_constants").get("solid").shear_modulus
         self.poi = setup.get("poi")
         self.length = setup.get("length")
         self.height = setup.get("height")
@@ -231,7 +231,7 @@ class ManuExactSneddon2dSetup:
         center = np.array([self.length / 2, self.height / 2, 0])
         bem_centers = get_bem_centers(self.a, h, n, self.theta, center)
         eta = compute_eta(bem_centers, center)
-        u_a = -analytical_displacements(self.a, eta, self.p0, self.G, self.poi)
+        u_a = -analytical_displacements(self.a, eta, self.p0, self.shear_modulus, self.poi)
         u_bc = assign_bem(sd, h / 2, box_faces, self.theta, bem_centers, u_a, self.poi)
         return u_bc
     
@@ -264,7 +264,7 @@ class ManuExactSneddon2dSetup:
 
         # compute distances from fracture centre with its corresponding apertures
         eta = compute_eta(fracture_faces, fracture_center)
-        apertures = analytical_displacements(self.a, eta, self.p0, self.G, self.poi)
+        apertures = analytical_displacements(self.a, eta, self.p0, self.shear_modulus, self.poi)
 
         return eta, apertures
 
