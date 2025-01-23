@@ -155,3 +155,40 @@ class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
             "cell_size_min": 0.2 * ls,
         }
         return mesh_sizes
+
+
+class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures):
+    def set_geometry(self) -> None:
+        """Define geometry and create a non-matching mixed-dimensional grid."""
+        super().set_geometry()
+
+        # Refine fracture grid such that the mixed-dimensional geometry is non-matching.
+        old_fracture_grid_1 = self.mdg.subdomains(dim=1)[0]
+        old_fracture_grid_2 = self.mdg.subdomains(dim=1)[1]
+
+        new_fracture_grid_1 = pp.refinement.refine_grid_1d(
+            g=old_fracture_grid_1, ratio=3
+        )
+        new_fracture_grid_2 = pp.refinement.refine_grid_1d(
+            g=old_fracture_grid_2, ratio=2
+        )
+
+        self.mdg.replace_subdomains_and_interfaces(
+            {
+                old_fracture_grid_1: new_fracture_grid_1,
+                old_fracture_grid_2: new_fracture_grid_2,
+            }
+        )
+
+        # Create projections between local and global coordinates for fracture grids.
+        pp.set_local_coordinate_projections(self.mdg)
+
+
+class Test(NonMatchingSquareDomainOrthogonalFractures, pp.SinglePhaseFlow): ...
+
+
+params = {"fracture_indices": [0, 1]}
+model = Test(params)
+pp.run_time_dependent_model(model, params)
+
+pp.plot_grid(model.mdg, alpha=0.5, info="cf")
