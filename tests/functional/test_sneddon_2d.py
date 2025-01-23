@@ -1,10 +1,10 @@
-from porepy.applications.convergence_analysis import ConvergenceAnalysis
 import porepy as pp
 import numpy as np
 import pytest
 import math
 import copy
 import  tests.functional.setups.manu_sneddon_2d as manu_sneddon_2d
+from porepy.applications.convergence_analysis import ConvergenceAnalysis
 
 
 def compute_frac_pts(
@@ -34,9 +34,6 @@ def compute_frac_pts(
 
     frac_pts = np.array([[x_0, y_0], [x_1, y_1]]).T
     return frac_pts
-
-
-
 
 
 # ----> Retrieve actual order of convergence
@@ -87,8 +84,8 @@ def actual_ooc(
             temporal_refinement_rate=4
         )
     
-    order = conv_analysis.order_of_convergence(conv_analysis.run_analysis())
-    return order 
+    order_dict = conv_analysis.order_of_convergence(conv_analysis.run_analysis())
+    return order_dict
 
 
 # ----> Set desired order of convergence
@@ -129,13 +126,14 @@ def test_order_of_convergence(
             order of convergence.
 
     """
+    
     # We require the order of convergence to always be larger than 1.0
-    assert 1.0 < actual_ooc
+    assert 1.0 <   actual_ooc["ooc_displacement"]  
 
 
     assert np.isclose(
         desired_ooc,
-        actual_ooc,
+        actual_ooc["ooc_displacement"],
         atol=1e-1,  # allow for an absolute difference of 0.1 in OOC
         rtol=5e-1,  # allow for 5% of relative difference in OOC
     )

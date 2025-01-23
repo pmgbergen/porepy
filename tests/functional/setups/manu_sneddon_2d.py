@@ -1,6 +1,8 @@
 import numpy as np
 import porepy as pp
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
+from porepy.applications.convergence_analysis import ConvergenceAnalysis
+
 from dataclasses import dataclass
 
 def compute_eta(pointset_centers: np.ndarray, center: np.ndarray) -> np.ndarray:
@@ -358,22 +360,21 @@ class SneddonData:
 
 class SneddonDataSaving(VerificationDataSaving):
     def collect_data(self):
-        print("HELLO")
-        #frac_sd = model.mdg.subdomains(dim=model.nd - 1)
-        #nd_vec_to_normal = model.normal_component(frac_sd)
-    #
-        ## Comuting the numerical displacement jump along the fracture on the fracture cell centers.
-        #u_n: pp.ad.Operator = nd_vec_to_normal @ model.displacement_jump(frac_sd)
-        #u_n = u_n.value(model.equation_system)
-        #
-        #exact_setup = manu_sneddon_2d.ManuExactSneddon2dSetup(params)
-        ## Checking convergence specifically on the fracture
-        #u_a = exact_setup.exact_sol_fracture(model.mdg)[1]
-    #
-        #e = ConvergenceAnalysis.l2_error(
-        #    frac_sd[0], u_a, u_n, is_scalar=False, is_cc=True, relative=True
-        #)
-        e = 1.0 
+        frac_sd = self.mdg.subdomains(dim=self.nd - 1)
+        nd_vec_to_normal = self.normal_component(frac_sd)
+    
+        # Comuting the numerical displacement jump along the fracture on the fracture cell centers.
+        u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(frac_sd)
+        u_n = u_n.value(self.equation_system)
+        
+        exact_setup = ManuExactSneddon2dSetup(self.params)
+        # Checking convergence specifically on the fracture
+        u_a = exact_setup.exact_sol_fracture(self.mdg)[1]
+    
+        e = ConvergenceAnalysis.l2_error(
+            frac_sd[0], u_a, u_n, is_scalar=False, is_cc=True, relative=True
+        )
+        
         collect_data = SneddonData(error_displacement=e)
         return collect_data
 
