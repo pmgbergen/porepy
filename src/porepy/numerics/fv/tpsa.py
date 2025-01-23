@@ -725,14 +725,22 @@ class Tpsa:
             # Since Rn_hat scales with face area, we need to divide by the face areas to
             # get the correct scaling.
             rotation_rotation = (
-                aux_rot_rot_robin
+                -filters.neu_rob_pass_nd
                 @ sps.dia_matrix(
-                    (1.0 / np.repeat(sd.face_areas, nd), 0), shape=(nf * nd, nf * nd)
+                    (
+                        1.0
+                        / np.repeat(
+                            2 * arithmetic_average_shear_modulus * sd.face_areas, nd
+                        ),
+                        0,
+                    ),
+                    shape=(nf * nd, nf * nd),
                 )
                 @ Rn_hat
                 @ Rn_hat
-                @ c2f_maps.c2f
+                @ sps.kron(sd.cell_faces, sps.eye(nd), format="csr")
             )
+            tmp = []
 
         elif nd == 2:
             # In this case, \hat{R}_k^n and \bar{R}_k^n differ, and read, respectively
@@ -761,10 +769,20 @@ class Tpsa:
                 -filters.neu_notpass_nd @ Rn_hat @ c2f_maps.c2f_compl_scalar_2_nd
             )
 
-            rotation_rotation = (
-                aux_rot_rot_robin
-                @ sps.dia_matrix((1.0 / sd.face_areas), shape=(nf, nf))
-                @ Rn_hat
+            # TODO: Check the sanity of this.
+            rotation_rotation = -(
+                Rn_bar
+                @ filters.neu_rob_pass_nd
+                @ sps.dia_matrix(
+                    (
+                        1.0
+                        / np.repeat(
+                            2 * arithmetic_average_shear_modulus * sd.face_areas, nd
+                        ),
+                        0,
+                    ),
+                    shape=(nf * nd, nf * nd),
+                )
                 @ Rn_hat
                 @ c2f_maps.c2f_scalar_2_nd
             )
