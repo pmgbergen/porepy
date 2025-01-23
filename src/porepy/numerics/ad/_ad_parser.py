@@ -47,13 +47,27 @@ class AdParser:
 
         results = []
 
+        queues = []
         for op in x:
+            queues.append(self._graph_to_queue(op, operator_count))
+
+        # Count how many times each operator occurs as a child in the graph. This will
+        # be used to determine when the value of an operator can be removed from the
+        # cache. TODO: This does not feel like the most efficient way to do this.
+        operator_count = {}
+        for op, queue in zip(x, queues):
+            for item in queue:
+                tmp_op = self._node_to_op(op, item[-1])
+                for child in tmp_op.children:
+                    if child not in operator_count:
+                        operator_count[child] = 1
+                    else:
+                        operator_count[child] += 1
+
+        for op, queue in zip(x, queues):
             # Keep track of the latest value of the evalutation. This will eventually store
             # the value of the full tree.
             current_val = None
-
-            # Convert the operator to a queue of operations
-            queue = self._graph_to_queue(op)
 
             while queue:
                 # Pop the next item from the queue
@@ -63,19 +77,43 @@ class AdParser:
                 if item in self._cache:
                     # The value of this item has already been computed
                     current_val = self._cache[item]
+
+                    # Decrease the count of the children of this item. If the count
+                    # reaches zero, the value of the child can be removed from the
+                    # cache.
+                    for child in item.children:
+                        operator_count[child] -= 1
+                        if operator_count[child] == 0:
+                            self._cache.pop(child, None)
                     continue
 
                 elif item.is_leaf():
                     current_val = self._parse_leaf(item, ad_base, eq_sys)
-                    self._cache[item] = current_val
+                    # Store the value in the cache if the operator occurs at least once
+                    # more.
+                    if operator_count[item] > 0:
+                        self._cache[item] = current_val
+
                 elif item.operation is not pp.ad.Operator.Operations.void:
                     # This is the result of an operation.
                     current_val = self._parse_operation(item, eq_sys)
-                    self._cache[item] = current_val
+
+                    # Store the value in the cache if the operator occurs at least once
+                    # more.
+                    if operator_count.get(item, 0) > 0:
+                        self._cache[item] = current_val
+
+                    # Decrease the count of the children of this item. If the count
+                    # reaches zero, the value of the child can be removed from the
+                    # cache.
+                    for child in item.children:
+                        operator_count[child] -= 1
+                        if operator_count[child] == 0:
+                            self._cache.pop(child, None)
                 else:
                     # Who knows what this is?
                     raise ValueError(f"Unknown item {item}")
-            
+                
             results.append(current_val)
         
         # Temporary construct: Clear cache to avoid storing values that are not valid
