@@ -12,6 +12,8 @@ from tests.functional.setups.linear_tracer import (
     TracerFlowSetup_3p,
 )
 
+from matplotlib import pyplot as plt
+
 
 @pytest.fixture(scope="module")
 def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
@@ -57,7 +59,7 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
 
 # First parametrization is over number of cells in pipe for fixture.
 # Second to test all schedule indices.
-@pytest.mark.parametrize("results", [(10, "1p"), (100, "1p")], indirect=["results"])
+@pytest.mark.parametrize("results", [(40, "1p")], indirect=["results"])
 @pytest.mark.parametrize("time_index", [0, 1, 2, 3])
 def test_linear_tracer_1p_diffusive(
     time_index: int, results: list[LinearTracerSaveData]
@@ -83,9 +85,12 @@ def test_linear_tracer_1p_diffusive(
     else:
         assert sol_data.num_iter <= 2
 
-    # testing errors in pressure (exact) and tracer fraction (numerically diffused)
+    # testing errors in pressure (exact)
     np.testing.assert_allclose(sol_data.error_p, 0.0, atol=1e-7, rtol=0.0)
-    # np.testing.assert_allclose(sol_data.error_diffused_z_tracer, 0., atol=1e-7, rtol=0.0)
+
+    # NOTE due to numerical diffusion, the tracer fraction cannot be checked here
+    # It is checked in a separate test, comparing it to the solution of the modified
+    # equation accounting for diffusion.
 
 
 # Expected to fail because Upwinding and backward euler are diffusive

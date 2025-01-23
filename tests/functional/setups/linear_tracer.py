@@ -199,7 +199,7 @@ class LinearTracerExactSolution1D:
         # Numerical diffusion coefficient due to Upwinding
         # See lecture notes
         # Aavatsmark - Bevarelsesmetoder for hyperbolske differensialligninger
-        D = np.abs(c) * dx / 2 * (1 + gamma)  # Engquist-Osher
+        D = np.abs(c) * dx / 2 * (1 + gamma)
         # coefficient for scaling error function
         eta = 2 * np.sqrt(D * t)
         a = - (self.z_tracer_inlet - self.z_tracer_initial) / 2
