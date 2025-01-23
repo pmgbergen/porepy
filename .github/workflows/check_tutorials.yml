@@ -1,5 +1,5 @@
 # Run unit, integration, and functional tests.
-name: Pytest
+name: Check tutorials
 
 # Controls when the action will run. Triggers the workflow on push or pull request
 # events for the main and develop branches
