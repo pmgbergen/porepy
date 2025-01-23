@@ -76,6 +76,9 @@ else:
 
             """
 
+        def set_well_network(self) -> None:
+            """Assign well network class."""
+
         def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
 
