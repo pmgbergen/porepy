@@ -8,12 +8,12 @@ from porepy.applications.convergence_analysis import ConvergenceAnalysis
 
 # ----> Set up the material constants
 poi = 0.25
-G = 1
+shear_modulus = 1
 lam = (
-    2 * G * poi / (1 - 2 * poi)
+    2 * shear_modulus * poi / (1 - 2 * poi)
 )  # Convertion formula from shear modulus and poission to lame lambda parameter
 
-solid = pp.SolidConstants(shear_modulus=G, lame_lambda=lam)
+solid = pp.SolidConstants(shear_modulus=shear_modulus, lame_lambda=lam)
    
 
 def compute_frac_pts(
@@ -62,12 +62,11 @@ def actual_ooc(
         "height": 1.0,
         "length": 1.0,
         "p0": 1e-4,
-        "G": G,
         "poi": poi,
         "meshing_arguments": {"cell_size": 0.03},
     }
     
-    params["theta"] = math.radians(90 - theta[k])
+    params["theta"] = math.radians(90 - theta)
     params["frac_pts"]  = compute_frac_pts(params["theta"], params["a"], height=params["height"], length=params["length"])
     model =  manu_sneddon_2d.MomentumBalanceGeometryBC
 
