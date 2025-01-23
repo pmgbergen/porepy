@@ -14,10 +14,10 @@ class AdParser:
         self._mdg = mdg
         self._cache = {}
 
-    def value(self, x: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None) -> np.ndarray:
+    def value(self, x: pp.ad.Operator | list[pp.ad.Operator], eq_sys: pp.ad.EquationSystem, state: np.ndarray | None) -> np.ndarray:
         return self._evaluate(x, derivative=False, eq_sys=eq_sys, state=state)
 
-    def value_and_jacobian(self, x: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray) -> pp.ad.AdArray:
+    def value_and_jacobian(self, x: pp.ad.Operator | list[pp.ad.Operator], eq_sys: pp.ad.EquationSystem, state: np.ndarray) -> pp.ad.AdArray:
         return self._evaluate(x, derivative=True, eq_sys=eq_sys, state=state)
 
     def clear_cache(self):
@@ -36,40 +36,48 @@ class AdParser:
 
         if state is None:
             state = eq_sys.get_variable_values(iterate_index=0)
+
+        if not isinstance(x, list):
+            x = [x]
         
         # What will happen here if state is None? On the other hand, it should be
         # possible to evaluate the operator without a state, if the operator does not
         # depend on the state (e.g. it is a numpy array).
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
-        # Keep track of the latest value of the evalutation. This will eventually store
-        # the value of the full tree.
-        current_val = None
+        results = []
 
-        # Convert the operator to a queue of operations
-        queue = self._graph_to_queue(x)
+        for op in x:
+            # Keep track of the latest value of the evalutation. This will eventually store
+            # the value of the full tree.
+            current_val = None
 
-        while queue:
-            # Pop the next item from the queue
-            next_item = heapq.heappop(queue)
-            item = x.nx_graph.nodes[next_item[-1]]['obj']
+            # Convert the operator to a queue of operations
+            queue = self._graph_to_queue(op)
+
+            while queue:
+                # Pop the next item from the queue
+                next_item = heapq.heappop(queue)
+                item = op.nx_graph.nodes[next_item[-1]]['obj']
+                
+                if item in self._cache:
+                    # The value of this item has already been computed
+                    current_val = self._cache[item]
+                    continue
+
+                elif item.is_leaf():
+                    current_val = self._parse_leaf(item, ad_base, eq_sys)
+                    self._cache[item] = current_val
+                elif item.operation is not pp.ad.Operator.Operations.void:
+                    # This is the result of an operation.
+                    current_val = self._parse_operation(item, eq_sys)
+                    self._cache[item] = current_val
+                else:
+                    # Who knows what this is?
+                    raise ValueError(f"Unknown item {item}")
             
-            if item in self._cache:
-                # The value of this item has already been computed
-                current_val = self._cache[item]
-                continue
-
-            elif item.is_leaf():
-                current_val = self._parse_leaf(item, ad_base, eq_sys)
-                self._cache[item] = current_val
-            elif item.operation is not pp.ad.Operator.Operations.void:
-                # This is the result of an operation.
-                current_val = self._parse_operation(item, eq_sys)
-                self._cache[item] = current_val
-            else:
-                # Who knows what this is?
-                raise ValueError(f"Unknown item {item}")
-            
+            results.append(current_val)
+        
         # Temporary construct: Clear cache to avoid storing values that are not valid
         # for the next evaluation. This should be replaced by a more refined clearing
         # strategy.
