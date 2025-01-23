@@ -88,23 +88,6 @@ def test_order_of_convergence(
     actual_ooc,
 ) -> None:
     """Test observed order of convergence.
-
-    Note:
-        We set more flexible tolerances for simplicial grids compared to Cartesian
-        grids. This is because we would like to allow for slight changes in the
-        order of convergence if the meshes change, i.e., in newer versions of Gmsh.
-
-    Parameters:
-        var: Name of the variable to be tested.
-        grid_type_idx: Index to identify the grid type; `0` for Cartesian, and `1`
-            for simplices.
-        dim_idx: Index to identify the dimensionality of the problem; `0` for 2d, and
-            `1` for 3d.
-        actual_ooc: List of lists of dictionaries containing the actual observed
-            order of convergence.
-        desired_ooc: List of lists of dictionaries containing the desired observed
-            order of convergence.
-
     """
-    # We require the order of convergence to always be larger than 1.0
+    # We require the order of convergence to always be about 1.0 
     assert 0.85 <   actual_ooc["ooc_displacement"]  
