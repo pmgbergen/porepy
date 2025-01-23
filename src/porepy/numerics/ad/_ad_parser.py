@@ -49,7 +49,7 @@ class AdParser:
 
         queues = []
         for op in x:
-            queues.append(self._graph_to_queue(op, operator_count))
+            queues.append(self._graph_to_queue(op))
 
         # Count how many times each operator occurs as a child in the graph. This will
         # be used to determine when the value of an operator can be removed from the
@@ -91,7 +91,7 @@ class AdParser:
                     current_val = self._parse_leaf(item, ad_base, eq_sys)
                     # Store the value in the cache if the operator occurs at least once
                     # more.
-                    if operator_count[item] > 0:
+                    if operator_count.get(item, 0) > 0:
                         self._cache[item] = current_val
 
                 elif item.operation is not pp.ad.Operator.Operations.void:
@@ -165,7 +165,7 @@ class AdParser:
         else:
             # Mypy complains because the return type of parse is Any.
             return op.parse(eq_sys.mdg)  # type:ignore
-        
+    # @profile
     def _parse_operation(self, op: pp.ad.Operator, eq_sys: pp.ad.EquationSystem) -> np.ndarray | pp.ad.AdArray:
 
         op_as_node = None
@@ -360,7 +360,8 @@ class AdParser:
         # To break ties in the heap (operators with equal priority), we use an entry
         # count, inspired by https://docs.python.org/3/library/heapq.html. This avoids
         # the need to implement a comparison operator for the Operator class, which is
-        # not meaningful.
+        # not meaningful. TODO: This can be deleted now that we have a unique id for
+        # each node.
         entry_count = 0
 
         for node, priority in height.items():
