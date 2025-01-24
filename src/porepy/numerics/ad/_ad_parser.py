@@ -13,6 +13,7 @@ class AdParser:
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         self._mdg = mdg
         self._cache = {}
+        self._alt_cache = {}
 
     def value(self, x: pp.ad.Operator | list[pp.ad.Operator], eq_sys: pp.ad.EquationSystem, state: np.ndarray | None) -> np.ndarray:
         return self._evaluate(x, derivative=False, eq_sys=eq_sys, state=state)
@@ -23,6 +24,7 @@ class AdParser:
     def clear_cache(self):
         self._cache = {}
 
+    # @profile
     def _evaluate(self, x: pp.ad.Operator, derivative: bool, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None) -> np.ndarray | pp.ad.AdArray:
         """Evaluate the operator x and its derivative if requested.
 
@@ -45,7 +47,13 @@ class AdParser:
         # depend on the state (e.g. it is a numpy array).
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
+        for op in x:
+            val = self._alt_eval(op, ad_base, eq_sys)
+            self._alt_cache = {}
+            # return val
+
         results = []
+        # return results
 
         queues = []
         for op in x:
@@ -69,9 +77,10 @@ class AdParser:
             # the value of the full tree.
             current_val = None
 
-            while queue:
-                # Pop the next item from the queue
-                next_item = heapq.heappop(queue)
+            for next_item in queue:
+            # while queue:
+            #     # Pop the next item from the queue
+            #     next_item = heapq.heappop(queue)
                 item = op.nx_graph.nodes[next_item[-1]]['obj']
                 
                 if item in self._cache:
@@ -81,10 +90,10 @@ class AdParser:
                     # Decrease the count of the children of this item. If the count
                     # reaches zero, the value of the child can be removed from the
                     # cache.
-                    for child in item.children:
-                        operator_count[child] -= 1
-                        if operator_count[child] == 0:
-                            self._cache.pop(child, None)
+                    # for child in item.children:
+                    #     operator_count[child] -= 1
+                    #     if operator_count[child] == 0:
+                    #         self._cache.pop(child, None)
                     continue
 
                 elif item.is_leaf():
@@ -100,16 +109,16 @@ class AdParser:
 
                     # Store the value in the cache if the operator occurs at least once
                     # more.
-                    if operator_count.get(item, 0) > 0:
+                    if operator_count.get(item, 0) > 0 and item.operation is pp.ad.Operator.Operations.matmul:
                         self._cache[item] = current_val
 
                     # Decrease the count of the children of this item. If the count
                     # reaches zero, the value of the child can be removed from the
                     # cache.
-                    for child in item.children:
-                        operator_count[child] -= 1
-                        if operator_count[child] == 0:
-                            self._cache.pop(child, None)
+                    # for child in item.children:
+                    #     operator_count[child] -= 1
+                    #     if operator_count[child] == 0:
+                    #         self._cache.pop(child, None)
                 else:
                     # Who knows what this is?
                     raise ValueError(f"Unknown item {item}")
@@ -121,8 +130,228 @@ class AdParser:
         # strategy.
         self.clear_cache()
         # We are done. Return.
-        return current_val
+        return results
     
+    @profile
+    def _alt_eval(self, op, ad_base, eq_sys):
+        if op in self._alt_cache:
+            cached = self._alt_cache[op]
+            return cached
+            # parsed = op.parse(eq_sys.mdg)
+            # if isinstance(cached, np.ndarray):
+            #     assert np.allclose(cached, parsed)
+            #     return cached
+            # elif isinstance(cached, sps.spmatrix):
+            #     assert np.allclose(cached.toarray(), parsed.toarray())
+            #     return cached
+            # elif isinstance(cached, (int, float)):
+            #     assert np.allclose(cached, parsed)
+            #     return cached
+            # else:
+            #     assert False
+
+        if op.is_leaf():
+            if isinstance(op, pp.ad.MixedDimensionalVariable):
+                if op.is_previous_iterate or op.is_previous_time:
+                    # Empty vector like the global vector of unknowns for prev time/iter
+                    # insert the values at the right dofs and slice
+                    vals = np.empty_like(
+                        ad_base.val if isinstance(ad_base, pp.ad.AdArray) else ad_base
+                    )
+                    # list of indices for sub variables
+                    dofs = []
+                    for sub_var in op.sub_vars:
+                        sub_dofs = eq_sys.dofs_of([sub_var])
+                        vals[sub_dofs] = sub_var.parse(eq_sys.mdg)
+                        dofs.append(sub_dofs)
+
+                    res = vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
+                    # self._alt_cache[op] = res
+                    return res
+                # Like for atomic variables, ad_base contains current time and iter
+                else:
+                    res = ad_base[eq_sys.dofs_of([op])]
+                    # self._alt_cache[op] = res
+                    return res                    
+            # Case 2.b) atomic variables
+            elif isinstance(op, pp.ad.Variable):
+                # If a variable represents a previous iteration or time, parse values.
+                if op.is_previous_iterate or op.is_previous_time:
+                    res= op.parse(eq_sys.mdg)
+                    # self._alt_cache[op] = res
+                    return res                    
+                # Otherwise use the current time and iteration values.
+                else:
+                    res= ad_base[eq_sys.dofs_of([op])]
+                    # self._alt_cache[op] = res
+                    return res                    
+            # Case 2.c) All other leafs like discretizations or some wrapped data
+            else:
+                # Mypy complains because the return type of parse is Any.
+                res= op.parse(eq_sys.mdg)  # type:ignore
+                self._alt_cache[op] = res
+                return res                
+        
+        child_values = [self._alt_eval(child, ad_base, eq_sys) for child in op.children]
+    
+        # Get the operation represented by op.
+        operation = op.operation
+
+        # TODO: Since the operation is brought into use outside of the operator class,
+        # it should probably be promoted to an independent class.
+        if operation == pp.ad.Operator.Operations.add:
+            # To add we need two objects
+            assert len(child_values) == 2
+
+            if isinstance(child_values[0], np.ndarray):
+                # We should not do numpy_array + Ad_array, since numpy will interpret
+                # this in a strange way. Instead switch the order of the operands and
+                # everything will be fine.
+                child_values = child_values[::-1]
+            try:
+                # An error here would typically be a dimension mismatch between the
+                # involved operators.
+                res = child_values[0] + child_values[1]
+                self._alt_cache[op] = res
+                return res                
+            except ValueError as exc:
+                msg = self._get_error_message("adding", op.children, child_values)
+                raise ValueError(msg) from exc
+
+        elif operation == pp.ad.Operator.Operations.sub:
+            # To subtract we need two objects
+            assert len(child_values) == 2
+
+            # We need a minor trick to take care of numpy arrays.
+            factor = 1.0
+            if isinstance(child_values[0], np.ndarray):
+                # We should not do numpy_array - Ad_array, since numpy will interpret
+                # this in a strange way. Instead switch the order of the operands, and
+                # switch the sign of factor to compensate.
+                child_values = child_values[::-1]
+                factor = -1.0
+            try:
+                # An error here would typically be a dimension mismatch between the
+                # involved operators.
+                res = factor * (child_values[0] - child_values[1])
+                # self._alt_cache[op] = res
+                return res                
+            except ValueError as exc:
+                msg = self._get_error_message("subtracting", op.children, child_values)
+                raise ValueError(msg) from exc
+
+        elif operation == pp.ad.Operator.Operations.mul:
+            # To multiply we need two objects
+            assert len(child_values) == 2
+
+            if isinstance(child_values[0], np.ndarray) and isinstance(
+                child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
+            ):
+                # In the implementation of multiplication between an AdArray and a
+                # numpy array (in the forward mode Ad), a * b and b * a do not
+                # commute. Flip the order of the results to get the expected behavior.
+                # This is permissible, since the elementwise product commutes.
+                child_values = child_values[::-1]
+            try:
+                # An error here would typically be a dimension mismatch between the
+                # involved operators.
+                res = child_values[0] * child_values[1]
+                # self._alt_cache[op] = res
+                return res                
+            except ValueError as exc:
+                msg = self._get_error_message("multiplying", op.children, child_values)
+                raise ValueError(msg) from exc
+
+        elif operation == pp.ad.Operator.Operations.div:
+            # Some care is needed here, to account for cases where item in the results
+            # array is a numpy array
+            try:
+                if isinstance(child_values[0], np.ndarray) and isinstance(
+                    child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
+                ):
+                    # If numpy's __truediv__ method is called here, the result will be
+                    # strange because of how numpy works. Instead we directly invoke the
+                    # right-truedivide method in the AdArary.
+                    res = child_values[1].__rtruediv__(child_values[0])
+                    # self._alt_cache[op] = res
+                    return res                    
+                else:
+                    res = child_values[0] / child_values[1]
+                    # self._alt_cache[op] = res
+                    return res                    
+            except ValueError as exc:
+                msg = self._get_error_message("dividing", op.children, child_values)
+                raise ValueError(msg) from exc
+
+        elif operation == pp.ad.Operator.Operations.pow:
+            try:
+                if isinstance(child_values[0], np.ndarray) and isinstance(
+                    child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
+                ):
+                    # If numpy's __pow__ method is called here, the result will be
+                    # strange because of how numpy works. Instead we directly invoke the
+                    # right-power method in the AdArary.
+                    res = child_values[1].__rpow__(child_values[0])
+                    # self._alt_cache[op] = res
+                    return res                    
+                else:
+                    res= child_values[0] ** child_values[1]
+                    # self._alt_cache[op] = res
+                    return res                    
+            except ValueError as exc:
+                msg = self._get_error_message(
+                    "raising to a power", op.children, child_values
+                )
+                raise ValueError(msg) from exc
+
+        elif operation == pp.ad.Operator.Operations.matmul:
+            try:
+                if isinstance(child_values[0], np.ndarray) and isinstance(
+                    child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
+                ):
+                    # Again, we do not want to call numpy's matmul method, but instead
+                    # directly invoke AdArarray's right matmul.
+                    res = child_values[1].__rmatmul__(child_values[0])
+                    # self._alt_cache[op] = res
+                    return res                    
+                # elif isinstance(results[1], np.ndarray) and isinstance(
+                #     results[0], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
+                # ):
+                #     # Again, we do not want to call numpy's matmul method, but instead
+                #     # directly invoke AdArarray's right matmul.
+                #     return results[0].__rmatmul__(results[1])
+                else:
+                    res = child_values[0] @ child_values[1]
+                    self._alt_cache[op] = res
+                    return res                    
+            except ValueError as exc:
+                msg = self._get_error_message(
+                    "matrix multiplying", op.children, child_values
+                )
+                raise ValueError(msg) from exc
+
+        elif operation == pp.ad.Operator.Operations.evaluate:
+            # Operator functions should have at least 1 child (themselves)
+            assert len(child_values) >= 1, "Operator functions must have at least 1 child."
+            assert hasattr(op, "func"), (
+                f"Operators with operation {operation} must have a functional"
+                + f" representation `func` implemented as a callable member."
+            )
+
+            try:
+                res = op.func(*child_values)
+                # self._alt_cache[op] = res
+                return res                
+            except Exception as exc:
+                # TODO specify what can go wrong here (Exception type)
+                msg = "Error while parsing operator function:\n"
+                msg += op._parse_readable()
+                raise ValueError(msg) from exc
+
+        else:
+            raise ValueError(f"Encountered unknown operation {operation}")
+
+
     def _op_to_node(self, op: pp.ad.Operator) -> int:
         for node in op.nx_graph.nodes:
             if op.nx_graph.nodes[node]['obj'] == op:
@@ -330,6 +559,14 @@ class AdParser:
             if x.nx_graph.nodes[node]['root']:
                 root = node
                 break
+
+        if True:
+            tree = nx.dfs_tree(x.nx_graph, source=root)
+            nodes_dfs = list(tree.nodes)
+            nodes_dfs.reverse()
+            heap = [[n] for n in nodes_dfs]
+            return heap
+            
 
         tree = nx.bfs_tree(x.nx_graph, source=root)
         nodes_bfs = list(tree.nodes)
