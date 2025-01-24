@@ -1566,6 +1566,9 @@ class EquationSystem:
         if evaluate_jacobian:
             self.assembled_equation_indices = dict()
 
+        # eq_set = [self._equations[key] for key in equ_blocks]
+        # self.operator_value_and_jacobian(eq_set, state)
+        
         # Iterate over equations, assemble.
         # Also keep track of the row indices of each equation, and store it in
         # assembled_equation_indices.
