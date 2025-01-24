@@ -24,13 +24,12 @@ def compute_frac_pts(
     compute the endpoints of a fracture given its orientation and fracture length.
 
     Parameters:
-    theta_rad: Angle of the fracture in radians
-    a: Half-length of the fracture.
-    height: Height of the domain.
-    length: Width of the domain.
+        theta_rad: Angle of the fracture in radians
+        a: Half-length of the fracture.
+        height: Height of the domain.
+        length: Width of the domain.
 
     Returns:
-
         frac_pts : A 2x2 array where each column represents the coordinates of an end point of the fracture in 2D.
             The first column corresponds to one end point, and the second column corresponds to the other.
 
@@ -50,12 +49,14 @@ def compute_frac_pts(
 def actual_ooc(
 ) -> float:
     """Retrieve actual order of convergence.
+    
+    Returns: A dictionary containing the order of convergence for the displacement.
     """
 
+    # Angle of the fracture
     theta = 30
 
     params = {
-        #"meshing_arguments": {"cell_size": h},
         "prepare_simulation": True,
         "material_constants": {"solid": solid},
         "a" : 0.3,
@@ -66,10 +67,14 @@ def actual_ooc(
         "meshing_arguments": {"cell_size": 0.03},
     }
     
+    # Construct the fracture points for the given angle and length
     params["theta"] = math.radians(90 - theta)
     params["frac_pts"]  = compute_frac_pts(params["theta"], params["a"], height=params["height"], length=params["length"])
+    
     model =  manu_sneddon_2d.MomentumBalanceGeometryBC
 
+    # Construct the convergence analysis object, which does embedd the model, parameters refinementlevels
+    # for the convergence analysis
     conv_analysis = ConvergenceAnalysis(
         model_class=model,
         model_params= copy.deepcopy(params),
@@ -78,6 +83,7 @@ def actual_ooc(
         temporal_refinement_rate=1
     )
     
+    # Dictonary containing the order of convergence for the displacement
     order_dict = conv_analysis.order_of_convergence(conv_analysis.run_analysis(), data_range=slice(None, None, None))
     return order_dict
 

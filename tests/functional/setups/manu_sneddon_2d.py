@@ -208,6 +208,11 @@ def assign_bem(
 
 
 class ManuExactSneddon2dSetup:
+    """
+    Class for setting up the analytical solution for the pressurized fracture problem.
+    
+    
+    """
   
     def __init__(self, setup):
         # Initialize private variables from the setup dictionary
@@ -222,6 +227,13 @@ class ManuExactSneddon2dSetup:
          
   
     def exact_sol_global(self, sd):
+        """
+        Compute the analytical solution for the pressurized fracture problem in question.
+        
+        Parameters:
+            sd: Subdomain for which the analytical solution is to be computed.
+            
+        """
         
         n = 1000
         h = 2 * self.a / n
@@ -231,6 +243,8 @@ class ManuExactSneddon2dSetup:
         center = np.array([self.length / 2, self.height / 2, 0])
         bem_centers = get_bem_centers(self.a, h, n, self.theta, center)
         eta = compute_eta(bem_centers, center)
+        
+        
         u_a = -analytical_displacements(self.a, eta, self.p0, self.shear_modulus, self.poi)
         u_bc = assign_bem(sd, h / 2, box_faces, self.theta, bem_centers, u_a, self.poi)
         return u_bc
@@ -274,7 +288,7 @@ class ManuExactSneddon2dSetup:
 
 class ModifiedGeometry:
     def set_domain(self) -> None:
-        """Defining a two-dimensional square domain with sidelength 2."""
+        """Defining a two-dimensional square domain with sidelengths length and height."""
 
         self._domain = pp.Domain(
             bounding_box={
@@ -290,6 +304,7 @@ class ModifiedGeometry:
         return self.params.get("grid_type", "simplex")
 
     def set_fractures(self):
+        """Setting the fractures in the domain from params."""
 
         points = self.params["frac_pts"]
         self._fractures = [pp.LineFracture(points)]
@@ -297,26 +312,34 @@ class ModifiedGeometry:
 
 class ModifiedBoundaryConditions:
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Set boundary condition type for the problem."""
+        """Set boundary condition type for the problem.
+        Parameters:
+            sd: Subdomain for which the boundary conditions are to be set.
+        Returns:
+            Boundary condition type for the problem.
+        """
         bounds = self.domain_boundary_sides(sd)
 
         # Set the type of west and east boundaries to Dirichlet. North and south are
         # Neumann by default.
         bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "dir")
-
         frac_face = sd.tags["fracture_faces"]
-
         bc.is_neu[:, frac_face] = False
         bc.is_dir[:, frac_face] = True
 
         return bc
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Setting displacement boundary condition values.
-
-        This method returns an array of boundary condition values with the value 5t for
-        western boundaries and ones for the eastern boundary.
-
+        """
+        Setting displacement boundary condition values.
+        This method sets the displacement boundary condition values for a given 
+        boundary grid using the Sneddon analytical solution through the Boundary 
+        Element Method (BEM).
+        Parameters:
+            The boundary grid for which the displacement boundary condition values 
+            are to be set.
+        Returns:
+            An array of displacement boundary condition values.
         """
 
         sd = bg.parent
@@ -324,15 +347,25 @@ class ModifiedBoundaryConditions:
             return np.zeros(self.nd * sd.num_faces)
 
   
-        # apply sneddon analytical solution through BEM method
+        # Get the analytical solution for the displacement 
         exact_sol = ManuExactSneddon2dSetup(self.params)
-        u_bc = exact_sol.exact_sol_global(sd)
+        u_exact = exact_sol.exact_sol_global(sd) 
         
-        return bg.projection(2) @ u_bc.ravel("F")
+        # Project the values to the grid
+        return bg.projection(2) @ u_exact.ravel("F")
 
 
 class PressureStressMixin:
     def pressure(self, subdomains: pp.Grid):
+        """Discretization of the stress tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            Discretization operator for the stress tensor.
+
+        """
         # Return pressure in the fracture domain
         mat = self.params["p0"] * np.ones(
             sum(subdomain.num_cells for subdomain in subdomains)
@@ -349,17 +382,22 @@ class PressureStressMixin:
 
         Returns:
             Discretization operator for the stress tensor.
-
         """
         return pp.ad.MpsaAd(self.stress_keyword, subdomains)
 
 
 @dataclass
 class SneddonData:
+    """Data class for storing the error in the displacement field."""
     error_displacement: pp.number
 
 class SneddonDataSaving(VerificationDataSaving):
+    """Class for saving the error in the displacement field."""
     def collect_data(self):
+        """Collecting the error in the displacement field.
+        
+        Returns: collected data dictionary
+        """
         frac_sd = self.mdg.subdomains(dim=self.nd - 1)
         nd_vec_to_normal = self.normal_component(frac_sd)
     
