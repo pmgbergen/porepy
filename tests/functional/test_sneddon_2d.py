@@ -46,44 +46,44 @@ def compute_frac_pts(
 
 # ----> Retrieve actual order of convergence
 @pytest.fixture(scope="module")
-def actual_ooc(
-) -> float:
-    """Retrieve actual order of convergence.
-    
-    Returns: A dictionary containing the order of convergence for the displacement.
+def actual_ooc() -> float:
     """
+    Prepare parameters, fracture parameters and model for moment balance equation for the convergence analysis.
+    
+    Returns: A dictionary containing the experimental order of convergence for the displacement.
+    """
+    # Angle of the fracture in degrees
+    theta_deg = 30
 
-    # Angle of the fracture
-    theta = 30
-
+    # Simulation parameters
     params = {
         "prepare_simulation": True,
         "material_constants": {"solid": solid},
-        "a" : 0.3,
+        "a": 0.3,
         "height": 1.0,
         "length": 1.0,
         "p0": 1e-4,
         "poi": poi,
         "meshing_arguments": {"cell_size": 0.03},
     }
-    
-    # Construct the fracture points for the given angle and length
-    params["theta"] = math.radians(90 - theta)
-    params["frac_pts"]  = compute_frac_pts(params["theta"], params["a"], height=params["height"], length=params["length"])
-    
-    model =  manu_sneddon_2d.MomentumBalanceGeometryBC
 
-    # Construct the convergence analysis object, which does embedd the model, parameters refinementlevels
-    # for the convergence analysis
+    # Convert angle to radians and compute fracture points
+    params["theta"] = math.radians(90 - theta_deg)
+    params["frac_pts"] = compute_frac_pts(params["theta"], params["a"], height=params["height"], length=params["length"])
+
+    # Model for the convergence analysis
+    model = manu_sneddon_2d.MomentumBalanceGeometryBC
+
+    # Convergence analysis setup
     conv_analysis = ConvergenceAnalysis(
         model_class=model,
-        model_params= copy.deepcopy(params),
+        model_params=copy.deepcopy(params),
         levels=2,
         spatial_refinement_rate=2,
         temporal_refinement_rate=1
     )
-    
-    # Dictonary containing the order of convergence for the displacement
+
+    # Calculate and return the order of convergence for the displacement
     order_dict = conv_analysis.order_of_convergence(conv_analysis.run_analysis(), data_range=slice(None, None, None))
     return order_dict
 
@@ -95,4 +95,4 @@ def test_order_of_convergence(
     """Test observed order of convergence.
     """
     # We require the order of convergence to always be about 1.0 
-    assert 0.85 <   actual_ooc["ooc_displacement"]  
+    assert 0.85 <   actual_ooc["ooc_displacement"]
