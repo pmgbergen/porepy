@@ -48,9 +48,13 @@ def compute_frac_pts(
 @pytest.fixture(scope="module")
 def actual_ooc() -> float:
     """
-    Prepare parameters, fracture parameters and model for moment balance equation for the convergence analysis.
+    Prepare parameters and model for the convergence analysis of the moment balance equation.
     
-    Returns: A dictionary containing the experimental order of convergence for the displacement.
+    This setup validates the linear elasticity model for the analytical Sneddon solution in 2D, describing the analytical displacement on the fracture. 
+    The problem consists of a 2D domain with a fracture at a given angle and internal pressure.
+    
+    Returns:
+        A dictionary containing the experimental order of convergence for the displacement.
     """
     # Angle of the fracture in degrees
     theta_deg = 30
@@ -59,11 +63,11 @@ def actual_ooc() -> float:
     params = {
         "prepare_simulation": True,
         "material_constants": {"solid": solid},
-        "a": 0.3,
-        "height": 1.0,
-        "length": 1.0,
-        "p0": 1e-4,
-        "poi": poi,
+        "a": 0.3, # Half-length of the fracture
+        "height": 1.0, # Height of the domain
+        "length": 1.0, # Length of the domain
+        "p0": 1e-4, # Internal pressure of fracture
+        "poi": poi, # Possion ratio (Not standard in solid constants)
         "meshing_arguments": {"cell_size": 0.03},
     }
 
@@ -94,5 +98,5 @@ def test_order_of_convergence(
 ) -> None:
     """Test observed order of convergence.
     """
-    # We require the order of convergence to always be about 1.0 
+    # We expect the order of L2 convergence on the fracture of dispplacement to be about 1.0 
     assert 0.85 <   actual_ooc["ooc_displacement"]
