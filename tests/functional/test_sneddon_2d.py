@@ -46,7 +46,7 @@ def compute_frac_pts(
 
 # ----> Retrieve actual order of convergence
 @pytest.fixture(scope="module")
-def actual_ooc() -> float:
+def actual_ooc() -> dict:
     """
     Prepare parameters and model for the convergence analysis of the moment balance equation.
     
@@ -57,7 +57,7 @@ def actual_ooc() -> float:
         A dictionary containing the experimental order of convergence for the displacement.
     """
     # Angle of the fracture in degrees
-    theta_deg = 30
+    theta_deg = 30.0
 
     # Simulation parameters
     params = {
@@ -72,8 +72,8 @@ def actual_ooc() -> float:
     }
 
     # Convert angle to radians and compute fracture points
-    params["theta"] = math.radians(90 - theta_deg)
-    params["frac_pts"] = compute_frac_pts(params["theta"], params["a"], height=params["height"], length=params["length"])
+    params["theta"] = math.radians(90.0 - theta_deg)
+    params["frac_pts"] = compute_frac_pts(theta_rad=float(params["theta"]), a=float(params["a"]), height=float(params["height"]), length=float(params["length"]))
 
     # Model for the convergence analysis
     model = manu_sneddon_2d.MomentumBalanceGeometryBC
@@ -98,5 +98,5 @@ def test_order_of_convergence(
 ) -> None:
     """Test observed order of convergence.
     """
-    # We expect the order of L2 convergence on the fracture of dispplacement to be about 1.0 
+    # We  the order of L2 convergence on the fracture of dispplacement to be about 1.0 
     assert 0.85 <   actual_ooc["ooc_displacement"]
