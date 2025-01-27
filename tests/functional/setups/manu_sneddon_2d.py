@@ -251,7 +251,7 @@ class ManuExactSneddon2dSetup:
     
 
     def exact_sol_fracture( self,
-    gb: pp.GridLike ) -> tuple:
+    gb: pp.MixedDimensionalGrid) -> tuple:
         """
         Compute Sneddon's analytical solution for the pressurized crack
         problem in question.
