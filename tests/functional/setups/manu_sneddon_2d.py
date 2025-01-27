@@ -3,6 +3,8 @@ import porepy as pp
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.protocol import PorePyModel
+from typing import Literal
+
 
 from dataclasses import dataclass
 
@@ -300,7 +302,7 @@ class ModifiedGeometry(PorePyModel):
             }
         )
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         """Choosing the grid type for our domain."""
         return self.params.get("grid_type", "simplex")
 
