@@ -2,6 +2,7 @@ import numpy as np
 import porepy as pp
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.models.protocol import PorePyModel
 
 from dataclasses import dataclass
 
@@ -90,7 +91,7 @@ def transform(xc: np.ndarray, x: np.ndarray, alpha: float) -> np.ndarray:
 
 
 def get_bc_val(
-    g: pp.GridLike,
+    g: pp.Grid,
     bound_faces: np.ndarray,
     xf: np.ndarray,
     h: float,
@@ -112,7 +113,7 @@ def get_bc_val(
     Return:
         Boundary values for the displacement
     """
-
+    
     # Equations for f2,f3,f4.f5 can be found in book Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics pages 57, 84-92, 168
     f2 = np.zeros(bound_faces.size)
     f3 = np.zeros(bound_faces.size)
@@ -286,7 +287,7 @@ class ManuExactSneddon2dSetup:
 
 
 
-class ModifiedGeometry:
+class ModifiedGeometry(PorePyModel):
     def set_domain(self) -> None:
         """Defining a two-dimensional square domain with sidelengths length and height."""
 
@@ -310,7 +311,7 @@ class ModifiedGeometry:
         self._fractures = [pp.LineFracture(points)]
 
 
-class ModifiedBoundaryConditions:
+class ModifiedBoundaryConditions(PorePyModel):
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Set boundary condition type for the problem.
         Parameters:
@@ -355,7 +356,7 @@ class ModifiedBoundaryConditions:
         return bg.projection(2) @ u_exact.ravel("F")
 
 
-class PressureStressMixin:
+class PressureStressMixin(PorePyModel):
     def pressure(self, subdomains: pp.Grid):
         """Discretization of the stress tensor.
 
