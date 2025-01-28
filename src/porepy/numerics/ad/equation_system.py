@@ -1566,50 +1566,42 @@ class EquationSystem:
         if evaluate_jacobian:
             self.assembled_equation_indices = dict()
 
-        # eq_set = [self._equations[key] for key in equ_blocks]
-        # self.operator_value_and_jacobian(eq_set, state)
-        
-        # Iterate over equations, assemble.
-        # Also keep track of the row indices of each equation, and store it in
-        # assembled_equation_indices.
-        for equ_name, rows in equ_blocks.items():
-            # This will raise a key error if the equation name is unknown.
-            eq = self._equations[equ_name]
+        eqs = [self._equations[name] for name in equ_blocks]
+        rows = list(equ_blocks.values())
 
-            if not evaluate_jacobian:
-                # Evaluate the residual vector only. Enforce that the result is a numpy
-                # array.
-                val = np.asarray(eq.value(self, state))
-                if rows is not None:
-                    rhs.append(val[rows])
+        # The evaluation method to use depends on whether the Jacobian is requested.
+        if not evaluate_jacobian:
+            values = self.operator_value(eqs, state)
+            for row, val in zip(rows, values):
+                if row is not None:
+                    rhs.append(val[row])
                 else:
                     rhs.append(val)
-                # Go to the next equation
-                continue
+        else:
+            ad = self.operator_value_and_jacobian(eqs, state)
+            for row, equ_name, ad in zip(rows, equ_blocks, ad):
 
-            ad = eq.value_and_jacobian(self, state)
+                if row is not None:
+                    # If restriction to grid-related row blocks was made, perform row
+                    # slicing based on information we have obtained from parsing.
+                    mat.append(ad.jac.tocsr()[row])
+                    rhs.append(ad.val[row])
+                    block_length = len(rhs[-1])
+                else:
+                    # If no grid-related row restriction was made, append the whole
+                    # thing.
+                    mat.append(ad.jac)
+                    rhs.append(ad.val)
+                    block_length = len(ad.val)
 
-            # If restriction to grid-related row blocks was made,
-            # perform row slicing based on information we have obtained from parsing.
-            if rows is not None:
-                mat.append(ad.jac.tocsr()[rows])
-                rhs.append(ad.val[rows])
-                block_length = len(rhs[-1])
-            # If no grid-related row restriction was made, append the whole thing.
-            else:
-                mat.append(ad.jac)
-                rhs.append(ad.val)
-                block_length = len(ad.val)
+                # Create indices range and shift to correct position.
+                block_indices = np.arange(block_length) + ind_start
+                # Extract last index and add 1 to get the starting point for next block
+                # of indices.
+                self.assembled_equation_indices.update({equ_name: block_indices})
+                if block_length > 0:
+                    ind_start = block_indices[-1] + 1
 
-            # Create indices range and shift to correct position.
-            block_indices = np.arange(block_length) + ind_start
-            # Extract last index and add 1 to get the starting point for next block of
-            # indices.
-
-            self.assembled_equation_indices.update({equ_name: block_indices})
-
-            if block_length > 0:
-                ind_start = block_indices[-1] + 1
         # Concatenate results equation-wise.
         if len(rhs) > 0:
             if evaluate_jacobian:
