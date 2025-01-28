@@ -198,7 +198,7 @@ def run_model_with_tracer(args, model) -> None:
             refinement.
             - min_duration (int): Minimum duration in microseconds for a function to be
             recorded by VizTracer.
-            - keep_output (bool): Whether to keep the output file after viewing it.
+            - clear_output (bool): Whether to clear the output file after viewing it.
         model: The model to be run and profiled.
 
     Raises:
@@ -249,7 +249,7 @@ def run_model_with_tracer(args, model) -> None:
     results_path = pathlib.Path(__file__).parent / save_file
     tracer.save(str(results_path))
     subprocess.run(["vizviewer", "--port", "9002", results_path])
-    if not args.keep_output:
+    if args.clear_output:
         results_path.unlink()
 
 
@@ -288,10 +288,10 @@ if __name__ == "__main__":
         + " named after the chosen physics, geometry, and grid refinement.",
     )
     parser.add_argument(
-        "--keep_output",
+        "--clear_output",
         action="store_true",
-        default=True,
-        help="Keep viztracer output after running.",
+        help="Clear viztracer output after running. By default, the log files are"
+        + " kept.",
     )
     parser.add_argument(
         "--min_duration",
