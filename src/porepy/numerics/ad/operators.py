@@ -9,6 +9,7 @@ from functools import reduce
 from hashlib import sha256
 from itertools import count
 from typing import Any, Callable, Literal, Optional, Sequence, TypeVar, Union, overload
+from collections import deque
 
 import numpy as np
 import scipy.sparse as sps
@@ -256,6 +257,67 @@ class Operator:
         self.children = [] if children is None else children
         self.operation = Operator.Operations.void if operation is None else operation
         self._set_nx_graph(children=children)
+
+    def as_graph(self, depth_first: bool=True) -> tuple[nx.DiGraph, dict[int, Operator]]:
+        """Return the operator tree as a directed graph using networkx.
+        
+        Since networkx uses the object hash as the node id, and operators can share the
+        same hash, we cannot use the operator themselves as nodes. Instead, the nodes in
+        the graph are integers. To map the nodes back to the operators, a dictionary is
+        returned. For a given node, the actual operator is stored as an attribute, with
+        key "obj".
+
+        The graph will actually be that of a tree with self as root. The parameter
+        depth_first determines if the graph is constructed, and node ids assigned, by
+        depth-first or breadth-first traversal. 
+        EK comment: At the moment, it is not clear whether this has any pratcital impact
+        on the graph properties, e.g. for traversal.
+
+        The edges of the graph are directed from parent to child. The attribute
+        "operand_id" is used to store the index of the child in the parent's children
+        list. This identifies the left and right operand, e.g. in a multiplication
+        operation.
+
+        Parameters:
+            depth_first: If True, the graph is traversed depth-first, otherwise
+                breadth-first.
+            
+        Returns:
+            A tuple with the graph and a dictionary mapping the nodes to the operators.
+
+        """
+
+        idx = count(0)
+        
+        graph = nx.DiGraph()
+        queue = deque([self])
+        # Add the root node.
+        id = next(idx)
+        graph.add_node(id, obj=self)
+
+        node_map: dict[int, Operator] = {}
+        node_map[self] = id
+
+        while queue:
+            # Depth-first traversal is implemented by popping from the right (last in,
+            # first out).
+            if depth_first:
+                parent = queue.popright()
+            else:
+                parent = queue.popleft()
+            
+            for counter, child in enumerate(parent.children):
+                id = next(idx)
+                # Add the child to the graph, store the mapping between the node id
+                # and the operator, and make the edge between the parent and the child.
+                graph.add_node(id, obj=child)
+                node_map[child] = id
+                graph.add_edge(node_map[parent], node_map[child], operand_id=counter)
+                # Always append to the right.
+                queue.append(child)
+
+        return graph, node_map
+
 
     def _set_nx_graph(self, children: Optional[Sequence[Operator]] = None):
         if children is None:
