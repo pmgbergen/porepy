@@ -13,7 +13,6 @@ class AdParser:
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         self._mdg = mdg
         self._cache = {}
-        self._alt_cache = {}
 
     def value(self, x: pp.ad.Operator | list[pp.ad.Operator], eq_sys: pp.ad.EquationSystem, state: np.ndarray | None) -> np.ndarray:
         return self._evaluate(x, derivative=False, eq_sys=eq_sys, state=state)
@@ -39,23 +38,21 @@ class AdParser:
         if state is None:
             state = eq_sys.get_variable_values(iterate_index=0)
 
-        if not isinstance(x, list):
-            x = [x]
-        
         # What will happen here if state is None? On the other hand, it should be
         # possible to evaluate the operator without a state, if the operator does not
         # depend on the state (e.g. it is a numpy array).
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
-        results = []
-        for op in x:
-            results.append(self._alt_eval(op, ad_base, eq_sys))
-
-        return results
-
-    def _alt_eval(self, op, ad_base, eq_sys):
-        if op in self._alt_cache:
-            cached = self._alt_cache[op]
+        if isinstance(x, list):
+            result = [self._evaluate_single(op, ad_base, eq_sys) for op in x]
+        else:
+            result = self._evaluate_single(x, ad_base, eq_sys)
+        self.clear_cache()
+        return result
+    
+    def _evaluate_single(self, op, ad_base, eq_sys):
+        if op in self._cache:
+            cached = self._cache[op]
             return cached
 
         if op.is_leaf():
@@ -73,34 +70,28 @@ class AdParser:
                         vals[sub_dofs] = sub_var.parse(eq_sys.mdg)
                         dofs.append(sub_dofs)
 
-                    res = vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
-                    # self._alt_cache[op] = res
-                    return res
+                    return vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
                 # Like for atomic variables, ad_base contains current time and iter
                 else:
-                    res = ad_base[eq_sys.dofs_of([op])]
-                    # self._alt_cache[op] = res
-                    return res                    
+                    return ad_base[eq_sys.dofs_of([op])]
             # Case 2.b) atomic variables
             elif isinstance(op, pp.ad.Variable):
                 # If a variable represents a previous iteration or time, parse values.
                 if op.is_previous_iterate or op.is_previous_time:
-                    res= op.parse(eq_sys.mdg)
-                    # self._alt_cache[op] = res
-                    return res                    
+                    return op.parse(eq_sys.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
-                    res= ad_base[eq_sys.dofs_of([op])]
-                    # self._alt_cache[op] = res
-                    return res                    
+                    return ad_base[eq_sys.dofs_of([op])]
             # Case 2.c) All other leafs like discretizations or some wrapped data
             else:
                 # Mypy complains because the return type of parse is Any.
-                res= op.parse(eq_sys.mdg)  # type:ignore
-                self._alt_cache[op] = res
+                res = op.parse(eq_sys.mdg)  # type:ignore
+                # Profiling indicated that in this case, caching actually pays off, so
+                # we keep it.
+                self._cache[op] = res
                 return res                
         
-        child_values = [self._alt_eval(child, ad_base, eq_sys) for child in op.children]
+        child_values = [self._evaluate_single(child, ad_base, eq_sys) for child in op.children]
     
         # Get the operation represented by op.
         operation = op.operation
@@ -119,9 +110,7 @@ class AdParser:
             try:
                 # An error here would typically be a dimension mismatch between the
                 # involved operators.
-                res = child_values[0] + child_values[1]
-                self._alt_cache[op] = res
-                return res                
+                return child_values[0] + child_values[1]
             except ValueError as exc:
                 msg = self._get_error_message("adding", op.children, child_values)
                 raise ValueError(msg) from exc
@@ -141,9 +130,7 @@ class AdParser:
             try:
                 # An error here would typically be a dimension mismatch between the
                 # involved operators.
-                res = factor * (child_values[0] - child_values[1])
-                # self._alt_cache[op] = res
-                return res                
+                return factor * (child_values[0] - child_values[1])
             except ValueError as exc:
                 msg = self._get_error_message("subtracting", op.children, child_values)
                 raise ValueError(msg) from exc
@@ -163,9 +150,7 @@ class AdParser:
             try:
                 # An error here would typically be a dimension mismatch between the
                 # involved operators.
-                res = child_values[0] * child_values[1]
-                # self._alt_cache[op] = res
-                return res                
+                return  child_values[0] * child_values[1]
             except ValueError as exc:
                 msg = self._get_error_message("multiplying", op.children, child_values)
                 raise ValueError(msg) from exc
@@ -180,12 +165,10 @@ class AdParser:
                     # If numpy's __truediv__ method is called here, the result will be
                     # strange because of how numpy works. Instead we directly invoke the
                     # right-truedivide method in the AdArary.
-                    res = child_values[1].__rtruediv__(child_values[0])
-                    # self._alt_cache[op] = res
-                    return res                    
+                    return  child_values[1].__rtruediv__(child_values[0])
                 else:
                     res = child_values[0] / child_values[1]
-                    # self._alt_cache[op] = res
+                    # self._cache[op] = res
                     return res                    
             except ValueError as exc:
                 msg = self._get_error_message("dividing", op.children, child_values)
@@ -199,13 +182,9 @@ class AdParser:
                     # If numpy's __pow__ method is called here, the result will be
                     # strange because of how numpy works. Instead we directly invoke the
                     # right-power method in the AdArary.
-                    res = child_values[1].__rpow__(child_values[0])
-                    # self._alt_cache[op] = res
-                    return res                    
+                    return  child_values[1].__rpow__(child_values[0])
                 else:
-                    res= child_values[0] ** child_values[1]
-                    # self._alt_cache[op] = res
-                    return res                    
+                    return  child_values[0] ** child_values[1]
             except ValueError as exc:
                 msg = self._get_error_message(
                     "raising to a power", op.children, child_values
@@ -219,19 +198,9 @@ class AdParser:
                 ):
                     # Again, we do not want to call numpy's matmul method, but instead
                     # directly invoke AdArarray's right matmul.
-                    res = child_values[1].__rmatmul__(child_values[0])
-                    # self._alt_cache[op] = res
-                    return res                    
-                # elif isinstance(results[1], np.ndarray) and isinstance(
-                #     results[0], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
-                # ):
-                #     # Again, we do not want to call numpy's matmul method, but instead
-                #     # directly invoke AdArarray's right matmul.
-                #     return results[0].__rmatmul__(results[1])
+                    return  child_values[1].__rmatmul__(child_values[0])
                 else:
-                    res = child_values[0] @ child_values[1]
-                    # self._alt_cache[op] = res
-                    return res                    
+                    return  child_values[0] @ child_values[1]
             except ValueError as exc:
                 msg = self._get_error_message(
                     "matrix multiplying", op.children, child_values
@@ -248,7 +217,7 @@ class AdParser:
 
             try:
                 res = op.func(*child_values)
-                # self._alt_cache[op] = res
+                # self._cache[op] = res
                 return res                
             except Exception as exc:
                 # TODO specify what can go wrong here (Exception type)
