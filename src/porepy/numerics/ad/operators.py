@@ -89,7 +89,6 @@ def _get_previous_time_or_iterate(
             _get_previous_time_or_iterate(child, prev_time=prev_time, steps=steps)
             for child in op.children
         ]
-        new_op._set_nx_graph(children=new_op.children)
         return new_op
 
 
@@ -192,8 +191,6 @@ class Operator:
         Will be empty if the operator is a leaf.
         """
 
-        self.nx_graph: nx.DiGraph
-
         self.operation: Operator.Operations
         """Arithmetic or other operation represented by this operator.
 
@@ -250,7 +247,6 @@ class Operator:
         """
         self.children = [] if children is None else children
         self.operation = Operator.Operations.void if operation is None else operation
-        self._set_nx_graph(children=children)
 
     def as_graph(self, depth_first: bool=True) -> tuple[nx.DiGraph, dict[int, Operator]]:
         """Return the operator tree as a directed graph using networkx.
@@ -311,35 +307,6 @@ class Operator:
                 queue.append(child)
 
         return graph, node_map
-
-
-    def _set_nx_graph(self, children: Optional[Sequence[Operator]] = None):
-        if children is None:
-            self.nx_graph = nx.DiGraph()
-            self.nx_graph.add_node(next(Operator._nx_node_counter), obj=self, root=True)
-        else:
-            graph = nx.DiGraph()
-            self_id = next(Operator._nx_node_counter)
-            graph.add_node(self_id, obj=self, root=True)
-            for counter, child in enumerate(children):
-
-                node_map = {}
-                for old_node_id in child.nx_graph.nodes:
-                    new_node_id = next(Operator._nx_node_counter)
-                    node_map[old_node_id] = new_node_id
-                    old_obj = child.nx_graph.nodes[old_node_id]["obj"]
-                    graph.add_node(new_node_id, obj=old_obj, root=False)
-                    if old_obj == child:
-                        graph.add_edge(self_id, new_node_id, operand_id=counter)
-
-                for edge in child.nx_graph.edges:
-                    graph.add_edge(
-                        node_map[edge[0]],
-                        node_map[edge[1]],
-                        operand_id=child.nx_graph.edges[edge]["operand_id"],
-                    )
-
-            self.nx_graph = graph
 
     def is_leaf(self) -> bool:
         """Check if this operator is a leaf in the tree-representation of an expression.
@@ -985,7 +952,6 @@ class TimeDependentOperator(Operator):
         else:
             op.original_operator = self.original_operator
 
-        op._set_nx_graph()
         return op
 
 
@@ -1101,7 +1067,6 @@ class IterativeOperator(Operator):
         else:
             op.original_operator = self.original_operator
 
-        op._set_nx_graph()
         return op
 
 
