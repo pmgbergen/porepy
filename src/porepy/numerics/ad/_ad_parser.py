@@ -285,3 +285,62 @@ class AdParser:
         msg += "Note that a size mismatch may be caused by an error in the definition\n"
         msg += "of the intended result, or in the definition of one of the arguments."
         return msg
+
+    def _parse_readable(self) -> str:
+        """
+        Make a human-readable error message related to a parsing error.
+        NOTE: The exact formatting should be considered work in progress,
+        in particular when it comes to function evaluation.
+        """
+
+        # There are three cases to consider: Either the operator is a leaf,
+        # it is a composite operator with a name, or it is a general composite
+        # operator.
+        if self.is_leaf():
+            # Leafs are represented by their strings.
+            return str(self)
+        elif self._name is not None:
+            # Composite operators that have been given a name (possibly
+            # with a goal of simple identification of an error)
+            return self._name
+
+        # General operator. Split into its parts by recursion.
+        child_str = [child._parse_readable() for child in self.children]
+
+        is_func = False
+        operator_str = None
+
+        # readable representations of known operations
+        op = self.operation
+        if op == pp.ad.Operator.Operations.add:
+            operator_str = "+"
+        elif op == pp.ad.Operator.Operations.sub:
+            operator_str = "-"
+        elif op == pp.ad.Operator.Operations.mul:
+            operator_str = "*"
+        elif op == pp.ad.Operator.Operations.matmul:
+            operator_str = "@"
+        elif op ==pp.ad.Operator.Operations.div:
+            operator_str = "/"
+        elif op == pp.ad.Operator.Operations.pow:
+            operator_str = "**"
+
+        # function evaluations have their own readable representation
+        elif op == pp.ad.Operator.Operations.evaluate:
+            is_func = True
+        # for unknown operations, 'operator_str' remains None
+
+        # error message for function evaluations
+        if is_func:
+            msg = f"{child_str[0]}("
+            msg += ", ".join([f"{child}" for child in child_str[1:]])
+            msg += ")"
+            return msg
+        # if operation is unknown, a new error will be raised to raise awareness
+        elif operator_str is None:
+            msg = "UNKNOWN parsing of operation on: "
+            msg += ", ".join([f"{child}" for child in child_str])
+            raise NotImplementedError(msg)
+        # error message for known Operations
+        else:
+            return f"({child_str[0]} {operator_str} {child_str[1]})"
