@@ -422,7 +422,6 @@ class Operator:
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
-    @profile
     def _parse_operator(
         self,
         op: Operator,
@@ -933,25 +932,10 @@ class Operator:
 
         # 2. Parse operators. This is left to a separate function to facilitate the
         # necessary recursion for complex operators.
-        eq = self._parse_operator(self, system_manager, ad_base)
-        # if evaluate_jacobian:
-        #     eq2 = system_manager.operator_value_and_jacobian(self, state)
-        # else:
-        #     eq2 = system_manager.operator_value(self, state)
-
-            
-        if isinstance(eq, AdArray):
-            eq2 = system_manager.operator_value_and_jacobian(self, state)     
-            # If the result is an AdArray, we are done.
-            assert np.all(eq.val == eq2.val)
-            assert np.all(eq.jac.toarray() == eq2.jac.toarray())
+        if evaluate_jacobian:
+            eq = system_manager.operator_value_and_jacobian(self, state)
         else:
-            eq2 = system_manager.operator_value(self, state)
-            if isinstance(eq, sps.spmatrix):
-                assert np.all(eq.toarray() == eq2.toarray())
-            else:
-                assert np.all(eq == eq2)
-
+            eq = system_manager.operator_value(self, state)
 
         return eq
 
