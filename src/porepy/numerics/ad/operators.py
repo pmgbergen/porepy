@@ -4,22 +4,22 @@
 from __future__ import annotations
 
 import copy
+from collections import deque
 from enum import Enum
 from functools import reduce
 from hashlib import sha256
 from itertools import count
 from typing import Any, Callable, Literal, Optional, Sequence, TypeVar, Union, overload
-from collections import deque
 
+import networkx as nx
 import numpy as np
 import scipy.sparse as sps
-import networkx as nx
 
 import porepy as pp
 from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 from . import _ad_utils
-from .forward_mode import AdArray, initAdArrays
+from .forward_mode import AdArray
 
 __all__ = [
     "Operator",
@@ -33,8 +33,6 @@ __all__ = [
     "MixedDimensionalVariable",
     "sum_operator_list",
 ]
-
-
 
 
 def _get_previous_time_or_iterate(
@@ -117,6 +115,7 @@ class Operator:
             list.
 
     """
+
     _nx_node_counter: int = count(0)
 
     class Operations(Enum):
@@ -202,7 +201,6 @@ class Operator:
         self._initialize_children(operation=operation, children=children)
         self._cached_key: Optional[str] = None
 
-
     @property
     def interfaces(self):
         """List of interfaces on which the operator is defined, passed at instantiation.
@@ -248,9 +246,11 @@ class Operator:
         self.children = [] if children is None else children
         self.operation = Operator.Operations.void if operation is None else operation
 
-    def as_graph(self, depth_first: bool=True) -> tuple[nx.DiGraph, dict[int, Operator]]:
+    def as_graph(
+        self, depth_first: bool = True
+    ) -> tuple[nx.DiGraph, dict[int, Operator]]:
         """Return the operator tree as a directed graph using networkx.
-        
+
         Since networkx uses the object hash as the node id, and operators can share the
         same hash, we cannot use the operator themselves as nodes. Instead, the nodes in
         the graph are integers. To map the nodes back to the operators, a dictionary is
@@ -259,7 +259,7 @@ class Operator:
 
         The graph will actually be that of a tree with self as root. The parameter
         depth_first determines if the graph is constructed, and node ids assigned, by
-        depth-first or breadth-first traversal. 
+        depth-first or breadth-first traversal.
         EK comment: At the moment, it is not clear whether this has any pratcital impact
         on the graph properties, e.g. for traversal.
 
@@ -271,14 +271,14 @@ class Operator:
         Parameters:
             depth_first: If True, the graph is traversed depth-first, otherwise
                 breadth-first.
-            
+
         Returns:
             A tuple with the graph and a dictionary mapping the nodes to the operators.
 
         """
 
         idx = count(0)
-        
+
         graph = nx.DiGraph()
         queue = deque([self])
         # Add the root node.
@@ -295,7 +295,7 @@ class Operator:
                 parent = queue.popright()
             else:
                 parent = queue.popleft()
-            
+
             for counter, child in enumerate(parent.children):
                 id = next(idx)
                 # Add the child to the graph, store the mapping between the node id
@@ -1098,7 +1098,7 @@ class SparseArray(Operator):
         # TODO: Make readonly, see https://github.com/pmgbergen/porepy/issues/1214
         self._hash_value: str = self._compute_spmatrix_hash(mat)
         """String to uniquly identify the contents of the matrix."""
-        
+
         super().__init__(name=name)
 
     def _key(self) -> str:
@@ -1311,7 +1311,9 @@ class TimeDependentDenseArray(TimeDependentOperator):
     def _key(self) -> str:
         if self._cached_key is None:
             domain_ids = [domain.id for domain in self.domains]
-            self._cached_key = f"(time_dependent_dense_array, name={self.name}, domains={domain_ids})"
+            self._cached_key = (
+                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids})"
+            )
         return self._cached_key
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:

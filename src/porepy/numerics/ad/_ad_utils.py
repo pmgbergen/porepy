@@ -524,12 +524,6 @@ class MergedOperator(operators.Operator):
 
     """
 
-    def _key(self) -> str:
-        return (
-            f"(merged_op, discretization_matrix_key={self._discretization_matrix_key},"
-            f" physics_key={self._physics_key}, domains={[d.id for d in self.domains]})"
-        )
-
     def __init__(
         self,
         discr: pp.discretization_type,
@@ -570,7 +564,7 @@ class MergedOperator(operators.Operator):
 
     def __str__(self) -> str:
         return f"{self._name}({self._physics_key}).{self._discretization_matrix_key}"
-    
+
     def _key(self) -> str:
         if self._cached_key is None:
             domain_ids = [domain.id for domain in self.domains]
@@ -582,7 +576,6 @@ class MergedOperator(operators.Operator):
 
             self._cached_key = s
         return self._cached_key
-
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
         """Convert a merged operator into a sparse matrix by concatenating
