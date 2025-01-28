@@ -1,30 +1,46 @@
 from __future__ import annotations
 
-import numpy as np
-import porepy as pp
-import heapq
-import networkx as nx
+from typing import Any
 
+import numpy as np
 import scipy.sparse as sps
+
+import porepy as pp
 
 
 class AdParser:
-    
+
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         self._mdg = mdg
         self._cache = {}
 
-    def value(self, x: pp.ad.Operator | list[pp.ad.Operator], eq_sys: pp.ad.EquationSystem, state: np.ndarray | None) -> np.ndarray:
+    def value(
+        self,
+        x: pp.ad.Operator | list[pp.ad.Operator],
+        eq_sys: pp.ad.EquationSystem,
+        state: np.ndarray | None,
+    ) -> np.ndarray:
         return self._evaluate(x, derivative=False, eq_sys=eq_sys, state=state)
 
-    def value_and_jacobian(self, x: pp.ad.Operator | list[pp.ad.Operator], eq_sys: pp.ad.EquationSystem, state: np.ndarray) -> pp.ad.AdArray:
+    def value_and_jacobian(
+        self,
+        x: pp.ad.Operator | list[pp.ad.Operator],
+        eq_sys: pp.ad.EquationSystem,
+        state: np.ndarray,
+    ) -> pp.ad.AdArray:
         return self._evaluate(x, derivative=True, eq_sys=eq_sys, state=state)
 
     def clear_cache(self):
-        self._cache = {}
+        self._cache: dict[pp.ad.Operator, Any] = {}
 
     # @profile
-    def _evaluate(self, x: pp.ad.Operator, derivative: bool, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None) -> np.ndarray | pp.ad.AdArray:
+    def _evaluate(
+        self,
+        x: pp.ad.Operator,
+        derivative: bool,
+        eq_sys: pp.ad.EquationSystem,
+        state: np.ndarray | None,
+    ) -> np.ndarray | pp.ad.AdArray:
         """Evaluate the operator x and its derivative if requested.
 
         A forward mode automatic differentiation is used to evaluate the operator x.
@@ -49,7 +65,7 @@ class AdParser:
             result = self._evaluate_single(x, ad_base, eq_sys)
         self.clear_cache()
         return result
-    
+
     def _evaluate_single(self, op, ad_base, eq_sys):
         if op in self._cache:
             cached = self._cache[op]
@@ -89,10 +105,12 @@ class AdParser:
                 # Profiling indicated that in this case, caching actually pays off, so
                 # we keep it.
                 self._cache[op] = res
-                return res                
-        
-        child_values = [self._evaluate_single(child, ad_base, eq_sys) for child in op.children]
-    
+                return res
+
+        child_values = [
+            self._evaluate_single(child, ad_base, eq_sys) for child in op.children
+        ]
+
         # Get the operation represented by op.
         operation = op.operation
 
@@ -150,7 +168,7 @@ class AdParser:
             try:
                 # An error here would typically be a dimension mismatch between the
                 # involved operators.
-                return  child_values[0] * child_values[1]
+                return child_values[0] * child_values[1]
             except ValueError as exc:
                 msg = self._get_error_message("multiplying", op.children, child_values)
                 raise ValueError(msg) from exc
@@ -165,11 +183,11 @@ class AdParser:
                     # If numpy's __truediv__ method is called here, the result will be
                     # strange because of how numpy works. Instead we directly invoke the
                     # right-truedivide method in the AdArary.
-                    return  child_values[1].__rtruediv__(child_values[0])
+                    return child_values[1].__rtruediv__(child_values[0])
                 else:
                     res = child_values[0] / child_values[1]
                     # self._cache[op] = res
-                    return res                    
+                    return res
             except ValueError as exc:
                 msg = self._get_error_message("dividing", op.children, child_values)
                 raise ValueError(msg) from exc
@@ -182,9 +200,9 @@ class AdParser:
                     # If numpy's __pow__ method is called here, the result will be
                     # strange because of how numpy works. Instead we directly invoke the
                     # right-power method in the AdArary.
-                    return  child_values[1].__rpow__(child_values[0])
+                    return child_values[1].__rpow__(child_values[0])
                 else:
-                    return  child_values[0] ** child_values[1]
+                    return child_values[0] ** child_values[1]
             except ValueError as exc:
                 msg = self._get_error_message(
                     "raising to a power", op.children, child_values
@@ -198,9 +216,9 @@ class AdParser:
                 ):
                     # Again, we do not want to call numpy's matmul method, but instead
                     # directly invoke AdArarray's right matmul.
-                    return  child_values[1].__rmatmul__(child_values[0])
+                    return child_values[1].__rmatmul__(child_values[0])
                 else:
-                    return  child_values[0] @ child_values[1]
+                    return child_values[0] @ child_values[1]
             except ValueError as exc:
                 msg = self._get_error_message(
                     "matrix multiplying", op.children, child_values
@@ -209,7 +227,9 @@ class AdParser:
 
         elif operation == pp.ad.Operator.Operations.evaluate:
             # Operator functions should have at least 1 child (themselves)
-            assert len(child_values) >= 1, "Operator functions must have at least 1 child."
+            assert (
+                len(child_values) >= 1
+            ), "Operator functions must have at least 1 child."
             assert hasattr(op, "func"), (
                 f"Operators with operation {operation} must have a functional"
                 + f" representation `func` implemented as a callable member."
@@ -218,7 +238,7 @@ class AdParser:
             try:
                 res = op.func(*child_values)
                 # self._cache[op] = res
-                return res                
+                return res
             except Exception as exc:
                 # TODO specify what can go wrong here (Exception type)
                 msg = "Error while parsing operator function:\n"
@@ -227,7 +247,6 @@ class AdParser:
 
         else:
             raise ValueError(f"Encountered unknown operation {operation}")
-
 
     def _get_error_message(
         self, operation: str, children: list[pp.ad.Operator], results: list
@@ -320,7 +339,7 @@ class AdParser:
             operator_str = "*"
         elif op == pp.ad.Operator.Operations.matmul:
             operator_str = "@"
-        elif op ==pp.ad.Operator.Operations.div:
+        elif op == pp.ad.Operator.Operations.div:
             operator_str = "/"
         elif op == pp.ad.Operator.Operations.pow:
             operator_str = "**"
