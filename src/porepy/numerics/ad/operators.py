@@ -955,40 +955,6 @@ class Operator:
 
         return eq
 
-    def find_variables_in_tree(self) -> Sequence[Variable | MixedDimensionalVariable]:
-        """Method to recursively look for Variables (or MixedDimensionalVariables) in an
-        operator tree.
-        """
-        # The variables should be located at leaves in the tree. Traverse the tree
-        # recursively, look for variables, and then gather the results.
-
-        if isinstance(self, Variable):
-            # We are at the bottom of a branch of the tree, return the operator
-            return [self]
-        else:
-            # We need to look deeper in the tree.
-            # Look for variables among the children
-            sub_variables: list[Variable] = []
-            # When using nested pp.ad.Functions, some of the children may be AdArrays
-            # (forward mode), rather than Operators. For the former, don't look for
-            # children - they have none.
-            for child in self.children:
-                if isinstance(child, Operator):
-                    sub_variables += child.find_variables_in_tree()
-
-            # Some work is needed to parse the information
-            var_list: list[Variable] = []
-            for var in sub_variables:
-                if isinstance(var, Variable):
-                    # Effectively, this node is one step from the leaf
-                    var_list.append(var)
-                elif isinstance(var, list):
-                    # We are further up in the tree.
-                    for sub_var in var:
-                        if isinstance(sub_var, Variable):
-                            var_list.append(sub_var)
-            return var_list
-
     ### Special methods ----------------------------------------------------------------
 
     def __str__(self) -> str:
