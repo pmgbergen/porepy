@@ -12,7 +12,7 @@ shapely
 six
 sympy
 typing_extensions
-black == 24.*
+black == 25.*
 deepdiff
 flake8
 isort
