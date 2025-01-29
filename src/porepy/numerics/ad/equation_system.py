@@ -1565,7 +1565,7 @@ class EquationSystem:
         if evaluate_jacobian:
             self.assembled_equation_indices = dict()
 
-        eqs = [self._equations[name] for name in equ_blocks]
+        eqs: list[pp.ad.Operator] = [self._equations[name] for name in equ_blocks]
         rows = list(equ_blocks.values())
 
         # The evaluation method to use depends on whether the Jacobian is requested.
@@ -1577,8 +1577,8 @@ class EquationSystem:
                 else:
                     rhs.append(val)
         else:
-            ad = self.operator_value_and_jacobian(eqs, state)
-            for row, equ_name, ad in zip(rows, equ_blocks, ad):
+            ad_list: list[pp.ad.AdArray] = self.operator_value_and_jacobian(eqs, state)
+            for row, equ_name, ad in zip(rows, equ_blocks, ad_list):
 
                 if row is not None:
                     # If restriction to grid-related row blocks was made, perform row
@@ -1876,9 +1876,21 @@ class EquationSystem:
 
     ### Evaluate Ad operators ----------------------------------------------------------
 
+    @overload
     def operator_value(
-        self, operator: pp.ad.Operator | list[pp.ad.Operator], state=None
-    ) -> np.ndarray:
+        self, operator: pp.ad.Operator, state: Optional[np.ndarray] = None
+    ) -> np.ndarray: ...
+
+    @overload
+    def operator_value(
+        self, operator: list[pp.ad.Operator], state: Optional[np.ndarray] = None
+    ) -> list[np.ndarray]: ...
+
+    def operator_value(
+        self,
+        operator: pp.ad.Operator | list[pp.ad.Operator],
+        state: Optional[np.ndarray] = None,
+    ) -> np.ndarray | list[np.ndarray]:
         """Evaluate an operator on the current state.
 
         Parameters:
@@ -1890,9 +1902,21 @@ class EquationSystem:
         """
         return self._ad_parser.value(operator, self, state)
 
+    @overload
     def operator_value_and_jacobian(
-        self, operator: pp.ad.Operator | list[pp.ad.Operator], state=None
-    ) -> pp.ad.AdArray:
+        self, operator: pp.ad.Operator, state: Optional[np.ndarray] = None
+    ) -> pp.ad.AdArray: ...
+
+    @overload
+    def operator_value_and_jacobian(
+        self, operator: list[pp.ad.Operator], state: Optional[np.ndarray] = None
+    ) -> list[pp.ad.AdArray]: ...
+
+    def operator_value_and_jacobian(
+        self,
+        operator: pp.ad.Operator | list[pp.ad.Operator],
+        state: Optional[np.ndarray] = None,
+    ) -> pp.ad.AdArray | list[pp.ad.AdArray]:
         """Evaluate an operator and its Jacobian on the current state.
 
         Parameters:

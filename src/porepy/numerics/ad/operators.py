@@ -116,8 +116,6 @@ class Operator:
 
     """
 
-    _nx_node_counter: int = count(0)
-
     class Operations(Enum):
         """Object representing all supported operations by the operator class.
 
@@ -248,7 +246,7 @@ class Operator:
 
     def as_graph(
         self, depth_first: bool = True
-    ) -> tuple[nx.DiGraph, dict[int, Operator]]:
+    ) -> tuple[nx.DiGraph, dict[Operator, int]]:
         """Return the operator tree as a directed graph using networkx.
 
         Since networkx uses the object hash as the node id, and operators can share the
@@ -285,14 +283,14 @@ class Operator:
         id = next(idx)
         graph.add_node(id, obj=self)
 
-        node_map: dict[int, Operator] = {}
+        node_map: dict[Operator, int] = {}
         node_map[self] = id
 
         while queue:
             # Depth-first traversal is implemented by popping from the right (last in,
             # first out).
             if depth_first:
-                parent = queue.popright()
+                parent = queue.pop()
             else:
                 parent = queue.popleft()
 
@@ -547,11 +545,9 @@ class Operator:
 
         # Use the system manager to evaluate the operator.
         if evaluate_jacobian:
-            eq = system_manager.operator_value_and_jacobian(self, state)
+            return system_manager.operator_value_and_jacobian(self, state)
         else:
-            eq = system_manager.operator_value(self, state)
-
-        return eq
+            return system_manager.operator_value(self, state)
 
     ### Special methods ----------------------------------------------------------------
 

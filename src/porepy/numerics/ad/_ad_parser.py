@@ -6,41 +6,103 @@ import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
+from typing import overload, Literal
 
 
 class AdParser:
 
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         self._mdg = mdg
-        self._cache = {}
+        self._cache: dict[pp.ad.Operator, Any] = {}
+
+    @overload
+    def value(
+        self, x: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None
+    ) -> np.ndarray: ...
+
+    @overload
+    def value(
+        self,
+        x: list[pp.ad.Operator],
+        eq_sys: pp.ad.EquationSystem,
+        state: np.ndarray | None,
+    ) -> list[np.ndarray]: ...
 
     def value(
         self,
         x: pp.ad.Operator | list[pp.ad.Operator],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
-    ) -> np.ndarray:
+    ) -> np.ndarray | list[np.ndarray]:
         return self._evaluate(x, derivative=False, eq_sys=eq_sys, state=state)
+
+    @overload
+    def value_and_jacobian(
+        self, x: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None
+    ) -> pp.ad.AdArray: ...
+
+    @overload
+    def value_and_jacobian(
+        self,
+        x: list[pp.ad.Operator],
+        eq_sys: pp.ad.EquationSystem,
+        state: np.ndarray | None,
+    ) -> list[pp.ad.AdArray]: ...
 
     def value_and_jacobian(
         self,
         x: pp.ad.Operator | list[pp.ad.Operator],
         eq_sys: pp.ad.EquationSystem,
-        state: np.ndarray,
-    ) -> pp.ad.AdArray:
+        state: np.ndarray | None,
+    ) -> pp.ad.AdArray | list[pp.ad.AdArray]:
         return self._evaluate(x, derivative=True, eq_sys=eq_sys, state=state)
 
     def clear_cache(self):
-        self._cache: dict[pp.ad.Operator, Any] = {}
+        self._cache = {}
 
-    # @profile
+    @overload
     def _evaluate(
         self,
         x: pp.ad.Operator,
+        derivative: Literal[True],
+        eq_sys: pp.ad.EquationSystem,
+        state: np.ndarray | None,
+    ) -> pp.ad.AdArray: ...
+
+    @overload
+    def _evaluate(
+        self,
+        x: pp.ad.Operator,
+        derivative: Literal[False],
+        eq_sys: pp.ad.EquationSystem,
+        state: np.ndarray | None,
+    ) -> np.ndarray: ...
+
+    @overload
+    def _evaluate(
+        self,
+        x: list[pp.ad.Operator],
+        derivative: Literal[True],
+        eq_sys: pp.ad.EquationSystem,
+        state: np.ndarray | None,
+    ) -> list[pp.ad.AdArray]: ...
+
+    @overload
+    def _evaluate(
+        self,
+        x: list[pp.ad.Operator],
+        derivative: Literal[False],
+        eq_sys: pp.ad.EquationSystem,
+        state: np.ndarray | None,
+    ) -> list[np.ndarray]: ...
+
+    def _evaluate(
+        self,
+        x: pp.ad.Operator | list[pp.ad.Operator],
         derivative: bool,
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
-    ) -> np.ndarray | pp.ad.AdArray:
+    ) -> np.ndarray | pp.ad.AdArray | list[np.ndarray] | list[pp.ad.AdArray]:
         """Evaluate the operator x and its derivative if requested.
 
         A forward mode automatic differentiation is used to evaluate the operator x.
@@ -130,7 +192,7 @@ class AdParser:
                 # involved operators.
                 return child_values[0] + child_values[1]
             except ValueError as exc:
-                msg = self._get_error_message("adding", op.children, child_values)
+                msg = self._get_error_message("adding", op, child_values)
                 raise ValueError(msg) from exc
 
         elif operation == pp.ad.Operator.Operations.sub:
@@ -150,7 +212,7 @@ class AdParser:
                 # involved operators.
                 return factor * (child_values[0] - child_values[1])
             except ValueError as exc:
-                msg = self._get_error_message("subtracting", op.children, child_values)
+                msg = self._get_error_message("subtracting", op, child_values)
                 raise ValueError(msg) from exc
 
         elif operation == pp.ad.Operator.Operations.mul:
@@ -170,7 +232,7 @@ class AdParser:
                 # involved operators.
                 return child_values[0] * child_values[1]
             except ValueError as exc:
-                msg = self._get_error_message("multiplying", op.children, child_values)
+                msg = self._get_error_message("multiplying", op, child_values)
                 raise ValueError(msg) from exc
 
         elif operation == pp.ad.Operator.Operations.div:
@@ -189,7 +251,7 @@ class AdParser:
                     # self._cache[op] = res
                     return res
             except ValueError as exc:
-                msg = self._get_error_message("dividing", op.children, child_values)
+                msg = self._get_error_message("dividing", op, child_values)
                 raise ValueError(msg) from exc
 
         elif operation == pp.ad.Operator.Operations.pow:
@@ -204,9 +266,7 @@ class AdParser:
                 else:
                     return child_values[0] ** child_values[1]
             except ValueError as exc:
-                msg = self._get_error_message(
-                    "raising to a power", op.children, child_values
-                )
+                msg = self._get_error_message("raising to a power", op, child_values)
                 raise ValueError(msg) from exc
 
         elif operation == pp.ad.Operator.Operations.matmul:
@@ -220,9 +280,7 @@ class AdParser:
                 else:
                     return child_values[0] @ child_values[1]
             except ValueError as exc:
-                msg = self._get_error_message(
-                    "matrix multiplying", op.children, child_values
-                )
+                msg = self._get_error_message("matrix multiplying", op, child_values)
                 raise ValueError(msg) from exc
 
         elif operation == pp.ad.Operator.Operations.evaluate:
@@ -249,11 +307,11 @@ class AdParser:
             raise ValueError(f"Encountered unknown operation {operation}")
 
     def _get_error_message(
-        self, operation: str, children: list[pp.ad.Operator], results: list
+        self, operation: str, op: pp.ad.Operator, results: list
     ) -> str:
         # Helper function to format error message
-        msg_0 = children[0]._parse_readable()
-        msg_1 = children[1]._parse_readable()
+        msg_0 = self._parse_readable(op.children[0])
+        msg_1 = self._parse_readable(op.children[1])
 
         nl = "\n"
         msg = f"Ad parsing: Error when {operation}\n\n"
@@ -261,16 +319,16 @@ class AdParser:
         # the below code refers to c as the intended result, and a and b as the first
         # and second argument, respectively.
         msg += "Information on names given to the operators involved: \n"
-        if len(self.name) > 0:
-            msg += f"Name of the intended result: {self.name}\n"
+        if len(op.name) > 0:
+            msg += f"Name of the intended result: {op.name}\n"
         else:
             msg += "The intended result is not named\n"
-        if len(children[0].name) > 0:
-            msg += f"Name of the first argument: {children[0].name}\n"
+        if len(op.children[0].name) > 0:
+            msg += f"Name of the first argument: {op.children[0].name}\n"
         else:
             msg += "The first argument is not named\n"
-        if len(children[1].name) > 0:
-            msg += f"Name of the second argument: {children[1].name}\n"
+        if len(op.children[1].name) > 0:
+            msg += f"Name of the second argument: {op.children[1].name}\n"
         else:
             msg += "The second argument is not named\n"
         msg += nl
@@ -305,7 +363,7 @@ class AdParser:
         msg += "of the intended result, or in the definition of one of the arguments."
         return msg
 
-    def _parse_readable(self) -> str:
+    def _parse_readable(self, op: pp.ad.Operator) -> str:
         """
         Make a human-readable error message related to a parsing error.
         NOTE: The exact formatting should be considered work in progress,
@@ -315,37 +373,36 @@ class AdParser:
         # There are three cases to consider: Either the operator is a leaf,
         # it is a composite operator with a name, or it is a general composite
         # operator.
-        if self.is_leaf():
+        if op.is_leaf():
             # Leafs are represented by their strings.
             return str(self)
-        elif self._name is not None:
+        elif op._name is not None:
             # Composite operators that have been given a name (possibly
             # with a goal of simple identification of an error)
-            return self._name
+            return op._name
 
         # General operator. Split into its parts by recursion.
-        child_str = [child._parse_readable() for child in self.children]
+        child_str = [self._parse_readable(child) for child in op.children]
 
         is_func = False
         operator_str = None
 
         # readable representations of known operations
-        op = self.operation
-        if op == pp.ad.Operator.Operations.add:
+        if op.operation == pp.ad.Operator.Operations.add:
             operator_str = "+"
-        elif op == pp.ad.Operator.Operations.sub:
+        elif op.operation == pp.ad.Operator.Operations.sub:
             operator_str = "-"
-        elif op == pp.ad.Operator.Operations.mul:
+        elif op.operation == pp.ad.Operator.Operations.mul:
             operator_str = "*"
-        elif op == pp.ad.Operator.Operations.matmul:
+        elif op.operation == pp.ad.Operator.Operations.matmul:
             operator_str = "@"
-        elif op == pp.ad.Operator.Operations.div:
+        elif op.operation == pp.ad.Operator.Operations.div:
             operator_str = "/"
-        elif op == pp.ad.Operator.Operations.pow:
+        elif op.operation == pp.ad.Operator.Operations.pow:
             operator_str = "**"
 
         # function evaluations have their own readable representation
-        elif op == pp.ad.Operator.Operations.evaluate:
+        elif op.operation == pp.ad.Operator.Operations.evaluate:
             is_func = True
         # for unknown operations, 'operator_str' remains None
 
