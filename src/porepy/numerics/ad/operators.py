@@ -274,15 +274,22 @@ class Operator:
             A tuple with the graph and a dictionary mapping the nodes to the operators.
 
         """
+        # EK note: We will probably take this method into use in the near future, right
+        # now it is not used, but kept for future applications.
 
+        # Counter for node ids.
         idx = count(0)
 
         graph = nx.DiGraph()
+        # We will loop over all successors of this node and add them to the graph. Use
+        # a deque to keep track of the nodes discovered but not yet added to the graph.
         queue = deque([self])
         # Add the root node.
         id = next(idx)
         graph.add_node(id, obj=self)
 
+        # Mapping from operator to node id. Needed to go from an operator to a node in
+        # the graph.
         node_map: dict[Operator, int] = {}
         node_map[self] = id
 
@@ -309,7 +316,8 @@ class Operator:
     def is_leaf(self) -> bool:
         """Check if this operator is a leaf in the tree-representation of an expression.
 
-        Note that this implies that the method ``parse()`` is expected to be implemented.
+        Note that this implies that the method ``parse()`` is expected to be
+        implemented.
 
         Returns:
             True if the operator has no children.
@@ -537,13 +545,17 @@ class Operator:
             Note that the Jacobian matrix need not be invertible, or even square; this
             depends on the operator.
 
+        See also:
+            EquationSystem, methods operator_value and operator_value_and_jacobian.
+
         """
 
         # If state is not specified, use values at current time, current iterate
         if state is None:
             state = system_manager.get_variable_values(iterate_index=0)
 
-        # Use the system manager to evaluate the operator.
+        # Use methods in the EquationSystem to evaluate the operator. This inversion of
+        # roles (self.value) reflects a gradual shift 
         if evaluate_jacobian:
             return system_manager.operator_value_and_jacobian(self, state)
         else:
