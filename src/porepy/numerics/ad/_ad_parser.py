@@ -1,3 +1,9 @@
+"""This is a helper module for parsing and evaluating operators in automatic
+differentiation.
+
+Regarding testing, there are at the moment no tests explicitly for this module. However,
+the functionality is thoroughly tested through the test suit for the models.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -10,60 +16,104 @@ from typing import overload, Literal
 
 
 class AdParser:
+    """Helper class used for parsing and evaluating operators in automatic
+    differentiation.
+
+    This class is not meant to be accessed directly (for instance in a model), but
+    rather invoked through the evaluation of an operator in an equation system.
+
+    """
 
     def __init__(self, mdg: pp.MixedDimensionalGrid) -> None:
         self._mdg = mdg
-        self._cache: dict[pp.ad.Operator, Any] = {}
+        """MixedDimensionalGrid on which the operators are defined."""
 
+        self._cache: dict[pp.ad.Operator, Any] = {}
+        """Cache for parsed operators. This is used to avoid re-parsing the same
+        operator multiple times. The cache is cleared after each evaluation.
+
+        Efficient use of caching has turned out to be difficult to achieve, and the
+        cache is at the moment used sparingly. This will be revisited in the future.
+        """
+
+    # Since the methods value and value_and_jacobian accept both single operators and
+    # lists of operators, we need to overload them to get proper type checking.
     @overload
     def value(
-        self, x: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None
+        self, op: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None
     ) -> np.ndarray: ...
 
     @overload
     def value(
         self,
-        x: list[pp.ad.Operator],
+        op: list[pp.ad.Operator],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
     ) -> list[np.ndarray]: ...
 
     def value(
         self,
-        x: pp.ad.Operator | list[pp.ad.Operator],
+        op: pp.ad.Operator | list[pp.ad.Operator],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
     ) -> np.ndarray | list[np.ndarray]:
-        return self._evaluate(x, derivative=False, eq_sys=eq_sys, state=state)
+        """Get the value (but not the Jacobian) of the operator op.
+
+        Parameters:
+            op: The operator, or list of operators, to evaluate.
+            eq_sys: The EquationSystem wherein the system state is defined.
+            state: The state of the system. If not provided, the state is taken from the
+                variable values provided by eq_sys.
+
+        Returns:
+            The value of the operator op, or a list of values if op is a list.
+
+        """
+        return self._evaluate(op, derivative=False, eq_sys=eq_sys, state=state)
 
     @overload
     def value_and_jacobian(
-        self, x: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None
+        self, op: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None
     ) -> pp.ad.AdArray: ...
 
     @overload
     def value_and_jacobian(
         self,
-        x: list[pp.ad.Operator],
+        op: list[pp.ad.Operator],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
     ) -> list[pp.ad.AdArray]: ...
 
     def value_and_jacobian(
         self,
-        x: pp.ad.Operator | list[pp.ad.Operator],
+        op: pp.ad.Operator | list[pp.ad.Operator],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
     ) -> pp.ad.AdArray | list[pp.ad.AdArray]:
-        return self._evaluate(x, derivative=True, eq_sys=eq_sys, state=state)
+        """Get the value and Jacobian of the operator op.
 
-    def clear_cache(self):
+        Parameters:
+            op: The operator, or list of operators, to evaluate.
+            eq_sys: The EquationSystem wherein the system state is defined.
+            state: The state of the system. If not provided, the state is taken from the
+                variable values provided by eq_sys.
+
+        Returns:
+            An ArArray representation of the operator op, or a list of AdArrays if op is
+                a list.
+
+        """
+        
+        return self._evaluate(op, derivative=True, eq_sys=eq_sys, state=state)
+
+    def clear_cache(self) -> None:
+        """Clear the cache of parsed operators."""
         self._cache = {}
 
     @overload
     def _evaluate(
         self,
-        x: pp.ad.Operator,
+        op: pp.ad.Operator,
         derivative: Literal[True],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
@@ -72,7 +122,7 @@ class AdParser:
     @overload
     def _evaluate(
         self,
-        x: pp.ad.Operator,
+        op: pp.ad.Operator,
         derivative: Literal[False],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
@@ -81,7 +131,7 @@ class AdParser:
     @overload
     def _evaluate(
         self,
-        x: list[pp.ad.Operator],
+        op: list[pp.ad.Operator],
         derivative: Literal[True],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
@@ -90,7 +140,7 @@ class AdParser:
     @overload
     def _evaluate(
         self,
-        x: list[pp.ad.Operator],
+        op: list[pp.ad.Operator],
         derivative: Literal[False],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
@@ -98,50 +148,81 @@ class AdParser:
 
     def _evaluate(
         self,
-        x: pp.ad.Operator | list[pp.ad.Operator],
+        op: pp.ad.Operator | list[pp.ad.Operator],
         derivative: bool,
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
     ) -> np.ndarray | pp.ad.AdArray | list[np.ndarray] | list[pp.ad.AdArray]:
         """Evaluate the operator x and its derivative if requested.
 
-        A forward mode automatic differentiation is used to evaluate the operator x.
+        A forward mode automatic differentiation is used to evaluate the operator op.
 
-        State is normally provided by a call of the form
-            state = eq_sys.get_variable_values(iterate_index=0)
-        where eq_sys is an instance of a pp.ad.EquationSystem.
+        Parameters:
+            op: The operator, or list of operators, to evaluate.
+            derivative: If True, the value and the derivative of the operator is
+                returned. If False, only the value of the operator is returned.
+            eq_sys: The EquationSystem wherein the system state is defined.
+            state: The state of the system. If not provided, the state is taken from the
+                variable values provided by eq_sys.
+            
+        Returns:
+            The value, or value and Jacobian combined in an AdArray, of the operator op,
+                or a list of values, or AdArrays if op is a list.
 
         """
 
+        # Get the state of the system, if not provided.
         if state is None:
             state = eq_sys.get_variable_values(iterate_index=0)
 
-        # What will happen here if state is None? On the other hand, it should be
-        # possible to evaluate the operator without a state, if the operator does not
-        # depend on the state (e.g. it is a numpy array).
+        # Create an AdArray representation of the state, if the derivative is requested.
+        # If not, the state is used as is (as a numpy array).
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
-        if isinstance(x, list):
-            result = [self._evaluate_single(op, ad_base, eq_sys) for op in x]
+        if isinstance(op, list):
+            result = [self._evaluate_single(o, ad_base, eq_sys) for o in op]
         else:
-            result = self._evaluate_single(x, ad_base, eq_sys)
+            result = self._evaluate_single(op, ad_base, eq_sys)
+
+        # Clear the cache after each evaluation. For the moment, this seems like the
+        # safest option, although it should be possible to safely cache some results
+        # also between evaluations.
         self.clear_cache()
         return result
 
-    def _evaluate_single(self, op, ad_base, eq_sys):
+    def _evaluate_single(self, op: pp.ad.Operator, ad_base: np.ndarray | pp.ad.AdArray, eq_sys: pp.EquationSystem) -> np.ndarray | pp.ad.AdArray:
+        """Evaluate a single operator.
+
+        Parameters:
+            op: The operator to evaluate.
+            ad_base: The base for the automatic differentiation. This should be an
+                AdArray if the derivative is requested, and a numpy array if not.
+            eq_sys: The EquationSystem wherein the system state is defined.
+
+        Returns:
+            A numpy array or an AdArray representation of the operator op, depending on
+                whether the derivative is requested.
+
+        """
+        # If the operator is in the cache, return the cached value.
         if op in self._cache:
             cached = self._cache[op]
             return cached
+
+        # The operator is not in the cache. Parse the operator by recursion:
+        # 1. If the operator is a leaf (has no children), parse the leaf.
+        # 2. If the operator is a composite operator, parse the children and combine
+        #    them according to the operator.
 
         if op.is_leaf():
             if isinstance(op, pp.ad.MixedDimensionalVariable):
                 if op.is_previous_iterate or op.is_previous_time:
                     # Empty vector like the global vector of unknowns for prev time/iter
-                    # insert the values at the right dofs and slice
+                    # insert the values at the right dofs and slice.
                     vals = np.empty_like(
                         ad_base.val if isinstance(ad_base, pp.ad.AdArray) else ad_base
                     )
-                    # list of indices for sub variables
+                    # List of indices for sub variables.
                     dofs = []
                     for sub_var in op.sub_vars:
                         sub_dofs = eq_sys.dofs_of([sub_var])
@@ -149,10 +230,11 @@ class AdParser:
                         dofs.append(sub_dofs)
 
                     return vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
-                # Like for atomic variables, ad_base contains current time and iter
                 else:
+                    # Fetch the values from the state vector.
                     return ad_base[eq_sys.dofs_of([op])]
-            # Case 2.b) atomic variables
+                
+            # Atomic variables.
             elif isinstance(op, pp.ad.Variable):
                 # If a variable represents a previous iteration or time, parse values.
                 if op.is_previous_iterate or op.is_previous_time:
@@ -160,7 +242,7 @@ class AdParser:
                 # Otherwise use the current time and iteration values.
                 else:
                     return ad_base[eq_sys.dofs_of([op])]
-            # Case 2.c) All other leafs like discretizations or some wrapped data
+            # All other leafs like discretizations or some wrapped data.
             else:
                 # Mypy complains because the return type of parse is Any.
                 res = op.parse(eq_sys.mdg)  # type:ignore
@@ -169,6 +251,8 @@ class AdParser:
                 self._cache[op] = res
                 return res
 
+        # This is not a leaf, but a composite operator. Parse the children and combine
+        # them according to the operator.
         child_values = [
             self._evaluate_single(child, ad_base, eq_sys) for child in op.children
         ]
