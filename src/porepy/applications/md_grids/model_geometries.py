@@ -157,16 +157,6 @@ class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
         return mesh_sizes
 
 
-def fracs():
-    return [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
-
-
-def mdg_func(nx=2, ny=2):
-    """Provide a mixed-dimensional grid for the tests."""
-    md_grid = pp.meshing.cart_grid(fracs(), np.array([nx, ny]), physdims=[2, 2])
-    return md_grid
-
-
 class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures):
     def set_geometry(self) -> None:
         """Define geometry and create a non-matching mixed-dimensional grid."""
@@ -188,10 +178,26 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
             old_fracture_grid_2: new_fracture_grid_2,
         }
 
+        # Ensure the old and new fracture grids have the same fracture number.
+        for g_old, g_new in grid_map.items():
+            g_new.frac_num = g_old.frac_num
+
         intf_map = {}
 
-        # Refine interface
-        mdg_new = mdg_func(nx=5, ny=5)
+        # Refine interfaces by first creating a new and more refined mixed-dimensional
+        # grid. This is done such that we can exchange the more coarse interface grids
+        # provided by SquareDomainOrthogonalFractures, with the more refined interface
+        # grids from the new mixed-dimensional grid.
+        def mdg_func(nx=2, ny=2):
+            """Provide a mixed-dimensional grid for the tests."""
+            fracs = [
+                np.array([[0.5, 0.5], [0, 1]]),
+                np.array([[0, 1], [0.5, 0.5]]),
+            ]
+            md_grid = pp.meshing.cart_grid(fracs, np.array([nx, ny]), physdims=[1, 1])
+            return md_grid
+
+        mdg_new = mdg_func(nx=6, ny=6)
         g_new = mdg_new.subdomains(dim=2)[0]
         g_new.compute_geometry()
 
@@ -217,3 +223,4 @@ model = Test(params)
 pp.run_time_dependent_model(model, params)
 
 pp.plot_grid(model.mdg, alpha=0.5, info="cf")
+print("hei")
