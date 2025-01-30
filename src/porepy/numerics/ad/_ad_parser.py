@@ -259,136 +259,113 @@ class AdParser:
 
         # Get the operation represented by op.
         operation = op.operation
+        match operation:
+            case _Operations.add | _Operations.sub:
+                # Addition and subtraction can be handled rather straightforwardly,
+                # though with some tweaks for subtraction.
 
-        # TODO: Since the operation is brought into use outside of the operator class,
-        # it should probably be promoted to an independent class.
-        if operation == pp.ad.Operator.Operations.add:
-            # To add we need two objects
-            assert len(child_values) == 2
+                assert len(child_values) == 2  # These operations are binary
 
-            if isinstance(child_values[0], np.ndarray):
-                # We should not do numpy_array + Ad_array, since numpy will interpret
-                # this in a strange way. Instead switch the order of the operands and
-                # everything will be fine.
-                child_values = child_values[::-1]
-            try:
-                # An error here would typically be a dimension mismatch between the
-                # involved operators.
-                return child_values[0] + child_values[1]
-            except ValueError as exc:
-                msg = self._get_error_message("adding", op, child_values)
-                raise ValueError(msg) from exc
+                # Take note of whether the operands are flipped.
+                flipped = False
+                if isinstance(child_values[0], np.ndarray):
+                    # We should not do numpy_array {+,-,*} Ad_array, since numpy will
+                    # interpret this in a strange way. Instead switch the order of the
+                    # operands. For subtraction, we need to negate the result below.
+                    child_values = child_values[::-1]
+                    flipped = True
+                try:
+                    symbol = _Operations.to_symbol(operation)
+                    res = eval(f"child_values[0] {symbol} child_values[1]")
 
-        elif operation == pp.ad.Operator.Operations.sub:
-            # To subtract we need two objects
-            assert len(child_values) == 2
+                    # Implementation note: If we in the future want to cache the result
+                    # based on some logic (e.g. type of operation or size of the arrays
+                    # involved), we should do it here.
 
-            # We need a minor trick to take care of numpy arrays.
-            factor = 1.0
-            if isinstance(child_values[0], np.ndarray):
-                # We should not do numpy_array - Ad_array, since numpy will interpret
-                # this in a strange way. Instead switch the order of the operands, and
-                # switch the sign of factor to compensate.
-                child_values = child_values[::-1]
-                factor = -1.0
-            try:
-                # An error here would typically be a dimension mismatch between the
-                # involved operators.
-                return factor * (child_values[0] - child_values[1])
-            except ValueError as exc:
-                msg = self._get_error_message("subtracting", op, child_values)
-                raise ValueError(msg) from exc
+                    if operation == _Operations.sub and flipped:
+                        # We need to negate the result if we subtract two numpy arrays
+                        # and switched the order of the operands in the above if.
+                        return -res
+                    else:
+                        return res
 
-        elif operation == pp.ad.Operator.Operations.mul:
-            # To multiply we need two objects
-            assert len(child_values) == 2
+                except ValueError as exc:
+                    msg = self._get_error_message(
+                        _Operations.to_str(operation), op, child_values
+                    )
+                    raise ValueError(msg) from exc
 
-            if isinstance(child_values[0], np.ndarray) and isinstance(
-                child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
+            case (
+                _Operations.mul | _Operations.div | _Operations.pow | _Operations.matmul
             ):
-                # In the implementation of multiplication between an AdArray and a
-                # numpy array (in the forward mode Ad), a * b and b * a do not
-                # commute. Flip the order of the results to get the expected behavior.
-                # This is permissible, since the elementwise product commutes.
-                child_values = child_values[::-1]
-            try:
-                # An error here would typically be a dimension mismatch between the
-                # involved operators.
-                return child_values[0] * child_values[1]
-            except ValueError as exc:
-                msg = self._get_error_message("multiplying", op, child_values)
-                raise ValueError(msg) from exc
+                # Multiplication, division, power and matrix multiplication can in most
+                # cases be handled in the same way. However, some special cases need to
+                # be handled separately, see below.
 
-        elif operation == pp.ad.Operator.Operations.div:
-            # Some care is needed here, to account for cases where item in the results
-            # array is a numpy array
-            try:
+                # Division, power, and matrix multiplication are binary operations
+                assert len(child_values) == 2
+
                 if isinstance(child_values[0], np.ndarray) and isinstance(
                     child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
-                    # If numpy's __truediv__ method is called here, the result will be
-                    # strange because of how numpy works. Instead we directly invoke the
-                    # right-truedivide method in the AdArary.
-                    return child_values[1].__rtruediv__(child_values[0])
-                else:
-                    res = child_values[0] / child_values[1]
-                    # self._cache[op] = res
+                    if operation == _Operations.mul:
+                        # In the implementation of multiplication between an AdArray and
+                        # a numpy array (in the forward mode Ad), a * b and b * a do not
+                        # commute. Flip the order of the results to get the expected
+                        # behavior. This is permissible, since the elementwise product
+                        # commutes.
+                        child_values = child_values[::-1]
+
+                    # If the first operand is a numpy array and the second is an
+                    # AdArray, numpy will make the operation in a strange way, using its
+                    # broadcasting logic. Instead enforce the operation to be done by
+                    # the AdArray, using the relevant right-operation method.
+                    try:
+                        if operation == _Operations.div:
+                            return child_values[1].__rtruediv__(child_values[0])
+                        elif operation == _Operations.pow:
+                            return child_values[1].__rpow__(child_values[0])
+                        elif operation == _Operations.matmul:
+                            return child_values[1].__rmatmul__(child_values[0])
+                        # NOTE: Operations.mul will pass through this if-else and be
+                        # evaluated together with the other standard cases in the next
+                        # try-except.
+
+                    except ValueError as exc:
+                        msg = self._get_error_message(
+                            _Operations.to_str(operation), op, child_values
+                        )
+                        raise ValueError(msg) from exc
+                try:
+                    symbol = _Operations.to_symbol(operation)
+                    res = eval(f"child_values[0] {symbol} child_values[1]")
                     return res
-            except ValueError as exc:
-                msg = self._get_error_message("dividing", op, child_values)
-                raise ValueError(msg) from exc
+                except ValueError as exc:
+                    msg = self._get_error_message(
+                        _Operations.to_str(operation), op, child_values
+                    )
+                    raise ValueError(msg) from exc
 
-        elif operation == pp.ad.Operator.Operations.pow:
-            try:
-                if isinstance(child_values[0], np.ndarray) and isinstance(
-                    child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
-                ):
-                    # If numpy's __pow__ method is called here, the result will be
-                    # strange because of how numpy works. Instead we directly invoke the
-                    # right-power method in the AdArary.
-                    return child_values[1].__rpow__(child_values[0])
-                else:
-                    return child_values[0] ** child_values[1]
-            except ValueError as exc:
-                msg = self._get_error_message("raising to a power", op, child_values)
-                raise ValueError(msg) from exc
+            case _Operations.evaluate:
+                # Operator functions should have at least 1 child (themselves)
+                assert len(child_values) >= 1, (
+                    "Operator functions must have at least 1 child."
+                )
+                assert hasattr(op, "func"), (
+                    f"Operators with operation {operation} must have a functional"
+                    + " representation `func` implemented as a callable member."
+                )
+                try:
+                    res = op.func(*child_values)
+                    return res
+                except Exception as exc:
+                    # TODO specify what can go wrong here (Exception type)
+                    msg = "Error while parsing operator function:\n"
+                    msg += op._parse_readable()
+                    raise ValueError(msg) from exc
 
-        elif operation == pp.ad.Operator.Operations.matmul:
-            try:
-                if isinstance(child_values[0], np.ndarray) and isinstance(
-                    child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
-                ):
-                    # Again, we do not want to call numpy's matmul method, but instead
-                    # directly invoke AdArarray's right matmul.
-                    return child_values[1].__rmatmul__(child_values[0])
-                else:
-                    return child_values[0] @ child_values[1]
-            except ValueError as exc:
-                msg = self._get_error_message("matrix multiplying", op, child_values)
-                raise ValueError(msg) from exc
-
-        elif operation == pp.ad.Operator.Operations.evaluate:
-            # Operator functions should have at least 1 child (themselves)
-            assert (
-                len(child_values) >= 1
-            ), "Operator functions must have at least 1 child."
-            assert hasattr(op, "func"), (
-                f"Operators with operation {operation} must have a functional"
-                + f" representation `func` implemented as a callable member."
-            )
-
-            try:
-                res = op.func(*child_values)
-                # self._cache[op] = res
-                return res
-            except Exception as exc:
-                # TODO specify what can go wrong here (Exception type)
-                msg = "Error while parsing operator function:\n"
-                msg += op._parse_readable()
-                raise ValueError(msg) from exc
-
-        else:
-            raise ValueError(f"Encountered unknown operation {operation}")
+            case _:
+                raise ValueError(f"Encountered unknown operation {operation}")
 
     def _get_error_message(
         self, operation: str, op: pp.ad.Operator, results: list
