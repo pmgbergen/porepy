@@ -561,6 +561,12 @@ else:
 
             """
 
+        def prepare_simulation(self) -> None:
+            """Run at the start of simulation. Used for initialization etc."""
+
+        def after_simulation(self) -> None:
+            """Run at the end of simulation. Can be used for cleanup etc."""
+
         def _is_time_dependent(self) -> bool:
             """Specifies whether the Model problem is time-dependent.
 
