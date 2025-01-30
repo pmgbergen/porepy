@@ -4,6 +4,7 @@ differentiation.
 Regarding testing, there are at the moment no tests explicitly for this module. However,
 the functionality is thoroughly tested through the test suit for the models.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -13,6 +14,7 @@ import scipy.sparse as sps
 
 import porepy as pp
 from typing import overload, Literal
+from .operators import _Operations
 
 
 class AdParser:
@@ -103,7 +105,7 @@ class AdParser:
                 a list.
 
         """
-        
+
         return self._evaluate(op, derivative=True, eq_sys=eq_sys, state=state)
 
     def clear_cache(self) -> None:
@@ -164,7 +166,7 @@ class AdParser:
             eq_sys: The EquationSystem wherein the system state is defined.
             state: The state of the system. If not provided, the state is taken from the
                 variable values provided by eq_sys.
-            
+
         Returns:
             The value, or value and Jacobian combined in an AdArray, of the operator op,
                 or a list of values, or AdArrays if op is a list.
@@ -190,7 +192,12 @@ class AdParser:
         self.clear_cache()
         return result
 
-    def _evaluate_single(self, op: pp.ad.Operator, ad_base: np.ndarray | pp.ad.AdArray, eq_sys: pp.EquationSystem) -> np.ndarray | pp.ad.AdArray:
+    def _evaluate_single(
+        self,
+        op: pp.ad.Operator,
+        ad_base: np.ndarray | pp.ad.AdArray,
+        eq_sys: pp.EquationSystem,
+    ) -> np.ndarray | pp.ad.AdArray:
         """Evaluate a single operator.
 
         Parameters:
@@ -233,7 +240,7 @@ class AdParser:
                 else:
                     # Fetch the values from the state vector.
                     return ad_base[eq_sys.dofs_of([op])]
-                
+
             # Atomic variables.
             elif isinstance(op, pp.ad.Variable):
                 # If a variable represents a previous iteration or time, parse values.
@@ -431,53 +438,33 @@ class AdParser:
         in particular when it comes to function evaluation.
         """
 
-        # There are three cases to consider: Either the operator is a leaf,
-        # it is a composite operator with a name, or it is a general composite
-        # operator.
+        # There are three cases to consider: Either the operator is a leaf, it is a
+        # composite operator with a name, or it is a general composite operator.
         if op.is_leaf():
             # Leafs are represented by their strings.
             return str(self)
         elif op._name is not None:
-            # Composite operators that have been given a name (possibly
-            # with a goal of simple identification of an error)
+            # Composite operators that have been given a name (possibly with a goal of
+            # simple identification of an error).
             return op._name
 
         # General operator. Split into its parts by recursion.
         child_str = [self._parse_readable(child) for child in op.children]
 
-        is_func = False
-        operator_str = None
-
-        # readable representations of known operations
-        if op.operation == pp.ad.Operator.Operations.add:
-            operator_str = "+"
-        elif op.operation == pp.ad.Operator.Operations.sub:
-            operator_str = "-"
-        elif op.operation == pp.ad.Operator.Operations.mul:
-            operator_str = "*"
-        elif op.operation == pp.ad.Operator.Operations.matmul:
-            operator_str = "@"
-        elif op.operation == pp.ad.Operator.Operations.div:
-            operator_str = "/"
-        elif op.operation == pp.ad.Operator.Operations.pow:
-            operator_str = "**"
-
-        # function evaluations have their own readable representation
-        elif op.operation == pp.ad.Operator.Operations.evaluate:
-            is_func = True
-        # for unknown operations, 'operator_str' remains None
-
-        # error message for function evaluations
-        if is_func:
+        if op.operation == _Operations.evaluate:
+            # Function evaluations have their own readable representation.
             msg = f"{child_str[0]}("
             msg += ", ".join([f"{child}" for child in child_str[1:]])
             msg += ")"
             return msg
-        # if operation is unknown, a new error will be raised to raise awareness
-        elif operator_str is None:
+
+        # String representation of the operator.
+        operator_str = _Operations.to_symbol(op.operation)
+        # If operation is unknown, a new error will be raised to raise awareness.
+        if operator_str == "unknown":
             msg = "UNKNOWN parsing of operation on: "
             msg += ", ".join([f"{child}" for child in child_str])
             raise NotImplementedError(msg)
-        # error message for known Operations
+        # Error message for known Operations.
         else:
             return f"({child_str[0]} {operator_str} {child_str[1]})"
