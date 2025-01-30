@@ -359,7 +359,9 @@ class ModifiedBoundaryConditions(PorePyModel):
 
 
 class PressureStressMixin(PorePyModel):
-    def pressure(self, subdomains: pp.Grid):
+    stress_keyword: str
+
+    def pressure(self, subdomains: pp.SubdomainsOrBoundaries):
         """Discretization of the stress tensor.
 
         Parameters:
@@ -371,7 +373,7 @@ class PressureStressMixin(PorePyModel):
         """
         # Return pressure in the fracture domain
         mat = self.params["p0"] * np.ones(
-            sum(subdomain.num_cells for subdomain in subdomains)
+            sum((subdomain.num_cells for subdomain in subdomains))
         )
         return pp.ad.DenseArray(mat)
 
@@ -421,6 +423,7 @@ class SneddonDataSaving(VerificationDataSaving):
 
 
 class MomentumBalanceGeometryBC(
+    PorePyModel,
     PressureStressMixin,
     ModifiedGeometry,
     SneddonDataSaving,
