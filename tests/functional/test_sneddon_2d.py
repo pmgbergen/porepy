@@ -46,34 +46,30 @@ def compute_frac_pts(
 
 # ----> Retrieve actual order of convergence
 @pytest.fixture(scope="module")
-def actual_ooc() -> dict:
+def actual_ooc() -> float:
     """
-    Prepare parameters and model for the convergence analysis of the moment balance equation.
+    Prepare parameters, fracture parameters and model for moment balance equation for the convergence analysis.
     
-    This setup validates the linear elasticity model for the analytical Sneddon solution in 2D, describing the analytical displacement on the fracture. 
-    The problem consists of a 2D domain with a fracture at a given angle and internal pressure.
-    
-    Returns:
-        A dictionary containing the experimental order of convergence for the displacement.
+    Returns: A dictionary containing the experimental order of convergence for the displacement.
     """
     # Angle of the fracture in degrees
-    theta_deg = 30.0
+    theta_deg = 30
 
     # Simulation parameters
     params = {
         "prepare_simulation": True,
         "material_constants": {"solid": solid},
-        "a": 0.3, # Half-length of the fracture
-        "height": 1.0, # Height of the domain
-        "length": 1.0, # Length of the domain
-        "p0": 1e-4, # Internal pressure of fracture
-        "poi": poi, # Possion ratio (Not standard in solid constants)
+        "a": 0.3,
+        "height": 1.0,
+        "length": 1.0,
+        "p0": 1e-4,
+        "poi": poi,
         "meshing_arguments": {"cell_size": 0.03},
     }
 
     # Convert angle to radians and compute fracture points
-    params["theta"] = math.radians(90.0 - theta_deg)
-    params["frac_pts"] = compute_frac_pts(theta_rad=float(params["theta"]), a=float(params["a"]), height=float(params["height"]), length=float(params["length"]))
+    params["theta"] = math.radians(90 - theta_deg)
+    params["frac_pts"] = compute_frac_pts(params["theta"], params["a"], height=params["height"], length=params["length"])
 
     # Model for the convergence analysis
     model = manu_sneddon_2d.MomentumBalanceGeometryBC
@@ -98,5 +94,5 @@ def test_order_of_convergence(
 ) -> None:
     """Test observed order of convergence.
     """
-    # We  the order of L2 convergence on the fracture of dispplacement to be about 1.0 
+    # We require the order of convergence to always be about 1.0 
     assert 0.85 <   actual_ooc["ooc_displacement"]
