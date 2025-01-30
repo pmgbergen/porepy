@@ -1740,22 +1740,22 @@ class MixedDimensionalVariable(Variable):
 
         # check assumptions
         if len(variables) > 0:
-            assert len(set(time_indices)) == 1, (
-                "Cannot create md-variable from variables at different time steps."
-            )
+            assert (
+                len(set(time_indices)) == 1
+            ), "Cannot create md-variable from variables at different time steps."
             # NOTE both must be unique for all sub-variables, to avoid md-variables
             # having sub-variables at different iterate states.
             # Both current value, and most recent previous iterate have iterate index 0,
             # hence the need to check the size of the current_iter set.
-            assert len(set(iter_indices)) == 1 and len(set(current_iter)) == 1, (
-                "Cannot create md-variable from variables at different iterates."
-            )
-            assert len(set(names)) == 1, (
-                "Cannot create md-variable from variables with different names."
-            )
-            assert len(set(domains)) == len(domains), (
-                "Cannot create md-variable from variables with overlapping domains."
-            )
+            assert (
+                len(set(iter_indices)) == 1 and len(set(current_iter)) == 1
+            ), "Cannot create md-variable from variables at different iterates."
+            assert (
+                len(set(names)) == 1
+            ), "Cannot create md-variable from variables with different names."
+            assert len(set(domains)) == len(
+                domains
+            ), "Cannot create md-variable from variables with overlapping domains."
         # Default values for empty md variable
         else:
             time_indices = [-1]
