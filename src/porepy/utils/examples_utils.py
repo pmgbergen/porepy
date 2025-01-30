@@ -92,6 +92,6 @@ class VerificationUtils(pp.PorePyModel):
         )
 
         # Parse numerical value and return the minimum and maximum value
-        u_faces = u_faces_ad.value(self.equation_system)
+        u_faces = self.equation_system.operator_value(u_faces_ad)
         assert isinstance(u_faces, np.ndarray)
         return u_faces

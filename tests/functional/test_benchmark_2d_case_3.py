@@ -12,6 +12,7 @@ Reference:
       media. Advances in Water Resources, 111, 239-258.
 
 """
+
 import numpy as np
 import pytest
 
@@ -30,15 +31,13 @@ from typing import Literal
 class Model3aWithEffectivePermeability(
     EffectivePermeability,
     FlowBenchmark2dCase3aModel,
-):
-    ...
+): ...
 
 
 class Model3bWithEffectivePermeability(
     EffectivePermeability,
     FlowBenchmark2dCase3bModel,
-):
-    ...
+): ...
 
 
 @pytest.fixture(scope="module", params=["tpfa", "mpfa"])
@@ -100,7 +99,9 @@ def test_effective_tangential_permeability(model) -> None:
 
     """
     for sd in model.mdg.subdomains():
-        val = model.effective_tangential_permeability([sd]).value(model.equation_system)
+        val = model.equation_system.operator_value(
+            model.effective_tangential_permeability([sd])
+        )
         if sd.dim == 2:
             np.testing.assert_array_almost_equal(val, 1.0)
         elif sd.dim == 1:
@@ -134,7 +135,7 @@ def test_effective_normal_permeability(model) -> None:
 
     """
     for intf in model.mdg.interfaces():
-        val = model.effective_normal_permeability([intf]).value(model.equation_system)
+        val = model.equation_system.operator_value([intf])
         sd_high, sd_low = model.mdg.interface_to_subdomain_pair(intf)
         if intf.dim == 1:
             if sd_low.frac_num in [3, 4]:  # blocking 1d interface

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from warnings import warn
 import copy
 from collections import deque
 from enum import Enum
@@ -497,6 +498,9 @@ class Operator:
     ) -> pp.number | np.ndarray | sps.spmatrix:
         """Evaluate the residual for a given solution.
 
+        DEPRECATED: This method is deprecated. Use the `operator_value` method of
+        EquationSystem.
+
         Parameters:
             system_manager: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
@@ -510,6 +514,12 @@ class Operator:
             matrix.
 
         """
+        msg = (
+            "This method is deprecated. Use the `operator_value` method of "
+            "EquationSystem."
+        )
+        warn(msg, DeprecationWarning)
+
         return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
 
     def value_and_jacobian(
@@ -517,20 +527,28 @@ class Operator:
     ) -> AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
+        DEPRECATED: This method is deprecated. Use the `operator_value_and_jacobian`
+        method of EquationSystem.
+
         Parameters:
             system_manager: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
-            state (optional): Solution vector for which the residual and its derivatives
-                should be formed. If not provided, the solution will be pulled from the
-                previous iterate (if this exists), or alternatively from the solution at
-                the previous time step.
+            state: Solution vector for which the residual and its derivatives should be
+                formed. If not provided, the solution will be pulled from the previous
+                iterate (if this exists), or alternatively from the solution at the
+                previous time step.
 
         Returns:
-            A representation of the residual and Jacobian in form of an AD Array.
-            Note that the Jacobian matrix need not be invertible, or even square;
-            this depends on the operator.
+            A representation of the residual and Jacobian in form of an AD Array. Note
+                that the Jacobian matrix need not be invertible, or even square; this
+                depends on the operator.
 
         """
+        msg = (
+            "This method is deprecated. Use the `operator_value_and_jacobian` "
+            "method of EquationSystem."
+        )
+        warn(msg, DeprecationWarning)
         ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
 
         # Casting the result to AdArray or raising an error.

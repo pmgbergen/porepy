@@ -424,9 +424,10 @@ class DisplacementJumpAperture(DimensionReduction):
 
                 # Average weights are the number of cells in the parent subdomains
                 # contributing to each intersection cells.
-                weight_value = parent_cells_to_intersection_cells.value(
-                    self.equation_system
+                weight_value = self.equation_system.operator_value(
+                    parent_cells_to_intersection_cells
                 )
+
                 assert isinstance(weight_value, sps.spmatrix)  # for mypy
                 average_weights = np.ravel(weight_value.sum(axis=1))
                 nonzero = average_weights > 0
@@ -467,7 +468,6 @@ class DisplacementJumpAperture(DimensionReduction):
 
 
 class SecondOrderTensorUtils(pp.PorePyModel):
-
     def isotropic_second_order_tensor(
         self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
     ) -> pp.ad.Operator:
@@ -510,15 +510,15 @@ class SecondOrderTensorUtils(pp.PorePyModel):
 
         """
         # Evaluate as 9 x num_cells array
-        volume = self.specific_volume([sd]).value(self.equation_system)
+        volume = self.equation_system.operator_value(self.specific_volume([sd]))
         try:
-            permeability = operator.value(self.equation_system)
+            permeability = self.equation_system.operator_value(operator)
         except KeyError:
             # If the permeability depends on an not yet computed discretization matrix,
             # fall back on reference value.
             permeability = fallback_value * np.ones(sd.num_cells) * volume
             return pp.SecondOrderTensor(permeability)
-        evaluated_value = operator.value(self.equation_system)
+        evaluated_value = self.equation_system.operator_value(operator)
         if not isinstance(evaluated_value, np.ndarray):
             # Raise error rather than cast for verbosity of function which is not
             # directly exposed to the user, but depends on a frequently user-defined
@@ -1544,9 +1544,9 @@ class AdTpfaFlux(pp.PorePyModel):
         # to handle all combinations of these cases.
         #
         # First, we check if any of the arguments are numpy arrays, which would
-        # correspond to the case where the Operator is evaluated using .value(). In this
-        # case, we simply return the product of the base discretization with the vector
-        # source.
+        # correspond to the case where the Operator is evaluated for its residual only.
+        # In this case, we simply return the product of the base discretization with the
+        # vector source.
         if (
             isinstance(T_f, np.ndarray)
             and isinstance(vs, np.ndarray)
@@ -2007,7 +2007,7 @@ class ThermalConductivityLTE(ConstantFluidThermalConductivity):
         # Since thermal conductivity is used as a discretization parameter, it has to be
         # evaluated before the discretization matrices are computed.
         try:
-            phi.value(self.equation_system)
+            self.equation_system.operator_value(phi)
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
             # for displacement_divergence which has not yet been computed.
@@ -3069,7 +3069,6 @@ class ThermoPressureStress(PressureStress):
 
 
 class ConstantSolidDensity(pp.PorePyModel):
-
     def solid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Constant solid density.
 
@@ -3377,7 +3376,7 @@ class BartonBandis(pp.PorePyModel):
         # If the maximum opening is zero, the Barton-Bandis model is not valid in the
         # case of zero normal traction. In this case, we return an empty operator.
         # If the maximum opening is negative, an error is raised.
-        val = maximum_opening.value(self.equation_system)
+        val = self.equation_system.operator_value(maximum_opening)
         if np.any(val == 0):
             num_cells = sum(sd.num_cells for sd in subdomains)
             return pp.ad.DenseArray(np.zeros(num_cells), "zero_Barton-Bandis_opening")
@@ -3552,7 +3551,7 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
         # need cast for convert_units. By implementation of stiffness, it can only be a
         # number
         stiffness_value = self.units.convert_units(
-            cast(pp.number, stiffness.value(self.equation_system)),
+            cast(pp.number, self.equation_system.operator_value(stiffness)),
             "Pa*m^-1",
             to_si=True,
         )
@@ -3631,7 +3630,6 @@ class SpecificStorage(pp.PorePyModel):
 
 
 class ConstantPorosity(pp.PorePyModel):
-
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Constant porosity [-].
 

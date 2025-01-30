@@ -583,21 +583,23 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         z = np.array(
             [
-                component.fraction(subdomains).value(self.equation_system, state)
+                self.equation_system.operator_value(
+                    component.fraction(subdomains), state
+                )
                 for component in self.fluid.components
             ]
         )
 
         y = np.array(
             [
-                phase.fraction(subdomains).value(self.equation_system, state)
+                self.equation_system.operator_value(phase.fraction(subdomains), state)
                 for phase in self.fluid.phases
             ]
         )
 
         sat = np.array(
             [
-                phase.saturation(subdomains).value(self.equation_system, state)
+                self.equation_system.operator_value(phase.saturation(subdomains), state)
                 for phase in self.fluid.phases
             ]
         )
@@ -606,12 +608,12 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             np.array(
                 [
                     (
-                        phase.extended_fraction_of[component](subdomains).value(
-                            self.equation_system, state
+                        self.equation_system.operator_value(
+                            phase.extended_fraction_of[component](subdomains), state
                         )
                         if self._has_unified_equilibrium
-                        else phase.partial_fraction_of[component](subdomains).value(
-                            self.equation_system, state
+                        else self.equation_system.operator_value(
+                            phase.partial_fraction_of[component](subdomains), state
                         )
                     )
                     for component in phase
@@ -768,9 +770,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             A callable which returns the tracer fraction for a given set of domains.
 
         """
-        assert (
-            tracer in compound.active_tracers
-        ), f"Solute {tracer.name} not in compound {compound.name}"
+        assert tracer in compound.active_tracers, (
+            f"Solute {tracer.name} not in compound {compound.name}"
+        )
 
         if self.has_independent_tracer_fraction(tracer, compound):
             fraction = self._fraction_factory(
@@ -894,9 +896,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             A callable which returns the extended fraction for a given set of domains.
 
         """
-        assert (
-            component in phase
-        ), f"Component {component.name} not in phase {phase.name}"
+        assert component in phase, (
+            f"Component {component.name} not in phase {phase.name}"
+        )
 
         fraction: DomainFunctionType
 
@@ -956,9 +958,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             A callable which returns the extended fraction for a given set of domains.
 
         """
-        assert (
-            component in phase
-        ), f"Component {component.name} not in phase {phase.name}"
+        assert component in phase, (
+            f"Component {component.name} not in phase {phase.name}"
+        )
 
         fraction: DomainFunctionType
 
@@ -983,7 +985,6 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         elif component == phase.reference_component:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-
                 x_r = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
                     [
                         phase.partial_fraction_of[comp](domains)

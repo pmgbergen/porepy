@@ -155,7 +155,7 @@ class TerzaghiDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.value(self.equation_system)
+        approx_pressure = self.equation_system.operator_value(pressure_ad)
         error_pressure = ConvergenceAnalysis.l2_error(
             grid=sd,
             true_array=exact_pressure,
@@ -166,7 +166,7 @@ class TerzaghiDataSaving(VerificationDataSaving):
         )
 
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.value(self.equation_system)
+        approx_displacement = self.equation_system.operator_value(displacement_ad)
 
         approx_consolidation_degree = self.numerical_consolidation_degree()
         exact_consolidation_degree = self.exact_sol.consolidation_degree(t)
@@ -528,7 +528,6 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
 # -----> Boundary conditions
 class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBalance):
-
     def applied_load(self) -> pp.number:
         """Obtain vertical load in scaled [Pa]."""
         applied_load = self.params.get("vertical_load", 6e8)  # [Pa]
