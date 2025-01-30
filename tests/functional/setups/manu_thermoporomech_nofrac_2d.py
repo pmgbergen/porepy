@@ -47,7 +47,6 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -116,7 +115,7 @@ class ManuThermoPoroMechSaveData:
     time: number
 
 
-class ManuThermoPoroMechDataSaving(VerificationDataSaving):
+class ManuThermoPoroMechDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     exact_sol: ManuThermoPoroMechExactSolution2d
@@ -138,6 +137,12 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
     """
 
+    energy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the energy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class
+    :class:`porepy.models.energy_balance.EnergyBalanceEquations`.
+
+    """
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
     provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.

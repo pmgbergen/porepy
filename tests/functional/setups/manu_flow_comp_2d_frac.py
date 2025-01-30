@@ -34,7 +34,6 @@ import sympy as sym
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompSaveData,
     ManuIncompUtils,
@@ -75,7 +74,7 @@ class ManuCompSaveData(ManuIncompSaveData):
     """Current simulation time."""
 
 
-class ManuCompDataSaving(VerificationDataSaving):
+class ManuCompDataSaving(pp.PorePyModel):
     """Mixin class to store relevant data."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]

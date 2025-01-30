@@ -77,11 +77,7 @@ References:
 """
 
 import porepy as pp
-from porepy.models.poromechanics import (
-    ConstitutiveLawsPoromechanics,
-    Poromechanics,
-    SolutionStrategyPoromechanics,
-)
+from porepy.models.poromechanics import Poromechanics, SolutionStrategyPoromechanics
 
 
 class SolutionStrategyBiot(SolutionStrategyPoromechanics):
@@ -100,8 +96,17 @@ class SolutionStrategyBiot(SolutionStrategyPoromechanics):
 class ConstitutiveLawsBiot(
     pp.constitutive_laws.SpecificStorage,
     pp.constitutive_laws.BiotPoroMechanicsPorosity,
-    ConstitutiveLawsPoromechanics,
-): ...
+):
+    """Additional constitutive laws required for the Biot-Poromechanics model.
+
+    Note:
+        These are additions and do not contain everything a poromechanical model needs.
+        Intention behind this choice include a cleaner MRO in the
+        :class:`BiotPoromechanics`.
+
+    """
+
+    ...
 
 
 class BiotPoromechanics(  # type: ignore[misc]

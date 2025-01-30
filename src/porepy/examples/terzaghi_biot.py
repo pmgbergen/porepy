@@ -50,7 +50,6 @@ import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.derived_models.biot import BiotPoromechanics
 from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -100,7 +99,7 @@ class TerzaghiSaveData:
     """Current simulation time."""
 
 
-class TerzaghiDataSaving(VerificationDataSaving):
+class TerzaghiDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     exact_sol: TerzaghiExactSolution

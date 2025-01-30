@@ -78,7 +78,9 @@ desired_errors: list[DesiredError] = [
 
 
 @pytest.mark.parametrize("time_index", [0, 1])
-def test_error_primary_and_secondary_variables(time_index: int, results):
+def test_error_primary_and_secondary_variables(
+    time_index: int, results: list[MandelSaveData]
+):
     """Checks error for pressure, displacement, flux, force, and consolidation degree.
 
     Physical parameters used in this test have been adapted from [1].

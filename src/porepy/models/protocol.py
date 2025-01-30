@@ -16,7 +16,7 @@ Warning:
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal, Optional, Protocol, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Protocol, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -537,6 +537,9 @@ else:
         """Time step as an automatic differentiation scalar."""
         nonlinear_solver_statistics: pp.SolverStatistics
         """Solver statistics for the nonlinear solver."""
+        results: list[Any]
+        """A list of results collected by the data saving mixin in
+        :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
 
         @property
         def time_step_indices(self) -> np.ndarray:

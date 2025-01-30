@@ -26,7 +26,6 @@ from porepy.applications.md_grids.mdg_library import (
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.utils.txt_io import read_data_from_txt
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 
 # -----> Fixtures that are required on a module level.
@@ -461,7 +460,7 @@ def stationary_model():
         error_var_0: float  # error associated with variable 0
         error_var_1: float  # error associated with variable 1
 
-    class StationaryModelDataSaving(VerificationDataSaving):
+    class StationaryModelDataSaving(pp.PorePyModel):
         """Class that collects and store data."""
 
         def collect_data(self) -> StationaryModelSaveData:
@@ -528,7 +527,7 @@ def time_dependent_model():
         error_var_0: float  # error associated with variable 0
         error_var_1: float  # error associated with variable 1
 
-    class TimeDependentModelDataSaving(VerificationDataSaving):
+    class TimeDependentModelDataSaving(pp.PorePyModel):
         """Class that collects and store data."""
 
         def collect_data(self) -> TimeDependentModelSaveData:
