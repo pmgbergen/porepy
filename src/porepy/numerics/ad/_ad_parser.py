@@ -7,14 +7,14 @@ the functionality is thoroughly tested through the test suit for the models.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal, overload
 
 import numpy as np
 import scipy.sparse as sps
 
 import porepy as pp
-from typing import overload, Literal
-from .operators import _Operations
+
+from .operators import Operations
 
 
 class AdParser:
@@ -272,7 +272,7 @@ class AdParser:
         # Get the operation represented by op.
         operation = op.operation
         match operation:
-            case _Operations.add | _Operations.sub:
+            case Operations.add | Operations.sub:
                 # Addition and subtraction can be handled rather straightforwardly,
                 # though with some tweaks for subtraction.
 
@@ -287,28 +287,26 @@ class AdParser:
                     child_values = child_values[::-1]
                     flipped = True
                 try:
-                    symbol = _Operations.to_symbol(operation)
+                    symbol = Operations.to_symbol(operation)
                     res = eval(f"child_values[0] {symbol} child_values[1]")
 
                 except ValueError as exc:
                     msg = self._get_error_message(
-                        _Operations.to_str(operation), op, child_values
+                        Operations.to_str(operation), op, child_values
                     )
                     raise ValueError(msg) from exc
 
                 # Implementation note: If we in the future want to cache the result
                 # based on some logic (e.g. type of operation or size of the arrays
                 # involved), we should do it here.
-                if operation == _Operations.sub and flipped:
+                if operation == Operations.sub and flipped:
                     # We need to negate the result if we subtract two numpy arrays
                     # and switched the order of the operands in the above if.
                     return -res
                 else:
                     return res
 
-            case (
-                _Operations.mul | _Operations.div | _Operations.pow | _Operations.matmul
-            ):
+            case Operations.mul | Operations.div | Operations.pow | Operations.matmul:
                 # Multiplication, division, power and matrix multiplication can in most
                 # cases be handled in the same way. However, some special cases need to
                 # be handled separately, see below.
@@ -319,7 +317,7 @@ class AdParser:
                 if isinstance(child_values[0], np.ndarray) and isinstance(
                     child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
                 ):
-                    if operation == _Operations.mul:
+                    if operation == Operations.mul:
                         # In the implementation of multiplication between an AdArray and
                         # a numpy array (in the forward mode Ad), a * b and b * a do not
                         # commute. Flip the order of the results to get the expected
@@ -332,11 +330,11 @@ class AdParser:
                     # broadcasting logic. Instead enforce the operation to be done by
                     # the AdArray, using the relevant right-operation method.
                     try:
-                        if operation == _Operations.div:
+                        if operation == Operations.div:
                             return child_values[1].__rtruediv__(child_values[0])
-                        elif operation == _Operations.pow:
+                        elif operation == Operations.pow:
                             return child_values[1].__rpow__(child_values[0])
-                        elif operation == _Operations.matmul:
+                        elif operation == Operations.matmul:
                             return child_values[1].__rmatmul__(child_values[0])
                         # NOTE: Operations.mul will pass through this if-else and be
                         # evaluated together with the other standard cases in the next
@@ -344,20 +342,20 @@ class AdParser:
 
                     except ValueError as exc:
                         msg = self._get_error_message(
-                            _Operations.to_str(operation), op, child_values
+                            Operations.to_str(operation), op, child_values
                         )
                         raise ValueError(msg) from exc
                 try:
-                    symbol = _Operations.to_symbol(operation)
+                    symbol = Operations.to_symbol(operation)
                     res = eval(f"child_values[0] {symbol} child_values[1]")
                     return res
                 except ValueError as exc:
                     msg = self._get_error_message(
-                        _Operations.to_str(operation), op, child_values
+                        Operations.to_str(operation), op, child_values
                     )
                     raise ValueError(msg) from exc
 
-            case _Operations.evaluate:
+            case Operations.evaluate:
                 # Operator functions should have at least 1 child (themselves).
                 assert (
                     len(child_values) >= 1
@@ -470,7 +468,7 @@ class AdParser:
         # General operator. Split into its parts by recursion.
         child_str = [self._parse_readable(child) for child in op.children]
 
-        if op.operation == _Operations.evaluate:
+        if op.operation == Operations.evaluate:
             # Function evaluations have their own readable representation.
             msg = f"{child_str[0]}("
             msg += ", ".join([f"{child}" for child in child_str[1:]])
@@ -478,7 +476,7 @@ class AdParser:
             return msg
 
         # String representation of the operator.
-        operator_str = _Operations.to_symbol(op.operation)
+        operator_str = Operations.to_symbol(op.operation)
         # If operation is unknown, a new error will be raised to raise awareness.
         if operator_str == "unknown":
             msg = "UNKNOWN parsing of operation on: "

@@ -32,7 +32,7 @@ from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
-_operations = pp.ad.operators._Operations
+_operations = pp.ad.operators.Operations
 
 operators = [
     ("+", _operations.add),

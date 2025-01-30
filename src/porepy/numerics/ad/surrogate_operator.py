@@ -130,7 +130,7 @@ import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
 from .functions import FloatType
-from .operators import IterativeOperator, TimeDependentOperator, _Operations
+from .operators import IterativeOperator, Operations, TimeDependentOperator
 
 __all__ = [
     "SurrogateOperator",
@@ -174,7 +174,7 @@ class SurrogateOperator(
         super().__init__(
             name=name,
             domains=domains,
-            operation=_Operations.evaluate,
+            operation=Operations.evaluate,
             children=children,
         )
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from warnings import warn
 import copy
 from collections import deque
 from enum import Enum
@@ -10,6 +9,7 @@ from functools import reduce
 from hashlib import sha256
 from itertools import count
 from typing import Any, Callable, Literal, Optional, Sequence, TypeVar, Union, overload
+from warnings import warn
 
 import networkx as nx
 import numpy as np
@@ -89,7 +89,7 @@ def _get_previous_time_or_iterate(
         return new_op
 
 
-class _Operations(Enum):
+class Operations(Enum):
     """Object representing all supported operations by the operator class.
 
     Used to construct the operator tree and identify Operations.
@@ -179,7 +179,7 @@ class Operator:
         self,
         name: Optional[str] = None,
         domains: Optional[GridLikeSequence] = None,
-        operation: Optional[_Operations] = None,
+        operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
         if domains is None:
@@ -226,7 +226,7 @@ class Operator:
         Will be empty if the operator is a leaf.
         """
 
-        self.operation: _Operations
+        self.operation: Operations
         """Arithmetic or other operation represented by this operator.
 
         Will be void if the operator is a leaf.
@@ -272,7 +272,7 @@ class Operator:
 
     def _initialize_children(
         self,
-        operation: Optional[_Operations] = None,
+        operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ):
         """This is a part of initialization which can be called separately since some
@@ -280,7 +280,7 @@ class Operator:
 
         """
         self.children = [] if children is None else children
-        self.operation = _Operations.void if operation is None else operation
+        self.operation = Operations.void if operation is None else operation
 
     def as_graph(
         self, depth_first: bool = True
@@ -649,7 +649,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(children=children, operation=_Operations.add, name="+ operator")
+        return Operator(children=children, operation=Operations.add, name="+ operator")
 
     def __radd__(self, other: Operator) -> Operator:
         """Add two operators.
@@ -677,7 +677,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(children=children, operation=_Operations.sub, name="- operator")
+        return Operator(children=children, operation=Operations.sub, name="- operator")
 
     def __rsub__(self, other: Operator) -> Operator:
         """Subtract two operators.
@@ -693,7 +693,7 @@ class Operator:
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
-        return Operator(children=children, operation=_Operations.sub, name="- operator")
+        return Operator(children=children, operation=Operations.sub, name="- operator")
 
     def __mul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -706,7 +706,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(children=children, operation=_Operations.mul, name="* operator")
+        return Operator(children=children, operation=Operations.mul, name="* operator")
 
     def __rmul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -724,7 +724,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=_Operations.rmul,
+            operation=Operations.rmul,
             name="right * operator",
         )
 
@@ -739,7 +739,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(children=children, operation=_Operations.div, name="/ operator")
+        return Operator(children=children, operation=Operations.div, name="/ operator")
 
     def __rtruediv__(self, other: Operator) -> Operator:
         """Elementwise division of two operators.
@@ -757,7 +757,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=_Operations.rdiv,
+            operation=Operations.rdiv,
             name="right / operator",
         )
 
@@ -798,9 +798,7 @@ class Operator:
             raise ValueError("Cannot take SparseArray to the power of an DenseArray.")
 
         children = self._parse_other(other)
-        return Operator(
-            children=children, operation=_Operations.pow, name="** operator"
-        )
+        return Operator(children=children, operation=Operations.pow, name="** operator")
 
     def __rpow__(self, other: Operator) -> Operator:
         """Elementwise exponentiation of two operators.
@@ -818,7 +816,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=_Operations.rpow,
+            operation=Operations.rpow,
             name="reverse ** operator",
         )
 
@@ -834,7 +832,7 @@ class Operator:
         """
         children = self._parse_other(other)
         return Operator(
-            children=children, operation=_Operations.matmul, name="@ operator"
+            children=children, operation=Operations.matmul, name="@ operator"
         )
 
     def __rmatmul__(self, other):
@@ -853,7 +851,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=_Operations.rmatmul,
+            operation=Operations.rmatmul,
             name="reverse @ operator",
         )
 
@@ -879,7 +877,7 @@ class Operator:
 
         """
         if self._cached_key is None:
-            if self.operation == _Operations.void or len(self.children) == 0:
+            if self.operation == Operations.void or len(self.children) == 0:
                 raise ValueError("Base class operator must represent an operation.")
             tmp = [self.operation.value] + [child._key() for child in self.children]
             self._cached_key = " ".join(tmp)
@@ -921,7 +919,7 @@ class TimeDependentOperator(Operator):
         self,
         name: str | None = None,
         domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[_Operations] = None,
+        operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
         super().__init__(
@@ -1030,7 +1028,7 @@ class IterativeOperator(Operator):
         self,
         name: str | None = None,
         domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[_Operations] = None,
+        operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
         super().__init__(
