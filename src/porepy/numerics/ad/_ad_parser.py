@@ -285,22 +285,21 @@ class AdParser:
                     symbol = _Operations.to_symbol(operation)
                     res = eval(f"child_values[0] {symbol} child_values[1]")
 
-                    # Implementation note: If we in the future want to cache the result
-                    # based on some logic (e.g. type of operation or size of the arrays
-                    # involved), we should do it here.
-
-                    if operation == _Operations.sub and flipped:
-                        # We need to negate the result if we subtract two numpy arrays
-                        # and switched the order of the operands in the above if.
-                        return -res
-                    else:
-                        return res
-
                 except ValueError as exc:
                     msg = self._get_error_message(
                         _Operations.to_str(operation), op, child_values
                     )
                     raise ValueError(msg) from exc
+
+                # Implementation note: If we in the future want to cache the result
+                # based on some logic (e.g. type of operation or size of the arrays
+                # involved), we should do it here.
+                if operation == _Operations.sub and flipped:
+                    # We need to negate the result if we subtract two numpy arrays
+                    # and switched the order of the operands in the above if.
+                    return -res
+                else:
+                    return res
 
             case (
                 _Operations.mul | _Operations.div | _Operations.pow | _Operations.matmul
@@ -354,7 +353,7 @@ class AdParser:
                     raise ValueError(msg) from exc
 
             case _Operations.evaluate:
-                # Operator functions should have at least 1 child (themselves)
+                # Operator functions should have at least 1 child (themselves).
                 assert len(child_values) >= 1, (
                     "Operator functions must have at least 1 child."
                 )
@@ -366,9 +365,8 @@ class AdParser:
                     res = op.func(*child_values)
                     return res
                 except Exception as exc:
-                    # TODO specify what can go wrong here (Exception type)
                     msg = "Error while parsing operator function:\n"
-                    msg += op._parse_readable()
+                    msg += self._parse_readable(op)
                     raise ValueError(msg) from exc
 
             case _:
@@ -377,6 +375,18 @@ class AdParser:
     def _get_error_message(
         self, operation: str, op: pp.ad.Operator, results: list
     ) -> str:
+        """Get a human-readable error message related to a parsing error.
+
+        Parameters:
+            operation: The operation that failed.
+            op: The operator that failed.
+            results: The results of the parsing of the operator.
+
+        Returns:
+            A human-readable error message.
+
+        """
+
         # Helper function to format error message
         msg_0 = self._parse_readable(op.children[0])
         msg_1 = self._parse_readable(op.children[1])
@@ -432,10 +442,14 @@ class AdParser:
         return msg
 
     def _parse_readable(self, op: pp.ad.Operator) -> str:
-        """
-        Make a human-readable error message related to a parsing error.
-        NOTE: The exact formatting should be considered work in progress,
-        in particular when it comes to function evaluation.
+        """Make a human-readable error message related to an operator.
+
+        Parameters:
+            op: The operator to parse.
+
+        Returns:
+            A human-readable error message.
+
         """
 
         # There are three cases to consider: Either the operator is a leaf, it is a
