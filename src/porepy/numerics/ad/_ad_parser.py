@@ -182,15 +182,20 @@ class AdParser:
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
         if isinstance(op, list):
-            result = [self._evaluate_single(o, ad_base, eq_sys) for o in op]
+            result_list = [self._evaluate_single(o, ad_base, eq_sys) for o in op]
+
+            # Clear the cache after each evaluation. For the moment, this seems like the
+            # safest option, although it should be possible to safely cache some results
+            # also between evaluations.
+            self.clear_cache()
+
+            # Mypy thinks the list can contain a mixture of np.ndarray and AdArray, but
+            # this is not the case.
+            return result_list  # type: ignore
         else:
             result = self._evaluate_single(op, ad_base, eq_sys)
-
-        # Clear the cache after each evaluation. For the moment, this seems like the
-        # safest option, although it should be possible to safely cache some results
-        # also between evaluations.
-        self.clear_cache()
-        return result
+            self.clear_cache()
+            return result
 
     def _evaluate_single(
         self,
@@ -354,9 +359,9 @@ class AdParser:
 
             case _Operations.evaluate:
                 # Operator functions should have at least 1 child (themselves).
-                assert len(child_values) >= 1, (
-                    "Operator functions must have at least 1 child."
-                )
+                assert (
+                    len(child_values) >= 1
+                ), "Operator functions must have at least 1 child."
                 assert hasattr(op, "func"), (
                     f"Operators with operation {operation} must have a functional"
                     + " representation `func` implemented as a callable member."

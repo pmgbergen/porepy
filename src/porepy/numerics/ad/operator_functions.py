@@ -25,7 +25,7 @@ import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
 from .functions import FloatType
-from .operators import Operator
+from .operators import Operator, _Operations
 
 __all__ = [
     "AbstractFunction",
@@ -67,7 +67,7 @@ class AbstractFunction(Operator):
         self,
         name: Optional[str] = None,
         domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operator.Operations] = None,
+        operation: Optional[_Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         **kwargs,  # Left for inheritance for more complex functions
     ) -> None:
@@ -95,9 +95,9 @@ class AbstractFunction(Operator):
             to make the numerical function available during parsing (see :meth:`parse`).
 
         """
-        assert len(args) > 0, (
-            "Operator functions must be called with at least 1 argument."
-        )
+        assert (
+            len(args) > 0
+        ), "Operator functions must be called with at least 1 argument."
 
         op = Operator(
             name=f"{self.name}{[a.name for a in args]}",
@@ -319,9 +319,9 @@ class Function(AbstractFunction):
         return result.val if isinstance(result, AdArray) else result
 
     def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
-        assert any(isinstance(a, AdArray) for a in args), (
-            "No Ad arrays passed as arguments."
-        )
+        assert any(
+            isinstance(a, AdArray) for a in args
+        ), "No Ad arrays passed as arguments."
         result = self._func(*args)
         assert isinstance(result, AdArray)
         return result.jac
