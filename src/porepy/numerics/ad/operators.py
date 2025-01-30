@@ -1,5 +1,4 @@
-""" Implementation of wrappers for Ad representations of several operators.
-"""
+"""Implementation of wrappers for Ad representations of several operators."""
 
 from __future__ import annotations
 
@@ -78,7 +77,6 @@ def _get_previous_time_or_iterate(
     # Else we are in the middle of the operator tree and need to go deeper, creating
     # copies along.
     else:
-
         # Create new operator from the tree, with the only difference being the new
         # children, for which the recursion is invoked
         # NOTE copy takes care of references to original_operator and func
@@ -90,12 +88,72 @@ def _get_previous_time_or_iterate(
         return new_op
 
 
+class _Operations(Enum):
+    """Object representing all supported operations by the operator class.
+
+    Used to construct the operator tree and identify Operations.
+
+    """
+
+    void = "void"
+    add = "add"
+    sub = "sub"
+    mul = "mul"
+    rmul = "rmul"
+    matmul = "matmul"
+    rmatmul = "rmatmul"
+    div = "div"
+    rdiv = "rdiv"
+    evaluate = "evaluate"
+    approximate = "approximate"
+    pow = "pow"
+    rpow = "rpow"
+
+    @classmethod
+    def to_symbol(cls, value):
+        symbols = {
+            cls.add: "+",
+            cls.sub: "-",
+            cls.mul: "*",
+            cls.rmul: "*",
+            cls.matmul: "@",
+            cls.rmatmul: "@",
+            cls.div: "/",
+            cls.rdiv: "/",
+            cls.pow: "**",
+            cls.rpow: "**",
+            cls.evaluate: "evaluate",
+            cls.approximate: "approximate",
+            cls.void: "void",
+        }
+        return symbols.get(value, "unknown")
+
+    @classmethod
+    def to_str(cls, value):
+        strings = {
+            cls.add: "adding",
+            cls.sub: "subtracting",
+            cls.mul: "multiplying",
+            cls.rmul: "multiplying",
+            cls.matmul: "matrix multiplying",
+            cls.rmatmul: "matrix multiplying",
+            cls.div: "dividing",
+            cls.rdiv: "dividing",
+            cls.pow: "raising to the power of",
+            cls.rpow: "raising to the power of",
+            cls.evaluate: "evaluating",
+            cls.approximate: "approximating",
+            cls.void: "void",
+        }
+        return strings.get(value, "unknown")
+
+
 class Operator:
     """Parent class for all AD operators.
 
     Objects of this class are not meant to be initiated directly, rather the various
     subclasses should be used. Instances of this class will still be created when
-    subclasses are combined by Operator.Operations.
+    subclasses are combined by Operations.
 
     Contains a tree structure of child operators for the recursive forward evaluation.
 
@@ -116,32 +174,11 @@ class Operator:
 
     """
 
-    class Operations(Enum):
-        """Object representing all supported operations by the operator class.
-
-        Used to construct the operator tree and identify Operator.Operations.
-
-        """
-
-        void = "void"
-        add = "add"
-        sub = "sub"
-        mul = "mul"
-        rmul = "rmul"
-        matmul = "matmul"
-        rmatmul = "rmatmul"
-        div = "div"
-        rdiv = "rdiv"
-        evaluate = "evaluate"
-        approximate = "approximate"
-        pow = "pow"
-        rpow = "rpow"
-
     def __init__(
         self,
         name: Optional[str] = None,
         domains: Optional[GridLikeSequence] = None,
-        operation: Optional[Operator.Operations] = None,
+        operation: Optional[_Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
         if domains is None:
@@ -188,7 +225,7 @@ class Operator:
         Will be empty if the operator is a leaf.
         """
 
-        self.operation: Operator.Operations
+        self.operation: _Operations
         """Arithmetic or other operation represented by this operator.
 
         Will be void if the operator is a leaf.
@@ -234,7 +271,7 @@ class Operator:
 
     def _initialize_children(
         self,
-        operation: Optional[Operator.Operations] = None,
+        operation: Optional[_Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ):
         """This is a part of initialization which can be called separately since some
@@ -242,7 +279,7 @@ class Operator:
 
         """
         self.children = [] if children is None else children
-        self.operation = Operator.Operations.void if operation is None else operation
+        self.operation = _Operations.void if operation is None else operation
 
     def as_graph(
         self, depth_first: bool = True
@@ -555,7 +592,7 @@ class Operator:
             state = system_manager.get_variable_values(iterate_index=0)
 
         # Use methods in the EquationSystem to evaluate the operator. This inversion of
-        # roles (self.value) reflects a gradual shift 
+        # roles (self.value) reflects a gradual shift
         if evaluate_jacobian:
             return system_manager.operator_value_and_jacobian(self, state)
         else:
@@ -594,9 +631,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(
-            children=children, operation=Operator.Operations.add, name="+ operator"
-        )
+        return Operator(children=children, operation=_Operations.add, name="+ operator")
 
     def __radd__(self, other: Operator) -> Operator:
         """Add two operators.
@@ -624,9 +659,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(
-            children=children, operation=Operator.Operations.sub, name="- operator"
-        )
+        return Operator(children=children, operation=_Operations.sub, name="- operator")
 
     def __rsub__(self, other: Operator) -> Operator:
         """Subtract two operators.
@@ -642,9 +675,7 @@ class Operator:
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
-        return Operator(
-            children=children, operation=Operator.Operations.sub, name="- operator"
-        )
+        return Operator(children=children, operation=_Operations.sub, name="- operator")
 
     def __mul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -657,9 +688,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(
-            children=children, operation=Operator.Operations.mul, name="* operator"
-        )
+        return Operator(children=children, operation=_Operations.mul, name="* operator")
 
     def __rmul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -677,7 +706,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=Operator.Operations.rmul,
+            operation=_Operations.rmul,
             name="right * operator",
         )
 
@@ -692,9 +721,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(
-            children=children, operation=Operator.Operations.div, name="/ operator"
-        )
+        return Operator(children=children, operation=_Operations.div, name="/ operator")
 
     def __rtruediv__(self, other: Operator) -> Operator:
         """Elementwise division of two operators.
@@ -712,7 +739,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=Operator.Operations.rdiv,
+            operation=_Operations.rdiv,
             name="right / operator",
         )
 
@@ -754,7 +781,7 @@ class Operator:
 
         children = self._parse_other(other)
         return Operator(
-            children=children, operation=Operator.Operations.pow, name="** operator"
+            children=children, operation=_Operations.pow, name="** operator"
         )
 
     def __rpow__(self, other: Operator) -> Operator:
@@ -773,7 +800,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=Operator.Operations.rpow,
+            operation=_Operations.rpow,
             name="reverse ** operator",
         )
 
@@ -789,7 +816,7 @@ class Operator:
         """
         children = self._parse_other(other)
         return Operator(
-            children=children, operation=Operator.Operations.matmul, name="@ operator"
+            children=children, operation=_Operations.matmul, name="@ operator"
         )
 
     def __rmatmul__(self, other):
@@ -808,7 +835,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=Operator.Operations.rmatmul,
+            operation=_Operations.rmatmul,
             name="reverse @ operator",
         )
 
@@ -834,7 +861,7 @@ class Operator:
 
         """
         if self._cached_key is None:
-            if self.operation == Operator.Operations.void or len(self.children) == 0:
+            if self.operation == _Operations.void or len(self.children) == 0:
                 raise ValueError("Base class operator must represent an operation.")
             tmp = [self.operation.value] + [child._key() for child in self.children]
             self._cached_key = " ".join(tmp)
@@ -876,7 +903,7 @@ class TimeDependentOperator(Operator):
         self,
         name: str | None = None,
         domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operator.Operations] = None,
+        operation: Optional[_Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
         super().__init__(
@@ -985,7 +1012,7 @@ class IterativeOperator(Operator):
         self,
         name: str | None = None,
         domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operator.Operations] = None,
+        operation: Optional[_Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
         super().__init__(
@@ -1230,7 +1257,8 @@ class DenseArray(Operator):
 
         # TODO: Make readonly, see https://github.com/pmgbergen/porepy/issues/1214
         self._hash_value: str = sha256(
-            self._values, usedforsecurity=False  # type: ignore[arg-type]
+            self._values,
+            usedforsecurity=False,  # type: ignore[arg-type]
         ).hexdigest()
         """String to uniquly identify the array."""
         super().__init__(name=name)
@@ -1502,7 +1530,6 @@ class Variable(TimeDependentOperator, IterativeOperator):
         domain: GridLike,
         tags: Optional[dict[str, Any]] = None,
     ) -> None:
-
         # Variables are not supported on the boundary.
         if not isinstance(domain, (pp.Grid, pp.MortarGrid)):
             raise NotImplementedError(
@@ -1695,22 +1722,22 @@ class MixedDimensionalVariable(Variable):
 
         # check assumptions
         if len(variables) > 0:
-            assert (
-                len(set(time_indices)) == 1
-            ), "Cannot create md-variable from variables at different time steps."
+            assert len(set(time_indices)) == 1, (
+                "Cannot create md-variable from variables at different time steps."
+            )
             # NOTE both must be unique for all sub-variables, to avoid md-variables
             # having sub-variables at different iterate states.
             # Both current value, and most recent previous iterate have iterate index 0,
             # hence the need to check the size of the current_iter set.
-            assert (
-                len(set(iter_indices)) == 1 and len(set(current_iter)) == 1
-            ), "Cannot create md-variable from variables at different iterates."
-            assert (
-                len(set(names)) == 1
-            ), "Cannot create md-variable from variables with different names."
-            assert len(set(domains)) == len(
-                domains
-            ), "Cannot create md-variable from variables with overlapping domains."
+            assert len(set(iter_indices)) == 1 and len(set(current_iter)) == 1, (
+                "Cannot create md-variable from variables at different iterates."
+            )
+            assert len(set(names)) == 1, (
+                "Cannot create md-variable from variables with different names."
+            )
+            assert len(set(domains)) == len(domains), (
+                "Cannot create md-variable from variables with overlapping domains."
+            )
         # Default values for empty md variable
         else:
             time_indices = [-1]

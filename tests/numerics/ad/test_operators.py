@@ -32,7 +32,7 @@ from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
-_operations = pp.ad.operators.Operator.Operations
+_operations = pp.ad.operators._Operations
 
 operators = [
     ("+", _operations.add),
@@ -241,9 +241,9 @@ def test_ad_operator_unary_minus_parsing():
     mat2 = sps.csr_matrix(np.random.rand(3))
     sp_array1 = pp.ad.SparseArray(mat1)
     sp_array2 = pp.ad.SparseArray(mat2)
-    eqsys = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
+    eq_sys = pp.ad.EquationSystem(pp.MixedDimensionalGrid())
     op = sp_array1 + sp_array2
-    assert np.allclose(op._parse_operator(-op, eqsys, None).data, -(mat1 + mat2).data)
+    assert np.allclose(eq_sys.operator_value(-op, None).data, -(mat1 + mat2).data)
 
 
 def test_time_dependent_array():
@@ -1009,7 +1009,6 @@ def test_ad_discretization_class():
     # way parsing makes block matrices.
     assert np.allclose(known_val, discr_ad.foobar().parse(mdg).diagonal())
     assert np.allclose(known_sub_val, sub_discr_ad.foobar().parse(mdg).diagonal())
-
 
 
 class _MockDiscretization:
