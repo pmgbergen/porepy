@@ -77,7 +77,7 @@ class AbstractFunction(Operator):
         super().__init__(
             name=name,
             domains=domains,
-            operation=pp.ad.Operator.Operations.evaluate,
+            operation=pp.ad.operators._Operations.evaluate,
             children=children,
         )
 
@@ -95,14 +95,14 @@ class AbstractFunction(Operator):
             to make the numerical function available during parsing (see :meth:`parse`).
 
         """
-        assert (
-            len(args) > 0
-        ), "Operator functions must be called with at least 1 argument."
+        assert len(args) > 0, (
+            "Operator functions must be called with at least 1 argument."
+        )
 
         op = Operator(
             name=f"{self.name}{[a.name for a in args]}",
             # domains=self.domains,
-            operation=pp.ad.Operator.Operations.evaluate,
+            operation=pp.ad.operators._Operations.evaluate,
             children=args,
         )
         # Assigning the functional representation by the implementation of this instance
@@ -319,9 +319,9 @@ class Function(AbstractFunction):
         return result.val if isinstance(result, AdArray) else result
 
     def get_jacobian(self, *args: float | np.ndarray | AdArray) -> sps.spmatrix:
-        assert any(
-            isinstance(a, AdArray) for a in args
-        ), "No Ad arrays passed as arguments."
+        assert any(isinstance(a, AdArray) for a in args), (
+            "No Ad arrays passed as arguments."
+        )
         result = self._func(*args)
         assert isinstance(result, AdArray)
         return result.jac
