@@ -702,12 +702,6 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
         """Constructor of the class."""
         super().__init__(params)
 
-        self.exact_sol: ManuCompExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuCompSaveData] = []
-        """Object that stores exact and approximated solutions and L2 errors."""
-
         self.subdomain_darcy_flux_variable: str = "darcy_flux"
         """Keyword to access the subdomain Darcy fluxes."""
 

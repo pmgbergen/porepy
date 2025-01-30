@@ -754,17 +754,6 @@ class ManuIncompSolutionStrategy2d(
     results: list[ManuIncompSaveData]
     """List of SaveData objects."""
 
-    def __init__(self, params: dict):
-        """Constructor for the class."""
-
-        super().__init__(params)
-
-        self.exact_sol: ManuIncompExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuIncompSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
-
     def set_materials(self):
         """Set material constants for the verification setup."""
         super().set_materials()

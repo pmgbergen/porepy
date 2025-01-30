@@ -716,12 +716,6 @@ class ManuPoroMechSolutionStrategy2d(pp.poromechanics.SolutionStrategyPoromechan
         """Constructor for the class."""
         super().__init__(params)
 
-        self.exact_sol: ManuPoroMechExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuPoroMechSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
-
         self.flux_variable: str = "darcy_flux"
         """Keyword to access the Darcy fluxes."""
 

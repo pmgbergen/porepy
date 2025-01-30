@@ -484,9 +484,7 @@ def stationary_model():
     class StationaryModelSolutionStrategy(pp.SolutionStrategy):
         """Solution strategy for the stationary flow model."""
 
-        def __init__(self, params: dict):
-            super().__init__(params)
-            self.results: list[StationaryModelSaveData] = []
+        results: list[StationaryModelSaveData]
 
         def _is_nonlinear_problem(self) -> bool:
             """Whether the model is non-linear."""
@@ -551,9 +549,7 @@ def time_dependent_model():
     class TimeDependentModelSolutionStrategy(pp.SolutionStrategy):
         """Solution strategy for the time-dependent flow model."""
 
-        def __init__(self, params: dict):
-            super().__init__(params)
-            self.results: list[TimeDependentModelSaveData] = []
+        results: list[TimeDependentModelSaveData]
 
         def _is_nonlinear_problem(self) -> bool:
             """Whether the problem is non-linear."""

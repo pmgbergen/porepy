@@ -1036,15 +1036,15 @@ class ManuThermoPoroMechSolutionStrategy2d(
 ):
     """Solution strategy for the verification setup."""
 
+    exact_sol: ManuThermoPoroMechExactSolution2d
+    """Exact solution object."""
+
+    results: list[ManuThermoPoroMechSaveData] = []
+    """Results object that stores exact and approximated solutions and errors."""
+
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)
-
-        self.exact_sol: ManuThermoPoroMechExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuThermoPoroMechSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
 
         self.flux_variable: str = "darcy_flux"
         """Keyword to access the Darcy fluxes."""
