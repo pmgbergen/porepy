@@ -708,6 +708,25 @@ else:
 
             """
 
+        def update_boundary_condition(
+            self,
+            name: str,
+            function: Callable[[pp.BoundaryGrid], np.ndarray],
+        ) -> None:
+            """This method is the unified procedure of updating a boundary condition.
+
+            It shifts the boundary condition values in time and stores the current
+            iterate data (current time step) as the most recent previous time step data.
+            Next, it evaluates the boundary condition values for the new time step and
+            stores them in the iterate data.
+
+            Parameters:
+                name: Name of the operator defined on the boundary.
+                function: A callable that provides the boundary condition values on a
+                    given boundary grid.
+
+            """
+
     class EquationProtocol(Protocol):
         """This protocol provides declarations of methods and properties related to
         equations.

@@ -15,7 +15,7 @@ from porepy.applications.test_utils.models import MassBalance as MassBalance_
 from porepy.models.momentum_balance import MomentumBalance
 
 
-class CustomBoundaryCondition(pp.BoundaryConditionMixin):
+class CustomBoundaryCondition(pp.PorePyModel):
     """We define a custom dummy boundary condition.
 
     Neumann values are explicitly set, they are time dependent.

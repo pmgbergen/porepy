@@ -791,7 +791,7 @@ class ManuThermoPoroMechExactSolution3d:
 
 
 # -----> Geometry
-class UnitCubeGrid(pp.ModelGeometry):
+class UnitCubeGrid(pp.PorePyModel):
     """Class for setting up the geometry of the unit cube domain.
 
     The domain may be assigned different material parameters in the region x > 0.5, y >
@@ -811,9 +811,6 @@ class UnitCubeGrid(pp.ModelGeometry):
     self.set_geometry().
 
     """
-
-    params: dict
-    """Simulation model parameters."""
 
     def set_geometry(self) -> None:
         super().set_geometry()

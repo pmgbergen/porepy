@@ -499,11 +499,8 @@ class TerzaghiUtils(VerificationUtils):
 
 
 # -----> Geometry
-class PseudoOneDimensionalColumn(pp.ModelGeometry):
+class PseudoOneDimensionalColumn(pp.PorePyModel):
     """Define geometry of the verification setup."""
-
-    params: dict
-    """Simulation model parameters."""
 
     def height(self) -> pp.number:
         """Retrieve height of the domain, in scaled [m]."""

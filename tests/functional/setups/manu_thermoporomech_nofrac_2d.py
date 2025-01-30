@@ -895,7 +895,7 @@ class ManuThermoPoroMechExactSolution2d:
 
 
 # -----> Geometry
-class UnitSquareGrid(pp.ModelGeometry):
+class UnitSquareGrid(pp.PorePyModel):
     """Class for setting up the geometry of the unit square domain.
 
     The domain may be assigned different material parameters in the region x > 0.5 and y
@@ -916,9 +916,6 @@ class UnitSquareGrid(pp.ModelGeometry):
     all nodes at x=0.5 and y=0.5 fixed). This is achieved in self.set_geometry().
 
     """
-
-    params: dict
-    """Simulation model parameters."""
 
     def set_geometry(self) -> None:
         super().set_geometry()
