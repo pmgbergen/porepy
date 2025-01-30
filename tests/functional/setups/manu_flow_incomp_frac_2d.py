@@ -12,6 +12,7 @@ References:
       elliptic equations. Journal of Numerical Mathematics.
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -139,7 +140,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         # Collect data
         exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
         matrix_pressure_ad = self.pressure([sd_matrix])
-        approx_matrix_pressure = matrix_pressure_ad.value(self.equation_system)
+        approx_matrix_pressure = self.equation_system.operator_value(matrix_pressure_ad)
         error_matrix_pressure = ConvergenceAnalysis.l2_error(
             grid=sd_matrix,
             true_array=exact_matrix_pressure,
@@ -151,7 +152,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_matrix_flux = exact_sol.matrix_flux(sd_matrix)
         matrix_flux_ad = self.darcy_flux([sd_matrix])
-        approx_matrix_flux = matrix_flux_ad.value(self.equation_system)
+        approx_matrix_flux = self.equation_system.operator_value(matrix_flux_ad)
         error_matrix_flux = ConvergenceAnalysis.l2_error(
             grid=sd_matrix,
             true_array=exact_matrix_flux,
@@ -163,7 +164,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_frac_pressure = exact_sol.fracture_pressure(sd_frac)
         frac_pressure_ad = self.pressure([sd_frac])
-        approx_frac_pressure = frac_pressure_ad.value(self.equation_system)
+        approx_frac_pressure = self.equation_system.operator_value(frac_pressure_ad)
         error_frac_pressure = ConvergenceAnalysis.l2_error(
             grid=sd_frac,
             true_array=exact_frac_pressure,
@@ -175,7 +176,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_frac_flux = exact_sol.fracture_flux(sd_frac)
         frac_flux_ad = self.darcy_flux([sd_frac])
-        approx_frac_flux = frac_flux_ad.value(self.equation_system)
+        approx_frac_flux = self.equation_system.operator_value(frac_flux_ad)
         error_frac_flux = ConvergenceAnalysis.l2_error(
             grid=sd_frac,
             true_array=exact_frac_flux,
@@ -187,7 +188,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_intf_flux = exact_sol.interface_flux(intf)
         int_flux_ad = self.interface_darcy_flux([intf])
-        approx_intf_flux = int_flux_ad.value(self.equation_system)
+        approx_intf_flux = self.equation_system.operator_value(int_flux_ad)
         error_intf_flux = ConvergenceAnalysis.l2_error(
             grid=intf,
             true_array=exact_intf_flux,

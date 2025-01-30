@@ -790,7 +790,8 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
 
         # The AD time step should not change throughout the Newton iterations.
         assert (
-            self.ad_time_step.value(self.equation_system) == self.time_manager.dt
+            self.equation_system.operator_value(self.ad_time_step)
+            == self.time_manager.dt
         ), "The AD time step value conflicts with the value from the time_manager."
 
         # The initial guess for the unknown time step values should be equal to the
@@ -798,9 +799,9 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         if self.num_nonlinear_iters == 0:
             iterate_values = self.equation_system.get_variable_values(iterate_index=0)
             state_values = self.equation_system.get_variable_values(time_step_index=0)
-            assert np.all(
-                iterate_values == state_values
-            ), "Likely, 'iterate' was not reset after the unsuccessful time step."
+            assert np.all(iterate_values == state_values), (
+                "Likely, 'iterate' was not reset after the unsuccessful time step."
+            )
 
         self.num_nonlinear_iters += 1
 
@@ -823,9 +824,9 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         if self.time_step_converged[self.time_step_idx] is False:
             # Diverged
             return False, True
-        assert (
-            False
-        ), "Nonlinear solver did not stop iterating after the iteration limit."
+        assert False, (
+            "Nonlinear solver did not stop iterating after the iteration limit."
+        )
 
     # Minimizing computational expences.
 

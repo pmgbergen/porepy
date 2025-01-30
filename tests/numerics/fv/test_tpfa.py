@@ -344,7 +344,9 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
     g = model.mdg.subdomains()[0]
 
-    pressure = model.pressure(model.mdg.subdomains()).value(model.equation_system)
+    pressure = model.equation_system.operator_value(
+        model.pressure(model.mdg.subdomains())
+    )
 
     # The permeability and its derivative. *DO NOT* change this code without also
     # updating the permeability in the model class UnitTestAdTpfaFlux.
@@ -679,7 +681,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
     num_dofs = model.equation_system.num_dofs()
 
     darcy_flux = model.darcy_flux(model.mdg.subdomains())
-    darcy_value = darcy_flux.value(model.equation_system)
+    darcy_value = model.equation_system.operator_value(darcy_flux)
     assert darcy_value.size == num_faces
 
     darcy_jac = darcy_flux.value_and_jacobian(model.equation_system).jac
@@ -692,10 +694,12 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
         model.combine_boundary_operators_darcy_flux,
         "darcy_flux",
     )
-    potential_value = potential_trace.value(model.equation_system)
+    potential_value = model.equation_system.operator_value(potential_trace)
     assert potential_value.size == num_faces
 
-    potential_jac = potential_trace.value_and_jacobian(model.equation_system).jac
+    potential_jac = model.equation_system.operator_value_and_jacobian(
+        potential_trace
+    ).jac
     assert potential_jac.shape == (num_faces, num_dofs)
 
 
@@ -871,23 +875,27 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
         _, tip_cells = sd.signs_and_cells_of_boundary_faces(tip_faces)
 
         # Check that the pressure trace is equal to the pressure in the adjacent cell.
-        pressure_trace = model.potential_trace(
-            [sd],
-            model.pressure,
-            model.permeability,
-            model.combine_boundary_operators_darcy_flux,
-            "darcy_flux",
-        ).value(model.equation_system)
-        p = model.pressure([sd]).value(model.equation_system)
+        pressure_trace = model.equation_system.operator_value(
+            model.potential_trace(
+                [sd],
+                model.pressure,
+                model.permeability,
+                model.combine_boundary_operators_darcy_flux,
+                "darcy_flux",
+            )
+        )
+        p = model.equation_system.operator_value(model.pressure([sd]))
         assert np.allclose(pressure_trace[tip_faces], p[tip_cells])
         # Check that the temperature trace is equal to the temperature in the adjacent
         # cell.
-        temperature_trace = model.potential_trace(
-            [sd],
-            model.temperature,
-            model.thermal_conductivity,
-            model.combine_boundary_operators_fourier_flux,
-            "fourier_flux",
-        ).value(model.equation_system)
-        T = model.temperature([sd]).value(model.equation_system)
+        temperature_trace = model.equation_system.operator_value(
+            model.potential_trace(
+                [sd],
+                model.temperature,
+                model.thermal_conductivity,
+                model.combine_boundary_operators_fourier_flux,
+                "fourier_flux",
+            )
+        )
+        T = model.equation_system.operator_value(model.temperature([sd]))
         assert np.allclose(temperature_trace[tip_faces], T[tip_cells])

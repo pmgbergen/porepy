@@ -58,7 +58,6 @@ class BoundaryConditionLinearPressure(
 
 
 class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance):
-
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
         vals = np.zeros(boundary_grid.num_cells)
@@ -167,23 +166,34 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
         # Check that the enthalpy flux over each face is bounded by the value
         # corresponding to a fully saturated domain.
         for sd in setup.mdg.subdomains():
-            val = setup.enthalpy_flux([sd]).value(setup.equation_system)
+            val = setup.equation_system.operator_value(setup.enthalpy_flux([sd]))
             # Account for specific volume, default value of .01 in fractures.
             normals = np.abs(sd.face_normals[0]) * np.power(0.1, setup.nd - sd.dim)
             k = setup.solid.permeability / setup.fluid.reference_component.viscosity
             grad = 1 / setup.domain.bounding_box["xmax"]
-            enth = setup.fluid.reference_component.specific_heat_capacity * normals * grad * k
+            enth = (
+                setup.fluid.reference_component.specific_heat_capacity
+                * normals
+                * grad
+                * k
+            )
             assert np.all(np.abs(val) < np.abs(enth) + 1e-10)
 
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
         # influx =grad * dp * k=1/2*k)
         sds = setup.mdg.subdomains(dim=2)
-        total_energy = setup.volume_integral(
-            setup.total_internal_energy(sds),
-            sds,
-            dim=1,
-        ).value(setup.equation_system)
-        expected = setup.fluid.reference_component.specific_heat_capacity * setup.solid.permeability / 2
+        total_energy = setup.equation_system.operator_value(
+            setup.volume_integral(
+                setup.total_internal_energy(sds),
+                sds,
+                dim=1,
+            )
+        )
+        expected = (
+            setup.fluid.reference_component.specific_heat_capacity
+            * setup.solid.permeability
+            / 2
+        )
         assert np.allclose(np.sum(total_energy), expected, rtol=1e-3)
 
 
@@ -321,18 +331,18 @@ def test_energy_conservation():
     h_f = setup.fluid.specific_enthalpy(sds) * setup.porosity(sds)
     h_s = setup.solid_enthalpy(sds) * (pp.ad.Scalar(1) - setup.porosity(sds))
     h = setup.volume_integral(h_f + h_s, sds, 1)
-    u_val = np.sum(u.value(setup.equation_system))
-    h_val = np.sum(h.value(setup.equation_system))
+    u_val = np.sum(setup.equation_system.operator_value(u))
+    h_val = np.sum(setup.equation_system.operator_value(h))
     assert np.isclose(u_val, u_expected, rtol=1e-3)
     # u and h should be close with our setup
     assert np.isclose(u_val, h_val, rtol=1e-3)
     well_intf = setup.mdg.interfaces(codim=2)
-    well_enthalpy_flux = setup.well_enthalpy_flux(well_intf).value(
-        setup.equation_system
+    well_enthalpy_flux = setup.equation_system.operator_value(
+        setup.well_enthalpy_flux(well_intf)
     )
-    well_fluid_flux = setup.well_flux(well_intf).value(setup.equation_system)
-    h_well = setup.fluid.specific_enthalpy(setup.mdg.subdomains(dim=0)).value(
-        setup.equation_system
+    well_fluid_flux = setup.equation_system.operator_value(setup.well_flux(well_intf))
+    h_well = setup.equation_system.operator_value(
+        setup.fluid.specific_enthalpy(setup.mdg.subdomains(dim=0))
     )
     # The well enthalpy flux should be equal to well enthalpy times well fluid flux
     assert np.isclose(well_enthalpy_flux, h_well * well_fluid_flux, rtol=1e-10)

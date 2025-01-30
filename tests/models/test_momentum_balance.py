@@ -1,4 +1,4 @@
-"""Tests for the momentum balance model class. """
+"""Tests for the momentum balance model class."""
 
 from __future__ import annotations
 
@@ -98,8 +98,8 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
 
     # Check that the displacement jump and traction are as expected
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
-    jump = setup.displacement_jump(sd_frac).value(setup.equation_system)
-    traction = setup.contact_traction(sd_frac).value(setup.equation_system)
+    jump = setup.equation_system.operator_value(setup.displacement_jump(sd_frac))
+    traction = setup.equation_system.operator_value(setup.contact_traction(sd_frac))
     if north_displacement > 0:
         # Normal component of displacement jump should be positive
         assert np.all(jump[setup.nd - 1 :: setup.nd] > 0)
@@ -165,9 +165,7 @@ def test_unit_conversion(units: dict, uy_north: float):
     )
 
 
-class LithostaticModel(
-    pp.constitutive_laws.GravityForce, pp.MomentumBalance
-):
+class LithostaticModel(pp.constitutive_laws.GravityForce, pp.MomentumBalance):
     """Model class to test the computation of lithostatic stress.
 
     The model sets up a column where the lateral sides (x-direction for 2d, x and y for
@@ -290,10 +288,8 @@ def test_lithostatic(dim: int):
     assert np.allclose(vals[model.nd - 1], u_z, 7e-2)
 
     # Computed stress at the bottom of the domain.
-    computed_stress = (
-        model.stress([sd])
-        .value(model.equation_system)
-        .reshape((model.nd, -1), order="F")
+    computed_stress = model.equation_system.operator_value(model.stress([sd])).reshape(
+        (model.nd, -1), order="F"
     )
     bottom_face = np.where(model.domain_boundary_sides(sd).bottom)[0]
     bottom_traction = computed_stress[model.nd - 1, bottom_face]
@@ -310,7 +306,6 @@ class ElastoplasticModel2d(
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
     pp.MomentumBalance,
 ):
-
     pass
 
 
@@ -378,8 +373,12 @@ def verify_elastoplastic_deformation(
     fracture = fractures[0]
 
     # Get plastic and elastic displacement jumps on the fracture in local coordinates.
-    u_p_loc = setup.plastic_displacement_jump(fractures).value(setup.equation_system)
-    u_e_loc = setup.elastic_displacement_jump(fractures).value(setup.equation_system)
+    u_p_loc = setup.equation_system.operator_value(
+        setup.plastic_displacement_jump(fractures)
+    )
+    u_e_loc = setup.equation_system.operator_value(
+        setup.elastic_displacement_jump(fractures)
+    )
 
     # Transform the jumps to global coordinates and corresponding to the j side of the
     # fracture being the one with the lower y-coordinate (jumps are k-j).
@@ -398,11 +397,9 @@ def verify_elastoplastic_deformation(
     u_p = (sign * u_p).reshape((nd, -1), order="F")
     u_e = (sign * u_e).reshape((nd, -1), order="F")
 
-    u_domain = (
+    u_domain = setup.equation_system.operator_value(
         setup.displacement([matrix])
-        .value(setup.equation_system)
-        .reshape((nd, -1), order="F")
-    )
+    ).reshape((nd, -1), order="F")
     u_top = u_domain[:, matrix.cell_centers[fracture_ind] > 0.5]
     # Compare the computed values to the expected values.
     if compare_means:
@@ -427,10 +424,10 @@ def verify_elastoplastic_deformation(
 
     # Traction on the fracture.
     open_cells = u_p[fracture_ind] > 1e-10
-    traction = (
+    traction = setup.equation_system.operator_value(
         setup.characteristic_contact_traction([fracture])
         * setup.contact_traction([fracture])
-    ).value(setup.equation_system)
+    )
     # Rotate to global coordinates.
     traction = rot @ traction
     traction = (sign * traction).reshape((nd, -1), order="F")
@@ -512,7 +509,6 @@ class ElastoplasticModel3d(
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
     pp.MomentumBalance,
 ):
-
     pass
 
 
@@ -591,7 +587,6 @@ def test_elastoplastic_3d_single_fracture(
 class TimeDependentBCs(
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
 ):
-
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Displacement values.
 
@@ -632,7 +627,6 @@ class ElastoplasticModelTimeDependentBCs(
     TimeDependentBCs,
     pp.MomentumBalance,
 ):
-
     pass
 
 

@@ -131,7 +131,7 @@ def test_secondary_operators(
     assert isinstance(sop, pp.ad.SurrogateOperator)
     # Calling the secondary expression with no grids, gives a wrapped empty array
     assert isinstance(sop_empty, pp.ad.DenseArray)
-    assert sop_empty.value(eqsys).shape == (0,)
+    assert eqsys.operator_value(sop_empty).shape == (0,)
 
     # secondary operator (SOP) starts at current iterate
     assert sop.time_step_index is None
@@ -209,22 +209,22 @@ def test_secondary_operators(
     # and shifting the values iteratively on domains
     if on_intf:
         assert np.all(np.zeros(nc) == expr.interface_values)
-        assert np.all(np.zeros(nc) == sop.value(eqsys))
+        assert np.all(np.zeros(nc) == eqsys.operator_value(sop))
         expr.interface_values = np.ones(nc)
     else:
         assert np.all(np.zeros(nc) == expr.subdomain_values)
-        assert np.all(np.zeros(nc) == sop.value(eqsys))
+        assert np.all(np.zeros(nc) == eqsys.operator_value(sop))
         expr.subdomain_values = np.ones(nc)
 
     # Check parsing of previous iter and current op
     # Note that prev iter operator has the same values, but no Jacobian (tested later)
-    assert np.all(sop.value(eqsys) == np.ones(nc))
-    assert np.all(sop_pi.value(eqsys) == np.ones(nc))
+    assert np.all(eqsys.operator_value(sop) == np.ones(nc))
+    assert np.all(eqsys.operator_value(sop_pi) == np.ones(nc))
     with pytest.raises(ValueError):
-        _ = sop.previous_iteration(steps=2).value(eqsys)
+        _ = eqsys.operator_value(sop.previous_iteration(steps=2))
     # Still no data at previous time step
     with pytest.raises(ValueError):
-        _ = sop_pt.value(eqsys)
+        _ = eqsys.operator_value(sop_pt)
 
     # constructing diffs for current iter, with respective numbers of dependencies
     if on_intf:
@@ -257,9 +257,9 @@ def test_secondary_operators(
     # they are correct, i.e. current iter is set as previous time
     expr.progress_values_in_time(domains)
     if on_intf:
-        assert np.all(sop_pt.value(eqsys) == expr.interface_values)
+        assert np.all(eqsys.operator_value(sop_pt) == expr.interface_values)
     else:
-        assert np.all(sop_pt.value(eqsys) == expr.subdomain_values)
+        assert np.all(eqsys.operator_value(sop_pt) == expr.subdomain_values)
     # No support for derivative values of operators at previous time and iterate
     for g in domains:
         with pytest.raises(ValueError):
@@ -337,24 +337,26 @@ def test_secondary_operators_on_boundaries(
     subdomain_expression.boundary_values = np.ones(nc)
 
     # Parsing the operator should give respective values now
-    assert np.all(sop.value(eqsys) == np.ones(nc))
+    assert np.all(eqsys.operator_value(sop) == np.ones(nc))
 
     # testing the local setter
     for g in bgs:
         subdomain_expression.update_boundary_values(np.ones(g.num_cells) * 2, g)
 
     # parsing the operator should give new values
-    assert np.all(sop.value(eqsys) == 2 * np.ones(nc))
+    assert np.all(eqsys.operator_value(sop) == 2 * np.ones(nc))
 
     # parsing the operator at the previous time step should give the old values
-    assert np.all(sop.previous_timestep().value(eqsys) == np.ones(nc))
+    assert np.all(eqsys.operator_value(sop.previous_timestep()) == np.ones(nc))
 
     # Testing shift in time
     # testing the local setter
     for g in bgs:
-        subdomain_expression.update_boundary_values(np.ones(g.num_cells) * 3, g, depth=2)
+        subdomain_expression.update_boundary_values(
+            np.ones(g.num_cells) * 3, g, depth=2
+        )
 
-    assert np.all(sop.value(eqsys) == 3 * np.ones(nc))
+    assert np.all(eqsys.operator_value() == 3 * np.ones(nc))
     # parsing the operator at the previous time step should give the old values
-    assert np.all(sop.previous_timestep().value(eqsys) == 2 * np.ones(nc))
-    assert np.all(sop.previous_timestep(steps=2).value(eqsys) == np.ones(nc))
+    assert np.all(eqsys.operator_value(sop.previous_timestep()) == 2 * np.ones(nc))
+    assert np.all(eqsys.operator_value(sop.previous_timestep(steps=2)) == np.ones(nc))
