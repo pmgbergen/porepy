@@ -57,23 +57,28 @@ def actual_ooc() -> dict:
         A dictionary containing the experimental order of convergence for the displacement.
     """
     # Angle of the fracture in degrees
-    theta_deg = 30.0
 
     # Simulation parameters
+    theta_deg = 30.0
+    a = 0.3
+    height = 1.0
+    length = 1.0
+    theta_rad = math.radians(90 - theta_deg)
+
     params = {
         "prepare_simulation": True,
         "material_constants": {"solid": solid},
-        "a": 0.3, # Half-length of the fracture
-        "height": 1.0, # Height of the domain
-        "length": 1.0, # Length of the domain
+        "a": a, # Half-length of the fracture
+        "height": height, # Height of the domain
+        "length": length, # Length of the domain
         "p0": 1e-4, # Internal pressure of fracture
         "poi": poi, # Possion ratio (Not standard in solid constants)
         "meshing_arguments": {"cell_size": 0.03},
+        "theta": theta_rad,
     }
 
     # Convert angle to radians and compute fracture points
-    params["theta"] = math.radians(90.0 - theta_deg)
-    params["frac_pts"] = compute_frac_pts(theta_rad=float(params["theta"]), a=float(params["a"]), height=float(params["height"]), length=float(params["length"]))
+    params["frac_pts"] = compute_frac_pts(theta_rad=theta_rad, a=a, height=height, length=length)
 
     # Model for the convergence analysis
     model = manu_sneddon_2d.MomentumBalanceGeometryBC
