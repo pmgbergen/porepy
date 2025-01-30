@@ -157,6 +157,16 @@ class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
         return mesh_sizes
 
 
+def fracs():
+    return [np.array([[0, 2], [1, 1]]), np.array([[1, 1], [0, 2]])]
+
+
+def mdg_func(nx=2, ny=2):
+    """Provide a mixed-dimensional grid for the tests."""
+    md_grid = pp.meshing.cart_grid(fracs(), np.array([nx, ny]), physdims=[2, 2])
+    return md_grid
+
+
 class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures):
     def set_geometry(self) -> None:
         """Define geometry and create a non-matching mixed-dimensional grid."""
@@ -173,12 +183,27 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
             g=old_fracture_grid_2, ratio=2
         )
 
-        self.mdg.replace_subdomains_and_interfaces(
-            {
-                old_fracture_grid_1: new_fracture_grid_1,
-                old_fracture_grid_2: new_fracture_grid_2,
-            }
-        )
+        grid_map = {
+            old_fracture_grid_1: new_fracture_grid_1,
+            old_fracture_grid_2: new_fracture_grid_2,
+        }
+
+        intf_map = {}
+
+        # Refine interface
+        mdg_new = mdg_func(nx=5, ny=5)
+        g_new = mdg_new.subdomains(dim=2)[0]
+        g_new.compute_geometry()
+
+        for intf in mdg_new.interfaces(dim=1):
+            g_sec = mdg_new.interface_to_subdomain_pair(intf)[1]
+
+            for intf_coarse in self.mdg.interfaces(dim=1):
+                _, g_sec_coarse = self.mdg.interface_to_subdomain_pair(intf_coarse)
+                if g_sec_coarse.frac_num == g_sec.frac_num:
+                    intf_map.update({intf_coarse: intf})
+
+        self.mdg.replace_subdomains_and_interfaces(sd_map=grid_map, intf_map=intf_map)
 
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
