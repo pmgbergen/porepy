@@ -206,7 +206,7 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
 
         # Refine and replace interface grids:
         # We first create a new and more refined mixed-dimensional grid.
-        def mdg_func(nx=2, ny=2) -> pp.MixedDimensionalGrid:
+        def mdg_func(self, nx=2, ny=2) -> pp.MixedDimensionalGrid:
             """Generate a refined version of an already existing mixed-dimensional grid.
 
             Parameters:
@@ -214,14 +214,14 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
                 ny: Number of cells in y-direction.
 
             """
-            fracs = [
-                np.array([[0.5, 0.5], [0, 1]]),
-                np.array([[0, 1], [0.5, 0.5]]),
-            ]
-            md_grid = pp.meshing.cart_grid(fracs, np.array([nx, ny]), physdims=[1, 1])
+            fracs = [self.fractures[i].pts for i in range(len(self.fractures))]
+            domain = self.domain.bounding_box
+            md_grid = pp.meshing.cart_grid(
+                fracs, np.array([nx, ny]), physdims=[domain["xmax"], domain["ymax"]]
+            )
             return md_grid
 
-        mdg_new = mdg_func(nx=6, ny=6)
+        mdg_new = mdg_func(self, nx=6, ny=6)
         g_new = mdg_new.subdomains(dim=2)[0]
         g_new.compute_geometry()
 
@@ -260,4 +260,3 @@ model = Test(params)
 pp.run_time_dependent_model(model, params)
 
 # pp.plot_grid(model.mdg, alpha=0.5, info="cf")
-print("hei")
