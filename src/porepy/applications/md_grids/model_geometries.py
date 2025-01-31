@@ -200,9 +200,6 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
 
         grid_map = dict(zip(old_fracture_grids, new_fracture_grids))
 
-        # Ensure the old and new fracture grids have the same fracture number.
-        for g_old, g_new in grid_map.items():
-            g_new.frac_num = g_old.frac_num
 
         # Refine and replace interface grids:
         # We first create a new and more refined mixed-dimensional grid.
