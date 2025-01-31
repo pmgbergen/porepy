@@ -1621,9 +1621,19 @@ def test_arithmetic_operations_on_ad_objects(
     # not a surprize (variable expected is False).
     if wrapped:
         try:
+            # The idea here is to test evaluation on the deepest level, i.e., the
+            # method _evaluate_single in the AdParser. This is the method that actually
+            # translates an expression into a numerical value. An error here signifies
+            # that something is wrong with the parsing itself. Note that testing of
+            # the frontend evaluation is done below (calls to eq_system.operator_value
+            # methods), as well as in the test of equation_system.py and other tests.
             expression = eval(f"v1 {op} v2")
-            val = expression._evaluate(eq_system)
-        except (TypeError, ValueError, NotImplementedError):
+            state = pp.ad.initAdArrays(
+                [eq_system.get_variable_values(time_step_index=0)]
+            )[0]
+            val = eq_system._ad_parser._evaluate_single(expression, state, eq_system)
+        except (TypeError, ValueError, NotImplementedError) as e:
+            # The variable e is not used here, but it is invaluable for debugging.
             assert not expected
             return
     else:
