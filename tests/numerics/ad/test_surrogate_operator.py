@@ -356,7 +356,7 @@ def test_secondary_operators_on_boundaries(
             np.ones(g.num_cells) * 3, g, depth=2
         )
 
-    assert np.all(eqsys.operator_value() == 3 * np.ones(nc))
+    assert np.all(eqsys.operator_value(sop) == 3 * np.ones(nc))
     # parsing the operator at the previous time step should give the old values
     assert np.all(eqsys.operator_value(sop.previous_timestep()) == 2 * np.ones(nc))
     assert np.all(eqsys.operator_value(sop.previous_timestep(steps=2)) == np.ones(nc))
