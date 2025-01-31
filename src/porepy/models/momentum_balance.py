@@ -212,7 +212,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         #      by the mortar grid (that is, the matrix and the fracture).
         #   3) The stress is projected to the mortar grid.
         contact_from_primary_mortar = (
-            mortar_projection.primary_to_mortar_int
+            mortar_projection.primary_to_mortar_int()
             @ proj.face_prolongation(matrix_subdomains)
             @ self.internal_boundary_normal_to_outwards(matrix_subdomains, dim=self.nd)
             @ self.stress(matrix_subdomains)
