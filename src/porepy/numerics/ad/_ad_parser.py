@@ -190,21 +190,52 @@ class AdParser:
         # If not, the state is used as is (as a numpy array).
         ad_base = pp.ad.initAdArrays([state])[0] if derivative else state
 
+        # Evaluate the operators. A single operator is treated as a list to simplify the
+        # post-processing below.
         if isinstance(op, list):
             result_list = [self._evaluate_single(o, ad_base, eq_sys) for o in op]
-
-            # Clear the cache after each evaluation. For the moment, this seems like the
-            # safest option, although it should be possible to safely cache some results
-            # also between evaluations.
-            self.clear_cache()
-
-            # Mypy thinks the list can contain a mixture of np.ndarray and AdArray, but
-            # this is not the case.
-            return result_list  # type: ignore
         else:
-            result = self._evaluate_single(op, ad_base, eq_sys)
-            self.clear_cache()
-            return result
+            result_list = [self._evaluate_single(op, ad_base, eq_sys)]
+
+        # If the derivative is requested, the results should be AdArrays. Enforce this.
+        if derivative:
+            for index, res in enumerate(result_list):
+                if isinstance(res, (int, float)):
+                    # First convert scalars to numpy arrays. No need to update
+                    # result_list, since res will also be operated on by the next if.
+                    res = np.array([res])
+                if isinstance(res, np.ndarray) and len(res.shape) == 1:
+                    # Convert numpy arrays to AdArrays and update result_list.
+                    result_list[index] = pp.ad.AdArray(
+                        res, sps.csr_matrix((res.shape[0], eq_sys.num_dofs()))
+                    )
+                elif isinstance(res, (sps.spmatrix, np.ndarray)):
+                    # This will cover numpy arrays of higher dimensions (> 1) and sparse
+                    # matrices.
+                    #
+                    # The Ad framework is not designed to handle multidimensional states
+                    # (e.g., one represented by a 2-tensor, which would have a 3-tensor
+                    # Jacobian). If evalutaion ends up here, it is most likely that the
+                    # operator to be evaluated violates this assumption. However, it is
+                    # also possible to arrive here by creating a pp.ad.SparseMatrix, and
+                    # evaluting it and also requesting the Jacobian. Though this is in a
+                    # sense a reasonable request, the SparseMatrix can also be evaluated
+                    # by calling _parse() directly, and this is the recommended way to
+                    # handle this case.
+                    raise NotImplementedError(
+                        f"The Jacobian of {type(res)} is not implemented because it is "
+                        "multidimensional"
+                    )
+
+        # Clear the cache after each evaluation. For the moment, this seems like the
+        # safest option, although it should be possible to safely cache some results
+        # also between evaluations.
+        self.clear_cache()
+
+        if isinstance(op, list):
+            return result_list
+        else:
+            return result_list[0]
 
     def _evaluate_single(
         self,
@@ -234,7 +265,6 @@ class AdParser:
         # 1. If the operator is a leaf (has no children), parse the leaf.
         # 2. If the operator is a composite operator, parse the children and combine
         #    them according to the operator.
-
         if op.is_leaf():
             if isinstance(op, pp.ad.MixedDimensionalVariable):
                 if op.is_previous_iterate or op.is_previous_time:
@@ -284,7 +314,6 @@ class AdParser:
             case Operations.add | Operations.sub:
                 # Addition and subtraction can be handled rather straightforwardly,
                 # though with some tweaks for subtraction.
-
                 assert len(child_values) == 2  # These operations are binary
 
                 # Take note of whether the operands are flipped.
