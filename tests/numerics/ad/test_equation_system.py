@@ -6,9 +6,11 @@ The tests focus on various assembly methods:
         current iterate, previous iterate and previous time step.
     * test_variable_creation: Test that variable creation from an EquationSystem works.
     * test_variable_tags: Tagging of variables, used for filtering in an EquationSystem.
-    * test_set_get_methods: Get and set methods for variables.
+    * test_set_get_methods: Get and set methods for variables, including methods for
+        shifting between time steps and iterates.
     * test_projection_matrix: Projection from a global vector to one defined on a subset
         of variables.
+    * test_set_remove_equations: Set and remove equations from an EquationSystem.
     * test_parse_variable_like, test_parse_single_equation, test_parse_equations:
         Parsing of equations, and the methods used to do so. Thorough testing here means
         other tests can get away with fewer parameter checks.
@@ -17,12 +19,6 @@ The tests focus on various assembly methods:
     * test_assemble: Assemble sub-blocks of the full set of equations.
     * test_extract_subsystem: Extract a new EquationSystem for a subset of equations.
     * test_schur_complement: Assemble a subsystem, using a Schur complement reduction.
-
-To be tested:
-    Get and set methods for variables
-    IdentifyDof
-    ...
-
 
 """
 import numpy as np
