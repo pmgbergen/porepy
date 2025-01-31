@@ -1570,8 +1570,12 @@ class EquationSystem:
 
         # The evaluation method to use depends on whether the Jacobian is requested.
         if not evaluate_jacobian:
+            # Evaluate the operator to get the residual vector.
             values = self.operator_value(eqs, state)
             for row, val in zip(rows, values):
+                # The residual of individual equations can be a scalar or an array.
+                # Forcing to array to ensure consistent handling.
+                val = np.asarray(val)
                 if row is not None:
                     rhs.append(val[row])
                 else:
@@ -1579,7 +1583,6 @@ class EquationSystem:
         else:
             ad_list: list[pp.ad.AdArray] = self.operator_value_and_jacobian(eqs, state)
             for row, equ_name, ad in zip(rows, equ_blocks, ad_list):
-
                 if row is not None:
                     # If restriction to grid-related row blocks was made, perform row
                     # slicing based on information we have obtained from parsing.
@@ -1879,18 +1882,23 @@ class EquationSystem:
     @overload
     def operator_value(
         self, operator: pp.ad.Operator, state: Optional[np.ndarray] = None
-    ) -> np.ndarray: ...
+    ) -> pp.number | np.ndarray | sps.spmatrix: ...
 
     @overload
     def operator_value(
         self, operator: list[pp.ad.Operator], state: Optional[np.ndarray] = None
-    ) -> list[np.ndarray]: ...
+    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
 
     def operator_value(
         self,
         operator: pp.ad.Operator | list[pp.ad.Operator],
         state: Optional[np.ndarray] = None,
-    ) -> np.ndarray | list[np.ndarray]:
+    ) -> (
+        pp.number
+        | np.ndarray
+        | sps.spmatrix
+        | list[pp.number | np.ndarray | sps.spmatrix]
+    ):
         """Evaluate an operator on the current state.
 
         Parameters:
