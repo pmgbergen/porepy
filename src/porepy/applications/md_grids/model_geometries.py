@@ -159,37 +159,61 @@ class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
 
 class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures):
     def set_geometry(self) -> None:
-        """Define geometry and create a non-matching mixed-dimensional grid."""
+        """Define geometry and create a non-matching mixed-dimensional grid.
+
+        We here make a non-matching mixed-dimensional grid in the sense that neither of
+        the fracture grids, interface grids or the rock grid are matching. This is done
+        by refining the fracture grids and interfaces.
+
+        The fracture grids are replaced by a refined version of the fractures which are
+        already present in the grid. The interface grids are replaced by first creating
+        a new mixed-dimensional grid with a higher resolution. The new mixed-dimensional
+        grid will "donate" its interface grids to the original mixed-dimensional grid.
+
+        There are a few things to be aware of when creating a non-matching
+        mixed-dimensional grid:
+            * If _both_ the interface and fracture grids are to be refined/coarsened,
+              you must be aware of:
+                * If you first refine (and replace) the fracture grids, you must also
+                  update the fracture numbering such that the new fracture grids have
+                  the same fracture number as the old ones. This is because the fracture
+                  numbering is used to identify the correct interface grids later.
+                  TODO: Make sure that the refine-grid-functions also copy frac_num
+                  attribute such that the abovementioned is no longer a problem.
+            * Ensure that the "donor" mixed-dimensional grid is physically the same as
+              the "recipient" mixed-dimensional grid. Fractures must be located at the
+              same place and the physical dimension of the grids must be the same.
+
+        """
         super().set_geometry()
 
-        # Refine fracture grid such that the mixed-dimensional geometry is non-matching.
-        old_fracture_grid_1 = self.mdg.subdomains(dim=1)[0]
-        old_fracture_grid_2 = self.mdg.subdomains(dim=1)[1]
+        # Refine and replace fracture grids:
+        old_fracture_grids = self.mdg.subdomains(dim=1)
 
-        new_fracture_grid_1 = pp.refinement.refine_grid_1d(
-            g=old_fracture_grid_1, ratio=3
-        )
-        new_fracture_grid_2 = pp.refinement.refine_grid_1d(
-            g=old_fracture_grid_2, ratio=2
-        )
+        # Ratios which we want to refine the fracture grids with.
+        ratios = [3, 2]
 
-        grid_map = {
-            old_fracture_grid_1: new_fracture_grid_1,
-            old_fracture_grid_2: new_fracture_grid_2,
-        }
+        new_fracture_grids = [
+            pp.refinement.refine_grid_1d(g=old_grid, ratio=ratio)
+            for old_grid, ratio in zip(old_fracture_grids, ratios)
+        ]
+
+        grid_map = dict(zip(old_fracture_grids, new_fracture_grids))
 
         # Ensure the old and new fracture grids have the same fracture number.
         for g_old, g_new in grid_map.items():
             g_new.frac_num = g_old.frac_num
 
-        intf_map = {}
+        # Refine and replace interface grids:
+        # We first create a new and more refined mixed-dimensional grid.
+        def mdg_func(nx=2, ny=2) -> pp.MixedDimensionalGrid:
+            """Generate a refined version of an already existing mixed-dimensional grid.
 
-        # Refine interfaces by first creating a new and more refined mixed-dimensional
-        # grid. This is done such that we can exchange the more coarse interface grids
-        # provided by SquareDomainOrthogonalFractures, with the more refined interface
-        # grids from the new mixed-dimensional grid.
-        def mdg_func(nx=2, ny=2):
-            """Provide a mixed-dimensional grid for the tests."""
+            Parameters:
+                nx: Number of cells in x-direction.
+                ny: Number of cells in y-direction.
+
+            """
             fracs = [
                 np.array([[0.5, 0.5], [0, 1]]),
                 np.array([[0, 1], [0.5, 0.5]]),
@@ -201,14 +225,27 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         g_new = mdg_new.subdomains(dim=2)[0]
         g_new.compute_geometry()
 
-        for intf in mdg_new.interfaces(dim=1):
-            g_sec = mdg_new.interface_to_subdomain_pair(intf)[1]
+        intf_map = {}
 
+        # First we loop through all the interfaces in the new mixed-dimensional grid
+        # (donor).
+        for intf in mdg_new.interfaces(dim=1):
+            # Then, for each interface, we fetch the secondary grid which belongs to it.
+            _, g_sec = mdg_new.interface_to_subdomain_pair(intf)
+
+            # We then loop through all the interfaces in the original grid (recipient).
             for intf_coarse in self.mdg.interfaces(dim=1):
+                # Fetch the secondary grid of the interface in the original grid.
                 _, g_sec_coarse = self.mdg.interface_to_subdomain_pair(intf_coarse)
+
+                # Checkinc the fracture number of the secondary grid in the recipient
+                # mdg. If they are the same, i.e., the fractures are the same ones, we
+                # update the interface map.
                 if g_sec_coarse.frac_num == g_sec.frac_num:
                     intf_map.update({intf_coarse: intf})
 
+        # Finally replace the subdomains and interfaces in the original
+        # mixed-dimensional grid. Both can be done at the same time:
         self.mdg.replace_subdomains_and_interfaces(sd_map=grid_map, intf_map=intf_map)
 
         # Create projections between local and global coordinates for fracture grids.
@@ -222,5 +259,5 @@ params = {"fracture_indices": [0, 1]}
 model = Test(params)
 pp.run_time_dependent_model(model, params)
 
-pp.plot_grid(model.mdg, alpha=0.5, info="cf")
+# pp.plot_grid(model.mdg, alpha=0.5, info="cf")
 print("hei")
