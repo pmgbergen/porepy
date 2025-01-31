@@ -43,7 +43,7 @@ class AdParser:
     @overload
     def value(
         self, op: pp.ad.Operator, eq_sys: pp.ad.EquationSystem, state: np.ndarray | None
-    ) -> np.ndarray: ...
+    ) -> float | np.ndarray | sps.spmatrix: ...
 
     @overload
     def value(
@@ -51,14 +51,16 @@ class AdParser:
         op: list[pp.ad.Operator],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
-    ) -> list[np.ndarray]: ...
+    ) -> list[float | np.ndarray | sps.spmatrix]: ...
 
     def value(
         self,
         op: pp.ad.Operator | list[pp.ad.Operator],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
-    ) -> np.ndarray | list[np.ndarray]:
+    ) -> (
+        pp.number | np.ndarray | sps.spmatrix | list[float | np.ndarray | sps.spmatrix]
+    ):
         """Get the value (but not the Jacobian) of the operator op.
 
         Parameters:
@@ -116,19 +118,19 @@ class AdParser:
     def _evaluate(
         self,
         op: pp.ad.Operator,
-        derivative: Literal[True],
+        derivative: Literal[False],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
-    ) -> pp.ad.AdArray: ...
+    ) -> float | np.ndarray | sps.spmatrix: ...
 
     @overload
     def _evaluate(
         self,
         op: pp.ad.Operator,
-        derivative: Literal[False],
+        derivative: Literal[True],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
-    ) -> np.ndarray: ...
+    ) -> pp.ad.AdArray: ...
 
     @overload
     def _evaluate(
@@ -146,7 +148,7 @@ class AdParser:
         derivative: Literal[False],
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
-    ) -> list[np.ndarray]: ...
+    ) -> list[float | np.ndarray | sps.spmatrix]: ...
 
     def _evaluate(
         self,
@@ -154,7 +156,14 @@ class AdParser:
         derivative: bool,
         eq_sys: pp.ad.EquationSystem,
         state: np.ndarray | None,
-    ) -> np.ndarray | pp.ad.AdArray | list[np.ndarray] | list[pp.ad.AdArray]:
+    ) -> (
+        float
+        | np.ndarray
+        | sps.spmatrix
+        | pp.ad.AdArray
+        | list[float | np.ndarray | sps.spmatrix]
+        | list[pp.ad.AdArray]
+    ):
         """Evaluate the operator x and its derivative if requested.
 
         A forward mode automatic differentiation is used to evaluate the operator op.
@@ -202,7 +211,7 @@ class AdParser:
         op: pp.ad.Operator,
         ad_base: np.ndarray | pp.ad.AdArray,
         eq_sys: pp.EquationSystem,
-    ) -> np.ndarray | pp.ad.AdArray:
+    ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
         """Evaluate a single operator.
 
         Parameters:
@@ -324,6 +333,10 @@ class AdParser:
                         # behavior. This is permissible, since the elementwise product
                         # commutes.
                         child_values = child_values[::-1]
+
+                    # Mypy does not understand that the above if ensures that the type
+                    # of the second operand is not a float, so we need to assert it.
+                    assert not isinstance(child_values[1], float)
 
                     # If the first operand is a numpy array and the second is an
                     # AdArray, numpy will make the operation in a strange way, using its
