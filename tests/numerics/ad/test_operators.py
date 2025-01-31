@@ -1605,7 +1605,7 @@ def test_arithmetic_operations_on_ad_objects(
 
     def _compare(v1, v2):
         # Helper function to compare two evaluated objects.
-        assert type(v1) == type(v2)
+        assert type(v1) is type(v2)
         if isinstance(v1, float):
             assert np.isclose(v1, v2)
         elif isinstance(v1, np.ndarray):
