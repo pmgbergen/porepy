@@ -478,7 +478,7 @@ class SolutionStrategy(abc.ABC, pp.PorePyModel):
     def check_convergence(
         self,
         nonlinear_increment: np.ndarray,
-        residual: np.ndarray,
+        residual: Optional[np.ndarray],
         reference_residual: np.ndarray,
         nl_params: dict[str, Any],
     ) -> tuple[bool, bool]:
@@ -487,7 +487,7 @@ class SolutionStrategy(abc.ABC, pp.PorePyModel):
         Parameters:
             nonlinear_increment: Newly obtained solution increment vector
             residual: Residual vector of non-linear system, evaluated at the newly
-            obtained solution vector.
+                obtained solution vector. Potentially None, if not needed.
             reference_residual: Reference residual vector of non-linear system,
                 evaluated for the initial guess at current time step.
             nl_params: Dictionary of parameters used for the convergence check.
@@ -530,8 +530,14 @@ class SolutionStrategy(abc.ABC, pp.PorePyModel):
                 f"Nonlinear residual norm: {residual_norm:.2e}"
             )
             # Check convergence requiring both the increment and residual to be small.
-            converged_inc = nonlinear_increment_norm < nl_params["nl_convergence_tol"]
-            converged_res = residual_norm < nl_params["nl_convergence_tol_res"]
+            converged_inc = (
+                nl_params["nl_convergence_tol"] is np.inf
+                or nonlinear_increment_norm < nl_params["nl_convergence_tol"]
+            )
+            converged_res = (
+                nl_params["nl_convergence_tol_res"] is np.inf
+                or residual_norm < nl_params["nl_convergence_tol_res"]
+            )
             converged = converged_inc and converged_res
             diverged = False
 
@@ -543,7 +549,7 @@ class SolutionStrategy(abc.ABC, pp.PorePyModel):
         return converged, diverged
 
     def compute_residual_norm(
-        self, residual: np.ndarray, reference_residual: np.ndarray
+        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
     ) -> float:
         """Compute the residual norm for a nonlinear iteration.
 
@@ -553,9 +559,11 @@ class SolutionStrategy(abc.ABC, pp.PorePyModel):
                 allowing for definiting relative criteria.
 
         Returns:
-            float: Residual norm.
+            float: Residual norm; np.nan if the residual is None.
 
         """
+        if residual is None:
+            return np.nan
         residual_norm = np.linalg.norm(residual) / np.sqrt(residual.size)
         return residual_norm
 
