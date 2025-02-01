@@ -736,7 +736,7 @@ class Grid:
             The value 1 indicates a connection between a cell and node column-wise.
 
         """
-        mat = (self.face_nodes * np.abs(self.cell_faces)) > 0
+        mat = (self.face_nodes @ np.abs(self.cell_faces)) > 0
         return mat
 
     def num_cell_nodes(self) -> np.ndarray:
