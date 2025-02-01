@@ -112,7 +112,7 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
         pass
 
     # Create an instance of the combined class
-    model: pp.PorePyModel = cast(pp.PorePyModel, Model(params))
+    model = cast(pp.PorePyModel, Model(params))
 
     # Prepare the simulation
     # (create grids, variables, equations, discretize, etc.)

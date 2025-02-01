@@ -1383,7 +1383,6 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         """
         super().set_materials()
         self.exact_sol = MandelExactSolution(self)
-        self.results = []
 
         # Biot's coefficient must be one
         assert self.solid.biot_coefficient == 1
