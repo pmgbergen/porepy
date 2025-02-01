@@ -348,6 +348,7 @@ def test_evaluated_values(
     params = {
         "material_constants": {"solid": solid, "fluid": fluid},
         "fracture_indices": [0, 1],
+        "times_to_export": [],  # Suppress output for tests
     }
 
     setup = model(params)

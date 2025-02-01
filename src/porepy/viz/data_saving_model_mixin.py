@@ -60,7 +60,8 @@ class DataSavingMixin(pp.PorePyModel):
         # Save solver statistics to file.
         self.nonlinear_solver_statistics.save()
 
-        # Collecting and storing data in runtime for analysis.
+        # Collecting and storing data in runtime for analysis. If default value of None
+        # is returned, nothing is stored to not burden memory.
         if not self._is_time_dependent():  # stationary problem
             if (
                 self.nonlinear_solver_statistics.num_iteration > 0

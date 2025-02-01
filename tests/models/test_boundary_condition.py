@@ -76,7 +76,11 @@ def test_boundary_condition_mixin(t_end: int):
     3) Previous timestep values are set correctly for the time dependent Neumann.
 
     """
-    setup = MassBalance()
+    setup = MassBalance(
+        {
+            "times_to_export": [],  # Suppress output for tests
+        }
+    )
     setup.time_manager.dt = 1
     setup.time_manager.time_final = t_end
     pp.run_time_dependent_model(setup)
@@ -385,6 +389,7 @@ def run_model(balance_class, alpha):
         "times_to_export": [],
         "fracture_indices": [],
         "meshing_arguments": {"cell_size": 0.5},
+        "times_to_export": [],  # Suppress output for tests
     }
 
     params["alpha"] = alpha
