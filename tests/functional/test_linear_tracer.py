@@ -55,6 +55,7 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
         dt_init=dt,
         constant_dt=True,
     )
+    setup.ad_time_step.set_value(dt)
     setup.time_manager = time_manager
     pp.run_time_dependent_model(setup, model_params)
     return setup.results
