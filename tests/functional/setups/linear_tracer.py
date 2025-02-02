@@ -74,9 +74,8 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import Callable, Literal, Sequence, cast
 
-from scipy.special import erf
-
 import numpy as np
+from scipy.special import erf
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
@@ -202,7 +201,7 @@ class LinearTracerExactSolution1D:
         D = np.abs(c) * dx / 2 * (1 + gamma)
         # coefficient for scaling error function
         eta = 2 * np.sqrt(D * t)
-        a = - (self.z_tracer_inlet - self.z_tracer_initial) / 2
+        a = -(self.z_tracer_inlet - self.z_tracer_initial) / 2
         # Using error function to construct diffused solution superposed
         # with homogenous solution solution.
         z_diffused = a * (1 + erf((x - front_x) / eta)) + self.z_tracer_inlet
@@ -289,7 +288,11 @@ class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
                 is_cc=True,
             ),
             error_diffused_z_tracer=ConvergenceAnalysis.l2_error(
-                sds[0], diffused_z_tracer, approx_z_tracer, is_scalar=True, is_cc=True,
+                sds[0],
+                diffused_z_tracer,
+                approx_z_tracer,
+                is_scalar=True,
+                is_cc=True,
             ),
             t=t,
             dt=dt,
@@ -314,19 +317,19 @@ class SimplePipe2D(pp.PorePyModel):
     """Pipe length of domain in meters."""
 
     @property
-    def _nx(self) -> int:
-        """Returns the target number of cells ``nx`` which can be given as a model
-        parameter."""
-        return int(self.params.get("num_cells", 10))
-
-    @property
     def _dx(self) -> float:
         """Returns the cell size of the unit square cells using target length of 10 m
         and given number of cells (converted to simulation units)."""
-        return self.units.convert_units(self.pipe_length / self._nx, "m")
+        return self.units.convert_units(
+            self.params["meshing_arguments"]["cell_size"],
+            "m",
+        )
 
     def grid_type(self) -> Literal["cartesian"]:
         return "cartesian"
+
+    def meshing_arguments(self) -> dict:
+        return self.params["meshing_arguments"]
 
     def set_domain(self) -> None:
         self._domain = pp.Domain(
@@ -337,9 +340,6 @@ class SimplePipe2D(pp.PorePyModel):
                 "ymax": self._dx,
             }
         )
-
-    def meshing_arguments(self) -> dict:
-        return {"cell_size": self._dx}
 
     def set_fractures(self) -> None:
         """No fractures."""
