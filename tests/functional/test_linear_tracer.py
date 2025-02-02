@@ -2,33 +2,38 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
+
 import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.linear_tracer import (
     LinearTracerSaveData,
+    SimplePipe2D,
     TracerFlowSetup_1p,
     TracerFlowSetup_3p,
 )
-
-from matplotlib import pyplot as plt
 
 
 @pytest.fixture(scope="module")
 def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
     """Results of the 1-phase, 2-component linear tracer model"""
-    num_cells, model = request.param
+    cell_size, model = request.param
     # Run verification setup and retrieve results for three different times
     material_constants = {
         "solid": pp.SolidConstants(porosity=1.0, permeability=1.0, residual_aperture=1),
     }
-    time_manager = pp.TimeManager([0, 10, 30, 80, 100], 10, True)
+    time_manager = pp.TimeManager(
+        schedule=[0, 10, 30, 80, 100], dt_init=10, constant_dt=True
+    )
     model_params = {
         "material_constants": material_constants,
         "time_manager": time_manager,
-        "num_cells": num_cells,
+        "meshing_arguments": {"cell_size": cell_size},
         "prepare_simulation": False,
+        "times_to_export": [],
     }
     if model == "1p":
         setup = TracerFlowSetup_1p(model_params)
@@ -40,26 +45,26 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
         raise ValueError(f"Unknown model fixture parametrization {model}.")
     setup.prepare_simulation()
 
-    # modifying dt and end time schedule according to cfl condition and approximate
-    # flow velocity. Works only assuming the test does not work with I/O of times
+    # Setting dt and end time schedule according to cfl condition and approximate
+    # flow velocity. Works only assuming the test does not work with I/O of times.
     sd = setup.mdg.subdomains()[0]
     dt = setup.exact_sol.dt_from_cfl(sd)
-    v = setup.exact_sol.flow_velocity(sd)
-    setup.time_manager.dt_init = dt
-    setup.time_manager.dt = dt
-    T_final = setup.pipe_length / v
-    if setup.time_manager.schedule[-1] <= T_final:
-        setup.time_manager.schedule = np.array(
-            setup.time_manager.schedule.tolist() + [T_final]
-        )
-        setup.time_manager.time_final = T_final
+
+    time_manager = pp.TimeManager(
+        schedule=[0, 3 * dt, 6 * dt, 9 * dt, 10 * dt],
+        dt_init=dt,
+        constant_dt=True,
+    )
+    setup.time_manager = time_manager
     pp.run_time_dependent_model(setup, model_params)
     return setup.results
 
 
-# First parametrization is over number of cells in pipe for fixture.
-# Second to test all schedule indices.
-@pytest.mark.parametrize("results", [(40, "1p")], indirect=["results"])
+# First parametrization is over number of cells in pipe and setup for fixture.
+# Second to test all scheduled indices.
+@pytest.mark.parametrize(
+    "results", [(SimplePipe2D.pipe_length / 40, "1p")], indirect=["results"]
+)
 @pytest.mark.parametrize("time_index", [0, 1, 2, 3])
 def test_linear_tracer_1p_diffusive(
     time_index: int, results: list[LinearTracerSaveData]
@@ -88,14 +93,33 @@ def test_linear_tracer_1p_diffusive(
     # testing errors in pressure (exact)
     np.testing.assert_allclose(sol_data.error_p, 0.0, atol=1e-7, rtol=0.0)
 
-    # NOTE due to numerical diffusion, the tracer fraction cannot be checked here
-    # It is checked in a separate test, comparing it to the solution of the modified
-    # equation accounting for diffusion.
+    # NOTE due to the hyperbolic nature, the error in the tracer fraction should
+    # converge to zero linearly, which is checked in a separate test. Here we check only
+    # that the error is not getting worse with ongoing code development.
+    expected_error_z = [
+        0.1128851432293962,
+        0.1344878688028854,
+        0.1489878242519587,
+        0.15299862798949995,
+    ]
+    expected_error_diffused_z = [
+        0.020278908152713,
+        0.018535428299520068,
+        0.01703231859562048,
+        0.016602357208773923,
+    ]
+    # Allow 10% margin for machine reasons.
+    assert (
+        sol_data.error_diffused_z_tracer <= 1.1 * expected_error_diffused_z[time_index]
+    )
+    assert sol_data.error_z_tracer <= 1.1 * expected_error_z[time_index]
 
 
 # Expected to fail because Upwinding and backward euler are diffusive
 @pytest.mark.xfail
-@pytest.mark.parametrize("results", [(10, "1p")], indirect=["results"])
+@pytest.mark.parametrize(
+    "results", [(SimplePipe2D.pipe_length / 40, "1p")], indirect=["results"]
+)
 @pytest.mark.parametrize("time_index", [0, 1, 2, 3])
 def test_linear_tracer_1p_exact(
     time_index: int, results: list[LinearTracerSaveData]
@@ -108,10 +132,78 @@ def test_linear_tracer_1p_exact(
     sol_data = results[time_index]
     np.testing.assert_allclose(sol_data.error_z_tracer, 0.0, atol=1e-7, rtol=0.0)
 
+@pytest.mark.skipped
+def test_linear_tracer_1p_ooc():
+    """Tests the order of convergence for the tracer fraction, which is expected to be
+    quadratic."""
+    max_iterations = 80
+    newton_tol = 1e-6
+    newton_tol_increment = newton_tol
+
+    # Breakthrough time is roughly 100 seconds in this setup. We take the half time
+    # where the front is roughly in the middle and both sides of the modified solution
+    # which includes diffusiones are shown in the solution
+    time_manager = pp.TimeManager([0, 50], 10, True)
+
+    params = {
+        "material_constants": {
+            "solid": pp.SolidConstants(
+                porosity=1, permeability=1, residual_aperture=1.0
+            ),
+        },
+        "time_manager": time_manager,
+        "max_iterations": max_iterations,
+        "nl_convergence_tol": newton_tol_increment,
+        "nl_convergence_tol_res": newton_tol,
+        "times_to_export": [],
+        "grid_type": "cartesian",
+        "meshing_arguments": {"cell_size": 1.0},
+    }
+
+    conv_analysis = ConvergenceAnalysis(
+        model_class=TracerFlowSetup_1p,
+        model_params=deepcopy(params),
+        levels=5,
+        # Constant flow velocity means halving of grid size should be followed by
+        # halving of time step size (CFL).
+        spatial_refinement_rate=2,
+        temporal_refinement_rate=2,
+    )
+    results = conv_analysis.run_analysis()
+    ooc = conv_analysis.order_of_convergence(results)
+
+    # Both should converge roughly linear when compared to the exact front and the
+    # solution to the modified equation (which includes diffusion). The latter should
+    # should converge super-linearly, while the former roughly linearly.
+    # These values are snapshots of the state when the tests are written. AS the code
+    # improves, they should be updated.
+    expected_ooc = {
+        "ooc_z_tracer": 0.7474414018761917,
+        "ooc_diffused_z_tracer": 1.233078730659626,
+    }
+    # NOTE checking OOC for pressure makes no sense since it is at machine presicion.
+    # Problem is linear and incompressible, which means p converges immediately.
+
+    np.testing.assert_allclose(
+        ooc["ooc_z_tracer"],
+        expected_ooc["ooc_z_tracer"],
+        atol=1e-1,
+        rtol=0.0,
+    )
+    np.testing.assert_allclose(
+        ooc["ooc_diffused_z_tracer"],
+        expected_ooc["ooc_diffused_z_tracer"],
+        atol=1e-1,
+        rtol=0.0,
+    )
+
 
 @pytest.mark.parametrize(
     "results",
-    [(10, "3p"), pytest.param((100, "3p"), marks=pytest.mark.skipped)],  # reason: slow
+    [
+        (SimplePipe2D.pipe_length / 10, "3p"),
+        pytest.param((SimplePipe2D.pipe_length / 100, "3p"), marks=pytest.mark.skipped),
+    ],  # reason: slow
     indirect=["results"],
 )
 @pytest.mark.parametrize("time_index", [0, 1, 2, 3])
@@ -137,7 +229,7 @@ def test_linear_tracer_3p(time_index: int, results: list[LinearTracerSaveData]) 
 
     # It takes some time for the model to reach isothermal condition once the pressure
     # profile changes from constant to linear. This is due to the fluid internal
-    # energy consiting of enthalpy and pressure work
+    # energy consiting of enthalpy and pressure work.
     if time_index > 1:
         np.testing.assert_allclose(sol_data.error_T, 0.0, atol=1e-7, rtol=0.0)
         np.testing.assert_allclose(sol_data.error_h, 0.0, atol=1e-7, rtol=0.0)
