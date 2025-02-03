@@ -94,7 +94,7 @@ class InitialConditionMixin(pp.PorePyModel):
 
         self.set_initial_values_primary_variables()
 
-        # updating variable values from current time step, to all previous and iterate
+        # Updating variable values from current time step, to all previous and iterate.
         val = self.equation_system.get_variable_values(iterate_index=0)
         for iterate_index in self.iterate_indices:
             self.equation_system.set_variable_values(

@@ -636,6 +636,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
     def create_variables(self) -> None:
         """Creates the sets of required variables for a fluid mixture.
 
+        The following actions are taken:
         1. :meth:`overall_fraction` is called to assign
            :attr:`~porepy.compositional.base.Component.fraction` to components.
         2. :meth:`tracer_fraction` is called to assign
@@ -643,15 +644,17 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
            tracer in a compound.
         3. :meth:`saturation` is called to assign
            :attr:`~porepy.compositional.base.Phase.saturation` to phases.
-        4. :attr:`~porepy.compositional.base.Phase.fraction` to phases by calling
-           :meth:`phase_fraction'.
-        5. :attr:`~porepy.compositional.base.Phase.extended_fraction_of` for each phase
-           and component by calling :meth:`extended_fraction`.
-        6. :attr:`~porepy.compositional.base.Phase.partial_fraction_of` for each phase
-           and component by calling :meth:`partial_fraction`.
+        4. :meth:`phase_fraction' is called to assign
+           :attr:`~porepy.compositional.base.Phase.fraction` to phases.
+        5. :meth:`extended_fraction` is called to assing
+           :attr:`~porepy.compositional.base.Phase.extended_fraction_of` for each phase
+           and component.
+        6. :meth:`partial_fraction` is called to assign
+           :attr:`~porepy.compositional.base.Phase.partial_fraction_of` for each phase
+           and component.
 
-        Note however, that dependent on the mixture and model configuration, the
-        objects and callables created here are both independent variables and dependent
+        Note however, that dependening on the mixture and model configuration, the
+        objects and callables created here can be independent variables or dependent
         expressions (regular AD operators).
 
         """
@@ -679,7 +682,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                         tracer, component
                     )
 
-        # NOTE all variables associated with transport of mass are now created.
+        # NOTE: All variables associated with transport of mass are now created.
         # Below variables are of local nature.
 
         # Creation of saturation variables.
@@ -690,10 +693,10 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         for phase in self.fluid.phases:
             phase.fraction = self.phase_fraction(phase)
 
-        # Creation of extended fractions
+        # Creation of extended fractions.
         for phase in self.fluid.phases:
-            phase.extended_fraction_of = dict()
-            # NOTE iterate over components in phase, not all components to avoid
+            phase.extended_fraction_of = {}
+            # NOTE: Iterate over components in phase, not all components to avoid
             # conflicts with non-unified set-ups. The check of whether all phases have
             # all components must be done elsewhere.
             for comp in phase:
@@ -701,7 +704,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         # Creation of partial fractions.
         for phase in self.fluid.phases:
-            phase.partial_fraction_of = dict()
+            phase.partial_fraction_of = {}
             for comp in phase:
                 phase.partial_fraction_of[comp] = self.partial_fraction(comp, phase)
 
@@ -734,7 +737,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single_feed_fraction")
 
-        # NOTE if the reference component fraction is independent, below elif-clause
+        # NOTE: If the reference component fraction is independent, below elif-clause
         # will be executed, instead of the next one.
         elif self.has_independent_fraction(component):
             fraction = self._fraction_factory(
@@ -813,8 +816,8 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             def saturation(subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single_phase_saturation")
 
-        # NOTE if the reference phase is independent, below elif-clause will be
-        # executed, instead of the next one.
+        # NOTE: If the reference phase is independent, below elif-clause will be
+        # executed.
         elif self.has_independent_saturation(phase):
             saturation = self._fraction_factory(self._saturation_variable(phase))
         # If reference component, eliminate by unity.
@@ -991,7 +994,6 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         elif component == phase.reference_component:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
-
                 x_r = pp.ad.Scalar(1.0) - pp.ad.sum_operator_list(
                     [
                         phase.partial_fraction_of[comp](domains)

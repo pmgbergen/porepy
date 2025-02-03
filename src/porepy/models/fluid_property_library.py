@@ -1,4 +1,4 @@
-""""Module containing some constant heuristic fluid property implementations and
+""" "Module containing some constant heuristic fluid property implementations and
 the mixin :class:`FluidMobility`, which is required in all flow & transport problems.
 
 Most of the laws implemented here are meant for 1-phase, 1-component mixtures, using
@@ -244,11 +244,11 @@ class FluidMobility(pp.PorePyModel):
         r"""Discretization of the fluid mobility.
 
         This includes any non-linear, scalar expression :math:`a` in front of the
-        advective flux.
+        advective flux :math:`q`.
 
         .. math::
 
-            -\nabla \cdot \left(a \nabla p\right).
+            -\nabla \cdot \left(a q\right).
 
         Parameters:
             subdomains: List of subdomains.
@@ -320,8 +320,8 @@ class FluidMobility(pp.PorePyModel):
 
         Important:
             Contrary to all other mobility methods implemented here, this one does not
-            contain any mass term, it is a volumetric term for consistency reasons with
-            the literature.
+            contain any mass term, it is a volumetric term. This is the term commonly
+            denoted 'mobility in the literature.
 
         Parameters:
             phase: A phase in the fluid mixture.
@@ -371,9 +371,9 @@ class FluidMobility(pp.PorePyModel):
 
         """
         if self.fluid.num_phases > 1 or self.fluid.num_components > 1:
-            # NOTE this method is kept as general as possible when typing the signature.
-            # But the default fluid of the PorePyModel consists of FluidComponent, not
-            # Component. Adding type:ignore for this reason.
+            # NOTE: This method is kept as general as possible when typing the
+            # signature. But the default fluid of the PorePyModel consists of
+            # FluidComponent, not Component. Adding type:ignore for this reason.
             mobility = pp.ad.sum_operator_list(
                 [
                     phase.partial_fraction_of[component](domains)

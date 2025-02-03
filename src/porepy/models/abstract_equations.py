@@ -198,7 +198,9 @@ class LocalElimination(EquationMixin):
     """
 
     @cached_property
-    def __local_eliminations(self) -> dict[
+    def __local_eliminations(
+        self,
+    ) -> dict[
         str,
         tuple[
             pp.ad.MixedDimensionalVariable,
@@ -247,7 +249,7 @@ class LocalElimination(EquationMixin):
         Note:
             While any type of grid can be passed in ``domains``, the equation is
             formally introduced **only** on subdomains and boundaries, if any.
-            On boundary grids, the framework of local elimination provides a convenience
+            On boundary grids, the framework of local elimination provides convenience
             functionality to automatically compute values for the eliminated variable
             on the boundary using ``func`` and store them.
 
