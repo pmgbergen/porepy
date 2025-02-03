@@ -876,9 +876,6 @@ class ManuThermoPoroMechSolutionStrategy3d(
     exact_sol: ManuThermoPoroMechExactSolution3d
     """Exact solution object."""
 
-    results: list[ManuThermoPoroMechSaveData] = []
-    """Results object that stores exact and approximated solutions and errors."""
-
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)

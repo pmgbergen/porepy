@@ -1039,9 +1039,6 @@ class ManuThermoPoroMechSolutionStrategy2d(
     exact_sol: ManuThermoPoroMechExactSolution2d
     """Exact solution object."""
 
-    results: list[ManuThermoPoroMechSaveData] = []
-    """Results object that stores exact and approximated solutions and errors."""
-
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)
