@@ -263,8 +263,8 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
         explicitly given by the user.
 
         The boundary fluid flux is used in Upwinding (see :meth:`advective_flux`), i.e.
-        it is a massic flux. Note however, that this is a numerical approximation of
-        the otherwise diffusive total fluid flux.
+        it is a massic flux. Note however, that this is a numerical approximation of the
+        otherwise diffusive total fluid flux.
 
         Note:
             This operator does not necessarily contain flux values per se. If
@@ -284,7 +284,7 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
             subdomains=subdomains,
             dirichlet_operator=self.advection_weight_mass_balance,
             neumann_operator=self.fluid_flux,
-            # Robin operator is not relevant for advective fluxes
+            # Robin operator is not relevant for advective fluxes.
             robin_operator=None,
             bc_type=self.bc_type_fluid_flux,
             name="bc_values_fluid_flux",

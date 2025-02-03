@@ -492,10 +492,10 @@ class VariablesEnergyBalance(pp.VariableMixin):
     def create_variables(self) -> None:
         """Introduces the following variables into the system:
 
-        1. temperature variable on all subdomains.
+        1. Temperature variable on all subdomains.
         2. Fourier flux variable on all interfaces with codimension 1.
-        3. enthalpy flux variable on all interfaces with codimension 1
-        4. enthalpy flux variable on all interfaces with codimension 2.
+        3. Enthalpy flux variable on all interfaces with codimension 1.
+        4. Enthalpy flux variable on all interfaces with codimension 2.
 
         """
         super().create_variables()
@@ -655,7 +655,8 @@ class EnthalpyVariable(pp.VariableMixin):
         """
         if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             return self.create_boundary_operator(
-                name=self.enthalpy_variable, domains=domains  # type: ignore[arg-type]
+                name=self.enthalpy_variable,
+                domains=domains,  # type: ignore[arg-type]
             )
 
         # Check that the domains are grids.
@@ -799,11 +800,11 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         """Set values for the enthalpy and the Fourier flux on boundaries."""
         super().update_all_boundary_conditions()
 
-        # Update Neumann conditions for Fourier flux
+        # Update Neumann conditions for Fourier flux.
         self.update_boundary_condition(
             name=self.bc_data_fourier_flux_key, function=self.bc_values_fourier_flux
         )
-        # Update enthalpy flux on boundary (hyperbolic BC)
+        # Update enthalpy flux on boundary (hyperbolic BC).
         self.update_boundary_condition(
             name=self.bc_data_enthalpy_flux_key, function=self.bc_values_enthalpy_flux
         )
@@ -897,7 +898,6 @@ class InitialConditionsEnergy(pp.InitialConditionMixin):
         super().initial_condition()
 
         for intf in self.mdg.interfaces():
-
             if intf.codim == 1:
                 self.equation_system.set_variable_values(
                     self.ic_values_interface_fourier_flux(intf),
@@ -948,7 +948,7 @@ class InitialConditionsEnergy(pp.InitialConditionMixin):
 
         Returns:
             The initial temperature values on that subdomain with
-            ``shape=(sd.num_calles,)``. Defaults to zero array.
+            ``shape=(sd.num_cells,)``. Defaults to zero array.
 
         """
         return np.zeros(sd.num_cells)

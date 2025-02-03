@@ -92,9 +92,9 @@ class Constants:
 
     """
 
-    # NOTE Annotating it as a ClassVar leads to the dataclasses decorator ignoring this
+    # NOTE: Annotating it as a ClassVar leads to the dataclasses decorator ignoring this
     # in its machinery. The annotation must not be forgotten in derived classes.
-    SI_units: ClassVar[dict[str, str]] = dict()
+    SI_units: ClassVar[dict[str, str]] = {}
     """A dictionary containing the SI unit of every material constant defined by a
     derived class.
 
@@ -333,7 +333,7 @@ class FluidComponent(Constants, Component):
 # Strictly speaking, it is not necessary to have eq=False for SolidConstants. The issues
 # with hashability noted for Constants (see above), do not apply here, since the class
 # could have been made frozen (this is in contrast to the FluidComponent, which
-# continherits from the non-constant Component class). However, for consistency, we keep
+# inherits from the non-constant Component class). However, for consistency, we keep
 # eq=False; although this means objects of type SolidConstants cannot be compared by
 # fields, this is also not an expected use case.
 @dataclass(kw_only=True, eq=False)

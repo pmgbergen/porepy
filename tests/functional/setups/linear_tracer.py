@@ -156,7 +156,6 @@ class LinearTracerExactSolution1D:
     """Pressure at the outlet."""
 
     def __init__(self, tracer_model: TracerFlowSetup_1p) -> None:
-
         self._mu = tracer_model.fluid.reference_component.viscosity
         self._rho = tracer_model.fluid.reference_component.density
         self._perm = tracer_model.solid.permeability
@@ -178,7 +177,7 @@ class LinearTracerExactSolution1D:
         front_x = self.front_position(sd, t)
 
         z_inflow = np.ones(nx) * (self.z_tracer_inlet - self.z_tracer_initial)
-        # super-positioning final solution and initial solution.
+        # Super-positioning final solution and initial solution.
         z_inflow[sd.cell_centers[0] > front_x] = 0.0
 
         return z_0 + z_inflow
@@ -195,28 +194,33 @@ class LinearTracerExactSolution1D:
         c = self.flow_velocity(sd)
         gamma = self.cfl(sd, dt)
 
-        # Numerical diffusion coefficient due to Upwinding
+        # Numerical diffusion coefficient due to Upwinding.
         # See lecture notes
-        # Aavatsmark - Bevarelsesmetoder for hyperbolske differensialligninger
+        #   Aavatsmark - Bevarelsesmetoder for hyperbolske differensialligninger
+        # or any text on hyperbolic conservation laws that discusses numerical diffusion
+        # and modified equations.
         D = np.abs(c) * dx / 2 * (1 + gamma)
-        # coefficient for scaling error function
+
+        # Coefficient for scaling error function.
         eta = 2 * np.sqrt(D * t)
         a = -(self.z_tracer_inlet - self.z_tracer_initial) / 2
-        # Using error function to construct diffused solution superposed
-        # with homogenous solution solution.
+        # Using the error function to construct diffused solution superposed with
+        # homogenous solution solution.
         z_diffused = a * (1 + erf((x - front_x) / eta)) + self.z_tracer_inlet
 
         return z_diffused
 
     def darcy_flux(self, sd: pp.Grid) -> np.ndarray:
-        """Returns the Darcy flux on all faces, including inlet and outlet."""
+        """Returns the Darcy flux, computed with a two-point stencil on all faces
+        including inlet and outlet.
+        """
         p = self.pressure(sd)
         dp = np.diff(np.flip(p))
 
-        # assuming cartesian grid with square cells.
+        # Assuming equidistant Cartesian grid.
         dx = np.ones(p.shape) * self._dx
 
-        T = self._perm / dx  # transmissibility
+        T = self._perm / dx  # Transmissibility.
 
         flux_internal = [
             2 / (1 / T[i] + 1 / T[i + 1]) * dp_ for i, dp_ in enumerate(dp)
@@ -230,7 +234,7 @@ class LinearTracerExactSolution1D:
 
     def flow_velocity(self, sd: pp.Grid) -> float:
         """Returns the flow velocity per face assuming incompressible flow and a
-        2-cell stencil to calculate the flux discretization."""
+        two-point stencil to calculate the flux discretization."""
         # Due to incompressibility, constant BC and contant properties, we assume the
         # velocity to be constant as well.
         return float(np.mean(self.darcy_flux(sd)))
@@ -241,7 +245,7 @@ class LinearTracerExactSolution1D:
 
     def cfl(self, sd: pp.Grid, dt: float) -> float:
         """Returns the CFL number ``v * dt / dx`` assuming a uniform dx"""
-        # assumes uniform cartesian grid
+        # Assumes uniform Cartesian grid.
         return self.flow_velocity(sd) * dt / self._dx
 
     def dt_from_cfl(self, sd: pp.Grid, eps: float = 1e-8) -> float:
@@ -303,8 +307,8 @@ class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
 class SimplePipe2D(pp.PorePyModel):
     """Simple 2D channel with a length ~10 m and aspect ratio of 1:10.
 
-    A cartesian grid is used and the width and is chosen such that it is a single line
-    of cells mimiking a 1D problem.
+    A Cartesian grid is used and the width and is chosen such that it is a single line
+    of cells mimicking a 1D problem.
      _ _ _ _ _
     |_|_|_|_|_|
 
@@ -699,7 +703,6 @@ class ModelClosure_3p(pp.LocalElimination):
 
         z = tracer.fraction(sds).value(self.equation_system)
         for phase in self.fluid.phases:
-
             x = phase.partial_fraction_of[tracer](sds)
             self.equation_system.set_variable_values(z, [x], iterate_index=0)
 
