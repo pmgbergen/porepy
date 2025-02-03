@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from typing import cast
 
 import numpy as np
 import pytest
@@ -13,6 +14,7 @@ from tests.functional.setups.linear_tracer import (
     LinearTracerSaveData,
     SimplePipe2D,
     TracerFlowSetup_1p,
+    TracerFlowSetup_1p_ff,
     TracerFlowSetup_3p,
 )
 
@@ -20,7 +22,7 @@ from tests.functional.setups.linear_tracer import (
 @pytest.fixture(scope="module")
 def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
     """Results of the 1-phase, 2-component linear tracer model"""
-    cell_size, model = request.param
+    cell_size, model = cast(tuple[float, type[pp.PorePyModel]], request.param)
     # Run verification setup and retrieve results for three different times
     material_constants = {
         "solid": pp.SolidConstants(porosity=1.0, permeability=1.0, residual_aperture=1),
@@ -35,14 +37,12 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
         "prepare_simulation": False,
         "times_to_export": [],
     }
-    if model == "1p":
-        setup = TracerFlowSetup_1p(model_params)
-    elif model == "3p":
-        setup = TracerFlowSetup_3p(model_params)
+
+    setup = model(model_params)
+    if isinstance(setup, TracerFlowSetup_3p):
         # To create phase fractions as variables and have a representation fo h_mix
         setup.params["equilibrium_type"] = "dummy"
-    else:
-        raise ValueError(f"Unknown model fixture parametrization {model}.")
+
     setup.prepare_simulation()
 
     # Setting dt and end time schedule according to cfl condition and approximate
@@ -64,12 +64,15 @@ def results(request: pytest.FixtureRequest) -> list[LinearTracerSaveData]:
 # First parametrization is over number of cells in pipe and setup for fixture.
 # Second to test all scheduled indices.
 @pytest.mark.parametrize(
-    "results", [(SimplePipe2D.pipe_length / 40, "1p")], indirect=["results"]
+    "results",
+    [
+        (SimplePipe2D.pipe_length / 40, TracerFlowSetup_1p),
+        (SimplePipe2D.pipe_length / 40, TracerFlowSetup_1p_ff),
+    ],
+    indirect=["results"],
 )
 @pytest.mark.parametrize("time_index", [0, 1, 2, 3])
-def test_linear_tracer_1p_diffusive(
-    time_index: int, results: list[LinearTracerSaveData]
-) -> None:
+def test_linear_tracer_1p(time_index: int, results: list[LinearTracerSaveData]) -> None:
     """Testing the simulation results for the linear tracer with 1-phase.
 
     Checking that the L2-errors for pressure are small, and that the maximum
@@ -119,10 +122,15 @@ def test_linear_tracer_1p_diffusive(
 # Expected to fail because Upwinding and backward euler are diffusive
 @pytest.mark.xfail
 @pytest.mark.parametrize(
-    "results", [(SimplePipe2D.pipe_length / 40, "1p")], indirect=["results"]
+    "results",
+    [
+        (SimplePipe2D.pipe_length / 40, TracerFlowSetup_1p),
+        (SimplePipe2D.pipe_length / 40, TracerFlowSetup_1p_ff),
+    ],
+    indirect=["results"],
 )
 @pytest.mark.parametrize("time_index", [0, 1, 2, 3])
-def test_linear_tracer_1p_exact(
+def test_linear_tracer_1p_is_diffusive(
     time_index: int, results: list[LinearTracerSaveData]
 ) -> None:
     """Compares the tracer fraction with the exact solution with a steep front.
@@ -134,10 +142,13 @@ def test_linear_tracer_1p_exact(
     np.testing.assert_allclose(sol_data.error_z_tracer, 0.0, atol=1e-7, rtol=0.0)
 
 
-@pytest.mark.skipped
-def test_linear_tracer_1p_ooc():
+@pytest.mark.skipped  # reason: slow
+@pytest.mark.parametrize("model_class", [TracerFlowSetup_1p, TracerFlowSetup_1p_ff])
+def test_linear_tracer_1p_ooc(
+    model_class: type[TracerFlowSetup_1p] | type[TracerFlowSetup_1p_ff],
+) -> None:
     """Tests the order of convergence for the tracer fraction, which is expected to be
-    quadratic."""
+    slightly super-linear in the L1 norm, and roughly linear in the L2 norm."""
     max_iterations = 80
     newton_tol = 1e-6
     newton_tol_increment = newton_tol
@@ -163,7 +174,7 @@ def test_linear_tracer_1p_ooc():
     }
 
     conv_analysis = ConvergenceAnalysis(
-        model_class=TracerFlowSetup_1p,
+        model_class=model_class,
         model_params=deepcopy(params),
         levels=5,
         # Constant flow velocity means halving of grid size should be followed by
@@ -183,7 +194,7 @@ def test_linear_tracer_1p_ooc():
         "ooc_z_tracer": 0.7474414018761917,
         "ooc_diffused_z_tracer": 1.233078730659626,
     }
-    # NOTE checking OOC for pressure makes no sense since it is at machine presicion.
+    # NOTE checking OOC for pressure makes no sense since error is at machine presicion.
     # Problem is linear and incompressible, which means p converges immediately.
 
     np.testing.assert_allclose(
@@ -203,9 +214,12 @@ def test_linear_tracer_1p_ooc():
 @pytest.mark.parametrize(
     "results",
     [
-        (SimplePipe2D.pipe_length / 10, "3p"),
-        pytest.param((SimplePipe2D.pipe_length / 100, "3p"), marks=pytest.mark.skipped),
-    ],  # reason: slow
+        (SimplePipe2D.pipe_length / 10, TracerFlowSetup_3p),
+        pytest.param(
+            (SimplePipe2D.pipe_length / 100, TracerFlowSetup_3p),
+            marks=pytest.mark.skipped,  # reason: slow
+        ),
+    ],
     indirect=["results"],
 )
 @pytest.mark.parametrize("time_index", [0, 1, 2, 3])
