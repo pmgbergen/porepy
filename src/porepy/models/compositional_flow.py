@@ -263,8 +263,8 @@ class DiffusiveTotalMassBalanceEquations(
         super().set_equations()
 
         assert self.params[
-            "rediscretize_mpfa"
-        ], "Model params['rediscretize_mpfa'] must be flagged as True."
+            "rediscretize_darcy_flux"
+        ], "Model params['rediscretize_darcy_flux'] must be flagged as True."
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """The fluid flux is given solely by the :attr:`darcy_flux`, assuming the total
@@ -441,6 +441,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """See :class:`ConstitutiveLawsSolidSkeletonCF`."""
 
+    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
+
     advective_flux: Callable[
         [
             list[pp.Grid],
@@ -609,7 +612,6 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         else:
             op = self.component_mass_mobility(component, domains)
 
-        op.set_name(f"advected_mass_{component.name}")
         return op
 
     def component_flux(
@@ -636,10 +638,15 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
         """
         if len(domains) == 0 or all(isinstance(d, pp.BoundaryGrid) for d in domains):
-            return self.create_boundary_operator(
-                self.bc_data_component_flux_key(component),
-                cast(Sequence[pp.BoundaryGrid], domains),
-            )
+            if is_fractional_flow(self):
+                return self.advection_weight_component_mass_balance(
+                    component, domains
+                ) * self.darcy_flux(domains)
+            else:
+                return self.create_boundary_operator(
+                    self.bc_data_component_flux_key(component),
+                    cast(Sequence[pp.BoundaryGrid], domains),
+                )
 
         # Verify that the domains are subdomains.
         if not all(isinstance(d, pp.Grid) for d in domains):
@@ -847,7 +854,7 @@ class VariablesCF(
 
 
 class ConstitutiveLawsSolidSkeletonCF(
-    pp.constitutive_laws.ConstantPermeability,
+    pp.constitutive_laws.MassicPermeabilityCF,
     pp.constitutive_laws.ConstantPorosity,
     pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.EnthalpyFromTemperature,
@@ -861,83 +868,8 @@ class ConstitutiveLawsSolidSkeletonCF(
 
     """
 
-    total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
-
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
-
-    def reference_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference porosity.
-
-        Parameters:
-            subdomains: A list of subdomains.
-
-        Returns:
-            The constant solid porosity wrapped as an Ad scalar.
-
-        """
-        return pp.ad.Scalar(self.solid.porosity, "reference_porosity")
-
-    def diffusive_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Required by constitutive laws implementing differentiable MPFA/TPFA.
-
-        Important:
-            This implementation does not cover absolute permeabilities which are state
-            dependent (e.g. dependent on the divergence of displacement, or on the
-            fracture jump).
-
-        Parameters:
-            subdomains: A list of subdomains.
-
-        Returns:
-            The cell-wise, scalar, isotropic permeability, composed of the total
-            mobility and the absolut permeability of the underlying solid. Used for the
-            diffusive tensor in the fractional flow formulation.
-
-        """
-        abs_perm = pp.wrap_as_dense_ad_array(
-            self.solid.permeability,
-            size=sum(sd.num_cells for sd in subdomains),
-            name="absolute_permeability",
-        )
-        op = self.total_mass_mobility(subdomains) * abs_perm
-        op.set_name("isotropic_permeability")
-        return op
-
-    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """An extended definition of permeability, enabling a non-linear representation
-        including the total mobility.
-
-        The latter is used in the fractional flow formulation.
-
-        Otherwise a super-call is performed to use whatever constitutive law is mixed
-        in.
-
-        Note:
-            See note in :meth:`diffusive_permability` on compatibility of other,
-            non-linear terms which can appear in the permeability tensor.
-
-            In the non-fractional-flow setting, this method is compatible with any other
-            constitutive law for permeability.
-
-        Parameters:
-            subdomains: A list of subdomains.
-
-        Returns:
-            The permeability in operator form either in [m^2] or in
-            [kg * m^(-1) * Pa^(-1) * s^(-1)] in the fractional flow formulation,
-            as a second-order tensor.
-
-        """
-        if is_fractional_flow(self):
-            op = self.isotropic_second_order_tensor(
-                subdomains, self.diffusive_permeability(subdomains)
-            )
-            op.set_name("diffusive_tensor_darcy")
-        else:
-            op = super().permeability(subdomains)
-        return op
+    # NOTE: With ongoing development regarding permabilities and the solid, below
+    # methods need a suitable home. They are left here for simplicity.
 
     def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """A constitutive law returning the normal permeability as the product of
@@ -2046,7 +1978,7 @@ class SolutionStrategyCF(
       terms on the boundary. The user must then provide values for the non-linear
       weights explicitly. It also uses fractional mobilities, instead of regular ones.
       To be used with consistently discretized diffusive parts or balance equations
-      (see also ``'rediscretize_mpfa'``).
+      (see also :class:`SolutionStrategyNonlinearMPFA`).
     - ``'equilibrium_type'``: Defaults to None. If the model contains an equilibrium
       part, it should be a string indicating the fixed state of the local phase
       equilibrium problem e.g., ``'p-T'``,``'p-h'``. The string can also contain other

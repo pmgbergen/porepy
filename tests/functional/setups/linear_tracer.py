@@ -79,7 +79,11 @@ from scipy.special import erf
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.examples.tracer_flow import TracerFlowSetup
+from porepy.examples.tracer_flow import TracerFlowSetup, TracerIC
+from porepy.models.compositional_flow import (
+    BoundaryConditionsFractionalFlow,
+    DiffusiveTotalMassBalanceEquations,
+)
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 
@@ -442,6 +446,65 @@ class TracerFlowSetup_1p(
 
     exact_sol: LinearTracerExactSolution1D
     results: list[LinearTracerSaveData]
+
+    def set_materials(self):
+        """Setting the exact solution after the material has been set."""
+        super().set_materials()
+        self.exact_sol = LinearTracerExactSolution1D(self)
+        self.results: list[LinearTracerSaveData] = []
+
+
+class TracerBC_1p_ff(BoundaryConditionsFractionalFlow):
+    """Linear tracer BC analogous to :class:`Tracer_BC_1p`, but in the fractional flow
+    formulation."""
+
+    exact_sol: LinearTracerExactSolution1D
+
+    def bc_values_fractional_flow_component(self, component, bg) -> np.ndarray:
+        """Due to linearity (constant density), the fractional flow weight is the same
+        as the inflowing tracer fraction."""
+        assert component.name == "tracer"
+        f_tracer = np.zeros(bg.num_cells)
+        sides = self.domain_boundary_sides(bg)
+        f_tracer[sides.west] = self.exact_sol.z_tracer_inlet
+        return f_tracer
+
+
+# NOTE: The sequence of base classes looks monstrous because we can't use SinglePhaseFlow.
+# We want the massic pressure equation instead of the total mass balance equation, and
+# due to how the models are designed, we essentially have to re-compose it.
+class TracerFlowSetup_1p_ff(
+    SimplePipe2D,
+    TracerFluid_1p,
+    LinearTracerDataSaving_1p,
+    TracerIC_1p,
+    TracerIC,
+    TracerBC_1p,
+    TracerBC_1p_ff,
+    pp.compositional.CompositionalVariables,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
+    pp.compositional_flow.ComponentMassBalanceEquations,
+    DiffusiveTotalMassBalanceEquations,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+    pp.compositional_flow.SolutionStrategyNonlinearMPFA,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
+    pp.constitutive_laws.MassicPermeabilityCF,
+    pp.constitutive_laws.DarcysLawAd,
+    pp.fluid_mass_balance.ConstitutiveLawsSinglePhaseFlow,
+    pp.FluidMixin,
+    pp.ModelGeometry,
+    pp.DataSavingMixin,
+):
+    """Tracer flow setup using the pressure equation and a fractional flow formulation."""
+
+    exact_sol: LinearTracerExactSolution1D
+    results: list[LinearTracerSaveData]
+
+    def __init__(self, params=None):
+        params["rediscretize_darcy_flux"] = True
+        params["fractional_flow"] = True
+        super().__init__(params)
 
     def set_materials(self):
         """Setting the exact solution after the material has been set."""

@@ -590,6 +590,82 @@ class ConstantPermeability(pp.PorePyModel):
         return Scalar(self.solid.normal_permeability)
 
 
+class MassicPermeabilityCF(ConstantPermeability):
+    """A diffusive permeability model where the total mass mobility of the fluid is
+    an isotropic contribution to the otherwise constant, absolute permeability tensor.
+
+    To be used in combination with :class:`~porepy.models.compositional_flow.
+    DiffusiveTotalMassBalanceEquations` in the fractional flow setting, and
+    :class:`DarcysLawAd`.
+
+    Important:
+        This implementation does not cover absolute permeabilities which are state
+        dependent (e.g. dependent on the divergence of displacement, or on the
+        fracture jump).
+
+    """
+
+    total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+
+    def diffusive_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Required by constitutive laws implementing differentiable MPFA/TPFA.
+
+        Parameters:
+            subdomains: A list of subdomains.
+
+        Returns:
+            The cell-wise, scalar, isotropic permeability, composed of the total
+            mobility and the absolute permeability of the underlying solid. Used for the
+            diffusive tensor in the fractional flow formulation.
+
+        """
+        abs_perm = pp.wrap_as_dense_ad_array(
+            self.solid.permeability,
+            size=sum(sd.num_cells for sd in subdomains),
+            name="absolute_permeability",
+        )
+        op = self.total_mass_mobility(subdomains) * abs_perm
+        op.set_name("isotropic_permeability")
+        return op
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """An extended definition of permeability, enabling a non-linear representation
+        including the total mass mobility.
+
+        The latter is used in the fractional flow formulation.
+
+        Otherwise a super-call is performed to use whatever constitutive law is mixed
+        in.
+
+        Note:
+            See note in :meth:`diffusive_permability` on compatibility of other,
+            non-linear terms which can appear in the permeability tensor.
+
+            In the non-fractional-flow setting, this method is compatible with any other
+            constitutive law for permeability.
+
+        Parameters:
+            subdomains: A list of subdomains.
+
+        Returns:
+            The permeability in operator form either in [m^2] or in
+            [kg * m^(-1) * Pa^(-1) * s^(-1)] in the fractional flow formulation,
+            as a second-order tensor.
+
+        """
+        if pp.compositional_flow.is_fractional_flow(self):
+            op = self.isotropic_second_order_tensor(
+                subdomains, self.diffusive_permeability(subdomains)
+            )
+            op.set_name("diffusive_tensor_darcy")
+        else:
+            # This branch is here for compatibility reasons when using the CF framework
+            # with in a non-diffusive set-up.
+            op = super().permeability(subdomains)
+        return op
+
+
 class DimensionDependentPermeability(ConstantPermeability):
     """Permeability depending on subdomain dimension.
 
