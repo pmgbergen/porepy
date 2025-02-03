@@ -83,18 +83,18 @@ def test_linear_tracer_1p_diffusive(
     sol_data = results[time_index]
 
     # After the first time step, more iterations are possible because the pressure
-    # must converge to its stationary profile
+    # must converge to its stationary profile.
     if time_index == 0:
         assert sol_data.num_iter <= 5
     # After pressure converged, linear transport should converge within 1 iteration.
-    # But due to Upwinding, it is sometimes 2
+    # But due to Upwinding, it is sometimes 2.
     else:
         assert sol_data.num_iter <= 2
 
-    # testing errors in pressure (exact)
+    # Testing errors in pressure (exact).
     np.testing.assert_allclose(sol_data.error_p, 0.0, atol=1e-7, rtol=0.0)
 
-    # NOTE due to the hyperbolic nature, the error in the tracer fraction should
+    # NOTE: Due to the hyperbolic nature, the error in the tracer fraction should
     # converge to zero linearly, which is checked in a separate test. Here we check only
     # that the error is not getting worse with ongoing code development.
     expected_error_z = [
@@ -132,6 +132,7 @@ def test_linear_tracer_1p_exact(
     """
     sol_data = results[time_index]
     np.testing.assert_allclose(sol_data.error_z_tracer, 0.0, atol=1e-7, rtol=0.0)
+
 
 @pytest.mark.skipped
 def test_linear_tracer_1p_ooc():
