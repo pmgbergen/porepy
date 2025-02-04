@@ -309,7 +309,7 @@ class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
 
 
 class SimplePipe2D(pp.PorePyModel):
-    """Simple 2D channel with a length ~10 m and aspect ratio of 1:10.
+    """Simple 2D channel with a length 10 m and aspect ratio of 1:10.
 
     A Cartesian grid is used and the width and is chosen such that it is a single line
     of cells mimicking a 1D problem.
@@ -470,9 +470,10 @@ class TracerBC_1p_ff(BoundaryConditionsFractionalFlow):
         return f_tracer
 
 
-# NOTE: The sequence of base classes looks monstrous because we can't use SinglePhaseFlow.
-# We want the massic pressure equation instead of the total mass balance equation, and
-# due to how the models are designed, we essentially have to re-compose it.
+# NOTE: The sequence of base classes looks monstrous because we can't use
+# SinglePhaseFlow. We want the massic pressure equation instead of the total mass
+# balance equation, and due to how the models are designed, we essentially have to
+# re-compose it.
 class TracerFlowSetup_1p_ff(
     SimplePipe2D,
     TracerFluid_1p,
@@ -778,7 +779,7 @@ class ModelClosure_3p(pp.LocalElimination):
 
 class TracerFlowSetup_3p(
     SimplePipe2D,
-    # putting this constitutive law above the fluid to have enthalpy as a function,
+    # Putting this constitutive law above the fluid to have enthalpy as a function,
     # and not a surrogate operator,
     # pp.constitutive_laws.FluidEnthalpyFromTemperature,
     TracerFluid_3p,

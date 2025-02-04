@@ -262,9 +262,9 @@ class DiffusiveTotalMassBalanceEquations(
         using the fractional flow framework."""
         super().set_equations()
 
-        assert self.params[
-            "rediscretize_darcy_flux"
-        ], "Model params['rediscretize_darcy_flux'] must be flagged as True."
+        assert self.params["rediscretize_darcy_flux"], (
+            "Model params['rediscretize_darcy_flux'] must be flagged as True."
+        )
 
     def fluid_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """The fluid flux is given solely by the :attr:`darcy_flux`, assuming the total
@@ -584,9 +584,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
         In the fractional flow formulation, it uses the ``component``'s
         :meth:`~porepy.models.fluid_property_library.FluidMobility.
-        fractional_component_mass_mobility`, assuming the flux contains the total mobility
-        in the diffusive tensor. Creates a boundary operator, in case explicit values
-        for fractional flow BC are used.
+        fractional_component_mass_mobility`, assuming the flux contains the total
+        mobility in the diffusive tensor. Creates a boundary operator, in case explicit
+        values for fractional flow BC are used.
         The advected quantity is dimensionless in this case.
 
         Parameters:
@@ -986,7 +986,7 @@ class BoundaryConditionsMulticomponent(
         super().update_all_boundary_conditions()
 
         for component in self.fluid.components:
-            # NOTE We need the massic boundary flux for all components, also the
+            # NOTE: We need the massic boundary flux for all components, also the
             # dependent one, since the total flux on the boundary is computed using the
             # user-provided values in bc_values_component_flux.
             self.update_boundary_condition(
@@ -1010,7 +1010,7 @@ class BoundaryConditionsMulticomponent(
         super().update_boundary_values_primary_variables()
 
         for component in self.fluid.components:
-            # Update of tracer fractions on Dirichlet boundary
+            # Update of tracer fractions on Dirichlet boundary.
             if isinstance(component, compositional.Compound):
                 for tracer in component.active_tracers:
                     bc_vals = cast(
@@ -1022,7 +1022,7 @@ class BoundaryConditionsMulticomponent(
                         function=bc_vals,
                     )
 
-            # Update of independent overall fractions on Dirichlet boundary
+            # Update of independent overall fractions on Dirichlet boundary.
             if self.has_independent_fraction(component):
                 bc_vals = cast(
                     Callable[[pp.BoundaryGrid], np.ndarray],
@@ -1164,7 +1164,7 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
         nt = self.time_step_indices.size
         for bg in self.mdg.boundaries():
             for phase in self.fluid.phases:
-                # some work is required for BGs with zero cells
+                # Some work is required for BGs with zero cells.
                 if bg.num_cells == 0:
                     rho_bc = np.zeros(0)
                     h_bc = np.zeros(0)
@@ -1247,12 +1247,12 @@ class BoundaryConditionsFractionalFlow(
         # Updating BC values of non-linear weights in component mass balance equations.
         # Dependent components are skipped.
         for component in self.fluid.components:
-            # NOTE the independency of overall fractions is used to characterize the
+            # NOTE: The independency of overall fractions is used to characterize the
             # dependency of fractional flow, since the fractional weights also fulfill
             # the unity constraint.
             # In practice, the fractional flow weight for the dependent component is
             # never used in any equation, since it's mass balance is not part of the
-            # model equations
+            # model equations.
             if self.has_independent_fraction(component):
                 bc_func = cast(
                     Callable[[pp.BoundaryGrid], np.ndarray],
@@ -1264,8 +1264,8 @@ class BoundaryConditionsFractionalFlow(
                     function=bc_func,
                 )
 
-        # Updating BC values of the non-linear weight in the energy balance
-        # (advected enthalpy)
+        # Updating BC values of the non-linear weight in the energy balance (advected
+        # enthalpy).
         self.update_boundary_condition(
             name=self.bc_data_fractional_flow_energy_key,
             function=self.bc_values_fractional_flow_energy,
@@ -1289,9 +1289,9 @@ class BoundaryConditionsFractionalFlow(
         return np.zeros(bg.num_cells)
 
     def bc_values_fractional_flow_energy(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """BC values for the non-linear weight in the advective flux in
-        the energy balance equation, determining how much energy/enthalpy is
-        entering the system on some inlet faces in terms relative to the mass.
+        """BC values for the non-linear weight in the advective flux in the energy
+        balance equation, determining how much energy/enthalpy is entering the system on
+        some inlet faces in terms relative to the mass.
 
         Parameters:
             bg: A boundary grid in the mixed-dimensional grid.
@@ -1304,7 +1304,7 @@ class BoundaryConditionsFractionalFlow(
 
 
 class BoundaryConditionsCF(
-    # put on top for override of update_all_boundary_values, which includes sub-routine
+    # Put on top for override of update_all_boundary_values, which includes sub-routine
     # for updating phase properties on boundaries.
     BoundaryConditionsPhaseProperties,
     pp.energy_balance.BoundaryConditionsEnthalpy,
@@ -1356,10 +1356,9 @@ class InitialConditionsFractions(
         super().set_initial_values_primary_variables()
 
         for sd in self.mdg.subdomains():
-
-            # Setting overall fractions and tracer fractions
+            # Setting overall fractions and tracer fractions.
             for component in self.fluid.components:
-                # independent overall fractions must have an initial value
+                # independent overall fractions must have an initial value.
                 if self.has_independent_fraction(component):
                     self.equation_system.set_variable_values(
                         self.initial_overall_fraction(component, sd),
@@ -1367,7 +1366,7 @@ class InitialConditionsFractions(
                         iterate_index=0,
                     )
 
-                # All tracer fractions must have an initial value
+                # All tracer fractions must have an initial value.
                 if isinstance(component, compositional.Compound):
                     for tracer in component.active_tracers:
                         if self.has_independent_tracer_fraction(tracer, component):
@@ -1487,10 +1486,10 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
 
 
 class InitialConditionsCF(
-    # Put this on top because it overrides initial_condition
+    # Put this on top because it overrides initial_condition.
     InitialConditionsPhaseProperties,
     # Put this above mass and energy, in case enthalpy is evaluated depending on
-    # p, T and fractions
+    # p, T and fractions.
     pp.energy_balance.InitialConditionsEnthalpy,
     pp.mass_and_energy_balance.InitialConditionsMassAndEnergy,
     InitialConditionsFractions,
@@ -1542,17 +1541,17 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         for grid in subdomains:
             for phase in self.fluid.phases:
                 # Compute the values of variables/state functions on which the phase
-                # properties depend
+                # properties depend.
                 dep_vals = [
                     d([grid]).value(self.equation_system)
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
-                # Compute phase properties using the phase EoS
+                # Compute phase properties using the phase EoS.
                 phase_props = phase.compute_properties(
                     *cast(list[np.ndarray], dep_vals)
                 )
 
-                # Set current iterate indices of values and derivatives
+                # Set current iterate indices of values and derivatives.
                 update_phase_properties(grid, phase, phase_props, ni)
 
     def before_nonlinear_iteration(self) -> None:
@@ -1571,11 +1570,11 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
 
         """
         self.update_thermodynamic_properties_of_phases()
-        # NOTE mypy complaints about trivial body of protocol.
-        # But this is a mixin. We assert it is indeed a solution strategy and proceed
-        assert isinstance(
-            self, pp.SolutionStrategy
-        ), "This is a mixin. Require SolutionStrategy as base."
+        # NOTE: Mypy complaints about trivial body of protocol.
+        # But this is a mixin. We assert it is indeed a solution strategy and proceed.
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
         super().before_nonlinear_iteration()  # type:ignore[safe-super]
 
     def after_nonlinear_convergence(self) -> None:
@@ -1587,9 +1586,9 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         The progression is performed after the super-call.
 
         """
-        assert isinstance(
-            self, pp.SolutionStrategy
-        ), "This is a mixin. Require SolutionStrategy as base."
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
         super().after_nonlinear_convergence()  # type:ignore[safe-super]
 
         subdomains = self.mdg.subdomains()
@@ -1633,10 +1632,9 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
     def __init__(self, params: Optional[dict] = None) -> None:
-
-        assert isinstance(
-            self, pp.SolutionStrategy
-        ), "This is a mixin. Require SolutionStrategy as base."
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
         super().__init__(params)  # type:ignore[safe-super]
 
         self._nonlinear_flux_discretizations: list[pp.ad._ad_utils.MergedOperator] = []
@@ -1660,9 +1658,9 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
         """After the super-call, this method adds the
         :meth:`fourier_flux_discretization` and the :meth:`darcy_flux_discretization`
         to the update framework using :meth:`add_nonlinear_flux_discretization`."""
-        assert isinstance(
-            self, pp.SolutionStrategy
-        ), "This is a mixin. Require SolutionStrategy as base."
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
         super().set_nonlinear_discretizations()  # type:ignore[safe-super]
 
         subdomains = self.mdg.subdomains()
@@ -1680,7 +1678,7 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
         """Discretizes added, nonlinear fluxes after ensuring uniqueness of
         discretizations for efficiency reasons."""
         # If the list is empty, fluxes are not re-discretized.
-        # The list is empty if nothing was added during set_nonlinear_discretizations
+        # The list is empty if nothing was added during set_nonlinear_discretizations.
         if self._nonlinear_flux_discretizations:
             tic = time.time()
             # Get unique discretizations to save computational time, then discretize.
@@ -1703,9 +1701,9 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
 
         """
         self.rediscretize_fluxes()
-        assert isinstance(
-            self, pp.SolutionStrategy
-        ), "This is a mixin. Require SolutionStrategy as base."
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
         super().before_nonlinear_iteration()  # type:ignore[safe-super]
 
 
@@ -1890,7 +1888,6 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
         t_0 = time.time()
 
         if self.params.get("reduce_linear_system", False):
-            # TODO block diagonal inverter for secondary equations
             self.linear_system = self.equation_system.assemble_schur_complement_system(
                 self.primary_equations, self.primary_variables
             )
@@ -1906,9 +1903,9 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
 
         # NOTE mypy complaints about trivial body of protocol.
         # But this is a mixin. We assert it is indeed a solution strategy and proceed
-        assert isinstance(
-            self, pp.SolutionStrategy
-        ), "This is a mixin. Require SolutionStrategy as base."
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
         sol = super().solve_linear_system()  # type:ignore[safe-super]
 
         if self.params.get("reduce_linear_system", False):
