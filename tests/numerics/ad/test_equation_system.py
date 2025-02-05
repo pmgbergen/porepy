@@ -243,10 +243,15 @@ def test_remove_variables(variable_to_be_removed):
         var_to_remove = equation_system.md_variable(variable_to_be_removed)
         equation_system.remove_variables([var_to_remove])
         # Check that the EquationSystem does not contain the removed variable anymore.
+        for field in ["_variables", "_variable_numbers", "_variable_dof_type"]:
+            assert variable_to_be_removed not in getattr(equation_system, field).keys()
+        # Check that trying to remove the variable again raises an error.
         with pytest.raises(ValueError):
-            equation_system.dofs_of([var_to_remove])
+            equation_system.remove_variables([var_to_remove])
+    else:
+        equation_system.remove_variables([])
 
-    # Identify remaining subvariables. This allows direct comperison with
+    # Identify remaining subvariables. This allows direct comparison with
     # equation_system.variables.
     remaining_vars = []
     for var in [var_1, var_2, var_3]:

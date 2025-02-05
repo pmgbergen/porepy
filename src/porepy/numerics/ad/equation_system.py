@@ -491,7 +491,9 @@ class EquationSystem:
         variables = self._parse_variable_type(variables)
         for var in variables:
             if var.id not in self._variables:
-                raise ValueError(f"Variable {var} not known to the system.")
+                raise ValueError(
+                    f"Variable {var.name} (ID: {var.id}) not known to the system."
+                )
             # Remove the variable from the system.
             # _variables and _variable_dof_type are indexed by variable id.
             del self._variables[var.id]
