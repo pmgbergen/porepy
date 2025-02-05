@@ -176,15 +176,12 @@ class LinearTracerExactSolution1D:
     def tracer_fraction(self, sd: pp.Grid, t: float) -> np.ndarray:
         """The tracer fraction in the cell centers depending on time t."""
         nx = sd.num_cells
-        z_0 = np.ones(nx) * self.z_tracer_initial
-
+        # Set the tracer fraction to the initial condition in the entire domain.
+        z = np.ones(nx) * self.z_tracer_initial
+        # For cells behind the front, the tracer fraction equals the inlet fraction.
         front_x = self.front_position(sd, t)
-
-        z_inflow = np.ones(nx) * (self.z_tracer_inlet - self.z_tracer_initial)
-        # Super-positioning final solution and initial solution.
-        z_inflow[sd.cell_centers[0] > front_x] = 0.0
-
-        return z_0 + z_inflow
+        z[sd.cell_centers[0] < front_x] = self.z_tracer_inlet
+        return z
 
     def diffused_tracer_fraction(self, sd: pp.Grid, t: float, dt: float) -> np.ndarray:
         """Returns a tracer fraction assuming the numerical scheme is diffusive due
@@ -349,6 +346,9 @@ class SimplePipe2D(pp.PorePyModel):
             }
         )
 
+    def set_fractures(self) -> None:
+        """Need this to override fractures from base tracer flow setup."""
+        self._fractures = []
 
 
 class TracerFluid_1p:

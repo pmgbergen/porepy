@@ -317,8 +317,11 @@ class TwoVariableTotalEnergyBalanceEquations(
     flux) internally and on all interfaces of codimension one and advection on
     interfaces of codimension two (well-fracture intersections).
 
-    Defines an advective weight to be used in the advective flux, assuming the total
-    mobility is part of the diffusive tensor in the pressure equation.
+    The :meth:`advection_weight_energy_balance` is implemented such that this class is
+    compatible with the fractional flow formulation. I.e., in the case where the total
+    mass mobility is part of the permability tensor, the weight is equal to the
+    transported enthalpy divided by total mass mobility. In the standard formulation it
+    is only the transported enthalpy.
 
     Notes:
         1. Since enthalpy is an independent variable, models using this balance need
