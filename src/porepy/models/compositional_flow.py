@@ -10,16 +10,16 @@ for models concretized in terms of phases, components and thermal setting.
 The following equations are available:
 
 - :class:`ComponentMassBalanceEquations`: While the :class:`~porepy.models.
-  fluid_mass_balance.TotalMassBalanceEquations` represent the balance of total mass
+  fluid_mass_balance.FluidMassBalanceEquations` represent the balance of total mass
   (pressure equation), this equation represent the balance equation of individual
   components in the fluid mixture. Interface fluxes are handled using the overall
   Darcy interface flux implemented in the pressure equations and an adapted non-linear
   term. It introduces a single equation, all interface equations are introduced by
-  :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations`. Interface fluxes
+  :class:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations`. Interface fluxes
   for individual components are computed using the total interface flux and a
   corresponding weight. As of now, the component mass balance equations are purely
   advective.
-- :class:`DiffusiveTotalMassBalanceEquations`: A diffusive variant of the total mass
+- :class:`MassicPressureEquations`: A diffusive variant of the total mass
   balance, where the total mobility is an isotropic contribution to the permeability
   tensor. To be used in a fractional flow model. This model is computationally
   expensive, since it requires a re-discretization of the MPFA, but also numerically
@@ -233,9 +233,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
 # region general PDEs.
 
 
-class DiffusiveTotalMassBalanceEquations(
-    pp.fluid_mass_balance.TotalMassBalanceEquations
-):
+class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """A version of the pressure equation (total mass balance) which does not rely on
     upwinding of non-linear weights in the fluid flux on both subdomains and interfaces.
 
@@ -433,10 +431,10 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         to give every component mass balance the opportunity to define the advective
         flux on the boundary (not supported).
 
-        In any case, the total mass flux on the boundary is the sum of each component
+        In any case, the total fluid flux on the boundary is the sum of each component
         flux on the boundary (advection). For this reason, this class overrides the
         representation of the total mass flux on the boundary given by
-        :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations.
+        :class:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations.
         boundary_fluid_flux`.
 
     """
@@ -707,7 +705,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         consistently by summing over individual component mass fluxes crossing the
         boundary. The respective term on the boundary in the total mass balance equation
         is hence not an explicit term, but implicitly computed. For this reason,
-        :class:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations.
+        :class:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations.
         boundary_fluid_flux` needs to be overridden.
 
         Important:
@@ -784,7 +782,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
         """Source term in a component's mass balance equation.
 
         Analogous to
-        :meth:`~porepy.models.fluid_mass_balance.TotalMassBalanceEquations.fluid_source`
+        :meth:`~porepy.models.fluid_mass_balance.FluidMassBalanceEquations.fluid_source`
         , but using :meth:`interface_component_flux` and :meth:`well_component_flux` to
         obtain the correct component flux accross
         interfaces.
@@ -832,7 +830,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 class PrimaryEquationsCF(
     TwoVariableTotalEnergyBalanceEquations,
     ComponentMassBalanceEquations,
-    pp.fluid_mass_balance.TotalMassBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
 ):
     """A collection of primary equations in the CF setting.
 
@@ -1815,7 +1813,7 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
         all_variables = set([var.name for var in self.equation_system.variables])
         return list(all_variables.difference(set(self.primary_variables)))
 
-    def get_default_primary_equations_cf(self) -> list[str]:
+    def get_primary_equations_cf(self) -> list[str]:
         """Returns a list of primary equations assumed to be the default in the CF
         setting.
 
@@ -1827,11 +1825,11 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
 
         """
         return [
-            pp.fluid_mass_balance.TotalMassBalanceEquations.primary_equation_name(),
+            pp.fluid_mass_balance.FluidMassBalanceEquations.primary_equation_name(),
             pp.energy_balance.TotalEnergyBalanceEquations.primary_equation_name(),
         ] + self.component_mass_balance_equation_names()
 
-    def get_default_primary_variables_cf(self) -> list[str]:
+    def get_primary_variables_cf(self) -> list[str]:
         """Returns a list of primary variables assumed to be the default in the CF
         setting.
 

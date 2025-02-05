@@ -82,7 +82,7 @@ from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.examples.tracer_flow import TracerFlowSetup, TracerIC
 from porepy.models.compositional_flow import (
     BoundaryConditionsFractionalFlow,
-    DiffusiveTotalMassBalanceEquations,
+    MassicPressureEquations,
 )
 from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
@@ -493,7 +493,7 @@ class TracerFlowSetup_1p_ff(
     pp.compositional.CompositionalVariables,
     pp.fluid_mass_balance.VariablesSinglePhaseFlow,
     pp.compositional_flow.ComponentMassBalanceEquations,
-    DiffusiveTotalMassBalanceEquations,
+    MassicPressureEquations,
     pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
     pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
     pp.compositional_flow.SolutionStrategyNonlinearMPFA,

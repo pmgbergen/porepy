@@ -7,7 +7,7 @@ import porepy as pp
 
 class EquationsFluidMassAndEnergy(
     pp.energy_balance.TotalEnergyBalanceEquations,
-    pp.fluid_mass_balance.TotalMassBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
 ):
     """Combine fluid mass and energy balance equations."""
 

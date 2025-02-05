@@ -83,7 +83,7 @@ class ConstitutiveLawsThermoporomechanics(
 
 class EquationsThermoporomechanics(
     pp.energy_balance.TotalEnergyBalanceEquations,
-    pp.fluid_mass_balance.TotalMassBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
     pp.momentum_balance.MomentumBalanceEquations,
 ):
     """Combines energy, mass and momentum balance equations."""

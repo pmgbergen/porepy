@@ -69,7 +69,7 @@ class ConstitutiveLawsPoromechanics(
 
 class EquationsPoromechanics(
     pp.momentum_balance.MomentumBalanceEquations,
-    pp.fluid_mass_balance.TotalMassBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
 ):
     """Combines mass and momentum balance equations."""
 
