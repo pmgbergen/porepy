@@ -119,29 +119,6 @@ def test_linear_tracer_1p(time_index: int, results: list[LinearTracerSaveData]) 
     assert sol_data.error_z_tracer <= 1.1 * expected_error_z[time_index]
 
 
-# Expected to fail because Upwinding and backward euler are diffusive
-@pytest.mark.xfail
-@pytest.mark.parametrize(
-    "results",
-    [
-        (SimplePipe2D.pipe_length / 40, TracerFlowSetup_1p),
-        (SimplePipe2D.pipe_length / 40, TracerFlowSetup_1p_ff),
-    ],
-    indirect=["results"],
-)
-@pytest.mark.parametrize("time_index", [0, 1, 2, 3])
-def test_linear_tracer_1p_is_diffusive(
-    time_index: int, results: list[LinearTracerSaveData]
-) -> None:
-    """Compares the tracer fraction with the exact solution with a steep front.
-
-    This test is expected to fail since the numerical algorithm used is diffusive.
-
-    """
-    sol_data = results[time_index]
-    np.testing.assert_allclose(sol_data.error_z_tracer, 0.0, atol=1e-7, rtol=0.0)
-
-
 @pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize("model_class", [TracerFlowSetup_1p, TracerFlowSetup_1p_ff])
 def test_linear_tracer_1p_ooc(
