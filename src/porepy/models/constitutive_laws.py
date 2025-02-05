@@ -595,7 +595,7 @@ class MassWeightedPermeability(ConstantPermeability):
     an isotropic contribution to the otherwise constant, absolute permeability tensor.
 
     To be used in combination with :class:`~porepy.models.compositional_flow.
-    DiffusiveTotalMassBalanceEquations` in the fractional flow setting, and
+    MassicPressureEquations` in the fractional flow setting, and
     :class:`DarcysLawAd`.
 
     Important:

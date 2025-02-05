@@ -1,6 +1,6 @@
 """
 Class types:
-    TotalMassBalanceEquations defines subdomain and interface equations through the
+    FluidMassBalanceEquations defines subdomain and interface equations through the
         terms entering. Darcy type interface relation is assumed.
     Specific ConstitutiveLaws and specific SolutionStrategy for both incompressible
     and compressible case.
@@ -25,7 +25,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class TotalMassBalanceEquations(pp.BalanceEquation):
+class FluidMassBalanceEquations(pp.BalanceEquation):
     """Mixed-dimensional balance equation for total mass (pressure equation).
 
     Balance equation for all subdomains and Darcy-type flux relation on all interfaces
@@ -121,7 +121,7 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
             implemented as well.
 
             This is a static method, utilize it. I.e., use
-            ``TotalMassBalanceEquations.primary_equation_name()``.
+            ``FluidMassBalanceEquations.primary_equation_name()``.
 
         """
         return "mass_balance_equation"
@@ -161,7 +161,7 @@ class TotalMassBalanceEquations(pp.BalanceEquation):
 
         # Feed the terms to the general balance equation method.
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name(TotalMassBalanceEquations.primary_equation_name())
+        eq.set_name(FluidMassBalanceEquations.primary_equation_name())
         return eq
 
     def fluid_mass(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -984,7 +984,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 # For this reason, we ignore the error here, and rely on the tests to catch any
 # inconsistencies.
 class SinglePhaseFlow(  # type: ignore[misc]
-    TotalMassBalanceEquations,
+    FluidMassBalanceEquations,
     VariablesSinglePhaseFlow,
     ConstitutiveLawsSinglePhaseFlow,
     BoundaryConditionsSinglePhaseFlow,
