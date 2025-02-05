@@ -494,23 +494,12 @@ class EquationSystem:
                 raise ValueError(
                     f"Variable {var.name} (ID: {var.id}) not known to the system."
                 )
-            # Remove the variable from the system.
-            # _variables and _variable_dof_type are indexed by variable id.
+            # Remove the variable from the system. _variables, _variable_dof_type and
+            # _variable_numbers are indexed by variable id.
             del self._variables[var.id]
             self._variable_dof_type.pop(var.id)
-            # _variable_num_dofs is indexed by variable number, which is the value in
-            # _variable_numbers corresponding to the key var.id.
-            num = self._variable_numbers[var.id]
-            self._variable_num_dofs = np.delete(self._variable_num_dofs, num)
-            self._variable_numbers = {
-                key: val - 1 if val > num else val
-                for key, val in self._variable_numbers.items()
-            }
-            # Now we have used the number of the variable to update the numbers of all
-            # variables with higher numbers. We can remove the variable from the
-            # variable numbers map.
             self._variable_numbers.pop(var.id)
-            # Update the variable clustering.
+            # Update the variable clustering. This also updates _variable_num_dofs.
             self._cluster_dofs_gridwise()
 
     def update_variable_tags(
