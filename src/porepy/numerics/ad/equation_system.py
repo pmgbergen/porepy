@@ -477,6 +477,40 @@ class EquationSystem:
 
         return merged_variable
 
+    def remove_variables(self, variables: VariableList) -> None:
+        """Removes variables from the system.
+
+        Parameters:
+            variables: List of variables to remove. Variables can be given as a list of
+                variables, mixed-dimensional variables, or variable names (strings).
+
+        Raises:
+            ValueError: If a variable is not known to the system.
+
+        """
+        variables = self._parse_variable_type(variables)
+        for var in variables:
+            if var.id not in self._variables:
+                raise ValueError(f"Variable {var} not known to the system.")
+            # Remove the variable from the system.
+            # _variables and _variable_dof_type are indexed by variable id.
+            del self._variables[var.id]
+            self._variable_dof_type.pop(var.id)
+            # _variable_num_dofs is indexed by variable number, which is the value in
+            # _variable_numbers corresponding to the key var.id.
+            num = self._variable_numbers[var.id]
+            self._variable_num_dofs = np.delete(self._variable_num_dofs, num)
+            self._variable_numbers = {
+                key: val - 1 if val > num else val
+                for key, val in self._variable_numbers.items()
+            }
+            # Now we have used the number of the variable to update the numbers of all
+            # variables with higher numbers. We can remove the variable from the
+            # variable numbers map.
+            self._variable_numbers.pop(var.id)
+            # Update the variable clustering.
+            self._cluster_dofs_gridwise()
+
     def update_variable_tags(
         self,
         tags: dict[str, Any],
