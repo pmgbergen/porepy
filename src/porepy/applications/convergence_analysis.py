@@ -633,8 +633,7 @@ class ConvergenceAnalysis:
                 Order of the norm. Allows ``p==numpy.inf``.
 
         Raises:
-            ValueError: If ``p`` is not strictly positive when ``integration_weights``
-                are given.
+            ValueError: If ``p < 1`` when ``integration_weights`` are given.
 
         Returns:
             The norm value.
@@ -652,7 +651,7 @@ class ConvergenceAnalysis:
             if p == np.inf:
                 return np.max(integration_weights * x)
             else:
-                if not (isinstance(p, (int, float)) and p > 0):
+                if not (isinstance(p, (int, float)) and p >= 1):
                     raise ValueError(
                         "Order p must be a positive float or numpy.inf,"
                         + f" not {p, type(p)}."
