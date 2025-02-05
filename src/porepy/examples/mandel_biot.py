@@ -169,7 +169,7 @@ class MandelDataSaving(VerificationDataSaving):
         exact_pressure = self.exact_sol.pressure(sd, t)
         pressure_ad = self.pressure([sd])
         approx_pressure = pressure_ad.value(self.equation_system)
-        error_pressure = ConvergenceAnalysis.l2_error(
+        error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=cast(np.ndarray, approx_pressure),
@@ -181,7 +181,7 @@ class MandelDataSaving(VerificationDataSaving):
         exact_displacement = self.exact_sol.displacement(sd, t)
         displacement_ad = self.displacement([sd])
         approx_displacement = displacement_ad.value(self.equation_system)
-        error_displacement = ConvergenceAnalysis.l2_error(
+        error_displacement = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_displacement,
             approx_array=cast(np.ndarray, approx_displacement),
@@ -194,7 +194,7 @@ class MandelDataSaving(VerificationDataSaving):
         flux_ad = self.darcy_flux([sd])
         mobility = 1 / self.fluid.reference_component.viscosity
         approx_flux = mobility * flux_ad.value(self.equation_system)
-        error_flux = ConvergenceAnalysis.l2_error(
+        error_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_flux,
             approx_array=cast(np.ndarray, approx_flux),
@@ -206,7 +206,7 @@ class MandelDataSaving(VerificationDataSaving):
         exact_force = self.exact_sol.poroelastic_force(sd, t)
         force_ad = self.stress([sd])
         approx_force = force_ad.value(self.equation_system)
-        error_force = ConvergenceAnalysis.l2_error(
+        error_force = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_force,
             approx_array=cast(np.ndarray, approx_force),
