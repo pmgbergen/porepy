@@ -1,6 +1,4 @@
-"""Geometry definition for simulation setup.
-
-"""
+"""Geometry definition for simulation setup."""
 
 from __future__ import annotations
 

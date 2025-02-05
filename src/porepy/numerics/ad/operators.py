@@ -1,5 +1,4 @@
-""" Implementation of wrappers for Ad representations of several operators.
-"""
+"""Implementation of wrappers for Ad representations of several operators."""
 
 from __future__ import annotations
 
@@ -84,7 +83,6 @@ def _get_previous_time_or_iterate(
     # Else we are in the middle of the operator tree and need to go deeper, creating
     # copies along.
     else:
-
         # Create new operator from the tree, with the only difference being the new
         # children, for which the recursion is invoked
         # NOTE copy takes care of references to original_operator and func
@@ -366,9 +364,9 @@ class Operator:
             return op
 
         # to continue, we must assert it is an actual, unparsed operator
-        assert isinstance(
-            op, Operator
-        ), f"Failure in parsing: Unsupported type in operor tree {type(op)}."
+        assert isinstance(op, Operator), (
+            f"Failure in parsing: Unsupported type in operor tree {type(op)}."
+        )
 
         # Case 2) Leaf operators or variables
         # NOTE Should MD variables really be leaves?
@@ -1539,7 +1537,8 @@ class DenseArray(Operator):
 
         # TODO: Make readonly, see https://github.com/pmgbergen/porepy/issues/1214
         self._hash_value: str = sha256(
-            self._values, usedforsecurity=False  # type: ignore[arg-type]
+            self._values,
+            usedforsecurity=False,  # type: ignore[arg-type]
         ).hexdigest()
         """String to uniquly identify the array."""
 
@@ -1793,7 +1792,6 @@ class Variable(TimeDependentOperator, IterativeOperator):
         domain: GridLike,
         tags: Optional[dict[str, Any]] = None,
     ) -> None:
-
         # Variables are not supported on the boundary.
         if not isinstance(domain, (pp.Grid, pp.MortarGrid)):
             raise NotImplementedError(
@@ -1982,22 +1980,22 @@ class MixedDimensionalVariable(Variable):
 
         # check assumptions
         if len(variables) > 0:
-            assert (
-                len(set(time_indices)) == 1
-            ), "Cannot create md-variable from variables at different time steps."
+            assert len(set(time_indices)) == 1, (
+                "Cannot create md-variable from variables at different time steps."
+            )
             # NOTE both must be unique for all sub-variables, to avoid md-variables
             # having sub-variables at different iterate states.
             # Both current value, and most recent previous iterate have iterate index 0,
             # hence the need to check the size of the current_iter set.
-            assert (
-                len(set(iter_indices)) == 1 and len(set(current_iter)) == 1
-            ), "Cannot create md-variable from variables at different iterates."
-            assert (
-                len(set(names)) == 1
-            ), "Cannot create md-variable from variables with different names."
-            assert len(set(domains)) == len(
-                domains
-            ), "Cannot create md-variable from variables with overlapping domains."
+            assert len(set(iter_indices)) == 1 and len(set(current_iter)) == 1, (
+                "Cannot create md-variable from variables at different iterates."
+            )
+            assert len(set(names)) == 1, (
+                "Cannot create md-variable from variables with different names."
+            )
+            assert len(set(domains)) == len(domains), (
+                "Cannot create md-variable from variables with overlapping domains."
+            )
         # Default values for empty md variable
         else:
             time_indices = [-1]

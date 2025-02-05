@@ -2062,7 +2062,9 @@ def surface_tessellations(
                 is_ccw = np.array(
                     [
                         pp.geometry_property_checks.is_ccw_polyline(
-                            start[:, i], middle[:, i], end[:, i]  # type:ignore
+                            start[:, i],
+                            middle[:, i],
+                            end[:, i],  # type:ignore
                         )
                         for i in range(poly.shape[1])  # type:ignore
                     ]

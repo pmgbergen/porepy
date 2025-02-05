@@ -127,7 +127,9 @@ def create_fracture_network(
     # check above, it is safe to ignore the argument type
     if dim == 2:
         fracture_network_2d = FractureNetwork2d(
-            fractures=fracs, domain=domain, tol=tol  # type: ignore[arg-type]
+            fractures=fracs,
+            domain=domain,
+            tol=tol,  # type: ignore[arg-type]
         )
         return fracture_network_2d
     else:

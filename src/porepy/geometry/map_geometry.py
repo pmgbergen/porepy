@@ -10,7 +10,7 @@ import porepy as pp
 
 
 def force_point_collinearity(
-    pts: np.ndarray[Any, np.dtype[np.float64]]
+    pts: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Given a set of points, return them aligned on a line.
 
@@ -555,7 +555,7 @@ def compute_normal(
 
 
 def compute_normals_1d(
-    pts: np.ndarray[Any, np.dtype[np.float64]]
+    pts: np.ndarray[Any, np.dtype[np.float64]],
 ) -> np.ndarray[Any, np.dtype[np.float64]]:
     """Compute the normals of a set of points aligned along a 1d line.
 

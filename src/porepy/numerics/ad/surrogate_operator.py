@@ -171,7 +171,6 @@ class SurrogateOperator(
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
     ) -> None:
-
         super().__init__(
             name=name,
             domains=domains,
@@ -445,7 +444,6 @@ class SurrogateFactory:
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
         dof_info: Optional[dict[pp.ad.equation_system.GridEntity, int]] = None,
     ) -> None:
-
         if len(dependencies) == 0:
             raise ValueError("Surrogate operators must have dependencies.")
 
