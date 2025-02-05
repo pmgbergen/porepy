@@ -970,7 +970,7 @@ def test_l2_error(
     # Compute actual error.
     # Use the parameter_weight if provided, otherwise set it to None.
     parameter_weight = _weight if parameter_weight else None
-    actual_l2_error = ConvergenceAnalysis.l2_error(
+    actual_l2_error = ConvergenceAnalysis.lp_error(
         grid=grid,
         true_array=true_array,
         approx_array=approx_array,
@@ -998,7 +998,7 @@ def test_l2_error_division_by_zero_error(grids: list[pp.Grid, pp.MortarGrid]) ->
     msg = "Attempted division by zero."
     with pytest.raises(ZeroDivisionError) as excinfo:
         # Attempt to obtain L2-relative error with true array of zeros
-        ConvergenceAnalysis.l2_error(
+        ConvergenceAnalysis.lp_error(
             grid=grids[0],
             true_array=np.zeros(4),
             approx_array=np.random.random(4),
@@ -1023,7 +1023,7 @@ def test_l2_error_not_implemented_error(grids: list[pp.Grid, pp.MortarGrid]) -> 
     msg = "Interface variables can only be cell-centered."
     with pytest.raises(NotImplementedError) as excinfo:
         # Attempt to compute the error for a face-centered quantity on a mortar grid
-        ConvergenceAnalysis.l2_error(
+        ConvergenceAnalysis.lp_error(
             grid=grids[1],
             true_array=np.ones(6),
             approx_array=np.random.random(6),
@@ -1031,3 +1031,33 @@ def test_l2_error_not_implemented_error(grids: list[pp.Grid, pp.MortarGrid]) -> 
             is_scalar=True,
         )
     assert msg in str(excinfo.value)
+
+
+@pytest.mark.parametrize('weight_is_scalar', [True, False])
+@pytest.mark.parametrize('p', [np.inf, 1, 2, 3, 4, 1.5])
+def test_lp_norm(p: pp.number, weight_is_scalar: bool) -> None:
+    """Test the Lp norm with various values for p, and either scalar or vectorial weight."""
+
+    # Simple test with 1 value for weights, 
+    weight_ = 3.
+
+    if p == np.inf:
+        v = np.linspace(-2,1, 10, endpoint=True)
+        weight = np.ones_like(v) * weight_ if not weight_is_scalar else weight_
+        norm = ConvergenceAnalysis.lp_norm(v, weight, p)
+        np.testing.assert_allclose(norm, weight_ * 2)
+    elif isinstance(p, int):
+        # The sum of p**p ones is p**p, which makes the norm easy to check
+        v = np.ones(p**p)
+        weight = np.ones_like(v) * weight_ if not weight_is_scalar else weight_
+        norm  = ConvergenceAnalysis.lp_norm(v, weight, p)
+        # choosing 1,2,3,4 because only 4 is actually implemented using **, others
+        # use identity, sqrt, cbrt
+        np.testing.assert_allclose(norm, weight_**(1/p) * p)
+    else:
+        N = 100
+        v = np.ones(N)
+        weight = np.ones_like(v) * weight_ if not weight_is_scalar else weight_
+        norm = ConvergenceAnalysis.lp_norm(v, weight, p)
+
+        np.testing.assert_allclose(norm, (np.sum(weight_ * v **p))**(1/p))
