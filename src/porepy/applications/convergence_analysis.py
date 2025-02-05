@@ -590,8 +590,7 @@ class ConvergenceAnalysis:
         integration_weights: Optional[pp.number | np.ndarray] = None,
         p: pp.number = 2,
     ) -> float:
-        r"""The discrete :math:`L_p`-norm of a vector or function evaluated on a
-        discretized grid.
+        r"""The discrete :math:`L_p`-norm of a vector or function, with a given set of weights.
 
         The respective norm of a function in the space :math:`L_p` can be obtained by
         approximating the integration with
@@ -653,10 +652,10 @@ class ConvergenceAnalysis:
             else:
                 if not (isinstance(p, (int, float)) and p >= 1):
                     raise ValueError(
-                        "Order p must be a positive float or numpy.inf,"
+                        "Order p must be a positive int, float,  or numpy.inf,"
                         + f" not {p, type(p)}."
                     )
-                # NOTE The weights are the reason we cannot use numpy here. It would
+                # NOTE: The weights are the reason we cannot use numpy here. It would
                 # lead to the sum of (weights * x) ** p.
                 norm_inner = np.sum(integration_weights * x**p)
                 # Treating special cases 1,2,3, for which there are more efficient and

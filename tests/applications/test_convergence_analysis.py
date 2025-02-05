@@ -1042,7 +1042,7 @@ def test_lp_norm(p: pp.number, weight_is_scalar: bool) -> None:
     weight_ = 3.
 
     if p == np.inf:
-        v = np.linspace(-2,1, 10, endpoint=True)
+        v = np.linspace(-2, 1, 10, endpoint=True)
         weight = np.ones_like(v) * weight_ if not weight_is_scalar else weight_
         norm = ConvergenceAnalysis.lp_norm(v, weight, p)
         np.testing.assert_allclose(norm, weight_ * 2)
