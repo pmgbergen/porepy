@@ -175,7 +175,7 @@ class LinearTracerExactSolution1D:
 
     def tracer_fraction(self, sd: pp.Grid, t: float) -> np.ndarray:
         """The tracer fraction in the cell centers depending on time t."""
-        _, nx = sd.cell_centers.shape
+        nx = sd.num_cells
         z_0 = np.ones(nx) * self.z_tracer_initial
 
         front_x = self.front_position(sd, t)
@@ -349,9 +349,6 @@ class SimplePipe2D(pp.PorePyModel):
             }
         )
 
-    def set_fractures(self) -> None:
-        """No fractures."""
-        self._fractures = []
 
 
 class TracerFluid_1p:
