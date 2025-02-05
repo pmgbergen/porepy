@@ -487,7 +487,7 @@ class TracerFlowSetup_1p_ff(
     pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
     pp.compositional_flow.SolutionStrategyNonlinearMPFA,
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
-    pp.constitutive_laws.MassicPermeabilityCF,
+    pp.constitutive_laws.MassWeightedPermeability,
     pp.constitutive_laws.DarcysLawAd,
     pp.fluid_mass_balance.ConstitutiveLawsSinglePhaseFlow,
     pp.FluidMixin,

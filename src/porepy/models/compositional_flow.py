@@ -857,7 +857,7 @@ class VariablesCF(
 
 
 class ConstitutiveLawsSolidSkeletonCF(
-    pp.constitutive_laws.MassicPermeabilityCF,
+    pp.constitutive_laws.MassWeightedPermeability,
     pp.constitutive_laws.ConstantPorosity,
     pp.constitutive_laws.ConstantSolidDensity,
     pp.constitutive_laws.EnthalpyFromTemperature,
@@ -865,36 +865,11 @@ class ConstitutiveLawsSolidSkeletonCF(
     """Collection of constitutive laws for the solid skeleton in the compositional
     flow framework.
 
-    It additionally provides constitutive laws defining the relative and normal
-    permeability functions in the compositional framework, based on saturations and
-    mobilities.
+    Note:
+        It additionally provides a mixed-in method for relative permability which can be
+        overridden until a proper framework for relative permabilities is developed.
 
     """
-
-    # NOTE: With ongoing development regarding permabilities and the solid, below
-    # methods need a suitable home. They are left here for simplicity.
-
-    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
-        """A constitutive law returning the normal permeability as the product of
-        total mobility and the permeability on the lower-dimensional subdomain.
-
-        Parameters:
-            interfaces: A list of mortar grids.
-
-        Returns:
-            The product of total mobility and permeability of the lower-dimensional.
-
-        """
-
-        subdomains = self.interfaces_to_subdomains(interfaces)
-        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
-
-        normal_permeability = (
-            projection.secondary_to_mortar_avg()
-            @ self.diffusive_permeability(subdomains)
-        )
-        normal_permeability.set_name("normal_permeability")
-        return normal_permeability
 
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries

@@ -590,8 +590,8 @@ class ConstantPermeability(pp.PorePyModel):
         return Scalar(self.solid.normal_permeability)
 
 
-class MassicPermeabilityCF(ConstantPermeability):
-    """A diffusive permeability model where the total mass mobility of the fluid is
+class MassWeightedPermeability(ConstantPermeability):
+    """A non-linear permeability model where the total mass mobility of the fluid is
     an isotropic contribution to the otherwise constant, absolute permeability tensor.
 
     To be used in combination with :class:`~porepy.models.compositional_flow.
@@ -599,25 +599,31 @@ class MassicPermeabilityCF(ConstantPermeability):
     :class:`DarcysLawAd`.
 
     Important:
-        This implementation does not cover absolute permeabilities which are state
-        dependent (e.g. dependent on the divergence of displacement, or on the
-        fracture jump).
+        This implementation is as of now not compatible with absolute permeabilities
+        which are state dependent (e.g. dependent on the divergence of displacement, or
+        on the fracture jump). It uses solely the solid's constant and scalar
+        permeability.
 
     """
 
     total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
-    def diffusive_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Required by constitutive laws implementing differentiable MPFA/TPFA.
+    def mass_mobility_weighted_permeability(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """helper method implementing the mass mobility weighted permeability as a
+        scalar representing the actual isotropic tensor.
+
+        It is obtained by multiplying the solid's constant (absolute) permeability with
+        the total mass mobility of the fluid.
 
         Parameters:
             subdomains: A list of subdomains.
 
         Returns:
-            The cell-wise, scalar, isotropic permeability, composed of the total
-            mobility and the absolute permeability of the underlying solid. Used for the
-            diffusive tensor in the fractional flow formulation.
+            The cell-wise, scalar permeability. Used for the isotropic tensor and the
+            normal permeability on the interface.
 
         """
         abs_perm = pp.wrap_as_dense_ad_array(
@@ -630,17 +636,20 @@ class MassicPermeabilityCF(ConstantPermeability):
         return op
 
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """An extended definition of permeability, enabling a non-linear representation
-        including the total mass mobility.
+        """Permeability represented as an isotropic second-order tensor including the
+        total mass mobility.
 
-        The latter is used in the fractional flow formulation.
+        See also :meth:`mass_mobility_weighted_permeability`.
 
-        Otherwise a super-call is performed to use whatever constitutive law is mixed
-        in.
+        This method is designed to be compatible with complex CF models, which *can* be
+        flagged to use the fractional flow formulation.
+
+        I.e., if it is a fractional flow formulation, the implementation is used.
+        Otherwise other permeability laws are looked for via super-call.
 
         Note:
-            See note in :meth:`diffusive_permability` on compatibility of other,
-            non-linear terms which can appear in the permeability tensor.
+            See note in :meth:`mass_mobility_weighted_permeability` on compatibility
+            with other, non-linear terms which can appear in the permeability tensor.
 
             In the non-fractional-flow setting, this method is compatible with any other
             constitutive law for permeability.
@@ -656,7 +665,7 @@ class MassicPermeabilityCF(ConstantPermeability):
         """
         if pp.compositional_flow.is_fractional_flow(self):
             op = self.isotropic_second_order_tensor(
-                subdomains, self.diffusive_permeability(subdomains)
+                subdomains, self.mass_mobility_weighted_permeability(subdomains)
             )
             op.set_name("diffusive_tensor_darcy")
         else:
@@ -664,6 +673,28 @@ class MassicPermeabilityCF(ConstantPermeability):
             # with in a non-diffusive set-up.
             op = super().permeability(subdomains)
         return op
+
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """A constitutive law returning the normal permeability as
+        :meth:`mass_mobility_weighted_permeability` on the lower-dimensional subdomain.
+
+        Parameters:
+            interfaces: A list of mortar grids.
+
+        Returns:
+            The product of total mobility and permeability of the lower-dimensional.
+
+        """
+
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        normal_permeability = (
+            projection.secondary_to_mortar_avg()
+            @ self.mass_mobility_weighted_permeability(subdomains)
+        )
+        normal_permeability.set_name("normal_permeability")
+        return normal_permeability
 
 
 class DimensionDependentPermeability(ConstantPermeability):
