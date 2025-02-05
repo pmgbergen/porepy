@@ -467,7 +467,6 @@ class DisplacementJumpAperture(DimensionReduction):
 
 
 class SecondOrderTensorUtils(pp.PorePyModel):
-
     def isotropic_second_order_tensor(
         self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
     ) -> pp.ad.Operator:
@@ -3069,7 +3068,6 @@ class ThermoPressureStress(PressureStress):
 
 
 class ConstantSolidDensity(pp.PorePyModel):
-
     def solid_density(self, subdomains: list[pp.Grid]) -> pp.ad.Scalar:
         """Constant solid density.
 
@@ -3631,7 +3629,6 @@ class SpecificStorage(pp.PorePyModel):
 
 
 class ConstantPorosity(pp.PorePyModel):
-
     def porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Constant porosity [-].
 

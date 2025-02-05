@@ -1,5 +1,4 @@
-"""Contains code for setting up a simple but non-trivial model with a well.
-"""
+"""Contains code for setting up a simple but non-trivial model with a well."""
 
 import numpy as np
 
@@ -7,7 +6,6 @@ import porepy as pp
 
 
 class OneVerticalWell:
-
     domain: pp.Domain
     """Domain for the model."""
 

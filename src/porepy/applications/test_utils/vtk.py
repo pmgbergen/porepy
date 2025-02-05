@@ -1,5 +1,4 @@
-"""Test helpers for the vtk files.
-"""
+"""Test helpers for the vtk files."""
 
 import shutil
 import xml.etree.ElementTree as ET

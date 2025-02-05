@@ -46,8 +46,7 @@ class SecondOrderTensor(object):
 
         if np.any(kxx < 0):
             raise ValueError(
-                "Tensor is not positive definite because of "
-                "components in x-direction"
+                "Tensor is not positive definite because of components in x-direction"
             )
 
         perm[0, 0, ::] = kxx
@@ -64,8 +63,7 @@ class SecondOrderTensor(object):
         # Onsager's principle - tensor should be positive definite
         if np.any((kxx * kyy - kxy * kxy) < 0):
             raise ValueError(
-                "Tensor is not positive definite because of "
-                "components in y-direction"
+                "Tensor is not positive definite because of components in y-direction"
             )
 
         perm[1, 0, ::] = kxy
@@ -92,8 +90,7 @@ class SecondOrderTensor(object):
             < 0
         ):
             raise ValueError(
-                "Tensor is not positive definite because of "
-                "components in z-direction"
+                "Tensor is not positive definite because of components in z-direction"
             )
 
         perm[2, 0, ::] = kxz

@@ -1,4 +1,4 @@
-"""Combine single-physics models into coupled mass and energy balance equations. """
+"""Combine single-physics models into coupled mass and energy balance equations."""
 
 from __future__ import annotations
 
