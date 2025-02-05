@@ -256,7 +256,12 @@ class LinearTracerExactSolution1D:
 
 
 class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
-    """Mixin class to safe data relevant for tests."""
+    """Mixin class to safe data relevant for tests.
+
+    Error in pressure is evaluated in the L2-norm. Error in tracer fraction is evaluated
+    in the L1-norm (hyperbolic problem with discontinuous solution).
+
+    """
 
     exact_sol: LinearTracerExactSolution1D
 
@@ -282,22 +287,28 @@ class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
             exact_z_tracer=exact_z_tracer,
             exact_p=exact_p,
             diffused_z_tracer=diffused_z_tracer,
-            error_z_tracer=ConvergenceAnalysis.l2_error(
-                sds[0], exact_z_tracer, approx_z_tracer, is_scalar=True, is_cc=True
+            error_z_tracer=ConvergenceAnalysis.lp_error(
+                sds[0], 
+                exact_z_tracer,
+                approx_z_tracer,
+                is_scalar=True,
+                is_cc=True,
+                p=1,
             ),
-            error_p=ConvergenceAnalysis.l2_error(
+            error_p=ConvergenceAnalysis.lp_error(
                 sds[0],
                 exact_p,
                 approx_p,
                 is_scalar=True,
                 is_cc=True,
             ),
-            error_diffused_z_tracer=ConvergenceAnalysis.l2_error(
+            error_diffused_z_tracer=ConvergenceAnalysis.lp_error(
                 sds[0],
                 diffused_z_tracer,
                 approx_z_tracer,
                 is_scalar=True,
                 is_cc=True,
+                p=1,
             ),
             t=t,
             dt=dt,
@@ -555,14 +566,14 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
         approx_T = self.temperature(sds).value(self.equation_system)
         exact_T = np.zeros(approx_T.shape)
 
-        data.error_h = ConvergenceAnalysis.l2_error(
+        data.error_h = ConvergenceAnalysis.lp_error(
             sds[0],
             exact_h,
             approx_h,
             is_scalar=True,
             is_cc=True,
         )
-        data.error_T = ConvergenceAnalysis.l2_error(
+        data.error_T = ConvergenceAnalysis.lp_error(
             sds[0],
             exact_T,
             approx_T,
@@ -581,7 +592,7 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
             approx_s = phase.saturation(sds).value(self.equation_system)
             approx_y = phase.fraction(sds).value(self.equation_system)
             errors_s.append(
-                ConvergenceAnalysis.l2_error(
+                ConvergenceAnalysis.lp_error(
                     sds[0],
                     exact_sy,
                     approx_s,
@@ -590,7 +601,7 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
                 )
             )
             errors_y.append(
-                ConvergenceAnalysis.l2_error(
+                ConvergenceAnalysis.lp_error(
                     sds[0],
                     exact_sy,
                     approx_y,
@@ -608,7 +619,7 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
                 )
                 exact_x = component.fraction(sds).value(self.equation_system)
                 errors_x[-1].append(
-                    ConvergenceAnalysis.l2_error(
+                    ConvergenceAnalysis.lp_error(
                         sds[0], exact_x, approx_x, is_scalar=True, is_cc=True
                     )
                 )
