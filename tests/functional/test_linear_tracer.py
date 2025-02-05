@@ -119,13 +119,41 @@ def test_linear_tracer_1p(time_index: int, results: list[LinearTracerSaveData]) 
     assert sol_data.error_z_tracer <= 1.1 * expected_error_z[time_index]
 
 
+# Expected convergence rate towards exact solution is linear using the L1 norm.
+# For some reasons we are super-linear if both space and time are refined
+# (even quadratic towards the modified solution which includes diffusion).
+# Most likely cause is error cancelation due to the fortunate setup.
+# Below values are snapshots from 05.02.2025.
+expected_ooc = {
+    "spatial-temporal": {
+        # 7 levels, which takes too much time for tests.
+        # "ooc_z_tracer": 1.482169632646451,
+        # "ooc_diffused_z_tracer": 1.9254070734727107,
+        "ooc_z_tracer": 1.4388862433052907,
+        "ooc_diffused_z_tracer": 1.733463542010078,
+        "levels": 3,
+    },
+    "spatial": {
+        "ooc_z_tracer": 1.0,
+        "ooc_diffused_z_tracer": 1.0,
+        "levels": 7,
+    },
+}
+
+
 @pytest.mark.skipped  # reason: slow
 @pytest.mark.parametrize("model_class", [TracerFlowSetup_1p, TracerFlowSetup_1p_ff])
+@pytest.mark.parametrize("mode", ["spatial", "spatial-temporal"])
 def test_linear_tracer_1p_ooc(
-    model_class: type[TracerFlowSetup_1p] | type[TracerFlowSetup_1p_ff],
+    model_class: type[TracerFlowSetup_1p] | type[TracerFlowSetup_1p_ff], mode: str
 ) -> None:
     """Tests the order of convergence for the tracer fraction, which is expected to be
-    slightly super-linear in the L1 norm, and roughly linear in the L2 norm."""
+    linear in the L1 norm for the tracer fraction.
+
+    OOC for pressure is not checked since it converges within 1 timestep due to
+    linearity of the problem.
+
+    """
     max_iterations = 80
     newton_tol = 1e-6
     newton_tol_increment = newton_tol
@@ -150,44 +178,29 @@ def test_linear_tracer_1p_ooc(
         "meshing_arguments": {"cell_size": 1.0},
     }
 
+    kwargs = {"spatial_refinement_rate": 2}
+    if "temporal" in mode:
+        kwargs["temporal_refinement_rate"] = 2
+
     conv_analysis = ConvergenceAnalysis(
         model_class=model_class,
         model_params=deepcopy(params),
-        levels=3,
-        # Constant flow velocity means halving of grid size should be followed by
-        # halving of time step size (CFL) (though not necessary for implicit scheme)
-        spatial_refinement_rate=2,
-        temporal_refinement_rate=2,
+        levels=expected_ooc[mode]["levels"],
+        **kwargs,
     )
+
     results = conv_analysis.run_analysis()
     ooc = conv_analysis.order_of_convergence(results)
 
-    # Expected convergence rate towards exact solution is linear using the L1 norm.
-    # For some reasons we are super-linear.
-    # The convergence rate towards the modified solution which includes diffusion is
-    # almost quadratic. TODO investigate.
-    # Below values are snapshots from 05.02.2025 for 3 levels of refinement.
-    # Fir higher levels the values tend towards 1.5 and 2 respectively.
-    expected_ooc = {
-        # 7 levels, which takes too much time for tests.
-        # "ooc_z_tracer": 1.482169632646451,
-        # "ooc_diffused_z_tracer": 1.9254070734727107,
-        # 3 levels
-        "ooc_z_tracer": 1.4388862433052907,
-        "ooc_diffused_z_tracer": 1.733463542010078,
-    }
-    # NOTE checking OOC for pressure makes no sense since error is at machine presicion.
-    # Problem is linear and incompressible, which means p converges immediately.
-
     np.testing.assert_allclose(
         ooc["ooc_z_tracer"],
-        expected_ooc["ooc_z_tracer"],
+        expected_ooc[mode]["ooc_z_tracer"],
         atol=1e-1,
         rtol=0.0,
     )
     np.testing.assert_allclose(
         ooc["ooc_diffused_z_tracer"],
-        expected_ooc["ooc_diffused_z_tracer"],
+        expected_ooc[mode]["ooc_diffused_z_tracer"],
         atol=1e-1,
         rtol=0.0,
     )
