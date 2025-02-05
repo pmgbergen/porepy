@@ -135,7 +135,9 @@ def test_effective_normal_permeability(model) -> None:
 
     """
     for intf in model.mdg.interfaces():
-        val = model.equation_system.operator_value([intf])
+        val = model.equation_system.operator_value(
+            model.effective_normal_permeability([intf])
+        )
         sd_high, sd_low = model.mdg.interface_to_subdomain_pair(intf)
         if intf.dim == 1:
             if sd_low.frac_num in [3, 4]:  # blocking 1d interface
