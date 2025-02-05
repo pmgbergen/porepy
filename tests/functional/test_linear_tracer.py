@@ -101,16 +101,16 @@ def test_linear_tracer_1p(time_index: int, results: list[LinearTracerSaveData]) 
     # converge to zero linearly, which is checked in a separate test. Here we check only
     # that the error is not getting worse with ongoing code development.
     expected_error_z = [
-        0.1128851432293962,
-        0.1344878688028854,
-        0.1489878242519587,
-        0.15299862798949995,
+        0.0703124998509167,
+        0.10151366980995292,
+        0.1251925522284108,
+        0.13214752531256774,
     ]
     expected_error_diffused_z = [
-        0.020278908152713,
-        0.018535428299520068,
-        0.01703231859562048,
-        0.016602357208773923,
+        0.014075708718460218,
+        0.016326064144512435,
+        0.017363373976532474,
+        0.017615673816732902,
     ]
     # Allow 10% margin for machine reasons.
     assert (
@@ -153,23 +153,28 @@ def test_linear_tracer_1p_ooc(
     conv_analysis = ConvergenceAnalysis(
         model_class=model_class,
         model_params=deepcopy(params),
-        levels=5,
+        levels=3,
         # Constant flow velocity means halving of grid size should be followed by
-        # halving of time step size (CFL).
+        # halving of time step size (CFL) (though not necessary for implicit scheme)
         spatial_refinement_rate=2,
         temporal_refinement_rate=2,
     )
     results = conv_analysis.run_analysis()
     ooc = conv_analysis.order_of_convergence(results)
 
-    # Both should converge roughly linear when compared to the exact front and the
-    # solution to the modified equation (which includes diffusion). The latter should
-    # should converge super-linearly, while the former roughly linearly.
-    # These values are snapshots of the state when the tests are written. AS the code
-    # improves, they should be updated.
+    # Expected convergence rate towards exact solution is linear using the L1 norm.
+    # For some reasons we are super-linear.
+    # The convergence rate towards the modified solution which includes diffusion is
+    # almost quadratic. TODO investigate.
+    # Below values are snapshots from 05.02.2025 for 3 levels of refinement.
+    # Fir higher levels the values tend towards 1.5 and 2 respectively.
     expected_ooc = {
-        "ooc_z_tracer": 0.7474414018761917,
-        "ooc_diffused_z_tracer": 1.233078730659626,
+        # 7 levels, which takes too much time for tests.
+        # "ooc_z_tracer": 1.482169632646451,
+        # "ooc_diffused_z_tracer": 1.9254070734727107,
+        # 3 levels
+        "ooc_z_tracer": 1.4388862433052907,
+        "ooc_diffused_z_tracer": 1.733463542010078,
     }
     # NOTE checking OOC for pressure makes no sense since error is at machine presicion.
     # Problem is linear and incompressible, which means p converges immediately.
