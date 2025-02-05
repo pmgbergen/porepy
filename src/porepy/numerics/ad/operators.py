@@ -296,7 +296,7 @@ class Operator:
         The graph will actually be that of a tree with self as root. The parameter
         depth_first determines if the graph is constructed, and node ids assigned, by
         depth-first or breadth-first traversal.
-        EK comment: At the moment, it is not clear whether this has any pratcital impact
+        EK comment: At the moment, it is not clear whether this has any practical impact
         on the graph properties, e.g. for traversal.
 
         The edges of the graph are directed from parent to child. The attribute
