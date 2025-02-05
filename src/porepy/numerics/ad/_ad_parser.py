@@ -224,7 +224,7 @@ class AdParser:
                     # handle this case.
                     raise NotImplementedError(
                         f"The Jacobian of {type(res)} is not implemented because it is "
-                        "multidimensional"
+                        "multidimensional."
                     )
 
         # Clear the cache after each evaluation. For the moment, this seems like the
