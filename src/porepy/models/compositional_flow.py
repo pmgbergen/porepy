@@ -24,7 +24,7 @@ The following equations are available:
   tensor. To be used in a fractional flow model. This model is computationally
   expensive, since it requires a re-discretization of the MPFA, but also numerically
   consistent.
-- :class:`TwoVariableTotalEnergyBalanceEquations`: A specialized total energy balance
+- :class:`EnthalpyBasedEnergyBalanceEquations`: A specialized total energy balance
   using an independent (specific fluid) enthalpy variable in the accumulation term.
   Otherwise completely analogous to its base
   :class:`~porepy.models.energy_balance.TotalEnergyBalanceEquations`.
@@ -304,7 +304,7 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
         return self.well_flux(interfaces)
 
 
-class TwoVariableTotalEnergyBalanceEquations(
+class EnthalpyBasedEnergyBalanceEquations(
     pp.energy_balance.TotalEnergyBalanceEquations
 ):
     """Mixed-dimensional balance of total energy in a fluid mixture, formulated with an
@@ -828,7 +828,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
 
 
 class PrimaryEquationsCF(
-    TwoVariableTotalEnergyBalanceEquations,
+    EnthalpyBasedEnergyBalanceEquations,
     ComponentMassBalanceEquations,
     pp.fluid_mass_balance.FluidMassBalanceEquations,
 ):
