@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "porepy"
+version = "1.10.0"
+description = "Simulation tool for fractured and deformable porous media"
+readme = "Readme.md"
+license = { text = "GPL" }
+keywords = ["porous media simulation fractures deformable"]
+maintainers = [
+    { name = "Eirik Keilegavlen", email = "Eirik.Keilegavlen@uib.no" },
+    { name = "Ivar Stefansson", email = "Ivar.Stefansson@uib.no" },
+    { name = "Jakub Both", email = "Jakub.Both@uib.no" }
+]
+urls = { "Homepage" = "https://github.com/pmgbergen/porepy" }
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License (GPL)",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "future",
+    "gmsh",
+    "matplotlib < 3.11",
+    "meshio >= 5.0",
+    "networkx",
+    "numba >= 0.57",
+    "numpy",
+    "requests",
+    "scipy",
+    "seaborn",
+    "shapely",
+    "six",
+    "sympy",
+    "typing_extensions",
+    "deepdiff",
+    "mypy",
+    "pytest >= 4.6",
+    "pytest-cov",
+    "pytest-runner"
+]
+
+[project.optional-dependencies]
+testing = [
+    "pytest >= 4.6",
+    "pytest-cov",
+    "pytest-runner"
+]
+
+[tool.pytest.ini_options]
+python_files = "tests/*.py"
+addopts = "--cov=src/porepy --cov-report term-missing -p no:warnings"
+
+[tool.ruff.lint]
+#max-line-length = 95
+ignore = [
+    "F541",  # f-string is missing placeholders
+    "E731",  # do not assign a lambda expression, use a def
+    "E266",  # too many leading '#' for block comment
+    "W605",  # allow to use \dot
+    "E701",  # Multiple statements on each line - this conflicts with black's preferences
+]
+exclude = [
+    "src/porepy/__init__.py",
+    "src/porepy/numerics/ad/__init__.py",
+    "src/porepy/compositional/__init__.py"
+]
+
+[tool.mypy]
+warn_unused_configs = true
+plugins = ["numpy.typing.mypy_plugin"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
