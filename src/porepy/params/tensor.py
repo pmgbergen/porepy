@@ -265,9 +265,9 @@ class FourthOrderTensor(object):
         # below acknowledges the full fourth-order nature of this tensor (as opposed to
         # the storage format in self.values, which joins two and two dimensions).
         if self.values.shape[:2] == (4, 4):
-            s += f"Each cell has a tensor of shape (2, 2, 2, 2)"
+            s += "Each cell has a tensor of shape (2, 2, 2, 2)"
         elif self.values.shape[:2] == (9, 9):
-            s += f"Each cell has a tensor of shape (3, 3, 3, 3)"
+            s += "Each cell has a tensor of shape (3, 3, 3, 3)"
         else:
             # In EK's understanding, this should never happen. Give a fair description
             # of the situation, and hope the user knows what is going on.
