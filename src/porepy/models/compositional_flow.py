@@ -116,8 +116,6 @@ import numpy as np
 import porepy as pp
 import porepy.compositional as compositional
 
-from .protocol import CompositionalFlowModelProtocol
-
 logger = logging.getLogger(__name__)
 
 
@@ -408,7 +406,7 @@ class EnthalpyBasedEnergyBalanceEquations(
         return op
 
 
-class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelProtocol):
+class ComponentMassBalanceEquations(pp.BalanceEquation):
     """Mixed-dimensional balance of mass in a fluid mixture for present components.
 
     Since feed fractions per independent component are unknowns, the model requires
@@ -488,6 +486,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation, CompositionalFlowModelPr
     """See :class:`BoundaryConditionsFractionalFlow`."""
     bc_data_component_flux_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsMulticomponent`."""
+
+    has_independent_fraction: Callable[[pp.Component], bool]
+    """Provided by mixin for compositional variables."""
 
     def _mass_balance_equation_name(self, component: pp.Component) -> str:
         """Method returning a name to be given to the mass balance equation of a
@@ -921,9 +922,7 @@ class ConstitutiveLawsCF(
 # region Boundary condition mixins.
 
 
-class BoundaryConditionsMulticomponent(
-    pp.BoundaryConditionMixin, CompositionalFlowModelProtocol
-):
+class BoundaryConditionsMulticomponent(pp.BoundaryConditionMixin):
     """Mixin providing boundary values for primary variables concering multi-component
     flow, and component flux values.
 
@@ -955,6 +954,13 @@ class BoundaryConditionsMulticomponent(
         models.mass_and_energy_balance.BoundaryConditionsMassAndEnergy`.
 
     """
+
+    _overall_fraction_variable: Callable[[pp.Component], str]
+    """Provided by mixin for compositional variables."""
+    _tracer_fraction_variable: Callable[[pp.Component, compositional.Compound], str]
+    """Provided by mixin for compositional variables."""
+    has_independent_fraction: Callable[[pp.Component], bool]
+    """Provided by mixin for compositional variables."""
 
     def update_all_boundary_conditions(self) -> None:
         """After the super-call, an update of component flux values on the boundary
@@ -1169,9 +1175,7 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                     )
 
 
-class BoundaryConditionsFractionalFlow(
-    pp.BoundaryConditionMixin, CompositionalFlowModelProtocol
-):
+class BoundaryConditionsFractionalFlow(pp.BoundaryConditionMixin):
     """Analogous to :class:`BoundaryConditionsPhaseProperties`, but providing means to
     define values of the non-linear terms in fluxes directly without using their full
     expression.
@@ -1183,6 +1187,9 @@ class BoundaryConditionsFractionalFlow(
     bc_data_fractional_flow_energy_key: str = "bc_data_fractional_flow_energy"
     """Key to store the BC values for the non-linear weight in the advective flux in the
     energy balance equation, for the case where explicit values are provided."""
+
+    has_independent_fraction: Callable[[pp.Component], bool]
+    """Provided by mixin for compositional variables."""
 
     def update_all_boundary_conditions(self) -> None:
         """Calls :meth:`update_boundary_values_fractional_flow` after the super-call.
@@ -1308,9 +1315,7 @@ class BoundaryConditionsCFF(
 # region Initial condition mixins.
 
 
-class InitialConditionsFractions(
-    pp.InitialConditionMixin, CompositionalFlowModelProtocol
-):
+class InitialConditionsFractions(pp.InitialConditionMixin):
     """Class providing interfaces to set initial values for various fractions in a
     general multi-component mixture.
 
@@ -1319,6 +1324,13 @@ class InitialConditionsFractions(
     compounds. Other fractions are assumed secondary.
 
     """
+
+    has_independent_tracer_fraction: Callable[
+        [pp.Component, compositional.Compound], bool
+    ]
+    """Provided by mixin for compositional variables."""
+    has_independent_fraction: Callable[[pp.Component], bool]
+    """Provided by mixin for compositional variables."""
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for fractions at iterate index 0.
