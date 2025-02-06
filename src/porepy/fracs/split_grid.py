@@ -558,7 +558,7 @@ def update_cell_connectivity(
     # domain. Check that each face added two cells:
     if sum(left_cell) * 2 != left_cell.size:
         raise ValueError(
-            "Fractures must either beon boundary or completely inside domain"
+            "Fractures must either be on boundary or completely inside domain"
         )
 
     # We create a cell_faces mapping for the new faces. This will be added on the end
