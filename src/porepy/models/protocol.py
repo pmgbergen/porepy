@@ -597,30 +597,10 @@ else:
 
             """
 
-        def before_nonlinear_loop(self) -> None:
-            """Method to be called before entering the non-linear solver, thus at the
-            start of a new time step.
-
-            Possible usage is to update time-dependent parameters, discretizations etc.
-
-            """
-
         def before_nonlinear_iteration(self) -> None:
             """Method to be called at the start of every non-linear iteration.
 
             Possible usage is to update non-linear parameters, discretizations etc.
-
-            """
-
-        def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-            """Method to be called after every non-linear iteration.
-
-            Possible usage is to distribute information on the new trial state,
-            visualize the current approximation etc.
-
-            Parameters:
-                nonlinear_increment: The new solution, as computed by the non-linear
-                solver.
 
             """
 
