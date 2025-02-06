@@ -2,6 +2,7 @@
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
+# Project information.
 [project]
 name = "porepy"
 version = "1.10.0"
@@ -30,6 +31,7 @@ dependencies = [
     "numba >= 0.57",
     "numpy",
     "requests",
+    "ruff",
     "scipy",
     "seaborn",
     "shapely",
@@ -50,18 +52,27 @@ testing = [
     "pytest-runner"
 ]
 
+# Information for the build system.
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"porepy" = [
+    "py.typed",
+    "applications/md_grids/gmsh_file_library/**/*.csv",
+    "applications/md_grids/gmsh_file_library/**/*.geo"
+]
+
+# Testing.
 [tool.pytest.ini_options]
 python_files = "tests/*.py"
 addopts = "--cov=src/porepy --cov-report term-missing -p no:warnings"
 
+# Static analysis.
 [tool.ruff.lint]
-#max-line-length = 95
 ignore = [
-    "F541",  # f-string is missing placeholders
     "E731",  # do not assign a lambda expression, use a def
     "E266",  # too many leading '#' for block comment
-    "W605",  # allow to use \dot
-    "E701",  # Multiple statements on each line - this conflicts with black's preferences
 ]
 exclude = [
     "src/porepy/__init__.py",
@@ -72,6 +83,3 @@ exclude = [
 [tool.mypy]
 warn_unused_configs = true
 plugins = ["numpy.typing.mypy_plugin"]
-
-[tool.setuptools.packages.find]
-where = ["src"]
