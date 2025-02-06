@@ -256,7 +256,7 @@ class Compound(Component, Generic[ComponentLike]):
             # fluid component.
             if not hasattr(pc, "molar_mass"):
                 raise TypeError(
-                    f"Cannot assemble compound molar mass: Active tracer of type"
+                    "Cannot assemble compound molar mass: Active tracer of type"
                     + f" {type(pc)} has no attribute `molar_mass`."
                 )
             else:

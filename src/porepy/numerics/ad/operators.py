@@ -527,7 +527,7 @@ class Operator:
             assert len(results) >= 1, "Operator functions must have at least 1 child."
             assert hasattr(op, "func"), (
                 f"Operators with operation {operation} must have a functional"
-                + f" representation `func` implemented as a callable member."
+                + " representation `func` implemented as a callable member."
             )
 
             try:
