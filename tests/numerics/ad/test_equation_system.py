@@ -21,6 +21,7 @@ The tests focus on various assembly methods:
     * test_schur_complement: Assemble a subsystem, using a Schur complement reduction.
 
 """
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -89,7 +90,9 @@ def test_evaluate_variables():
         ad_array_prev_timestep = var_prev_timestep.value_and_jacobian(eq_system)
         assert isinstance(ad_array_prev_timestep, pp.ad.AdArray)
         assert np.allclose(ad_array_prev_timestep.val, 1)
-        assert np.allclose(ad_array_prev_timestep.jac.toarray(), np.zeros(known_jac.shape))
+        assert np.allclose(
+            ad_array_prev_timestep.jac.toarray(), np.zeros(known_jac.shape)
+        )
 
         # Use the ad machinery to define the difference between the current and previous
         # time step. This should give an AdArray with the same value as that obtained by
@@ -194,6 +197,77 @@ def test_variable_creation():
     assert (
         sys_man.num_dofs() == ndof_subdomains + ndof_single_subdomain + ndof_interface
     )
+
+
+@pytest.mark.parametrize("variable_to_be_removed", ["var_1", "var_2", "var_3", None])
+def test_remove_variables(variable_to_be_removed):
+    """Test that removing one of three md-variables from an EquationSystem works as
+    expected.
+
+    The test generates a MixedDimensionalGrid and defines some variables on it. The test
+    then removes one of the variables, and checks that the remaining variables are
+    correctly stored in the EquationSystem.
+
+    Parameters:
+        variable_to_be_removed (str): The name of the variable to be removed. If None, no
+            variable is removed.
+    """
+    mdg, _ = square_with_orthogonal_fractures("cartesian", {"cell_size": 0.5}, [1])
+
+    equation_system = pp.ad.EquationSystem(mdg)
+    # Define the number of variables per grid item. Faces are included just to test that
+    # # this also works.
+    num_dof_per_cell, num_dof_per_face = 1, 2
+    dof_info_sd = {"cells": num_dof_per_cell, "faces": num_dof_per_face}
+    dof_info_intf = {"cells": num_dof_per_cell}
+
+    # Create variables on subdomain and interface.
+    subdomains = mdg.subdomains()
+    single_subdomain = mdg.subdomains(dim=mdg.dim_max())
+
+    interfaces = mdg.interfaces()
+
+    # Define one variable on all subdomains, one on a single subdomain, and one on all
+    # interfaces (there is only one interface in this grid).
+    var_1 = equation_system.create_variables(
+        "var_1", dof_info_sd, subdomains=subdomains
+    )
+    var_2 = equation_system.create_variables(
+        "var_2", dof_info_sd, subdomains=single_subdomain
+    )
+    var_3 = equation_system.create_variables(
+        "var_3", dof_info_intf, interfaces=interfaces
+    )
+
+    if variable_to_be_removed:
+        var_to_remove = equation_system.md_variable(variable_to_be_removed)
+        equation_system.remove_variables([var_to_remove])
+        # Check that the EquationSystem does not contain the removed variable anymore.
+        for field in ["_variables", "_variable_numbers", "_variable_dof_type"]:
+            assert variable_to_be_removed not in getattr(equation_system, field).keys()
+        # Check that trying to remove the variable again raises an error.
+        with pytest.raises(ValueError):
+            equation_system.remove_variables([var_to_remove])
+    else:
+        equation_system.remove_variables([])
+
+    # Identify remaining subvariables. This allows direct comparison with
+    # equation_system.variables.
+    remaining_vars = []
+    for var in [var_1, var_2, var_3]:
+        if var.name == variable_to_be_removed:
+            continue
+        remaining_vars.extend(var.sub_vars)
+
+    remaining_dofs = np.hstack(
+        [equation_system.dofs_of([var]) for var in remaining_vars]
+    )
+
+    # Check that the number of dofs is correct and that the dofs form a continuous
+    # range.
+    assert np.allclose(np.sort(remaining_dofs), np.arange(equation_system.num_dofs()))
+    # Check that the number of variables is correct.
+    assert len(equation_system.variables) == len(remaining_vars)
 
 
 def test_variable_tags():
@@ -1138,7 +1212,7 @@ def test_assemble(setup, equation_variables):
     b_sub_only_rhs = sys_man.assemble(
         evaluate_jacobian=False, equations=eq_names, variables=var_names
     )
-    
+
     # Check that the residual vector is the same regardless of whether the Jacobian
     # is evaluated or not.
     assert np.allclose(b_sub, b_sub_only_rhs)
