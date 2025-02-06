@@ -89,13 +89,15 @@ jobs:
     # pip via -r. Option --no-bulid-isolation makes pip not use an isolated environment
     # for the install (hence the installed packages are sure to be available also after
     # the build), while --no-deps will only install the specified packages (in this
-    # case, the dependencies of PorePy).
+    # case, the dependencies of PorePy). The third line similarly installs the
+    # development dependencies.
     #
     # Thanks, copilot!
     - name: Install requirements
       run: |
         pip install -U pip
         pip install --no-build-isolation --no-deps -r <(python -c "import toml; print('\n'.join(toml.load('pyproject.toml')['project']['dependencies']))")
+        pip install --no-build-isolation --no-deps -r <(python -c "import toml; print('\n'.join(toml.load('pyproject.toml')['project']['optional-dependencies']['development']))")
 
     # Run the various checks
     - name: Ruff linting
