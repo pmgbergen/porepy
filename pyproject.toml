@@ -23,29 +23,28 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 dependencies = [
+    "deepdiff",
     "future",
     "gmsh",
     "matplotlib < 3.11",
-    "meshio >= 5.0",
+    "meshio",
     "networkx",
-    "numba >= 0.57",
+    "numba",
     "numpy",
-    "requests",
-    "ruff",
     "scipy",
     "seaborn",
     "shapely",
     "six",
     "sympy",
     "typing_extensions",
-    "deepdiff",
-    "mypy",
-    "pytest >= 4.6",
-    "pytest-cov",
-    "pytest-runner"
 ]
 
 [project.optional-dependencies]
+development = [
+    "isort",
+    "ruff",
+    "mypy"
+]
 testing = [
     "pytest >= 4.6",
     "pytest-cov",
