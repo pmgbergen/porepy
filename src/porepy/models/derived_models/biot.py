@@ -77,27 +77,25 @@ References:
 """
 
 import porepy as pp
-from porepy.models.poromechanics import Poromechanics
+from porepy.models.poromechanics import Poromechanics, SolutionStrategyPoromechanics
+
+
+class SolutionStrategyBiot(SolutionStrategyPoromechanics):
+    """Modified solution strategy for the Biot class"""
+
+    def set_materials(self):
+        """Set the material constants."""
+        super().set_materials()
+        # Check that fluid compressibility is zero, otherwise Biot class doesn't hold
+        # NOTE Biot is tested for 1 phase 1 component.
+        assert self.fluid.num_components == 1
+        assert self.fluid.num_phases == 1
+        assert self.fluid.reference_component.compressibility == 0
 
 
 class BiotPoromechanics(  # type: ignore[misc]
     pp.constitutive_laws.SpecificStorage,
     pp.constitutive_laws.BiotPoroMechanicsPorosity,
+    SolutionStrategyBiot,
     Poromechanics,
-):
-    """Biot-Poromechanics model with special constitutive laws for specific storage and
-    porosity.
-
-    The model is valid for single-phase, single-component and incompressible flow only.
-    A respective check is performed via overload of :meth:`set_materials`.
-
-    """
-
-    def set_materials(self):
-        """Set the material constants."""
-        super().set_materials()
-        # Check that fluid compressibility is zero, otherwise Biot class doesn't hold.
-        # NOTE Biot is tested for 1 phase 1 component.
-        assert self.fluid.num_components == 1
-        assert self.fluid.num_phases == 1
-        assert self.fluid.reference_component.compressibility == 0
+): ...
