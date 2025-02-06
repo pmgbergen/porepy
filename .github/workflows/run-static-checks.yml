@@ -105,7 +105,7 @@ jobs:
 
     - name: Ruff formatting
       if: ${{always()}}
-      run: ruff formatter --check src
+      run: ruff format --check src
 
       # EK note to self: Ruff may introduce sorting of imports in the future, if so, we
       # we should use that instead of isort.
