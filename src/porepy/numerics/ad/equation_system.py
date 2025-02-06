@@ -479,6 +479,7 @@ class EquationSystem:
 
     def remove_variables(self, variables: VariableList) -> None:
         """Removes variables from the system.
+        The variables are removed from the system and the DOFs are reordered.
 
         Parameters:
             variables: List of variables to remove. Variables can be given as a list of
