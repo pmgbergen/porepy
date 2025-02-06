@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 import numpy as np
 import scipy.sparse as sps
@@ -2062,8 +2062,8 @@ def surface_tessellations(
                 is_ccw = np.array(
                     [
                         pp.geometry_property_checks.is_ccw_polyline(
-                            start[:, i],
-                            middle[:, i],
+                            start[:, i],  # type: ignore
+                            middle[:, i],  # type: ignore
                             end[:, i],  # type:ignore
                         )
                         for i in range(poly.shape[1])  # type:ignore

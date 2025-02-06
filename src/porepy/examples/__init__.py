@@ -18,9 +18,9 @@ from .mandel_biot import MandelExactSolution, MandelSolutionStrategy
 from .terzaghi_biot import TerzaghiExactSolution, TerzaghiSetup
 
 __all__ = [
-    FlowBenchmark3dCase3Model,
-    MandelExactSolution,
-    MandelSolutionStrategy,
-    TerzaghiExactSolution,
-    TerzaghiSetup,
+    "FlowBenchmark3dCase3Model",
+    "MandelExactSolution",
+    "MandelSolutionStrategy",
+    "TerzaghiExactSolution",
+    "TerzaghiSetup",
 ]
