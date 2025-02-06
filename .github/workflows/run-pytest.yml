@@ -36,10 +36,10 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Setup Python ${{ matrix.python-version}}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         # Version range or exact version of a Python version to use, using SemVer's version range syntax.
         python-version: ${{ matrix.python-version}}
@@ -49,14 +49,11 @@ jobs:
     # Cache pip dependencies
     # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
     - name: Cache dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       id: cache
       with:
-        # Cache the full python environment, this is more efficient than just caching pip
-        # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         path: ${{ env.pythonLocation }}
-        # Hash requirements.
-        key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt') }}
+        key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
 
     - name: Install external libraries
       run: |
