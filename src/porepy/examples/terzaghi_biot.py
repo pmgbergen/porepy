@@ -156,7 +156,7 @@ class TerzaghiDataSaving(VerificationDataSaving):
         exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
         pressure_ad = self.pressure([sd])
         approx_pressure = pressure_ad.value(self.equation_system)
-        error_pressure = ConvergenceAnalysis.l2_error(
+        error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=cast(np.ndarray, approx_pressure),
