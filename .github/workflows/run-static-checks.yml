@@ -68,7 +68,7 @@ jobs:
     # Cache pip dependencies
     # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
     - name: Cache dependencies
-      uses: actions/cache@v5
+      uses: actions/cache@v4
       id: cache
       with:
         path: ${{ env.pythonLocation }}
