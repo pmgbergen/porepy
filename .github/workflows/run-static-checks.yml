@@ -94,6 +94,7 @@ jobs:
     - name: Install requirements
       run: |
         pip install -U pip
+        pip install toml
         pip install --no-build-isolation --no-deps -r <(python -c "import toml; print('\n'.join(toml.load('pyproject.toml')['project']['dependencies']))")
         pip install --no-build-isolation --no-deps -r <(python -c "import toml; print('\n'.join(toml.load('pyproject.toml')['project']['optional-dependencies']['development']))")
 
