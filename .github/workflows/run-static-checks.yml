@@ -1,4 +1,4 @@
-# Run static tests for code quality: Isort, black, flake8, mypy.
+# Run static tests for code quality: Isort, ruff (formatting and linting), mypy.
 
 name: Static tests
 
@@ -83,28 +83,34 @@ jobs:
         path: mypy-cache-${{ matrix.python-version}}
         key: ${{ runner.os }}-mypy
 
-    # Install the requirements. Mypy needs this to access stubs for numpy etc.
+    # Install the dependencies, which is needed to make mypy happy. Unravelling of the
+    # second command: The expression in the angular brackets is a python command that
+    # fetches the dependencies section in pyproject.toml; this is then made available to
+    # pip via -r. Option --no-bulid-isolation makes pip not use an isolated environment
+    # for the install (hence the installed packages are sure to be available also after
+    # the build), while --no-deps will only install the specified packages (in this
+    # case, the dependencies of PorePy).
+    #
+    # Thanks, copilot!
     - name: Install requirements
       run: |
         pip install -U pip
-        # Install requirements, using eager updates to avoid stalled dependencies due to caching
-        # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
-        pip install --upgrade --upgrade-strategy eager -r requirements.txt
-        pip freeze
+        pip install --no-build-isolation --no-deps -r <(python -c "import toml; print('\n'.join(toml.load('pyproject.toml')['project']['dependencies']))")
 
-    # Run black, isort, flake8, and mypy.
-    # Note that since these are static checks, we have not installed PorePy.
-    - name: black
+    # Run the various checks
+    - name: Ruff linting
       if: ${{ always() }}
-      run: black --check src
+      run: ruff check src
 
-    - name: isort
+    - name: Ruff formatting
       if: ${{always()}}
-      run: isort --check src
+      run: ruff formatter --check src
 
-    - name: flake8
+      # EK note to self: Ruff may introduce sorting of imports in the future, if so, we
+      # we should use that instead of isort.
+    - name: isort 
       if: ${{ always() }}
-      run: flake8 src 
+      run: isort src 
 
     - name: mypy
       if: ${{ always() }}
