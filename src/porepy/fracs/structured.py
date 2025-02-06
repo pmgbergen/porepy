@@ -214,7 +214,7 @@ def _create_lower_dim_grids_3d(
         is_xz_frac = np.allclose(f[1, 0], f[1])
         is_yz_frac = np.allclose(f[0, 0], f[0])
         assert is_xy_frac + is_xz_frac + is_yz_frac == 1, (
-            "Fracture must align to x-, y- or z-axis"
+            "Fracture must align to x-, y- or z-axis."
         )
 
         # snap to grid
