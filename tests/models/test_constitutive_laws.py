@@ -420,6 +420,7 @@ def test_perturbation_from_reference(model: type[models.MassAndEnergyBalance], q
         "reference_variable_values": pp.ReferenceVariableValues(
             pressure=1, temperature=2
         ),
+        "times_to_export": [],
     }
 
     setup = model(params)
@@ -467,7 +468,11 @@ def test_dimension_reduction_values(
     """
     # Assign non-trivial values to the parameters to avoid masking errors.
     solid = pp.SolidConstants(residual_aperture=0.02)
-    params = {"material_constants": {"solid": solid}, "num_fracs": 3}
+    params = {
+        "material_constants": {"solid": solid},
+        "num_fracs": 3,
+        "times_to_export": [],
+    }
     if geometry is models.RectangularDomainThreeFractures:
         params["fracture_indices"] = [0, 1]
 
@@ -636,7 +641,9 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     """
 
     # Set up and discretize model
-    model = PoromechanicalTestDiffTpfa({"darcy_flux_discretization": base_discr})
+    model = PoromechanicalTestDiffTpfa(
+        {"darcy_flux_discretization": base_discr, "times_to_export": []}
+    )
     model.prepare_simulation()
     model.discretize()
 
