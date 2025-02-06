@@ -477,6 +477,32 @@ class EquationSystem:
 
         return merged_variable
 
+    def remove_variables(self, variables: VariableList) -> None:
+        """Removes variables from the system.
+        The variables are removed from the system and the DOFs are reordered.
+
+        Parameters:
+            variables: List of variables to remove. Variables can be given as a list of
+                variables, mixed-dimensional variables, or variable names (strings).
+
+        Raises:
+            ValueError: If a variable is not known to the system.
+
+        """
+        variables = self._parse_variable_type(variables)
+        for var in variables:
+            if var.id not in self._variables:
+                raise ValueError(
+                    f"Variable {var.name} (ID: {var.id}) not known to the system."
+                )
+            # Remove the variable from the system. _variables, _variable_dof_type and
+            # _variable_numbers are indexed by variable id.
+            del self._variables[var.id]
+            self._variable_dof_type.pop(var.id)
+            self._variable_numbers.pop(var.id)
+            # Update the variable clustering. This also updates _variable_num_dofs.
+            self._cluster_dofs_gridwise()
+
     def update_variable_tags(
         self,
         tags: dict[str, Any],
