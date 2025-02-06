@@ -65,21 +65,18 @@ jobs:
         sudo apt-get install libglu1-mesa libgeos-dev libffi-dev
         export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
 
-    - name: Install requirements
+    # Install the requirements, including the extras needed for testing, and PorePy
+    # itself.
+    - name: Install requirements and PorePy
       run: |
         pip install -U pip
-        # Install requirements, using eager updates to avoid stalled dependencies due to caching
-        # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
-        pip install --upgrade --upgrade-strategy eager -r requirements.txt
+        pip install .[testing]
+        pip freeze
 
+    # Install jupyter - needed to run the tutorial notebooks.
     - name: Install jupyter
       run: |
         pip install jupyter 
-
-    - name: Install PorePy
-      run: |
-        pip install .
-        pip freeze       
 
     - name: Check tutorials
       if: ${{always()}}
