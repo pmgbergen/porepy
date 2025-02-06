@@ -1680,36 +1680,19 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
                 )
             )
 
-    def before_nonlinear_loop(self) -> None:
-        """Overloads the parent method to call :meth:`rediscretize_fluxes` after the
+    def before_nonlinear_iteration(self) -> None:
+        """Overloads the parent method to call :meth:`rediscretize_fluxes` before the
         super-call.
 
-        The re-discretization is put here additionally to provide accurate flux values
-        after boundary conditions were updated.
+        This order is crucial since the re-discretization of upwinding is expected in
+        the super-call and the fluxes must be re-discretized before that.
 
         """
+        self.rediscretize_fluxes()
         assert isinstance(
             self, pp.SolutionStrategy
         ), "This is a mixin. Require SolutionStrategy as base."
-        super().before_nonlinear_loop()  # type:ignore[safe-super]
-        self.rediscretize_fluxes()
-
-    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
-        """Overloads the parent method to call :meth:`rediscretize_fluxes` after the
-        super-call.
-
-        The re-discretization is put at this point in the algorithm to provide accurate
-        fluxes for residual evaluation *and* the next iteration (which re-discretizes
-        upwinding).
-
-        """
-        assert isinstance(
-            self, pp.SolutionStrategy
-        ), "This is a mixin. Require SolutionStrategy as base."
-        super().after_nonlinear_iteration(
-            nonlinear_increment
-        )  # type:ignore[safe-super]
-        self.rediscretize_fluxes()
+        super().before_nonlinear_iteration()  # type:ignore[safe-super]
 
 
 class SolutionStrategySchurComplement(pp.PorePyModel):
