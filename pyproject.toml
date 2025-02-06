@@ -43,7 +43,8 @@ dependencies = [
 development = [
     "isort",
     "ruff",
-    "mypy"
+    "mypy",
+    "mypy-extensions"
 ]
 testing = [
     "pytest >= 4.6",
