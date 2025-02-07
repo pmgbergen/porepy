@@ -108,7 +108,7 @@ class AdParser:
 
         """
 
-        return self.evaluate(op, derivative=True, eq_sys=eq_sys, state=state)
+        return self.evaluate(op, eq_sys=eq_sys, derivative=True, state=state)
 
     def clear_cache(self) -> None:
         """Clear the cache of parsed operators."""
@@ -118,8 +118,8 @@ class AdParser:
     def evaluate(
         self,
         op: pp.ad.Operator,
-        derivative: Literal[False],
         eq_sys: pp.ad.EquationSystem,
+        derivative: Literal[False],
         state: np.ndarray | None,
     ) -> float | np.ndarray | sps.spmatrix: ...
 
@@ -127,8 +127,8 @@ class AdParser:
     def evaluate(
         self,
         op: pp.ad.Operator,
-        derivative: Literal[True],
         eq_sys: pp.ad.EquationSystem,
+        derivative: Literal[True],
         state: np.ndarray | None,
     ) -> pp.ad.AdArray: ...
 
@@ -136,8 +136,8 @@ class AdParser:
     def evaluate(
         self,
         op: list[pp.ad.Operator],
-        derivative: Literal[True],
         eq_sys: pp.ad.EquationSystem,
+        derivative: Literal[True],
         state: np.ndarray | None,
     ) -> list[pp.ad.AdArray]: ...
 
@@ -145,16 +145,16 @@ class AdParser:
     def evaluate(
         self,
         op: list[pp.ad.Operator],
-        derivative: Literal[False],
         eq_sys: pp.ad.EquationSystem,
+        derivative: Literal[False],
         state: np.ndarray | None,
     ) -> list[float | np.ndarray | sps.spmatrix]: ...
 
     def evaluate(
         self,
         op: pp.ad.Operator | list[pp.ad.Operator],
-        derivative: bool,
         eq_sys: pp.ad.EquationSystem,
+        derivative: bool,
         state: np.ndarray | None,
     ) -> (
         float

@@ -1918,6 +1918,7 @@ class EquationSystem:
     def evaluate(
         self,
         operator: pp.ad.Operator | list[pp.ad.Operator],
+        derivative: bool = False,
         state: Optional[np.ndarray] = None,
     ) -> (
         pp.number
@@ -1935,7 +1936,7 @@ class EquationSystem:
 
         """
         # Evaluate the operator, with derivative=False.
-        return self._ad_parser.evaluate(operator, False, self, state)
+        return self._ad_parser.evaluate(operator, self, derivative, state)
 
     @overload
     def operator_value_and_jacobian(
