@@ -26,7 +26,6 @@ from porepy.applications.md_grids.mdg_library import (
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.utils.txt_io import read_data_from_txt
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 
 # -----> Fixtures that are required on a module level.
@@ -461,7 +460,7 @@ def stationary_model():
         error_var_0: float  # error associated with variable 0
         error_var_1: float  # error associated with variable 1
 
-    class StationaryModelDataSaving(VerificationDataSaving):
+    class StationaryModelDataSaving(pp.PorePyModel):
         """Class that collects and store data."""
 
         def collect_data(self) -> StationaryModelSaveData:
@@ -485,9 +484,7 @@ def stationary_model():
     class StationaryModelSolutionStrategy(pp.SolutionStrategy):
         """Solution strategy for the stationary flow model."""
 
-        def __init__(self, params: dict):
-            super().__init__(params)
-            self.results: list[StationaryModelSaveData] = []
+        results: list[StationaryModelSaveData]
 
         def _is_nonlinear_problem(self) -> bool:
             """Whether the model is non-linear."""
@@ -528,7 +525,7 @@ def time_dependent_model():
         error_var_0: float  # error associated with variable 0
         error_var_1: float  # error associated with variable 1
 
-    class TimeDependentModelDataSaving(VerificationDataSaving):
+    class TimeDependentModelDataSaving(pp.PorePyModel):
         """Class that collects and store data."""
 
         def collect_data(self) -> TimeDependentModelSaveData:
@@ -552,9 +549,7 @@ def time_dependent_model():
     class TimeDependentModelSolutionStrategy(pp.SolutionStrategy):
         """Solution strategy for the time-dependent flow model."""
 
-        def __init__(self, params: dict):
-            super().__init__(params)
-            self.results: list[TimeDependentModelSaveData] = []
+        results: list[TimeDependentModelSaveData]
 
         def _is_nonlinear_problem(self) -> bool:
             """Whether the problem is non-linear."""

@@ -317,7 +317,7 @@ def test_poromechanics_model_no_modification():
 
     Failure of this test would signify rather fundamental problems in the model.
     """
-    mod = pp.Poromechanics({})
+    mod = pp.Poromechanics({"times_to_export": []})
     pp.run_stationary_model(mod, {})
 
 
@@ -330,6 +330,7 @@ def test_without_fracture(biot_coefficient):
         "material_constants": {"fluid": fluid, "solid": solid},
         "u_north": [0.0, 0.001],
         "cartesian": True,
+        "times_to_export": [],
     }
     m = TailoredPoromechanics(params)
     pp.run_time_dependent_model(m)
@@ -539,6 +540,7 @@ def test_poromechanics_well():
     model_params = {
         "fracture_indices": [2],
         "well_flux": -1e-2,
+        "times_to_export": [],
     }
     setup = PoromechanicsWell(model_params)
     pp.run_time_dependent_model(setup)

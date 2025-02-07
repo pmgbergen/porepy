@@ -16,7 +16,7 @@ Warning:
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal, Optional, Protocol, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Protocol, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -75,6 +75,9 @@ else:
             four Cartesian cells.
 
             """
+
+        def set_well_network(self) -> None:
+            """Assign well network class."""
 
         def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
@@ -534,6 +537,9 @@ else:
         """Time step as an automatic differentiation scalar."""
         nonlinear_solver_statistics: pp.SolverStatistics
         """Solver statistics for the nonlinear solver."""
+        results: list[Any]
+        """A list of results collected by the data saving mixin in
+        :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
 
         @property
         def time_step_indices(self) -> np.ndarray:
@@ -557,6 +563,12 @@ else:
                 An array of the indices of which iterate solutions will be stored.
 
             """
+
+        def prepare_simulation(self) -> None:
+            """Run at the start of simulation. Used for initialization etc."""
+
+        def after_simulation(self) -> None:
+            """Run at the end of simulation. Can be used for cleanup etc."""
 
         def _is_time_dependent(self) -> bool:
             """Specifies whether the Model problem is time-dependent.
@@ -696,6 +708,25 @@ else:
             Note:
                 One can use the convenience method `update_boundary_condition` for each
                 boundary condition value.
+
+            """
+
+        def update_boundary_condition(
+            self,
+            name: str,
+            function: Callable[[pp.BoundaryGrid], np.ndarray],
+        ) -> None:
+            """This method is the unified procedure of updating a boundary condition.
+
+            It shifts the boundary condition values in time and stores the current
+            iterate data (current time step) as the most recent previous time step data.
+            Next, it evaluates the boundary condition values for the new time step and
+            stores them in the iterate data.
+
+            Parameters:
+                name: Name of the operator defined on the boundary.
+                function: A callable that provides the boundary condition values on a
+                    given boundary grid.
 
             """
 

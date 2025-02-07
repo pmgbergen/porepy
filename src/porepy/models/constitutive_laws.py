@@ -3943,7 +3943,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         return consistency
 
 
-class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
+class BiotPoroMechanicsPorosity(pp.PorePyModel):
     """Porosity for poromechanical models following classical Biot's theory.
 
     The porosity is defined such that, after the chain rule is applied to the
