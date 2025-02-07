@@ -30,7 +30,32 @@ conductivity between 290K (16.85C) and 295K (21.85C).
 
 """
 
-water = {
+from typing import NotRequired, TypedDict
+
+
+class FluidComponentDict(TypedDict):
+    """A class to be used for type hinting dictionaries with values for fluid components
+    which are expected by various constitutive laws."""
+
+    name: str
+    """A string denoting the name."""
+    compressibility: float
+    """Isentropic compressibility in [Pa^-1]."""
+    density: float
+    """Mass density in [kg m^-3]."""
+    specific_heat_capacity: float
+    """Isochoric specific heat capacity in [J kg^-1 K^-1]."""
+    thermal_conductivity: float
+    """Thermal conductivity in [kg m^-3]."""
+    thermal_expansion: float
+    """Thermal expansion in [K^-1]."""
+    viscosity: float
+    """Absolute viscosity in [Pa s]."""
+    normal_thermal_conductivity: NotRequired[float]
+    """(Optional) Normal thermal conductivity on interfaces in [kg m^-3]."""
+
+
+water: FluidComponentDict = {
     "name": "water",
     "compressibility": 4.559 * 1e-10,  # [Pa^-1], isentropic compressibility
     "density": 998.2,  # [kg m^-3]
