@@ -583,21 +583,23 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
 
         z = np.array(
             [
-                self.equation_system.evaluate(component.fraction(subdomains), state)
+                self.equation_system.evaluate(
+                    component.fraction(subdomains), state=state
+                )
                 for component in self.fluid.components
             ]
         )
 
         y = np.array(
             [
-                self.equation_system.evaluate(phase.fraction(subdomains), state)
+                self.equation_system.evaluate(phase.fraction(subdomains), state=state)
                 for phase in self.fluid.phases
             ]
         )
 
         sat = np.array(
             [
-                self.equation_system.evaluate(phase.saturation(subdomains), state)
+                self.equation_system.evaluate(phase.saturation(subdomains), state=state)
                 for phase in self.fluid.phases
             ]
         )
@@ -607,11 +609,13 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
                 [
                     (
                         self.equation_system.evaluate(
-                            phase.extended_fraction_of[component](subdomains), state
+                            phase.extended_fraction_of[component](subdomains),
+                            state=state,
                         )
                         if self._has_unified_equilibrium
                         else self.equation_system.evaluate(
-                            phase.partial_fraction_of[component](subdomains), state
+                            phase.partial_fraction_of[component](subdomains),
+                            state=state,
                         )
                     )
                     for component in phase

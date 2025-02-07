@@ -1,6 +1,4 @@
-"""Geometry definition for simulation setup.
-
-"""
+"""Geometry definition for simulation setup."""
 
 from __future__ import annotations
 
@@ -689,7 +687,6 @@ class ModelGeometry(pp.PorePyModel):
         # Normalize by face area if requested.
         if unitary:
             # 1 over cell volumes on the interfaces
-            # Ignore mypy complaint about unexpected keyword arguments.
             cell_volumes_inv = pp.ad.Scalar(1) / self.wrap_grid_attribute(
                 interfaces, "cell_volumes", dim=self.nd
             )
