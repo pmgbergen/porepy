@@ -9,7 +9,7 @@ import numpy as np
 import porepy as pp
 
 
-class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
+class BoundaryConditionsMassDirWestEast(pp.PorePyModel):
     """Boundary conditions for the flow problem.
 
     Dirichlet boundary conditions are defined on the west and east boundaries. Some
@@ -73,7 +73,7 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
         return pp.BoundaryCondition(sd, domain_sides.west + domain_sides.east, "dir")
 
 
-class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
+class BoundaryConditionsMassDirNorthSouth(pp.PorePyModel):
     """Boundary conditions for the flow problem.
 
     Dirichlet boundary conditions are defined on the north and south boundaries. Some
@@ -137,7 +137,7 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
 
-class BoundaryConditionsEnergyDirNorthSouth(pp.BoundaryConditionMixin):
+class BoundaryConditionsEnergyDirNorthSouth(pp.PorePyModel):
     """Boundary conditions for the thermal problem.
 
     Dirichlet boundary conditions are defined on the north and south boundaries. Some
@@ -183,7 +183,7 @@ class BoundaryConditionsEnergyDirNorthSouth(pp.BoundaryConditionMixin):
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
 
-class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
+class BoundaryConditionsMechanicsDirNorthSouth(pp.PorePyModel):
     """Boundary conditions for the mechanics with Dirichlet conditions on north and
     south boundaries.
 

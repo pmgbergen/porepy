@@ -7,7 +7,6 @@ keep them separate, to avoid breaking existing code (legacy models).
 
 from __future__ import annotations
 
-import abc
 import logging
 import time
 import warnings
@@ -22,7 +21,7 @@ import porepy as pp
 logger = logging.getLogger(__name__)
 
 
-class SolutionStrategy(abc.ABC, pp.PorePyModel):
+class SolutionStrategy(pp.PorePyModel):
     """This is a class that specifies methods that a model must implement to
     be compatible with the linearization and time stepping methods.
 
@@ -114,6 +113,9 @@ class SolutionStrategy(abc.ABC, pp.PorePyModel):
         """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
         """Time step as an automatic differentiation scalar."""
+        self.results: list[Any] = []
+        """A list of results collected by the data saving mixin in
+        :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
 
         self.set_solver_statistics()
 

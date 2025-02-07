@@ -56,6 +56,7 @@ def test_biot_equal_to_incompressible_poromechanics():
             "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         },
         "num_cells": 10,
+        "times_to_export": [],  # Suppress output for tests
     }
     setup_poromech = TerzaghiSetupPoromechanics(model_params_poromech)
     pp.run_time_dependent_model(model=setup_poromech)
@@ -69,6 +70,7 @@ def test_biot_equal_to_incompressible_poromechanics():
             "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         },
         "num_cells": 10,
+        "times_to_export": [],  # Suppress output for tests
     }
     setup_biot = TerzaghiSetup(model_params_biot)
     pp.run_time_dependent_model(model=setup_biot)
@@ -114,6 +116,7 @@ def test_pressure_and_consolidation_degree_errors():
         },
         "time_manager": pp.TimeManager([0, 0.15, 0.3], 0.15, True),
         "num_cells": 10,
+        "times_to_export": [],  # Suppress output for tests
     }
     setup = TerzaghiSetup(model_params)
     pp.run_time_dependent_model(setup)
@@ -144,7 +147,10 @@ def test_scaled_vs_unscaled_systems():
         "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         "solid": pp.SolidConstants(**terzaghi_solid_constants),
     }
-    model_params_unscaled = {"material_constants": material_constants_unscaled}
+    model_params_unscaled = {
+        "material_constants": material_constants_unscaled,
+        "times_to_export": [],  # Suppress output for tests
+    }
     unscaled = TerzaghiSetup(params=model_params_unscaled)
     pp.run_time_dependent_model(model=unscaled)
 
@@ -155,7 +161,11 @@ def test_scaled_vs_unscaled_systems():
     }
     scaling = {"m": 0.001, "kg": 0.001}  # length in millimeters and mass in grams
     units = pp.Units(**scaling)
-    model_params_scaled = {"material_constants": material_constants_scaled, "units": units}
+    model_params_scaled = {
+        "material_constants": material_constants_scaled,
+        "units": units,
+        "times_to_export": [],  # Suppress output for tests
+    }
     scaled = TerzaghiSetup(params=model_params_scaled)
     pp.run_time_dependent_model(model=scaled)
 

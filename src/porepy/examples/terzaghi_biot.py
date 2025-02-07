@@ -44,13 +44,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import porepy as pp
-import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as mechanics
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.derived_models.biot import BiotPoromechanics
 from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -100,7 +97,7 @@ class TerzaghiSaveData:
     """Current simulation time."""
 
 
-class TerzaghiDataSaving(VerificationDataSaving):
+class TerzaghiDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     exact_sol: TerzaghiExactSolution
@@ -499,11 +496,8 @@ class TerzaghiUtils(VerificationUtils):
 
 
 # -----> Geometry
-class PseudoOneDimensionalColumn(pp.ModelGeometry):
+class PseudoOneDimensionalColumn(pp.PorePyModel):
     """Define geometry of the verification setup."""
-
-    params: dict
-    """Simulation model parameters."""
 
     def height(self) -> pp.number:
         """Retrieve height of the domain, in scaled [m]."""
@@ -527,7 +521,7 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
 
 # -----> Boundary conditions
-class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBalance):
+class TerzaghiBoundaryConditionsMechanics(pp.PorePyModel):
 
     def applied_load(self) -> pp.number:
         """Obtain vertical load in scaled [Pa]."""
@@ -545,8 +539,10 @@ class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBa
             the South, and rollers on the sides.
 
         """
-        # Inherit bc from parent class. This sets all bc faces as Dirichlet.
-        bc = super().bc_type_mechanics(sd=sd)
+        # Start with all faces as Dirichlet faces, analogous to base mechanics set-up.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        bc = pp.BoundaryConditionVectorial(sd, boundary_faces, "dir")
+        bc.internal_to_dirichlet(sd)
 
         # Get boundary sides, retrieve data dict, and bc object
         _, east, west, north, *_ = self.domain_boundary_sides(sd)
@@ -585,9 +581,8 @@ class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBa
         return bc_values.ravel("F")
 
 
-class TerzaghiBoundaryConditionsFlow(
-    mass.BoundaryConditionsSinglePhaseFlow,
-):
+class TerzaghiBoundaryConditionsFlow(pp.PorePyModel):
+
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the Darcy flux.
 
@@ -640,21 +635,6 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     verification.
 
     """
-
-    def __init__(self, params: dict) -> None:
-        """Constructor of the class.
-
-        Parameters:
-            params: Parameters of the verification setup.
-
-        """
-        super().__init__(params)
-
-        self.exact_sol: TerzaghiExactSolution
-        """Exact solution object."""
-
-        self.results: list[TerzaghiSaveData] = []
-        """List of stored results from the verification."""
 
     def set_materials(self):
         """Set material parameters.
