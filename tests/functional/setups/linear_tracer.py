@@ -84,7 +84,6 @@ from porepy.models.compositional_flow import (
     BoundaryConditionsFractionalFlow,
     MassicPressureEquations,
 )
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 
 @dataclass
@@ -255,7 +254,7 @@ class LinearTracerExactSolution1D:
         return self._dx / self.flow_velocity(sd) - eps
 
 
-class LinearTracerDataSaving_1p(VerificationDataSaving, pp.PorePyModel):
+class LinearTracerDataSaving_1p(pp.PorePyModel):
     """Mixin class to safe data relevant for tests.
 
     Error in pressure is evaluated in the L2-norm. Error in tracer fraction is evaluated
@@ -391,7 +390,7 @@ class TracerIC_1p:
         # Initial and outlet pressure are the same.
         return np.ones(sd.num_cells) * self.exact_sol.p_outlet
 
-    def initial_overall_fraction(
+    def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         """Setting initial tracer overall fraction to zero."""

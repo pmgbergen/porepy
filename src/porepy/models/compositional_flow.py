@@ -1337,8 +1337,8 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
 
         See also:
 
-            - :meth:`initial_overall_fraction`
-            - :meth:`initial_tracer_fraction`
+            - :meth:`ic_values_overall_fraction`
+            - :meth:`ic_values_tracer_fraction`
 
         """
         super().set_initial_values_primary_variables()
@@ -1349,7 +1349,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
                 # independent overall fractions must have an initial value.
                 if self.has_independent_fraction(component):
                     self.equation_system.set_variable_values(
-                        self.initial_overall_fraction(component, sd),
+                        self.ic_values_overall_fraction(component, sd),
                         [cast(pp.ad.Variable, component.fraction([sd]))],
                         iterate_index=0,
                     )
@@ -1359,7 +1359,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
                     for tracer in component.active_tracers:
                         if self.has_independent_tracer_fraction(tracer, component):
                             self.equation_system.set_variable_values(
-                                self.initial_tracer_fraction(tracer, component, sd),
+                                self.ic_values_tracer_fraction(tracer, component, sd),
                                 [
                                     cast(
                                         pp.ad.Variable,
@@ -1369,7 +1369,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
                                 iterate_index=0,
                             )
 
-    def initial_overall_fraction(
+    def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         """
@@ -1385,7 +1385,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
         """
         return np.zeros(sd.num_cells)
 
-    def initial_tracer_fraction(
+    def ic_values_tracer_fraction(
         self, tracer: pp.Component, compound: compositional.Compound, sd: pp.Grid
     ) -> np.ndarray:
         """

@@ -115,7 +115,7 @@ class TracerIC(InitialConditionsFractions):
         # Initial and outlet pressure are the same.
         return np.ones(sd.num_cells)
 
-    def initial_overall_fraction(
+    def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         """Setting initial tracer overall fraction to zero."""
@@ -211,11 +211,11 @@ class TracerFlowSetup(  # type: ignore[misc]
 # If executed as main, run simulation
 if __name__ == "__main__":
     # initial time step 60 seconds
-    dt_init = 60
+    dt_init = pp.MINUTE
     # Simulation time 2 hour
-    T_end = 2 * 60 * 60
+    T_end = 2 * pp.HOUR
     # min max time step size is 6 seconds and 10 minutes respectively
-    dt_min_max = (0.1 * dt_init, 10 * 60)
+    dt_min_max = (0.1 * dt_init, 10 * pp.MINUTE)
     # parameters for Newton solver
     max_iterations = 80
     newton_tol = 1e-6
