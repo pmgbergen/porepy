@@ -772,9 +772,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             A callable which returns the tracer fraction for a given set of domains.
 
         """
-        assert tracer in compound.active_tracers, (
-            f"Solute {tracer.name} not in compound {compound.name}"
-        )
+        assert (
+            tracer in compound.active_tracers
+        ), f"Solute {tracer.name} not in compound {compound.name}"
 
         if self.has_independent_tracer_fraction(tracer, compound):
             fraction = self._fraction_factory(
@@ -898,9 +898,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             A callable which returns the extended fraction for a given set of domains.
 
         """
-        assert component in phase, (
-            f"Component {component.name} not in phase {phase.name}"
-        )
+        assert (
+            component in phase
+        ), f"Component {component.name} not in phase {phase.name}"
 
         fraction: DomainFunctionType
 
@@ -960,9 +960,9 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             A callable which returns the extended fraction for a given set of domains.
 
         """
-        assert component in phase, (
-            f"Component {component.name} not in phase {phase.name}"
-        )
+        assert (
+            component in phase
+        ), f"Component {component.name} not in phase {phase.name}"
 
         fraction: DomainFunctionType
 
