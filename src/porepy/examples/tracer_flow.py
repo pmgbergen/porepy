@@ -211,13 +211,10 @@ if __name__ == "__main__":
         # demonstration.
         "eliminate_reference_phase": True,
         "eliminate_reference_component": True,
-        # We use upwinding in the pressure equation, no fractional flow (default).
-        "fractional_flow": False,
         "time_manager": time_manager,
         "max_iterations": max_iterations,
         "nl_convergence_tol": newton_tol_increment,
         "nl_convergence_tol_res": newton_tol,
-        "progressbars": True,
         "meshing_arguments": {"cell_size": 0.05},
         "grid_type": "simplex",
     }
