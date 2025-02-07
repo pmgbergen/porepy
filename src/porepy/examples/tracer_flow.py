@@ -3,12 +3,12 @@ flow."""
 
 from __future__ import annotations
 
-from typing import Sequence, TypedDict, cast
+from typing import Sequence, cast
 
 import numpy as np
 
 import porepy as pp
-from porepy.applications.material_values.fluid_values import water as _water
+from porepy.applications.material_values.fluid_values import water
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
@@ -18,22 +18,6 @@ from porepy.models.compositional_flow import (
     ComponentMassBalanceEquations,
     InitialConditionsFractions,
 )
-
-
-class WaterDict(TypedDict):
-    """For mypy when using **water in combination with FluidComponent."""
-
-    compressibility: float
-    density: float
-    specific_heat_capacity: float
-    thermal_conductivity: float
-    thermal_expansion: float
-    viscosity: float
-    name: str
-
-
-# Casting this to help mypy
-water = cast(WaterDict, _water)
 
 
 class TracerGeometry(SquareDomainOrthogonalFractures):
