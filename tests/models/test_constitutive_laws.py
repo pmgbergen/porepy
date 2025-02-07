@@ -181,7 +181,7 @@ def test_parse_constitutive_laws(
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    setup.equation_system.operator_value_and_jacobian(op)
+    setup.equation_system.value(op, derivative=True)
 
 
 # Shorthand for values with many digits. Used to compute expected values in the tests.
@@ -436,7 +436,7 @@ def test_perturbation_from_reference(
         op = setup.perturbation_from_reference(q, setup.mdg.subdomains())
         # Calling value and jacobian to make sure there are no errors in parsing
         # but only value is checked.
-        op_val = setup.equation_system.operator_value_and_jacobian(op)
+        op_val = setup.equation_system.evaluate(op, derivative=True)
         # value of op is 0 - ref val
         assert np.allclose(op_val.val, -ref_vals[q])
 
@@ -699,8 +699,8 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     true_derivatives = dp * np.array([dtrm_du0, dtrm_du1, dtrm_du2, dtrm_du3])
 
     # The computed flux
-    computed_flux = model.equation_system.operator_value_and_jacobian(
-        model.darcy_flux([g_1d])
+    computed_flux = model.equation_system.evaluate(
+        model.darcy_flux([g_1d]), derivative=True
     )
     # Pick out the middle face, and only those faces that are associated with the mortar
     # displacement in the y-direction. The column indices must also be reordered to
@@ -719,14 +719,15 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # the interface flux.
     #
     # The potential reconstruction method
-    potential_trace = model.equation_system.operator_value_and_jacobian(
+    potential_trace = model.equation_system.evaluate(
         model.potential_trace(
             model.mdg.subdomains(),
             model.pressure,
             model.permeability,
             model.combine_boundary_operators_darcy_flux,
             "darcy_flux",
-        )
+        ),
+        derivative=True,
     )
 
     # Fetch the permeability tensor from the data dictionary.

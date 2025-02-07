@@ -1607,7 +1607,7 @@ class EquationSystem:
                 else:
                     rhs.append(val)
         else:
-            ad_list: list[pp.ad.AdArray] = self.operator_value_and_jacobian(eqs, state)
+            ad_list: list[pp.ad.AdArray] = self.evaluate(eqs, True, state)
             for row, equ_name, ad in zip(rows, equ_blocks, ad_list):
                 if row is not None:
                     # If restriction to grid-related row blocks was made, perform row
@@ -1937,32 +1937,6 @@ class EquationSystem:
         """
         # Evaluate the operator, with derivative=False.
         return self._ad_parser.evaluate(operator, self, derivative, state)
-
-    @overload
-    def operator_value_and_jacobian(
-        self, operator: pp.ad.Operator, state: Optional[np.ndarray] = None
-    ) -> pp.ad.AdArray: ...
-
-    @overload
-    def operator_value_and_jacobian(
-        self, operator: list[pp.ad.Operator], state: Optional[np.ndarray] = None
-    ) -> list[pp.ad.AdArray]: ...
-
-    def operator_value_and_jacobian(
-        self,
-        operator: pp.ad.Operator | list[pp.ad.Operator],
-        state: Optional[np.ndarray] = None,
-    ) -> pp.ad.AdArray | list[pp.ad.AdArray]:
-        """Evaluate an operator and its Jacobian on the current state.
-
-        Parameters:
-            operator: Operator to evaluate.
-
-        Returns:
-            Tuple containing the operator evaluated on the current state and its Jacobian.
-
-        """
-        return self._ad_parser.value_and_jacobian(operator, self, state)
 
     ### Special methods ----------------------------------------------------------------
 

@@ -1607,12 +1607,12 @@ def test_arithmetic_operations_on_ad_objects(
     # not a surprize (variable expected is False).
     if wrapped:
         try:
-            # The idea here is to test evaluation on the deepest level, i.e., the
-            # method _evaluate_single in the AdParser. This is the method that actually
+            # The idea here is to test evaluation on the deepest level, i.e., the method
+            # _evaluate_single in the AdParser. This is the method that actually
             # translates an expression into a numerical value. An error here signifies
-            # that something is wrong with the parsing itself. Note that testing of
-            # the frontend evaluation is done below (calls to eq_system.operator_value
-            # methods), as well as in the test of equation_system.py and other tests.
+            # that something is wrong with the parsing itself. Note that testing of the
+            # frontend evaluation is done below (calls to eq_system.value()), as well
+            # as in the test of equation_system.py and other tests.
             expression = eval(f"v1 {op} v2")
             state = pp.ad.initAdArrays(
                 [eq_system.get_variable_values(time_step_index=0)]
@@ -1642,12 +1642,12 @@ def test_arithmetic_operations_on_ad_objects(
 
     if wrapped:
         if not multidimensional:
-            val_jac = eq_system.operator_value_and_jacobian(expression)
+            val_jac = eq_system.evaluate(expression, derivative=True)
             val = eq_system.evaluate(expression)
             assert np.all(val_jac.val == val)
         else:
             with pytest.raises(NotImplementedError):
-                eq_system.operator_value_and_jacobian(expression)
+                eq_system.evaluate(expression, derivative=True)
 
 
 @pytest.mark.parametrize(
