@@ -240,7 +240,9 @@ def _tag_faces(grids, check_highest_dim=True):
 
     # Assume only one grid of highest dimension
     if check_highest_dim:
-        assert len(grids[0]) == 1, "There must be exactly 1 grid of dim: " + str(len(grids))
+        assert len(grids[0]) == 1, "There must be exactly 1 grid of dim: " + str(
+            len(grids)
+        )
 
     for g_h in np.atleast_1d(grids[0]):
         bnd_faces = g_h.get_all_boundary_faces()
