@@ -181,7 +181,7 @@ def test_parse_constitutive_laws(
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    setup.equation_system.value(op, derivative=True)
+    setup.equation_system.evaluate(op, derivative=True)
 
 
 # Shorthand for values with many digits. Used to compute expected values in the tests.

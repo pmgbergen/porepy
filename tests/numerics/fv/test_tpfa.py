@@ -692,11 +692,9 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
         model.combine_boundary_operators_darcy_flux,
         "darcy_flux",
     )
-    potential_value = model.equation_system.evaluate(potential_trace)
-    assert potential_value.size == num_faces
-
-    potential_jac = model.equation_system.evaluate(potential_trace).jac
-    assert potential_jac.shape == (num_faces, num_dofs)
+    value = model.equation_system.evaluate(potential_trace, derivative=True)
+    assert value.val.size == num_faces
+    assert value.jac.shape == (num_faces, num_dofs)
 
 
 # Test that a standard discretization and a differentiable discretization give the same
