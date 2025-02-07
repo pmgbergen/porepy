@@ -134,9 +134,7 @@ class DataSavingMixin(pp.PorePyModel):
             Array of values for the quantity, scaled to SI units.
 
         """
-        vals_scaled = self.equation_system.operator_value(
-            getattr(self, method_name)([grid])
-        )
+        vals_scaled = self.equation_system.evaluate(getattr(self, method_name)([grid]))
         vals = self.units.convert_units(vals_scaled, units, to_si=True)
         return vals
 

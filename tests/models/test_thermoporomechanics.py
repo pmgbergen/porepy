@@ -316,7 +316,7 @@ def test_robin_boundary_flux():
 
     # Create dictionary of evaluated boundary operators in bc_operators
     values = {
-        key: model.equation_system.operator_value(operator([subdomain]))
+        key: model.equation_system.evaluate(operator([subdomain]))
         for key, operator in bc_operators.items()
     }
 
@@ -359,7 +359,7 @@ def test_robin_boundary_flux():
     # indices of the north and south boundaries in the pressure_values array, before
     # finally asserting that the values are correct.
     bg = model.mdg.subdomain_to_boundary_grid(subdomain)
-    pressure_values = model.equation_system.operator_value(model.pressure([bg]))
+    pressure_values = model.equation_system.evaluate(model.pressure([bg]))
 
     ind_north = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.north)[0]))[0]
     ind_south = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.south)[0]))[0]

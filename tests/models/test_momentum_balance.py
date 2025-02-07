@@ -98,8 +98,8 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
 
     # Check that the displacement jump and traction are as expected
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
-    jump = setup.equation_system.operator_value(setup.displacement_jump(sd_frac))
-    traction = setup.equation_system.operator_value(setup.contact_traction(sd_frac))
+    jump = setup.equation_system.evaluate(setup.displacement_jump(sd_frac))
+    traction = setup.equation_system.evaluate(setup.contact_traction(sd_frac))
     if north_displacement > 0:
         # Normal component of displacement jump should be positive
         assert np.all(jump[setup.nd - 1 :: setup.nd] > 0)
@@ -288,7 +288,7 @@ def test_lithostatic(dim: int):
     assert np.allclose(vals[model.nd - 1], u_z, 7e-2)
 
     # Computed stress at the bottom of the domain.
-    computed_stress = model.equation_system.operator_value(model.stress([sd])).reshape(
+    computed_stress = model.equation_system.evaluate(model.stress([sd])).reshape(
         (model.nd, -1), order="F"
     )
     bottom_face = np.where(model.domain_boundary_sides(sd).bottom)[0]
@@ -373,12 +373,8 @@ def verify_elastoplastic_deformation(
     fracture = fractures[0]
 
     # Get plastic and elastic displacement jumps on the fracture in local coordinates.
-    u_p_loc = setup.equation_system.operator_value(
-        setup.plastic_displacement_jump(fractures)
-    )
-    u_e_loc = setup.equation_system.operator_value(
-        setup.elastic_displacement_jump(fractures)
-    )
+    u_p_loc = setup.equation_system.evaluate(setup.plastic_displacement_jump(fractures))
+    u_e_loc = setup.equation_system.evaluate(setup.elastic_displacement_jump(fractures))
 
     # Transform the jumps to global coordinates and corresponding to the j side of the
     # fracture being the one with the lower y-coordinate (jumps are k-j).
@@ -397,9 +393,9 @@ def verify_elastoplastic_deformation(
     u_p = (sign * u_p).reshape((nd, -1), order="F")
     u_e = (sign * u_e).reshape((nd, -1), order="F")
 
-    u_domain = setup.equation_system.operator_value(
-        setup.displacement([matrix])
-    ).reshape((nd, -1), order="F")
+    u_domain = setup.equation_system.evaluate(setup.displacement([matrix])).reshape(
+        (nd, -1), order="F"
+    )
     u_top = u_domain[:, matrix.cell_centers[fracture_ind] > 0.5]
     # Compare the computed values to the expected values.
     if compare_means:
@@ -424,7 +420,7 @@ def verify_elastoplastic_deformation(
 
     # Traction on the fracture.
     open_cells = u_p[fracture_ind] > 1e-10
-    traction = setup.equation_system.operator_value(
+    traction = setup.equation_system.evaluate(
         setup.characteristic_contact_traction([fracture])
         * setup.contact_traction([fracture])
     )

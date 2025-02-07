@@ -1597,7 +1597,7 @@ class EquationSystem:
         # The evaluation method to use depends on whether the Jacobian is requested.
         if not evaluate_jacobian:
             # Evaluate the operator to get the residual vector.
-            values = self.operator_value(eqs, state)
+            values = self.evaluate(eqs, state)
             for row, val in zip(rows, values):
                 # The residual of individual equations can be a scalar or an array.
                 # Forcing to array to ensure consistent handling.
@@ -1906,16 +1906,16 @@ class EquationSystem:
     ### Evaluate Ad operators ----------------------------------------------------------
 
     @overload
-    def operator_value(
+    def evaluate(
         self, operator: pp.ad.Operator, state: Optional[np.ndarray] = None
     ) -> pp.number | np.ndarray | sps.spmatrix: ...
 
     @overload
-    def operator_value(
+    def evaluate(
         self, operator: list[pp.ad.Operator], state: Optional[np.ndarray] = None
     ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
 
-    def operator_value(
+    def evaluate(
         self,
         operator: pp.ad.Operator | list[pp.ad.Operator],
         state: Optional[np.ndarray] = None,

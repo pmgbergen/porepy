@@ -99,7 +99,7 @@ def test_effective_tangential_permeability(model) -> None:
 
     """
     for sd in model.mdg.subdomains():
-        val = model.equation_system.operator_value(
+        val = model.equation_system.evaluate(
             model.effective_tangential_permeability([sd])
         )
         if sd.dim == 2:
@@ -135,7 +135,7 @@ def test_effective_normal_permeability(model) -> None:
 
     """
     for intf in model.mdg.interfaces():
-        val = model.equation_system.operator_value(
+        val = model.equation_system.evaluate(
             model.effective_normal_permeability([intf])
         )
         sd_high, sd_low = model.mdg.interface_to_subdomain_pair(intf)
