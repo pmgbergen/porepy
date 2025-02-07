@@ -1,6 +1,7 @@
 ![Pytest](https://github.com/pmgbergen/porepy/actions/workflows/run-pytest.yml/badge.svg)
 ![Pytest including slow](https://github.com/pmgbergen/porepy/actions/workflows/run-pytest-all.yml/badge.svg)
-![Mypy, black, isort, flake8](https://github.com/pmgbergen/porepy/actions/workflows/run-static-checks.yml/badge.svg)
+![Mypy, ruff, isort](https://github.com/pmgbergen/porepy/actions/workflows/run-static-checks.yml/badge.svg)
+![Tutorials](https://github.com/pmgbergen/porepy/actions/workflows/check_tutorials.yml/badge.svg)
 [![DOI](https://zenodo.org/badge/89228838.svg)](https://zenodo.org/badge/latestdoi/89228838)
 [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
