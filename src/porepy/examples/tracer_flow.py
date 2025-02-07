@@ -59,9 +59,8 @@ class DomainX(pp.PorePyModel):
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.05, "m")
         mesh_args: dict[str, float] = {
-            "cell_size": cell_size,
+            "cell_size": self.units.convert_units(0.05, "m"),
         }
         return mesh_args
 
