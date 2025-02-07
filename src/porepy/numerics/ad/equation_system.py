@@ -1934,7 +1934,8 @@ class EquationSystem:
             The operator evaluated on the current state.
 
         """
-        return self._ad_parser.value(operator, self, state)
+        # Evaluate the operator, with derivative=False.
+        return self._ad_parser.evaluate(operator, False, self, state)
 
     @overload
     def operator_value_and_jacobian(

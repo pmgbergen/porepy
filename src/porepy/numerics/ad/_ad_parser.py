@@ -108,14 +108,14 @@ class AdParser:
 
         """
 
-        return self._evaluate(op, derivative=True, eq_sys=eq_sys, state=state)
+        return self.evaluate(op, derivative=True, eq_sys=eq_sys, state=state)
 
     def clear_cache(self) -> None:
         """Clear the cache of parsed operators."""
         self._cache = {}
 
     @overload
-    def _evaluate(
+    def evaluate(
         self,
         op: pp.ad.Operator,
         derivative: Literal[False],
@@ -124,7 +124,7 @@ class AdParser:
     ) -> float | np.ndarray | sps.spmatrix: ...
 
     @overload
-    def _evaluate(
+    def evaluate(
         self,
         op: pp.ad.Operator,
         derivative: Literal[True],
@@ -133,7 +133,7 @@ class AdParser:
     ) -> pp.ad.AdArray: ...
 
     @overload
-    def _evaluate(
+    def evaluate(
         self,
         op: list[pp.ad.Operator],
         derivative: Literal[True],
@@ -142,7 +142,7 @@ class AdParser:
     ) -> list[pp.ad.AdArray]: ...
 
     @overload
-    def _evaluate(
+    def evaluate(
         self,
         op: list[pp.ad.Operator],
         derivative: Literal[False],
@@ -150,7 +150,7 @@ class AdParser:
         state: np.ndarray | None,
     ) -> list[float | np.ndarray | sps.spmatrix]: ...
 
-    def _evaluate(
+    def evaluate(
         self,
         op: pp.ad.Operator | list[pp.ad.Operator],
         derivative: bool,
@@ -399,9 +399,9 @@ class AdParser:
 
             case Operations.evaluate:
                 # Operator functions should have at least 1 child (themselves).
-                assert (
-                    len(child_values) >= 1
-                ), "Operator functions must have at least 1 child."
+                assert len(child_values) >= 1, (
+                    "Operator functions must have at least 1 child."
+                )
                 assert hasattr(op, "func"), (
                     f"Operators with operation {operation} must have a functional"
                     + " representation `func` implemented as a callable member."
