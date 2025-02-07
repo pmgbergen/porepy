@@ -74,6 +74,7 @@ def model_setup():
         "fracture_indices": [0, 1],
         "grid_type": "cartesian",
         "meshing_arguments": {"cell_size_x": 0.5, "cell_size_y": 0.5},
+        "times_to_export": [],
     }
 
     # Instantiate the model setup
@@ -634,6 +635,7 @@ def test_well_incompressible_pressure_values():
         },
         # Use only the horizontal fracture of OrthogonalFractures3d
         "fracture_indices": [2],
+        "times_to_export": [],
     }
 
     setup = WellModel(params)
@@ -754,6 +756,7 @@ def model_setup_gravity(
         "fracture_indices": [-1],  # Constant y and z coordinates in 2d and 3d, resp.
         "meshing_arguments": {"cell_size": 0.5},
         "darcy_flux_discretization": discretization_method,
+        "times_to_export": [],
     }
     params.update(model_params)
     params["material_constants"] = {
@@ -977,6 +980,7 @@ class TestMixedDimGravity:
         params = {
             "meshing_arguments": {"cell_size": 1 / 3, "cell_size_y": 1 / 2},
             "grid_type": grid_type,
+            "times_to_export": [],
         }
         self.model = model_setup_gravity(
             dimension=2,
@@ -1015,6 +1019,7 @@ class TestMixedDimGravity:
         params = {
             "meshing_arguments": {"cell_size": 1.0, "cell_size_y": 1 / 2},
             "grid_type": "cartesian",
+            "times_to_export": [],
         }
         num_nodes_1d = 2
         self.model = model_setup_gravity(
@@ -1049,6 +1054,7 @@ class TestMixedDimGravity:
         params = {
             "meshing_arguments": {"cell_size": 1 / 3, "cell_size_y": 1 / 2},
             "grid_type": grid_type,
+            "times_to_export": [],
         }
 
         self.model = model_setup_gravity(
@@ -1077,6 +1083,7 @@ class TestMixedDimGravity:
         params = {
             "meshing_arguments": {"cell_size": 1 / 2},
             "grid_type": grid_type,
+            "times_to_export": [],
         }
         a = 1e-2
         self.model = model_setup_gravity(

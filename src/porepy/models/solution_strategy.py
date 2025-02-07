@@ -113,6 +113,9 @@ class SolutionStrategy(pp.PorePyModel):
         """Restart options. The template is provided in `SolutionStrategy.__init__`."""
         self.ad_time_step = pp.ad.Scalar(self.time_manager.dt)
         """Time step as an automatic differentiation scalar."""
+        self.results: list[Any] = []
+        """A list of results collected by the data saving mixin in
+        :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
 
         self.set_solver_statistics()
 

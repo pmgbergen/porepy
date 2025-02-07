@@ -5,6 +5,8 @@ Defines types commonly used in PorePy.
 from typing import Callable, Sequence, Union
 
 import porepy as pp
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 __all__ = [
     "number",
@@ -34,8 +36,8 @@ discretization_type = Union[
 ]
 
 fracture_network = Union[
-    "pp.fracs.fracture_network_2d.FractureNetwork2d",
-    "pp.fracs.fracture_network_3d.FractureNetwork3d",
+    "FractureNetwork2d",
+    "FractureNetwork3d",
 ]
 
 DomainFunctionType = Callable[[SubdomainsOrBoundaries], "pp.ad.Operator"]
