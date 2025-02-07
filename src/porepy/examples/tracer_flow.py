@@ -60,10 +60,8 @@ class DomainX(pp.PorePyModel):
 
     def meshing_arguments(self) -> dict:
         cell_size = self.units.convert_units(0.05, "m")
-        cell_size_fracture = self.units.convert_units(0.05, "m")
         mesh_args: dict[str, float] = {
             "cell_size": cell_size,
-            "cell_size_fracture": cell_size_fracture,
         }
         return mesh_args
 
