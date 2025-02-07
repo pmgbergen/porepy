@@ -3,20 +3,21 @@ flow."""
 
 from __future__ import annotations
 
-from typing import Literal, Sequence, TypedDict, cast
+from typing import Sequence, TypedDict, cast
 
 import numpy as np
 
 import porepy as pp
 from porepy.applications.material_values.fluid_values import water as _water
-from porepy.applications.md_grids.domains import nd_cube_domain
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
 from porepy.compositional.compositional_mixins import CompositionalVariables
 from porepy.models.compositional_flow import (
     BoundaryConditionsMulticomponent,
     ComponentMassBalanceEquations,
     InitialConditionsFractions,
 )
-from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
 class WaterDict(TypedDict):
@@ -35,13 +36,8 @@ class WaterDict(TypedDict):
 water = cast(WaterDict, _water)
 
 
-class DomainX(pp.PorePyModel):
+class TracerGeometry(SquareDomainOrthogonalFractures):
     """Unit square domain with two line fractures forming a X."""
-
-    def set_domain(self) -> None:
-        """Setting a 2d unit square as matrix."""
-        size = self.units.convert_units(1, "m")
-        self._domain = nd_cube_domain(2, size)
 
     def set_fractures(self) -> None:
         """Setting 2 fractures in x shape."""
@@ -54,15 +50,6 @@ class DomainX(pp.PorePyModel):
         )
         frac_2 = pp.LineFracture(frac_2_points)
         self._fractures = [frac_1, frac_2]
-
-    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-        return self.params.get("grid_type", "simplex")
-
-    def meshing_arguments(self) -> dict:
-        mesh_args: dict[str, float] = {
-            "cell_size": self.units.convert_units(0.05, "m"),
-        }
-        return mesh_args
 
 
 class TracerFluid:
@@ -193,13 +180,13 @@ class TracerBC(BoundaryConditionsMulticomponent):
 
 
 class TracerFlowSetup(  # type: ignore[misc]
-    DomainX,
+    TracerGeometry,
     TracerFluid,
     CompositionalVariables,
     ComponentMassBalanceEquations,
     TracerBC,
     TracerIC,
-    SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Complete set-up for tracer flow modelled as a single phase, 2-component flow
     problem."""
@@ -247,11 +234,11 @@ if __name__ == "__main__":
         "nl_convergence_tol": newton_tol_increment,
         "nl_convergence_tol_res": newton_tol,
         "progressbars": True,
+        "meshing_arguments": {"cell_size": 0.05},
+        "grid_type": "simplex",
     }
 
-    # NOTE mypy has some issues with the composed CF protocol, which is part of some of
-    # the mixins.
-    model = TracerFlowSetup(params)  # type:ignore[abstract]
+    model = TracerFlowSetup(params)
     pp.run_time_dependent_model(model, params)
     pp.plot_grid(
         model.mdg,
