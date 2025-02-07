@@ -1007,8 +1007,7 @@ class DarcysLaw(pp.PorePyModel):
         # source with a matrix (though the formal mypy type is Operator, the matrix is
         # composed by summation).
         normals_times_source = normals * vector_source
-        # Then sum over the nd dimensions. We need to surpress mypy complaints on  basis
-        # having keyword-only arguments. The result will in effect be a matrix.
+        # Then sum over the nd dimensions. The result will in effect be a matrix.
         nd_to_scalar_sum = pp.ad.sum_operator_list(
             [e.T for e in self.basis(interfaces, dim=self.nd)]
         )
@@ -2612,8 +2611,7 @@ class GravityForce(pp.PorePyModel):
         else:
             raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
-        # Gravity acts along the last coordinate direction (z in 3d, y in 2d). Ignore
-        # type error, can't get mypy to understand keyword-only arguments in mixin.
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d).
         e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)
         # e_n is a matrix, thus we need @ for it.
         gravity = Scalar(-1) * e_n @ (rho * gravity)

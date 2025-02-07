@@ -1597,7 +1597,7 @@ class EquationSystem:
         # The evaluation method to use depends on whether the Jacobian is requested.
         if not evaluate_jacobian:
             # Evaluate the operator to get the residual vector.
-            values = self.evaluate(eqs, state)
+            values = self.evaluate(eqs, derivative=False, state=state)
             for row, val in zip(rows, values):
                 # The residual of individual equations can be a scalar or an array.
                 # Forcing to array to ensure consistent handling.
@@ -1905,38 +1905,107 @@ class EquationSystem:
 
     ### Evaluate Ad operators ----------------------------------------------------------
 
+    # IMPLEMENTATION NOTE: The following overloads was what turned out to be necessary
+    # to get the typing right, or keep mypy silent. EK cannot see a principled reason
+    # why exactly these signatures had to be represented, but has reached the point of
+    # exhaustion, so this is what we have. For future reference, the following link
+    # might be useful to tackle similar issues:
+    #   https://github.com/python/typing/discussions/1326
+
     @overload
     def evaluate(
-        self, operator: pp.ad.Operator, state: Optional[np.ndarray] = None
+        self,
+        operator: pp.ad.Operator,
     ) -> pp.number | np.ndarray | sps.spmatrix: ...
 
     @overload
     def evaluate(
-        self, operator: list[pp.ad.Operator], state: Optional[np.ndarray] = None
+        self,
+        operator: list[pp.ad.Operator],
     ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+        derivative: None,
+        state: np.ndarray | None,
+    ) -> pp.number | np.ndarray | sps.spmatrix: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+        derivative: None,
+        state: np.ndarray | None,
+    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+        derivative: Literal[False] = False,
+        state: Optional[np.ndarray] = None,
+    ) -> pp.number | np.ndarray | sps.spmatrix: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+        derivative: Literal[False] = False,
+        state: Optional[np.ndarray] = None,
+    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+        derivative: Literal[True],
+        state: Optional[np.ndarray],
+    ) -> pp.ad.AdArray: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+        derivative: Literal[True],
+        state: Optional[np.ndarray],
+    ) -> list[pp.ad.AdArray]: ...
 
     def evaluate(
         self,
         operator: pp.ad.Operator | list[pp.ad.Operator],
-        derivative: bool = False,
+        derivative: Optional[bool] = False,
         state: Optional[np.ndarray] = None,
     ) -> (
         pp.number
         | np.ndarray
         | sps.spmatrix
+        | pp.ad.AdArray
         | list[pp.number | np.ndarray | sps.spmatrix]
+        | list[pp.ad.AdArray]
     ):
         """Evaluate an operator on the current state.
 
         Parameters:
             operator: Operator to evaluate.
+            derivative: Whether to evaluate the derivative of the operator. Defaults to
+                False.
+            state: State vector to evaluate the operator on. By default, the current
+                state is used.
 
         Returns:
-            The operator evaluated on the current state.
+            The operator evaluated on the current state. If the operator is a list, a
+            list of evaluations is returned. If the derivative is requested, the
+            evaluation is returned as an AdArray.
 
         """
-        # Evaluate the operator, with derivative=False.
-        return self._ad_parser.evaluate(operator, self, derivative, state)
+        # EK: Ignore a typing error regarding 'no overload variant of "evaluate" matches
+        # the argument types' since the overloads are correctly defined. I have no idea
+        # why this error occurs.
+        return self._ad_parser.evaluate(  # type: ignore[call-overload]
+            operator, self, derivative, state
+        )
 
     ### Special methods ----------------------------------------------------------------
 
