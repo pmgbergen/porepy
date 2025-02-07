@@ -502,7 +502,7 @@ class Operator:
     ) -> pp.number | np.ndarray | sps.spmatrix:
         """Evaluate the residual for a given solution.
 
-        DEPRECATED: This method is deprecated. Use the `operator_value` method of
+        DEPRECATED: This method is deprecated. Use the `evaluate` method of
         EquationSystem.
 
         Parameters:
@@ -518,10 +518,7 @@ class Operator:
             matrix.
 
         """
-        msg = (
-            "This method is deprecated. Use the `operator_value` method of "
-            "EquationSystem."
-        )
+        msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
         warn(msg, DeprecationWarning)
 
         return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
@@ -531,8 +528,8 @@ class Operator:
     ) -> AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
-        DEPRECATED: This method is deprecated. Use the `operator_value_and_jacobian`
-        method of EquationSystem.
+        DEPRECATED: This method is deprecated. Use the `evaluate` method of
+        EquationSystem.
 
         Parameters:
             system_manager: Used to represent the problem. Will be used to parse the
@@ -548,10 +545,7 @@ class Operator:
                 depends on the operator.
 
         """
-        msg = (
-            "This method is deprecated. Use the `operator_value_and_jacobian` "
-            "method of EquationSystem."
-        )
+        msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
         warn(msg, DeprecationWarning)
         ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
 
@@ -605,7 +599,7 @@ class Operator:
             depends on the operator.
 
         See also:
-            EquationSystem, methods operator_value and operator_value_and_jacobian.
+            EquationSystem, method evaluate.
 
         """
 
@@ -616,9 +610,9 @@ class Operator:
         # Use methods in the EquationSystem to evaluate the operator. This inversion of
         # roles (self.value) reflects a gradual shift
         if evaluate_jacobian:
-            return system_manager.operator_value_and_jacobian(self, state)
+            return system_manager.evaluate(self, derivative=True, state=state)
         else:
-            return system_manager.evaluate(self, state)
+            return system_manager.evaluate(self, derivative=False, state=state)
 
     ### Special methods ----------------------------------------------------------------
 
