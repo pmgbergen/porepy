@@ -16,7 +16,7 @@ Warning:
 """
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Literal, Optional, Protocol, Sequence
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional, Protocol, Sequence
 
 import numpy as np
 import scipy.sparse as sps
@@ -537,6 +537,9 @@ else:
         """Time step as an automatic differentiation scalar."""
         nonlinear_solver_statistics: pp.SolverStatistics
         """Solver statistics for the nonlinear solver."""
+        results: list[Any]
+        """A list of results collected by the data saving mixin in
+        :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
 
         def __init__(self, params: Optional[dict] = None):
             """Initialize the solution strategy.
@@ -572,6 +575,12 @@ else:
                 An array of the indices of which iterate solutions will be stored.
 
             """
+
+        def prepare_simulation(self) -> None:
+            """Run at the start of simulation. Used for initialization etc."""
+
+        def after_simulation(self) -> None:
+            """Run at the end of simulation. Can be used for cleanup etc."""
 
         def _is_time_dependent(self) -> bool:
             """Specifies whether the Model problem is time-dependent.

@@ -33,13 +33,11 @@ import numpy as np
 import scipy.optimize as opt
 
 import porepy as pp
-import porepy.models.fluid_mass_balance as mass
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.derived_models.biot import BiotPoromechanics
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -117,7 +115,7 @@ class MandelSaveData:
     """Current simulation time."""
 
 
-class MandelDataSaving(VerificationDataSaving):
+class MandelDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -1230,11 +1228,8 @@ class MandelUtils(VerificationUtils):
 
 
 # -----> Geometry
-class MandelGeometry(pp.ModelGeometry):
+class MandelGeometry(pp.PorePyModel):
     """Class for setting up the rectangular geometry."""
-
-    params: dict
-    """Simulation model parameters."""
 
     def set_domain(self) -> None:
         """Set the domain."""
@@ -1255,14 +1250,10 @@ class MandelGeometry(pp.ModelGeometry):
 
 
 # -----> Boundary conditions
-class MandelBoundaryConditionsMechanicsTimeDependent(
-    pp.momentum_balance.BoundaryConditionsMomentumBalance,
-):
+class MandelBoundaryConditionsMechanicsTimeDependent(pp.PorePyModel):
+
     exact_sol: MandelExactSolution
     """Exact solution object."""
-
-    params: dict
-    """Parameter dictionary of the verification setup."""
 
     def vertical_load(self):
         """Retrieve and scale applied force.
@@ -1288,8 +1279,11 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
             Vectorial boundary condition representation.
 
         """
-        # Inherit bc from parent class. This sets all bc faces as Dirichlet.
-        bc = super().bc_type_mechanics(sd=sd)
+
+        # NOTE see BC for momentum balance
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        bc = pp.BoundaryConditionVectorial(sd, boundary_faces, "dir")
+        bc.internal_to_dirichlet(sd)
 
         # Get boundary sides, retrieve data dict, and bc object
         sides = self.domain_boundary_sides(sd)
@@ -1323,7 +1317,8 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
             the North side of the domain.
 
         """
-        bc_vals = super().bc_values_displacement(boundary_grid)
+
+        bc_vals = np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
 
         sides = self.domain_boundary_sides(boundary_grid)
         # Cells of the boundary grid are faces of the parent subdomain.
@@ -1337,7 +1332,8 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
         return bc_vals
 
 
-class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
+class MandelBoundaryConditionsSinglePhaseFlow(pp.PorePyModel):
+
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the Darcy flux.
 
@@ -1389,21 +1385,6 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
     verification.
 
     """
-
-    def __init__(self, params: dict) -> None:
-        """Constructor of the class.
-
-        Parameters:
-            params: Parameters of the verification setup.
-
-        """
-        super().__init__(params)
-
-        self.exact_sol: MandelExactSolution
-        """Exact solution object."""
-
-        self.results: list[MandelSaveData] = []
-        """List of stored results from the verification."""
 
     def set_materials(self):
         """Set material parameters.

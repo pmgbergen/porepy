@@ -82,6 +82,7 @@ def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
         "meshing_arguments": {"cell_size": 0.25},
         "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
         "heterogeneity": 10.0,
+        "times_to_export": [],  # Suppress output for tests
     }
 
     # Retrieve actual L2-relative errors.
@@ -89,7 +90,7 @@ def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
     # Loop through models, i.e., 2d and 3d.
     for model in [ManuThermoPoroMechSetup2d, ManuThermoPoroMechSetup3d]:
         # Make deep copy of params to avoid nasty bugs.
-        setup = model(deepcopy(model_params))
+        setup: pp.PorePyModel = model(deepcopy(model_params))
         pp.run_time_dependent_model(setup, {})
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
@@ -253,6 +254,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                     "meshing_arguments": {"cell_size": 0.25},
                     "perturbation": 0.3,
                     "heterogeneity": 10.0,
+                    "times_to_export": [],  # Suppress output for tests
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d.
                 if model_idx == 0:
