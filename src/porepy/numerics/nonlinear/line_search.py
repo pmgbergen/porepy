@@ -341,14 +341,14 @@ class SplineInterpolationLineSearch:
         f_1_vals = cast(
             np.ndarray,
             model.equation_system.evaluate(
-                constraint_function, x_0 + solution_update * b
+                constraint_function, state=x_0 + solution_update * b
             ),
         )
         f_1 = f_1_vals[crossing_inds]
 
         def f(x):
             return model.equation_system.evaluate(
-                constraint_function, x_0 + solution_update * x
+                constraint_function, state=x_0 + solution_update * x
             )[crossing_inds]
 
         alpha, a, b = self.recursive_spline_interpolation(
@@ -658,12 +658,12 @@ class ConstraintLineSearch:
         f_1 = cast(
             np.ndarray,
             model.equation_system.evaluate(
-                constraint_function, x_0 + max_weight * solution_update
+                constraint_function, state=x_0 + max_weight * solution_update
             ),
         )
         weight = max_weight
         weights = max_weight * np.ones(f_1.shape)
-        f_0 = model.equation_system.evaluate(constraint_function, x_0)
+        f_0 = model.equation_system.evaluate(constraint_function, state=x_0)
         active_inds = np.ones(f_1.shape, dtype=bool)
         for i in range(10):
             # Only consider dofs where the constraint indicator has changed sign.
@@ -711,7 +711,7 @@ class ConstraintLineSearch:
             f_1 = cast(
                 np.ndarray,
                 model.equation_system.evaluate(
-                    constraint_function, x_0 + weight * solution_update
+                    constraint_function, state=x_0 + weight * solution_update
                 ),
             )
             active_inds = np.logical_and(
