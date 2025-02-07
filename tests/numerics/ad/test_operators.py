@@ -574,7 +574,9 @@ def test_ad_variable_evaluation():
     inds_var = np.hstack(
         [eq_system.dofs_of(eq_system.get_variables([var], [g])) for g in subdomains]
     )
-    assert np.allclose(true_iterate[inds_var], eq_system.evaluate(var_ad, true_iterate))
+    assert np.allclose(
+        true_iterate[inds_var], eq_system.evaluate(var_ad, state=true_iterate)
+    )
 
     # Check evaluation when no state is passed to the parser, and information must
     # instead be glued together from the MixedDimensionalGrid
@@ -582,7 +584,7 @@ def test_ad_variable_evaluation():
 
     # Evaluate the equation using the double iterate
     assert np.allclose(
-        2 * true_iterate[inds_var], eq_system.evaluate(var_ad, double_iterate)
+        2 * true_iterate[inds_var], eq_system.evaluate(var_ad, state=double_iterate)
     )
 
     # Represent the variable on the previous time step. This should be a numpy array
@@ -593,7 +595,9 @@ def test_ad_variable_evaluation():
 
     # Also check that state values given to the ad parser are ignored for previous
     # values
-    assert np.allclose(prev_evaluated, eq_system.evaluate(prev_var_ad, double_iterate))
+    assert np.allclose(
+        prev_evaluated, eq_system.evaluate(prev_var_ad, state=double_iterate)
+    )
 
     ## Next, test edge variables. This should be much the same as the grid variables,
     # so the testing is less thorough.
@@ -607,7 +611,7 @@ def test_ad_variable_evaluation():
         [eq_system.dofs_of([var]) for var in variable_interfaces]
     )
     interface_values = np.hstack(
-        [eq_system.evaluate(var, true_iterate) for var in variable_interfaces]
+        [eq_system.evaluate(var, state=true_iterate) for var in variable_interfaces]
     )
     assert np.allclose(
         true_iterate[interface_inds],
@@ -622,11 +626,13 @@ def test_ad_variable_evaluation():
     ind1 = eq_system.dofs_of(eq_system.get_variables([var], [g]))
     ind2 = eq_system.dofs_of(eq_system.get_variables([var2], [g]))
 
-    assert np.allclose(true_iterate[ind1], eq_system.evaluate(v1, true_iterate))
-    assert np.allclose(true_iterate[ind2], eq_system.evaluate(v2, true_iterate))
+    assert np.allclose(true_iterate[ind1], eq_system.evaluate(v1, state=true_iterate))
+    assert np.allclose(true_iterate[ind2], eq_system.evaluate(v2, state=true_iterate))
 
     v1_prev = v1.previous_timestep()
-    assert np.allclose(true_state[ind1], eq_system.evaluate(v1_prev, true_iterate))
+    assert np.allclose(
+        true_state[ind1], eq_system.evaluate(v1_prev, state=true_iterate)
+    )
 
 
 @pytest.mark.parametrize("prev_time", [True, False])
