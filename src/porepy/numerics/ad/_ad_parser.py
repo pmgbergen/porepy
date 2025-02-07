@@ -327,9 +327,9 @@ class AdParser:
 
             case Operations.evaluate:
                 # Operator functions should have at least 1 child (themselves).
-                assert len(child_values) >= 1, (
-                    "Operator functions must have at least 1 child."
-                )
+                assert (
+                    len(child_values) >= 1
+                ), "Operator functions must have at least 1 child."
                 assert hasattr(op, "func"), (
                     f"Operators with operation {operation} must have a functional"
                     + " representation `func` implemented as a callable member."
