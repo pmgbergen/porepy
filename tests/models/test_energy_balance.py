@@ -166,7 +166,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
         # Check that the enthalpy flux over each face is bounded by the value
         # corresponding to a fully saturated domain.
         for sd in setup.mdg.subdomains():
-            val = setup.equation_system.operator_value(setup.enthalpy_flux([sd]))
+            val = setup.equation_system.evaluate(setup.enthalpy_flux([sd]))
             # Account for specific volume, default value of .01 in fractures.
             normals = np.abs(sd.face_normals[0]) * np.power(0.1, setup.nd - sd.dim)
             k = setup.solid.permeability / setup.fluid.reference_component.viscosity
@@ -182,7 +182,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
         # influx =grad * dp * k=1/2*k)
         sds = setup.mdg.subdomains(dim=2)
-        total_energy = setup.equation_system.operator_value(
+        total_energy = setup.equation_system.evaluate(
             setup.volume_integral(
                 setup.total_internal_energy(sds),
                 sds,
@@ -331,17 +331,17 @@ def test_energy_conservation():
     h_f = setup.fluid.specific_enthalpy(sds) * setup.porosity(sds)
     h_s = setup.solid_enthalpy(sds) * (pp.ad.Scalar(1) - setup.porosity(sds))
     h = setup.volume_integral(h_f + h_s, sds, 1)
-    u_val = np.sum(setup.equation_system.operator_value(u))
-    h_val = np.sum(setup.equation_system.operator_value(h))
+    u_val = np.sum(setup.equation_system.evaluate(u))
+    h_val = np.sum(setup.equation_system.evaluate(h))
     assert np.isclose(u_val, u_expected, rtol=1e-3)
     # u and h should be close with our setup
     assert np.isclose(u_val, h_val, rtol=1e-3)
     well_intf = setup.mdg.interfaces(codim=2)
-    well_enthalpy_flux = setup.equation_system.operator_value(
+    well_enthalpy_flux = setup.equation_system.evaluate(
         setup.well_enthalpy_flux(well_intf)
     )
-    well_fluid_flux = setup.equation_system.operator_value(setup.well_flux(well_intf))
-    h_well = setup.equation_system.operator_value(
+    well_fluid_flux = setup.equation_system.evaluate(setup.well_flux(well_intf))
+    h_well = setup.equation_system.evaluate(
         setup.fluid.specific_enthalpy(setup.mdg.subdomains(dim=0))
     )
     # The well enthalpy flux should be equal to well enthalpy times well fluid flux

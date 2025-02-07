@@ -886,16 +886,14 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         """
         # Update parameters *before* the discretization matrices are re-computed.
         for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.equation_system.operator_value(self.darcy_flux([sd]))
+            vals = self.equation_system.evaluate(self.darcy_flux([sd]))
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.equation_system.operator_value(
-                self.interface_darcy_flux([intf])
-            )
+            vals = self.equation_system.evaluate(self.interface_darcy_flux([intf]))
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.equation_system.operator_value(self.well_flux([intf]))
+            vals = self.equation_system.evaluate(self.well_flux([intf]))
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
         super().before_nonlinear_iteration()

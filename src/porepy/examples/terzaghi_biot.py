@@ -155,7 +155,7 @@ class TerzaghiDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = self.equation_system.operator_value(pressure_ad)
+        approx_pressure = self.equation_system.evaluate(pressure_ad)
         error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
@@ -166,7 +166,7 @@ class TerzaghiDataSaving(VerificationDataSaving):
         )
 
         displacement_ad = self.displacement([sd])
-        approx_displacement = self.equation_system.operator_value(displacement_ad)
+        approx_displacement = self.equation_system.evaluate(displacement_ad)
 
         approx_consolidation_degree = self.numerical_consolidation_degree()
         exact_consolidation_degree = self.exact_sol.consolidation_degree(t)

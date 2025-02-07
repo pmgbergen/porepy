@@ -396,7 +396,7 @@ def test_evaluated_values(
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    val = setup.equation_system.operator_value(op)
+    val = setup.equation_system.evaluate(op)
     # Strict tolerance. We know analytical expected values, and some of the
     # perturbations are small relative to
     assert np.allclose(val, expected, rtol=1e-8, atol=1e-10)
@@ -483,12 +483,10 @@ def test_dimension_reduction_values(
     subdomains = setup.mdg.subdomains(dim=domain_dimension)
     interfaces = setup.mdg.interfaces(dim=domain_dimension)
     # Check aperture and specific volume values
-    aperture = setup.equation_system.operator_value(setup.aperture(subdomains))
+    aperture = setup.equation_system.evaluate(setup.aperture(subdomains))
     assert np.allclose(aperture.data, expected[0])
     for grids, expected_value in zip([subdomains, interfaces], expected[1:]):
-        specific_volume = setup.equation_system.operator_value(
-            setup.specific_volume(grids)
-        )
+        specific_volume = setup.equation_system.evaluate(setup.specific_volume(grids))
         assert np.allclose(specific_volume.data, expected_value)
 
 
@@ -660,7 +658,7 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     u_m = model.u_mortar
 
     # The permeability is given by the cubic law, calculate this and its derivative.
-    resid_ap = model.equation_system.operator_value(model.residual_aperture([g_1d]))
+    resid_ap = model.equation_system.evaluate(model.residual_aperture([g_1d]))
     k_0 = ((u_m[2] - u_m[0]) + resid_ap) ** 3 / 12
     k_1 = (u_m[3] - u_m[1] + resid_ap) ** 3 / 12
 

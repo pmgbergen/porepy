@@ -424,7 +424,7 @@ class DisplacementJumpAperture(DimensionReduction):
 
                 # Average weights are the number of cells in the parent subdomains
                 # contributing to each intersection cells.
-                weight_value = self.equation_system.operator_value(
+                weight_value = self.equation_system.evaluate(
                     parent_cells_to_intersection_cells
                 )
 
@@ -510,15 +510,15 @@ class SecondOrderTensorUtils(pp.PorePyModel):
 
         """
         # Evaluate as 9 x num_cells array
-        volume = self.equation_system.operator_value(self.specific_volume([sd]))
+        volume = self.equation_system.evaluate(self.specific_volume([sd]))
         try:
-            permeability = self.equation_system.operator_value(operator)
+            permeability = self.equation_system.evaluate(operator)
         except KeyError:
             # If the permeability depends on an not yet computed discretization matrix,
             # fall back on reference value.
             permeability = fallback_value * np.ones(sd.num_cells) * volume
             return pp.SecondOrderTensor(permeability)
-        evaluated_value = self.equation_system.operator_value(operator)
+        evaluated_value = self.equation_system.evaluate(operator)
         if not isinstance(evaluated_value, np.ndarray):
             # Raise error rather than cast for verbosity of function which is not
             # directly exposed to the user, but depends on a frequently user-defined
@@ -2007,7 +2007,7 @@ class ThermalConductivityLTE(ConstantFluidThermalConductivity):
         # Since thermal conductivity is used as a discretization parameter, it has to be
         # evaluated before the discretization matrices are computed.
         try:
-            self.equation_system.operator_value(phi)
+            self.equation_system.evaluate(phi)
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
             # for displacement_divergence which has not yet been computed.
@@ -3376,7 +3376,7 @@ class BartonBandis(pp.PorePyModel):
         # If the maximum opening is zero, the Barton-Bandis model is not valid in the
         # case of zero normal traction. In this case, we return an empty operator.
         # If the maximum opening is negative, an error is raised.
-        val = self.equation_system.operator_value(maximum_opening)
+        val = self.equation_system.evaluate(maximum_opening)
         if np.any(val == 0):
             num_cells = sum(sd.num_cells for sd in subdomains)
             return pp.ad.DenseArray(np.zeros(num_cells), "zero_Barton-Bandis_opening")
@@ -3551,7 +3551,7 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
         # need cast for convert_units. By implementation of stiffness, it can only be a
         # number
         stiffness_value = self.units.convert_units(
-            cast(pp.number, self.equation_system.operator_value(stiffness)),
+            cast(pp.number, self.equation_system.evaluate(stiffness)),
             "Pa*m^-1",
             to_si=True,
         )

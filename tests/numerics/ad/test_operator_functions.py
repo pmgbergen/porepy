@@ -78,9 +78,9 @@ def test_ad_function():
     assert np.all(val.jac.toarray() == 0.0)
 
     # when evaluating with values only, the result should be a numpy array
-    val = eqsys.operator_value(F_var)
-    val_pi = eqsys.operator_value(F_var_pi)
-    val_pt = eqsys.operator_value(F_var_pt)
+    val = eqsys.evaluate(F_var)
+    val_pi = eqsys.evaluate(F_var_pi)
+    val_pt = eqsys.evaluate(F_var_pt)
     assert isinstance(val, np.ndarray)
     assert isinstance(val_pi, np.ndarray)
     assert isinstance(val_pt, np.ndarray)

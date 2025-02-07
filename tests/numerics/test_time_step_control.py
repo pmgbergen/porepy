@@ -790,8 +790,7 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
 
         # The AD time step should not change throughout the Newton iterations.
         assert (
-            self.equation_system.operator_value(self.ad_time_step)
-            == self.time_manager.dt
+            self.equation_system.evaluate(self.ad_time_step) == self.time_manager.dt
         ), "The AD time step value conflicts with the value from the time_manager."
 
         # The initial guess for the unknown time step values should be equal to the
