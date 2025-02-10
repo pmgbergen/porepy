@@ -8,12 +8,12 @@ from typing import Sequence
 import numpy as np
 
 import porepy as pp
+from porepy.applications.boundary_conditions.model_boundary_conditions import (
+    BoundaryConditionsMassDirNorthSouth,
+)
 from porepy.applications.material_values.fluid_values import water
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
-)
-from porepy.applications.boundary_conditions.model_boundary_conditions import (
-    BoundaryConditionsMassDirNorthSouth,
 )
 from porepy.compositional.compositional_mixins import CompositionalVariables
 from porepy.models.compositional_flow import (
