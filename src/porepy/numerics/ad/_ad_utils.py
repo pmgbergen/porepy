@@ -145,7 +145,6 @@ def wrap_discretization(
     # Loop over all identified terms, assign a MergedOperator to non-coupling terms,
     # while postponing the treatment of coupling terms.
     for discretization_key in discretization_term_key:
-
         operators[discretization_key] = {}
 
         # Fetch all physics keywords associated with this discretization term. The
@@ -623,4 +622,4 @@ class MergedOperator(operators.Operator):
 
         else:
             # This is a standard discretization; wrap it in a diagonal sparse matrix.
-            return sps.block_diag(mat, format="csr")
+            return pp.matrix_operations.csc_matrix_from_sparse_blocks(mat)
