@@ -352,7 +352,7 @@ class MortarProjections:
                 mats.append(intf.sign_of_mortar_sides(self.dim))
 
             block_mat = SparseArray(
-                pp.matrix_operations.csr_matrix_from_sparse_blocks(mats),
+                pp.matrix_operations.sparse_dia_from_sparse_blocks(mats),
                 name="SignOfMortarSides",
             )
 
