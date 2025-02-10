@@ -385,6 +385,126 @@ def optimized_compressed_storage(A: sps.spmatrix) -> sps.spmatrix:
         return A.tocsr()
 
 
+def csr_matrix_from_sparse_blocks(blocks: list[sps.spmatrix]) -> sps.spmatrix:
+    """Create a csr representation of a block diagonal matrix.
+
+    The function is equivalent to, but can be significantly fasteer than, the call
+
+        sps.block_diag(blocks)
+
+    Parameters:
+        blocks: List of sparse matrices to be included. This can be of any sparse
+            format, but the function will be faster if the blocks are of csr format.
+
+    Returns:
+        csr representation of the block matrix.
+
+    Example:
+        >>> block_1 = sps.csr_matrix([[1, 2], [3, 4]])
+        >>> block_2 = sps.csr_matrix([[5, 6, 7], [8, 9, 10]])
+        >>> csr_matrix_from_dense_blocks([block_1, block_2]).toarray()
+        array([[1, 2, 0, 0, 0],
+               [3, 4, 0, 0, 0],
+               [0, 0, 5, 6, 7],
+               [0, 0, 8, 9, 10]])
+
+    """
+    return _csx_matrix_from_sparse_blocks(blocks, "csr")
+
+
+def csc_matrix_from_sparse_blocks(blocks: list[sps.spmatrix]) -> sps.spmatrix:
+    """Create a csc representation of a block diagonal matrix.
+
+    The function is equivalent to, but can be significantly fasteer than, the call
+
+        sps.block_diag(blocks)
+
+    Parameters:
+        blocks: List of sparse matrices to be included. This can be of any sparse
+            format, but the function will be faster if the blocks are of csc format.
+
+    Returns:
+        csc representation of the block matrix.
+
+    Example:
+        >>> block_1 = sps.csc_matrix([[1, 2], [3, 4]])
+        >>> block_2 = sps.csc_matrix([[5, 6, 7], [8, 9, 10]])
+        >>> csc_matrix_from_dense_blocks([block_1, block_2]).toarray()
+        array([[1, 2, 0, 0, 0],
+               [3, 4, 0, 0, 0],
+               [0, 0, 5, 6, 7],
+               [0, 0, 8, 9, 10]])
+
+    """
+    return _csx_matrix_from_sparse_blocks(blocks, "csc")
+
+
+def _csx_matrix_from_sparse_blocks(
+    blocks: list[sps.spmatrix], matrix_format: Literal["csr", "csc"]
+) -> sps.spmatrix:
+    """Create a csr or csc representation of a block diagonal matrix.
+
+    The function is equivalent to, but can be significantly faster than, the call
+
+        sps.block_diag(blocks)
+
+    Parameters:
+        blocks: List of sparse matrices to be added.
+        matrix_format: type of matrix to be created. Should be either sps.csc_matrix
+            or sps.csr_matrix
+
+    Raises:
+        ValueError: If the size of the data does not match the blocks size and number
+            of blocks.
+
+    Returns:
+        sps.csr_matrix: csr representation of the block matrix.
+
+    """
+    if matrix_format == "csr":
+        container = sps.csr_matrix
+    elif matrix_format == "csc":
+        container = sps.csc_matrix
+    else:
+        raise ValueError('matrix_format must be either "csr" or "csc".')
+
+    # Convert the blocks to the correct format. NOTE: Timing shows that for general
+    # matrices, this is the main bottleneck of the function. Thus if possible, make sure
+    # all the blocks are constructed in the correct format.
+    for i in range(len(blocks)):
+        blocks[i] = blocks[i].asformat(matrix_format)
+
+    # Shortcut. We know the format is right.
+    if len(blocks) == 1:
+        return blocks[0]
+
+    # Calculate the size of the block matrix.
+    num_rows = sum([m.shape[0] for m in blocks])
+    num_cols = sum([m.shape[1] for m in blocks])
+
+    # CSC and CSR matrices are constructed and operated on in a very similar way; the
+    # difference is in which dimension the indices represent. We need this to get the
+    # offsets right.
+    indices_dim = 0 if matrix_format == "csc" else 1
+    indices_offset = np.cumsum([0] + [m.shape[indices_dim] for m in blocks])
+    # The indptr offset is the same for both formats.
+    indptr_offset = np.cumsum([0] + [m.indptr[-1] for m in blocks])
+
+    # Now we can make lists of the data, indices and indptr arrays, using offsets for
+    # the indices and indptr arrays.
+    indices = [m.indices + indices_offset[i] for i, m in enumerate(blocks)]
+    indptr = [np.array([0])] + [
+        m.indptr[1:] + indptr_offset[i] for i, m in enumerate(blocks)
+    ]
+    data = [m.data for m in blocks]
+    # Concatenate the arrays and create the block matrix.
+    block_mat = container(
+        (np.concatenate(data), np.concatenate(indices), np.concatenate(indptr)),
+        shape=(num_rows, num_cols),
+    )
+    return block_mat
+
+
 def csr_matrix_from_dense_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:

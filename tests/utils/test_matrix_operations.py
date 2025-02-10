@@ -375,6 +375,31 @@ def test_dense_matrix_two_blocks(format):
     assert np.all(known == value.toarray())
 
 
+@pytest.mark.parametrize("format", ["csr", "csc"])
+def test_sparse_block_matrix_from_sparse(format):
+    """Test the conversion of a sparse block matrix to a sparse matrix. Both for csr and
+    csc format. The block matrix is constructed from two sparse blocks. The matrix
+    should be filled with the blocks on the block diagonal.
+    """
+    # Make two blocks, one in csr and one in csc format.
+    blocks = [
+        sps.csr_matrix(np.array([[1, 2], [3, 4]])),
+        sps.csc_matrix(np.array([[5, 6, 7], [8, 9, 10]])),
+    ]
+    # The method will fill the diagonal blocks of the target matrix.
+    known = np.array(
+        [[1, 2, 0, 0, 0], [3, 4, 0, 0, 0], [0, 0, 5, 6, 7], [0, 0, 8, 9, 10]]
+    )
+
+    if format == "csc":
+        # CSC will fill the matrix column-wise.
+        value = matrix_operations.csc_matrix_from_sparse_blocks(blocks)
+    else:
+        value = matrix_operations.csr_matrix_from_sparse_blocks(blocks)
+
+    assert np.all(known == value.toarray())
+
+
 @pytest.mark.parametrize(
     "mat", [np.arange(6).reshape((3, 2)), np.arange(6).reshape((2, 3))]
 )
