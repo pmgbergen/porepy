@@ -325,72 +325,52 @@ def test_merge_mat_rows():
     assert compare_matrices(A, A_t)
 
 
-# ------------------ Test csr_matrix_from_dense_blocks -----------------------
+# ------------------ Test cs{r,s}_matrix_from_dense_blocks -----------------------
 
 
-def test_csr_matrix_from_single_block():
-    block_size = 2
-    arr = np.arange(block_size**2).reshape((block_size, block_size))
+@pytest.mark.parametrize("block_size", [2, 3])
+@pytest.mark.parametrize("format", ["csr", "csc"])
+def test_dense_matrix_from_single_block(block_size, format):
+    """Test the conversion of a dense block to a sparse matrix. Both for csr and csc
+    format. A single block is used, hence the constructed and the original matrix
+    should be the same.
+    """
+    arr = np.arange(block_size**2)
 
-    known = np.array([[0, 1], [2, 3]])
-    value = matrix_operations.csr_matrix_from_dense_blocks(
-        arr.ravel("c"), block_size, 1
-    )
+    known = arr.reshape((block_size, block_size))
 
-    assert np.all(known == value.toarray())
-
-    # Larger block
-    block_size = 3
-    arr = np.arange(block_size**2).reshape((block_size, block_size))
-
-    known = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
-    value = matrix_operations.csr_matrix_from_dense_blocks(
-        arr.ravel("c"), block_size, 1
-    )
+    if format == "csc":
+        # CSC will fill the matrix column-wise.
+        known = known.T
+        value = matrix_operations.csc_matrix_from_dense_blocks(arr, block_size, 1)
+    else:
+        value = matrix_operations.csr_matrix_from_dense_blocks(arr, block_size, 1)
 
     assert np.all(known == value.toarray())
 
 
-def test_csr_matrix_from_two_blocks():
-    block_size = 2
-    num_blocks = 2
-    full_arr = np.arange((num_blocks * block_size) ** 2).reshape(
-        (num_blocks * block_size, num_blocks * block_size)
-    )
-
-    arr = np.array(
-        [full_arr[:block_size, :block_size], full_arr[block_size:, block_size:]]
-    )
-
-    known = np.array([[0, 1, 0, 0], [4, 5, 0, 0], [0, 0, 10, 11], [0, 0, 14, 15]])
-    value = matrix_operations.csr_matrix_from_dense_blocks(
-        arr.ravel("c"), block_size, num_blocks
-    )
-
-    assert np.all(known == value.toarray())
-
-
-def test_csr_matrix_from_array():
+@pytest.mark.parametrize("format", ["csr", "csc"])
+def test_dense_matrix_two_blocks(format):
+    """Test the conversion of a dense block to a sparse matrix. Both for csr and csc
+    format. Two blocks are provided. The matrix should be filled with the blocks on the
+    block diagonal.
+    """
     block_size = 2
     num_blocks = 2
     arr = np.array([1, 2, 3, 4, 5, 6, 7, 8])
-
+    # The method will fill the diagonal blocks of the target matrix.
     known = np.array([[1, 2, 0, 0], [3, 4, 0, 0], [0, 0, 5, 6], [0, 0, 7, 8]])
-    value = matrix_operations.csr_matrix_from_dense_blocks(arr, block_size, num_blocks)
 
-    assert np.all(known == value.toarray())
-
-
-# ------------------ Test csc_matrix_from_dense_blocks -----------------------
-
-
-def test_csc_matrix_from_array():
-    block_size = 2
-    num_blocks = 2
-    arr = np.array([1, 2, 3, 4, 5, 6, 7, 8])
-
-    known = np.array([[1, 3, 0, 0], [2, 4, 0, 0], [0, 0, 5, 7], [0, 0, 6, 8]])
-    value = matrix_operations.csc_matrix_from_dense_blocks(arr, block_size, num_blocks)
+    if format == "csc":
+        # CSC will fill the matrix column-wise.
+        known = known.T
+        value = matrix_operations.csc_matrix_from_dense_blocks(
+            arr, block_size, num_blocks
+        )
+    else:
+        value = matrix_operations.csr_matrix_from_dense_blocks(
+            arr, block_size, num_blocks
+        )
 
     assert np.all(known == value.toarray())
 
