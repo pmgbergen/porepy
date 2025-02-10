@@ -407,15 +407,15 @@ def sparse_dia_from_sparse_blocks(blocks: list[sps.dia_matrix]) -> sps.dia_matri
         A sparse diagonal matrix.
 
     """
-    data = []
+    data_array = []
     for mat in blocks:
         if mat.getformat() != "dia":
             raise ValueError("All blocks must be in dia format")
         if mat.offsets.size != 1 or mat.offsets[0] != 0:
             raise ValueError("All blocks must be diagonal.")
-        data.append(mat.data.ravel())
+        data_array.append(mat.data.ravel())
 
-    data = np.concatenate(data)
+    data = np.concatenate(data_array)
     return sps.dia_matrix((data, 0), shape=(data.size, data.size))
 
 
