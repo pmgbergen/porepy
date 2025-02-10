@@ -3,7 +3,7 @@ flow."""
 
 from __future__ import annotations
 
-from typing import Sequence, cast
+from typing import Sequence
 
 import numpy as np
 
@@ -12,28 +12,15 @@ from porepy.applications.material_values.fluid_values import water
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.applications.boundary_conditions.model_boundary_conditions import (
+    BoundaryConditionsMassDirNorthSouth,
+)
 from porepy.compositional.compositional_mixins import CompositionalVariables
 from porepy.models.compositional_flow import (
     BoundaryConditionsMulticomponent,
     ComponentMassBalanceEquations,
     InitialConditionsFractions,
 )
-
-
-class TracerGeometry(SquareDomainOrthogonalFractures):
-    """Unit square domain with two line fractures forming a X."""
-
-    def set_fractures(self) -> None:
-        """Setting 2 fractures in x shape."""
-        frac_1_points = self.units.convert_units(
-            np.array([[0.2, 0.8], [0.2, 0.8]]), "m"
-        )
-        frac_1 = pp.LineFracture(frac_1_points)
-        frac_2_points = self.units.convert_units(
-            np.array([[0.2, 0.8], [0.8, 0.2]]), "m"
-        )
-        frac_2 = pp.LineFracture(frac_2_points)
-        self._fractures = [frac_1, frac_2]
 
 
 class TracerFluid:
@@ -48,28 +35,6 @@ class TracerFluid:
         return [component_1, component_2]
 
 
-def inlet_faces(bg: pp.BoundaryGrid, sides: pp.domain.DomainSides) -> np.ndarray:
-    """Helper function to define a snippet of the western boundary as the inlet."""
-
-    inlet = np.zeros(bg.num_cells, dtype=bool)
-    inlet[sides.north] = True
-    inlet &= bg.cell_centers[0] >= 0.4
-    inlet &= bg.cell_centers[0] <= 0.6
-
-    return inlet
-
-
-def outlet_faces(bg: pp.BoundaryGrid, sides: pp.domain.DomainSides) -> np.ndarray:
-    """Helper function to define a snippet of the eastern boundary as the inlet."""
-
-    outlet = np.zeros(bg.num_cells, dtype=bool)
-    outlet[sides.south] = True
-    outlet &= bg.cell_centers[0] >= 0.4
-    outlet &= bg.cell_centers[0] <= 0.6
-
-    return outlet
-
-
 class TracerIC(InitialConditionsFractions):
     """Initial conditions for pressure and tracer fraction.
 
@@ -81,7 +46,7 @@ class TracerIC(InitialConditionsFractions):
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         """Setting initial pressure equal to pressure on outflow boundary."""
         # Initial and outlet pressure are the same.
-        return np.ones(sd.num_cells)
+        return self.reference_variable_values.pressure * np.ones(sd.num_cells)
 
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
@@ -94,7 +59,7 @@ class TracerIC(InitialConditionsFractions):
         return np.zeros(sd.num_cells)
 
 
-class TracerBC(BoundaryConditionsMulticomponent):
+class TracerBC(BoundaryConditionsMassDirNorthSouth, BoundaryConditionsMulticomponent):
     """Boundary conditions for pressure, flow and tracer.
 
     Mixes in the BC for pressure and the boundary type definition, and inherits the
@@ -102,69 +67,45 @@ class TracerBC(BoundaryConditionsMulticomponent):
 
     """
 
-    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Flagging the inlet and outlet faces as Dirichlet boundary, where pressure
-        is given."""
-        dirichlet_faces = np.zeros(sd.num_faces, dtype=bool)
-        # Define boundary faces on grids which are not points:
-        if sd.dim > 0:
-            sides = self.domain_boundary_sides(sd)
-            # need to cast, bg exists if sd is not point
-            bg = cast(pp.BoundaryGrid, self.mdg.subdomain_to_boundary_grid(sd))
-            bg_sides = self.domain_boundary_sides(bg)
-            inlet = inlet_faces(bg, bg_sides)
-            outlet = outlet_faces(bg, bg_sides)
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """Boundary condition values for Darcy flux.
 
-            dirichlet = np.zeros(bg.num_cells, dtype=bool)
-            dirichlet[inlet | outlet] = True
+        The pressure at most of the boundary is inherited from
+        BoundaryConditionsMassDirNorthSouth, hence constant. On the north side, add a
+        pressure equal to the x-coordinate along the boundary.
+        """
+        values = super().bc_values_pressure(boundary_grid)
+        domain_sides = self.domain_boundary_sides(boundary_grid)
+        values[domain_sides.north] = (
+            self.reference_variable_values.pressure
+            + boundary_grid.cell_centers[0, domain_sides.north]
+        )
 
-            # broadcast to proper size
-            dirichlet_faces[sides.all_bf] = dirichlet
-
-        return pp.BoundaryCondition(sd, dirichlet_faces, "dir")
-
-    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        """Returns for the upwinding discretization the same inlet and outlet faces
-        marked as 'dir' as for the elliptic discretization."""
-        return self.bc_type_darcy_flux(sd)
-
-    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Defines some non-trivial values on inlet and outlet faces of the matrix."""
-
-        p = np.zeros(bg.num_cells)
-
-        # defining BC values only on matrix
-        if bg.parent.dim == 2:
-            sides = self.domain_boundary_sides(bg)
-            inlet = inlet_faces(bg, sides)
-            outlet = outlet_faces(bg, sides)
-
-            p[inlet] = 1.5
-            p[outlet] = 1.0
-
-        return p
+        return values
 
     def bc_values_overall_fraction(
-        self, component: pp.Component, bg: pp.BoundaryGrid
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-        """Defines some non-trivial inflow of the tracer component on the inlet."""
+        """Defines some non-trivial inflow of the tracer component on the inlet
+        (north)."""
 
-        z = np.zeros(bg.num_cells)
+        z = np.zeros(boundary_grid.num_cells)
 
         assert component.name == "tracer", "Only the tracer is independent."
 
-        # 10% tracer inflow into matrix
-        if bg.parent.dim == 2:
-            sides = self.domain_boundary_sides(bg)
-            inlet = inlet_faces(bg, sides)
-
-            z[inlet] = 0.1
+        # Set the tracer concentration to 0.1 on the left half of the north boundary,
+        # and 0.2 on the right half.
+        if boundary_grid.parent.dim == 2:
+            domain_sides = self.domain_boundary_sides(boundary_grid)
+            z[domain_sides.north] = 0.1 + 0.1 * (
+                boundary_grid.cell_centers[0, domain_sides.north] > 0.5
+            )
 
         return z
 
 
 class TracerFlowSetup(  # type: ignore[misc]
-    TracerGeometry,
+    SquareDomainOrthogonalFractures,
     TracerFluid,
     CompositionalVariables,
     ComponentMassBalanceEquations,
@@ -178,10 +119,10 @@ class TracerFlowSetup(  # type: ignore[misc]
 
 # If executed as main, run simulation
 if __name__ == "__main__":
-    # initial time step 60 seconds
+    # Initial time step 60 seconds.
     dt_init = pp.MINUTE
-    # Simulation time 2 hour
-    T_end = 2 * pp.HOUR
+    # Simulation time 20 minutes.
+    T_end = 20 * pp.MINUTE
     # min max time step size is 6 seconds and 10 minutes respectively
     dt_min_max = (0.1 * dt_init, 10 * pp.MINUTE)
     # parameters for Newton solver
@@ -202,11 +143,12 @@ if __name__ == "__main__":
 
     params = {
         "material_constants": {
-            # solid with impermeable fractures
+            # Solid with impermeable fractures.
             "solid": pp.SolidConstants(
                 porosity=0.1, permeability=1e-7, normal_permeability=1e-19
             ),
         },
+        "fracture_indices": [0, 1],
         # The respective DOFs are eliminated by default. These flags are for
         # demonstration.
         "eliminate_reference_phase": True,
@@ -234,6 +176,6 @@ if __name__ == "__main__":
         "z_tracer",
         figsize=(10, 8),
         linewidth=0.2,
-        title="Tracer distribution after 2 hours",
+        title="Tracer distribution after 20 minutes",
         plot_2d=True,
     )
