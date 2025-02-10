@@ -633,7 +633,7 @@ class MergedOperator(operators.Operator):
                 # method.
                 try:
                     return pp.matrix_operations.sparse_dia_from_sparse_blocks(mat)
-                except ValueError as exp:
+                except ValueError:
                     # Use the csr-based method below.
                     pass
 
