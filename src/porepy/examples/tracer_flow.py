@@ -44,7 +44,7 @@ class TracerIC(InitialConditionsFractions):
     """
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-        """Setting initial pressure equal to pressure on outflow boundary."""
+        """Setting initial pressure equal to some user-given reference value."""
         # Initial and outlet pressure are the same.
         return self.reference_variable_values.pressure * np.ones(sd.num_cells)
 
@@ -73,6 +73,7 @@ class TracerBC(BoundaryConditionsMassDirNorthSouth, BoundaryConditionsMulticompo
         The pressure at most of the boundary is inherited from
         BoundaryConditionsMassDirNorthSouth, hence constant. On the north side, add a
         pressure equal to the x-coordinate along the boundary.
+
         """
         values = super().bc_values_pressure(boundary_grid)
         domain_sides = self.domain_boundary_sides(boundary_grid)
