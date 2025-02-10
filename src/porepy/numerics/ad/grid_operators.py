@@ -1,4 +1,4 @@
-""" Ad representation of grid-related quantities needed to write equations. The classes
+"""Ad representation of grid-related quantities needed to write equations. The classes
 defined here are mainly wrappers that constructs Ad matrices based on grid information.
 
 """
@@ -351,7 +351,10 @@ class MortarProjections:
                 assert isinstance(intf, pp.MortarGrid)  # Appease mypy
                 mats.append(intf.sign_of_mortar_sides(self.dim))
 
-            block_mat = SparseArray(sps.block_diag(mats), name="SignOfMortarSides")
+            block_mat = SparseArray(
+                pp.matrix_operations.csr_matrix_from_sparse_blocks(mats),
+                name="SignOfMortarSides",
+            )
 
         # Store the matrix for later use and return.A
         self._sign_of_mortar_sides = block_mat
@@ -944,7 +947,7 @@ class Divergence(Operator):
 
         """
         mat = [sd.divergence(dim=self.dim) for sd in self.subdomains]
-        matrix = sps.block_diag(mat)
+        matrix = pp.matrix_operations.csr_matrix_from_sparse_blocks(mat)
         return matrix
 
 
