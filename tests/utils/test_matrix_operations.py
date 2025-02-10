@@ -2,6 +2,7 @@
 Tests for matrix operations for zeroing rows/columns, efficient slicing, stacking,
 merging and construction from arrays.
 """
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -324,7 +325,7 @@ def test_merge_mat_rows():
     assert compare_matrices(A, A_t)
 
 
-# ------------------ Test csr_matrix_from_blocks -----------------------
+# ------------------ Test csr_matrix_from_dense_blocks -----------------------
 
 
 def test_csr_matrix_from_single_block():
@@ -332,7 +333,9 @@ def test_csr_matrix_from_single_block():
     arr = np.arange(block_size**2).reshape((block_size, block_size))
 
     known = np.array([[0, 1], [2, 3]])
-    value = matrix_operations.csr_matrix_from_blocks(arr.ravel("c"), block_size, 1)
+    value = matrix_operations.csr_matrix_from_dense_blocks(
+        arr.ravel("c"), block_size, 1
+    )
 
     assert np.all(known == value.toarray())
 
@@ -341,7 +344,9 @@ def test_csr_matrix_from_single_block():
     arr = np.arange(block_size**2).reshape((block_size, block_size))
 
     known = np.array([[0, 1, 2], [3, 4, 5], [6, 7, 8]])
-    value = matrix_operations.csr_matrix_from_blocks(arr.ravel("c"), block_size, 1)
+    value = matrix_operations.csr_matrix_from_dense_blocks(
+        arr.ravel("c"), block_size, 1
+    )
 
     assert np.all(known == value.toarray())
 
@@ -358,7 +363,7 @@ def test_csr_matrix_from_two_blocks():
     )
 
     known = np.array([[0, 1, 0, 0], [4, 5, 0, 0], [0, 0, 10, 11], [0, 0, 14, 15]])
-    value = matrix_operations.csr_matrix_from_blocks(
+    value = matrix_operations.csr_matrix_from_dense_blocks(
         arr.ravel("c"), block_size, num_blocks
     )
 
@@ -371,12 +376,12 @@ def test_csr_matrix_from_array():
     arr = np.array([1, 2, 3, 4, 5, 6, 7, 8])
 
     known = np.array([[1, 2, 0, 0], [3, 4, 0, 0], [0, 0, 5, 6], [0, 0, 7, 8]])
-    value = matrix_operations.csr_matrix_from_blocks(arr, block_size, num_blocks)
+    value = matrix_operations.csr_matrix_from_dense_blocks(arr, block_size, num_blocks)
 
     assert np.all(known == value.toarray())
 
 
-# ------------------ Test csc_matrix_from_blocks -----------------------
+# ------------------ Test csc_matrix_from_dense_blocks -----------------------
 
 
 def test_csc_matrix_from_array():
@@ -385,7 +390,7 @@ def test_csc_matrix_from_array():
     arr = np.array([1, 2, 3, 4, 5, 6, 7, 8])
 
     known = np.array([[1, 3, 0, 0], [2, 4, 0, 0], [0, 0, 5, 7], [0, 0, 6, 8]])
-    value = matrix_operations.csc_matrix_from_blocks(arr, block_size, num_blocks)
+    value = matrix_operations.csc_matrix_from_dense_blocks(arr, block_size, num_blocks)
 
     assert np.all(known == value.toarray())
 
@@ -437,10 +442,14 @@ def test_block_matrix_inverters_full_blocks(invert_backend: str):
     sz = np.array([2, 3], dtype="i8")
     iblock_ex = np.linalg.inv(block_as_csr.toarray())
 
-    iblock = matrix_operations.invert_diagonal_blocks(block_as_csr, sz, method=invert_backend)
+    iblock = matrix_operations.invert_diagonal_blocks(
+        block_as_csr, sz, method=invert_backend
+    )
     assert np.allclose(iblock_ex, iblock.toarray())
 
-    iblock = matrix_operations.invert_diagonal_blocks(block_as_csc, sz, method=invert_backend)
+    iblock = matrix_operations.invert_diagonal_blocks(
+        block_as_csc, sz, method=invert_backend
+    )
     assert np.allclose(iblock_ex, iblock.toarray())
 
 

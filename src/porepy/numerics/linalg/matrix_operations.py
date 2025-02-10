@@ -385,7 +385,7 @@ def optimized_compressed_storage(A: sps.spmatrix) -> sps.spmatrix:
         return A.tocsr()
 
 
-def csr_matrix_from_blocks(
+def csr_matrix_from_dense_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
     """Create a csr representation of a block diagonal matrix of uniform block size.
@@ -409,17 +409,17 @@ def csr_matrix_from_blocks(
     Example:
         >>> data = np.array([1, 2, 3, 4, 5, 6, 7, 8])
         >>> block_size, num_blocks = 2, 2
-        >>> csr_matrix_from_blocks(data, block_size, num_blocks).toarray()
+        >>> csr_matrix_from_dense_blocks(data, block_size, num_blocks).toarray()
         array([[1, 2, 0, 0],
                [3, 4, 0, 0],
                [0, 0, 5, 6],
                [0, 0, 7, 8]])
 
     """
-    return _csx_matrix_from_blocks(data, block_size, num_blocks, sps.csr_matrix)
+    return _csx_matrix_from_dense_blocks(data, block_size, num_blocks, sps.csr_matrix)
 
 
-def csc_matrix_from_blocks(
+def csc_matrix_from_dense_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
     """Create a csc representation of a block diagonal matrix of uniform block size.
@@ -443,17 +443,17 @@ def csc_matrix_from_blocks(
     Example:
         >>> data = np.array([1, 2, 3, 4, 5, 6, 7, 8])
         >>> block_size, num_blocks = 2, 2
-        >>> csc_matrix_from_blocks(data, block_size, num_blocks).toarray()
+        >>> csc_matrix_from_dense_blocks(data, block_size, num_blocks).toarray()
         array([[1, 3, 0, 0],
                [2, 4, 0, 0],
                [0, 0, 5, 7],
                [0, 0, 6, 8]])
 
     """
-    return _csx_matrix_from_blocks(data, block_size, num_blocks, sps.csc_matrix)
+    return _csx_matrix_from_dense_blocks(data, block_size, num_blocks, sps.csc_matrix)
 
 
-def _csx_matrix_from_blocks(
+def _csx_matrix_from_dense_blocks(
     data: np.ndarray, block_size: int, num_blocks: int, matrix_format
 ) -> sps.spmatrix:
     """Create a csr representation of a block diagonal matrix of uniform block size.
@@ -659,7 +659,6 @@ def invert_diagonal_blocks(
             parallel=True,
         )
         def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
-
             # Construction of simple data structures (low complexity)
             # Indices for block positions, flattened inverse block positions and nonzeros
             # Expanded block positions
