@@ -400,6 +400,34 @@ def test_sparse_block_matrix_from_sparse(format):
     assert np.all(known == value.toarray())
 
 
+def test_diagonal_matrix_from_sparse_blocks():
+    """Test the conversion of a sparse block matrix to a sparse matrix. The block matrix
+    is constructed from two sparse blocks. The matrix should be filled with the blocks on
+    the block diagonal.
+    """
+    # Make two blocks, one in csr and one in csc format.
+    blocks = [
+        sps.dia_matrix(np.array([[1, 0], [0, 2]])),
+        sps.dia_matrix(
+            np.array([[3, 0, 0], [0, 4, 0], [0, 0, 5]]),
+        ),
+    ]
+    # The method will fill the diagonal blocks of the target matrix.
+    known = np.array(
+        [
+            [1, 0, 0, 0, 0],
+            [0, 2, 0, 0, 0],
+            [0, 0, 3, 0, 0],
+            [0, 0, 0, 4, 0],
+            [0, 0, 0, 0, 5],
+        ]
+    )
+
+    value = matrix_operations.sparse_dia_from_sparse_blocks(blocks)
+
+    assert np.all(known == value.toarray())
+
+
 @pytest.mark.parametrize(
     "mat", [np.arange(6).reshape((3, 2)), np.arange(6).reshape((2, 3))]
 )

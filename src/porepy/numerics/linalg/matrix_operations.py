@@ -385,6 +385,40 @@ def optimized_compressed_storage(A: sps.spmatrix) -> sps.spmatrix:
         return A.tocsr()
 
 
+def sparse_dia_from_sparse_blocks(blocks: list[sps.dia_matrix]) -> sps.dia_matrix:
+    """Construct a sparse diagonal matrix from a list of diagonal matrices.
+
+    The blocks are concatenated along the main diagonal.
+
+    This is a shortcut that can be used for fast construction of block diagonal matrices
+    where the individual blocks are known to be diagonal. For more block diagonal
+    matrices with a more general structure of the matrix blocks (those that have
+    non-zero elements off the main diagonal), use cs{r,c}_matrix_from_sparse_blocks.
+
+    Parameters:
+        blocks: List of diagonal matrices. Should be of dia-format and only have data
+            along the main diagonal.
+
+    Raises:
+        ValueError: If the blocks are not of dia-format or if the blocks have data
+            off the main diagonal.
+
+    Returns:
+        A sparse diagonal matrix.
+
+    """
+    data = []
+    for mat in blocks:
+        if mat.getformat() != "dia":
+            raise ValueError("All blocks must be in dia format")
+        if mat.offsets.size != 1 or mat.offsets[0] != 0:
+            raise ValueError("All blocks must be diagonal.")
+        data.append(mat.data.ravel())
+
+    data = np.concatenate(data)
+    return sps.dia_matrix((data, 0), shape=(data.size, data.size))
+
+
 def csr_matrix_from_sparse_blocks(blocks: list[sps.spmatrix]) -> sps.spmatrix:
     """Create a csr representation of a block diagonal matrix.
 
@@ -472,7 +506,8 @@ def _csx_matrix_from_sparse_blocks(
     # matrices, this is the main bottleneck of the function. Thus if possible, make sure
     # all the blocks are constructed in the correct format.
     for i in range(len(blocks)):
-        blocks[i] = blocks[i].asformat(matrix_format)
+        if blocks[i].getformat() != matrix_format:
+            blocks[i] = blocks[i].asformat(matrix_format)
 
     # Shortcut. We know the format is right.
     if len(blocks) == 1:
