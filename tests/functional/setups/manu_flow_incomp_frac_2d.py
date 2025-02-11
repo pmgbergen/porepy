@@ -698,7 +698,7 @@ class ManuIncompBoundaryConditions(
 
 
 # -----> Balance equations
-class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+class ManuIncompBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     exact_sol: ManuIncompExactSolution2d

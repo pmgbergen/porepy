@@ -22,7 +22,7 @@ class BoundaryConditionsMassDirWestEast(pp.PorePyModel):
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
-        Dirichlet boundary conditions are defined on the north and south boundaries.
+        Dirichlet boundary conditions are defined on the west and east boundaries.
 
         Parameters:
             sd: Subdomain for which to define boundary conditions.

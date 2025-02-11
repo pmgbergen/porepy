@@ -77,7 +77,7 @@ else:
             """
 
         def set_well_network(self) -> None:
-            """Assign well network class."""
+            """Assign well network class :attr:`well_network`."""
 
         def is_well(self, grid: pp.Grid | pp.MortarGrid) -> bool:
             """Check if a subdomain is a well.
@@ -541,6 +541,18 @@ else:
         """A list of results collected by the data saving mixin in
         :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
 
+        def __init__(self, params: Optional[dict] = None):
+            """Initialize the solution strategy.
+
+            The solution strategy is the only mixin in a model with a constructor,
+            taking all the model parameters and storing them as an attribute for further
+            steps.
+
+            Parameters:
+                params: Parameters for the solution strategy. Defaults to None.
+
+            """
+
         @property
         def time_step_indices(self) -> np.ndarray:
             """Indices for storing time step solutions.
@@ -578,6 +590,60 @@ else:
 
             """
 
+        def _is_reference_phase_eliminated(self) -> bool:
+            """Returns True if ``params['eliminate_reference_phase'] == True`.
+            Defaults to True."""
+
+        def _is_reference_component_eliminated(self) -> bool:
+            """Returns True if ``params['eliminate_reference_component'] == True`.
+            Defaults to True."""
+
+        def initial_condition(self) -> None:
+            """Set the initial condition for the problem.
+
+            For each solution index stored in ``self.time_step_indices`` and
+            ``self.iterate_indices`` a zero initial value will be assigned.
+
+            """
+
+        def before_nonlinear_iteration(self) -> None:
+            """Method to be called at the start of every non-linear iteration.
+
+            Possible usage is to update non-linear parameters, discretizations etc.
+
+            """
+
+        def after_nonlinear_convergence(self) -> None:
+            """Method to be called after every non-linear iteration.
+
+            Possible usage is to distribute information on the solution, visualization, etc.
+
+            """
+
+        def set_nonlinear_discretizations(self) -> None:
+            """Set the list of nonlinear discretizations.
+
+            This method is called before the discretization is performed. It is intended to
+            be used to set the list of nonlinear discretizations.
+
+            """
+
+        def solve_linear_system(self) -> np.ndarray:
+            """Solve linear system.
+
+            Default method is a direct solver. The linear solver is chosen in the
+            initialize_linear_solver of this model. Implemented options are
+                - scipy.sparse.spsolve with and without call to umfpack
+                - pypardiso.spsolve
+
+            See also:
+                :meth:`initialize_linear_solver`
+
+            Returns:
+                np.ndarray: Solution vector.
+
+            """
+
     class FluidProtocol(Protocol):
         """This protocol provides declarations of methods defined in the
         :class:`~porepy.compositional.compositional_mixins.FluidMixin`."""
@@ -612,6 +678,17 @@ else:
 
             """
 
+        def dependencies_of_phase_properties(
+            self, phase: pp.Phase
+        ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+            """Returns the Callables representing variables, on which the thermodynamic
+            properties of phases depend.
+
+            For a more detailed explanation, see :meth:`~porepy.compositional.
+            compositional_mixins.dependencies_of_phase_properties.`
+
+            """
+
     class VariableProtocol(Protocol):
         """This protocol provides the declarations of the methods and the properties,
         typically defined in VariableMixin."""
@@ -641,8 +718,8 @@ else:
             """
 
         def create_variables(self) -> None:
-            """Assign primary variables to subdomains and interfaces of the mixed-
-            dimensional grid."""
+            """Introduce variables to subdomains and interfaces of the mixed-dimensional
+            grid."""
 
     class BoundaryConditionProtocol(Protocol):
         """This protocol provides declarations of methods and properties related to
