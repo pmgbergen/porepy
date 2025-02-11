@@ -45,14 +45,21 @@ solid_values.update(
     }
 )
 
+mass_weighted_perm = (
+    pp.fluid_values.water['density']
+    / pp.fluid_values.water['viscosity']
+    * solid_values['permeability']
+)
+"""Value for testing evaluation of MassWeightedPermeability."""
+
 
 @pytest.mark.parametrize(
     "model_type,method_name,only_codimension",
     [  # Fluid mass balance
-        ("mass_balance", "mobility_rho", None),
+        ("mass_balance", "advection_weight_mass_balance", None),
         ("mass_balance", "fluid.reference_phase.viscosity", None),
         ("mass_balance", "fluid_source", None),
-        ("mass_balance", "mobility", None),
+        ("mass_balance", "total_mass_mobility", None),
         ("mass_balance", "fluid.density", None),
         ("mass_balance", "aperture", None),
         ("mass_balance", "darcy_flux", None),
@@ -306,6 +313,26 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             0.01**2 / 12 * np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
             0,
         ),
+        # Tests for mass weighted permeability are analogous to CubicPermeability, only
+        # with a different scalar.
+        (
+            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            "permeability",
+            mass_weighted_perm * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
+            2,
+        ),
+        (
+            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            "permeability",
+            mass_weighted_perm * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
+            1,
+        ),
+        (
+            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            "permeability",
+            mass_weighted_perm * np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
+            0,
+        ),
     ],
 )
 def test_evaluated_values(
@@ -348,7 +375,8 @@ def test_evaluated_values(
     params = {
         "material_constants": {"solid": solid, "fluid": fluid},
         "fracture_indices": [0, 1],
-        "times_to_export": [],  # Suppress output for tests
+        "times_to_export": [],
+        "fractional_flow": True,  # For testing MassWeightedPermeability
     }
 
     setup = model(params)

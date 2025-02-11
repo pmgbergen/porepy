@@ -614,15 +614,25 @@ class TerzaghiPoromechanicsBoundaryConditions(
     """Mixer class for poromechanics boundary conditions."""
 
 
-# -----> Solution strategy
-class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
-    """Solution strategy class for Terzaghi's setup."""
+class TerzaghiInitialConditions:
+    """Mixin providing non-trivial initial values for pressure depending on the applied
+    load."""
 
     applied_load: Callable[[], pp.number]
     """Method that sets the applied load in scaled [Pa]. Normally provided by an
     instance of :class:`~TerzaghiBoundaryConditionsMechanics`.
 
     """
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        vertical_load = self.applied_load()  # scaled [Pa]
+        initial_p = vertical_load * np.ones(sd.num_cells)
+        return initial_p
+
+
+# -----> Solution strategy
+class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
+    """Solution strategy class for Terzaghi's setup."""
 
     exact_sol: TerzaghiExactSolution
     """Exact solution object."""
@@ -650,29 +660,6 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         # Biot's coefficient must be one
         assert self.solid.biot_coefficient == 1
 
-    def initial_condition(self) -> None:
-        """Set initial conditions.
-
-        Terzaghi's problem assumes that the soil is initially unconsolidated and that
-        the initial fluid pressure equals the vertical load.
-
-        """
-        super().initial_condition()
-        # Since the parent class sets zero initial displacement, we only need to
-        # modify the initial conditions for the flow subproblem.
-        sd = self.mdg.subdomains()[0]
-        data = self.mdg.subdomain_data(sd)
-        vertical_load = self.applied_load()  # scaled [Pa]
-        initial_p = vertical_load * np.ones(sd.num_cells)
-
-        pp.set_solution_values(
-            name=self.pressure_variable,
-            values=initial_p,
-            data=data,
-            iterate_index=0,
-            time_step_index=0,
-        )
-
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
         if self.params.get("plot_results", False):
@@ -686,6 +673,7 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 class TerzaghiSetup(  # type: ignore[misc]
     PseudoOneDimensionalColumn,
     TerzaghiPoromechanicsBoundaryConditions,
+    TerzaghiInitialConditions,
     TerzaghiSolutionStrategy,
     TerzaghiUtils,
     TerzaghiDataSaving,
