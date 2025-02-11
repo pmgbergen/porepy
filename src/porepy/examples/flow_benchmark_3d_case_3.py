@@ -36,11 +36,8 @@ solid_constants = FractureSolidConstants(
 )
 
 
-class Geometry(pp.ModelGeometry):
+class Geometry(pp.PorePyModel):
     """Define Geometry as specified in Section 5.3 of the benchmark study [1]."""
-
-    params: dict
-    """User-defined model parameters."""
 
     def set_geometry(self) -> None:
         """Create mixed-dimensional grid and fracture network."""
@@ -71,6 +68,7 @@ class Geometry(pp.ModelGeometry):
 
 
 class IntersectionPermeability(Permeability):
+
     def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Constant intersection permeability.
 
@@ -90,7 +88,7 @@ class IntersectionPermeability(Permeability):
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
 
-class BoundaryConditions(pp.BoundaryConditionMixin):
+class BoundaryConditions(pp.PorePyModel):
     """Define inlet and outlet boundary conditions as specified by the benchmark."""
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:

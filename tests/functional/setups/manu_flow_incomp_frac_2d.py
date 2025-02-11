@@ -25,7 +25,6 @@ import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -97,7 +96,7 @@ class ManuIncompSaveData:
     """Exact pressure in the matrix."""
 
 
-class ManuIncompDataSaving(VerificationDataSaving):
+class ManuIncompDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -699,7 +698,7 @@ class ManuIncompBoundaryConditions(
 
 
 # -----> Balance equations
-class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+class ManuIncompBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     exact_sol: ManuIncompExactSolution2d
@@ -754,17 +753,6 @@ class ManuIncompSolutionStrategy2d(
 
     results: list[ManuIncompSaveData]
     """List of SaveData objects."""
-
-    def __init__(self, params: dict):
-        """Constructor for the class."""
-
-        super().__init__(params)
-
-        self.exact_sol: ManuIncompExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuIncompSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
 
     def set_materials(self):
         """Set material constants for the verification setup."""

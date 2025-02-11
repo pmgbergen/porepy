@@ -591,6 +591,113 @@ class ConstantPermeability(pp.PorePyModel):
         return Scalar(self.solid.normal_permeability)
 
 
+class MassWeightedPermeability(ConstantPermeability):
+    """A non-linear permeability model where the total mass mobility of the fluid is
+    an isotropic contribution to the otherwise constant, absolute permeability tensor.
+
+    To be used in combination with :class:`~porepy.models.compositional_flow.
+    MassicPressureEquations` in the fractional flow setting, and
+    :class:`DarcysLawAd`.
+
+    Important:
+        This implementation is as of now not compatible with absolute permeabilities
+        which are state dependent (e.g. dependent on the divergence of displacement, or
+        on the fracture jump). It uses solely the solid's constant and scalar
+        permeability.
+
+    """
+
+    total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+
+    def mass_mobility_weighted_permeability(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """helper method implementing the mass mobility weighted permeability as a
+        scalar representing the actual isotropic tensor.
+
+        It is obtained by multiplying the solid's constant (absolute) permeability with
+        the total mass mobility of the fluid.
+
+        Parameters:
+            subdomains: A list of subdomains.
+
+        Returns:
+            The cell-wise, scalar permeability. Used for the isotropic tensor and the
+            normal permeability on the interface.
+
+        """
+        abs_perm = pp.wrap_as_dense_ad_array(
+            self.solid.permeability,
+            size=sum(sd.num_cells for sd in subdomains),
+            name="absolute_permeability",
+        )
+        op = self.total_mass_mobility(subdomains) * abs_perm
+        op.set_name("isotropic_permeability")
+        return op
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability represented as an isotropic second-order tensor including the
+        total mass mobility.
+
+        See also :meth:`mass_mobility_weighted_permeability`.
+
+        This method is designed to be compatible with complex CF models, which *can* be
+        flagged to use the fractional flow formulation.
+
+        I.e., if it is a fractional flow formulation, the implementation is used.
+        Otherwise other permeability laws are looked for via super-call.
+
+        Note:
+            See note in :meth:`mass_mobility_weighted_permeability` on compatibility
+            with other, non-linear terms which can appear in the permeability tensor.
+
+            In the non-fractional-flow setting, this method is compatible with any other
+            constitutive law for permeability.
+
+        Parameters:
+            subdomains: A list of subdomains.
+
+        Returns:
+            The permeability in operator form either in [m^2] or in
+            [kg * m^(-1) * Pa^(-1) * s^(-1)] in the fractional flow formulation,
+            as a second-order tensor.
+
+        """
+        if pp.compositional_flow.is_fractional_flow(self):
+            op = self.isotropic_second_order_tensor(
+                subdomains, self.mass_mobility_weighted_permeability(subdomains)
+            )
+            op.set_name("diffusive_tensor_darcy")
+        else:
+            # This branch is here for compatibility reasons when using the CF framework
+            # with in a non-diffusive set-up.
+            op = super().permeability(subdomains)
+        return op
+
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """A constitutive law returning the normal permeability as
+        :meth:`mass_mobility_weighted_permeability` on the lower-dimensional subdomain.
+
+        Parameters:
+            interfaces: A list of mortar grids.
+
+        Returns:
+            The product of total mobility and permeability of the lower-dimensional.
+
+        """
+
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        normal_permeability = (
+            projection.secondary_to_mortar_avg()
+            @ self.mass_mobility_weighted_permeability(subdomains)
+        )
+        normal_permeability.set_name("normal_permeability")
+        return normal_permeability
+
+
 class DimensionDependentPermeability(ConstantPermeability):
     """Permeability depending on subdomain dimension.
 
@@ -2022,6 +2129,37 @@ class ThermalConductivityLTE(ConstantFluidThermalConductivity):
         return self.isotropic_second_order_tensor(subdomains, conductivity)
 
 
+class ThermalConductivityCF(ThermalConductivityLTE):
+    """A constitutive law providing the normal thermal conductivity to be
+    used with Fourier's Law in the compositional flow."""
+
+    def normal_thermal_conductivity(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Normal thermal conductivity of the fluid.
+
+        This is a constitutive law choosing the thermal conductivity of the fluid in the
+        lower-dimensional domains as the normal conductivity.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing normal thermal conductivity on the interfaces.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        # This is a constitutive law based on Banshoya 2023.
+        normal_conductivity = projection.secondary_to_mortar_avg() @ (
+            self.fluid.thermal_conductivity(subdomains)
+        )
+        normal_conductivity.set_name("norma_thermal_conductivity")
+        return normal_conductivity
+
+
 class FouriersLaw(pp.PorePyModel):
     """This class could be refactored to reuse for other diffusive fluxes. It's somewhat
     cumbersome, though, since potential, discretization, and boundary conditions all
@@ -2040,7 +2178,7 @@ class FouriersLaw(pp.PorePyModel):
    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Scalar]
+    normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """Conductivity on a mortar grid. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.
 
@@ -2373,7 +2511,7 @@ class AdvectiveFlux(pp.PorePyModel):
             Callable[[list[pp.MortarGrid]], pp.ad.Operator]
         ] = None,
     ) -> pp.ad.Operator:
-        """An operator represetning the advective flux on subdomains.
+        """An operator representing the advective flux on subdomains.
 
         .. note::
             The implementation assumes that the advective flux is discretized using a
@@ -2495,9 +2633,8 @@ class AdvectiveFlux(pp.PorePyModel):
 
 
 class EnthalpyFromTemperature(FluidEnthalpyFromTemperature):
-    """Class for representing the ethalpy, computed from the perturbation from a
-    reference temperature, for both fluid and solid.
-    """
+    """Class for representing the enthalpy, computed from the perturbation from a
+    reference temperature, for both fluid and solid."""
 
     enthalpy_keyword: str
     """Keyword used to identify the enthalpy flux discretization. Normally"
@@ -4142,7 +4279,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         return consistency
 
 
-class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
+class BiotPoroMechanicsPorosity(pp.PorePyModel):
     """Porosity for poromechanical models following classical Biot's theory.
 
     The porosity is defined such that, after the chain rule is applied to the

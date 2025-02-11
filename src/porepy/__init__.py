@@ -175,9 +175,11 @@ from porepy.numerics.time_step_control import TimeManager
 from porepy import models
 from porepy.models.abstract_equations import (
     BalanceEquation,
+    LocalElimination,
     VariableMixin,
 )
 from porepy.models.boundary_condition import BoundaryConditionMixin
+from porepy.models.initial_condition import InitialConditionMixin
 from porepy.models.geometry import ModelGeometry
 from porepy.models.units import Units
 
@@ -196,24 +198,32 @@ from porepy.compositional.materials import (
     ReferenceVariableValues,
 )
 from porepy.compositional.base import Component, Phase, Fluid
-from porepy.compositional.compositional_mixins import CompositionalVariables, FluidMixin
+from porepy.compositional.compositional_mixins import FluidMixin
 
 # "Primary" models
-from porepy.models import fluid_mass_balance, momentum_balance
+from porepy.models import energy_balance, fluid_mass_balance, momentum_balance
 
 # "Secondary" models inheriting from primary models
 from porepy.models import (
     poromechanics,
-    energy_balance,
     mass_and_energy_balance,
     thermoporomechanics,
     fracture_damage,
 )
+
+# need to import compositional flow after mass_and_energy
+from porepy.models import compositional_flow
+
+# Full model classes.
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.models.momentum_balance import MomentumBalance
 from porepy.models.poromechanics import Poromechanics
 from porepy.models.thermoporomechanics import Thermoporomechanics
 from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
+from porepy.models.compositional_flow import (
+    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
+)
 
 
 # Visualization

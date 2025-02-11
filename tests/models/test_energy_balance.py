@@ -231,7 +231,7 @@ def test_unit_conversion(units):
     # Non-unitary time step needed for convergence
     dt = 1e5
     model_params = {
-        "times_to_export": [],
+        "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
@@ -308,6 +308,7 @@ def test_energy_conservation():
         "fracture_indices": [2],
         "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
         "grid_type": "cartesian",
+        "times_to_export": [],  # Suppress output for tests
     }
 
     setup = MassAndEnergyWellModel(model_params)

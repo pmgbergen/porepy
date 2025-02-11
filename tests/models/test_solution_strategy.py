@@ -264,6 +264,7 @@ def test_targeted_rediscretization(model_class):
         "cartesian": True,
         # Make flow problem non-linear:
         "material_constants": {"fluid": pp.FluidComponent(compressibility=1.0)},
+        "times_to_export": [],
     }
     # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = models._add_mixin(RediscretizationTest, model_class)
