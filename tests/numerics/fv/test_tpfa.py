@@ -333,6 +333,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     model_params = {
         "darcy_flux_discretization": base_discr,
         "vector_source": vector_source_array,
+        "times_to_export": [],
     }
 
     model = UnitTestAdTpfaFlux(model_params)
@@ -671,7 +672,11 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
     """
     model = DiffTpfaGridsOfAllDimensions(
-        {"darcy_flux_discretization": base_discr, "grid_type": grid_type}
+        {
+            "darcy_flux_discretization": base_discr,
+            "grid_type": grid_type,
+            "times_to_export": []
+        }
     )
     model.prepare_simulation()
 
@@ -762,6 +767,7 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
     params = {
         "darcy_flux_discretization": base_discr,
         "fourier_flux_discretization": base_discr,
+        "times_to_export": [],
     }
     model_without_diff = WithoutDiffTpfa(params.copy())
     model_with_diff = WithDiffTpfa(params)
@@ -838,7 +844,9 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
     trace is equal to the pressure in the adjacent cell.
 
     """
-    model = DiffTpfaFractureTipsInternalBoundaries({"base_discr": base_discr})
+    model = DiffTpfaFractureTipsInternalBoundaries(
+        {"base_discr": base_discr, "times_to_export": []}
+    )
     model.prepare_simulation()
 
     mdg = model.mdg

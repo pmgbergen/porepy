@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-import porepy.compositional as composit
+import porepy.compositional as compositional
 
 
 @pytest.mark.parametrize("vectorized", [0, 1, 3])
@@ -31,14 +31,14 @@ def test_compute_saturations(nphase: int, vectorized: int):
 
     # Inconsistent shapes between fractions and densities gives an value error
     with pytest.raises(ValueError):
-        composit.compute_saturations(np.ones((nphase + 1, vectorized)), rho)
+        compositional.compute_saturations(np.ones((nphase + 1, vectorized)), rho)
     with pytest.raises(ValueError):
-        composit.compute_saturations(rho / nphase, np.ones((nphase, vectorized + 1)))
+        compositional.compute_saturations(rho / nphase, np.ones((nphase, vectorized + 1)))
 
     # special case, single-phase is always saturated
     if nphase == 1:
         y = np.ones(shape)
-        sat = composit.compute_saturations(y, rho)
+        sat = compositional.compute_saturations(y, rho)
         assert sat.shape == shape
         assert np.all(sat == 1.0)
     # for multi-phase, tests include saturated cases for each phase
@@ -48,12 +48,12 @@ def test_compute_saturations(nphase: int, vectorized: int):
 
         # More than 1 phase saturated gives a value error
         with pytest.raises(ValueError):
-            composit.compute_saturations(y, rho)
+            compositional.compute_saturations(y, rho)
 
         # homogenous distribution of mass accross phases, with equal densities
         # should lead to saturations equal to y
         y = y / nphase
-        sat = composit.compute_saturations(y, rho)
+        sat = compositional.compute_saturations(y, rho)
         assert sat.shape == shape
         assert np.allclose(y, sat, rtol=0.0, atol=1e-14)
 
@@ -65,7 +65,7 @@ def test_compute_saturations(nphase: int, vectorized: int):
             # homogenous distribution of mass accross non-vanished phases
             y = y / (nphase - 1)
 
-            sat = composit.compute_saturations(y, rho)
+            sat = compositional.compute_saturations(y, rho)
             assert sat.shape == shape
             assert np.allclose(y, sat, rtol=0.0, atol=1e-14)
 
@@ -101,7 +101,7 @@ def test_chainrule_fractional_derivatives():
     jac = np.eye(3) / s - np.outer(x_ext, np.ones(3)) / (s**2)
 
     # Compute the chainrule with the method
-    df_ext = composit.chainrule_fractional_derivatives(df, x_ext_v)
+    df_ext = compositional.chainrule_fractional_derivatives(df, x_ext_v)
 
     # The jacobian should be un-altered in terms of shape and the first two rows, which
     # are considered to be derivatives w.r.t to some other independent variables
@@ -115,7 +115,7 @@ def test_chainrule_fractional_derivatives():
     # This tests the consistency of the method, when passing arguments as 1D arrays
     df_0 = df[:, 0]
     assert df_0.shape == (5,)
-    df_ext_0 = composit.chainrule_fractional_derivatives(df_0, x_ext)
+    df_ext_0 = compositional.chainrule_fractional_derivatives(df_0, x_ext)
     assert df_ext_0.shape == df_0.shape
     assert np.allclose(df_ext_0[:2], 20.0, rtol=0, atol=1e-14)
     assert np.allclose(df_ext_0[2:], jac[0], rtol=0.0, atol=1e-14)
