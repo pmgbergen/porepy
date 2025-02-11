@@ -181,7 +181,48 @@ def test_tested_vs_testable_methods_single_phase_flow(
 @pytest.mark.parametrize(
     "method_name, expected_value, dimension_restriction",
     [
+        # Combination of mobility and fluid density = rho/mu
+        # = rho_ref * exp(c_f * (p - p_ref)) / mu = 1000 * exp(4e-10 * 2e7) /  0.001
+        (
+            "advection_weight_mass_balance",
+            water_values["density"]
+            * np.exp(water_values["compressibility"] * 200 * pp.BAR)
+            / water_values["viscosity"],
+            None,
+        ),
         ("aperture", np.array([1, 1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3]), None),
+        (
+            'boundary_fluid_flux',
+            np.array(
+                [
+                    996207.58483034,
+                    0.,
+                    996207.58483034,
+                    996207.58483034,
+                    0.,
+                    996207.58483034,
+                    996207.58483034,
+                    996207.58483034,
+                    0.,
+                    0.,
+                    996207.58483034,
+                    996207.58483034,
+                    0.,
+                    0.,
+                    0.,
+                    0.,
+                    996207.58483034,
+                    0.,
+                    996207.58483034,
+                    0.,
+                    996207.58483034,
+                    0.,
+                    996207.58483034,
+                    0.
+                ]
+            ),
+            None
+        ),
         ("combine_boundary_operators_darcy_flux", np.zeros(24), None),
         # Darcy flux.
         (
@@ -314,17 +355,6 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        # Mobility = 1 / mu
-        ("mobility", 1.0 / (water_values["viscosity"]), None),
-        # Combination of mobility and fluid density = rho / mu
-        # Mobility_rho = rho_ref * exp(c_f * (p - p_ref)) / mu
-        (
-            "mobility_rho",
-            water_values["density"]
-            * np.exp(water_values["compressibility"] * 200 * pp.BAR)
-            / water_values["viscosity"],
-            None,
-        ),
         ("normal_permeability", granite_values["normal_permeability"], None),
         ("permeability", granite_values["permeability"], None),
         ("porosity", granite_values["porosity"], None),
@@ -370,6 +400,14 @@ def test_tested_vs_testable_methods_single_phase_flow(
         # ("reference_pressure", 0, None),
         ("skin_factor", granite_values["skin_factor"], None),
         ("tangential_component", np.array([[1.0, 0.0]]), 0),  # Check only for 0d.
+        # Same as advection weight in 1-phase, 1-component cast
+        (
+            "total_mass_mobility",
+            water_values["density"]
+            * np.exp(water_values["compressibility"] * 200 * pp.BAR)
+            / water_values["viscosity"],
+            None,
+        ),
         ("well_fluid_flux", 0, 2),  # Use dim_restriction=2 to ignore well flux.
         ("well_flux_equation", 0, 2),  # Use dim_restriction=2 to ignore well equation.
         ("well_radius", granite_values["well_radius"], None),
@@ -456,6 +494,52 @@ def test_ad_operator_methods_single_phase_flow(
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
+@pytest.mark.parametrize(
+    "method_name, p_or_c, expected_value",
+    [
+        ('phase_mobility', 'phase', 1 / water_values['viscosity']),
+        ('fractional_phase_mass_mobility', 'phase', 1),
+        (
+            'component_mass_mobility',
+            'component',
+            water_values["density"]
+            * np.exp(water_values["compressibility"] * 200 * pp.BAR)
+            / water_values["viscosity"],
+        ),
+        ('fractional_component_mass_mobility', 'component', 1),
+    ]
+)
+def test_mobility_single_phase_flow(
+    model_setup: pp.PorePyModel,
+    method_name: str,
+    p_or_c: Literal['phase', 'component'],
+    expected_value: float,
+) -> None:
+    """Tests the evaluation of various mobility methods in the single-phase,
+    single-component model.
+
+    Fractional mobilities must be 1.
+    The phase and component mobility must be equal to the total mobility.
+
+    """
+    # mobilities are only defined on subdomains
+    domains = model_setup.mdg.subdomains()
+
+    assert model_setup.fluid.num_components == 1
+    assert model_setup.fluid.num_phases == 1
+
+    if p_or_c == 'phase':
+        instance = model_setup.fluid.reference_phase
+    elif p_or_c == 'component':
+        instance = model_setup.fluid.reference_component
+    else:
+        assert False, 'Unclear test input'
+
+    # Fetching method and calling it with the right instance
+    op: pp.ad.Operator = getattr(model_setup, method_name)(instance, domains)
+    val = op.value(model_setup.equation_system)
+    # Compare the actual and expected values.
+    assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
 @pytest.mark.parametrize(
     "units",
