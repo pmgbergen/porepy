@@ -9,7 +9,9 @@ from typing import Optional, Union
 
 import numpy as np
 import scipy.sparse as sps
-from typing_extensions import Literal
+from typing import Literal
+
+import porepy as pp
 
 from porepy.utils.mcolon import mcolon
 
@@ -357,6 +359,156 @@ def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
         return sps.csc_matrix((data, indices, indptr), shape=(A.shape[0], N))
     elif A.getformat() == "csr":
         return sps.csr_matrix((data, indices, indptr), shape=(N, A.shape[1]))
+
+
+class MatrixSlicer:
+    def __init__(
+        self,
+        domain_indices: Optional[np.ndarray] = None,
+        range_indices: Optional[np.ndarray] = None,
+        range_size: Optional[int] = None,
+    ) -> None:
+        if range_indices is None and domain_indices is None:
+            # We need to know what we are mapping from or to (or both).
+            raise ValueError("Either range_indices or domain_indices must be set.")
+
+        if domain_indices is not None and range_indices is None:
+            range_indices = np.arange(domain_indices.size)
+        elif range_indices is not None and domain_indices is None:
+            domain_indices = np.arange(range_indices.size)
+
+        if range_size is None:
+            range_size = range_indices.max() + 1
+            # raise ValueError("Both range_indices and image_size must be set.")
+
+        assert range_size is not None
+
+        self._domain_indices = domain_indices
+        self._range_indices = range_indices
+        self._range_size = range_size
+
+        self._pending_operand = None
+        self._pending_operation = None
+
+    def __matmul__(
+        self, x: np.ndarray | sps.spmatrix | pp.ad.AdArray
+    ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray:
+        # Separate handling for different types of input.
+        if isinstance(x, np.ndarray):
+            sliced = self._slice_vector(x)
+        elif isinstance(x, (sps.spmatrix, sps.sparray)):
+            sliced = self._slice_matrix(x)
+        elif isinstance(x, pp.ad.AdArray):
+            val = self._slice_vector(x.val)
+            jac = self._slice_matrix(x.jac)
+            sliced = pp.ad.AdArray(val, jac)
+
+        if self._pending_operand is not None:
+            # If there is a pending operand, we need to apply it to the sliced matrix.
+            product = eval(f"self._pending_operand {self._pending_operand} sliced")
+            self._pending_operand = None
+            return product
+        else:
+            return sliced
+
+    def __rmatmul__(self, other):
+        self._pending_operand = other
+        self._pending_operation = "@"
+        # No idea about return type here.
+        return self
+
+    def __mul__(self, other):
+        raise ValueError("MatrixSlicer does not support multiplication")
+
+    def __rmul__(self, other):
+        # This is okay, but will have to wait
+        self._pending_operand = other
+        self._pending_operation = "*"
+
+    def _slice_vector(self, x: np.ndarray) -> np.ndarray:
+        if self._domain_indices is None:
+            domain_indices = np.arange(x.size)
+        else:
+            domain_indices = self._domain_indices
+        if self._range_indices is None:
+            range_indices = np.arange(self._range_size)
+        else:
+            range_indices = self._range_indices
+
+        range_size = self._range_size
+        vec = np.zeros(range_size)
+        vec[range_indices] = x[domain_indices]
+        return vec
+
+    def _slice_matrix(
+        self, A: sps.csr_matrix | sps.csr_array
+    ) -> sps.csr_matrix | sps.csr_array:
+        if not isinstance(A, (sps.csr_matrix, sps.csr_array)):
+            A = A.tocsr()
+
+        # Data storage for the matrix to be sliced.
+        indptr = A.indptr
+        indices = A.indices
+
+        if self._range_indices is None:
+            # If the range indices are not given, we assume that the range size is the
+            # same as the domain size. That is, we will simply pick out the requested
+            # rows from the matrix.
+            self._range_indices = np.arange(self._domain_indices.size)
+            # If no range indices are given, we assume that the range size is the same
+            # as the domain size.
+        if self._domain_indices is None:
+            # If the domain indices are not given, we assume that the domain size is the
+            # same as the range size. That is, we will fetch all rows from the matrix
+            # and redistribute them.
+            self._domain_indices = np.arange(self._range_indices.size)
+
+        # self._range_size = self._domain_indices.size
+        # To manipulate index pointers, it is convenient to have the range indices
+        # sorted.
+        sort_ind_range = np.argsort(self._range_indices)
+
+        # Number of non-zero elements in each row in the domain.
+        num_elem_per_row_domain = (
+            indptr[self._domain_indices + 1] - indptr[self._domain_indices]
+        )
+
+        # Number of non-zero elements in the range matrix.
+        num_elem_per_row = np.zeros(self._range_size, dtype=int)
+
+        # Assignment to the sorted range indices.
+        num_elem_per_row[self._range_indices[sort_ind_range]] = num_elem_per_row_domain[
+            sort_ind_range
+        ]
+
+        # Expand this so that each sorting index is repeated as many times as
+        # there are elements in the corresponding row in the domain.
+        expanded_sort_range_ind = rldecode(sort_ind_range, num_elem_per_row_domain)
+
+        # Get the indices (referring to the fields A.data and A.indices) of the non-zero
+        # elements in the target rows.
+        sub_indices = mcolon(
+            indptr[self._domain_indices[sort_ind_range]],
+            indptr[self._domain_indices[sort_ind_range] + 1],
+        )
+
+        # Find the sorting indices for the sub_indices.
+        #        sort_domain_ind = np.lexsort(np.atleast_2d(expanded_sort_range_ind))
+        # new_data = A.data[sub_indices[sort_domain_ind]]
+        # new_indices = indices[sub_indices[sort_domain_ind]]
+        new_data = A.data[sub_indices]
+        new_indices = A.indices[sub_indices]
+
+        new_indptr = np.cumsum(np.concatenate(([0], num_elem_per_row)))
+
+        new_num_rows = self._range_size
+
+        tmp = sps.csr_matrix(
+            (new_data, new_indices, new_indptr), shape=(new_num_rows, A.shape[1])
+        ).toarray()
+        return sps.csr_matrix(
+            (new_data, new_indices, new_indptr), shape=(new_num_rows, A.shape[1])
+        )
 
 
 def optimized_compressed_storage(A: sps.spmatrix) -> sps.spmatrix:
