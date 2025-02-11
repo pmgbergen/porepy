@@ -309,48 +309,48 @@ def slice_indices(
         return indices
 
 
-def slice_mat(A: sps.spmatrix, ind: np.ndarray) -> sps.spmatrix:
-    """
-    Function for slicing sparse matrix along rows or columns.
-    If A is a csc_matrix A will be sliced along columns, while if A is a
-    csr_matrix A will be sliced along the rows.
+def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
+    """Function for slicing sparse matrix along rows or columns.
+
+    If the matrix is a csc_matrix it will be sliced along columns, while if matrix is a
+    csr_matrix it will be sliced along the rows.
 
     Parameters:
-        A: A sparse matrix.
+        A: A sparse matrix. Should be either csc or csr.
         ind: Array containing indices to be sliced.
 
+    Raises:
+        ValueError: If the matrix is not csc or csr.
+
     Returns:
-        A_sliced (scipy.sparse.csc/csr_matrix): The sliced matrix
-            if A is a csc_matrix A_sliced = A[:, ind]
-            if A is a csr_matrix A_slice = A[ind, :]
+        A sliced matrix.
+            If A is a csc_matrix A_sliced = A[:, ind]
+            If A is a csr_matrix A_sliced = A[ind, :]
 
-    Examples
-    --------
-    A = sps.csc_matrix(np.eye(10))
-    rows = slice_mat(A, np.array([0,2,3]))
     """
-    assert A.getformat() == "csc" or A.getformat() == "csr"
+    if A.getformat() != "csc" and A.getformat() != "csr":
+        raise ValueError("Need a csc or csr matrix")
 
+    # The slicing will be done based on a numpy array of indices (row and column for csr
+    # and csc, respectively). The provided index can be an array of booleans, or a
+    # single integer. Convert these to numpy arrays of indices.
     if np.asarray(ind).dtype == "bool":
-        # convert to indices.
-        # First check for dimension
-        if ind.size != A.indptr.size - 1:
-            raise IndexError("boolean index did not match indexed array")
         ind = np.where(ind)[0]
     if isinstance(ind, int):
-        N = 1
-        indptr = np.zeros(2)
-        ind_slice = slice(A.indptr[int(ind)], A.indptr[int(ind + 1)])
-    elif ind.size == 1:
-        N = 1
-        indptr = np.zeros(2)
-        ind_slice = slice(A.indptr[int(ind[0])], A.indptr[int(ind[0] + 1)])
-    else:
-        N = ind.size
-        indptr = np.zeros(ind.size + 1)
-        ind_slice = mcolon(A.indptr[ind], A.indptr[ind + 1])
+        ind = np.array([ind])
+
+    # Dimension of the sliced matrix along the axis of the slicing.
+    N = ind.size
+    # Expand the indices along the compressed axis. To understand this command, it is
+    # necessary to be familiar with the compressed storage format.
+    ind_slice = mcolon(A.indptr[ind], A.indptr[ind + 1])
+    # Pick out the subset of the indices from A that are also in the slice.
     indices = A.indices[ind_slice]
+    # Make a new indptr array and fill it with the relevant parts of the original indptr
+    # array.
+    indptr = np.zeros(ind.size + 1)
     indptr[1:] = np.cumsum(A.indptr[ind + 1] - A.indptr[ind])
+    # Data can be extracted directly from the data array of A.
     data = A.data[ind_slice]
 
     if A.getformat() == "csc":

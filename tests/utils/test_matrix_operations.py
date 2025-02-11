@@ -144,10 +144,10 @@ def test_csc_slice():
     assert np.all(rows0_2 == np.array([1, 2]))
 
 
-# ------------------ Test slice_mat -----------------------
+# ------------------ Test slice_sparse_matrix -----------------------
 
 
-def test_sliced_mat_columns():
+def test_sliced_matrix_columns():
     # original matrix
     A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
@@ -160,12 +160,12 @@ def test_sliced_mat_columns():
 
     A5_t = sps.csc_matrix(np.array([[0, 0], [0, 0], [0, 0]]))
 
-    A0 = matrix_operations.slice_mat(A, np.array([1, 2], dtype=int))
-    A1 = matrix_operations.slice_mat(A, np.array([0, 1]))
-    A2 = matrix_operations.slice_mat(A, 2)
-    A3 = matrix_operations.slice_mat(A, np.array([], dtype=int))
-    A4 = matrix_operations.slice_mat(A, np.array([0, 2], dtype=int))
-    A5 = matrix_operations.slice_mat(A, np.array([1, 1], dtype=int))
+    A0 = matrix_operations.slice_sparse_matrix(A, np.array([1, 2], dtype=int))
+    A1 = matrix_operations.slice_sparse_matrix(A, np.array([0, 1]))
+    A2 = matrix_operations.slice_sparse_matrix(A, 2)
+    A3 = matrix_operations.slice_sparse_matrix(A, np.array([], dtype=int))
+    A4 = matrix_operations.slice_sparse_matrix(A, np.array([0, 2], dtype=int))
+    A5 = matrix_operations.slice_sparse_matrix(A, np.array([1, 1], dtype=int))
 
     assert np.sum(A0 != A0_t) == 0
     assert np.sum(A1 != A1_t) == 0
@@ -175,7 +175,7 @@ def test_sliced_mat_columns():
     assert np.sum(A5 != A5_t) == 0
 
 
-def test_sliced_mat_rows():
+def test_sliced_matrix_rows():
     A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
 
     A0_t = sps.csr_matrix(np.array([[1, 0, 0], [0, 0, 3]]))
@@ -185,12 +185,12 @@ def test_sliced_mat_rows():
     A4_t = sps.csr_matrix(np.array([[0, 0, 0], [0, 0, 3]]))
     A5_t = sps.csr_matrix(np.array([[1, 0, 0], [1, 0, 0]]))
 
-    A0 = matrix_operations.slice_mat(A, np.array([1, 2], dtype=int))
-    A1 = matrix_operations.slice_mat(A, np.array([0, 1]))
-    A2 = matrix_operations.slice_mat(A, 2)
-    A3 = matrix_operations.slice_mat(A, np.array([], dtype=int))
-    A4 = matrix_operations.slice_mat(A, np.array([0, 2], dtype=int))
-    A5 = matrix_operations.slice_mat(A, np.array([1, 1], dtype=int))
+    A0 = matrix_operations.slice_sparse_matrix(A, np.array([1, 2], dtype=int))
+    A1 = matrix_operations.slice_sparse_matrix(A, np.array([0, 1]))
+    A2 = matrix_operations.slice_sparse_matrix(A, 2)
+    A3 = matrix_operations.slice_sparse_matrix(A, np.array([], dtype=int))
+    A4 = matrix_operations.slice_sparse_matrix(A, np.array([0, 2], dtype=int))
+    A5 = matrix_operations.slice_sparse_matrix(A, np.array([1, 1], dtype=int))
 
     assert np.sum(A0 != A0_t) == 0
     assert np.sum(A1 != A1_t) == 0

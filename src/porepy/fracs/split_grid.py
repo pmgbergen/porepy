@@ -457,7 +457,7 @@ def _update_face_cells(
         if j == i:
             # We hit the target neighbor.
             # Pick out the part of f_c to be used with this neighbor.
-            f_c_sliced = pp.matrix_operations.slice_mat(f_c, face_id)
+            f_c_sliced = pp.matrix_operations.slice_sparse_matrix(f_c, face_id)
             # The new face-cell relations are added to the end of the matrix (since
             # the faces were added to the end of the face arrays in the
             # higher-dimensional grid). Columns (face-indices in the higher
@@ -1080,12 +1080,12 @@ def _find_cell_color(g: pp.Grid, cells: np.ndarray) -> np.ndarray:
     c = np.sort(cells)
     # Local cell-face and face-node maps.
     assert g.cell_faces.getformat() == "csc"
-    cell_faces = pp.matrix_operations.slice_mat(g.cell_faces, c)
+    cell_faces = pp.matrix_operations.slice_sparse_matrix(g.cell_faces, c)
     child_cell_ind = -np.ones(g.num_cells, dtype=int)
     child_cell_ind[c] = np.arange(cell_faces.shape[1])
 
     # Create a copy of the cell-face relation, so that we can modify it at will.
-    # RB: I don't think this is necessary as slice_mat creates a copy cell_faces =
+    # RB: I don't think this is necessary as slice_sparse_matrix creates a copy cell_faces =
     # cf_sub.copy()
 
     # Direction of normal vector does not matter here, only 0s and 1s
