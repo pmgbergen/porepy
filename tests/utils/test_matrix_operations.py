@@ -13,44 +13,34 @@ from porepy.applications.test_utils.arrays import compare_matrices
 # ------------------ Test zero_columns -----------------------
 
 
-def test_zero_1_column():
-    A = sps.csc_matrix(
-        (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
-        shape=(3, 3),
+@pytest.fixture()
+def A():
+    return sps.csr_matrix(
+        np.array([[1, 0, 2, -1], [3, 0, 0, -4], [4, 5, 6, 0], [0, 7, 8, -2]])
     )
-    matrix_operations.zero_columns(A, 0)
-    assert np.all(A.toarray() == np.array([[0, 0, 0], [0, 0, 3], [0, 2, 0]]))
-    assert A.nnz == 3
-    assert A.getformat() == "csc"
 
 
-def test_zero_2_columns():
-    A = sps.csc_matrix(
-        (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
-        shape=(3, 3),
-    )
-    matrix_operations.zero_columns(A, np.array([0, 2]))
-    assert np.all(A.toarray() == np.array([[0, 0, 0], [0, 0, 0], [0, 2, 0]]))
-    assert A.nnz == 3
-    assert A.getformat() == "csc"
+@pytest.mark.parametrize("column", [True, False])
+@pytest.mark.parametrize("index", [0, np.array([0, 2]), np.array([0])])
+def test_zero_column_row(A, column: bool, index: np.ndarray | int):
+    """Test that function to zero out columns and rows works as expected.
 
+    Parameters:
+        A: sparse matrix to be modified.
+        column: if True, zero columns, otherwise rows.
+        index: index of the columns or rows to be zeroed.
+    """
+    A_known = A.toarray()
+    if column:
+        # If we zero columns, we need to convert to csc format.
+        A = A.tocsc()
+        matrix_operations.zero_columns(A, index)
+        A_known[:, index] = 0
+    else:
+        matrix_operations.zero_rows(A, index)
+        A_known[index, :] = 0
 
-def test_zero_columns():
-    A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
-
-    A0_t = sps.csc_matrix(np.array([[0, 0, 0], [0, 0, 0], [0, 0, 3]]))
-    A2_t = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 0]]))
-    A0_2_t = sps.csc_matrix(np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]]))
-    A0 = A.copy()
-    A2 = A.copy()
-    A0_2 = A.copy()
-    matrix_operations.zero_columns(A0, np.array([0], dtype=int))
-    matrix_operations.zero_columns(A2, 2)
-    matrix_operations.zero_columns(A0_2, np.array([0, 1, 2]))
-
-    assert np.sum(A0 != A0_t) == 0
-    assert np.sum(A2 != A2_t) == 0
-    assert np.sum(A0_2 != A0_2_t) == 0
+    assert np.allclose(A.toarray(), A_known)
 
 
 def test_zero_columns_assert():
@@ -58,49 +48,6 @@ def test_zero_columns_assert():
     with pytest.raises(ValueError):
         # Should be csc_matrix
         matrix_operations.zero_columns(A, 1)
-
-
-# ------------------ Test zero_rows -----------------------
-
-
-def test_zero_1_row():
-    A = sps.csr_matrix(
-        (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
-        shape=(3, 3),
-    )
-    matrix_operations.zero_rows(A, 0)
-    assert np.all(A.toarray() == np.array([[0, 0, 0], [0, 0, 3], [0, 2, 0]]))
-    assert A.nnz == 3
-    assert A.getformat() == "csr"
-
-
-def test_zero_2_rows():
-    A = sps.csr_matrix(
-        (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
-        shape=(3, 3),
-    )
-    matrix_operations.zero_rows(A, np.array([0, 2]))
-    assert np.all(A.toarray() == np.array([[0, 0, 0], [0, 0, 3], [0, 0, 0]]))
-    assert A.nnz == 3
-    assert A.getformat() == "csr"
-
-
-def test_zero_rows():
-    A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
-
-    A0_t = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
-    A2_t = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 0]]))
-    A0_2_t = sps.csr_matrix(np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]]))
-    A0 = A.copy()
-    A2 = A.copy()
-    A0_2 = A.copy()
-    matrix_operations.zero_rows(A0, np.array([0], dtype=int))
-    matrix_operations.zero_rows(A2, 2)
-    matrix_operations.zero_rows(A0_2, np.array([0, 1, 2]))
-
-    assert np.sum(A0 != A0_t) == 0
-    assert np.sum(A2 != A2_t) == 0
-    assert np.sum(A0_2 != A0_2_t) == 0
 
 
 def test_zero_rows_assert():
@@ -147,57 +94,36 @@ def test_csc_slice():
 # ------------------ Test slice_sparse_matrix -----------------------
 
 
-def test_sliced_matrix_columns():
-    # original matrix
-    A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
+@pytest.mark.parametrize("column", [True, False])
+@pytest.mark.parametrize(
+    "index",
+    [
+        2,
+        np.array([0, 2]),
+        np.array([2]),
+        np.array([0, 1, 3]),
+        np.array([1, 1]),
+        np.array([1, 0, 0, 1], dtype=bool),
+    ],
+)
+def test_sliced_matrix(A, column: bool, index: int | np.ndarray):
+    """Test that slicing a sparse matrix works as expected.
 
-    # expected results
-    A0_t = sps.csc_matrix(np.array([[0, 0], [0, 0], [0, 3]]))
-    A1_t = sps.csc_matrix(np.array([[0, 0], [1, 0], [0, 0]]))
-    A2_t = sps.csc_matrix(np.array([[0], [0], [3]]))
-    A3_t = sps.csc_matrix(np.array([[], [], []]))
-    A4_t = sps.csc_matrix(np.array([[0, 0], [1, 0], [0, 3]]))
+    Parameters:
+        A: sparse matrix to be sliced.
+        column: if True, slice columns, otherwise rows.
+        index: index of the columns or rows to be sliced.
+    """
+    if column:
+        # If we slice columns, we need to convert to csc format.
+        A = A.tocsc()
+        A_known = A[:, index].toarray()
+    else:
+        A_known = A[index].toarray()
 
-    A5_t = sps.csc_matrix(np.array([[0, 0], [0, 0], [0, 0]]))
-
-    A0 = matrix_operations.slice_sparse_matrix(A, np.array([1, 2], dtype=int))
-    A1 = matrix_operations.slice_sparse_matrix(A, np.array([0, 1]))
-    A2 = matrix_operations.slice_sparse_matrix(A, 2)
-    A3 = matrix_operations.slice_sparse_matrix(A, np.array([], dtype=int))
-    A4 = matrix_operations.slice_sparse_matrix(A, np.array([0, 2], dtype=int))
-    A5 = matrix_operations.slice_sparse_matrix(A, np.array([1, 1], dtype=int))
-
-    assert np.sum(A0 != A0_t) == 0
-    assert np.sum(A1 != A1_t) == 0
-    assert np.sum(A2 != A2_t) == 0
-    assert np.sum(A3 != A3_t) == 0
-    assert np.sum(A4 != A4_t) == 0
-    assert np.sum(A5 != A5_t) == 0
-
-
-def test_sliced_matrix_rows():
-    A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
-
-    A0_t = sps.csr_matrix(np.array([[1, 0, 0], [0, 0, 3]]))
-    A1_t = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0]]))
-    A2_t = sps.csr_matrix(np.array([[0, 0, 3]]))
-    A3_t = sps.csr_matrix(np.atleast_2d(np.array([[], [], []])).T)
-    A4_t = sps.csr_matrix(np.array([[0, 0, 0], [0, 0, 3]]))
-    A5_t = sps.csr_matrix(np.array([[1, 0, 0], [1, 0, 0]]))
-
-    A0 = matrix_operations.slice_sparse_matrix(A, np.array([1, 2], dtype=int))
-    A1 = matrix_operations.slice_sparse_matrix(A, np.array([0, 1]))
-    A2 = matrix_operations.slice_sparse_matrix(A, 2)
-    A3 = matrix_operations.slice_sparse_matrix(A, np.array([], dtype=int))
-    A4 = matrix_operations.slice_sparse_matrix(A, np.array([0, 2], dtype=int))
-    A5 = matrix_operations.slice_sparse_matrix(A, np.array([1, 1], dtype=int))
-
-    assert np.sum(A0 != A0_t) == 0
-    assert np.sum(A1 != A1_t) == 0
-    assert np.sum(A2 != A2_t) == 0
-    assert np.sum(A3 != A3_t) == 0
-    assert np.sum(A4 != A4_t) == 0
-    assert np.sum(A5 != A5_t) == 0
+    assert np.allclose(
+        matrix_operations.slice_sparse_matrix(A, index).toarray(), A_known
+    )
 
 
 # ------------------ Test stack_mat -----------------------
