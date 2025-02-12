@@ -222,6 +222,9 @@ class DataSavingMixin(pp.PorePyModel):
 
         Parameters:
             vtu_files: Path(s) to vtu file(s).
+            time_index: Index of the time step to be loaded.
+            times_file: Path to json file storing history of time and time step size. If
+                ``None``, the same default path as in :meth:`write_pvd_and_vtu` is used.
             keys: Keywords addressing cell data to be transferred. If ``None``, the
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through ``pp.TIME_STEP_SOLUTIONS``.
@@ -232,13 +235,16 @@ class DataSavingMixin(pp.PorePyModel):
             ValueError: If incompatible file types are provided.
 
         """
-
         # Sanity check
         if not (
             isinstance(vtu_files, list)
             and all([vtu_file.suffix == ".vtu" for vtu_file in vtu_files])
         ) and not (isinstance(vtu_files, Path) and vtu_files.suffix == ".vtu"):
             raise ValueError
+
+        # Default path for times_file.
+        if times_file is None:
+            times_file = Path(self.params["folder_name"]) / "times.json"
 
         # Load states and read time index, connecting data and time history.
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
@@ -261,7 +267,8 @@ class DataSavingMixin(pp.PorePyModel):
             pvd_file: Path to pvd file with exported vtu files.
             is_mdg_pvd: Flag controlling whether pvd file is a mdg file, i.e., generated
                 with ``Exporter._export_mdg_pvd()`` or ``Exporter.write_pvd()``.
-            times_file: Path to json file storing history of time and time step size.
+            times_file: Path to json file storing history of time and time step size. If
+                ``None``, the same default path as in :meth:`write_pvd_and_vtu` is used.
             keys: Keywords addressing cell data to be transferred. If ``None``, the
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through ``pp.TIME_STEP_SOLUTIONS``.
@@ -273,6 +280,10 @@ class DataSavingMixin(pp.PorePyModel):
         # Sanity check
         if not pvd_file.suffix == ".pvd":
             raise ValueError
+
+        # Default path for times_file.
+        if times_file is None:
+            times_file = Path(self.params["folder_name"]) / "times.json"
 
         # Import data and determine time index corresponding to the pvd file.
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
