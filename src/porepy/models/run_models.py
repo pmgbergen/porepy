@@ -136,7 +136,7 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
 
             while not model.time_manager.final_time_reached():
                 time_progressbar.set_description_str(
-                    f"Time step {model.time_manager.time_index} + 1"
+                    f"Time step {model.time_manager.time_index + 1}"
                 )
                 converged: bool = time_step()
                 # If the current time step was solved, update time progressbar length by
@@ -235,7 +235,7 @@ def _run_iterative_model(model, params: dict) -> None:
 
             while not model.time_manager.final_time_reached():
                 time_progressbar.set_description_str(
-                    f"Time step {model.time_manager.time_index}"
+                    f"Time step {model.time_manager.time_index + 1}"
                 )
                 time_step()
                 # Update time progressbar by the time step size divided by the initial
