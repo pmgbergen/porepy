@@ -577,9 +577,9 @@ def structured_refinement(
     data = np.ones(indices.size)
     coarse_fine = sps.csc_matrix((data, indices, indptr))
 
-    assert (
-        indices.size == g_ref.num_cells
-    ), "Every fine cell should be inside exactly one coarse cell"
+    assert indices.size == g_ref.num_cells, (
+        "Every fine cell should be inside exactly one coarse cell"
+    )
     return coarse_fine
 
 

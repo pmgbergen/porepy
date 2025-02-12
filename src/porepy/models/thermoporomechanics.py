@@ -175,9 +175,9 @@ class SolutionStrategyThermoporomechanics(
                 self.solid_thermal_expansion_tensor([sd])
             )
             scalar_vector_mappings[self.darcy_keyword] = self.biot_tensor([sd])
-            data[pp.PARAMETERS][self.stress_keyword][
-                "scalar_vector_mappings"
-            ] = scalar_vector_mappings
+            data[pp.PARAMETERS][self.stress_keyword]["scalar_vector_mappings"] = (
+                scalar_vector_mappings
+            )
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""

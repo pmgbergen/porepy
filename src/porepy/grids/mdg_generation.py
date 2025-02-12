@@ -57,7 +57,7 @@ def _validate_args_types(
 
 
 def _validate_grid_type_value(
-    grid_type: Literal["simplex", "cartesian", "tensor_grid"]
+    grid_type: Literal["simplex", "cartesian", "tensor_grid"],
 ):
     """Validates grid_type value.
 

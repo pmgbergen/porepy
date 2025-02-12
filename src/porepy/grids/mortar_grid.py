@@ -160,7 +160,7 @@ class MortarGrid:
         """Nodes in the side grids with ``shape=(3, num_nodes)``."""
 
         # Set projections
-        if not (primary_secondary is None):
+        if primary_secondary is not None:
             self._init_projections(primary_secondary, face_duplicate_ind)
             self._set_projections()
 
