@@ -259,7 +259,6 @@ class Tpsa:
     """
 
     def __init__(self, keyword: str) -> None:
-
         self.keyword: str = keyword
         """Keyword used to identify the parameter dictionary."""
 
@@ -677,9 +676,7 @@ class Tpsa:
                 )
                 + t_shear_rob  # Contribution from Robin boundary conditions.
             )
-        ).reshape(
-            (nd, nf), order="F"
-        )  #
+        ).reshape((nd, nf), order="F")
 
         # Discretize the stress-displacement relation.
         stress, bound_stress = self._vector_laplace_matrices(

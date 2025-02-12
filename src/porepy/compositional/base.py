@@ -98,7 +98,6 @@ class Component:
     """
 
     def __init__(self, *args, **kwargs) -> None:
-
         self.name: str = str(kwargs.get("name", "unnamed_component"))
         """Name of the component. Can be named by providing a keyword argument 'name'
         when instantiating."""
@@ -164,7 +163,6 @@ class Compound(Component, Generic[ComponentLike]):
     """
 
     def __init__(self, *args, **kwargs) -> None:
-
         self.molar_mass: pp.number
         if "molar_mass" not in kwargs:
             raise ValueError(
@@ -260,7 +258,7 @@ class Compound(Component, Generic[ComponentLike]):
             # fluid component.
             if not hasattr(pc, "molar_mass"):
                 raise TypeError(
-                    f"Cannot assemble compound molar mass: Active tracer of type"
+                    "Cannot assemble compound molar mass: Active tracer of type"
                     + f" {type(pc)} has no attribute `molar_mass`."
                 )
             else:
@@ -478,7 +476,6 @@ class Phase(Generic[ComponentLike]):
         state: PhysicalState,
         name: str,
     ) -> None:
-
         self._ref_component_index: int = 0
         """See :meth:`reference_component_index`."""
 
@@ -734,7 +731,6 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         components: list[ComponentLike],
         phases: list[PhaseLike],
     ) -> None:
-
         self._ref_phase_index: int = 0
         """See :meth:`reference_phase_index`."""
         self._ref_component_index: int = 0
@@ -961,7 +957,6 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         """
 
         if self.num_phases > 1:
-
             op = pp.ad.sum_operator_list(
                 [
                     phase.saturation(domains) * phase.density(domains)
@@ -1012,7 +1007,6 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
         """
 
         if self.num_phases > 1:
-
             op = pp.ad.sum_operator_list(
                 [
                     phase.fraction(domains) * phase.specific_enthalpy(domains)
@@ -1051,7 +1045,6 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
         """
         if self.num_phases > 1:
-
             op = pp.ad.sum_operator_list(
                 [
                     phase.saturation(domains) * phase.thermal_conductivity(domains)
@@ -1061,7 +1054,6 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
             )
 
         else:
-
             op = self.reference_phase.thermal_conductivity(domains)
             op.set_name("fluid_thermal_conductivity")
 

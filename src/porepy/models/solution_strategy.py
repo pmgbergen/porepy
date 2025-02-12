@@ -289,9 +289,9 @@ class SolutionStrategy(pp.PorePyModel):
             dict[str, pp.Constants], self.params.get("material_constants", {})
         )
         # If the user provided material constants, assert they are in dictionary form
-        assert isinstance(
-            constants, dict
-        ), "model.params['material_constants'] must be a dictionary."
+        assert isinstance(constants, dict), (
+            "model.params['material_constants'] must be a dictionary."
+        )
 
         # Use standard models for fluid, solid and numerical constants if not provided.
         # Otherwise get the given constants.

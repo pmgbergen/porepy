@@ -1,4 +1,4 @@
-""" Efficient numpy.arange for arrays of start and end indices.
+"""Efficient numpy.arange for arrays of start and end indices.
 
 Acknowledgements:
     The functions are a python translation of the corresponding matlab
@@ -43,7 +43,7 @@ def mcolon(lo, hi):
         hi = hi * np.ones(lo.size, dtype=np.int64)
     if lo.size != hi.size:
         raise ValueError(
-            "Low and high should have same number of elements, " "or a single item "
+            "Low and high should have same number of elements, or a single item "
         )
 
     i = hi >= lo + 1
