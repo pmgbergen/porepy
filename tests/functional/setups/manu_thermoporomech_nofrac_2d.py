@@ -175,7 +175,7 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.value(self.equation_system)
+        approx_pressure = self.equation_system.evaluate(pressure_ad)
         error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
@@ -187,7 +187,7 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
 
         exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.value(self.equation_system)
+        approx_displacement = self.equation_system.evaluate(displacement_ad)
         error_displacement = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_displacement,
@@ -199,7 +199,7 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
 
         exact_temperature = self.exact_sol.temperature(sd=sd, time=t)
         temperature_ad = self.temperature([sd])
-        approx_temperature = temperature_ad.value(self.equation_system)
+        approx_temperature = self.equation_system.evaluate(temperature_ad)
         error_temperature = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_temperature,
@@ -211,7 +211,7 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
 
         exact_darcy_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
         flux_ad = self.darcy_flux([sd])
-        approx_darcy_flux = flux_ad.value(self.equation_system)
+        approx_darcy_flux = self.equation_system.evaluate(flux_ad)
         error_darcy_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_darcy_flux,
@@ -223,7 +223,7 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
 
         exact_energy_flux = self.exact_sol.energy_flux(sd=sd, time=t)
         flux_ad = self.energy_flux([sd])
-        approx_energy_flux = flux_ad.value(self.equation_system)
+        approx_energy_flux = self.equation_system.evaluate(flux_ad)
         error_energy_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_energy_flux,
@@ -235,7 +235,7 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
 
         exact_force = self.exact_sol.thermoporoelastic_force(sd=sd, time=t)
         force_ad = self.stress([sd])
-        approx_force = force_ad.value(self.equation_system)
+        approx_force = self.equation_system.evaluate(force_ad)
         error_force = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_force,
@@ -1191,9 +1191,9 @@ class ManuThermoPoroMechSolutionStrategy2d(
                 self.darcy_keyword: biot_alpha,
                 self.enthalpy_keyword: thermal_stress,
             }
-            data[pp.PARAMETERS][self.stress_keyword][
-                "scalar_vector_mappings"
-            ] = scalar_vector_mapping
+            data[pp.PARAMETERS][self.stress_keyword]["scalar_vector_mappings"] = (
+                scalar_vector_mapping
+            )
 
 
 class ManuThermoPoroMechSetup2d(  # type: ignore[misc]

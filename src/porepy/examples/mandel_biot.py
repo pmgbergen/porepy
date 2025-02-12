@@ -166,7 +166,7 @@ class MandelDataSaving(pp.PorePyModel):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd, t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.value(self.equation_system)
+        approx_pressure = self.equation_system.evaluate(pressure_ad)
         error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
@@ -178,7 +178,7 @@ class MandelDataSaving(pp.PorePyModel):
 
         exact_displacement = self.exact_sol.displacement(sd, t)
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.value(self.equation_system)
+        approx_displacement = self.equation_system.evaluate(displacement_ad)
         error_displacement = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_displacement,
@@ -191,7 +191,7 @@ class MandelDataSaving(pp.PorePyModel):
         exact_flux = self.exact_sol.flux(sd, t)
         flux_ad = self.darcy_flux([sd])
         mobility = 1 / self.fluid.reference_component.viscosity
-        approx_flux = mobility * flux_ad.value(self.equation_system)
+        approx_flux = mobility * self.equation_system.evaluate(flux_ad)
         error_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_flux,
@@ -203,7 +203,7 @@ class MandelDataSaving(pp.PorePyModel):
 
         exact_force = self.exact_sol.poroelastic_force(sd, t)
         force_ad = self.stress([sd])
-        approx_force = force_ad.value(self.equation_system)
+        approx_force = self.equation_system.evaluate(force_ad)
         error_force = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_force,
