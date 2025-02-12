@@ -1,4 +1,4 @@
-""" This module contains functions to run stationary and time-dependent models."""
+"""This module contains functions to run stationary and time-dependent models."""
 
 from __future__ import annotations
 

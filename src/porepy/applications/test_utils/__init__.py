@@ -15,3 +15,14 @@ from . import (
     reference_sparse_arrays,
     vtk,
 )
+
+__all__ = [
+    "arrays",
+    "common_xpfa_tests",
+    "grids",
+    "models",
+    "partial_discretization",
+    "reference_dense_arrays",
+    "reference_sparse_arrays",
+    "vtk",
+]
