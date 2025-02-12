@@ -12,6 +12,7 @@ References:
       elliptic equations. Journal of Numerical Mathematics.
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,7 +26,6 @@ import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -97,7 +97,7 @@ class ManuIncompSaveData:
     """Exact pressure in the matrix."""
 
 
-class ManuIncompDataSaving(VerificationDataSaving):
+class ManuIncompDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -139,7 +139,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
         # Collect data
         exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
         matrix_pressure_ad = self.pressure([sd_matrix])
-        approx_matrix_pressure = matrix_pressure_ad.value(self.equation_system)
+        approx_matrix_pressure = self.equation_system.evaluate(matrix_pressure_ad)
         error_matrix_pressure = ConvergenceAnalysis.lp_error(
             grid=sd_matrix,
             true_array=exact_matrix_pressure,
@@ -151,7 +151,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_matrix_flux = exact_sol.matrix_flux(sd_matrix)
         matrix_flux_ad = self.darcy_flux([sd_matrix])
-        approx_matrix_flux = matrix_flux_ad.value(self.equation_system)
+        approx_matrix_flux = self.equation_system.evaluate(matrix_flux_ad)
         error_matrix_flux = ConvergenceAnalysis.lp_error(
             grid=sd_matrix,
             true_array=exact_matrix_flux,
@@ -163,7 +163,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_frac_pressure = exact_sol.fracture_pressure(sd_frac)
         frac_pressure_ad = self.pressure([sd_frac])
-        approx_frac_pressure = frac_pressure_ad.value(self.equation_system)
+        approx_frac_pressure = self.equation_system.evaluate(frac_pressure_ad)
         error_frac_pressure = ConvergenceAnalysis.lp_error(
             grid=sd_frac,
             true_array=exact_frac_pressure,
@@ -175,7 +175,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_frac_flux = exact_sol.fracture_flux(sd_frac)
         frac_flux_ad = self.darcy_flux([sd_frac])
-        approx_frac_flux = frac_flux_ad.value(self.equation_system)
+        approx_frac_flux = self.equation_system.evaluate(frac_flux_ad)
         error_frac_flux = ConvergenceAnalysis.lp_error(
             grid=sd_frac,
             true_array=exact_frac_flux,
@@ -187,7 +187,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_intf_flux = exact_sol.interface_flux(intf)
         int_flux_ad = self.interface_darcy_flux([intf])
-        approx_intf_flux = int_flux_ad.value(self.equation_system)
+        approx_intf_flux = self.equation_system.evaluate(int_flux_ad)
         error_intf_flux = ConvergenceAnalysis.lp_error(
             grid=intf,
             true_array=exact_intf_flux,
@@ -699,7 +699,7 @@ class ManuIncompBoundaryConditions(
 
 
 # -----> Balance equations
-class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+class ManuIncompBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     exact_sol: ManuIncompExactSolution2d
@@ -754,17 +754,6 @@ class ManuIncompSolutionStrategy2d(
 
     results: list[ManuIncompSaveData]
     """List of SaveData objects."""
-
-    def __init__(self, params: dict):
-        """Constructor for the class."""
-
-        super().__init__(params)
-
-        self.exact_sol: ManuIncompExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuIncompSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
 
     def set_materials(self):
         """Set material constants for the verification setup."""

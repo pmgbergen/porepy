@@ -47,7 +47,6 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -116,7 +115,7 @@ class ManuThermoPoroMechSaveData:
     time: number
 
 
-class ManuThermoPoroMechDataSaving(VerificationDataSaving):
+class ManuThermoPoroMechDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     exact_sol: ManuThermoPoroMechExactSolution2d
@@ -138,6 +137,12 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
     """
 
+    energy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the energy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class
+    :class:`porepy.models.energy_balance.EnergyBalanceEquations`.
+
+    """
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
     provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
@@ -170,7 +175,7 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.value(self.equation_system)
+        approx_pressure = self.equation_system.evaluate(pressure_ad)
         error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
@@ -182,7 +187,7 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
         exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.value(self.equation_system)
+        approx_displacement = self.equation_system.evaluate(displacement_ad)
         error_displacement = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_displacement,
@@ -194,7 +199,7 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
         exact_temperature = self.exact_sol.temperature(sd=sd, time=t)
         temperature_ad = self.temperature([sd])
-        approx_temperature = temperature_ad.value(self.equation_system)
+        approx_temperature = self.equation_system.evaluate(temperature_ad)
         error_temperature = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_temperature,
@@ -206,7 +211,7 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
         exact_darcy_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
         flux_ad = self.darcy_flux([sd])
-        approx_darcy_flux = flux_ad.value(self.equation_system)
+        approx_darcy_flux = self.equation_system.evaluate(flux_ad)
         error_darcy_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_darcy_flux,
@@ -218,7 +223,7 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
         exact_energy_flux = self.exact_sol.energy_flux(sd=sd, time=t)
         flux_ad = self.energy_flux([sd])
-        approx_energy_flux = flux_ad.value(self.equation_system)
+        approx_energy_flux = self.equation_system.evaluate(flux_ad)
         error_energy_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_energy_flux,
@@ -230,7 +235,7 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
         exact_force = self.exact_sol.thermoporoelastic_force(sd=sd, time=t)
         force_ad = self.stress([sd])
-        approx_force = force_ad.value(self.equation_system)
+        approx_force = self.equation_system.evaluate(force_ad)
         error_force = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_force,
@@ -895,7 +900,7 @@ class ManuThermoPoroMechExactSolution2d:
 
 
 # -----> Geometry
-class UnitSquareGrid(pp.ModelGeometry):
+class UnitSquareGrid(pp.PorePyModel):
     """Class for setting up the geometry of the unit square domain.
 
     The domain may be assigned different material parameters in the region x > 0.5 and y
@@ -916,9 +921,6 @@ class UnitSquareGrid(pp.ModelGeometry):
     all nodes at x=0.5 and y=0.5 fixed). This is achieved in self.set_geometry().
 
     """
-
-    params: dict
-    """Simulation model parameters."""
 
     def set_geometry(self) -> None:
         super().set_geometry()
@@ -1034,15 +1036,12 @@ class ManuThermoPoroMechSolutionStrategy2d(
 ):
     """Solution strategy for the verification setup."""
 
+    exact_sol: ManuThermoPoroMechExactSolution2d
+    """Exact solution object."""
+
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)
-
-        self.exact_sol: ManuThermoPoroMechExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuThermoPoroMechSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
 
         self.flux_variable: str = "darcy_flux"
         """Keyword to access the Darcy fluxes."""
@@ -1192,9 +1191,9 @@ class ManuThermoPoroMechSolutionStrategy2d(
                 self.darcy_keyword: biot_alpha,
                 self.enthalpy_keyword: thermal_stress,
             }
-            data[pp.PARAMETERS][self.stress_keyword][
-                "scalar_vector_mappings"
-            ] = scalar_vector_mapping
+            data[pp.PARAMETERS][self.stress_keyword]["scalar_vector_mappings"] = (
+                scalar_vector_mapping
+            )
 
 
 class ManuThermoPoroMechSetup2d(  # type: ignore[misc]

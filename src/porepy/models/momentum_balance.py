@@ -102,6 +102,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         See individual equation methods for details.
 
         """
+        super().set_equations()
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
         fracture_subdomains = self.mdg.subdomains(dim=self.nd - 1)
         interfaces = self.mdg.interfaces(dim=self.nd - 1, codim=1)
@@ -481,14 +482,14 @@ class VariablesMomentumBalance(VariableMixin):
     """
 
     def create_variables(self) -> None:
-        """Set variables for the subdomains and interfaces.
+        """Introduces the following variables into the system:
 
-        The following variables are set:
-            - Displacement in the matrix.
-            - Displacement on fracture-matrix interfaces.
-            - Fracture contact traction.
-        See individual variable methods for details.
+        1. Displacement variable on all subdomains.
+        2. Displacement variable on all interfaces with codimension 1.
+        3. Contact traction variable on all fracture subdomains.
+
         """
+        super().create_variables()
 
         self.equation_system.create_variables(
             dof_info={"cells": self.nd},
@@ -647,34 +648,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         Used to access discretization parameters and store discretization matrices.
 
         """
-
-    def initial_condition(self) -> None:
-        """Set initial guess for the variables.
-
-        The displacement is set to zero in the Nd-domain, and at the fracture interfaces
-        The displacement jump is thereby also zero.
-
-        The contact pressure is set to zero in the tangential direction, and -1 (that
-        is, in contact) in the normal direction.
-
-        """
-        # Zero for displacement and initial bc values.
-        super().initial_condition()
-
-        # Contact as initial guess. Ensure traction is consistent with zero jump, which
-        # follows from the default zeros set for all variables, specifically interface
-        # displacement, by super method.
-        num_frac_cells = sum(
-            sd.num_cells for sd in self.mdg.subdomains(dim=self.nd - 1)
-        )
-        traction_vals = np.zeros((self.nd, num_frac_cells))
-        traction_vals[-1] = -1  # Unitary nondimensional traction.
-        self.equation_system.set_variable_values(
-            traction_vals.ravel("F"),
-            [self.contact_traction_variable],
-            time_step_index=0,
-            iterate_index=0,
-        )
 
     def set_discretization_parameters(self) -> None:
         """Set discretization parameters for the simulation."""
@@ -845,10 +818,139 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     def update_all_boundary_conditions(self) -> None:
         """Set values for the displacement and the stress on boundaries."""
         super().update_all_boundary_conditions()
+        self.update_boundary_condition(self.stress_keyword, self.bc_values_stress)
+
+    def update_boundary_values_primary_variables(self) -> None:
+        """Updates the displacement on the boundary, as the primary variable for
+        mechanics."""
+        super().update_boundary_values_primary_variables()
         self.update_boundary_condition(
             self.displacement_variable, self.bc_values_displacement
         )
-        self.update_boundary_condition(self.stress_keyword, self.bc_values_stress)
+
+
+class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
+    """Mixin for providing initial values for displacement."""
+
+    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`VariablesMomentumBalance`."""
+
+    interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """See :class:`VariablesMomentumBalance`."""
+
+    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """See :class:`VariablesMomentumBalance`."""
+
+    def set_initial_values_primary_variables(self) -> None:
+        """Method to set initial values for displacement, contact traction and interface
+        displacement at iterate index 0 after the super-call.
+
+        See also:
+
+            - :meth:`ic_values_displacement`
+            - :meth:`ic_values_interface_displacement`
+            - :meth:`ic_values_contact_traction`
+
+        """
+        # Super call for compatibility with multi-physics.
+        super().set_initial_values_primary_variables()
+
+        for sd in self.mdg.subdomains():
+            # Displacement is only defined on grids with ambient dimension.
+            if sd.dim == self.nd:
+                # Need to cast the return value to variable, because it is typed as
+                # operator.
+                self.equation_system.set_variable_values(
+                    self.ic_values_displacement(sd),
+                    [cast(pp.ad.Variable, self.displacement([sd]))],
+                    iterate_index=0,
+                )
+
+            # contact traction is only defined on fractures
+            if sd.dim == self.nd - 1:
+                self.equation_system.set_variable_values(
+                    self.ic_values_contact_traction(sd),
+                    [cast(pp.ad.Variable, self.contact_traction([sd]))],
+                    iterate_index=0,
+                )
+
+        # interface dispacement is only defined on fractures with codimension 1
+        for intf in self.mdg.interfaces(dim=self.nd - 1, codim=1):
+            self.equation_system.set_variable_values(
+                self.ic_values_interface_displacement(intf),
+                [cast(pp.ad.Variable, self.interface_displacement([intf]))],
+                iterate_index=0,
+            )
+
+    def ic_values_displacement(self, sd: pp.Grid) -> np.ndarray:
+        """Initial values for displacement on the matrix grid.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method will only be called with the matrix grid (ambient dimension),
+            since displacement is only defined there.
+
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial displacement values on the matrix with
+            ``shape=(sd.num_cells * nd,)``. Defaults to zero array.
+
+        """
+        return np.zeros(sd.num_cells * self.nd)
+
+    def ic_values_interface_displacement(self, intf: pp.MortarGrid) -> np.ndarray:
+        """Initial values for interface displacement.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method will only be called for interfaces with dimension ``nd-1`` and
+            codimension 1.
+
+        Parameters:
+            intf: A mortar grid in the md-grid.
+
+        Returns:
+            The initial displacement values on the matrix with
+            ``shape=(intf.num_cells * nd,)``. Defaults to zero array.
+
+        """
+        return np.zeros(intf.num_cells * self.nd)
+
+    def ic_values_contact_traction(self, sd: pp.Grid) -> np.ndarray:
+        """Initial values for the contact traction variable.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method will only be called for grids with dimension ``nd-1``.
+
+        Important:
+            By default, this initialization does not return trivial values.
+            The contact traction is set to zero in the tangential direction, and -1
+            (that is, in contact) in the normal direction.
+
+            This initialization is consistent with the zero displacement on matrix and
+            interfaces.
+
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial displacement values on the matrix with
+            ``shape=(sd.num_cells * nd,)``. Defaults to zero array.
+
+        """
+        # Contact as initial guess. Ensure traction is consistent with zero jump, which
+        # follows from the default zeros set for all variables, specifically interface
+        # displacement.
+        num_frac_cells = sd.num_cells
+        traction_vals = np.zeros((self.nd, num_frac_cells))
+        traction_vals[-1] = -1  # Unitary nondimensional traction.
+        return traction_vals.ravel("F")
 
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
@@ -864,6 +966,7 @@ class MomentumBalance(  # type: ignore[misc]
     VariablesMomentumBalance,
     ConstitutiveLawsMomentumBalance,
     BoundaryConditionsMomentumBalance,
+    InitialConditionsMomentumBalance,
     SolutionStrategyMomentumBalance,
     # For clarity, the functionality of the FluidMixin is not really used in the pure
     # momentum balance model, but for unity of implementation (and to avoid some

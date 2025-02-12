@@ -25,7 +25,7 @@ import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
 from .functions import FloatType
-from .operators import Operator
+from .operators import Operations, Operator
 
 __all__ = [
     "AbstractFunction",
@@ -67,7 +67,7 @@ class AbstractFunction(Operator):
         self,
         name: Optional[str] = None,
         domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operator.Operations] = None,
+        operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
         **kwargs,  # Left for inheritance for more complex functions
     ) -> None:
@@ -77,7 +77,7 @@ class AbstractFunction(Operator):
         super().__init__(
             name=name,
             domains=domains,
-            operation=pp.ad.Operator.Operations.evaluate,
+            operation=pp.ad.operators.Operations.evaluate,
             children=children,
         )
 
@@ -102,7 +102,7 @@ class AbstractFunction(Operator):
         op = Operator(
             name=f"{self.name}{[a.name for a in args]}",
             # domains=self.domains,
-            operation=pp.ad.Operator.Operations.evaluate,
+            operation=pp.ad.operators.Operations.evaluate,
             children=args,
         )
         # Assigning the functional representation by the implementation of this instance

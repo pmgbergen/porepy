@@ -1,17 +1,13 @@
 """Contains code for setting up a simple but non-trivial model with a well."""
 
+from typing import Literal
+
 import numpy as np
 
 import porepy as pp
 
 
-class OneVerticalWell:
-    domain: pp.Domain
-    """Domain for the model."""
-
-    units: pp.Units
-    """Simulation units provided by the solution strategy mixin."""
-
+class OneVerticalWell(pp.PorePyModel):
     def set_well_network(self) -> None:
         """Assign well network class."""
         points = np.array([[0.5, 0.5], [0.5, 0.5], [0.2, 1]])
@@ -34,11 +30,11 @@ class OneVerticalWell:
 
         return mesh_sizes
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex"]:
         return "simplex"
 
 
-class BoundaryConditionsWellSetup(pp.BoundaryConditionMixin):
+class BoundaryConditionsWellSetup(pp.PorePyModel):
     """Boundary conditions for the well setup."""
 
     def _bc_type(self, sd: pp.Grid, well_cond: str) -> pp.BoundaryCondition:

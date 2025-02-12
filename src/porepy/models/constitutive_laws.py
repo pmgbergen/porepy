@@ -424,9 +424,10 @@ class DisplacementJumpAperture(DimensionReduction):
 
                 # Average weights are the number of cells in the parent subdomains
                 # contributing to each intersection cells.
-                weight_value = parent_cells_to_intersection_cells.value(
-                    self.equation_system
+                weight_value = self.equation_system.evaluate(
+                    parent_cells_to_intersection_cells
                 )
+
                 assert isinstance(weight_value, sps.spmatrix)  # for mypy
                 average_weights = np.ravel(weight_value.sum(axis=1))
                 nonzero = average_weights > 0
@@ -509,15 +510,15 @@ class SecondOrderTensorUtils(pp.PorePyModel):
 
         """
         # Evaluate as 9 x num_cells array
-        volume = self.specific_volume([sd]).value(self.equation_system)
+        volume = self.equation_system.evaluate(self.specific_volume([sd]))
         try:
-            permeability = operator.value(self.equation_system)
+            permeability = self.equation_system.evaluate(operator)
         except KeyError:
             # If the permeability depends on an not yet computed discretization matrix,
             # fall back on reference value.
             permeability = fallback_value * np.ones(sd.num_cells) * volume
             return pp.SecondOrderTensor(permeability)
-        evaluated_value = operator.value(self.equation_system)
+        evaluated_value = self.equation_system.evaluate(operator)
         if not isinstance(evaluated_value, np.ndarray):
             # Raise error rather than cast for verbosity of function which is not
             # directly exposed to the user, but depends on a frequently user-defined
@@ -587,6 +588,113 @@ class ConstantPermeability(pp.PorePyModel):
 
         """
         return Scalar(self.solid.normal_permeability)
+
+
+class MassWeightedPermeability(ConstantPermeability):
+    """A non-linear permeability model where the total mass mobility of the fluid is
+    an isotropic contribution to the otherwise constant, absolute permeability tensor.
+
+    To be used in combination with :class:`~porepy.models.compositional_flow.
+    MassicPressureEquations` in the fractional flow setting, and
+    :class:`DarcysLawAd`.
+
+    Important:
+        This implementation is as of now not compatible with absolute permeabilities
+        which are state dependent (e.g. dependent on the divergence of displacement, or
+        on the fracture jump). It uses solely the solid's constant and scalar
+        permeability.
+
+    """
+
+    total_mass_mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+
+    def mass_mobility_weighted_permeability(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """helper method implementing the mass mobility weighted permeability as a
+        scalar representing the actual isotropic tensor.
+
+        It is obtained by multiplying the solid's constant (absolute) permeability with
+        the total mass mobility of the fluid.
+
+        Parameters:
+            subdomains: A list of subdomains.
+
+        Returns:
+            The cell-wise, scalar permeability. Used for the isotropic tensor and the
+            normal permeability on the interface.
+
+        """
+        abs_perm = pp.wrap_as_dense_ad_array(
+            self.solid.permeability,
+            size=sum(sd.num_cells for sd in subdomains),
+            name="absolute_permeability",
+        )
+        op = self.total_mass_mobility(subdomains) * abs_perm
+        op.set_name("isotropic_permeability")
+        return op
+
+    def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Permeability represented as an isotropic second-order tensor including the
+        total mass mobility.
+
+        See also :meth:`mass_mobility_weighted_permeability`.
+
+        This method is designed to be compatible with complex CF models, which *can* be
+        flagged to use the fractional flow formulation.
+
+        I.e., if it is a fractional flow formulation, the implementation is used.
+        Otherwise other permeability laws are looked for via super-call.
+
+        Note:
+            See note in :meth:`mass_mobility_weighted_permeability` on compatibility
+            with other, non-linear terms which can appear in the permeability tensor.
+
+            In the non-fractional-flow setting, this method is compatible with any other
+            constitutive law for permeability.
+
+        Parameters:
+            subdomains: A list of subdomains.
+
+        Returns:
+            The permeability in operator form either in [m^2] or in
+            [kg * m^(-1) * Pa^(-1) * s^(-1)] in the fractional flow formulation,
+            as a second-order tensor.
+
+        """
+        if pp.compositional_flow.is_fractional_flow(self):
+            op = self.isotropic_second_order_tensor(
+                subdomains, self.mass_mobility_weighted_permeability(subdomains)
+            )
+            op.set_name("diffusive_tensor_darcy")
+        else:
+            # This branch is here for compatibility reasons when using the CF framework
+            # with in a non-diffusive set-up.
+            op = super().permeability(subdomains)
+        return op
+
+    def normal_permeability(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """A constitutive law returning the normal permeability as
+        :meth:`mass_mobility_weighted_permeability` on the lower-dimensional subdomain.
+
+        Parameters:
+            interfaces: A list of mortar grids.
+
+        Returns:
+            The product of total mobility and permeability of the lower-dimensional.
+
+        """
+
+        subdomains = self.interfaces_to_subdomains(interfaces)
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        normal_permeability = (
+            projection.secondary_to_mortar_avg()
+            @ self.mass_mobility_weighted_permeability(subdomains)
+        )
+        normal_permeability.set_name("normal_permeability")
+        return normal_permeability
 
 
 class DimensionDependentPermeability(ConstantPermeability):
@@ -1006,8 +1114,7 @@ class DarcysLaw(pp.PorePyModel):
         # source with a matrix (though the formal mypy type is Operator, the matrix is
         # composed by summation).
         normals_times_source = normals * vector_source
-        # Then sum over the nd dimensions. We need to surpress mypy complaints on  basis
-        # having keyword-only arguments. The result will in effect be a matrix.
+        # Then sum over the nd dimensions. The result will in effect be a matrix.
         nd_to_scalar_sum = pp.ad.sum_operator_list(
             [e.T for e in self.basis(interfaces, dim=self.nd)]
         )
@@ -1543,9 +1650,9 @@ class AdTpfaFlux(pp.PorePyModel):
         # to handle all combinations of these cases.
         #
         # First, we check if any of the arguments are numpy arrays, which would
-        # correspond to the case where the Operator is evaluated using .value(). In this
-        # case, we simply return the product of the base discretization with the vector
-        # source.
+        # correspond to the case where the Operator is evaluated for its residual only.
+        # In this case, we simply return the product of the base discretization with the
+        # vector source.
         if (
             isinstance(T_f, np.ndarray)
             and isinstance(vs, np.ndarray)
@@ -2006,7 +2113,7 @@ class ThermalConductivityLTE(ConstantFluidThermalConductivity):
         # Since thermal conductivity is used as a discretization parameter, it has to be
         # evaluated before the discretization matrices are computed.
         try:
-            phi.value(self.equation_system)
+            self.equation_system.evaluate(phi)
         except KeyError:
             # We assume this means that the porosity includes a discretization matrix
             # for displacement_divergence which has not yet been computed.
@@ -2018,6 +2125,37 @@ class ThermalConductivityLTE(ConstantFluidThermalConductivity):
             Scalar(1) - phi
         ) * self.solid_thermal_conductivity(subdomains)
         return self.isotropic_second_order_tensor(subdomains, conductivity)
+
+
+class ThermalConductivityCF(ThermalConductivityLTE):
+    """A constitutive law providing the normal thermal conductivity to be
+    used with Fourier's Law in the compositional flow."""
+
+    def normal_thermal_conductivity(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.Operator:
+        """Normal thermal conductivity of the fluid.
+
+        This is a constitutive law choosing the thermal conductivity of the fluid in the
+        lower-dimensional domains as the normal conductivity.
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing normal thermal conductivity on the interfaces.
+
+        """
+        subdomains = self.interfaces_to_subdomains(interfaces)
+
+        projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces, dim=1)
+
+        # This is a constitutive law based on Banshoya 2023.
+        normal_conductivity = projection.secondary_to_mortar_avg() @ (
+            self.fluid.thermal_conductivity(subdomains)
+        )
+        normal_conductivity.set_name("norma_thermal_conductivity")
+        return normal_conductivity
 
 
 class FouriersLaw(pp.PorePyModel):
@@ -2038,7 +2176,7 @@ class FouriersLaw(pp.PorePyModel):
    :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Scalar]
+    normal_thermal_conductivity: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """Conductivity on a mortar grid. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.
 
@@ -2371,7 +2509,7 @@ class AdvectiveFlux(pp.PorePyModel):
             Callable[[list[pp.MortarGrid]], pp.ad.Operator]
         ] = None,
     ) -> pp.ad.Operator:
-        """An operator represetning the advective flux on subdomains.
+        """An operator representing the advective flux on subdomains.
 
         .. note::
             The implementation assumes that the advective flux is discretized using a
@@ -2493,9 +2631,8 @@ class AdvectiveFlux(pp.PorePyModel):
 
 
 class EnthalpyFromTemperature(FluidEnthalpyFromTemperature):
-    """Class for representing the ethalpy, computed from the perturbation from a
-    reference temperature, for both fluid and solid.
-    """
+    """Class for representing the enthalpy, computed from the perturbation from a
+    reference temperature, for both fluid and solid."""
 
     enthalpy_keyword: str
     """Keyword used to identify the enthalpy flux discretization. Normally"
@@ -2611,8 +2748,7 @@ class GravityForce(pp.PorePyModel):
         else:
             raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
-        # Gravity acts along the last coordinate direction (z in 3d, y in 2d). Ignore
-        # type error, can't get mypy to understand keyword-only arguments in mixin.
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d).
         e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)
         # e_n is a matrix, thus we need @ for it.
         gravity = Scalar(-1) * e_n @ (rho * gravity)
@@ -3375,7 +3511,7 @@ class BartonBandis(pp.PorePyModel):
         # If the maximum opening is zero, the Barton-Bandis model is not valid in the
         # case of zero normal traction. In this case, we return an empty operator.
         # If the maximum opening is negative, an error is raised.
-        val = maximum_opening.value(self.equation_system)
+        val = self.equation_system.evaluate(maximum_opening)
         if np.any(val == 0):
             num_cells = sum(sd.num_cells for sd in subdomains)
             return pp.ad.DenseArray(np.zeros(num_cells), "zero_Barton-Bandis_opening")
@@ -3550,7 +3686,7 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
         # need cast for convert_units. By implementation of stiffness, it can only be a
         # number
         stiffness_value = self.units.convert_units(
-            cast(pp.number, stiffness.value(self.equation_system)),
+            cast(pp.number, self.equation_system.evaluate(stiffness)),
             "Pa*m^-1",
             to_si=True,
         )
@@ -3940,7 +4076,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         return consistency
 
 
-class BiotPoroMechanicsPorosity(PoroMechanicsPorosity):
+class BiotPoroMechanicsPorosity(pp.PorePyModel):
     """Porosity for poromechanical models following classical Biot's theory.
 
     The porosity is defined such that, after the chain rule is applied to the
