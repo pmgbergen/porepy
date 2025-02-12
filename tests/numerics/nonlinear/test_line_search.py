@@ -70,7 +70,7 @@ def test_line_search():
     checks are made on the results or that the line search does what it is supposed to.
 
     """
-    model = ConstraintFunctionsMomentumBalance()
+    model = ConstraintFunctionsMomentumBalance({"times_to_export": []})
     solver_params = {
         "nonlinear_solver": ConstraintLineSearchNonlinearSolver,
         "Global_line_search": True,

@@ -10,7 +10,7 @@ or to a file format other than vtu.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union, cast
+from typing import Any, Optional, Union, cast
 
 import numpy as np
 
@@ -29,14 +29,19 @@ class DataSavingMixin(pp.PorePyModel):
     def save_data_time_step(self) -> None:
         """Export the model state at a given time step and log time.
 
-        The options for exporting times are:
-            * `None`: All time steps are exported
-            * `list`: Export if time is in the list. If the list is empty, then no
-            times are exported.
+        The options for exporting times can be given as ``params['times_to_export']``:
+
+        - ``None``: All time steps are exported.
+        - ``list``: Export if time is in the list. If the list is empty, then no
+          times are exported.
 
         In addition, save the solver statistics to file if the option is set.
 
+        Finally, :meth:`collect_data` is called and stored in :attr:`results` for
+        data collection and verification in runtime.
+
         """
+
         # Fetching the desired times to export.
         times_to_export = self.params.get("times_to_export", None)
         if times_to_export is None:
@@ -54,6 +59,40 @@ class DataSavingMixin(pp.PorePyModel):
 
         # Save solver statistics to file.
         self.nonlinear_solver_statistics.save()
+
+        # Collecting and storing data in runtime for analysis. If default value of None
+        # is returned, nothing is stored to not burden memory.
+        if not self._is_time_dependent():  # stationary problem
+            if (
+                self.nonlinear_solver_statistics.num_iteration > 0
+            ):  # avoid saving initial condition
+                collected_data = self.collect_data()
+                if collected_data is not None:
+                    self.results.append(collected_data)
+        else:  # time-dependent problem
+            t = self.time_manager.time  # current time
+            scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
+            if any(np.isclose(t, scheduled)):
+                collected_data = self.collect_data()
+                if collected_data is not None:
+                    self.results.append(collected_data)
+
+    def collect_data(self) -> Any:
+        """Collect relevant simulation data to be stored in attr:`results`.
+
+        Override to collect data respectively. By default, this method returns None and
+        nothing is stored.
+
+        For stationary problems, this method is called in every iteration. For time
+        dependent problems, it is called after convergence of a time step which is
+        scheduled by the time manager.
+
+        Returns:
+            Any data structure relevant for future verification. By default, None.
+            If it is not None, it is stored in :attr:`results`.
+
+        """
+        return None
 
     def write_pvd_and_vtu(self) -> None:
         """Helper function for writing the .vtu and .pvd files and time information."""
@@ -240,29 +279,3 @@ class DataSavingMixin(pp.PorePyModel):
         self.time_manager.load_time_information(times_file)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
-
-
-class VerificationDataSaving(DataSavingMixin):
-    """Class to store relevant data for a generic verification setup."""
-
-    results: list
-    """List of objects containing the results of the verification."""
-
-    def save_data_time_step(self) -> None:
-        """Save data to the `results` list."""
-        if not self._is_time_dependent():  # stationary problem
-            if (
-                self.nonlinear_solver_statistics.num_iteration > 0
-            ):  # avoid saving initial condition
-                collected_data = self.collect_data()
-                self.results.append(collected_data)
-        else:  # time-dependent problem
-            t = self.time_manager.time  # current time
-            scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
-            if any(np.isclose(t, scheduled)):
-                collected_data = self.collect_data()
-                self.results.append(collected_data)
-
-    def collect_data(self):
-        """Collect relevant data for the verification setup."""
-        raise NotImplementedError()

@@ -47,7 +47,6 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -116,7 +115,7 @@ class ManuThermoPoroMechSaveData:
     time: number
 
 
-class ManuThermoPoroMechDataSaving(VerificationDataSaving):
+class ManuThermoPoroMechDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     exact_sol: ManuThermoPoroMechExactSolution2d
@@ -138,6 +137,12 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
     """
 
+    energy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the energy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class
+    :class:`porepy.models.energy_balance.EnergyBalanceEquations`.
+
+    """
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
     provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
@@ -895,7 +900,7 @@ class ManuThermoPoroMechExactSolution2d:
 
 
 # -----> Geometry
-class UnitSquareGrid(pp.ModelGeometry):
+class UnitSquareGrid(pp.PorePyModel):
     """Class for setting up the geometry of the unit square domain.
 
     The domain may be assigned different material parameters in the region x > 0.5 and y
@@ -916,9 +921,6 @@ class UnitSquareGrid(pp.ModelGeometry):
     all nodes at x=0.5 and y=0.5 fixed). This is achieved in self.set_geometry().
 
     """
-
-    params: dict
-    """Simulation model parameters."""
 
     def set_geometry(self) -> None:
         super().set_geometry()
@@ -1034,15 +1036,12 @@ class ManuThermoPoroMechSolutionStrategy2d(
 ):
     """Solution strategy for the verification setup."""
 
+    exact_sol: ManuThermoPoroMechExactSolution2d
+    """Exact solution object."""
+
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)
-
-        self.exact_sol: ManuThermoPoroMechExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuThermoPoroMechSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
 
         self.flux_variable: str = "darcy_flux"
         """Keyword to access the Darcy fluxes."""

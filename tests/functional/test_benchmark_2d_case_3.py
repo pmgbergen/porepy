@@ -70,6 +70,7 @@ def model(
         "grid_type": "simplex",
         "meshing_arguments": {"cell_size": 0.1},
         "flux_discretization": flux_discretization,
+        "times_to_export": [],  # Suppress output for tests
     }
     if case == "a":
         model = Model3aWithEffectivePermeability(model_params)

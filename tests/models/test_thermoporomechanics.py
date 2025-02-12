@@ -178,7 +178,7 @@ def test_thermoporomechanics_model_no_modification():
     Failure of this test would signify rather fundamental problems in the model.
 
     """
-    mod = pp.Thermoporomechanics({})
+    mod = pp.Thermoporomechanics({"times_to_export": []})
     pp.run_stationary_model(mod, {})
 
 
@@ -301,6 +301,7 @@ def test_robin_boundary_flux():
         "fourier_flux_east": -2e-2,
         "mechanical_stress_west": 3e-2,
         "mechanical_stress_east": -3e-2,
+        "times_to_export": [],
     }
 
     model = TailoredPoromechanicsRobin(model_params)
@@ -459,6 +460,7 @@ def test_thermoporomechanics_well():
     model_params = {
         "fracture_indices": [2],
         "well_flux": -1e-2,
+        "times_to_export": [],
     }
     setup = ThermoporomechanicsWell(model_params)
     pp.run_time_dependent_model(setup)
