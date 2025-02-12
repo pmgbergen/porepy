@@ -44,13 +44,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import porepy as pp
-import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as mechanics
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.derived_models.biot import BiotPoromechanics
 from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -100,13 +97,13 @@ class TerzaghiSaveData:
     """Current simulation time."""
 
 
-class TerzaghiDataSaving(VerificationDataSaving):
+class TerzaghiDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     exact_sol: TerzaghiExactSolution
     """Exact solution object."""
 
-    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
@@ -155,8 +152,8 @@ class TerzaghiDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd.cell_centers[1], t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.value(self.equation_system)
-        error_pressure = ConvergenceAnalysis.l2_error(
+        approx_pressure = self.equation_system.evaluate(pressure_ad)
+        error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=cast(np.ndarray, approx_pressure),
@@ -166,7 +163,7 @@ class TerzaghiDataSaving(VerificationDataSaving):
         )
 
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.value(self.equation_system)
+        approx_displacement = self.equation_system.evaluate(displacement_ad)
 
         approx_consolidation_degree = self.numerical_consolidation_degree()
         exact_consolidation_degree = self.exact_sol.consolidation_degree(t)
@@ -295,8 +292,8 @@ class TerzaghiUtils(VerificationUtils):
     # ---> Derived physical quantities
     def gravity_acceleration(self) -> number:
         """Gravity acceleration in scaled [m * s^-2]."""
-        ls = self.solid.convert_units(1, "m")
-        ts = self.solid.convert_units(1, "s")
+        ls = self.units.convert_units(1, "m")
+        ts = self.units.convert_units(1, "s")
         scaling_factor = ls / ts**2
         return pp.GRAVITY_ACCELERATION * scaling_factor  # scaled [m * s^-2]
 
@@ -307,8 +304,8 @@ class TerzaghiUtils(VerificationUtils):
             Confined compressibility.
 
         """
-        mu_s = self.solid.shear_modulus()  # scaled [Pa]
-        lambda_s = self.solid.lame_lambda()  # scaled [Pa]
+        mu_s = self.solid.shear_modulus  # scaled [Pa]
+        lambda_s = self.solid.lame_lambda  # scaled [Pa]
         m_v = 1 / (2 * mu_s + lambda_s)  # scaled [Pa^-1]
         return m_v
 
@@ -319,14 +316,14 @@ class TerzaghiUtils(VerificationUtils):
             Coefficient of consolidation.
 
         """
-        k = self.solid.permeability()  # scaled [m^2]
-        mu_f = self.fluid.viscosity()  # scaled [Pa * s]
-        rho = self.fluid.density()  # scaled [kg * m^-3]
+        k = self.solid.permeability  # scaled [m^2]
+        mu_f = self.fluid.reference_component.viscosity  # scaled [Pa * s]
+        rho = self.fluid.reference_component.density  # scaled [kg * m^-3]
         g = self.gravity_acceleration()  # scaled [m * s^-2]
         gamma_f = rho * g  # specific weight in scaled [Pa * m^-1]
         hydraulic_conductivity = (k * gamma_f) / mu_f  # scaled [m * s^-1]
-        storage = self.solid.specific_storage()  # scaled [Pa^-1]
-        alpha_biot = self.solid.biot_coefficient()  # scaled [-]
+        storage = self.solid.specific_storage  # scaled [Pa^-1]
+        alpha_biot = self.solid.biot_coefficient  # scaled [-]
         m_v = self.confined_compressibility()  # scaled [Pa^-1]
         c_v = hydraulic_conductivity / (gamma_f * (storage + alpha_biot**2 * m_v))
 
@@ -499,15 +496,12 @@ class TerzaghiUtils(VerificationUtils):
 
 
 # -----> Geometry
-class PseudoOneDimensionalColumn(pp.ModelGeometry):
+class PseudoOneDimensionalColumn(pp.PorePyModel):
     """Define geometry of the verification setup."""
-
-    params: dict
-    """Simulation model parameters."""
 
     def height(self) -> pp.number:
         """Retrieve height of the domain, in scaled [m]."""
-        ls = self.solid.convert_units(1, "m")  # length scaling
+        ls = self.units.convert_units(1, "m")  # length scaling
         height = self.params.get("height", 1.0)  # [m]
         return height * ls
 
@@ -527,21 +521,11 @@ class PseudoOneDimensionalColumn(pp.ModelGeometry):
 
 
 # -----> Boundary conditions
-class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBalance):
-    params: dict
-    """Parameter dictionary of the verification setup."""
-
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of storing and scaling numerical values
-    representing solid-related quantities. Normally, this is set by an instance of
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
+class TerzaghiBoundaryConditionsMechanics(pp.PorePyModel):
     def applied_load(self) -> pp.number:
         """Obtain vertical load in scaled [Pa]."""
         applied_load = self.params.get("vertical_load", 6e8)  # [Pa]
-        return self.solid.convert_units(applied_load, "Pa")  # scaled [Pa]
+        return self.units.convert_units(applied_load, "Pa")  # scaled [Pa]
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Define type of boundary conditions.
@@ -554,8 +538,10 @@ class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBa
             the South, and rollers on the sides.
 
         """
-        # Inherit bc from parent class. This sets all bc faces as Dirichlet.
-        bc = super().bc_type_mechanics(sd=sd)
+        # Start with all faces as Dirichlet faces, analogous to base mechanics set-up.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        bc = pp.BoundaryConditionVectorial(sd, boundary_faces, "dir")
+        bc.internal_to_dirichlet(sd)
 
         # Get boundary sides, retrieve data dict, and bc object
         _, east, west, north, *_ = self.domain_boundary_sides(sd)
@@ -594,9 +580,7 @@ class TerzaghiBoundaryConditionsMechanics(mechanics.BoundaryConditionsMomentumBa
         return bc_values.ravel("F")
 
 
-class TerzaghiBoundaryConditionsFlow(
-    mass.BoundaryConditionsSinglePhaseFlow,
-):
+class TerzaghiBoundaryConditionsFlow(pp.PorePyModel):
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the Darcy flux.
 
@@ -628,15 +612,25 @@ class TerzaghiPoromechanicsBoundaryConditions(
     """Mixer class for poromechanics boundary conditions."""
 
 
-# -----> Solution strategy
-class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
-    """Solution strategy class for Terzaghi's setup."""
+class TerzaghiInitialConditions:
+    """Mixin providing non-trivial initial values for pressure depending on the applied
+    load."""
 
     applied_load: Callable[[], pp.number]
     """Method that sets the applied load in scaled [Pa]. Normally provided by an
     instance of :class:`~TerzaghiBoundaryConditionsMechanics`.
 
     """
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        vertical_load = self.applied_load()  # scaled [Pa]
+        initial_p = vertical_load * np.ones(sd.num_cells)
+        return initial_p
+
+
+# -----> Solution strategy
+class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
+    """Solution strategy class for Terzaghi's setup."""
 
     exact_sol: TerzaghiExactSolution
     """Exact solution object."""
@@ -650,21 +644,6 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
     """
 
-    def __init__(self, params: dict) -> None:
-        """Constructor of the class.
-
-        Parameters:
-            params: Parameters of the verification setup.
-
-        """
-        super().__init__(params)
-
-        self.exact_sol: TerzaghiExactSolution
-        """Exact solution object."""
-
-        self.results: list[TerzaghiSaveData] = []
-        """List of stored results from the verification."""
-
     def set_materials(self):
         """Set material parameters.
 
@@ -674,33 +653,10 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         self.exact_sol = TerzaghiExactSolution(self)
 
         # Specific storage must be zero
-        assert self.solid.specific_storage() == 0
+        assert self.solid.specific_storage == 0
 
         # Biot's coefficient must be one
-        assert self.solid.biot_coefficient() == 1
-
-    def initial_condition(self) -> None:
-        """Set initial conditions.
-
-        Terzaghi's problem assumes that the soil is initially unconsolidated and that
-        the initial fluid pressure equals the vertical load.
-
-        """
-        super().initial_condition()
-        # Since the parent class sets zero initial displacement, we only need to
-        # modify the initial conditions for the flow subproblem.
-        sd = self.mdg.subdomains()[0]
-        data = self.mdg.subdomain_data(sd)
-        vertical_load = self.applied_load()  # scaled [Pa]
-        initial_p = vertical_load * np.ones(sd.num_cells)
-
-        pp.set_solution_values(
-            name=self.pressure_variable,
-            values=initial_p,
-            data=data,
-            iterate_index=0,
-            time_step_index=0,
-        )
+        assert self.solid.biot_coefficient == 1
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
@@ -715,6 +671,7 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 class TerzaghiSetup(  # type: ignore[misc]
     PseudoOneDimensionalColumn,
     TerzaghiPoromechanicsBoundaryConditions,
+    TerzaghiInitialConditions,
     TerzaghiSolutionStrategy,
     TerzaghiUtils,
     TerzaghiDataSaving,

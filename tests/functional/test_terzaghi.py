@@ -27,22 +27,23 @@ from porepy.examples.terzaghi_biot import (
     PseudoOneDimensionalColumn,
     TerzaghiDataSaving,
     TerzaghiPoromechanicsBoundaryConditions,
+    TerzaghiInitialConditions,
     TerzaghiSetup,
     TerzaghiSolutionStrategy,
     TerzaghiUtils,
     terzaghi_fluid_constants,
     terzaghi_solid_constants,
 )
-from porepy.models.poromechanics import Poromechanics
 
 
 class TerzaghiSetupPoromechanics(
     PseudoOneDimensionalColumn,
     TerzaghiPoromechanicsBoundaryConditions,
+    TerzaghiInitialConditions,
     TerzaghiSolutionStrategy,
     TerzaghiUtils,
     TerzaghiDataSaving,
-    Poromechanics,
+    pp.Poromechanics,
 ):
     """Terzaghi mixer class based on the full poromechanics class."""
 
@@ -53,10 +54,11 @@ def test_biot_equal_to_incompressible_poromechanics():
     # Run Terzaghi setup with full poromechanics model
     model_params_poromech = {
         "material_constants": {
-            "solid": pp.SolidConstants(terzaghi_solid_constants),
-            "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+            "solid": pp.SolidConstants(**terzaghi_solid_constants),
+            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         },
         "num_cells": 10,
+        "times_to_export": [],  # Suppress output for tests
     }
     setup_poromech = TerzaghiSetupPoromechanics(model_params_poromech)
     pp.run_time_dependent_model(model=setup_poromech)
@@ -66,10 +68,11 @@ def test_biot_equal_to_incompressible_poromechanics():
     # Run Terzaghi setup with Biot model
     model_params_biot = {
         "material_constants": {
-            "solid": pp.SolidConstants(terzaghi_solid_constants),
-            "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+            "solid": pp.SolidConstants(**terzaghi_solid_constants),
+            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         },
         "num_cells": 10,
+        "times_to_export": [],  # Suppress output for tests
     }
     setup_biot = TerzaghiSetup(model_params_biot)
     pp.run_time_dependent_model(model=setup_biot)
@@ -110,11 +113,12 @@ def test_pressure_and_consolidation_degree_errors():
 
     model_params = {
         "material_constants": {
-            "solid": pp.SolidConstants(terzaghi_solid_constants),
-            "fluid": pp.FluidConstants(terzaghi_fluid_constants),
+            "solid": pp.SolidConstants(**terzaghi_solid_constants),
+            "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
         },
         "time_manager": pp.TimeManager([0, 0.15, 0.3], 0.15, True),
         "num_cells": 10,
+        "times_to_export": [],  # Suppress output for tests
     }
     setup = TerzaghiSetup(model_params)
     pp.run_time_dependent_model(setup)
@@ -142,21 +146,28 @@ def test_scaled_vs_unscaled_systems():
 
     # The unscaled problem
     material_constants_unscaled = {
-        "fluid": pp.FluidConstants(terzaghi_fluid_constants),
-        "solid": pp.SolidConstants(terzaghi_solid_constants),
+        "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
+        "solid": pp.SolidConstants(**terzaghi_solid_constants),
     }
-    model_params_unscaled = {"material_constants": material_constants_unscaled}
+    model_params_unscaled = {
+        "material_constants": material_constants_unscaled,
+        "times_to_export": [],  # Suppress output for tests
+    }
     unscaled = TerzaghiSetup(params=model_params_unscaled)
     pp.run_time_dependent_model(model=unscaled)
 
     # The scaled problem
     material_constants_scaled = {
-        "fluid": pp.FluidConstants(terzaghi_fluid_constants),
-        "solid": pp.SolidConstants(terzaghi_solid_constants),
+        "fluid": pp.FluidComponent(**terzaghi_fluid_constants),
+        "solid": pp.SolidConstants(**terzaghi_solid_constants),
     }
     scaling = {"m": 0.001, "kg": 0.001}  # length in millimeters and mass in grams
     units = pp.Units(**scaling)
-    model_params_scaled = {"material_constants": material_constants_scaled, "units": units}
+    model_params_scaled = {
+        "material_constants": material_constants_scaled,
+        "units": units,
+        "times_to_export": [],  # Suppress output for tests
+    }
     scaled = TerzaghiSetup(params=model_params_scaled)
     pp.run_time_dependent_model(model=scaled)
 

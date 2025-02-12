@@ -10,6 +10,7 @@ The module contains the following groups of tests:
 A further description is given for each of the groups of tests.
 
 """
+
 import os
 import pickle
 
@@ -875,6 +876,8 @@ def _grid_3d(include_1d: bool, pert: bool) -> pp.Grid:
             n[2, 9] = 2
 
     cell_volumes = 1 / 6 * np.ones(cell_centers.shape[1])
+    # Set arbitrary values for face areas. We do not use them in the tests.
+    face_areas = np.ones(face_nodes.shape[1])
 
     # Create a grid
     g = pp.Grid(
@@ -888,7 +891,9 @@ def _grid_3d(include_1d: bool, pert: bool) -> pp.Grid:
     g.face_normals = face_normals
     g.cell_centers = cell_centers
     g.cell_volumes = cell_volumes
+    g.face_areas = face_areas
     g.global_point_ind = np.arange(n.shape[1])
+    g.face_centers = (n[:, fn[0]] + n[:, fn[1]] + n[:, fn[2]]) / 3
     if include_1d:
         g.tags["fracture_faces"][[3, 7, 11, 15]] = True
     else:
@@ -945,6 +950,8 @@ def _grid_2d_two_cells(include_1d: bool, pert: bool) -> pp.Grid:
     face_nodes = sps.csc_matrix((np.ones_like(cols), (fn.ravel("F"), cols)))
     cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
     cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+    # Set arbitrary values for face areas. We do not use them in the tests.
+    face_areas = np.ones(face_nodes.shape[1])
 
     # Create a grid
     g = pp.Grid(
@@ -958,6 +965,8 @@ def _grid_2d_two_cells(include_1d: bool, pert: bool) -> pp.Grid:
     g.face_normals = face_normals
     g.cell_centers = cell_centers
     g.cell_volumes = cell_volumes
+    g.face_areas = face_areas
+    g.face_centers = (n[:, fn[0]] + n[:, fn[1]]) / 2
     g.global_point_ind = 1 + np.arange(n.shape[1])
     if include_1d:
         g.tags["fracture_faces"][[2, 3]] = True
@@ -995,8 +1004,6 @@ def _grid_2d_four_cells(
         face_normals = np.vstack(
             (face_normals[0], np.zeros_like(face_normals[0]), face_normals[1])
         )
-
-        cell_volumes = 1 / 4 * np.ones(4)
 
     else:  # Do not inculde 1d
         n = np.array(
@@ -1052,6 +1059,8 @@ def _grid_2d_four_cells(
 
     cols = np.tile(np.arange(cf.shape[1]), (cf.shape[0], 1)).ravel("F")
     cell_faces = sps.csc_matrix((np.ones_like(cols), (cf.ravel("F"), cols)))
+    # Set arbitrary values for face areas. We do not use them in the tests.
+    face_areas = np.ones(face_nodes.shape[1])
 
     g = pp.Grid(
         nodes=n,
@@ -1062,8 +1071,10 @@ def _grid_2d_four_cells(
     )
     # Assign additional fields to ensure we are in full control of the grid geometry
     g.face_normals = face_normals
+    g.face_areas = face_areas
     g.cell_centers = cell_centers
     g.cell_volumes = cell_volumes
+    g.face_centers = (n[:, fn[0]] + n[:, fn[1]]) / 2
     g.global_point_ind = 10 + np.arange(n.shape[1])
 
     if include_1d:

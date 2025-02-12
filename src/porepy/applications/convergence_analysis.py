@@ -8,6 +8,7 @@ from copy import deepcopy
 from typing import Literal, Optional, Union
 
 import numpy as np
+from scipy import sparse as sps
 from scipy import stats
 
 import porepy as pp
@@ -119,8 +120,12 @@ class ConvergenceAnalysis:
         """
 
         # Initialize setup and retrieve spatial and temporal data
-        setup = model_class(deepcopy(model_params))  # make a deep copy of dictionary
-        setup.prepare_simulation()
+        setup: pp.PorePyModel = model_class(
+            deepcopy(model_params)
+        )  # make a deep copy of dictionary
+        # The typing of PorePyModel was added to support linters as much as possible.
+        # But the protocols do not contain all methods provided by SolutionStrategy.
+        setup.prepare_simulation()  # type: ignore[attr-defined]
 
         # Store initial setup
         self._init_setup = setup
@@ -472,21 +477,25 @@ class ConvergenceAnalysis:
         return "%2.2e"
 
     @staticmethod
-    def l2_error(
+    def lp_error(
         grid: pp.GridLike,
         true_array: np.ndarray,
         approx_array: np.ndarray,
         is_scalar: bool,
         is_cc: bool,
+        p: pp.number = 2,
         relative: bool = False,
+        parameter_weight: Optional[np.ndarray] = None,
     ) -> pp.number:
-        """Compute discrete L2-error as given in [1].
+        """Computes the discrete :math:`L_p`-error as given in [1].
 
         It is possible to compute the absolute error (default) or the relative error.
 
-        Raises:
-            NotImplementedError if a mortar grid is given and ``is_cc=False``.
-            ZeroDivisionError if the denominator in the relative error is zero.
+        References:
+
+            - [1] Nordbotten and Keilegavlen, Two-point stress approximation: A simple
+              and robust finite volume method for linearized (poro-)elasticity and
+              Stokes flow.
 
         Parameters:
             grid: Either a subdomain grid or a mortar grid.
@@ -497,42 +506,167 @@ class ConvergenceAnalysis:
                 ``is_scalar=False`` for displacement.
             is_cc: Whether the variable is associated to cell centers. Use ``False``
                 for variables associated to face centers. For example, ``is_cc=True``
-                for pressures, whereas ``is_scalar=False`` for subdomain fluxes.
-            relative: Compute the relative error (if True) or the absolute error (if False).
+                for pressures, whereas ``is_cc=False`` for subdomain fluxes.
+            p: ``default=2``.
+
+                Order of the norm. Can take the value ``numpy.inf``.
+            relative: ``default=False``
+
+                If True, computes the relative error by dividing the error by the
+                respective norm of ``true_array``.
+            parameter_weight: Array containing the parameter weight, producing a
+                weighted norm. If given, the array size must equal the number of faces
+                or cells in the grid.
+
+        Raises:
+            NotImplementedError: If a mortar grid is given and is_cc is False.
+            ZeroDivisionError: If the denominator in the relative error is zero.
+            ValueError: If the parameter weight has an invalid size.
 
         Returns:
-            Discrete L2-error between the true and approximated arrays.
-
-        References:
-
-            - [1] Nordbotten, J. M. (2016). Stable cell-centered finite volume
-              discretization for Biot equations. SIAM Journal on Numerical Analysis,
-              54(2), 942-968.
+            (Discrete) :math:`L_p`-error between the true and approximated arrays.
 
         """
-        # Sanity check
+        # Sanity check.
         if isinstance(grid, pp.MortarGrid) and not is_cc:
             raise NotImplementedError("Interface variables can only be cell-centered.")
 
-        # Obtain proper measure, e.g., cell volumes for cell-centered quantities and face
-        # areas for face-centered quantities.
+        # Obtain proper measure, e.g., cell volumes for cell-centered quantities and the
+        # volume of the pyramids spanned by the face and its neighboring cell centers
+        # for face-centered quantities (see Eq. A1.12 from [1]).
         if is_cc:
+            num_faces_or_cells = grid.num_cells
             meas = grid.cell_volumes
         else:
             assert isinstance(grid, pp.Grid)  # to please mypy
-            meas = grid.face_areas
-
+            num_faces_or_cells = grid.num_faces
+            # Retrieve face indices, cell indices, and signs for the cell faces.
+            fi, ci, sgn = sps.find(grid.cell_faces)
+            # Compute the distance between face centers and cell centers.
+            fc_cc = grid.face_centers[::, fi] - grid.cell_centers[::, ci]
+            # Retrieve face normals (which include face area weighting).
+            n = grid.face_normals[::, fi]
+            # Compute the distance between face centers and cell centers along the
+            # normal direction.
+            dist_fc_cc = np.abs(np.sum(fc_cc * n, axis=0))
+            # Compute the distance between cell centers. Use bincount to sum the
+            # distances for each face, effectively computing the total distance between
+            # the face centers and their two neighboring cells.
+            dist_cc_cc = np.bincount(fi, weights=dist_fc_cc, minlength=grid.num_cells)
+            # Compute the measure as the average distance between cell centers divided
+            # by the grid dimension. This corresponds to the volume of a n-dimensional
+            # pyramid, see https://en.wikipedia.org/wiki/Hyperpyramid.
+            meas = dist_cc_cc / grid.dim
+        if parameter_weight is not None:
+            # The parameter weight is denoted by \gamma in Eq. A1.12 from [1].
+            if parameter_weight.size != num_faces_or_cells:
+                raise ValueError("Invalid size of parameter weight.")
+            meas *= parameter_weight
         if not is_scalar:
             meas = meas.repeat(grid.dim)
 
         # Obtain numerator and denominator to determine the error.
-        numerator = np.sqrt(np.sum(meas * np.abs(true_array - approx_array) ** 2))
+        numerator = ConvergenceAnalysis.lp_norm(
+            true_array - approx_array,
+            integration_weights=meas,
+            p=p,
+        )
         denominator = (
-            np.sqrt(np.sum(meas * np.abs(true_array) ** 2)) if relative else 1.0
+            ConvergenceAnalysis.lp_norm(true_array, integration_weights=meas, p=p)
+            if relative
+            else 1.0
         )
 
-        # Deal with the case when the denominator is zero when computing the relative error.
+        # Deal with the case when the denominator is zero when computing the relative
+        # error.
         if np.isclose(denominator, 0):
             raise ZeroDivisionError("Attempted division by zero.")
 
         return numerator / denominator
+
+    @staticmethod
+    def lp_norm(
+        vec: np.ndarray,
+        integration_weights: Optional[pp.number | np.ndarray] = None,
+        p: pp.number = 2,
+    ) -> float:
+        r"""The discrete :math:`L_p`-norm of a vector or function, with a given set of weights.
+
+        The respective norm of a function in the space :math:`L_p` can be obtained by
+        approximating the integration with
+
+        .. math::
+
+            \lVert f \rVert_{L_p(|Omega)}
+            = \left( \int_{\Omega} \lvert f(x)\rvert^p dx \right)^(\frac{1}{p})
+            \approx \left(\sum w_i \lvert f_i \rvert^p \right)^(\frac{1}{p}),
+
+        with :math:`w_i` being the respective ``integration_weights``, and
+        :math:`f_i` the discretely evaluated function given by ``vec``.
+
+        For the :math:`L_{\infty}` norm it holds
+
+        .. math::
+
+            \lVert f \rVert_{L_{\infty}(|Omega)}
+            \approx max\left(w_i \lvert f_i \rvert \right).
+
+        Note:
+            If weights are given, a custom implementation is used which checks for
+            strict positivity of ``p``.
+
+            If no weights are given, or they are (all) 1, this function is a shallow
+            wrapper for the vector and matrix norms in :obj:`numpy.linalg.norm`.
+            Note however, that their ``p`` can take more options (including negative
+            values).
+
+        Parameters:
+            vec: The discrete function values for which the norm is to be computed.
+            integration_weights: ``default=None``
+
+                A scalar or vectorial weight for each component in
+                ``vec``. Defaults to None, which is treated as weight 1 leading to the
+                Euclidean-like :math:`L_p`-norm.
+            p: ``default=2``
+
+                Order of the norm. Allows ``p==numpy.inf``.
+
+        Raises:
+            ValueError: If ``p < 1`` when ``integration_weights`` are given.
+
+        Returns:
+            The norm value.
+
+        """
+
+        # No weights, or weight equal 1 (for some reason), is analogous to the discrete
+        # norm, which enables us to use numpy.
+        if integration_weights is None or np.all(integration_weights == 1):
+            # ignoring return value because numpy would allow matrices.
+            return np.linalg.norm(vec, ord=p)  # type:ignore[return-value]
+        # Weights (either integration or other) lead to the custom implementation.
+        else:
+            x = np.abs(vec)
+            if p == np.inf:
+                return np.max(integration_weights * x)
+            else:
+                if not (isinstance(p, (int, float)) and p >= 1):
+                    raise ValueError(
+                        "Order p must be a positive int, float,  or numpy.inf,"
+                        + f" not {p, type(p)}."
+                    )
+                # NOTE: The weights are the reason we cannot use numpy here. It would
+                # lead to the sum of (weights * x) ** p.
+                norm_inner = np.sum(integration_weights * x**p)
+                # Treating special cases 1,2,3, for which there are more efficient and
+                # precise implementations than Python's power.
+                if p == 1:
+                    norm = norm_inner
+                elif p == 2:
+                    norm = np.sqrt(norm_inner)
+                elif p == 3:
+                    norm = np.cbrt(norm_inner)
+                else:
+                    norm = norm_inner ** (1 / p)
+
+                return norm

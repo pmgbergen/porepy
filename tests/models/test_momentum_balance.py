@@ -1,4 +1,4 @@
-"""Tests for the momentum balance model class. """
+"""Tests for the momentum balance model class."""
 
 from __future__ import annotations
 
@@ -27,14 +27,14 @@ class LinearModel(
 
 
 @pytest.mark.parametrize(
-    "solid_vals,north_displacement",
+    "solid_vals,numerical_vals,north_displacement",
     [
-        ({}, 0.0),
-        ({"characteristic_displacement": 42}, -0.1),
-        ({"porosity": 0.5}, 0.2),
+        ({}, {}, 0.0),
+        ({}, {"characteristic_displacement": 42}, -0.1),
+        ({"porosity": 0.5}, {}, 0.2),
     ],
 )
-def test_2d_single_fracture(solid_vals, north_displacement):
+def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
     """Test that the solution is qualitatively sound.
 
     Parameters:
@@ -46,10 +46,11 @@ def test_2d_single_fracture(solid_vals, north_displacement):
 
     """
     # Instantiate constants and store in params.
-    solid = pp.SolidConstants(solid_vals)
+    solid = pp.SolidConstants(**solid_vals)
+    numerical = pp.NumericalConstants(**numerical_vals)
     params = {
         "times_to_export": [],  # Suppress output for tests
-        "material_constants": {"solid": solid},
+        "material_constants": {"solid": solid, "numerical": numerical},
         "u_north": [0.0, north_displacement],
     }
 
@@ -97,8 +98,8 @@ def test_2d_single_fracture(solid_vals, north_displacement):
 
     # Check that the displacement jump and traction are as expected
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
-    jump = setup.displacement_jump(sd_frac).value(setup.equation_system)
-    traction = setup.contact_traction(sd_frac).value(setup.equation_system)
+    jump = setup.equation_system.evaluate(setup.displacement_jump(sd_frac))
+    traction = setup.equation_system.evaluate(setup.contact_traction(sd_frac))
     if north_displacement > 0:
         # Normal component of displacement jump should be positive
         assert np.all(jump[setup.nd - 1 :: setup.nd] > 0)
@@ -121,18 +122,24 @@ def test_unit_conversion(units: dict, uy_north: float):
 
     Parameters:
         units: Dictionary with keys as those in
-            :class:`~pp.models.material_constants.MaterialConstants`.
+            :class:`~pp.compositional.materials.Constants`.
         uy_north: Value of y displacement on the north boundary.
 
     """
-    solid = pp.SolidConstants(pp.solid_values.extended_granite_values_for_testing)
+    solid = pp.SolidConstants(**pp.solid_values.extended_granite_values_for_testing)
+    numerical_vals = {"characteristic_displacement": 0.2}
+    numerical = pp.NumericalConstants(**numerical_vals)
+    reference_values = pp.ReferenceVariableValues(
+        **pp.reference_values.extended_reference_values_for_testing
+    )
 
     params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
         "u_north": [0.0, uy_north],
-        "material_constants": {"solid": solid},
+        "material_constants": {"solid": solid, "numerical": numerical},
+        "reference_variable_values": reference_values,
     }
     reference_params = copy.deepcopy(params)
     # Create model and run simulation.
@@ -158,9 +165,7 @@ def test_unit_conversion(units: dict, uy_north: float):
     )
 
 
-class LithostaticModel(
-    pp.constitutive_laws.GravityForce, pp.momentum_balance.MomentumBalance
-):
+class LithostaticModel(pp.constitutive_laws.GravityForce, pp.MomentumBalance):
     """Model class to test the computation of lithostatic stress.
 
     The model sets up a column where the lateral sides (x-direction for 2d, x and y for
@@ -263,8 +268,8 @@ def test_lithostatic(dim: int):
     vals = vals.reshape((model.nd, -1), order="F")
 
     # Analytical displacement.
-    g = model.solid.convert_units(pp.GRAVITY_ACCELERATION, "m * s^-2")
-    rho = model.solid.convert_units(model.solid.density(), "kg * m^-3")
+    g = model.units.convert_units(pp.GRAVITY_ACCELERATION, "m * s^-2")
+    rho = model.units.convert_units(model.solid.density, "kg * m^-3")
     data = model.mdg.subdomain_data(sd)
     stiffness = data[pp.PARAMETERS][model.stress_keyword]["fourth_order_tensor"]
     E = 2 * stiffness.mu[0] + stiffness.lmbda[0]
@@ -283,10 +288,8 @@ def test_lithostatic(dim: int):
     assert np.allclose(vals[model.nd - 1], u_z, 7e-2)
 
     # Computed stress at the bottom of the domain.
-    computed_stress = (
-        model.stress([sd])
-        .value(model.equation_system)
-        .reshape((model.nd, -1), order="F")
+    computed_stress = model.equation_system.evaluate(model.stress([sd])).reshape(
+        (model.nd, -1), order="F"
     )
     bottom_face = np.where(model.domain_boundary_sides(sd).bottom)[0]
     bottom_traction = computed_stress[model.nd - 1, bottom_face]
@@ -301,9 +304,8 @@ def test_lithostatic(dim: int):
 class ElastoplasticModel2d(
     SquareDomainOrthogonalFractures,
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
-    pp.models.momentum_balance.MomentumBalance,
+    pp.MomentumBalance,
 ):
-
     pass
 
 
@@ -319,7 +321,7 @@ solid_vals_elastoplastic = {
 
 
 def verify_elastoplastic_deformation(
-    setup: pp.models.MomentumBalance,
+    setup: pp.MomentumBalance,
     u_e_expected: list[pp.number],
     u_p_expected: list[pp.number],
     u_top_expected: list[pp.number],
@@ -371,8 +373,8 @@ def verify_elastoplastic_deformation(
     fracture = fractures[0]
 
     # Get plastic and elastic displacement jumps on the fracture in local coordinates.
-    u_p_loc = setup.plastic_displacement_jump(fractures).value(setup.equation_system)
-    u_e_loc = setup.elastic_displacement_jump(fractures).value(setup.equation_system)
+    u_p_loc = setup.equation_system.evaluate(setup.plastic_displacement_jump(fractures))
+    u_e_loc = setup.equation_system.evaluate(setup.elastic_displacement_jump(fractures))
 
     # Transform the jumps to global coordinates and corresponding to the j side of the
     # fracture being the one with the lower y-coordinate (jumps are k-j).
@@ -391,10 +393,8 @@ def verify_elastoplastic_deformation(
     u_p = (sign * u_p).reshape((nd, -1), order="F")
     u_e = (sign * u_e).reshape((nd, -1), order="F")
 
-    u_domain = (
-        setup.displacement([matrix])
-        .value(setup.equation_system)
-        .reshape((nd, -1), order="F")
+    u_domain = setup.equation_system.evaluate(setup.displacement([matrix])).reshape(
+        (nd, -1), order="F"
     )
     u_top = u_domain[:, matrix.cell_centers[fracture_ind] > 0.5]
     # Compare the computed values to the expected values.
@@ -420,10 +420,10 @@ def verify_elastoplastic_deformation(
 
     # Traction on the fracture.
     open_cells = u_p[fracture_ind] > 1e-10
-    traction = (
+    traction = setup.equation_system.evaluate(
         setup.characteristic_contact_traction([fracture])
         * setup.contact_traction([fracture])
-    ).value(setup.equation_system)
+    )
     # Rotate to global coordinates.
     traction = rot @ traction
     traction = (sign * traction).reshape((nd, -1), order="F")
@@ -434,7 +434,7 @@ def verify_elastoplastic_deformation(
     # magnitudes equal to stiffness for closed cells.
     assert np.allclose(
         traction[tang_ind][:, ~open_cells] / u_e[tang_ind][:, ~open_cells],
-        setup.solid.fracture_tangential_stiffness(),
+        setup.solid.fracture_tangential_stiffness,
         atol=1e-10,
     )
     # Check that open cells have zero traction.
@@ -479,7 +479,7 @@ def test_elastoplastic_2d_single_fracture(
     """
     # Instantiate constants and store in params.
 
-    solid = pp.SolidConstants(solid_vals_elastoplastic)
+    solid = pp.SolidConstants(**solid_vals_elastoplastic)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
@@ -503,9 +503,8 @@ def test_elastoplastic_2d_single_fracture(
 class ElastoplasticModel3d(
     CubeDomainOrthogonalFractures,
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
-    pp.models.momentum_balance.MomentumBalance,
+    pp.MomentumBalance,
 ):
-
     pass
 
 
@@ -560,7 +559,7 @@ def test_elastoplastic_3d_single_fracture(
 
     """
     # Instantiate constants and store in params.
-    solid = pp.SolidConstants(solid_vals_elastoplastic)
+    solid = pp.SolidConstants(**solid_vals_elastoplastic)
     params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"solid": solid},
@@ -584,11 +583,10 @@ def test_elastoplastic_3d_single_fracture(
 class TimeDependentBCs(
     pp.model_boundary_conditions.BoundaryConditionsMechanicsDirNorthSouth,
 ):
-
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Displacement values.
 
-        Initial value is u_y = self.solid.fracture_gap() at north boundary. Adding it on
+        Initial value is u_y = self.solid.fracture_gap at north boundary. Adding it on
         the boundary ensures a stress-free initial state. For positive times, a tailored
         displacement is imposed on the north boundary. The south boundary is fixed.
 
@@ -605,7 +603,7 @@ class TimeDependentBCs(
 
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
-            frac_val = self.solid.fracture_gap()
+            frac_val = self.solid.fracture_gap
         else:
             frac_val = 0
         values[1, sides.north] = frac_val
@@ -616,26 +614,23 @@ class TimeDependentBCs(
             # Create slip for second time step.
             u_z = 50.0 if self.time_manager.time > 1.1 else 1.0
             u_n = np.tile([1, -1, u_z], (bg.num_cells, 1)).T
-            values[:, sides.north] += self.solid.convert_units(u_n, "m")[:, sides.north]
+            values[:, sides.north] += self.units.convert_units(u_n, "m")[:, sides.north]
         return values.ravel("F")
 
 
 class ElastoplasticModelTimeDependentBCs(
     CubeDomainOrthogonalFractures,
     TimeDependentBCs,
-    pp.models.momentum_balance.MomentumBalance,
+    pp.MomentumBalance,
 ):
-
     pass
 
 
 def test_time_dependent_bc():
     solid = pp.SolidConstants(
-        {
-            "fracture_tangential_stiffness": 1e-1,
-            "shear_modulus": 1e0,
-            "lame_lambda": 1e0,
-        }
+        fracture_tangential_stiffness=1e-1,
+        shear_modulus=1e0,
+        lame_lambda=1e0,
     )
     params = {
         "times_to_export": [],  # Suppress output for tests

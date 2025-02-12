@@ -53,7 +53,7 @@ class BoundaryConditionLinearPressure(
 
         sides = self.domain_boundary_sides(boundary_grid)
         vals = np.zeros(boundary_grid.num_cells)
-        vals[sides.west] = self.fluid.convert_units(1, "Pa")
+        vals[sides.west] = self.units.convert_units(1, "Pa")
         return vals
 
 
@@ -61,7 +61,7 @@ class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sides = self.domain_boundary_sides(boundary_grid)
         vals = np.zeros(boundary_grid.num_cells)
-        vals[sides.west] = self.fluid.convert_units(1, "K")
+        vals[sides.west] = self.units.convert_units(1, "K")
         return vals
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -128,7 +128,7 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
     For the latter, we check that a near linear temperature profile is obtained.
 
     Parameters:
-        fluid_vals (dict): Dictionary with keys as those in :class:`pp.FluidConstants`
+        fluid_vals (dict): Dictionary with keys as those in :class:`pp.FluidComponent`
             and corresponding values.
         solid_vals (dict): Dictionary with keys as those in :class:`pp.SolidConstants`
             and corresponding values.
@@ -137,8 +137,8 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
     # Always use zero compressibility
     fluid_vals["compressibility"] = 0
     # Instantiate constants and store in params.
-    fluid = pp.FluidConstants(fluid_vals)
-    solid = pp.SolidConstants(solid_vals)
+    fluid = pp.FluidComponent(**fluid_vals)
+    solid = pp.SolidConstants(**solid_vals)
     model_params = {
         "times_to_export": [],  # Suppress output for tests
         "material_constants": {"fluid": fluid, "solid": solid},
@@ -166,23 +166,34 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
         # Check that the enthalpy flux over each face is bounded by the value
         # corresponding to a fully saturated domain.
         for sd in setup.mdg.subdomains():
-            val = setup.enthalpy_flux([sd]).value(setup.equation_system)
+            val = setup.equation_system.evaluate(setup.enthalpy_flux([sd]))
             # Account for specific volume, default value of .01 in fractures.
             normals = np.abs(sd.face_normals[0]) * np.power(0.1, setup.nd - sd.dim)
-            k = setup.solid.permeability() / setup.fluid.viscosity()
+            k = setup.solid.permeability / setup.fluid.reference_component.viscosity
             grad = 1 / setup.domain.bounding_box["xmax"]
-            enth = setup.fluid.specific_heat_capacity() * normals * grad * k
+            enth = (
+                setup.fluid.reference_component.specific_heat_capacity
+                * normals
+                * grad
+                * k
+            )
             assert np.all(np.abs(val) < np.abs(enth) + 1e-10)
 
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
         # influx =grad * dp * k=1/2*k)
         sds = setup.mdg.subdomains(dim=2)
-        total_energy = setup.volume_integral(
-            setup.total_internal_energy(sds),
-            sds,
-            dim=1,
-        ).value(setup.equation_system)
-        expected = setup.fluid.specific_heat_capacity() * setup.solid.permeability() / 2
+        total_energy = setup.equation_system.evaluate(
+            setup.volume_integral(
+                setup.total_internal_energy(sds),
+                sds,
+                dim=1,
+            )
+        )
+        expected = (
+            setup.fluid.reference_component.specific_heat_capacity
+            * setup.solid.permeability
+            / 2
+        )
         assert np.allclose(np.sum(total_energy), expected, rtol=1e-3)
 
 
@@ -197,7 +208,7 @@ def test_unit_conversion(units):
 
     Parameters:
         units (dict): Dictionary with keys as those in
-            :class:`~pp.models.material_constants.MaterialConstants`.
+            :class:`~pp.compositional.materials.Constants`.
 
     """
 
@@ -207,7 +218,7 @@ def test_unit_conversion(units):
 
             sides = self.domain_boundary_sides(boundary_grid)
             vals = np.zeros(boundary_grid.num_cells)
-            vals[sides.west] = self.fluid.convert_units(10.0, "K")
+            vals[sides.west] = self.units.convert_units(10.0, "K")
             return vals
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -215,21 +226,26 @@ def test_unit_conversion(units):
 
             sides = self.domain_boundary_sides(boundary_grid)
             vals = np.zeros(boundary_grid.num_cells)
-            vals[sides.west] = self.fluid.convert_units(1e4, "Pa")
+            vals[sides.west] = self.units.convert_units(1e4, "Pa")
             return vals
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing
     fluid_vals = pp.fluid_values.extended_water_values_for_testing
-    solid = pp.SolidConstants(solid_vals)
-    fluid = pp.FluidConstants(fluid_vals)
+    numerical_vals = pp.numerical_values.extended_numerical_values_for_testing
+    ref_vals = pp.reference_values.extended_reference_values_for_testing
+    solid = pp.SolidConstants(**solid_vals)
+    fluid = pp.FluidComponent(**fluid_vals)
+    numerical = pp.NumericalConstants(**numerical_vals)
+    reference_values = pp.ReferenceVariableValues(**ref_vals)
 
     # Non-unitary time step needed for convergence
     dt = 1e5
     model_params = {
-        "times_to_export": [],
+        "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
         "cartesian": True,
-        "material_constants": {"solid": solid, "fluid": fluid},
+        "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
+        "reference_variable_values": reference_values,
         "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
     }
 
@@ -267,7 +283,7 @@ class MassAndEnergyWellModel(
     models.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
     well_models.WellPermeability,
-    pp.mass_and_energy_balance.MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     pass
 
@@ -285,27 +301,24 @@ def test_energy_conservation():
         # Set impermeable matrix
         "material_constants": {
             "solid": pp.SolidConstants(
-                {
-                    "specific_heat_capacity": 1e0,  # Ensure energy stays in domain.
-                    "well_radius": 0.02,
-                    "residual_aperture": 1.0,  # Ensure high permeability in fracture.
-                    "thermal_conductivity": 1e-6,
-                    "permeability": 1e4,  # Reduce pressure effect
-                    "normal_permeability": 1e4,
-                }
+                specific_heat_capacity=1e0,  # Ensure energy stays in domain.
+                well_radius=0.02,
+                residual_aperture=1.0,  # Ensure high permeability in fracture.
+                thermal_conductivity=1e-6,
+                permeability=1e4,  # Reduce pressure effect
+                normal_permeability=1e4,
             ),
-            "fluid": pp.FluidConstants(
-                {
-                    "specific_heat_capacity": 1e0,
-                    "thermal_conductivity": 1e-6,
-                    "normal_thermal_conductivity": 1e-6,
-                }
+            "fluid": pp.FluidComponent(
+                specific_heat_capacity=1e0,
+                thermal_conductivity=1e-6,
+                normal_thermal_conductivity=1e-6,
             ),
         },
         # Use only the horizontal fracture of OrthogonalFractures3d
         "fracture_indices": [2],
         "time_manager": pp.TimeManager(schedule=[0, dt], dt_init=dt, constant_dt=True),
         "grid_type": "cartesian",
+        "times_to_export": [],  # Suppress output for tests
     }
 
     setup = MassAndEnergyWellModel(model_params)
@@ -316,21 +329,21 @@ def test_energy_conservation():
 
     sds = setup.mdg.subdomains()
     u = setup.volume_integral(setup.total_internal_energy(sds), sds, 1)
-    h_f = setup.fluid_enthalpy(sds) * setup.porosity(sds)
+    h_f = setup.fluid.specific_enthalpy(sds) * setup.porosity(sds)
     h_s = setup.solid_enthalpy(sds) * (pp.ad.Scalar(1) - setup.porosity(sds))
     h = setup.volume_integral(h_f + h_s, sds, 1)
-    u_val = np.sum(u.value(setup.equation_system))
-    h_val = np.sum(h.value(setup.equation_system))
+    u_val = np.sum(setup.equation_system.evaluate(u))
+    h_val = np.sum(setup.equation_system.evaluate(h))
     assert np.isclose(u_val, u_expected, rtol=1e-3)
     # u and h should be close with our setup
     assert np.isclose(u_val, h_val, rtol=1e-3)
     well_intf = setup.mdg.interfaces(codim=2)
-    well_enthalpy_flux = setup.well_enthalpy_flux(well_intf).value(
-        setup.equation_system
+    well_enthalpy_flux = setup.equation_system.evaluate(
+        setup.well_enthalpy_flux(well_intf)
     )
-    well_fluid_flux = setup.well_flux(well_intf).value(setup.equation_system)
-    h_well = setup.fluid_enthalpy(setup.mdg.subdomains(dim=0)).value(
-        setup.equation_system
+    well_fluid_flux = setup.equation_system.evaluate(setup.well_flux(well_intf))
+    h_well = setup.equation_system.evaluate(
+        setup.fluid.specific_enthalpy(setup.mdg.subdomains(dim=0))
     )
     # The well enthalpy flux should be equal to well enthalpy times well fluid flux
     assert np.isclose(well_enthalpy_flux, h_well * well_fluid_flux, rtol=1e-10)

@@ -34,13 +34,14 @@ from porepy.examples.mandel_biot import (
 def results() -> list[MandelSaveData]:
     # Run verification setup and retrieve results for three different times
     material_constants = {
-        "fluid": pp.FluidConstants(mandel_fluid_constants),
-        "solid": pp.SolidConstants(mandel_solid_constants),
+        "fluid": pp.FluidComponent(**mandel_fluid_constants),
+        "solid": pp.SolidConstants(**mandel_solid_constants),
     }
     time_manager = pp.TimeManager([0, 25, 50], 25, True)
     model_params = {
         "material_constants": material_constants,
         "time_manager": time_manager,
+        "times_to_export": [],  # Suppress output for tests
     }
     setup = MandelSetup(model_params)
     pp.run_time_dependent_model(setup)
@@ -61,24 +62,26 @@ desired_errors: list[DesiredError] = [
     # t = 25 [s]
     DesiredError(
         error_pressure=0.02468899282842615,
-        error_flux=0.4277241964548815,
+        error_flux=0.362852,
         error_displacement=0.0007426275934204356,
-        error_force=0.007199561782640474,
+        error_force=0.006999,
         error_consolidation_degree=(0.005794353839056594, 2.983724378680108e-16),
     ),
     # t = 50 [s]
     DesiredError(
         error_pressure=0.01604388082216944,
-        error_flux=0.17474770500364722,
+        error_flux=0.163626,
         error_displacement=0.000710048736369786,
-        error_force=0.0047015988044755526,
+        error_force=0.004621,
         error_consolidation_degree=(0.004196023265526011, 2.983724378680108e-16),
     ),
 ]
 
 
 @pytest.mark.parametrize("time_index", [0, 1])
-def test_error_primary_and_secondary_variables(time_index: int, results):
+def test_error_primary_and_secondary_variables(
+    time_index: int, results: list[MandelSaveData]
+):
     """Checks error for pressure, displacement, flux, force, and consolidation degree.
 
     Physical parameters used in this test have been adapted from [1].
@@ -146,21 +149,22 @@ def test_scaled_vs_unscaled_systems():
 
     # The unscaled problem
     material_constants_unscaled = {
-        "fluid": pp.FluidConstants(mandel_fluid_constants),
-        "solid": pp.SolidConstants(mandel_solid_constants),
+        "fluid": pp.FluidComponent(**mandel_fluid_constants),
+        "solid": pp.SolidConstants(**mandel_solid_constants),
     }
     time_manager_unscaled = pp.TimeManager([0, 10], 10, True)
     model_params_unscaled = {
         "material_constants": material_constants_unscaled,
         "time_manager": time_manager_unscaled,
+        "times_to_export": [],  # Suppress output for tests
     }
     model_unscaled = MandelSetup(params=model_params_unscaled)
     pp.run_time_dependent_model(model_unscaled)
 
     # The scaled problem
     material_constants_scaled = {
-        "fluid": pp.FluidConstants(mandel_fluid_constants),
-        "solid": pp.SolidConstants(mandel_solid_constants),
+        "fluid": pp.FluidComponent(**mandel_fluid_constants),
+        "solid": pp.SolidConstants(**mandel_solid_constants),
     }
     time_manager_scaled = pp.TimeManager([0, 10], 10, True)
     scaling = {"m": 1e-3, "kg": 1e-3}  # length in millimeters and mass in grams
@@ -169,6 +173,7 @@ def test_scaled_vs_unscaled_systems():
         "material_constants": material_constants_scaled,
         "time_manager": time_manager_scaled,
         "units": units,
+        "times_to_export": [],  # Suppress output for tests
     }
     scaled_model = MandelSetup(params=model_params_scaled)
     pp.run_time_dependent_model(model=scaled_model)

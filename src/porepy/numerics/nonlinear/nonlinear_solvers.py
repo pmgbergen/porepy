@@ -13,7 +13,6 @@ try:
     # Avoid some mypy trouble.
     from tqdm.autonotebook import trange  # type: ignore
 
-    # Only import this if needed
     from porepy.utils.ui_and_logging import (
         logging_redirect_tqdm_with_level as logging_redirect_tqdm,
     )
@@ -94,9 +93,14 @@ class NewtonSolver:
             nonlinear_increment = self.iteration(model)
 
             model.after_nonlinear_iteration(nonlinear_increment)
-            # Note: The residual is extracted after the solution has been updated by the
-            # after_nonlinear_iteration() method.
-            residual = model.equation_system.assemble(evaluate_jacobian=False)
+            if self.params["nl_convergence_tol_res"] is not np.inf:
+                # Note: The residual is extracted after the solution has been updated by
+                # the after_nonlinear_iteration() method. This is only required if the
+                # residual is used to check convergence, i.e., the tolerance is not
+                # np.inf.
+                residual = model.equation_system.assemble(evaluate_jacobian=False)
+            else:
+                residual = None
 
             is_converged, is_diverged = model.check_convergence(
                 nonlinear_increment, residual, reference_residual, self.params
@@ -129,6 +133,7 @@ class NewtonSolver:
                     desc="Newton loop",
                     position=self.progress_bar_position,
                     leave=False,
+                    dynamic_ncols=True,
                 )
 
                 while (
@@ -138,8 +143,8 @@ class NewtonSolver:
                 ):
                     solver_progressbar.set_description_str(
                         "Newton iteration number "
-                        + f"{model.nonlinear_solver_statistics.num_iteration + 1} of \t"
-                        + f"{self.params['max_iterations']}"
+                        + f"{model.nonlinear_solver_statistics.num_iteration + 1} of"
+                        + f" {self.params['max_iterations']}"
                     )
                     newton_step()
 

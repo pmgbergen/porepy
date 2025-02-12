@@ -38,7 +38,7 @@ See Also:
 """
 
 NUMBA_FAST_MATH: bool = False
-"""Flag to instruct the numba compiler to use it's ``fastmath`` functions.
+"""Flag to instruct the numba compiler to use its ``fastmath`` functions.
 
 To be used with care, due to loss in precision.
 
@@ -52,7 +52,7 @@ NUMBA_PARALLEL: bool = True
 
 By default, the parallel backend will be used.
 
-Flag is introduced for developing processes when involving other packages supporing
+Flag is introduced for developing processes when involving other packages supporting
 parallelism such as numpy and PETSc.
 
 Affected numba functionality includes:
@@ -169,5 +169,5 @@ class PhysicalState(Enum):
 
     """
 
-    liquid: int = 0
-    gas: int = 1
+    liquid = 0
+    gas = 1

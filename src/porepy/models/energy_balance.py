@@ -13,15 +13,15 @@ models, notably :class:`~porepy.models.mass_and_energy_balance.MassAndEnergyBala
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, Union, cast
+from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
 
 import porepy as pp
 
 
-class EnergyBalanceEquations(pp.BalanceEquation):
-    """Mixed-dimensional energy balance equation.
+class TotalEnergyBalanceEquations(pp.BalanceEquation):
+    """Mixed-dimensional balance equation of total energy.
 
     Balance equation for all subdomains and advective and diffusive fluxes internally
     and on all interfaces of codimension one and advection on interfaces of codimension
@@ -31,17 +31,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
     """
 
-    # Expected attributes for this mixin
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
     interface_fourier_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
@@ -49,34 +38,26 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.energy_balance.VariablesEnergyBalance`.
 
     """
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid density. Defined in a mixin class with a suitable constitutive relation.
-    """
-    fluid_enthalpy: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Fluid enthalpy. Defined in a mixin class with a suitable constitutive relation.
-    """
     solid_enthalpy: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Solid enthalpy. Defined in a mixin class with a suitable constitutive relation.
     """
     solid_density: Callable[[list[pp.Grid]], pp.ad.Scalar]
     """Solid density. Defined in a mixin class with a suitable constitutive relation.
     """
-    porosity: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Porosity of the rock. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.ConstantPorosity` or a subclass thereof.
 
     """
-    mobility: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid mobility. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FluidMobility`.
-
-    """
-    pressure: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    phase_mobility: Callable[[pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """Mobility of a phase. Normally provided by a mixin instance of
+    :class:`~porepy.models.fluid_property_library.FluidMobility`."""
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Pressure variable. Normally defined in a mixin instance of
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
-    fourier_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    fourier_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """Fourier flux. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.FouriersLaw`.
 
@@ -89,8 +70,8 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
     """
     enthalpy_keyword: str
-    """Keyword used to identify the enthalpy flux discretization. Normally set by a mixin
-    instance of
+    """Keyword used to identify the enthalpy flux discretization. Normally set by a
+    mixin instance of
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
@@ -100,17 +81,12 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             pp.ad.Operator,
             pp.ad.UpwindAd,
             pp.ad.Operator,
-            Callable[[list[pp.MortarGrid]], pp.ad.Operator],
+            Optional[Callable[[list[pp.MortarGrid]], pp.ad.Operator]],
         ],
         pp.ad.Operator,
     ]
     """Ad operator representing the advective flux. Normally provided by a mixin
     instance of :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
-
-    """
-    bc_values_enthalpy_flux: Callable[[list[pp.Grid]], pp.ad.DenseArray]
-    """Boundary condition for enthalpy flux. Normally defined in a mixin instance
-    of :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsEnergyBalance`.
 
     """
     interface_advective_flux: Callable[
@@ -119,16 +95,6 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     """Ad operator representing the advective flux on internal boundaries. Normally
     provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.AdvectiveFlux`.
-
-    """
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
     """
     well_advective_flux: Callable[
@@ -157,37 +123,31 @@ class EnergyBalanceEquations(pp.BalanceEquation):
     :class:`~porepy.models.constitutive_laws.EnthalpyFromTemperature`.
 
     """
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """Boundary conditions wrapped as an operator. Defined in
-    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
+
+    interface_fourier_flux_equation: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    """Discrete Fourier flux on interfaces. Normally provided by a mixin instance of
+    :class:`~porepy.models.constitutive_laws.FouriersLaw`.
 
     """
-    _combine_boundary_operators: Callable[
-        [
-            Sequence[pp.Grid],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-            Optional[Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]],
-            Callable[[pp.Grid], pp.BoundaryCondition],
-            str,
-            int,
-        ],
-        pp.ad.Operator,
-    ]
 
     bc_type_enthalpy_flux: Callable[[pp.Grid], pp.BoundaryCondition]
 
     bc_data_enthalpy_flux_key: str
 
-    def set_equations(self):
+    @staticmethod
+    def primary_equation_name():
+        """Returns the name of the energy balance equation introduced by this class,
+        which is a primary PDE on all subdomains."""
+        return "energy_balance_equation"
+
+    def set_equations(self) -> None:
         """Set the equations for the energy balance problem.
 
         A energy balance equation is set for each subdomain, and advective and diffusive
         fluxes are set for each interface of codimension one.
 
         """
+        super().set_equations()
         subdomains = self.mdg.subdomains()
         codim_1_interfaces = self.mdg.interfaces(codim=1)
         codim_2_interfaces = self.mdg.interfaces(codim=2)
@@ -218,7 +178,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux = self.energy_flux(subdomains)
         source = self.energy_source(subdomains)
         eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
-        eq.set_name("energy_balance_equation")
+        eq.set_name(TotalEnergyBalanceEquations.primary_equation_name())
         return eq
 
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -232,7 +192,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
 
         """
         energy = (
-            self.fluid_density(subdomains) * self.fluid_enthalpy(subdomains)
+            self.fluid.density(subdomains) * self.fluid.specific_enthalpy(subdomains)
             - self.pressure(subdomains)
         ) * self.porosity(subdomains)
         energy.set_name("fluid_internal_energy")
@@ -305,6 +265,30 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         flux.set_name("interface_energy_flux")
         return flux
 
+    def advection_weight_energy_balance(
+        self, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        """Advected enthalpy [J * m^(-3) * Pa^(-1) * s^(-1)].
+
+        Parameters:
+            domains: A list of either subdomains or boundary grids.
+
+        Returns:
+            The expression :math:`\\sum_{j}\\frac{\\rho_j h_j}{\\mu_j}`, with :math:`j`
+            being a phase in the fluid, in operator form.
+
+        """
+        op = pp.ad.sum_operator_list(
+            [
+                phase.specific_enthalpy(domains)
+                * phase.density(domains)
+                * self.phase_mobility(phase, domains)
+                for phase in self.fluid.phases
+            ],
+            name="advected_enthalpy",
+        )
+        return op
+
     def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Enthalpy flux.
 
@@ -331,11 +315,10 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         if len(subdomains) == 0 or all(
             [isinstance(g, pp.BoundaryGrid) for g in subdomains]
         ):
-            return self.create_boundary_operator(  # type: ignore[call-arg]
+            return self.create_boundary_operator(
                 name=self.bc_data_enthalpy_flux_key,
-                domains=subdomains,
+                domains=cast(Sequence[pp.BoundaryGrid], subdomains),
             )
-
         # Check that the domains are grids.
         if not all([isinstance(g, pp.Grid) for g in subdomains]):
             raise ValueError(
@@ -346,14 +329,9 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         # (in the typing sense).
         subdomains = cast(list[pp.Grid], subdomains)
 
-        def enthalpy_dirichlet(boundary_grids):
-            result = self.fluid_enthalpy(boundary_grids)
-            result *= self.mobility_rho(boundary_grids)
-            return result
-
         boundary_operator = self._combine_boundary_operators(  # type: ignore[call-arg]
             subdomains=subdomains,
-            dirichlet_operator=enthalpy_dirichlet,
+            dirichlet_operator=self.advection_weight_energy_balance,
             neumann_operator=self.enthalpy_flux,
             # Robin operator is not relevant for advective fluxes
             robin_operator=None,
@@ -364,9 +342,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = self.enthalpy_discretization(subdomains)
         flux = self.advective_flux(
             subdomains,
-            self.fluid_enthalpy(subdomains)
-            * self.mobility(subdomains)
-            * self.fluid_density(subdomains),
+            self.advection_weight_energy_balance(subdomains),
             discr,
             boundary_operator,
             self.interface_enthalpy_flux,
@@ -390,9 +366,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = self.interface_enthalpy_discretization(interfaces)
         flux = self.interface_advective_flux(
             interfaces,
-            self.fluid_enthalpy(subdomains)
-            * self.mobility(subdomains)
-            * self.fluid_density(subdomains),
+            self.advection_weight_energy_balance(subdomains),
             discr,
         )
 
@@ -416,9 +390,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         discr = pp.ad.UpwindCouplingAd(self.enthalpy_keyword, interfaces)
         flux = self.well_advective_flux(
             interfaces,
-            self.fluid_enthalpy(subdomains)
-            * self.mobility(subdomains)
-            * self.fluid_density(subdomains),
+            self.advection_weight_energy_balance(subdomains),
             discr,
         )
 
@@ -463,13 +435,14 @@ class EnergyBalanceEquations(pp.BalanceEquation):
             interfaces
         )
         # Matrix-vector product, use @
-        source = projection.mortar_to_secondary_int @ flux
+        source = projection.mortar_to_secondary_int() @ flux
         # Add contribution from well interfaces
         source.set_name("interface_energy_source")
-        well_fluxes = well_projection.mortar_to_secondary_int @ self.well_enthalpy_flux(
-            well_interfaces
-        ) - well_projection.mortar_to_primary_int @ self.well_enthalpy_flux(
-            well_interfaces
+        well_fluxes = (
+            well_projection.mortar_to_secondary_int()
+            @ self.well_enthalpy_flux(well_interfaces)
+            - well_projection.mortar_to_primary_int()
+            @ self.well_enthalpy_flux(well_interfaces)
         )
         well_fluxes.set_name("well_enthalpy_flux_source")
         source += subdomain_projection.cell_restriction(subdomains) @ (
@@ -478,7 +451,7 @@ class EnergyBalanceEquations(pp.BalanceEquation):
         return source
 
 
-class VariablesEnergyBalance:
+class VariablesEnergyBalance(pp.VariableMixin):
     """
     Creates necessary variables (temperature, advective and diffusive interface flux)
     and provides getter methods for these and their reference values. Getters construct
@@ -495,29 +468,6 @@ class VariablesEnergyBalance:
 
     """
 
-    # Expected attributes for this mixin
-    equation_system: pp.ad.EquationSystem
-    """EquationSystem object for the current model. Normally defined in a mixin class
-    defining the solution strategy.
-
-    """
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
     temperature_variable: str
     """See :attr:`SolutionStrategyEnergyBalance.temperature_variable`."""
     interface_fourier_flux_variable: str
@@ -538,24 +488,18 @@ class VariablesEnergyBalance:
     :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
 
     """
-    create_boundary_operator: Callable[
-        [str, Sequence[pp.BoundaryGrid]], pp.ad.TimeDependentDenseArray
-    ]
-    """Boundary conditions wrapped as an operator. Defined in
-    :class:`~porepy.models.boundary_condition.BoundaryConditionMixin`.
-
-    """
-    nd: int
-    """Number of spatial dimensions. Normally defined in a mixin of instance
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
 
     def create_variables(self) -> None:
-        """Assign primary variables to subdomains and interfaces of the
-        mixed-dimensional grid.
+        """Introduces the following variables into the system:
+
+        1. Temperature variable on all subdomains.
+        2. Fourier flux variable on all interfaces with codimension 1.
+        3. Enthalpy flux variable on all interfaces with codimension 1.
+        4. Enthalpy flux variable on all interfaces with codimension 2.
 
         """
+        super().create_variables()
+
         self.equation_system.create_variables(
             self.temperature_variable,
             subdomains=self.mdg.subdomains(),
@@ -598,7 +542,8 @@ class VariablesEnergyBalance:
         """
         if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
             return self.create_boundary_operator(
-                name=self.temperature_variable, domains=domains  # type: ignore[call-arg]
+                name=self.temperature_variable,
+                domains=cast(Sequence[pp.BoundaryGrid], domains),
             )
 
         # Check that the domains are grids.
@@ -661,27 +606,71 @@ class VariablesEnergyBalance:
         )
         return flux
 
-    def reference_temperature(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Reference temperature.
 
-        For now, we assume that the reference temperature is the same for solid and
-        fluid. More sophisticated models may require different reference temperatures.
+class EnthalpyVariable(pp.VariableMixin):
+    """Class to create and introduce a variable representing the (specific fluid)
+    enthalpy into a model.
 
-        Parameters:
-            subdomains: List of subdomains.
+    Intended use is for non-isothermal flow & transport models with a local isenthalpic
+    equilibrium formulation.
 
-            Returns:
-                Operator representing the reference temperature.
+    """
+
+    enthalpy_variable: str
+    """To be provided by a solution strategy mixin."""
+
+    def create_variables(self) -> None:
+        """Introduces the following variables into the system:
+
+        1. Enthalpy variable on all subdomains.
 
         """
-        t_ref = self.fluid.temperature()
-        assert t_ref == self.solid.temperature()
-        size = sum([sd.num_cells for sd in subdomains])
-        return pp.wrap_as_dense_ad_array(t_ref, size, name="reference_temperature")
+        super().create_variables()
+
+        # enthalpy variable
+        self.equation_system.create_variables(
+            self.enthalpy_variable,
+            subdomains=self.mdg.subdomains(),
+            tags={"si_units": "J * kg^-1"},
+        )
+
+    def enthalpy(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        """Representation of the fluid enthalpy as an AD-Operator, more precisely as an
+        independent variable on subdomains.
+
+        Parameters:
+            domains: List of subdomains or list of boundary grids.
+
+        Raises:
+            ValueError: If the passed sequence of domains does not consist entirely of
+                instances of boundary grid.
+
+        Returns:
+            A mixed-dimensional variable representing the enthalpy, if called with a
+            list of subdomains.
+
+            If called with a list of boundary grids, returns an operator representing
+            boundary values.
+
+        """
+        if len(domains) > 0 and all([isinstance(g, pp.BoundaryGrid) for g in domains]):
+            return self.create_boundary_operator(
+                name=self.enthalpy_variable,
+                domains=domains,  # type: ignore[arg-type]
+            )
+
+        # Check that the domains are grids.
+        if not all([isinstance(g, pp.Grid) for g in domains]):
+            raise ValueError(
+                """Argument domains a mixture of subdomain and boundary grids."""
+            )
+
+        domains = cast(list[pp.Grid], domains)
+
+        return self.equation_system.md_variable(self.enthalpy_variable, domains)
 
 
 class ConstitutiveLawsEnergyBalance(
-    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FouriersLaw,
@@ -701,12 +690,6 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
 
     """
 
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
     bc_data_fourier_flux_key: str = "fourier_flux"
     """Keyword for the storage of Neumann-type boundary conditions for the Fourier
     flux."""
@@ -715,20 +698,6 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
     enthalpy flux."""
     temperature_variable: str
     """See :attr:`SolutionStrategyEnergyBalance.temperature_variable`."""
-    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`VariablesEnergyBalance.temperature`."""
-    fluid_enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid enthalpy. Defined in a mixin class with a suitable constitutive relation.
-    """
-    fluid_density: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Fluid density. Defined in a mixin class with a suitable constitutive relation.
-    """
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`~porepy.models.constitutive_laws.DarcysLaw.darcy_flux`."""
-    fourier_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`~porepy.models.constitutive_laws.FouriersLaw.fourier_flux`."""
-    enthalpy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :meth:`EnergyBalanceEquations.enthalpy_flux`."""
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary conditions on all external boundaries for the conductive flux
@@ -782,7 +751,9 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
             values on the provided boundary grid.
 
         """
-        return self.fluid.temperature() * np.ones(boundary_grid.num_cells)
+        return self.reference_variable_values.temperature * np.ones(
+            boundary_grid.num_cells
+        )
 
     def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """**Heat** flux values on the Neumann boundary to be used with Fourier's law.
@@ -826,7 +797,20 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         return np.zeros(boundary_grid.num_cells)
 
     def update_all_boundary_conditions(self) -> None:
-        """Set values for the temperature and the Fourier flux on boundaries.
+        """Set values for the enthalpy and the Fourier flux on boundaries."""
+        super().update_all_boundary_conditions()
+
+        # Update Neumann conditions for Fourier flux.
+        self.update_boundary_condition(
+            name=self.bc_data_fourier_flux_key, function=self.bc_values_fourier_flux
+        )
+        # Update enthalpy flux on boundary (hyperbolic BC).
+        self.update_boundary_condition(
+            name=self.bc_data_enthalpy_flux_key, function=self.bc_values_enthalpy_flux
+        )
+
+    def update_boundary_values_primary_variables(self) -> None:
+        """Updates the temperature on the boundary, as the primary variable for energy.
 
         Note:
             This assumes as of now that Dirichlet-type BC are provided only for
@@ -835,20 +819,229 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
             primary variables.
 
         """
-        super().update_all_boundary_conditions()
-
-        # Update Neumann conditions
-        self.update_boundary_condition(
-            name=self.bc_data_fourier_flux_key, function=self.bc_values_fourier_flux
-        )
-        # Update Dirichlet conditions
+        super().update_boundary_values_primary_variables()
         self.update_boundary_condition(
             name=self.temperature_variable, function=self.bc_values_temperature
         )
-        #
+
+
+class BoundaryConditionsEnthalpy(pp.BoundaryConditionMixin):
+    """Mixin for providing BC values for an independent enthalpy variable.
+
+    Note:
+        Though strictly speaking not appearing in the flux terms, this method is
+        required for completeness reasons. E.g., for cases where phase properties depend
+        on the fluid enthalpy. They subsequently appear in non-linear weight of
+        advective fluxes.
+
+    """
+
+    enthalpy_variable: str
+    """Name of enthalpy variable. Usually provided by a solution strategy mixin."""
+
+    def update_boundary_values_primary_variables(self) -> None:
+        """Passes :meth:`bc_values_enthalpy` to the BC update routine."""
+        super().update_boundary_values_primary_variables()
         self.update_boundary_condition(
-            name=self.bc_data_enthalpy_flux_key, function=self.bc_values_enthalpy_flux
+            name=self.enthalpy_variable, function=self.bc_values_enthalpy
         )
+
+    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        """BC values for fluid enthalpy on the Dirichlet boundary.
+
+        Parameters:
+            boundary_grid: Boundary grid to provide values for.
+
+        Returns:
+            An array with ``shape=(boundary_grid.num_cells,)`` containing the value of
+            the fluid enthalpy on the Dirichlet boundary.
+
+        """
+        return np.zeros(boundary_grid.num_cells)
+
+
+class InitialConditionsEnergy(pp.InitialConditionMixin):
+    """Mixin for providing initial values for the temperature variable."""
+
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`VariablesEnergyBalance`."""
+
+    interface_fourier_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """See :class:`VariablesEnergyBalance`."""
+
+    interface_enthalpy_flux: Callable[
+        [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
+    ]
+    """See :class:`VariablesEnergyBalance`."""
+
+    well_enthalpy_flux: Callable[[list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable]
+    """See :class:`VariablesEnergyBalance`."""
+
+    def initial_condition(self):
+        """After the super-call, it sets initial values for the interface Fourier flux,
+        interface enthalpy flux and well enthalpy flux.
+
+        See also:
+
+            - :meth:`ic_values_interface_fourier_flux`
+            - :meth:`ic_values_interface_enthalpy_flux`
+            - :meth:`ic_values_well_enthalpy_flux`
+            - Note on :meth:`~porepy.models.fluid_mass_balance.
+              InitialConditionsSinglePhaseFlow.initial_condition` for mass balance.
+
+        """
+        # This super call will execute set_initial_values_primary_variables first and
+        # provide IC values for temperatue, which can be accessed in the ic values for
+        # for energy fluxes.
+        super().initial_condition()
+
+        for intf in self.mdg.interfaces():
+            if intf.codim == 1:
+                self.equation_system.set_variable_values(
+                    self.ic_values_interface_fourier_flux(intf),
+                    [cast(pp.ad.Variable, self.interface_fourier_flux([intf]))],
+                    iterate_index=0,
+                )
+
+                self.equation_system.set_variable_values(
+                    self.ic_values_interface_enthalpy_flux(intf),
+                    [cast(pp.ad.Variable, self.interface_enthalpy_flux([intf]))],
+                    iterate_index=0,
+                )
+
+            if intf.codim == 2:
+                self.equation_system.set_variable_values(
+                    self.ic_values_well_enthalpy_flux(intf),
+                    [cast(pp.ad.Variable, self.well_enthalpy_flux([intf]))],
+                    iterate_index=0,
+                )
+
+    def set_initial_values_primary_variables(self) -> None:
+        """Method to set initial values for temperature at iterate index 0.
+
+        See also:
+
+            - :meth:`ic_values_temperature`
+
+        """
+        # Super call for compatibility with multi-physics.
+        super().set_initial_values_primary_variables()
+
+        for sd in self.mdg.subdomains():
+            # Need to cast the return value to variable, because it is types as
+            # operator.
+            self.equation_system.set_variable_values(
+                self.ic_values_temperature(sd),
+                [cast(pp.ad.Variable, self.temperature([sd]))],
+                iterate_index=0,
+            )
+
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
+        """Method returning the initial temperature values for a given grid.
+
+        Override this method to provide different initial conditions.
+
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial temperature values on that subdomain with
+            ``shape=(sd.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(sd.num_cells)
+
+    def ic_values_interface_fourier_flux(self, intf: pp.MortarGrid) -> np.ndarray:
+        """Method returning the initial interface Fourier flux values on a given
+        interface.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method is only called for interfaces with codimension 1.
+
+        Parameters:
+            intf: A mortar grid in the md-grid.
+
+        Returns:
+            The initial interface Fourier flux values with
+            ``shape=(interface.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(intf.num_cells)
+
+    def ic_values_interface_enthalpy_flux(self, intf: pp.MortarGrid) -> np.ndarray:
+        """Method returning the initial interface enthalpy flux values on a given
+        interface.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method is only called for interfaces with codimension 1.
+
+        Parameters:
+            intf: A mortar grid in the md-grid.
+
+        Returns:
+            The initial interface enthalpy flux values with
+            ``shape=(interface.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(intf.num_cells)
+
+    def ic_values_well_enthalpy_flux(self, intf: pp.MortarGrid) -> np.ndarray:
+        """Method returning the initial well enthalpy flux values on a given interface.
+
+        Override this method to customize the initialization.
+
+        Note:
+            This method is only called for interfaces with codimension 2.
+
+        Parameters:
+            intf: A mortar grid in the md-grid.
+
+        Returns:
+            The initial well enthalpy flux values with ``shape=(interface.num_cells,)``.
+            Defaults to zero array.
+
+        """
+        return np.zeros(intf.num_cells)
+
+
+class InitialConditionsEnthalpy(pp.InitialConditionMixin):
+    """Class providing an interfface to set initial values for the (specific fluid)
+    enthalpy mixed in by :class:`EnthalpyVariable`."""
+
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`EnthalpyVariable`."""
+
+    def set_initial_values_primary_variables(self) -> None:
+        """Calls :meth:`initial_enthalpy` and sets the values to iterate index 0."""
+        super().set_initial_values_primary_variables()
+
+        for sd in self.mdg.subdomains():
+            self.equation_system.set_variable_values(
+                self.initial_enthalpy(sd),
+                [cast(pp.ad.Variable, self.enthalpy([sd]))],
+                iterate_index=0,
+            )
+
+    def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        """Initial values for (specific fluid) enthalpy.
+
+        Override this method to customize the initialization.
+
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            The initial specific fluid enthalpy values on that subdomain with
+            ``shape=(sd.num_cells,)``. Defaults to zero array.
+
+        """
+        return np.zeros(sd.num_cells)
 
 
 class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
@@ -859,18 +1052,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
     """
 
-    nd: int
-    """Ambient dimension of the problem. Normally set by a mixin instance of
-    :class:`porepy.models.geometry.ModelGeometry`.
-
-    """
-    specific_volume: Callable[
-        [Union[list[pp.Grid], list[pp.MortarGrid]]], pp.ad.Operator
-    ]
-    """Function that returns the specific volume of a subdomain. Normally provided by a
-    mixin of instance :class:`~porepy.models.constitutive_laws.DimensionReduction`.
-
-    """
     thermal_conductivity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Thermal conductivity. Normally defined in a mixin instance of
     :class:`~porepy.models.constitutive_laws.ThermalConductivityLTE` or a subclass.
@@ -963,7 +1144,8 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                     "second_order_tensor": self.operator_to_SecondOrderTensor(
                         sd,
                         self.thermal_conductivity([sd]),
-                        self.fluid.thermal_conductivity(),
+                        # Fall back to thermal conductivity of reference component.
+                        self.fluid.reference_component.thermal_conductivity,
                     ),
                     "ambient_dimension": self.nd,
                 },
@@ -1001,16 +1183,15 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
         """
         # Update parameters *before* the discretization matrices are re-computed.
-        equation_system = self.equation_system
         for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.darcy_flux([sd]).value(equation_system)
+            vals = self.equation_system.evaluate(self.darcy_flux([sd]))
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.interface_darcy_flux([intf]).value(equation_system)
+            vals = self.equation_system.evaluate(self.interface_darcy_flux([intf]))
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.well_flux([intf]).value(equation_system)
+            vals = self.equation_system.evaluate(self.well_flux([intf]))
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
         super().before_nonlinear_iteration()

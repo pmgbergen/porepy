@@ -8,19 +8,18 @@ porosity and stress. The former aquires a pressure dependency and an additional
 :math:`\alpha`\nabla\cdot\mathbf{u} term, while the latter is modified to include a
 isotropic pressure term :math:`\alpha p \mathbf{I}`.
 
-Suggested references (TODO: add more, e.g. Inga's in prep):
+Suggested references:
     - Coussy, 2004, https://doi.org/10.1002/0470092718.
     - Garipov and Hui, 2019, https://doi.org/10.1016/j.ijrmms.2019.104075.
+    - Stefansson et al, 2024 https://doi.org/10.1016/j.rinam.2023.100428.
 
 """
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Union
+from typing import Callable, Union
 
 import porepy as pp
-import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as momentum
 
 
 class ConstitutiveLawsPoromechanics(
@@ -69,40 +68,22 @@ class ConstitutiveLawsPoromechanics(
 
 
 class EquationsPoromechanics(
-    mass.MassBalanceEquations,
-    momentum.MomentumBalanceEquations,
+    pp.momentum_balance.MomentumBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
 ):
     """Combines mass and momentum balance equations."""
 
-    def set_equations(self):
-        """Set the equations for the poromechanics problem.
-
-        Call both parent classes' set_equations methods.
-
-        """
-        mass.MassBalanceEquations.set_equations(self)
-        momentum.MomentumBalanceEquations.set_equations(self)
-
 
 class VariablesPoromechanics(
-    mass.VariablesSinglePhaseFlow,
-    momentum.VariablesMomentumBalance,
+    pp.momentum_balance.VariablesMomentumBalance,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
 ):
     """Combines mass and momentum balance variables."""
 
-    def create_variables(self):
-        """Set the variables for the poromechanics problem.
-
-        Call both parent classes' set_variables methods.
-
-        """
-        mass.VariablesSinglePhaseFlow.create_variables(self)
-        momentum.VariablesMomentumBalance.create_variables(self)
-
 
 class BoundaryConditionsPoromechanics(
-    mass.BoundaryConditionsSinglePhaseFlow,
-    momentum.BoundaryConditionsMomentumBalance,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    pp.momentum_balance.BoundaryConditionsMomentumBalance,
 ):
     """Combines mass and momentum balance boundary conditions.
 
@@ -121,9 +102,17 @@ class BoundaryConditionsPoromechanics(
     """
 
 
+class InitialConditionsPoromechanics(
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+    pp.momentum_balance.InitialConditionsMomentumBalance,
+):
+    """Combines initial conditions for mass and momentum balance, and associated
+    primary variables."""
+
+
 class SolutionStrategyPoromechanics(
-    mass.SolutionStrategySinglePhaseFlow,
-    momentum.SolutionStrategyMomentumBalance,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
+    pp.momentum_balance.SolutionStrategyMomentumBalance,
 ):
     """Combines mass and momentum balance solution strategies.
 
@@ -139,25 +128,11 @@ class SolutionStrategyPoromechanics(
     :class:`~porepy.models.constitutive_laws.DarcysLaw`.
 
     """
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid."""
 
     biot_tensor: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that defines the Biot tensor. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
     """
-
-    def __init__(self, params: Optional[dict] = None) -> None:
-        """Initialize the solution strategy.
-
-        Parameters:
-            params: Dictionary of parameters.
-
-        """
-        # Initialize the solution strategy for the fluid mass balance subproblem.
-        mass.SolutionStrategySinglePhaseFlow.__init__(self, params=params)
-        # Initialize the solution strategy for the momentum balance subproblem.
-        momentum.SolutionStrategyMomentumBalance.__init__(self, params=params)
 
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
@@ -204,7 +179,9 @@ class Poromechanics(  # type: ignore[misc]
     VariablesPoromechanics,
     ConstitutiveLawsPoromechanics,
     BoundaryConditionsPoromechanics,
+    InitialConditionsPoromechanics,
     SolutionStrategyPoromechanics,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

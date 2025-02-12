@@ -145,7 +145,6 @@ def wrap_discretization(
     # Loop over all identified terms, assign a MergedOperator to non-coupling terms,
     # while postponing the treatment of coupling terms.
     for discretization_key in discretization_term_key:
-
         operators[discretization_key] = {}
 
         # Fetch all physics keywords associated with this discretization term. The
@@ -326,7 +325,7 @@ def _validate_indices(
         # Some previous time.
         if time_step_index >= 0:
             out.append((pp.TIME_STEP_SOLUTIONS, time_step_index))
-        # Negative time step indices are not supported
+        # Negative time step indices are not supported.
         else:
             raise ValueError(
                 "Use increasing, non-negative integers for time step indices."
@@ -366,8 +365,8 @@ def set_solution_values(
             should be added to or overwritten.
 
     Raises:
-        ValueError: In the case of inconsistent usage of indices
-            (both None, or negative values).
+        ValueError: In the case of inconsistent usage of indices (both None, or negative
+            values).
         ValueError: If the user attempts to set values additively at an index where no
             values were set before.
 
@@ -419,8 +418,8 @@ def get_solution_values(
             0 is the current iterate, 1 the previous iterate, and so on.
 
     Raises:
-        ValueError: In the case of inconsistent usage of indices
-            (both None or negative values).
+        ValueError: In the case of inconsistent usage of indices (both None or negative
+            values).
         ValueError: If the user attempts to get multiple iterate and time step values
             simultanously. Only 1 index is permitted in the getter.
         KeyError: If no values are stored for the passed index.
@@ -487,7 +486,7 @@ def shift_solution_values(
         raise ValueError(f"Shifting values not implemented for location {location}")
 
     # NOTE return because nothing to be shifted. Avoid confusion by introducing data
-    # dictionaries for values which were never set using pp.set_solution_values
+    # dictionaries for values which were never set using pp.set_solution_values.
     if location not in data:
         return
     if name not in data[location]:
@@ -524,12 +523,6 @@ class MergedOperator(operators.Operator):
 
     """
 
-    def _key(self) -> str:
-        return (
-            f"(merged_op, discretization_matrix_key={self._discretization_matrix_key},"
-            f" physics_key={self._physics_key}, domains={[d.id for d in self.domains]})"
-        )
-
     def __init__(
         self,
         discr: pp.discretization_type,
@@ -541,10 +534,10 @@ class MergedOperator(operators.Operator):
         """Initiate a merged discretization.
 
         Parameters:
-            discr: Mapping between subdomains, or interfaces, where the
-                discretization is applied, and the actual Discretization objects.
-            key: Keyword that identifies this discretization matrix, e.g.
-                for a class with an attribute foo_matrix_key, the key will be foo.
+            discr: Mapping between subdomains, or interfaces, where the discretization
+                is applied, and the actual Discretization objects.
+            key: Keyword that identifies this discretization matrix, e.g. for a class
+                with an attribute foo_matrix_key, the key will be foo.
             mat_dict_key: Keyword used to access discretization matrices.
             domains: Domains on which the discretization is defined.
 
@@ -571,6 +564,21 @@ class MergedOperator(operators.Operator):
     def __str__(self) -> str:
         return f"{self._name}({self._physics_key}).{self._discretization_matrix_key}"
 
+    def _key(self) -> str:
+        # Mypy occasionally (but not always, sigh) complains that it cannot
+        # self._cached_key determine the type of self._cached_key, despite it being
+        # decleared as an Optional[str] in the class definition.
+        if self._cached_key is None:  # type: ignore[has-type]
+            domain_ids = [domain.id for domain in self.domains]
+            s = f"(Merged_operator, name={self.name}, domains={domain_ids})"
+            s += f", discretization_matrix_key={self._discretization_matrix_key}"
+            s += f", physics_key={self._physics_key}"
+            if self._inner_physics_key is not None:
+                s += f", inner_physics_key={self._inner_physics_key}"
+
+            self._cached_key = s
+        return self._cached_key
+
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
         """Convert a merged operator into a sparse matrix by concatenating
         discretization matrices.
@@ -583,7 +591,7 @@ class MergedOperator(operators.Operator):
 
         """
 
-        # Data structure for matrices
+        # Data structure for matrices.
         mat = []
 
         if len(self.domains) == 0:
@@ -593,7 +601,7 @@ class MergedOperator(operators.Operator):
             return sps.csc_matrix((0, 0))
 
         # Loop over all grid-discretization combinations, get hold of the discretization
-        # matrix for this grid quantity
+        # matrix for this grid quantity.
         for g in self.domains:
             # Get data dictionary for either grid or interface
             if isinstance(g, pp.MortarGrid):
@@ -601,14 +609,14 @@ class MergedOperator(operators.Operator):
             elif isinstance(g, pp.Grid):
                 data = mdg.subdomain_data(g)
             else:
-                s = "Did not expect a discretization defined on a BoundaryGrid"
+                s = "Did not expect a discretization defined on a BoundaryGrid."
                 raise ValueError(s)
 
             mat_dict: dict[str, sps.spmatrix] = data[  # type: ignore
                 pp.DISCRETIZATION_MATRICES
             ][self._physics_key]
 
-            # Get the submatrix for the right discretization
+            # Get the submatrix for the right discretization.
             key = self._discretization_matrix_key
             mat_key = getattr(self._discr, key + "_matrix_key")
             if self._inner_physics_key is not None:
@@ -618,9 +626,9 @@ class MergedOperator(operators.Operator):
             mat.append(local_mat)
 
         if all([isinstance(m, np.ndarray) for m in mat]):
-            # TODO: EK is almost sure this never happens, but leave this check for now
+            # TODO: EK is almost sure this never happens, but leave this check for now.
             raise NotImplementedError("")
 
         else:
-            # This is a standard discretization; wrap it in a diagonal sparse matrix
+            # This is a standard discretization; wrap it in a diagonal sparse matrix.
             return sps.block_diag(mat, format="csr")

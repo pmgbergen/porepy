@@ -48,6 +48,7 @@ from porepy.applications.md_grids.domains import nd_cube_domain
 from tests.functional.setups.manu_thermoporomech_nofrac_2d import (
     ManuThermoPoroMechDataSaving,
     SourceTerms,
+    ManuThermoPoroMechSaveData,
 )
 
 
@@ -76,7 +77,7 @@ class ManuThermoPoroMechExactSolution3d:
 
     """
 
-    def __init__(self, setup):
+    def __init__(self, setup: pp.PorePyModel):
         """Constructor of the class."""
 
         # Heterogeneity factor.
@@ -90,39 +91,39 @@ class ManuThermoPoroMechExactSolution3d:
         # expanded by the heterogeneity factor below
         #
         # Lamé parameters
-        lame_lmbda_base = setup.solid.lame_lambda()
-        lame_mu_base = setup.solid.shear_modulus()
+        lame_lmbda_base = setup.solid.lame_lambda
+        lame_mu_base = setup.solid.shear_modulus
         # Permeability
-        permeability_base = setup.solid.permeability()
+        permeability_base = setup.solid.permeability
 
         # Biot coefficient. Will be used to define the Biot tensor below.
-        alpha = setup.solid.biot_coefficient()
+        alpha = setup.solid.biot_coefficient
         # Reference density and compressibility for fluid.
-        reference_fluid_density = setup.fluid.density()
-        fluid_compressibility = setup.fluid.compressibility()
+        reference_fluid_density = setup.fluid.reference_component.density
+        fluid_compressibility = setup.fluid.reference_component.compressibility
         # Density of the solid.
-        solid_density = setup.solid.density()
+        solid_density = setup.solid.density
 
         # Reference porosity
-        phi_0 = setup.solid.porosity()
+        phi_0 = setup.solid.porosity
         # Specific heat capacity of the fluid
-        fluid_specific_heat = setup.fluid.specific_heat_capacity()
+        fluid_specific_heat = setup.fluid.reference_component.specific_heat_capacity
         # Specific heat capacity of the solid
-        solid_specific_heat = setup.solid.specific_heat_capacity()
+        solid_specific_heat = setup.solid.specific_heat_capacity
         # Reference pressure and temperature
-        p_0 = setup.fluid.pressure()
-        T_0 = setup.fluid.temperature()
+        p_0 = setup.reference_variable_values.pressure
+        T_0 = setup.reference_variable_values.temperature
 
         # Thermal expansion coefficients
-        fluid_thermal_expansion = setup.fluid.thermal_expansion()
-        solid_thermal_expansion = setup.solid.thermal_expansion()
+        fluid_thermal_expansion = setup.fluid.reference_component.thermal_expansion
+        solid_thermal_expansion = setup.solid.thermal_expansion
 
         # Conductivity for the fluid and solid
-        fluid_conductivity = setup.fluid.thermal_conductivity()
-        solid_conductivity = setup.solid.thermal_conductivity()
+        fluid_conductivity = setup.fluid.reference_component.thermal_conductivity
+        solid_conductivity = setup.solid.thermal_conductivity
 
         # Fluid viscosity
-        mu_f = setup.fluid.viscosity()
+        mu_f = setup.fluid.reference_component.viscosity
 
         ## Done with fetching constants. Now, introduce heterogeneities and define
         # the exact solutions for the primary variables.
@@ -790,7 +791,7 @@ class ManuThermoPoroMechExactSolution3d:
 
 
 # -----> Geometry
-class UnitCubeGrid(pp.ModelGeometry):
+class UnitCubeGrid(pp.PorePyModel):
     """Class for setting up the geometry of the unit cube domain.
 
     The domain may be assigned different material parameters in the region x > 0.5, y >
@@ -810,9 +811,6 @@ class UnitCubeGrid(pp.ModelGeometry):
     self.set_geometry().
 
     """
-
-    params: dict
-    """Simulation model parameters."""
 
     def set_geometry(self) -> None:
         super().set_geometry()
@@ -875,21 +873,15 @@ class ManuThermoPoroMechSolutionStrategy3d(
 ):
     """Solution strategy for the verification setup."""
 
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
+    exact_sol: ManuThermoPoroMechExactSolution3d
+    """Exact solution object."""
 
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)
 
-        self.exact_sol: ManuThermoPoroMechExactSolution3d
-        """Exact solution object."""
-
         self.stress_variable: str = "thermoporoelastic_force"
-        """Keyword to access the thermoporoelastic force."""
-        
-        self.results: list[ManuThermoPoroMechSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""        
+        """Keyword to access the thermoporoelastic force."""      
 
     def set_materials(self):
         """Set material parameters."""
@@ -1045,6 +1037,6 @@ class ManuThermoPoroMechSetup3d(  # type: ignore[misc]
     SourceTerms,
     ManuThermoPoroMechDataSaving,
     ManuThermoPoroMechSolutionStrategy3d,
-    pp.thermoporomechanics.Thermoporomechanics,
+    pp.Thermoporomechanics,
 ):
     pass
