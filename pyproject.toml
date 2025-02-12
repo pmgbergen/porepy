@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# Project information.
+[project]
+name = "porepy"
+version = "1.10.0"
+description = "Simulation tool for fractured and deformable porous media"
+readme = "Readme.md"
+license = { text = "GPL" }
+keywords = ["porous media simulation fractures deformable"]
+maintainers = [
+    { name = "Eirik Keilegavlen", email = "Eirik.Keilegavlen@uib.no" },
+    { name = "Ivar Stefansson", email = "Ivar.Stefansson@uib.no" },
+    { name = "Jakub Both", email = "Jakub.Both@uib.no" }
+]
+urls = { "Homepage" = "https://github.com/pmgbergen/porepy" }
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GNU General Public License (GPL)",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "deepdiff",
+    "future",
+    "gmsh",
+    "matplotlib < 3.11",
+    "meshio",
+    "networkx",
+    "numba",
+    "numpy < 2.2",
+    "scipy",
+    "seaborn",
+    "shapely",
+    "six",
+    "sympy",
+    "typing_extensions",
+]
+
+[project.optional-dependencies]
+development = [
+    "isort",
+    "ruff",
+    "mypy",
+    "mypy-extensions"
+]
+testing = [
+    "pytest >= 4.6",
+    "pytest-cov",
+    "pytest-runner"
+]
+
+# Information for the build system.
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"porepy" = [
+    "py.typed",
+    "applications/md_grids/gmsh_file_library/**/*.csv",
+    "applications/md_grids/gmsh_file_library/**/*.geo"
+]
+
+# Testing.
+[tool.pytest.ini_options]
+python_files = "tests/*.py"
+addopts = "--cov=src/porepy --cov-report term-missing -p no:warnings"
+
+# Static analysis.
+[tool.ruff.lint]
+ignore = [
+    "E731",  # do not assign a lambda expression, use a def
+    "E266",  # too many leading '#' for block comment
+]
+exclude = [
+    "src/porepy/__init__.py",
+    "src/porepy/numerics/ad/__init__.py",
+    "src/porepy/compositional/__init__.py"
+]

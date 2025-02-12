@@ -289,9 +289,9 @@ class SolutionStrategy(pp.PorePyModel):
             dict[str, pp.Constants], self.params.get("material_constants", {})
         )
         # If the user provided material constants, assert they are in dictionary form
-        assert isinstance(
-            constants, dict
-        ), "model.params['material_constants'] must be a dictionary."
+        assert isinstance(constants, dict), (
+            "model.params['material_constants'] must be a dictionary."
+        )
 
         # Use standard models for fluid, solid and numerical constants if not provided.
         # Otherwise get the given constants.
@@ -771,7 +771,9 @@ class ContactIndicators(pp.PorePyModel):
             # Base variable values from all fracture subdomains.
             all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
             scale_op = self.contact_traction_estimate(all_subdomains)
-            scale = self.compute_traction_norm(scale_op.value(self.equation_system))
+            scale = self.compute_traction_norm(
+                cast(np.ndarray, self.equation_system.evaluate(scale_op))
+            )
             ind = ind / pp.ad.Scalar(scale)
         return ind
 
@@ -838,11 +840,13 @@ class ContactIndicators(pp.PorePyModel):
             # Base on all fracture subdomains
             all_subdomains = self.mdg.subdomains(dim=self.nd - 1)
             scale_op = self.contact_traction_estimate(all_subdomains)
-            scale = self.compute_traction_norm(scale_op.value(self.equation_system))
+            scale = self.compute_traction_norm(
+                cast(np.ndarray, self.equation_system.evaluate(scale_op))
+            )
             ind = ind / pp.ad.Scalar(scale)
         return ind * h_oi
 
-    def contact_traction_estimate(self, subdomains: list[pp.Grid]):
+    def contact_traction_estimate(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Estimate the magnitude of contact traction.
 
         Parameters:

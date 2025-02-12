@@ -952,14 +952,14 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         """
         # Update parameters *before* the discretization matrices are re-computed.
         for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.darcy_flux([sd]).value(self.equation_system)
+            vals = self.equation_system.evaluate(self.darcy_flux([sd]))
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
         for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.interface_darcy_flux([intf]).value(self.equation_system)
+            vals = self.equation_system.evaluate(self.interface_darcy_flux([intf]))
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.well_flux([intf]).value(self.equation_system)
+            vals = self.equation_system.evaluate(self.well_flux([intf]))
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
         super().before_nonlinear_iteration()
