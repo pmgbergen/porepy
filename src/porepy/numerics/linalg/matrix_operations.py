@@ -329,7 +329,7 @@ def slice_mat(A: sps.spmatrix, ind: np.ndarray) -> sps.spmatrix:
     A = sps.csc_matrix(np.eye(10))
     rows = slice_mat(A, np.array([0,2,3]))
     """
-    assert A.getformat() == "csc" or A.getformat() == "csr"
+    assert A.format == "csc" or A.format == "csr"
 
     if np.asarray(ind).dtype == "bool":
         # convert to indices.
@@ -353,9 +353,9 @@ def slice_mat(A: sps.spmatrix, ind: np.ndarray) -> sps.spmatrix:
     indptr[1:] = np.cumsum(A.indptr[ind + 1] - A.indptr[ind])
     data = A.data[ind_slice]
 
-    if A.getformat() == "csc":
+    if A.format == "csc":
         return sps.csc_matrix((data, indices, indptr), shape=(A.shape[0], N))
-    elif A.getformat() == "csr":
+    elif A.format == "csr":
         return sps.csr_matrix((data, indices, indptr), shape=(N, A.shape[1]))
 
 
