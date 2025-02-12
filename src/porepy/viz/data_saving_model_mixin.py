@@ -104,7 +104,9 @@ class DataSavingMixin(pp.PorePyModel):
             self.exporter.write_pvd(append=True, from_pvd_file=pvd_file)
         else:
             self.exporter.write_pvd()
-        self.time_manager.write_time_information()
+        self.time_manager.write_time_information(
+            Path(self.params["folder_name"]) / "times.json"
+        )
 
     def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.

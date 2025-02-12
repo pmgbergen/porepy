@@ -745,7 +745,7 @@ class TimeManager:
 
         # Storing as json
         if path is None:
-            path = Path("visualization") / Path("times.json")
+            path = Path("visualization") / "times.json"
 
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as out_file:
@@ -761,7 +761,7 @@ class TimeManager:
             default choice from self.write_time_information() is used.
 
         """
-        default_path = Path("visualization") / Path("times.json")
+        default_path = Path("visualization") / "times.json"
         with open(path if path is not None else default_path) as in_file:
             data = json.load(in_file)
             self.exported_times = data["time"]
