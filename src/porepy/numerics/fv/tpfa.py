@@ -363,7 +363,7 @@ class DifferentiableTpfa:
         self,
         domains: list[pp.Grid],
         grid_property_getter: Callable[[pp.Grid], Any],
-    ) -> sps.spmatrix:
+    ) -> sps.csr_matrix:
         """Construct mapping matrix for the connectivity between two grids entities.
 
         The mapping matrix is a block diagonal matrix where each block contains 1 where
@@ -396,7 +396,7 @@ class DifferentiableTpfa:
         to_entity: Literal["cells", "faces", "half_faces"] = "half_faces",
         dimensions: tuple[int, int] = (1, 1),
         with_sign: bool = False,
-    ) -> sps.spmatrix:
+    ) -> sps.csr_matrix:
         """Mapping between half-faces and cells or faces.
 
         Parameters:
@@ -527,7 +527,7 @@ class DifferentiableTpfa:
 
         return dist_vec
 
-    def _normal_vectors(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
+    def _normal_vectors(self, subdomains: list[pp.Grid]) -> sps.csr_matrix:
         """Normal vectors on half-faces, repeated for each dimension.
 
         Parameters:
