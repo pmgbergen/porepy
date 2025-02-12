@@ -6,6 +6,8 @@ merging and construction from arrays.
 import numpy as np
 import pytest
 import scipy.sparse as sps
+from typing import Literal
+import porepy as pp
 
 from porepy import matrix_operations
 from porepy.applications.test_utils.arrays import compare_matrices
@@ -124,6 +126,71 @@ def test_sliced_matrix(A, column: bool, index: int | np.ndarray):
     assert np.allclose(
         matrix_operations.slice_sparse_matrix(A, index).toarray(), A_known
     )
+
+
+@pytest.mark.parametrize("mode", ["dense", "sparse", "ad"])
+@pytest.mark.parametrize(
+    "domain_inds, range_inds",
+    [
+        (np.array([3, 1]), np.array([0, 3])),
+        (np.array([2, 3, 0]), np.array([3, 0, 1])),
+        (None, np.array([0, 1, 3])),
+        (np.array([0, 1, 3]), None),
+    ],
+)
+@pytest.mark.parametrize("range_size", [None, 6])
+def test_matrix_slicer(
+    A: sps.csr_matrix,
+    mode: Literal["dense", "sparse", "ad"],
+    domain_inds: np.ndarray | None,
+    range_inds: np.ndarray | None,
+    range_size: int,
+):
+    if mode == "sparse":
+        target = A
+    else:
+        vec = np.array([1, 2, 3, 4])
+        if mode == "dense":
+            target = vec
+        else:
+            target = pp.ad.AdArray(vec, A)
+    slicer = matrix_operations.MatrixSlicer(domain_inds, range_inds, range_size)
+
+    if range_size is not None:
+        # If the range size is given, the number of rows is known.
+        num_rows = range_size
+    elif range_inds is not None:
+        # If no range size is given but range indices are, the output number of columns
+        # is the maximum index.
+        num_rows = range_inds.max() + 1
+    else:
+        # If no range size or indices are given, the output number of columns is the
+        # number of domain indices.
+        num_rows = domain_inds.size
+
+    if range_inds is None:
+        range_inds = np.arange(domain_inds.size)
+    if domain_inds is None:
+        domain_inds = np.arange(range_inds.size)
+
+    result = slicer @ target
+
+    if mode == "dense":
+        A_known = np.zeros(num_rows)
+        A_known[range_inds] = target[domain_inds]
+        assert np.allclose(result, A_known)
+    elif mode == "sparse":
+        Nc = target.shape[1]
+        A_known = np.zeros((num_rows, Nc))
+        A_known[range_inds] = target.toarray()[domain_inds]
+        assert np.allclose(result.toarray(), A_known)
+    else:
+        val_known = np.zeros(num_rows)
+        val_known[range_inds] = target.val[domain_inds]
+        assert np.allclose(result.val, val_known)
+        jac_known = np.zeros((num_rows, target.jac.shape[1]))
+        jac_known[range_inds] = target.jac.toarray()[domain_inds]
+        assert np.allclose(result.jac.toarray(), jac_known)
 
 
 # ------------------ Test stack_mat -----------------------
