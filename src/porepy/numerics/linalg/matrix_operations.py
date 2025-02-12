@@ -391,7 +391,7 @@ def sparse_dia_from_sparse_blocks(blocks: list[sps.dia_matrix]) -> sps.dia_matri
     The blocks are concatenated along the main diagonal.
 
     This is a shortcut that can be used for fast construction of block diagonal matrices
-    where the individual blocks are known to be diagonal. For more block diagonal
+    where the individual blocks are known to be diagonal. For block diagonal
     matrices with a more general structure of the matrix blocks (those that have
     non-zero elements off the main diagonal), use cs{r,c}_matrix_from_sparse_blocks.
 
