@@ -30,7 +30,7 @@ dependencies = [
     "meshio",
     "networkx",
     "numba",
-    "numpy",
+    "numpy < 2.2",
     "scipy",
     "seaborn",
     "shapely",
@@ -79,7 +79,3 @@ exclude = [
     "src/porepy/numerics/ad/__init__.py",
     "src/porepy/compositional/__init__.py"
 ]
-
-[tool.mypy]
-warn_unused_configs = true
-plugins = ["numpy.typing.mypy_plugin"]
