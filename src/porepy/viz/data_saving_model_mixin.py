@@ -10,7 +10,7 @@ or to a file format other than vtu.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, cast
 
 import numpy as np
 
@@ -173,7 +173,10 @@ class DataSavingMixin(pp.PorePyModel):
             Array of values for the quantity, scaled to SI units.
 
         """
-        vals_scaled = getattr(self, method_name)([grid]).value(self.equation_system)
+        vals_scaled = cast(
+            np.ndarray,
+            self.equation_system.evaluate(getattr(self, method_name)([grid])),
+        )
         vals = self.units.convert_units(vals_scaled, units, to_si=True)
         return vals
 

@@ -130,7 +130,7 @@ import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
 from .functions import FloatType
-from .operators import IterativeOperator, TimeDependentOperator
+from .operators import IterativeOperator, Operations, TimeDependentOperator
 
 __all__ = [
     "SurrogateOperator",
@@ -171,11 +171,10 @@ class SurrogateOperator(
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
     ) -> None:
-
         super().__init__(
             name=name,
             domains=domains,
-            operation=pp.ad.Operator.Operations.evaluate,
+            operation=Operations.evaluate,
             children=children,
         )
 
@@ -445,7 +444,6 @@ class SurrogateFactory:
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
         dof_info: Optional[dict[pp.ad.equation_system.GridEntity, int]] = None,
     ) -> None:
-
         if len(dependencies) == 0:
             raise ValueError("Surrogate operators must have dependencies.")
 

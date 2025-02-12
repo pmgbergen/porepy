@@ -1,6 +1,4 @@
-"""This file is testing the functionality of `pp.BoundaryConditionMixin`.
-
-"""
+"""This file is testing the functionality of `pp.BoundaryConditionMixin`."""
 
 from typing import Sequence
 
@@ -90,7 +88,7 @@ def test_boundary_condition_mixin(t_end: int):
     for sd in subdomains:
         bc_type = setup.bc_type_dummy(sd)
         bc_operator = setup.create_dummy_ad_boundary_condition([sd])
-        bc_val = bc_operator.value(setup.equation_system)
+        bc_val = setup.equation_system.evaluate(bc_operator)
 
         # Testing the Dirichlet values. They should be equal to the fluid density.
         expected_val = setup.fluid.reference_component.density
@@ -106,7 +104,7 @@ def test_boundary_condition_mixin(t_end: int):
         assert np.allclose(bc_val[bc_type.is_neu], expected_val[bc_type.is_neu])
 
         # Testing previous timestep.
-        bc_val_prev_ts = bc_operator.previous_timestep().value(setup.equation_system)
+        bc_val_prev_ts = setup.equation_system.evaluate(bc_operator.previous_timestep())
         expected_val = np.arange(bg.num_cells) * bg.parent.dim * (t_end - 1)
         # Projecting the expected value to the subdomain.
         expected_val = bg.projection().T @ expected_val
@@ -383,7 +381,7 @@ class MomentumBalanceRobin(BCRobin, CommonMomentumBalance):
 
     """
 
-    
+
 def run_model(balance_class, alpha):
     params = {
         "times_to_export": [],
@@ -398,11 +396,11 @@ def run_model(balance_class, alpha):
     sd = instance.mdg.subdomains(dim=2)[0]
 
     if isinstance(instance, MomentumBalance):
-        displacement = instance.displacement([sd]).value(instance.equation_system)
+        displacement = instance.equation_system.evaluate(instance.displacement([sd]))
         return {"displacement": displacement}
     elif isinstance(instance, pp.MassAndEnergyBalance):
-        pressure = instance.pressure([sd]).value(instance.equation_system)
-        temperature = instance.temperature([sd]).value(instance.equation_system)
+        pressure = instance.equation_system.evaluate(instance.pressure([sd]))
+        temperature = instance.equation_system.evaluate(instance.temperature([sd]))
         return {"temperature": temperature, "pressure": pressure}
 
 
