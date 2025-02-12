@@ -46,6 +46,7 @@ References:
       for Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -60,7 +61,6 @@ import porepy.models.fluid_mass_balance as mass
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -112,7 +112,7 @@ class ManuPoroMechSaveData:
     """Current simulation time."""
 
 
-class ManuPoroMechDataSaving(VerificationDataSaving):
+class ManuPoroMechDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -159,7 +159,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.value(self.equation_system)
+        approx_pressure = self.equation_system.evaluate(pressure_ad)
         error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
@@ -171,7 +171,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
         exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.value(self.equation_system)
+        approx_displacement = self.equation_system.evaluate(displacement_ad)
         error_displacement = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_displacement,
@@ -183,7 +183,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
         exact_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
         flux_ad = self.darcy_flux([sd])
-        approx_flux = flux_ad.value(self.equation_system)
+        approx_flux = self.equation_system.evaluate(flux_ad)
         error_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_flux,
@@ -195,7 +195,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
         exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
         force_ad = self.stress([sd])
-        approx_force = force_ad.value(self.equation_system)
+        approx_force = self.equation_system.evaluate(force_ad)
         error_force = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_force,
@@ -623,7 +623,7 @@ class UnitSquareGrid:
 
 
 # -----> Balance equations
-class ManuPoroMechMassBalance(mass.MassBalanceEquations):
+class ManuPoroMechMassBalance:
     """Modify balance equation to account for external sources."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -667,7 +667,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         return fluid_sources  # - prod
 
 
-class ManuPoroMechMomentumBalance(pp.momentum_balance.MomentumBalanceEquations):
+class ManuPoroMechMomentumBalance:
     """Modify momentum balance to account for time-dependent body force."""
 
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -685,16 +685,7 @@ class ManuPoroMechEquations(
     ManuPoroMechMassBalance,
     ManuPoroMechMomentumBalance,
 ):
-    """Mixer class for modified poromoechanics equations."""
-
-    def set_equations(self):
-        """Set the equations for the modified poromechanics problem.
-
-        Call both parent classes' `set_equations` methods.
-
-        """
-        ManuPoroMechMassBalance.set_equations(self)
-        ManuPoroMechMomentumBalance.set_equations(self)
+    """Mixer class for modified poromechanics equations."""
 
 
 # -----> Solution strategy
@@ -716,12 +707,6 @@ class ManuPoroMechSolutionStrategy2d(pp.poromechanics.SolutionStrategyPoromechan
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)
-
-        self.exact_sol: ManuPoroMechExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuPoroMechSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
 
         self.flux_variable: str = "darcy_flux"
         """Keyword to access the Darcy fluxes."""

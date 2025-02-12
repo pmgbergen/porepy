@@ -15,6 +15,7 @@ Testing covers:
         local_coordinates
 
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -27,8 +28,12 @@ from porepy.applications.test_utils import models
 
 
 # List of geometry classes to test.
+# Turn mixins of specific grids into proper model geometries.
 geometry_list: list[pp.ModelGeometry] = [
-    porepy.applications.md_grids.model_geometries.RectangularDomainThreeFractures,
+    models._add_mixin(
+        porepy.applications.md_grids.model_geometries.RectangularDomainThreeFractures,
+        pp.ModelGeometry,
+    ),
     models._add_mixin(
         porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
         pp.ModelGeometry,
@@ -39,7 +44,6 @@ geometry_list: list[pp.ModelGeometry] = [
 # Parametrization of the goemetry class is common for all tests.
 @pytest.mark.parametrize("geometry_class", geometry_list)
 class TestGeometry:
-
     @classmethod
     def setup_class(self):
         """Classmethod for setting up parameters for the test.
@@ -228,9 +232,9 @@ class TestGeometry:
             # Loop over attributes and corresponding dimensions.
             for attr, dim in zip(attr_list, dim_list):
                 # Get hold of the wrapped attribute and the wrapping.
-                wrapped_value = geometry.wrap_grid_attribute(
-                    grids, attr, dim=dim
-                ).value(eq_system)
+                wrapped_value = eq_system.evaluate(
+                    geometry.wrap_grid_attribute(grids, attr, dim=dim)
+                )
 
                 # Check that the wrapped attribute is a matrix.
                 assert isinstance(wrapped_value, np.ndarray)
@@ -341,7 +345,7 @@ class TestGeometry:
         sign_switcher = geometry.internal_boundary_normal_to_outwards(
             subdomains, dim=dim
         )
-        mat = sign_switcher.value(eq_sys)
+        mat = eq_sys.evaluate(sign_switcher)
 
         # Check that the wrapped attribute is a matrix.
         assert isinstance(mat, sps.spmatrix)
@@ -410,7 +414,7 @@ class TestGeometry:
         normal_op = geometry.outwards_internal_boundary_normals(
             interfaces, unitary=True
         )
-        normals = normal_op.value(eq_sys)
+        normals = eq_sys.evaluate(normal_op)
 
         # The result should be a dense array.
         assert isinstance(normals, np.ndarray)
@@ -432,7 +436,7 @@ class TestGeometry:
         normal_op_not_unitary = geometry.outwards_internal_boundary_normals(
             interfaces, unitary=False
         )
-        normals_not_unitary = normal_op_not_unitary.value(eq_sys)
+        normals_not_unitary = eq_sys.evaluate(normal_op_not_unitary)
         normals_reshaped_not_unitary = np.reshape(
             normals_not_unitary, (dim, -1), order="F"
         )
@@ -477,7 +481,7 @@ class TestGeometry:
 
         # Left multiply with the normal operator; in essense this extracts the normal
         # vector (in the geometric sense) as a vector (in the algebraic sense).
-        product = (normal_op * dim_vec).value(eq_sys)
+        product = eq_sys.evaluate(normal_op * dim_vec)
         assert product.shape == (size,)
 
         # Each vector should have unit length, as is checked by by the lines below.
@@ -497,7 +501,7 @@ class TestGeometry:
         inner_op = nd_to_scalar_sum * (normal_op * dim_vec)
 
         # The two operations should give the same result
-        assert np.allclose(inner_op.value(eq_sys), dot_product)
+        assert np.allclose(eq_sys.evaluate(inner_op), dot_product)
 
     def test_basis_normal_tangential_components(
         self,
@@ -536,8 +540,8 @@ class TestGeometry:
             for i in range(basis_dim):
                 # Consider both subdomains and interfaces here, since the method allows
                 # it.
-                e_i = geometry.e_i(subdomains + interfaces, i=i, dim=basis_dim).value(
-                    eq_sys
+                e_i = eq_sys.evaluate(
+                    geometry.e_i(subdomains + interfaces, i=i, dim=basis_dim)
                 )
                 # Expected values
                 rows = np.arange(i, num_cells_total * basis_dim, basis_dim)
@@ -552,15 +556,15 @@ class TestGeometry:
                 if basis_dim == dim:
                     # the dimension of the basis vector space is not specified, the
                     # value should be the same as for basis_dim = dim.
-                    e_None = geometry.e_i(subdomains + interfaces, i=i, dim=dim).value(
-                        eq_sys
+                    e_None = eq_sys.evaluate(
+                        geometry.e_i(subdomains + interfaces, i=i, dim=dim)
                     )
                     assert np.allclose((e_None - e_i).data, 0)
 
         # Next, test the methods to extract normal and tangential components. The normal
         # component is straightforward, the tangential component requires a bit of work
         # to deal with the difference between 2d and 3d.
-        normal_component = geometry.normal_component(subdomains).value(eq_sys)
+        normal_component = eq_sys.evaluate(geometry.normal_component(subdomains))
 
         # The normal component should, for each row, have 1 in the column corresponding
         # to the normal component, so [(0, dim - 1), (1, 2 * dim - 1), ...)] should be
@@ -578,7 +582,9 @@ class TestGeometry:
         assert np.allclose((known_normal_component - normal_component).data, 0)
 
         # For the tangential component, the expected value depends on dimension.
-        tangential_component = geometry.tangential_component(subdomains).value(eq_sys)
+        tangential_component = eq_sys.evaluate(
+            geometry.tangential_component(subdomains)
+        )
         if dim == 2:
             # Here we need [(0, 0), (1, 2), (2, 4), ...] to be non-zero.
             rows_tangential_component = np.arange(num_subdomain_cells)
@@ -625,5 +631,5 @@ class TestGeometry:
         # The global to local operator should be a rotation matrix, and the inverse
         # should be the transpose. This is checked by multiplying the matrix with its
         # transpose, which should give the identity matrix.
-        val = global_to_local.value(pp.EquationSystem(geometry.mdg)).todense()
+        val = pp.EquationSystem(geometry.mdg).evaluate(global_to_local).todense()
         assert np.allclose(val @ val.T, np.eye(val.shape[0]))
