@@ -145,7 +145,6 @@ def wrap_discretization(
     # Loop over all identified terms, assign a MergedOperator to non-coupling terms,
     # while postponing the treatment of coupling terms.
     for discretization_key in discretization_term_key:
-
         operators[discretization_key] = {}
 
         # Fetch all physics keywords associated with this discretization term. The
@@ -566,7 +565,10 @@ class MergedOperator(operators.Operator):
         return f"{self._name}({self._physics_key}).{self._discretization_matrix_key}"
 
     def _key(self) -> str:
-        if self._cached_key is None:
+        # Mypy occasionally (but not always, sigh) complains that it cannot
+        # self._cached_key determine the type of self._cached_key, despite it being
+        # decleared as an Optional[str] in the class definition.
+        if self._cached_key is None:  # type: ignore[has-type]
             domain_ids = [domain.id for domain in self.domains]
             s = f"(Merged_operator, name={self.name}, domains={domain_ids})"
             s += f", discretization_matrix_key={self._discretization_matrix_key}"
