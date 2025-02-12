@@ -823,17 +823,20 @@ class Mpfa(pp.FVElliptic):
         # if normal vector points out of subcell). The information can be obtained from
         # sd.cell_faces, which doubles as a discrete divergence operator. The .A suffix
         # is necessary to get a numpy array, instead of a scipy matrix.
-        sgn = sd.cell_faces[subcell_topology.fno, subcell_topology.cno].A
+        sgn = np.asarray(
+            sd.cell_faces[subcell_topology.fno, subcell_topology.cno]
+        ).ravel()
+
         # Then insert the signs into a matrix that maps cells to subfaces
         pr_cont_cell_all = sps.coo_matrix(
-            (sgn[0], (subcell_topology.subfno, subcell_topology.cno))
+            (sgn, (subcell_topology.subfno, subcell_topology.cno))
         ).tocsr()
 
         # Create a sign array that only contains one side (subcell) of each subface.
         # This will be used at various points below.
-        sgn_unique = sd.cell_faces[
-            subcell_topology.fno_unique, subcell_topology.cno_unique
-        ].A.ravel("F")
+        sgn_unique = np.asarray(
+            sd.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique]
+        ).ravel()
 
         ## Discretize the Robin condition.
         # This takes the form
