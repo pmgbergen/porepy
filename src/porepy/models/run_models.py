@@ -101,6 +101,8 @@ def run_time_dependent_model(model, params: Optional[dict] = None) -> None:
             + f" of {model.time_manager.time_final:.1e}"
             + f" with time step {model.time_manager.dt:.1e}"
         )
+        # Return convergence status s.t. the time loop can determine whether the time
+        # step succeeded or failed.
         return solver.solve(model)
 
     # Progressbars turned off or tqdm not installed:
