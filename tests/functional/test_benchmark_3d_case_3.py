@@ -54,6 +54,7 @@ def model(
     model_params = {
         "material_constants": {"solid": solid_constants},
         "flux_discretization": flux_discretization,
+        "times_to_export": [],  # Suppress output for tests
     }
     model = ModelWithEffectivePermeability(model_params)
     pp.run_time_dependent_model(model)

@@ -35,7 +35,6 @@ import sympy as sym
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompSaveData,
     ManuIncompUtils,
@@ -76,7 +75,7 @@ class ManuCompSaveData(ManuIncompSaveData):
     """Current simulation time."""
 
 
-class ManuCompDataSaving(VerificationDataSaving):
+class ManuCompDataSaving(pp.PorePyModel):
     """Mixin class to store relevant data."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -656,7 +655,7 @@ class ManuCompBoundaryConditions(
 
 
 # -----> Balance equations
-class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+class ManuCompBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -703,12 +702,6 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
     def __init__(self, params: dict):
         """Constructor of the class."""
         super().__init__(params)
-
-        self.exact_sol: ManuCompExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuCompSaveData] = []
-        """Object that stores exact and approximated solutions and L2 errors."""
 
         self.subdomain_darcy_flux_variable: str = "darcy_flux"
         """Keyword to access the subdomain Darcy fluxes."""

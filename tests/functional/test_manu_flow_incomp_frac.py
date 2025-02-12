@@ -82,6 +82,7 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
         "grid_type": "cartesian",
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.125},
+        "times_to_export": [],  # Suppress output for tests
     }
 
     # Retrieve actual L2-relative errors
@@ -89,7 +90,9 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
     # Loop through models, i.e., 2d and 3d
     for model in [ManuIncompFlowSetup2d, ManuIncompFlowSetup3d]:
         # Make deep copy of params to avoid nasty bugs.
-        setup = model(deepcopy(model_params))
+        setup: ManuIncompFlowSetup2d | ManuIncompFlowSetup3d = model(
+            deepcopy(model_params)
+        )
         pp.run_time_dependent_model(setup)
         errors.append(
             {
@@ -217,6 +220,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                     "grid_type": grid_type,
                     "material_constants": material_constants,
                     "meshing_arguments": {"cell_size": 0.125},
+                    "times_to_export": [],  # Suppress output for tests
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d
                 if model_idx == 0:
