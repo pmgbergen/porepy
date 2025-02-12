@@ -230,16 +230,13 @@ def create_1d_grids(
     Only lines that were defined as 'physical' in the gmsh sense may have a grid
     created, but then only if the physical name matches specified ``line_tag``.
 
-    It is assumed that the mesh is read by meshio. See :mod:`~porepy.fracs.simplex`
-    for how to do this.
-
-    Todo:
-        Check if the typing is correct.
+    It is assumed that the mesh is read by meshio. See :mod:`~porepy.fracs.simplex` for
+    how to do this.
 
     Parameters:
         pts: ``shape=(num_points, 3)``
 
-            Global point set from gmsh
+            Global point set from gmsh.
         cells: Should have a key ``'line'``, which maps to a :obj:`~numpy.ndarray` with
             indices of the lines that form 1D grids.
         phys_names: Mapping from the gmsh tags assigned to physical entities to the
@@ -251,9 +248,9 @@ def create_1d_grids(
             The target physical name. All lines that have this tag will be assigned a
             grid.
 
-            The string is assumed to be on the from ``BASE_NAME_OF_TAG_{INDEX}``,
-            where ``INDEX`` is a number. The comparison is made between the physical
-            names and the line, up to the last underscore.
+            The string is assumed to be on the from ``BASE_NAME_OF_TAG_{INDEX}``, where
+            ``INDEX`` is a number. The comparison is made between the physical names and
+            the line, up to the last underscore.
 
             If not provided, the physical names of fracture lines will be used as
             target.
@@ -262,8 +259,8 @@ def create_1d_grids(
             Tolerance used when comparing points in the creation of line grids.
         constraints: ``default=None``
 
-            Array with lists of lines that should not become grids.
-            The array items should match the ``INDEX`` in ``line_tag``, see above.
+            Array with lists of lines that should not become grids. The array items
+            should match the ``INDEX`` in ``line_tag``, see above.
         return_fracture_tips: ``default=True``
 
             If ``True``, fracture tips will be found and returned.
@@ -281,14 +278,14 @@ def create_1d_grids(
 
     if constraints is None:
         constraints = np.empty(0, dtype=int)
-    # Recover lines
+    # Recover lines.
     # There will be up to three types of physical lines: intersections (between
-    # fractures), fracture tips, and auxiliary lines (to be disregarded)
+    # fractures), fracture tips, and auxiliary lines (to be disregarded).
 
-    # Data structure for the point grids
+    # Data structure for the point grids.
     g_1d: list[pp.Grid] = []
 
-    # If there are no fracture intersections, we return empty lists
+    # If there are no fracture intersections, we return empty lists.
     if "line" not in cells:
         return g_1d, np.empty(0)
 
@@ -300,7 +297,7 @@ def create_1d_grids(
 
     for i, pn_ind in enumerate(np.unique(line_tags)):
         # Index of the final underscore in the physical name. Chars before this will
-        # identify the line type, the one after will give index
+        # identify the line type, the one after will give index.
         pn = phys_names[pn_ind]
         offset_index = pn.rfind("_")
         loc_line_cell_num = np.where(line_tags == pn_ind)[0]
@@ -320,7 +317,6 @@ def create_1d_grids(
         try:
             frac_num = int(pn[offset_index + 1 :])
         except ValueError:
-            #
             frac_num = -1
 
         # If this is a meshing constraint, but not a fracture, we don't need to do
@@ -335,7 +331,7 @@ def create_1d_grids(
             tip_pts = np.append(tip_pts, np.unique(loc_line_pts))
 
         elif line_type == line_tag[:-1]:
-            loc_pts_1d = np.unique(loc_line_pts)  # .flatten()
+            loc_pts_1d = np.unique(loc_line_pts)
             loc_coord = pts[loc_pts_1d, :].transpose()
             g = create_embedded_line_grid(loc_coord, loc_pts_1d, tol=tol)
             g.frac_num = int(frac_num)
@@ -368,7 +364,7 @@ def create_0d_grids(
     Parameters:
         pts: ``shape=(num_points, 3)``
 
-            Global point set from gmsh
+            Global point set from gmsh.
         cells: Should have a key ``'vertex'``, which maps to a :obj:`~numpy.ndarray`
             with indices of the points that form point grids.
         phys_names: mapping from the gmsh tags assigned to physical entities
@@ -377,9 +373,8 @@ def create_0d_grids(
             physical names (in the gmsh sense) of the points.
         target_tag_stem: The target physical name.
 
-            All points that have this tag will be assigned a grid. The string is
-            assumed to be on from ``BASE_NAME_OF_TAG_{INDEX}``, where ``INDEX`` is a
-            number.
+            All points that have this tag will be assigned a grid. The string is assumed
+            to be on from ``BASE_NAME_OF_TAG_{INDEX}``, where ``INDEX`` is a number.
 
             The comparison is made between the physical names and the
             ``target_tag_stem``, up to the last underscore.
@@ -399,24 +394,24 @@ def create_0d_grids(
 
     if "vertex" in cells:
         # Index (in the array pts) of the points that are specified as physical in the
-        # .geo-file
+        # .geo-file.
         point_cells = cells["vertex"].ravel()
 
         # Keys to the physical names table of the points that have been declared as
-        # physical
+        # physical.
         physical_name_indices = cell_info["vertex"]
 
-        # Loop over all physical points
+        # Loop over all physical points.
         for pi, phys_names_ind in enumerate(physical_name_indices):
             pn = phys_names[phys_names_ind]
             offset_index = pn.rfind("_")
 
             phys_name_vertex = pn[:offset_index]
 
-            # Check if this is the target. The -1 is needed to avoid the extra _ in
-            # the defined constant
+            # Check if this is the target. The -1 is needed to avoid the extra _ in the
+            # defined constant.
             if phys_name_vertex == target_tag_stem[:-1]:
-                # This should be a new grid
+                # This should be a new grid.
                 g = pp.PointGrid(pts[point_cells[pi]])
                 g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
 
@@ -453,16 +448,16 @@ def create_embedded_line_grid(
     ) = pp.map_geometry.project_points_to_line(loc_coord, tol)
     g = pp.TensorGrid(sorted_coord)
 
-    # Project back to active dimension
+    # Project back to active dimension.
     nodes = np.zeros(g.nodes.shape)
     nodes[active_dimension] = g.nodes[0]
     g.nodes = nodes
 
-    # Project back again to 3d coordinates
+    # Project back again to 3d coordinates.
     irot = rot.transpose()
     g.nodes = irot.dot(g.nodes)
     g.nodes += loc_center
 
-    # Add mapping to global point numbers
+    # Add mapping to global point numbers.
     g.global_point_ind = glob_id[sort_ind]
     return g

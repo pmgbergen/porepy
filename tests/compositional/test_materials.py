@@ -15,7 +15,11 @@ import pytest
 
 import porepy as pp
 
+from dataclasses import FrozenInstanceError
 
+from porepy.examples.flow_benchmark_2d_case_1 import FractureSolidConstants
+
+# TODO remove
 @pytest.fixture
 def subdomains() -> list[pp.Grid]:
     """Create a list of grids for the test."""
@@ -42,6 +46,17 @@ def derived_units() -> list[str]:
     return ["Pa", "N", "J", "W", "degree"]
 
 
+@pytest.fixture
+def scaled_units() -> pp.Units:
+    """Some scaled units used to test constatns."""
+    return pp.Units(
+        **{
+            'm': pp.KILO * pp.METER,
+            'kg': pp.KILO * pp.METER,
+            'K': pp.KILO * pp.KELVIN,
+        }
+    )
+
 def test_default_units(base_units, derived_units):
     """Test that the default units are defined properly.
 
@@ -60,8 +75,13 @@ def test_default_units(base_units, derived_units):
         else:
             assert np.isclose(getattr(units, unit), 1)
 
-    # Get list of all public attributes
-    attributes = [attr for attr in dir(units) if not attr.startswith("_")]
+    # Get list of all public attributes excluding methods
+    exclude = ['convert_units']
+    attributes = [
+        attr
+        for attr in dir(units)
+        if not (attr.startswith("_") or attr in exclude)
+    ]
 
     # Check that all attributes are base or derived units.
     # An error in this test likely means a new unit has been added, but is not covered
@@ -131,29 +151,24 @@ def test_modified_units(modify_dict, derived_units, base_units):
 
 
 @pytest.mark.parametrize("modify_dict", modification_dictionaries)
-def test_convert_units(modify_dict, base_units, derived_units):
+def test_convert_units(modify_dict, base_units):
     """Test that the conversion between units works as expected.
 
     Conversion includes parsing and evaluating the string and dividing the value by the
     resulting unit.
     """
-    # Set up a unit class with modified units passed as keyword arguments
+    # Set up a unit class with modified units passed as keyword arguments.
     units = pp.Units(**modify_dict)
-    # Assign the units to a material, which has a conversion method.
-    # We need to pass a dictionary to the __init__ of the the MaterialConstant class,
-    # but the values are not used in the test, so make the dict empty.
-    material = pp.MaterialConstants({})
-    material.set_units(units)
 
-    # Test that the conversion works for base units
+    # Test that the conversion works for base units.
     for unit in base_units:
         # Retrieve the value of the unit. If the unit is not modified, the default value
         # is 1.
         val = modify_dict.get(unit, 1)
         # Assert that scaling 1 * unit returns the inverse of the scale set for unit
-        assert np.isclose(material.convert_units(1, unit), 1 / val)
+        assert np.isclose(units.convert_units(1, unit), 1 / val)
         # Assert that scaling 1 / unit**2 returns the square of the scale set for unit
-        assert np.isclose(material.convert_units(1, f"{unit}^-2"), val**2)
+        assert np.isclose(units.convert_units(1, f"{unit}^-2"), val**2)
 
     # Test that the conversion works for combinations of units
     # Get pascal from modified base units
@@ -163,17 +178,95 @@ def test_convert_units(modify_dict, base_units, derived_units):
     expected = pascal / units.m**2
     # The conversion method in the material class should be equivalent to manual scaling
     # as done above.
-    assert np.isclose(material.convert_units(1, "m^2 *Pa^-1"), expected)
+    assert np.isclose(units.convert_units(1, "m^2 *Pa^-1"), expected)
     expected = pascal * units.s / units.m**2
-    assert np.isclose(material.convert_units(1, "m^2*Pa^-1*s^-1"), expected)
+    assert np.isclose(units.convert_units(1, "m^2*Pa^-1*s^-1"), expected)
 
     # Test that invalid units raise an error
     invalid_units = ["invalid", "m^2*invalid", "^2", "s^-1*", "2", "m**2"]
     for unit in invalid_units:
         with pytest.raises(AttributeError):
-            material.convert_units(1, unit)
+            units.convert_units(1, unit)
 
     # Test that the different ways of defining a dimensionless unit work
     dimensionless_units = ["", "1", "-", "   "]
     for unit in dimensionless_units:
-        assert np.isclose(material.convert_units(1, unit), 1)
+        assert np.isclose(units.convert_units(1, unit), 1)
+
+
+@pytest.mark.parametrize(
+    'constants_type',
+    [
+        pp.Constants,
+        pp.FluidComponent,
+        pp.SolidConstants,
+        FractureSolidConstants,
+        pp.ReferenceVariableValues,
+    ]
+)
+def test_class_of_constants(constants_type: type[pp.Constants], scaled_units: pp.Units):
+    """Tests the class Constants and its children.
+
+    Tests:
+
+    1. Creation with default values (should be unscaled)
+    2. Constants declared with SI units are frozen
+    3. Default field values are numbers (float, int)
+    4. The conversion to new, scaled units works as intended.
+
+    """
+
+    default_units = pp.Units()
+
+    constants = constants_type()
+    constants_default = constants_type(units=default_units)
+
+    # assert the post-initialization is done and the instance is flagged as initialized
+    assert constants._initialized
+
+    # Testing individual constants delcared indirectly by SI units.
+    for name in constants_type.SI_units.keys():
+        # Testing that the default values match with the default units (SI)
+        c = getattr(constants, name)
+        c_default = getattr(constants_default, name)
+        assert np.isclose(c, c_default)
+
+        # test that the values are or intended format.
+        assert isinstance(c, (float, int))
+        assert isinstance(c_default, (float, int))
+
+        # Testing that the constants cannot be reset anymore
+        with pytest.raises(FrozenInstanceError):
+            exec(f"constants.{name} = 1")
+
+    # Testing that other utility fields cannot be set as well
+    with pytest.raises(FrozenInstanceError):
+        exec("constants.name = ''")
+    with pytest.raises(FrozenInstanceError):
+        exec("constants.units = default_units")
+    with pytest.raises(FrozenInstanceError):
+        exec("constants.constants_in_SI = dict()")
+    with pytest.raises(FrozenInstanceError):
+        exec("constants._initialized = False")
+
+    # Testing the scaled values
+    constants_scaled = constants.to_units(scaled_units)
+
+    for name in constants_type.SI_units.keys():
+        # check that the values in SI where not lost
+        assert np.isclose(
+            constants.constants_in_SI[name], constants_scaled.constants_in_SI[name]
+        )
+        assert np.isclose(
+            constants_default.constants_in_SI[name],
+            constants_scaled.constants_in_SI[name]
+        )
+
+        # check that the value is correctly converted by manually converting the units
+        # from SI to given scaled units
+        assert np.isclose(
+            eval(f"constants_scaled.{name}"),
+            scaled_units.convert_units(
+                eval(f"constants.{name}"), constants.SI_units[name]
+            )
+        )

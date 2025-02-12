@@ -47,7 +47,6 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -116,7 +115,7 @@ class ManuThermoPoroMechSaveData:
     time: number
 
 
-class ManuThermoPoroMechDataSaving(VerificationDataSaving):
+class ManuThermoPoroMechDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     exact_sol: ManuThermoPoroMechExactSolution2d
@@ -127,7 +126,7 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
     :class:`~porepy.models.fluid_mass_balance.VariablesSinglePhaseFlow`.
 
     """
-    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
@@ -138,6 +137,12 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
     """
 
+    energy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Method that returns the energy fluxes in the form of an Ad operator. Usually
+    provided by the mixin class
+    :class:`porepy.models.energy_balance.EnergyBalanceEquations`.
+
+    """
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
     provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
@@ -170,8 +175,8 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.value(self.equation_system)
-        error_pressure = ConvergenceAnalysis.l2_error(
+        approx_pressure = self.equation_system.evaluate(pressure_ad)
+        error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=approx_pressure,
@@ -182,8 +187,8 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
         exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.value(self.equation_system)
-        error_displacement = ConvergenceAnalysis.l2_error(
+        approx_displacement = self.equation_system.evaluate(displacement_ad)
+        error_displacement = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_displacement,
             approx_array=approx_displacement,
@@ -194,8 +199,8 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
         exact_temperature = self.exact_sol.temperature(sd=sd, time=t)
         temperature_ad = self.temperature([sd])
-        approx_temperature = temperature_ad.value(self.equation_system)
-        error_temperature = ConvergenceAnalysis.l2_error(
+        approx_temperature = self.equation_system.evaluate(temperature_ad)
+        error_temperature = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_temperature,
             approx_array=approx_temperature,
@@ -206,8 +211,8 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
         exact_darcy_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
         flux_ad = self.darcy_flux([sd])
-        approx_darcy_flux = flux_ad.value(self.equation_system)
-        error_darcy_flux = ConvergenceAnalysis.l2_error(
+        approx_darcy_flux = self.equation_system.evaluate(flux_ad)
+        error_darcy_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_darcy_flux,
             approx_array=approx_darcy_flux,
@@ -218,8 +223,8 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
         exact_energy_flux = self.exact_sol.energy_flux(sd=sd, time=t)
         flux_ad = self.energy_flux([sd])
-        approx_energy_flux = flux_ad.value(self.equation_system)
-        error_energy_flux = ConvergenceAnalysis.l2_error(
+        approx_energy_flux = self.equation_system.evaluate(flux_ad)
+        error_energy_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_energy_flux,
             approx_array=approx_energy_flux,
@@ -230,8 +235,8 @@ class ManuThermoPoroMechDataSaving(VerificationDataSaving):
 
         exact_force = self.exact_sol.thermoporoelastic_force(sd=sd, time=t)
         force_ad = self.stress([sd])
-        approx_force = force_ad.value(self.equation_system)
-        error_force = ConvergenceAnalysis.l2_error(
+        approx_force = self.equation_system.evaluate(force_ad)
+        error_force = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_force,
             approx_array=approx_force,
@@ -291,7 +296,7 @@ class ManuThermoPoroMechExactSolution2d:
 
     """
 
-    def __init__(self, setup):
+    def __init__(self, setup: pp.PorePyModel):
         """Constructor of the class."""
 
         # Heterogeneity factor.
@@ -305,39 +310,39 @@ class ManuThermoPoroMechExactSolution2d:
         # expanded by the heterogeneity factor below
         #
         # Lamé parameters
-        lame_lmbda_base = setup.solid.lame_lambda()
-        lame_mu_base = setup.solid.shear_modulus()
+        lame_lmbda_base = setup.solid.lame_lambda
+        lame_mu_base = setup.solid.shear_modulus
         # Permeability
-        permeability_base = setup.solid.permeability()
+        permeability_base = setup.solid.permeability
 
         # Biot coefficient. Will be used to define the Biot tensor below.
-        alpha = setup.solid.biot_coefficient()
+        alpha = setup.solid.biot_coefficient
         # Reference density and compressibility for fluid.
-        reference_fluid_density = setup.fluid.density()
-        fluid_compressibility = setup.fluid.compressibility()
+        reference_fluid_density = setup.fluid.reference_component.density
+        fluid_compressibility = setup.fluid.reference_component.compressibility
         # Density of the solid.
-        solid_density = setup.solid.density()
+        solid_density = setup.solid.density
 
         # Reference porosity
-        phi_0 = setup.solid.porosity()
+        phi_0 = setup.solid.porosity
         # Specific heat capacity of the fluid
-        fluid_specific_heat = setup.fluid.specific_heat_capacity()
+        fluid_specific_heat = setup.fluid.reference_component.specific_heat_capacity
         # Specific heat capacity of the solid
-        solid_specific_heat = setup.solid.specific_heat_capacity()
+        solid_specific_heat = setup.solid.specific_heat_capacity
         # Reference pressure and temperature
-        p_0 = setup.fluid.pressure()
-        T_0 = setup.fluid.temperature()
+        p_0 = setup.reference_variable_values.pressure
+        T_0 = setup.reference_variable_values.temperature
 
         # Thermal expansion coefficients
-        fluid_thermal_expansion = setup.fluid.thermal_expansion()
-        solid_thermal_expansion = setup.solid.thermal_expansion()
+        fluid_thermal_expansion = setup.fluid.reference_component.thermal_expansion
+        solid_thermal_expansion = setup.solid.thermal_expansion
 
         # Conductivity for the fluid and solid
-        fluid_conductivity = setup.fluid.thermal_conductivity()
-        solid_conductivity = setup.solid.thermal_conductivity()
+        fluid_conductivity = setup.fluid.reference_component.thermal_conductivity
+        solid_conductivity = setup.solid.thermal_conductivity
 
         # Fluid viscosity
-        mu_f = setup.fluid.viscosity()
+        mu_f = setup.fluid.reference_component.viscosity
 
         ## Done with fetching constants. Now, introduce heterogeneities and define
         # the exact solutions for the primary variables.
@@ -895,7 +900,7 @@ class ManuThermoPoroMechExactSolution2d:
 
 
 # -----> Geometry
-class UnitSquareGrid(pp.ModelGeometry):
+class UnitSquareGrid(pp.PorePyModel):
     """Class for setting up the geometry of the unit square domain.
 
     The domain may be assigned different material parameters in the region x > 0.5 and y
@@ -916,9 +921,6 @@ class UnitSquareGrid(pp.ModelGeometry):
     all nodes at x=0.5 and y=0.5 fixed). This is achieved in self.set_geometry().
 
     """
-
-    params: dict
-    """Simulation model parameters."""
 
     def set_geometry(self) -> None:
         super().set_geometry()
@@ -1034,18 +1036,12 @@ class ManuThermoPoroMechSolutionStrategy2d(
 ):
     """Solution strategy for the verification setup."""
 
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
+    exact_sol: ManuThermoPoroMechExactSolution2d
+    """Exact solution object."""
 
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)
-
-        self.exact_sol: ManuThermoPoroMechExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuThermoPoroMechSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
 
         self.flux_variable: str = "darcy_flux"
         """Keyword to access the Darcy fluxes."""
@@ -1195,9 +1191,9 @@ class ManuThermoPoroMechSolutionStrategy2d(
                 self.darcy_keyword: biot_alpha,
                 self.enthalpy_keyword: thermal_stress,
             }
-            data[pp.PARAMETERS][self.stress_keyword][
-                "scalar_vector_mappings"
-            ] = scalar_vector_mapping
+            data[pp.PARAMETERS][self.stress_keyword]["scalar_vector_mappings"] = (
+                scalar_vector_mapping
+            )
 
 
 class ManuThermoPoroMechSetup2d(  # type: ignore[misc]
@@ -1205,6 +1201,6 @@ class ManuThermoPoroMechSetup2d(  # type: ignore[misc]
     SourceTerms,
     ManuThermoPoroMechSolutionStrategy2d,
     ManuThermoPoroMechDataSaving,
-    pp.thermoporomechanics.Thermoporomechanics,
+    pp.Thermoporomechanics,
 ):
     pass

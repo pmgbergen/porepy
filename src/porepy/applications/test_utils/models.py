@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import numpy as np
 
@@ -15,7 +15,11 @@ from porepy.applications.md_grids.model_geometries import (
 
 
 class NoPhysics(  # type: ignore[misc]
-    pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin, pp.BoundaryConditionMixin
+    pp.ModelGeometry,
+    pp.SolutionStrategy,
+    pp.DataSavingMixin,
+    pp.BoundaryConditionMixin,
+    pp.FluidMixin,
 ):
     """A model with no physics, for testing purposes.
 
@@ -36,41 +40,39 @@ class NoPhysics(  # type: ignore[misc]
 
 class MassBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ): ...
 
 
 class MomentumBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.momentum_balance.MomentumBalance,
+    pp.MomentumBalance,
 ):
     """Combine components needed for momentum balance simulation."""
 
 
 class MassAndEnergyBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.mass_and_energy_balance.MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
 
 
 class Poromechanics(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.poromechanics.Poromechanics,
+    pp.Poromechanics,
 ):
     """Combine components needed for poromechanics simulation."""
 
 
 class Thermoporomechanics(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.thermoporomechanics.Thermoporomechanics,
+    pp.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""
 
 
-def model(
-    model_type: str, dim: int, num_fracs: int = 1
-) -> MassBalance | MomentumBalance | MassAndEnergyBalance | Poromechanics:
+def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
     """Setup for tests."""
     # Suppress output for tests
     fracture_indices = [i for i in range(num_fracs)]
@@ -92,15 +94,15 @@ def model(
     # Identify the physics class
     model_class: Any = None
     if model_type == "mass_balance":
-        model_class = pp.fluid_mass_balance.SinglePhaseFlow
+        model_class = pp.SinglePhaseFlow
     elif model_type == "momentum_balance":
-        model_class = pp.momentum_balance.MomentumBalance
+        model_class = pp.MomentumBalance
     elif model_type == "energy_balance" or model_type == "mass_and_energy_balance":
-        model_class = pp.mass_and_energy_balance.MassAndEnergyBalance
+        model_class = pp.MassAndEnergyBalance
     elif model_type == "poromechanics":
-        model_class = pp.poromechanics.Poromechanics
+        model_class = pp.Poromechanics
     elif model_type == "thermoporomechanics":
-        model_class = pp.thermoporomechanics.Thermoporomechanics
+        model_class = pp.Thermoporomechanics
     else:
         # To add a new model, insert an elif clause here, and a new class above.
         raise ValueError(f"Unknown model type {model_type}")
@@ -110,7 +112,7 @@ def model(
         pass
 
     # Create an instance of the combined class
-    model = Model(params)
+    model = cast(pp.PorePyModel, Model(params))
 
     # Prepare the simulation
     # (create grids, variables, equations, discretize, etc.)
@@ -118,15 +120,9 @@ def model(
     return model
 
 
-class RobinDirichletNeumannConditions:
+class RobinDirichletNeumannConditions(pp.PorePyModel):
     """Mixin for applying Neumann, Dirichlet and Robin conditions for a
     thermoporomechanics model."""
-
-    params: dict
-
-    domain_boundary_sides: Callable[[pp.GridLike], pp.domain.DomainSides]
-
-    nd: int
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Assigns pressure values on the north and south boundary."""
@@ -245,16 +241,17 @@ def subdomains_or_interfaces_from_method_name(
     assert len(signature.parameters) == 1
 
     # The domain is a list of either subdomains or interfaces.
+    domains: list[pp.Grid] | list[pp.MortarGrid]
     if "subdomains" in signature.parameters or "domains" in signature.parameters:
         # If relevant, filter out the domains that are not to be tested.
         domains = mdg.subdomains(dim=domain_dimension)
     elif "interfaces" in signature.parameters:
-        domains = mdg.interfaces(dim=domain_dimension)  # type: ignore[assignment]
+        domains = mdg.interfaces(dim=domain_dimension)
 
     return domains
 
 
-def _add_mixin(mixin, parent):
+def _add_mixin(mixin: type, parent: type) -> type:
     """Helper method to dynamically construct a class by adding a mixin.
 
     Multiple mixins can be added by nested calls to this method.
@@ -272,32 +269,6 @@ def _add_mixin(mixin, parent):
     # such an addition could not be made in the mixin class instead.
     cls = type(name, (mixin, parent), {})
     return cls
-
-
-# TODO: Purge in favour of pp.solid_values.granite
-granite_values = {
-    "biot_coefficient": 0.8,
-    "permeability": 1e-20,
-    "density": 2700,
-    "porosity": 7e-3,
-    "shear_modulus": 16.67 * pp.GIGA,
-    "lame_lambda": 11.11 * pp.GIGA,
-    "specific_heat_capacity": 790,
-    "thermal_conductivity": 2.5,
-    "thermal_expansion": 1e-5,
-    "fracture_normal_stiffness": 1529,
-    "maximum_elastic_fracture_opening": 1e-4,
-    "fracture_gap": 1e-4,
-    "residual_aperture": 0.01,
-}
-water_values = {
-    "specific_heat_capacity": 4180,
-    "compressibility": 4e-10,
-    "viscosity": 1e-3,
-    "density": 1000,
-    "thermal_conductivity": 0.6,
-    "thermal_expansion": 2.1e-4,
-}
 
 
 def compare_scaled_primary_variables(
@@ -328,8 +299,8 @@ def compare_scaled_primary_variables(
             variables=[var_name], time_step_index=0
         )
         # Convert back to SI units.
-        values_0 = setup_0.fluid.convert_units(scaled_values_0, var_unit, to_si=True)
-        values_1 = setup_1.fluid.convert_units(scaled_values_1, var_unit, to_si=True)
+        values_0 = setup_0.units.convert_units(scaled_values_0, var_unit, to_si=True)
+        values_1 = setup_1.units.convert_units(scaled_values_1, var_unit, to_si=True)
         compare_values(values_0, values_1, cell_wise=cell_wise)
 
 
@@ -368,8 +339,8 @@ def compare_scaled_model_quantities(
                 setup.mdg, method, domain_dimension=dim
             )
             # Convert back to SI units.
-            value = method(domains).value(setup.equation_system)
-            values.append(setup.fluid.convert_units(value, method_unit, to_si=True))
+            value = setup.equation_system.evaluate(method(domains))
+            values.append(setup.units.convert_units(value, method_unit, to_si=True))
         compare_values(values[0], values[1], cell_wise=cell_wise)
 
 
@@ -391,17 +362,16 @@ def compare_values(
         # Compare cell-wise values.
         assert np.allclose(values_0, values_1)
     else:
-        # Compare sums instead of individual values, to avoid
-        # errors due to different grids generated by gmsh (particularly for different
-        # length scales).
-        # Tolerance relative to the sum of the absolute values, not the differences.
-        # Add a small absolute tolerance to avoid problems with zero values.
+        # Compare sums instead of individual values, to avoid errors due to different
+        # grids generated by gmsh (particularly for different length scales). Tolerance
+        # relative to the sum of the absolute values, not the differences. Add a small
+        # absolute tolerance to avoid problems with zero values.
         rtol = 1e-5 * np.sum(np.abs(values_0))
         assert np.isclose(np.sum(values_0 - values_1), 0, atol=1e-10 + rtol)
 
 
-def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
-    """Get all possible testable methods to be used in the test_ad_methods_xxx.py files.
+def get_model_methods_returning_ad_operator(model_setup: pp.PorePyModel) -> list[str]:
+    """Get all possible testable methods to be used in test_ad_operator_methods_xx.
 
     A testable method is one that:
 
@@ -432,7 +402,7 @@ def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
         except TypeError:
             continue
 
-        # Append method to the `testable_methods` list if the conditions are met
+        # Append method to the `testable_methods` list if the conditions are met.
         if (
             len(signature.parameters) == 1
             and (
@@ -447,4 +417,73 @@ def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
         ):
             testable_methods.append(method)
 
-    return testable_methods
+    # Appending testable methods of the fluid.
+    fluid_methods = [
+        method for method in dir(model_setup.fluid) if not method.startswith("_")
+    ]
+    testable_fluid_methods: list[str] = []
+    # The basic flow model has no energy-related methods.
+    skip_methods = ["specific_enthalpy", "thermal_conductivity"]
+    for method in fluid_methods:
+        if method in skip_methods:
+            continue
+        # Get method in callable form.
+        callable_method = getattr(model_setup.fluid, method)
+
+        # Retrieve method signature via inspect.
+        try:
+            signature = inspect.signature(callable_method)
+        except TypeError:
+            continue
+
+        # Append method to the `testable_methods` list if the conditions are met.
+        if (
+            len(signature.parameters) == 1
+            and (
+                "subdomains" in signature.parameters
+                or "interfaces" in signature.parameters
+                or "domains" in signature.parameters
+            )
+            and (
+                "pp.ad.Operator" in signature.return_annotation
+                or "pp.ad.DenseArray" in signature.return_annotation
+            )
+        ):
+            testable_fluid_methods.append(f"fluid.{method}")
+
+    # The fluid is represented by a reference phase, whose saturation is 1. I.e., it's
+    # thermodynamic properties are equal to the fluid properties.
+    phase_methods = [
+        method
+        for method in dir(model_setup.fluid.reference_phase)
+        if not method.startswith("_")
+    ]
+    testable_phase_methods: list[str] = []
+    for method in phase_methods:
+        if method in skip_methods:
+            continue
+        # Get method in callable form.
+        callable_method = getattr(model_setup.fluid.reference_phase, method)
+
+        # Retrieve method signature via inspect.
+        try:
+            signature = inspect.signature(callable_method)
+        except TypeError:
+            continue
+
+        # Append method to the `testable_methods` list if the conditions are met.
+        if (
+            len(signature.parameters) == 1
+            and (
+                "subdomains" in signature.parameters
+                or "interfaces" in signature.parameters
+                or "domains" in signature.parameters
+            )
+            and (
+                "pp.ad.Operator" in signature.return_annotation
+                or "pp.ad.DenseArray" in signature.return_annotation
+            )
+        ):
+            testable_phase_methods.append(f"fluid.reference_phase.{method}")
+
+    return testable_methods + testable_fluid_methods + testable_phase_methods

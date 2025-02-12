@@ -103,7 +103,7 @@ class TestTpfaBoundaryPressure(xpfa_tests.XpfaBoundaryPressureTests):
 class UnitTestAdTpfaFlux(
     pp.constitutive_laws.DarcysLawAd,
     FluxDiscretization,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """
 
@@ -333,6 +333,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
     model_params = {
         "darcy_flux_discretization": base_discr,
         "vector_source": vector_source_array,
+        "times_to_export": [],
     }
 
     model = UnitTestAdTpfaFlux(model_params)
@@ -344,7 +345,7 @@ def test_transmissibility_calculation(vector_source: bool, base_discr: str):
 
     g = model.mdg.subdomains()[0]
 
-    pressure = model.pressure(model.mdg.subdomains()).value(model.equation_system)
+    pressure = model.equation_system.evaluate(model.pressure(model.mdg.subdomains()))
 
     # The permeability and its derivative. *DO NOT* change this code without also
     # updating the permeability in the model class UnitTestAdTpfaFlux.
@@ -604,7 +605,7 @@ class DiffTpfaGridsOfAllDimensions(
     FluxDiscretization,
     pp.constitutive_laws.CubicLawPermeability,
     pp.constitutive_laws.DarcysLawAd,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work on grids of all dimensions.
@@ -671,7 +672,11 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
     """
     model = DiffTpfaGridsOfAllDimensions(
-        {"darcy_flux_discretization": base_discr, "grid_type": grid_type}
+        {
+            "darcy_flux_discretization": base_discr,
+            "grid_type": grid_type,
+            "times_to_export": []
+        }
     )
     model.prepare_simulation()
 
@@ -679,7 +684,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
     num_dofs = model.equation_system.num_dofs()
 
     darcy_flux = model.darcy_flux(model.mdg.subdomains())
-    darcy_value = darcy_flux.value(model.equation_system)
+    darcy_value = model.equation_system.evaluate(darcy_flux)
     assert darcy_value.size == num_faces
 
     darcy_jac = darcy_flux.value_and_jacobian(model.equation_system).jac
@@ -692,11 +697,9 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
         model.combine_boundary_operators_darcy_flux,
         "darcy_flux",
     )
-    potential_value = potential_trace.value(model.equation_system)
-    assert potential_value.size == num_faces
-
-    potential_jac = potential_trace.value_and_jacobian(model.equation_system).jac
-    assert potential_jac.shape == (num_faces, num_dofs)
+    value = model.equation_system.evaluate(potential_trace, derivative=True)
+    assert value.val.size == num_faces
+    assert value.jac.shape == (num_faces, num_dofs)
 
 
 # Test that a standard discretization and a differentiable discretization give the same
@@ -705,7 +708,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
 
 class WithoutDiffTpfa(
     FluxDiscretization,
-    pp.mass_and_energy_balance.MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work on grids of all dimensions.
@@ -762,6 +765,7 @@ def test_diff_tpfa_and_standard_tpfa_give_same_linear_system(base_discr: str):
     params = {
         "darcy_flux_discretization": base_discr,
         "fourier_flux_discretization": base_discr,
+        "times_to_export": [],
     }
     model_without_diff = WithoutDiffTpfa(params.copy())
     model_with_diff = WithDiffTpfa(params)
@@ -786,7 +790,7 @@ class DiffTpfaFractureTipsInternalBoundaries(
     FluxDiscretization,
     pp.constitutive_laws.DarcysLawAd,
     pp.constitutive_laws.FouriersLawAd,
-    pp.mass_and_energy_balance.MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     """Helper class to test that the methods for differentiating diffusive fluxes and
     potential reconstructions work as intended on fracture tips and internal boundaries.
@@ -838,7 +842,9 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
     trace is equal to the pressure in the adjacent cell.
 
     """
-    model = DiffTpfaFractureTipsInternalBoundaries({"base_discr": base_discr})
+    model = DiffTpfaFractureTipsInternalBoundaries(
+        {"base_discr": base_discr, "times_to_export": []}
+    )
     model.prepare_simulation()
 
     mdg = model.mdg
@@ -871,23 +877,27 @@ def test_flux_potential_trace_on_tips_and_internal_boundaries(base_discr: str):
         _, tip_cells = sd.signs_and_cells_of_boundary_faces(tip_faces)
 
         # Check that the pressure trace is equal to the pressure in the adjacent cell.
-        pressure_trace = model.potential_trace(
-            [sd],
-            model.pressure,
-            model.permeability,
-            model.combine_boundary_operators_darcy_flux,
-            "darcy_flux",
-        ).value(model.equation_system)
-        p = model.pressure([sd]).value(model.equation_system)
+        pressure_trace = model.equation_system.evaluate(
+            model.potential_trace(
+                [sd],
+                model.pressure,
+                model.permeability,
+                model.combine_boundary_operators_darcy_flux,
+                "darcy_flux",
+            )
+        )
+        p = model.equation_system.evaluate(model.pressure([sd]))
         assert np.allclose(pressure_trace[tip_faces], p[tip_cells])
         # Check that the temperature trace is equal to the temperature in the adjacent
         # cell.
-        temperature_trace = model.potential_trace(
-            [sd],
-            model.temperature,
-            model.thermal_conductivity,
-            model.combine_boundary_operators_fourier_flux,
-            "fourier_flux",
-        ).value(model.equation_system)
-        T = model.temperature([sd]).value(model.equation_system)
+        temperature_trace = model.equation_system.evaluate(
+            model.potential_trace(
+                [sd],
+                model.temperature,
+                model.thermal_conductivity,
+                model.combine_boundary_operators_fourier_flux,
+                "fourier_flux",
+            )
+        )
+        T = model.equation_system.evaluate(model.temperature([sd]))
         assert np.allclose(temperature_trace[tip_faces], T[tip_cells])

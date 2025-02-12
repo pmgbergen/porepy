@@ -4,50 +4,25 @@ from __future__ import annotations
 
 import porepy as pp
 
-from . import energy_balance as energy
-from . import fluid_mass_balance as mass
-
 
 class EquationsFluidMassAndEnergy(
-    energy.EnergyBalanceEquations,
-    mass.MassBalanceEquations,
+    pp.energy_balance.TotalEnergyBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
 ):
     """Combine fluid mass and energy balance equations."""
 
-    def set_equations(self):
-        """Set the equations for the fluid mass and energy balance problem.
-
-        Call both parent classes' set_equations methods.
-
-        """
-        # Energy balance
-        energy.EnergyBalanceEquations.set_equations(self)
-        # Mass balance
-        mass.MassBalanceEquations.set_equations(self)
-
 
 class VariablesFluidMassAndEnergy(
-    energy.VariablesEnergyBalance,
-    mass.VariablesSinglePhaseFlow,
+    pp.energy_balance.VariablesEnergyBalance,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
 ):
     """Combine fluid mass and energy balance variables."""
-
-    def create_variables(self) -> None:
-        """Set the variables for the fluid mass and energy balance problem.
-
-        Call both parent classes' set_variables methods.
-
-        """
-        # Energy balance
-        energy.VariablesEnergyBalance.create_variables(self)
-        mass.VariablesSinglePhaseFlow.create_variables(self)
 
 
 class ConstitutiveLawFluidMassAndEnergy(
     pp.constitutive_laws.ZeroGravityForce,
     pp.constitutive_laws.FluidDensityFromPressureAndTemperature,
     pp.constitutive_laws.ConstantSolidDensity,
-    pp.constitutive_laws.SpecificHeatCapacities,
     pp.constitutive_laws.EnthalpyFromTemperature,
     pp.constitutive_laws.SecondOrderTensorUtils,
     pp.constitutive_laws.FouriersLaw,
@@ -72,17 +47,26 @@ class ConstitutiveLawFluidMassAndEnergy(
 
 
 class BoundaryConditionsFluidMassAndEnergy(
-    energy.BoundaryConditionsEnergyBalance,
-    mass.BoundaryConditionsSinglePhaseFlow,
+    pp.energy_balance.BoundaryConditionsEnergyBalance,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
 ):
     """Combine fluid mass and energy balance boundary conditions."""
 
     pass
 
 
+class InitialConditionsMassAndEnergy(
+    pp.energy_balance.InitialConditionsEnergy,
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+):
+    """Combining initial conditions for fluid mass and energy balance."""
+
+    pass
+
+
 class SolutionStrategyFluidMassAndEnergy(
-    energy.SolutionStrategyEnergyBalance,
-    mass.SolutionStrategySinglePhaseFlow,
+    pp.energy_balance.SolutionStrategyEnergyBalance,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
 ):
     """Combine fluid mass and energy balance solution strategies.
 
@@ -101,7 +85,9 @@ class MassAndEnergyBalance(  # type: ignore
     VariablesFluidMassAndEnergy,
     ConstitutiveLawFluidMassAndEnergy,
     BoundaryConditionsFluidMassAndEnergy,
+    InitialConditionsMassAndEnergy,
     SolutionStrategyFluidMassAndEnergy,
+    pp.FluidMixin,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):

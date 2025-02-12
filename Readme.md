@@ -30,7 +30,7 @@ and
 
 Instructions to install from source can be found [here](https://github.com/pmgbergen/porepy/blob/develop/Install.md).
 
-PorePy is developed under Python >=3.10.
+PorePy is developed under Python >=3.11.
 
 # Getting started
 Confer the [tutorials](https://github.com/pmgbergen/porepy/tree/develop/tutorials). 

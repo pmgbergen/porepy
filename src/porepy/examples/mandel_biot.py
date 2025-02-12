@@ -23,6 +23,7 @@ References:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Callable, Literal, Union, cast
 
@@ -32,14 +33,11 @@ import numpy as np
 import scipy.optimize as opt
 
 import porepy as pp
-import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as momentum_balance
 import porepy.models.poromechanics as poromechanics
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.derived_models.biot import BiotPoromechanics
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -117,7 +115,7 @@ class MandelSaveData:
     """Current simulation time."""
 
 
-class MandelDataSaving(VerificationDataSaving):
+class MandelDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -126,7 +124,7 @@ class MandelDataSaving(VerificationDataSaving):
 
     """
 
-    displacement: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
@@ -134,13 +132,6 @@ class MandelDataSaving(VerificationDataSaving):
 
     exact_sol: MandelExactSolution
     """Exact solution object."""
-
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of storing and scaling numerical values
-    representing fluid-related quantities. Normally, this is set by an instance of
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
 
     numerical_consolidation_degree: Callable[[], tuple[number, number]]
     """Numerical degree of consolidation in the horizontal and vertical directions."""
@@ -175,8 +166,8 @@ class MandelDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd, t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.value(self.equation_system)
-        error_pressure = ConvergenceAnalysis.l2_error(
+        approx_pressure = self.equation_system.evaluate(pressure_ad)
+        error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=cast(np.ndarray, approx_pressure),
@@ -187,8 +178,8 @@ class MandelDataSaving(VerificationDataSaving):
 
         exact_displacement = self.exact_sol.displacement(sd, t)
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.value(self.equation_system)
-        error_displacement = ConvergenceAnalysis.l2_error(
+        approx_displacement = self.equation_system.evaluate(displacement_ad)
+        error_displacement = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_displacement,
             approx_array=cast(np.ndarray, approx_displacement),
@@ -199,9 +190,9 @@ class MandelDataSaving(VerificationDataSaving):
 
         exact_flux = self.exact_sol.flux(sd, t)
         flux_ad = self.darcy_flux([sd])
-        mobility = 1 / self.fluid.viscosity()
-        approx_flux = mobility * flux_ad.value(self.equation_system)
-        error_flux = ConvergenceAnalysis.l2_error(
+        mobility = 1 / self.fluid.reference_component.viscosity
+        approx_flux = mobility * self.equation_system.evaluate(flux_ad)
+        error_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_flux,
             approx_array=cast(np.ndarray, approx_flux),
@@ -212,8 +203,8 @@ class MandelDataSaving(VerificationDataSaving):
 
         exact_force = self.exact_sol.poroelastic_force(sd, t)
         force_ad = self.stress([sd])
-        approx_force = force_ad.value(self.equation_system)
-        error_force = ConvergenceAnalysis.l2_error(
+        approx_force = self.equation_system.evaluate(force_ad)
+        error_force = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_force,
             approx_array=cast(np.ndarray, approx_force),
@@ -384,7 +375,7 @@ class MandelExactSolution:
         F = self.setup.vertical_load()  # scaled [N * m^-1]
         nu_s = self.setup.poisson_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
+        mu_s = self.setup.solid.shear_modulus  # scaled [Pa]
         c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
         a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
 
@@ -430,7 +421,7 @@ class MandelExactSolution:
         F = self.setup.vertical_load()  # scaled [N * m^-1]
         nu_s = self.setup.poisson_coefficient()  # [-]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
+        mu_s = self.setup.solid.shear_modulus  # scaled [Pa]
         c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
         a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
 
@@ -487,8 +478,8 @@ class MandelExactSolution:
         # Retrieve physical data
         F = self.setup.vertical_load()  # scaled [N * m^-1]
         B = self.setup.skempton_coefficient()  # [-]
-        k = self.setup.solid.permeability()  # scaled [m^2]
-        mu_f = self.setup.fluid.viscosity()  # scaled [Pa * s]
+        k = self.setup.solid.permeability  # scaled [m^2]
+        mu_f = self.setup.fluid.reference_component.viscosity  # scaled [Pa * s]
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
         c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
         a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
@@ -613,7 +604,7 @@ class MandelExactSolution:
         # Retrieve physical and geometric data
         nu_u = self.setup.undrained_poisson_coefficient()  # [-]
         nu_s = self.setup.poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus()  # scaled [Pa]
+        mu_s = self.setup.solid.shear_modulus  # scaled [Pa]
         F = self.setup.vertical_load()  # scaled [N * m^-1]
         a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
         b = self.setup.domain.bounding_box["ymax"]  # scaled [m]
@@ -636,15 +627,6 @@ class MandelExactSolution:
 # -----> Utilities
 class MandelUtils(VerificationUtils):
     """Mixin class that provides useful utility methods for the verification setup."""
-
-    domain: pp.Domain
-    """Domain specification. Set by an instance of :class:`~MandelGeometry`."""
-
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Defined by a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
 
     exact_sol: MandelExactSolution
     """Exact solution object. Normally set by an instance of
@@ -673,8 +655,8 @@ class MandelUtils(VerificationUtils):
             Bulk modulus.
 
         """
-        mu_s = self.solid.shear_modulus()  # scaled [Pa]
-        lambda_s = self.solid.lame_lambda()  # scaled [Pa]
+        mu_s = self.solid.shear_modulus  # scaled [Pa]
+        lambda_s = self.solid.lame_lambda  # scaled [Pa]
         return (2 / 3) * mu_s + lambda_s
 
     def poisson_coefficient(self) -> number:
@@ -684,7 +666,7 @@ class MandelUtils(VerificationUtils):
             Poisson coefficient.
 
         """
-        mu_s = self.solid.shear_modulus()
+        mu_s = self.solid.shear_modulus
         K_s = self.bulk_modulus()
         return (3 * K_s - 2 * mu_s) / (2 * (3 * K_s + mu_s))
 
@@ -695,9 +677,9 @@ class MandelUtils(VerificationUtils):
             Undrained bulk modulus.
 
         """
-        alpha_biot = self.solid.biot_coefficient()  # [-]
+        alpha_biot = self.solid.biot_coefficient  # [-]
         K_s = self.bulk_modulus()  # scaled [Pa]
-        S_epsilon = self.solid.specific_storage()  # scaled [Pa^-1]
+        S_epsilon = self.solid.specific_storage  # scaled [Pa^-1]
         return K_s + (alpha_biot**2) / S_epsilon
 
     def skempton_coefficient(self) -> number:
@@ -707,9 +689,9 @@ class MandelUtils(VerificationUtils):
             Skempton's coefficent.
 
         """
-        alpha_biot = self.solid.biot_coefficient()  # [-]
+        alpha_biot = self.solid.biot_coefficient  # [-]
         K_u = self.undrained_bulk_modulus()  # scaled [Pa]
-        S_epsilon = self.solid.specific_storage()  # scaled [Pa^-1]
+        S_epsilon = self.solid.specific_storage  # scaled [Pa^-1]
         return alpha_biot / (S_epsilon * K_u)
 
     def undrained_poisson_coefficient(self) -> float:
@@ -733,12 +715,12 @@ class MandelUtils(VerificationUtils):
             Fluid diffusivity.
 
         """
-        k_s = self.solid.permeability()  # scaled [m^2]
+        k_s = self.solid.permeability  # scaled [m^2]
         B = self.skempton_coefficient()  # [-]
-        mu_s = self.solid.shear_modulus()  # scaled [Pa]
+        mu_s = self.solid.shear_modulus  # scaled [Pa]
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
-        mu_f = self.fluid.viscosity()  # scaled [Pa * s]
+        mu_f = self.fluid.reference_component.viscosity  # scaled [Pa * s]
         c_f = (2 * k_s * (B**2) * mu_s * (1 - nu_s) * (1 + nu_u) ** 2) / (
             9 * mu_f * (1 - nu_u) * (nu_u - nu_s)
         )
@@ -813,9 +795,9 @@ class MandelUtils(VerificationUtils):
             ``shape=(num_points, )``.
 
         """
-        k = self.solid.permeability()  # scaled [m^2]
+        k = self.solid.permeability  # scaled [m^2]
         F = self.vertical_load()  # scaled [N * m^-1]
-        mu = self.fluid.viscosity()  # scaled [Pa * s]
+        mu = self.fluid.reference_component.viscosity  # scaled [Pa * s]
         a = self.domain.bounding_box["xmax"]  # scaled [m]
         factor = (F * k) / (mu * a**2)  # scaled [m * s^-1]
         return q_x / factor
@@ -848,7 +830,7 @@ class MandelUtils(VerificationUtils):
         b = self.domain.bounding_box["ymax"]  # scaled [m]
 
         F = self.vertical_load()  # scaled [N * m^-1]
-        mu_s = self.solid.shear_modulus()  # scaled [Pa]
+        mu_s = self.solid.shear_modulus  # scaled [Pa]
         nu_s = self.poisson_coefficient()  # [-]
         nu_u = self.undrained_poisson_coefficient()  # [-]
 
@@ -1039,6 +1021,18 @@ class MandelUtils(VerificationUtils):
             color_map: listed color map object.
 
         """
+        if self.grid_type() == "cartesian":
+            # A division by zero was discovered while running the Mandel-problem on a
+            # Cartesian grid. The issue was related to plotting, and the current
+            # solution is to skip the troublesome plotting if the grid type is
+            # Cartesian. The GitHub-issue for this is found at:
+            # https://github.com/pmgbergen/porepy/issues/1137
+            warnings.warn(
+                """Division by x-component of the normal vector for internal faces of
+                cells adjacent to the southern boundary causes division by zero for
+                cartesian grids."""
+            )
+            return
         sd = self.mdg.subdomains()[0]
         xf = sd.face_centers[0]
         nx = sd.face_normals[0]
@@ -1155,7 +1149,7 @@ class MandelUtils(VerificationUtils):
         """Plot degree of consolidation as a function of time."""
 
         # Retrieve data
-        m = self.solid.convert_units(1, "m")
+        m = self.units.convert_units(1, "m")
         a, _ = self.params.get("domain_size", (100, 10))  # [m]
         a *= m
         c_f = self.fluid_diffusivity()  # [m^2 * s^-1]
@@ -1234,22 +1228,19 @@ class MandelUtils(VerificationUtils):
 
 
 # -----> Geometry
-class MandelGeometry(pp.ModelGeometry):
+class MandelGeometry(pp.PorePyModel):
     """Class for setting up the rectangular geometry."""
-
-    params: dict
-    """Simulation model parameters."""
 
     def set_domain(self) -> None:
         """Set the domain."""
-        ls = self.solid.convert_units(1, "m")  # length scaling
+        ls = self.units.convert_units(1, "m")  # length scaling
         a, b = self.params.get("domain_size", (100, 10))  # [m]
         domain = pp.Domain({"xmin": 0.0, "xmax": a * ls, "ymin": 0.0, "ymax": b * ls})
         self._domain = domain
 
     def meshing_arguments(self) -> dict[str, float]:
         """Set meshing arguments."""
-        ls = self.solid.convert_units(1, "m")  # length scaling
+        ls = self.units.convert_units(1, "m")  # length scaling
         default_meshing_arguments = {"cell_size": 2 * ls}
         return self.params.get("meshing_arguments", default_meshing_arguments)
 
@@ -1259,14 +1250,10 @@ class MandelGeometry(pp.ModelGeometry):
 
 
 # -----> Boundary conditions
-class MandelBoundaryConditionsMechanicsTimeDependent(
-    momentum_balance.BoundaryConditionsMomentumBalance,
-):
+class MandelBoundaryConditionsMechanicsTimeDependent(pp.PorePyModel):
+
     exact_sol: MandelExactSolution
     """Exact solution object."""
-
-    params: dict
-    """Parameter dictionary of the verification setup."""
 
     def vertical_load(self):
         """Retrieve and scale applied force.
@@ -1275,8 +1262,8 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
             Applied vertical load on the North boundary in scaled [N * m^-1].
 
         """
-        N = self.solid.convert_units(1, "N")  # force scaling
-        m = self.solid.convert_units(1, "m")  # length scaling
+        N = self.units.convert_units(1, "N")  # force scaling
+        m = self.units.convert_units(1, "m")  # length scaling
         applied_force = self.params.get("vertical_load", 6e8)  # [N * m^-1]
         return applied_force * (N / m)
 
@@ -1292,8 +1279,11 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
             Vectorial boundary condition representation.
 
         """
-        # Inherit bc from parent class. This sets all bc faces as Dirichlet.
-        bc = super().bc_type_mechanics(sd=sd)
+
+        # NOTE see BC for momentum balance
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        bc = pp.BoundaryConditionVectorial(sd, boundary_faces, "dir")
+        bc.internal_to_dirichlet(sd)
 
         # Get boundary sides, retrieve data dict, and bc object
         sides = self.domain_boundary_sides(sd)
@@ -1327,7 +1317,8 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
             the North side of the domain.
 
         """
-        bc_vals = super().bc_values_displacement(boundary_grid)
+
+        bc_vals = np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
 
         sides = self.domain_boundary_sides(boundary_grid)
         # Cells of the boundary grid are faces of the parent subdomain.
@@ -1341,12 +1332,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(
         return bc_vals
 
 
-class MandelBoundaryConditionsSinglePhaseFlow(mass.BoundaryConditionsSinglePhaseFlow):
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
+class MandelBoundaryConditionsSinglePhaseFlow(pp.PorePyModel):
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the Darcy flux.
@@ -1370,12 +1356,23 @@ class MandelPoromechanicsBoundaryConditions(
     """Mixer class for poromechanics boundary conditions."""
 
 
-# -----> Solution strategy
-class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
-    """Solution strategy for Mandel's problem."""
+class MandelInitialConditions:
+    """Mixin providing non-trivial initial values for pressure and displacement, given
+    by the exact solution."""
 
     exact_sol: MandelExactSolution
     """Exact solution object."""
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        return self.exact_sol.pressure(sd, 0)
+
+    def ic_values_displacement(self, sd: pp.Grid) -> np.ndarray:
+        return self.exact_sol.displacement(sd, 0)
+
+
+# -----> Solution strategy
+class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
+    """Solution strategy for Mandel's problem."""
 
     plot_results: Callable[[], None]
     """Method that plots pressure, displacement, flux, force, and degree of
@@ -1389,21 +1386,6 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 
     """
 
-    def __init__(self, params: dict) -> None:
-        """Constructor of the class.
-
-        Parameters:
-            params: Parameters of the verification setup.
-
-        """
-        super().__init__(params)
-
-        self.exact_sol: MandelExactSolution
-        """Exact solution object."""
-
-        self.results: list[MandelSaveData] = []
-        """List of stored results from the verification."""
-
     def set_materials(self):
         """Set material parameters.
 
@@ -1414,38 +1396,7 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         self.exact_sol = MandelExactSolution(self)
 
         # Biot's coefficient must be one
-        assert self.solid.biot_coefficient() == 1
-
-    def initial_condition(self) -> None:
-        """Set initial conditions.
-
-        Initial conditions are given by Eqs. (41) - (43) from [3].
-
-        """
-        super().initial_condition()
-
-        sd = self.mdg.subdomains()[0]
-        data = self.mdg.subdomain_data(sd)
-        p_name = self.pressure_variable
-        u_name = self.displacement_variable
-
-        # Set initial pressure
-        pp.set_solution_values(
-            name=p_name,
-            values=self.exact_sol.pressure(sd, 0),
-            data=data,
-            iterate_index=0,
-            time_step_index=0,
-        )
-
-        # Set initial displacement
-        pp.set_solution_values(
-            name=u_name,
-            values=self.exact_sol.displacement(sd, 0),
-            data=data,
-            iterate_index=0,
-            time_step_index=0,
-        )
+        assert self.solid.biot_coefficient == 1
 
     def after_simulation(self) -> None:
         """Method to be called after the simulation has finished."""
@@ -1460,6 +1411,7 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
 class MandelSetup(  # type: ignore[misc]
     MandelGeometry,
     MandelPoromechanicsBoundaryConditions,
+    MandelInitialConditions,
     MandelSolutionStrategy,
     MandelUtils,
     MandelDataSaving,

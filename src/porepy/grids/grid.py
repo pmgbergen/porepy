@@ -40,9 +40,9 @@ class Grid:
 
     Parameters:
         dim: Grid dimension.
-        nodes: ``shape=(ambient_dimension, num_nodes)``
+        nodes: ``shape=(3, num_nodes)``
 
-            Node coordinates, where ``ambient_dimension`` is the dimension of the grid.
+            Node coordinates.
         face_nodes: ``shape=(num_nodes, num_faces)``
 
             A map from faces to respective nodes spanning the face.
@@ -88,7 +88,7 @@ class Grid:
         """Grid dimension. Should be in ``{0, 1, 2, 3}``."""
 
         self.nodes: np.ndarray = nodes
-        """An array with ``shape=(ambient_dimension, num_nodes)`` containing node
+        """An array with ``shape=(3, num_nodes)`` containing node
         coordinates column-wise."""
 
         # Force topological information to be stored as integers. The known subclasses
@@ -199,8 +199,8 @@ class Grid:
         """
 
         self.frac_pairs: np.ndarray = np.array([[]], dtype=int)
-        """Indices of faces that are geometrically coinciding, but
-        lay on different side of a lower-dimensional grid.
+        """Indices of faces that are geometrically coinciding, but lay on different side
+        of a lower-dimensional grid.
 
         """
 
@@ -232,13 +232,13 @@ class Grid:
 
         """
         self.face_centers: np.ndarray
-        """Centers of all faces. ``(shape=(ambient_dimension, num_faces))``.
+        """Centers of all faces. ``(shape=(3, num_faces))``.
         Available after calling :meth:`~compute_geometry`.
 
         """
         self.face_normals: np.ndarray
         """An array containing column-wise normal vectors of all faces with
-        ``shape=(ambient_dimenaion, num_faces)``.
+        ``shape=(3, num_faces)``.
 
         See also :attr:`cell_faces`.
 
@@ -247,7 +247,7 @@ class Grid:
         """
         self.cell_centers: np.ndarray
         """An array containing column-wise the centers of all cells with
-        ``shape=(ambient_dimension, num_cells)``.
+        ``shape=(3, num_cells)``.
 
         Available after calling :meth:`~compute_geometry`.
 
@@ -903,36 +903,43 @@ class Grid:
             ]
         )
 
-    def cell_face_as_dense(self) -> np.ndarray:
+    def cell_faces_as_dense(self) -> np.ndarray:
         """Obtain the cell-face relation in the form of two rows, rather than a
         sparse matrix.
 
-        This alternative format can be useful in some cases.
-
         Each column in the array corresponds to a face, and the elements in that column
-        refers to cell indices. The value -1 signifies a boundary. The normal vector of
-        the face points from the first to the second row.
+        refers to cell indices. Cells in the first and second row of the array have
+        positive and negative signs, respectively, in the sparse cell-face relation.
+        Equivalently, the face normal vector points from the cell in the first row to
+        the cell in the second row. The value -1 signifies that the face is on a
+        boundary of the domain, and that there is no cell on the other side. That is, a
+        -1 in the first row implies this is a boundary face with the normal vector
+        pointing into the domain, while a -1 in the second row implies the normal vector
+        points out of the domain.
 
         Returns:
             Array representation of face-cell relations with ``shape=(2, num_faces)``.
 
         """
+        # Shortcut for 0D grids
         if self.num_faces == 0:
-            return np.zeros((0, 2))
-        n = self.cell_faces.tocsr()
-        d = np.diff(n.indptr)
-        rows = pp.matrix_operations.rldecode(np.arange(d.size), d)
-        # Increase the data by one to distinguish cell indices from boundary
-        # cells
-        data = n.indices + 1
-        cols = ((n.data + 1) / 2).astype(int)
-        neighs = sps.coo_matrix((data, (rows, cols))).todense()
-        # Subtract 1 to get back to real cell indices
-        neighs -= 1
-        neighs = neighs.transpose().A.astype(int)
-        # Finally, we need to switch order of rows to get normal vectors
-        # pointing from first to second row.
-        return neighs[::-1]
+            return np.zeros((2, 0))
+
+        # Find the non-zero elements in the cell-face relation.
+        fi, ci, sgn = sps.find(self.cell_faces)
+
+        # Find the sign of the faces.
+        pos = sgn > 0
+        neg = sgn < 0
+
+        # Initialize the array with -1s (boundary faces) and fill in the cell indices on
+        # the internal faces.
+        cf_dense = -np.ones((2, self.num_faces), dtype=int)
+        # Positive sign is the first row, negative sign is the second row.
+        cf_dense[0, fi[pos]] = ci[pos]
+        cf_dense[1, fi[neg]] = ci[neg]
+
+        return cf_dense
 
     def cell_connection_map(self) -> sps.csr_matrix:
         """Get a matrix representation of cell-cell connections, as defined by
@@ -1063,9 +1070,64 @@ class Grid:
         values = [np.zeros(self.num_nodes, dtype=bool) for _ in keys]
         tags.add_tags(self, dict(zip(keys, values)))
 
+    def divergence(self, dim: int) -> sps.csr_matrix:
+        """Get divergence operator for the grid.
+
+        If dim>=2, it is assumed that the first row corresponds to the x-equation of
+        face 0, second row is y-equation etc. The next row is then the x-equation for
+        face 1. Correspondingly, the first column represents x-component in first cell
+        etc.
+
+        Parameters:
+            dim: Dimension of the quantity of which we want to compute the divergence.
+
+        Raises:
+            ValueError: If ``dim`` is not strictly positive.
+
+        Returns:
+            Divergence operator. Dimensions: dim * (num_cells, num_faces)
+
+        """
+        if dim == 1:  # The divergence of a scalar.
+            return self.cell_faces.T.tocsr()
+        elif dim > 1:  # The divergence of a vector.
+            # Scalar divergence.
+            scalar_div = self.cell_faces
+            # Vector extension by Kronecker product.
+            block_div = sps.kron(scalar_div, sps.eye(dim))
+            return block_div.T.tocsr()
+        else:
+            raise ValueError(
+                f"Should not use divergence operator on quantity of dimension {dim}."
+            )
+
+    def trace(self, dim: int = 1) -> sps.csr_matrix:
+        """Get trace operator for the grid.
+
+        Parameters:
+            dim: Dimension of the tensor we want to compute the trace of.
+
+        Returns:
+            Trace operator. Dimensions: dim * (num_faces, num_cells).
+
+        """
+        bound_faces = self.get_all_boundary_faces()
+        # Get the cells neighboring the boundary.
+        _, bound_cells = self.signs_and_cells_of_boundary_faces(bound_faces)
+        # Expand the indices to the correct size. The trace operator is a mapping from
+        # cells to faces, so we need boundary cells in the columns and boundary faces in
+        # the rows.
+        rows = pp.fvutils.expand_indices_nd(bound_faces, dim)
+        cols = pp.fvutils.expand_indices_nd(bound_cells, dim)
+        trace = sps.coo_matrix(
+            (np.ones(bound_faces.size * dim), (rows, cols)),
+            shape=(self.num_faces * dim, self.num_cells * dim),
+        ).tocsr()
+        return trace
+
     def _check_tags(self) -> None:
-        """Check if all the standard tags are specified in :attr:`tags`,
-        and the tag arrays have correct sizes.
+        """Check if all the standard tags are specified in :attr:`tags`, and the tag
+        arrays have correct sizes.
 
         Raises:
             ValueError: If any inconsistency among tags is found.

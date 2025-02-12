@@ -14,8 +14,6 @@ References:
 
 """
 
-from typing import Callable
-
 import numpy as np
 
 import porepy as pp
@@ -26,7 +24,7 @@ from porepy.applications.boundary_conditions.model_boundary_conditions import (
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
 from porepy.models.constitutive_laws import DimensionDependentPermeability
 
-solid_constants = pp.SolidConstants({"residual_aperture": 1e-4})
+solid_constants = pp.SolidConstants(residual_aperture=1e-4)
 
 
 class Geometry:
@@ -44,8 +42,8 @@ class Case3aBoundaryConditions(BoundaryConditionsMassDirNorthSouth):
         """Pressure value of 4 on top and 1 on bottom side."""
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[bounds.north] = self.fluid.convert_units(4, "Pa")
-        values[bounds.south] = self.fluid.convert_units(1, "Pa")
+        values[bounds.north] = self.units.convert_units(4, "Pa")
+        values[bounds.south] = self.units.convert_units(1, "Pa")
         return values
 
 
@@ -56,31 +54,13 @@ class Case3bBoundaryConditions(BoundaryConditionsMassDirWestEast):
         """Pressure value of 4 on left/west and 1 on right/east side."""
         bounds = self.domain_boundary_sides(boundary_grid)
         values = np.zeros(boundary_grid.num_cells)
-        values[bounds.west] = self.fluid.convert_units(4, "Pa")
-        values[bounds.east] = self.fluid.convert_units(1, "Pa")
+        values[bounds.west] = self.units.convert_units(4, "Pa")
+        values[bounds.east] = self.units.convert_units(1, "Pa")
         return values
 
 
 class Permeability(DimensionDependentPermeability):
     """Tangential and normal permeability specification."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    subdomains_to_interfaces: Callable[[list[pp.Grid], list[int]], list[pp.MortarGrid]]
-    """Map from subdomains to the adjacent interfaces. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-
-    interfaces_to_subdomains: Callable[[list[pp.MortarGrid]], list[pp.Grid]]
-    """Map from interfaces to the adjacent subdomains. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
 
     @property
     def fracture_permeabilities(self) -> np.ndarray:
@@ -106,7 +86,7 @@ class Permeability(DimensionDependentPermeability):
         permeabilities = []
         for sd in subdomains:
             permeabilities.append(
-                self.solid.convert_units(
+                self.units.convert_units(
                     self.fracture_permeabilities[sd.frac_num] * np.ones(sd.num_cells),
                     "m^2",
                 )
@@ -150,7 +130,7 @@ class Permeability(DimensionDependentPermeability):
                     1 / unique_fracture_permeabilities
                 )
             permeabilities.append(
-                self.solid.convert_units(val * np.ones(intf.num_cells), "m^2")
+                self.units.convert_units(val * np.ones(intf.num_cells), "m^2")
             )
         return pp.wrap_as_dense_ad_array(
             np.hstack(permeabilities), name="normal_permeability"
@@ -162,7 +142,7 @@ class FlowBenchmark2dCase3aModel(  # type:ignore[misc]
     Geometry,
     Permeability,
     Case3aBoundaryConditions,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Mixer class for case 3a (top-to-bottom flow) from the 2d flow benchmark."""
 
@@ -172,6 +152,6 @@ class FlowBenchmark2dCase3bModel(  # type:ignore[misc]
     Geometry,
     Permeability,
     Case3bBoundaryConditions,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Mixer class for case 3b (left-to-right flow) from the 2d flow benchmark."""

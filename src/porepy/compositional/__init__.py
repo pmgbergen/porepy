@@ -39,38 +39,17 @@ References:
 
 __all__ = []
 
-from . import (  # peng_robinson,
-    _core,
-    base,
-    chem_species,
-    compositional_mixins,
-    eos_compiler,
-    flash,
-    states,
-    unified_equilibrium_mixins,
-    uniflash_c,
-    uniflash_utils_c,
-    utils,
-)
+from . import _core, base, compositional_mixins, materials, states, utils
 from ._core import *
 from .base import *
-from .chem_species import *
 from .compositional_mixins import *
-from .eos_compiler import *
-from .flash import *
+from .materials import *
 from .states import *
-from .unified_equilibrium_mixins import *
-from .uniflash_c import *
-from .uniflash_utils_c import *
 from .utils import *
 
 __all__.extend(_core.__all__)
-__all__.extend(chem_species.__all__)
 __all__.extend(base.__all__)
 __all__.extend(utils.__all__)
 __all__.extend(compositional_mixins.__all__)
-__all__.extend(unified_equilibrium_mixins.__all__)
-__all__.extend(flash.__all__)
-__all__.extend(uniflash_c.__all__)
 __all__.extend(states.__all__)
-__all__.extend(eos_compiler.__all__)
+__all__.extend(materials.__all__)

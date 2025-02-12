@@ -1,60 +1,76 @@
+"""Module containing general classes representing boundary conditions.
+
+- :class:`BoundaryConditionMixin`: Base class providing an interface to update BC values
+  which is accessed by the solution strategy mixin. It also provides some functionality
+  for individual BC, and to introduce an order in the update such that primary variables
+  are updated first.
+
+"""
+
 from functools import cached_property
-from typing import Callable, Optional, Sequence, Union
+from typing import Callable, Sequence
 
 import numpy as np
 
 import porepy as pp
 
 
-class BoundaryConditionMixin:
+class BoundaryConditionMixin(pp.PorePyModel):
     """Mixin class for boundary conditions.
 
-    This class is intended to be used together with the other model classes providing
-    generic functionality for boundary conditions.
+    This class is intended to be derived for individual physics models to provide
+    boundary conditions for the variables introduced therein.
 
-    """
+    It provides functionality to introduce an order into the BC update routine, if for
+    example BC values of secondary quantities depend on BC values of primary variables.
 
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid for the current model. Normally defined in a mixin
-    instance of :class:`~porepy.models.geometry.ModelGeometry`.
+    Example:
+        Let's consider a system with two variables, ``x,y`` where we want to enforce a
+        relation ``y = y(x)`` on the boundary.
 
-    """
+        .. code::python
 
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
+            class BCPrimary(BoundaryConditionMixin):
 
-    """
+                def update_boundary_values_primary_variables(self) -> None:
+                    super().update_boundary_values_primary_variables()
+                    self.update_boundary_condition('x', self.bc_value_x)
 
-    time_manager: pp.TimeManager
-    """Time manager. Normally set by an instance of a subclass of
-    :class:`porepy.models.solution_strategy.SolutionStrategy`.
+                def bc_value_x(bg: pp.BoundaryGrid) -> np.ndarray:
+                    # proceed to return some value ...
 
-    """
+            class BCSecondary(BoundaryConditionMixin):
 
-    subdomains_to_boundary_grids: Callable[
-        [Sequence[pp.Grid]], Sequence[pp.BoundaryGrid]
-    ]
-    """Function that maps a sequence of subdomains to a sequence of boundary grids.
-    Normally defined in a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
+                def update_all_boundary_conditions(self) -> None:
+                    super().update_all_boundary_conditions()
+                    self.update_boundary_condition('y', self.bc_value_y)
 
-    """
+                def bc_value_y(bg: pp.BoundaryGrid) -> np.ndarray:
+                    x = self.x([bg]).value(self.equation_system) # proceed to return
+                    some value depending x ...
 
-    units: "pp.Units"
-    """Units object, containing the scaling of base magnitudes."""
+            class MyBC(BCSecondary, BCPrimary):
+                ...
 
-    time_step_indices: np.ndarray
-    """See :meth:`~porepy.models.solution_strategy.SolutionStragey.time_step_indices`.
+        Notice that in all update methods, ``super()`` is called first. Due to the order
+        of inheritance, a model using ``MyBC`` will first execute ``BCSecondary``. Will
+        will again first executes the code of ``BCPrimary``. I.e., the update order is
+        the reverse order in the inheritance tree. This is due to ``BCPrimary`` calling
+        itself ``super()`` in :meth:`update_all_boundary_conditions` first, in order to
+        execute the filter framework in the base class before any type of update.
+
+        When using this approach, the BC update for ``y`` can reliably fetch the latest
+        values for ``x`` on the boundary.
+
+        Notice also, that ``update_boundary_values_primary_variables`` has also a
+        ``super()`` call on top. This makes it compatible in the case of a third,
+        primary variable which should be updated in the same sub-routine as ``x``.
+
     """
 
     def update_all_boundary_conditions(self) -> None:
         """This method is called before a new time step to set the values of the
         boundary conditions.
-
-        This implementation updates only the filters for Dirichlet and Neumann
-        values. The specific boundary condition values should be updated in
-        overrides by models.
 
         Note:
             One can use the convenience method `update_boundary_condition` for each
@@ -63,6 +79,17 @@ class BoundaryConditionMixin:
         """
         for name, bc_type_callable in self.__bc_type_storage.items():
             self._update_bc_type_filter(name=name, bc_type_callable=bc_type_callable)
+
+        self.update_boundary_values_primary_variables()
+
+    def update_boundary_values_primary_variables(self) -> None:
+        """Method to set boundary values for primary variables.
+
+        The base method does nothing except provide an interface and compatibility for
+        super-calls to model-specific boundary condition setting.
+
+        """
+        pass
 
     def update_boundary_condition(
         self,
@@ -110,22 +137,24 @@ class BoundaryConditionMixin:
     def create_boundary_operator(
         self, name: str, domains: Sequence[pp.BoundaryGrid]
     ) -> pp.ad.TimeDependentDenseArray:
-        """
+        """Creates an operator on boundary grids.
+
         Parameters:
-            name: Name of the variable or operator to be represented on the boundary.
+            name: Name of the variable or operator to be represented on the
+                boundary.
             domains: A sequence of boundary grids on which the operator is defined.
 
         Raises:
             ValueError: If the passed sequence of domains does not consist entirely
-                of instances of boundary grid.
+                of boundary grid.
 
         Returns:
-            An operator of given name representing time-dependent value on given
-            sequence of boundary grids.
+            An operator of given name representing value on given sequence of
+            boundary grids. Can possibly be time-dependent.
 
         """
         if not all(isinstance(x, pp.BoundaryGrid) for x in domains):
-            raise ValueError("domains must consist entirely of the boundary grids.")
+            raise ValueError("Domains must consist entirely of the boundary grids.")
         return pp.ad.TimeDependentDenseArray(name=name, domains=domains)
 
     def _combine_boundary_operators(
@@ -133,9 +162,7 @@ class BoundaryConditionMixin:
         subdomains: Sequence[pp.Grid],
         dirichlet_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         neumann_operator: Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
-        robin_operator: Optional[
-            Union[None, Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator]]
-        ],
+        robin_operator: None | Callable[[Sequence[pp.BoundaryGrid]], pp.ad.Operator],
         bc_type: Callable[[pp.Grid], pp.BoundaryCondition],
         name: str,
         dim: int = 1,
@@ -145,12 +172,12 @@ class BoundaryConditionMixin:
 
         Parameters:
             subdomains: List of subdomains.
-            dirichlet_operator: Function that returns the Dirichlet boundary condition
-                operator.
+            dirichlet_operator: Function that returns the Dirichlet boundary
+                condition operator.
             neumann_operator: Function that returns the Neumann boundary condition
                 operator.
-            robin_operator: Function that returns the Robin boundary condition operator.
-                Expected to be None for e.g. advective fluxes.
+            robin_operator: Function that returns the Robin boundary condition
+                operator. Expected to be None for e.g. advective fluxes.
             dim: Dimension of the equation. Defaults to 1.
             name: Name of the resulting operator. Must be unique for an operator.
 
