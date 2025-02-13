@@ -120,7 +120,7 @@ class BoundaryConditions:
         # Scale with specific volume.
         sd = boundary_grid.parent
         trace = sd.trace()
-        specific_volumes = self.specific_volume([sd]).value(self.equation_system)
+        specific_volumes = self.equation_system.evaluate(self.specific_volume([sd]))
         values *= boundary_grid.projection() @ trace @ specific_volumes
         return values
 

@@ -1,6 +1,4 @@
-"""Module for diagnostics of PorePy's models built on seaborn.
-
-"""
+"""Module for diagnostics of PorePy's models built on seaborn."""
 
 from __future__ import annotations
 

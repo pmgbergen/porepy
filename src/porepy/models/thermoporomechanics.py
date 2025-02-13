@@ -24,10 +24,6 @@ from typing import Callable, Union
 
 import porepy as pp
 
-from . import energy_balance as energy
-from . import fluid_mass_balance as mass
-from . import momentum_balance as momentum
-
 
 class ConstitutiveLawsThermoporomechanics(
     # Combined effects
@@ -86,49 +82,25 @@ class ConstitutiveLawsThermoporomechanics(
 
 
 class EquationsThermoporomechanics(
-    energy.EnergyBalanceEquations,
-    mass.MassBalanceEquations,
-    momentum.MomentumBalanceEquations,
+    pp.energy_balance.TotalEnergyBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
+    pp.momentum_balance.MomentumBalanceEquations,
 ):
     """Combines energy, mass and momentum balance equations."""
 
-    def set_equations(self):
-        """Set the equations for the poromechanics problem.
-
-        Call all parent classes' set_equations methods.
-
-        """
-        # Call all super classes' set_equations methods. Do this explicitly (calling the
-        # methods of the super classes directly) instead of using super() since this is
-        # more transparent.
-        energy.EnergyBalanceEquations.set_equations(self)
-        mass.MassBalanceEquations.set_equations(self)
-        momentum.MomentumBalanceEquations.set_equations(self)
-
 
 class VariablesThermoporomechanics(
-    energy.VariablesEnergyBalance,
-    mass.VariablesSinglePhaseFlow,
-    momentum.VariablesMomentumBalance,
+    pp.energy_balance.VariablesEnergyBalance,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
+    pp.momentum_balance.VariablesMomentumBalance,
 ):
     """Combines mass and momentum balance variables."""
 
-    def create_variables(self):
-        """Set the variables for the poromechanics problem.
-
-        Call all parent classes' set_variables methods.
-
-        """
-        # Energy balance and its parent mass balance
-        energy.VariablesEnergyBalance.create_variables(self)
-        mass.VariablesSinglePhaseFlow.create_variables(self)
-        momentum.VariablesMomentumBalance.create_variables(self)
-
 
 class BoundaryConditionsThermoporomechanics(
-    energy.BoundaryConditionsEnergyBalance,
-    mass.BoundaryConditionsSinglePhaseFlow,
-    momentum.BoundaryConditionsMomentumBalance,
+    pp.energy_balance.BoundaryConditionsEnergyBalance,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    pp.momentum_balance.BoundaryConditionsMomentumBalance,
 ):
     """Combines energy, mass and momentum balance boundary conditions.
 
@@ -140,10 +112,19 @@ class BoundaryConditionsThermoporomechanics(
     """
 
 
+class InitialConditionsThermoporomechanics(
+    pp.energy_balance.InitialConditionsEnergy,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    pp.momentum_balance.BoundaryConditionsMomentumBalance,
+):
+    """Combines initial conditions for energy, mass and momentum balance and associated
+    primary variables."""
+
+
 class SolutionStrategyThermoporomechanics(
-    energy.SolutionStrategyEnergyBalance,
-    mass.SolutionStrategySinglePhaseFlow,
-    momentum.SolutionStrategyMomentumBalance,
+    pp.energy_balance.SolutionStrategyEnergyBalance,
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
+    pp.momentum_balance.SolutionStrategyMomentumBalance,
 ):
     """Combines mass and momentum balance solution strategies.
 
@@ -194,9 +175,9 @@ class SolutionStrategyThermoporomechanics(
                 self.solid_thermal_expansion_tensor([sd])
             )
             scalar_vector_mappings[self.darcy_keyword] = self.biot_tensor([sd])
-            data[pp.PARAMETERS][self.stress_keyword][
-                "scalar_vector_mappings"
-            ] = scalar_vector_mappings
+            data[pp.PARAMETERS][self.stress_keyword]["scalar_vector_mappings"] = (
+                scalar_vector_mappings
+            )
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""
@@ -229,6 +210,7 @@ class Thermoporomechanics(  # type: ignore[misc]
     EquationsThermoporomechanics,
     VariablesThermoporomechanics,
     BoundaryConditionsThermoporomechanics,
+    InitialConditionsThermoporomechanics,
     ConstitutiveLawsThermoporomechanics,
     pp.FluidMixin,
     pp.ModelGeometry,

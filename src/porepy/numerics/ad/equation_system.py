@@ -13,7 +13,7 @@ from typing_extensions import TypeAlias
 
 import porepy as pp
 
-from . import _ad_utils
+from . import _ad_parser, _ad_utils
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
@@ -211,6 +211,8 @@ class EquationSystem:
         and integer values denoting the number of DOFs per grid entity.
 
         """
+
+        self._ad_parser = _ad_parser.AdParser(self.mdg)
 
     def SubSystem(
         self,
@@ -476,6 +478,32 @@ class EquationSystem:
         merged_variable = MixedDimensionalVariable(variables)
 
         return merged_variable
+
+    def remove_variables(self, variables: VariableList) -> None:
+        """Removes variables from the system.
+        The variables are removed from the system and the DOFs are reordered.
+
+        Parameters:
+            variables: List of variables to remove. Variables can be given as a list of
+                variables, mixed-dimensional variables, or variable names (strings).
+
+        Raises:
+            ValueError: If a variable is not known to the system.
+
+        """
+        variables = self._parse_variable_type(variables)
+        for var in variables:
+            if var.id not in self._variables:
+                raise ValueError(
+                    f"Variable {var.name} (ID: {var.id}) not known to the system."
+                )
+            # Remove the variable from the system. _variables, _variable_dof_type and
+            # _variable_numbers are indexed by variable id.
+            del self._variables[var.id]
+            self._variable_dof_type.pop(var.id)
+            self._variable_numbers.pop(var.id)
+            # Update the variable clustering. This also updates _variable_num_dofs.
+            self._cluster_dofs_gridwise()
 
     def update_variable_tags(
         self,
@@ -1563,47 +1591,45 @@ class EquationSystem:
         if evaluate_jacobian:
             self.assembled_equation_indices = dict()
 
-        # Iterate over equations, assemble.
-        # Also keep track of the row indices of each equation, and store it in
-        # assembled_equation_indices.
-        for equ_name, rows in equ_blocks.items():
-            # This will raise a key error if the equation name is unknown.
-            eq = self._equations[equ_name]
+        eqs: list[pp.ad.Operator] = [self._equations[name] for name in equ_blocks]
+        rows = list(equ_blocks.values())
 
-            if not evaluate_jacobian:
-                # Evaluate the residual vector only. Enforce that the result is a numpy
-                # array.
-                val = np.asarray(eq.value(self, state))
-                if rows is not None:
-                    rhs.append(val[rows])
+        # The evaluation method to use depends on whether the Jacobian is requested.
+        if not evaluate_jacobian:
+            # Evaluate the operator to get the residual vector.
+            values = self.evaluate(eqs, derivative=False, state=state)
+            for row, val in zip(rows, values):
+                # The residual of individual equations can be a scalar or an array.
+                # Forcing to array to ensure consistent handling.
+                val = np.asarray(val)
+                if row is not None:
+                    rhs.append(val[row])
                 else:
                     rhs.append(val)
-                # Go to the next equation
-                continue
+        else:
+            ad_list: list[pp.ad.AdArray] = self.evaluate(eqs, True, state)
+            for row, equ_name, ad in zip(rows, equ_blocks, ad_list):
+                if row is not None:
+                    # If restriction to grid-related row blocks was made, perform row
+                    # slicing based on information we have obtained from parsing.
+                    mat.append(ad.jac.tocsr()[row])
+                    rhs.append(ad.val[row])
+                    block_length = len(rhs[-1])
+                else:
+                    # If no grid-related row restriction was made, append the whole
+                    # thing.
+                    mat.append(ad.jac)
+                    rhs.append(ad.val)
+                    block_length = len(ad.val)
 
-            ad = eq.value_and_jacobian(self, state)
+                # Create indices range and shift to correct position.
+                block_indices = np.arange(block_length) + ind_start
+                # Extract last index and add 1 to get the starting point for next block
+                # of indices.
+                self.assembled_equation_indices.update({equ_name: block_indices})
+                if block_length > 0:
+                    ind_start = block_indices[-1] + 1
 
-            # If restriction to grid-related row blocks was made,
-            # perform row slicing based on information we have obtained from parsing.
-            if rows is not None:
-                mat.append(ad.jac.tocsr()[rows])
-                rhs.append(ad.val[rows])
-                block_length = len(rhs[-1])
-            # If no grid-related row restriction was made, append the whole thing.
-            else:
-                mat.append(ad.jac)
-                rhs.append(ad.val)
-                block_length = len(ad.val)
-
-            # Create indices range and shift to correct position.
-            block_indices = np.arange(block_length) + ind_start
-            # Extract last index and add 1 to get the starting point for next block of
-            # indices.
-
-            self.assembled_equation_indices.update({equ_name: block_indices})
-
-            if block_length > 0:
-                ind_start = block_indices[-1] + 1
         # Concatenate results equation-wise.
         if len(rhs) > 0:
             if evaluate_jacobian:
@@ -1876,6 +1902,110 @@ class EquationSystem:
         # Prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
+
+    ### Evaluate Ad operators ----------------------------------------------------------
+
+    # IMPLEMENTATION NOTE: The following overloads was what turned out to be necessary
+    # to get the typing right, or keep mypy silent. EK cannot see a principled reason
+    # why exactly these signatures had to be represented, but has reached the point of
+    # exhaustion, so this is what we have. For future reference, the following link
+    # might be useful to tackle similar issues:
+    #   https://github.com/python/typing/discussions/1326
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+    ) -> pp.number | np.ndarray | sps.spmatrix: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+        derivative: None,
+        state: np.ndarray | None,
+    ) -> pp.number | np.ndarray | sps.spmatrix: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+        derivative: None,
+        state: np.ndarray | None,
+    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+        derivative: Literal[False] = False,
+        state: Optional[np.ndarray] = None,
+    ) -> pp.number | np.ndarray | sps.spmatrix: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+        derivative: Literal[False] = False,
+        state: Optional[np.ndarray] = None,
+    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+        derivative: Literal[True],
+        state: Optional[np.ndarray],
+    ) -> pp.ad.AdArray: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+        derivative: Literal[True],
+        state: Optional[np.ndarray],
+    ) -> list[pp.ad.AdArray]: ...
+
+    def evaluate(
+        self,
+        operator: pp.ad.Operator | list[pp.ad.Operator],
+        derivative: Optional[bool] = False,
+        state: Optional[np.ndarray] = None,
+    ) -> (
+        pp.number
+        | np.ndarray
+        | sps.spmatrix
+        | pp.ad.AdArray
+        | list[pp.number | np.ndarray | sps.spmatrix]
+        | list[pp.ad.AdArray]
+    ):
+        """Evaluate an operator on the current state.
+
+        Parameters:
+            operator: Operator to evaluate.
+            derivative: Whether to evaluate the derivative of the operator. Defaults to
+                False.
+            state: State vector to evaluate the operator on. By default, the current
+                state is used.
+
+        Returns:
+            The operator evaluated on the current state. If the operator is a list, a
+            list of evaluations is returned. If the derivative is requested, the
+            evaluation is returned as an AdArray.
+
+        """
+        # EK: Ignore a typing error regarding 'no overload variant of "evaluate" matches
+        # the argument types' since the overloads are correctly defined. I have no idea
+        # why this error occurs.
+        return self._ad_parser.evaluate(  # type: ignore[call-overload]
+            operator, self, derivative, state
+        )
 
     ### Special methods ----------------------------------------------------------------
 

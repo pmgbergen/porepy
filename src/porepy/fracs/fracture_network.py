@@ -6,14 +6,14 @@
 from __future__ import annotations
 
 import warnings
-from typing import List, Optional, Union
+from typing import Optional, Union, cast
 
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 # Custom typings
-FractureList = Union[List[pp.LineFracture], List[pp.PlaneFracture]]
+FractureList = Union[list[pp.LineFracture], list[pp.PlaneFracture]]
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
 
@@ -127,12 +127,14 @@ def create_fracture_network(
     # check above, it is safe to ignore the argument type
     if dim == 2:
         fracture_network_2d = FractureNetwork2d(
-            fractures=fracs, domain=domain, tol=tol  # type: ignore[arg-type]
+            fractures=cast(list[pp.LineFracture], fracs),
+            domain=domain,
+            tol=tol,  # type: ignore[arg-type]
         )
         return fracture_network_2d
     else:
         fracture_network_3d = FractureNetwork3d(
-            fractures=fracs,  # type: ignore[arg-type]
+            fractures=cast(list[pp.PlaneFracture], fracs),
             domain=domain,
             tol=tol,
             run_checks=run_checks,

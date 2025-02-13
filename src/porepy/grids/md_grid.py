@@ -976,7 +976,7 @@ class MixedDimensionalGrid:
                 for sd in self.subdomains(dim=dim):
                     num_sd += 1
                     nc += sd.num_cells
-                s += f"{num_sd} grids of dimension {dim}" f" with in total {nc} cells\n"
+                s += f"{num_sd} grids of dimension {dim} with in total {nc} cells\n"
         if self.num_interfaces() > 0:
             for dim in range(self.dim_max(), self.dim_min(), -1):
                 num_intf = 0

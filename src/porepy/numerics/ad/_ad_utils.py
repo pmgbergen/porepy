@@ -145,7 +145,6 @@ def wrap_discretization(
     # Loop over all identified terms, assign a MergedOperator to non-coupling terms,
     # while postponing the treatment of coupling terms.
     for discretization_key in discretization_term_key:
-
         operators[discretization_key] = {}
 
         # Fetch all physics keywords associated with this discretization term. The
@@ -524,12 +523,6 @@ class MergedOperator(operators.Operator):
 
     """
 
-    def _key(self) -> str:
-        return (
-            f"(merged_op, discretization_matrix_key={self._discretization_matrix_key},"
-            f" physics_key={self._physics_key}, domains={[d.id for d in self.domains]})"
-        )
-
     def __init__(
         self,
         discr: pp.discretization_type,
@@ -570,6 +563,21 @@ class MergedOperator(operators.Operator):
 
     def __str__(self) -> str:
         return f"{self._name}({self._physics_key}).{self._discretization_matrix_key}"
+
+    def _key(self) -> str:
+        # Mypy occasionally (but not always, sigh) complains that it cannot
+        # self._cached_key determine the type of self._cached_key, despite it being
+        # decleared as an Optional[str] in the class definition.
+        if self._cached_key is None:  # type: ignore[has-type]
+            domain_ids = [domain.id for domain in self.domains]
+            s = f"(Merged_operator, name={self.name}, domains={domain_ids})"
+            s += f", discretization_matrix_key={self._discretization_matrix_key}"
+            s += f", physics_key={self._physics_key}"
+            if self._inner_physics_key is not None:
+                s += f", inner_physics_key={self._inner_physics_key}"
+
+            self._cached_key = s
+        return self._cached_key
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> sps.spmatrix:
         """Convert a merged operator into a sparse matrix by concatenating

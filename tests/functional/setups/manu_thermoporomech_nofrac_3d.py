@@ -791,7 +791,7 @@ class ManuThermoPoroMechExactSolution3d:
 
 
 # -----> Geometry
-class UnitCubeGrid(pp.ModelGeometry):
+class UnitCubeGrid(pp.PorePyModel):
     """Class for setting up the geometry of the unit cube domain.
 
     The domain may be assigned different material parameters in the region x > 0.5, y >
@@ -811,9 +811,6 @@ class UnitCubeGrid(pp.ModelGeometry):
     self.set_geometry().
 
     """
-
-    params: dict
-    """Simulation model parameters."""
 
     def set_geometry(self) -> None:
         super().set_geometry()
@@ -876,18 +873,15 @@ class ManuThermoPoroMechSolutionStrategy3d(
 ):
     """Solution strategy for the verification setup."""
 
+    exact_sol: ManuThermoPoroMechExactSolution3d
+    """Exact solution object."""
+
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)
 
-        self.exact_sol: ManuThermoPoroMechExactSolution3d
-        """Exact solution object."""
-
         self.stress_variable: str = "thermoporoelastic_force"
-        """Keyword to access the thermoporoelastic force."""
-        
-        self.results: list[ManuThermoPoroMechSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""        
+        """Keyword to access the thermoporoelastic force."""      
 
     def set_materials(self):
         """Set material parameters."""

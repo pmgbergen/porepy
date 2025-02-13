@@ -166,7 +166,7 @@ def test_pick_propagation_face_conforming_propagation(case):
     data_primary[pp.TIME_STEP_SOLUTIONS] = {}
 
     # Propagation model; assign this some necessary fields.
-    model = pp.ConformingFracturePropagation({})
+    model = pp.ConformingFracturePropagation({"times_to_export": []})
     model.mechanics_parameter_key = mech_key
     model.nd = mdg.dim_max()
 
