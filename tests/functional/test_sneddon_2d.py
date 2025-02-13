@@ -85,7 +85,7 @@ def actual_ooc() -> dict:
     )
 
     # Model for the convergence analysis
-    model = manu_sneddon_2d.MomentumBalanceGeometryBC
+    model = manu_sneddon_2d.ManuSneddonSetup2d
 
     # Convergence analysis setup
     conv_analysis = ConvergenceAnalysis(

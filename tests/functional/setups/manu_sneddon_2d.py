@@ -1,11 +1,10 @@
 from dataclasses import dataclass
-from typing import Literal
+from typing import Callable, Literal
 
 import numpy as np
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.models.protocol import PorePyModel
 
 
 def compute_eta(pointset_centers: np.ndarray, center: np.ndarray) -> np.ndarray:
@@ -207,15 +206,10 @@ def assign_bem(
     return bc_val
 
 
-class ManuExactSneddon2dSetup:
-    """
-    Class for setting up the analytical solution for the pressurized fracture problem.
+class ManuSneddonExactSolution2d:
+    """Class representing the analytical solution for the pressurized fracture problem."""
 
-
-    """
-
-    def __init__(self, setup):
-        # Initialize private variables from the setup dictionary
+    def __init__(self, setup: dict):
         self.p0 = setup.get("p0")
         self.theta = setup.get("theta")
 
@@ -225,9 +219,9 @@ class ManuExactSneddon2dSetup:
         self.length = setup.get("length")
         self.height = setup.get("height")
 
-    def exact_sol_global(self, sd):
-        """
-        Compute the analytical solution for the pressurized fracture problem in question.
+    def exact_sol_global(self, sd: pp.Grid) -> np.ndarray:
+        """Compute the analytical solution for the pressurized fracture problem in
+        question.
 
         Parameters:
             sd: Subdomain for which the analytical solution is to be computed.
@@ -249,27 +243,26 @@ class ManuExactSneddon2dSetup:
         u_bc = assign_bem(sd, h / 2, box_faces, self.theta, bem_centers, u_a, self.poi)
         return u_bc
 
-    def exact_sol_fracture(self, gb: pp.MixedDimensionalGrid) -> tuple:
-        """
-        Compute Sneddon's analytical solution for the pressurized crack
+    def exact_sol_fracture(
+        self, mdg: pp.MixedDimensionalGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Compute Sneddon's analytical solution for the pressurized crack
         problem in question.
 
-        Source: Sneddon Fourier transforms 1951 page 425 eq 92
+        References:
+            Sneddon Fourier transforms 1951 page 425 eq 92
 
-        Parameter
-            gb: Grid object
-            a: Half fracture length of fracture
-            eta: Distance from fracture centre
-            p0: Internal constant pressure inside the fracture
-            G: Shear modulus
-            poi: Poisson ratio
-            height,length: Height and length of domain
+        Parameters:
+            mdg: Mixed-dimensional domain of the setup.
 
         Return:
-            A tuple containing two vectors: a list of distances from the fracture center to each fracture coordinate, and the corresponding analytical apertures.
+            A 2-tuple of numpy arrays, where the first vector contains the distances
+            between fracture center to each fracture coordinate, and the second vector
+            the respective analytical apertures.
+
         """
-        ambient_dim = gb.dim_max()
-        g_1 = gb.subdomains(dim=ambient_dim - 1)[0]
+        ambient_dim = mdg.dim_max()
+        g_1 = mdg.subdomains(dim=ambient_dim - 1)[0]
         fracture_center = np.array([self.length / 2, self.height / 2, 0])
 
         fracture_faces = g_1.cell_centers
@@ -283,9 +276,10 @@ class ManuExactSneddon2dSetup:
         return eta, apertures
 
 
-class ModifiedGeometry(PorePyModel):
+class ManuSneddonGeometry2d(pp.PorePyModel):
     def set_domain(self) -> None:
-        """Defining a two-dimensional square domain with sidelengths length and height."""
+        """Defining a two-dimensional rectangle with parametrizable ``'length'`` and
+        ``'height'`` in the model parameters."""
 
         self._domain = pp.Domain(
             bounding_box={
@@ -301,19 +295,24 @@ class ModifiedGeometry(PorePyModel):
         return self.params.get("grid_type", "simplex")
 
     def set_fractures(self):
-        """Setting the fractures in the domain from params."""
+        """Setting a single line fracture in the domain using ``params['frac_pts']``."""
 
         points = self.params["frac_pts"]
         self._fractures = [pp.LineFracture(points)]
 
 
-class ModifiedBoundaryConditions(PorePyModel):
+class ManuSneddonBoundaryConditions(pp.PorePyModel):
+    exact_sol: ManuSneddonExactSolution2d
+
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Set boundary condition type for the problem.
+
         Parameters:
             sd: Subdomain for which the boundary conditions are to be set.
+
         Returns:
             Boundary condition type for the problem.
+
         """
         bounds = self.domain_boundary_sides(sd)
 
@@ -327,104 +326,112 @@ class ModifiedBoundaryConditions(PorePyModel):
         return bc
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """
-        Setting displacement boundary condition values.
-        This method sets the displacement boundary condition values for a given
+        """This method sets the displacement boundary condition values for a given
         boundary grid using the Sneddon analytical solution through the Boundary
         Element Method (BEM).
+
         Parameters:
-            The boundary grid for which the displacement boundary condition values
-            are to be set.
+            bg: The boundary grid for which the displacement boundary condition values
+                are to be set.
+
         Returns:
-            An array of displacement boundary condition values.
+            An array of displacement values on the boundary.
+
         """
 
         sd = bg.parent
         if sd.dim < 2:
             return np.zeros(self.nd * sd.num_faces)
+        else:
+            # Get the analytical solution for the displacement
+            u_exact = self.exact_sol.exact_sol_global(sd)
 
-        # Get the analytical solution for the displacement
-        exact_sol = ManuExactSneddon2dSetup(self.params)
-        u_exact = exact_sol.exact_sol_global(sd)
-
-        # Project the values to the grid
-        return bg.projection(2) @ u_exact.ravel("F")
-
-
-class PressureStressMixin(PorePyModel):
-    stress_keyword: str
-
-    def pressure(self, subdomains: pp.SubdomainsOrBoundaries):
-        """Discretization of the stress tensor.
-
-        Parameters:
-            subdomains: List of subdomains where the stress is defined.
-
-        Returns:
-            Discretization operator for the stress tensor.
-
-        """
-        # Return pressure in the fracture domain
-        mat = self.params["p0"] * np.ones(
-            sum((subdomain.num_cells for subdomain in subdomains))
-        )
-        return pp.ad.DenseArray(mat)
-
-    def stress_discretization(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.BiotAd | pp.ad.MpsaAd:
-        """Discretization of the stress tensor.
-
-        Parameters:
-            subdomains: List of subdomains where the stress is defined.
-
-        Returns:
-            Discretization operator for the stress tensor.
-        """
-        return pp.ad.MpsaAd(self.stress_keyword, subdomains)
+            # Project the values to the grid
+            return bg.projection(2) @ u_exact.ravel("F")
 
 
 @dataclass
-class SneddonData:
+class ManuSneddonSaveData:
     """Data class for storing the error in the displacement field."""
 
     error_displacement: pp.number
 
 
-class SneddonDataSaving(pp.PorePyModel):
+class ManuSneddonDataSaving(pp.PorePyModel):
     """Class for saving the error in the displacement field."""
 
-    def collect_data(self) -> SneddonData:
-        """Collecting the error in the displacement field.
+    exact_sol: ManuSneddonExactSolution2d
 
-        Returns: collected data dictionary
-        """
+    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    def collect_data(self) -> ManuSneddonSaveData:
+        """Collecting the error in the displacement field."""
         frac_sd = self.mdg.subdomains(dim=self.nd - 1)
         nd_vec_to_normal = self.normal_component(frac_sd)
 
-        # Comuting the numerical displacement jump along the fracture on the fracture cell centers.
+        # Computing the numerical displacement jump along the fracture on the fracture
+        # cell centers.
         u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(frac_sd)
         u_n = u_n.value(self.equation_system)
 
-        exact_setup = ManuExactSneddon2dSetup(self.params)
         # Checking convergence specifically on the fracture
-        u_a = exact_setup.exact_sol_fracture(self.mdg)[1]
+        u_a = self.exact_sol.exact_sol_fracture(self.mdg)[1]
 
-        e = ConvergenceAnalysis.l2_error(
+        e = ConvergenceAnalysis.lp_error(
             frac_sd[0], u_a, u_n, is_scalar=False, is_cc=True, relative=True
         )
 
-        collect_data = SneddonData(error_displacement=e)
+        collect_data = ManuSneddonSaveData(error_displacement=e)
         return collect_data
 
 
-class MomentumBalanceGeometryBC(
-    PorePyModel,
-    PressureStressMixin,
-    ModifiedGeometry,
-    SneddonDataSaving,
-    ModifiedBoundaryConditions,
-    pp.constitutive_laws.PressureStress,
+class ManuSneddonConstitutiveLaws(pp.constitutive_laws.PressureStress):
+    """Inherits the relevant pressure-stress relations, defines a constant pressure
+    and sets the stress discretization to MPSA.
+
+    Note that the latter is relevant because the inherited constitutive law
+    uses the Biot discretization.
+
+    """
+
+    def pressure(self, domains: pp.SubdomainsOrBoundaries):
+        """Defines a constant pressure given by ``params['p0']``.
+
+        Parameters:
+            subdomains: List of grids or boundary grids where the pressure is defined.
+
+        Returns:
+            A dense array broadcasting the constant pressure into a suitable array.
+
+        """
+        p = self.params["p0"] * np.ones(sum((grid.num_cells for grid in domains)))
+        return pp.ad.DenseArray(p)
+
+    def stress_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpsaAd:
+        """Discretization class for the stress tensor.
+
+        Parameters:
+            subdomains: List of subdomains where the stress is defined.
+
+        Returns:
+            The MPSA discretization in Ad operator form.
+
+        """
+        return pp.ad.MpsaAd(self.stress_keyword, subdomains)
+
+
+class ManuSneddonSetup2d(
+    ManuSneddonGeometry2d,
+    ManuSneddonDataSaving,
+    ManuSneddonBoundaryConditions,
+    ManuSneddonConstitutiveLaws,
     pp.MomentumBalance,
 ):
-    pass
+    """Complete Sneddon setup, including data collection and the analytical solution."""
+
+    exact_sol: ManuSneddonExactSolution2d
+
+    def set_materials(self):
+        """Initiating additionally the exact solution."""
+        super().set_materials()
+        self.exact_sol = ManuSneddonExactSolution2d(self.params)
