@@ -5,41 +5,42 @@ import numpy as np
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.geometry.distances import point_pointset
 
 
 def compute_eta(pointset_centers: np.ndarray, center: np.ndarray) -> np.ndarray:
-    """
-    Compute the distance fracture points to the fracture centre.
+    """Compute the distance from fracture points to the fracture centre.
 
-    Parameter::
-    pointset: Array containing coordinates on the fracture
-    center: fracture centre
+    Parameter:
+        pointset_centers: Coordinates of fracture points.
+        center: Coordinates of the fracture center.
 
     Return:
-        Array of distances each point in pointset to the center
+        Array of distances each point in pointset to the center.
 
     """
-    return pp.geometry.distances.point_pointset(pointset_centers, center)
+    return point_pointset(pointset_centers, center)
 
 
 def get_bem_centers(
     a: float, h: float, n: int, theta: float, center: np.ndarray
 ) -> np.ndarray:
-    """
-    Compute coordinates of the centers of the bem segments
+    """Compute coordinates of the centers of the BEM segments.
 
     Parameters:
-        a: half fracture length
-        h: bem segment length
-        n: number of bem segments
-        theta: orientation of the fracture
-        center: center of the fracture
+        a: Half of the fracture length.
+        h: BEM segment length.
+        n: Number of BEM segments.
+        theta: Orientation of the fracture.
+        center: Coordinates of the fracture center.
 
     Return:
-        Array of BEM centers
+        Array containing the BEM segment centers.
+
     """
 
-    # Coordinate system (4.5.1) in page 57 in in book Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics
+    # Coordinate system (4.5.1) in page 57 in in book
+    # Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics
 
     bem_centers = np.zeros((3, n))
     x_0 = center[0] - (a - 0.5 * h) * np.sin(theta)
@@ -54,45 +55,48 @@ def get_bem_centers(
 def analytical_displacements(
     a: float, eta: np.ndarray, p0: float, G: float, poi: float
 ) -> np.ndarray:
-    """
-    Compute Sneddon's analytical solution for the pressurized fracture.
+    """Compute Sneddon's analytical solution for the pressurized fracture displacement.
 
-    Source: Sneddon Fourier transforms 1951 page 425 eq 92
+    References:
+        Sneddon Fourier transforms 1951 page 425 eq 92
 
-    Parameter:
-        a: half fracture length
-        eta: distance from fracture centre
-        p0: pressure
-        G: shear modulus
-        poi: poisson ratio
+    Parameters:
+        a: Half of the fracture length.
+        eta: Distances of fracture points to the fracture center.
+        p0: Constant, fixed pressure.
+        G: Shear modulus.
+        poi: Poisson ratio.
 
     Return
-        List of analytical normal displacement jumps.
+        Array containing the analytical normal displacement jumps.
+
     """
     cons = (1 - poi) / G * p0 * a * 2
     return cons * np.sqrt(1 - np.power(eta / a, 2))
 
 
 def transform(xc: np.ndarray, x: np.ndarray, alpha: float) -> np.ndarray:
-    """
-    Translation and rotation coordinate transformation of boundary face coordinates for the BEM method
+    """Translation and rotation transform of boundary face coordinates for the BEM.
 
-    Parameter
-        xc: Coordinates of BEM segment centre
-        x: Coordinates of boundary faces
-        alpha: Fracture orientation
+    Parameters:
+        xc: Coordinates of BEM segment centre.
+        x: Coordinates of boundary faces.
+        alpha: Fracture orientation.
+
     Return:
-        Transformed coordinates
+        Transformed coordinates.
+
     """
     x_bar = np.zeros_like(x)
-    # Terms in (7.4.6) in Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics page 168
+    # Terms in (7.4.6) in
+    # Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics page 168
     x_bar[0, :] = (x[0, :] - xc[0]) * np.cos(alpha) + (x[1, :] - xc[1]) * np.sin(alpha)
     x_bar[1, :] = -(x[0, :] - xc[0]) * np.sin(alpha) + (x[1, :] - xc[1]) * np.cos(alpha)
     return x_bar
 
 
 def get_bc_val(
-    g: pp.Grid,
+    grid: pp.Grid,
     bound_faces: np.ndarray,
     xf: np.ndarray,
     h: float,
@@ -100,28 +104,31 @@ def get_bc_val(
     alpha: float,
     du: float,
 ) -> np.ndarray:
-    """
-    Compute semi-analytical displacement on the boundary using the BEM method for the Sneddon problem.
+    """Computes semi-analytical displacement values on the boundary using the BEM for
+    the Sneddon problem.
 
     Parameter
-        g: Grid object
-        bound_faces: Index lists for boundary faces
-        xf: Coordinates of boundary faces
-        h: BEM segment length
-        poi: Poisson ratio
-        alpha: Fracture orientation
-        du: Sneddon's analytical relative normal displacement
+        grid: The matrix grid.
+        bound_faces: Array of indices of boundary faces of ``grid``.
+        xf: Coordinates of boundary faces.
+        h: BEM segment length.
+        poi: Poisson ratio.
+        alpha: Fracture orientation.
+        du: Sneddon's analytical relative normal displacement.
+
     Return:
-        Boundary values for the displacement
+        Boundary values for the displacement.
+
     """
 
-    # Equations for f2,f3,f4.f5 can be found in book Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics pages 57, 84-92, 168
+    # Equations for f2,f3,f4.f5 can be found in book
+    # Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics pages 57, 84-92, 168
     f2 = np.zeros(bound_faces.size)
     f3 = np.zeros(bound_faces.size)
     f4 = np.zeros(bound_faces.size)
     f5 = np.zeros(bound_faces.size)
 
-    u = np.zeros((g.dim, g.num_faces))
+    u = np.zeros((grid.dim, grid.num_faces))
 
     # Constant term in (7.4.5)
     m = 1 / (4 * np.pi * (1 - poi))
@@ -164,41 +171,42 @@ def get_bc_val(
 
 
 def assign_bem(
-    g: pp.Grid,
+    grid: pp.Grid,
     h: float,
     bound_faces: np.ndarray,
-    theta: float,
+    alpha: float,
     bem_centers: np.ndarray,
     u_a: np.ndarray,
     poi: float,
 ) -> np.ndarray:
-    """
-    Compute analytical displacement using the BEM method for the Sneddon problem.
+    """Computes semi-analytical displacement values using the BEM for the Sneddon
+    problem.
 
     Parameter
-        g: Subdomain grid
-        h: bem segment length
-        bound_faces: boundary faces
-        theta: fracture orientation
-        bem_centers: bem segments centers
-        u_a: Sneddon's analytical relative normal displacement
-        poi: Poisson ratio
+        grid: The matrix grid.
+        h: BEM segment length.
+        bound_faces: Array of indices of boundary faces of ``grid``.
+        alpha: Fracture orientation.
+        bem_centers: BEM segments centers.
+        u_a: Sneddon's analytical relative normal displacement.
+        poi: Poisson ratio.
 
     Return:
-        Semi-analytical boundary displacement values
+        Semi-analytical boundary displacement values.
+
     """
 
-    bc_val = np.zeros((g.dim, g.num_faces))
+    bc_val = np.zeros((grid.dim, grid.num_faces))
 
-    alpha = np.pi / 2 - theta
+    alpha = np.pi / 2 - alpha
 
-    bound_face_centers = g.face_centers[:, bound_faces]
+    bound_face_centers = grid.face_centers[:, bound_faces]
 
     for i in range(0, u_a.size):
         new_bound_face_centers = transform(bem_centers[:, i], bound_face_centers, alpha)
 
         u_bound = get_bc_val(
-            g, bound_faces, new_bound_face_centers, h, poi, alpha, u_a[i]
+            grid, bound_faces, new_bound_face_centers, h, poi, alpha, u_a[i]
         )
 
         bc_val += u_bound
