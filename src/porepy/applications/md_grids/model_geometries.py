@@ -191,7 +191,9 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         old_fracture_grids = self.mdg.subdomains(dim=1)
 
         # Ratios which we want to refine the fracture grids with.
-        ratios = [3, 2]
+        ratios = []
+        for i in range(len(old_fracture_grids)):
+            ratios.append(i + 2)
 
         new_fracture_grids = [
             pp.refinement.refine_grid_1d(g=old_grid, ratio=ratio)
@@ -199,7 +201,6 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         ]
 
         grid_map = dict(zip(old_fracture_grids, new_fracture_grids))
-
 
         # Refine and replace interface grids:
         # We first create a new and more refined mixed-dimensional grid.
@@ -252,8 +253,10 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
 class Test(NonMatchingSquareDomainOrthogonalFractures, pp.SinglePhaseFlow): ...
 
 
-params = {"fracture_indices": [0, 1]}
+params = {
+    "fracture_indices": [0, 1],
+}
 model = Test(params)
 pp.run_time_dependent_model(model, params)
 
-# pp.plot_grid(model.mdg, alpha=0.5, info="cf")
+pp.plot_grid(model.mdg, alpha=0.5, info="cf")
