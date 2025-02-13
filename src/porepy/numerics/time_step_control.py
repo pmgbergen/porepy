@@ -722,7 +722,7 @@ class TimeManager:
         return schedule.size == np.sum(in1d)
 
     # I/O
-    def write_time_information(self, path: Optional[Path] = None) -> None:
+    def write_time_information(self, path: Path) -> None:
         """Keep track of history of time and time step size and store as json file
         storing lists the evolution of both as lists.
 
@@ -730,8 +730,7 @@ class TimeManager:
         is called. This routine does neither guarantee completeness, nor duplicated.
 
         Parameters:
-            path: specified path for storing time and dt; if 'None' provided,
-                a default path within the default 'visualization' folder is used.
+            path: Specified path for storing time and dt.
 
         """
 
@@ -742,27 +741,20 @@ class TimeManager:
         self.exported_dt.append(
             int(self.dt) if isinstance(self.dt, np.integer) else float(self.dt)
         )
-
-        # Storing as json
-        if path is None:
-            path = Path("visualization") / Path("times.json")
-
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as out_file:
             json.dump({"time": self.exported_times, "dt": self.exported_dt}, out_file)
 
-    def load_time_information(self, path: Optional[Path] = None) -> None:
+    def load_time_information(self, path: Path) -> None:
         """Keep track of history of time and time step size and store.
 
         Mirrors :meth:`write_time_information`.
 
         Parameters:
-            path: specified path for retrieving time and dt; if 'None' is provided, the
-            default choice from self.write_time_information() is used.
+            path: Specified path for retrieving time and dt.
 
         """
-        default_path = Path("visualization") / Path("times.json")
-        with open(path if path is not None else default_path) as in_file:
+        with path.open("r") as in_file:
             data = json.load(in_file)
             self.exported_times = data["time"]
             self.exported_dt = data["dt"]
