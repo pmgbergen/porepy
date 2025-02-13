@@ -27,6 +27,7 @@ from porepy.applications.discretizations.flux_discretization import FluxDiscreti
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
+    NonMatchingSquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models, well_models
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
@@ -548,16 +549,24 @@ def test_mobility_single_phase_flow(
         {"m": 2, "kg": 3, "s": 1, "K": 1},
     ],
 )
-def test_unit_conversion(units):
+@pytest.mark.parametrize(
+    "grid",
+    [
+        SquareDomainOrthogonalFractures,
+        NonMatchingSquareDomainOrthogonalFractures,
+    ],
+)
+def test_unit_conversion(units, grid):
     """Test that solution is independent of units.
 
     Parameters:
         units (dict): Dictionary with keys as those in
             :class:`~pp.compositional.materials.Constants`.
+        grid: Mixed dimensional grid class which the test is performed on.
 
     """
 
-    class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
+    class Model(grid, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
