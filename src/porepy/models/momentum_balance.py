@@ -681,13 +681,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
             c_num: Numerical constant.
 
         """
-        # Interpretation (EK):
-        # The scaling factor should not be too large, otherwise the contact problem
-        # may be discretized wrongly. I therefore introduce a safety factor here; its
-        # value is somewhat arbitrary.
-        softening_factor = pp.ad.Scalar(self.numerical.contact_mechanics_scaling)
-
-        constant = softening_factor / self.characteristic_displacement(subdomains)
+        constant = pp.ad.Scalar(1) / self.characteristic_displacement(subdomains)
         constant.set_name("Contact_mechanics_numerical_constant")
         return constant
 
