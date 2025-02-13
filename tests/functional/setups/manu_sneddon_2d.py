@@ -1,12 +1,12 @@
 import numpy as np
 import porepy as pp
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.protocol import PorePyModel
 from typing import Literal
 
 
 from dataclasses import dataclass
+
 
 def compute_eta(pointset_centers: np.ndarray, center: np.ndarray) -> np.ndarray:
     """
@@ -208,8 +208,6 @@ def assign_bem(
     return bc_val
 
 
-
-
 class ManuExactSneddon2dSetup:
     """
     Class for setting up the analytical solution for the pressurized fracture problem.
@@ -284,9 +282,6 @@ class ManuExactSneddon2dSetup:
         apertures = analytical_displacements(self.a, eta, self.p0, self.shear_modulus, self.poi)
 
         return eta, apertures
-
-
-
 
 
 class ModifiedGeometry(PorePyModel):
@@ -396,9 +391,11 @@ class SneddonData:
     """Data class for storing the error in the displacement field."""
     error_displacement: pp.number
 
-class SneddonDataSaving(VerificationDataSaving):
+
+class SneddonDataSaving(pp.PorePyModel):
     """Class for saving the error in the displacement field."""
-    def collect_data(self):
+
+    def collect_data(self) -> SneddonData:
         """Collecting the error in the displacement field.
         
         Returns: collected data dictionary
