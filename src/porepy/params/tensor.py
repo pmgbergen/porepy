@@ -5,7 +5,7 @@ for representation of permeability and stiffness, respectively.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, cast
 
 import numpy as np
 
@@ -13,12 +13,20 @@ import numpy as np
 class Tensor:
     """Class of the common parts of the second and fourth order tensors."""
 
+    values: np.ndarray
+
     @staticmethod
-    def constitutive_parameters(self):
-        # Each constant parameter is assumed to be an array of shape (nc,)
+    def constitutive_parameters(self) -> list[str]:
+        """Strings for the constitutive parameters found in the tensor.
+
+        Returns:
+            A list of the constitutive parameter names.
+
+        """
+        # Each constitutive parameter is assumed to be an array of shape (nc,)
         return []
 
-    def restrict_to_cells(self, cells) -> None:
+    def restrict_to_cells(self, cells: np.ndarray) -> None:
         """Restrict constitutive parameters to cells.
 
         Used in the case of problems being split into several sub-problems.
@@ -29,9 +37,9 @@ class Tensor:
 
         """
         # Restrict all constitutive parameters.
-        # Exactly why is this line necessary?
         for field in self.constitutive_parameters(self):
-            setattr(self, field, getattr(self, field)[cells])
+            vals = cast(np.ndarray, getattr(self, field))
+            setattr(self, field, vals[cells])
 
         # Restrict the values representation of the tensor.
         self.values = self.values[::, ::, cells]
