@@ -38,3 +38,4 @@ from .pr_utils import *
 
 __all__.extend(eos_c.__all__)
 __all__.extend(eos_s.__all__)
+__all__.extend(pr_utils.__all__)

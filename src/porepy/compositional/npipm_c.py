@@ -380,8 +380,7 @@ def solver(
 
             # Need this test otherwise np.linalg.solve raises an error.
             if (
-                np.any(np.isnan(f_i))
-                or np.any(np.isinf(f_i))
+                np.any(np.isnan(f_i)) or np.any(np.isinf(f_i))
                 # or np.any(np.isnan(df_i))
                 # or np.any(np.isinf(df_i))
             ):

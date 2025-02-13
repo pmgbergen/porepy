@@ -12,7 +12,6 @@ from ...vtk_sampler import VTKSampler
 
 
 class LiquidDriesnerCorrelations(ppc.AbstractEoS):
-
     @property
     def vtk_sampler(self) -> VTKSampler:
         return self._vtk_sampler
@@ -25,9 +24,8 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
-        vals = (2.0) * np.ones(nc) * 1.0e-6 # 2 MW / (m C)
+        vals = (2.0) * np.ones(nc) * 1.0e-6  # 2 MW / (m C)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -97,7 +95,6 @@ class LiquidDriesnerCorrelations(ppc.AbstractEoS):
 
 
 class GasDriesnerCorrelations(ppc.AbstractEoS):
-
     @property
     def vtk_sampler(self) -> VTKSampler:
         return self._vtk_sampler
@@ -110,9 +107,8 @@ class GasDriesnerCorrelations(ppc.AbstractEoS):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
-        vals = (2.0) * np.ones(nc) * 1.0e-6 # 2 MW / (m C)
+        vals = (2.0) * np.ones(nc) * 1.0e-6  # 2 MW / (m C)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -257,7 +253,6 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
         par_points = np.array((z_NaCl, h, p)).T
@@ -269,14 +264,13 @@ class SecondaryEquations(SecondaryEquationsMixin):
         dS_vdH = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 1]
         dS_vdp = self.vtk_sampler.sampled_could.point_data["grad_S_v"][:, 2]
         dS_v = np.vstack((dS_vdp, dS_vdH, dS_vdz))
-        S_v = np.clip(S_v, 0.0,1.0)
+        S_v = np.clip(S_v, 0.0, 1.0)
         return S_v, dS_v
 
     def temperature_func(
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
         par_points = np.array((z_NaCl, h, p)).T
@@ -294,7 +288,6 @@ class SecondaryEquations(SecondaryEquationsMixin):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         p, h, z_NaCl = thermodynamic_dependencies
         assert len(p) == len(h) == len(z_NaCl)
         par_points = np.array((z_NaCl, h, p)).T

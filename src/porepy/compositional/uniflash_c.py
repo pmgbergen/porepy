@@ -533,9 +533,9 @@ class CompiledUnifiedFlash(Flash):
 
         assert self.npnc[0] == 2, "Supports only 2-phase mixtures."
         assert self.npnc[1] >= 2, "Must have at least two components."
-        assert set(self.nc_per_phase) == set(
-            [self.npnc[1]]
-        ), "Supports only unified mixtures (all components in all phases)."
+        assert set(self.nc_per_phase) == set([self.npnc[1]]), (
+            "Supports only unified mixtures (all components in all phases)."
+        )
 
         # data used in initializers
         self._pcrits: list[float] = [comp.p_crit for comp in mixture.components]
@@ -1016,7 +1016,7 @@ class CompiledUnifiedFlash(Flash):
                 # derivative w.r.t. composition of phase j
                 h_constr_jac[
                     2 + nphase - 1 + j * ncomp : 2 + nphase - 1 + (j + 1) * ncomp
-                ] = (y[j] * d_h_j[2:])
+                ] = y[j] * d_h_j[2:]
 
             # for better conditioning
             h_constr_jac /= h
@@ -1141,7 +1141,7 @@ class CompiledUnifiedFlash(Flash):
                     if k == j:
                         jac[
                             j, 2 * nphase + k * ncomp : 2 * nphase + (k + 1) * ncomp
-                        ] += (sat[j] * d_rho_j[k, 2:] / rho_mix)
+                        ] += sat[j] * d_rho_j[k, 2:] / rho_mix
 
             # volume constraint is scaled with target volume
             jac[0] *= v
@@ -1469,9 +1469,9 @@ class CompiledUnifiedFlash(Flash):
                             y_ = 1.0
 
                         # assert corrections did what they have to do
-                        assert (
-                            0.0 <= y_ <= 1.0
-                        ), "y fraction estimate outside bound [0, 1]."
+                        assert 0.0 <= y_ <= 1.0, (
+                            "y fraction estimate outside bound [0, 1]."
+                        )
                     y[1] = y_
                     y[0] = 1.0 - y_
                 else:
@@ -1856,9 +1856,7 @@ class CompiledUnifiedFlash(Flash):
             X0 = self.initializers[flash_type](X0.T, *init_args).T
             end = time.time()
             init_time = end - start
-            logger.debug(
-                f"Flash initialized" + " (elapsed time: %.5f (s))." % (init_time)
-            )
+            logger.debug("Flash initialized (elapsed time: %.5f (s))." % (init_time))
         else:
             init_time = 0.0
             # parsing phase compositions and molar fractions

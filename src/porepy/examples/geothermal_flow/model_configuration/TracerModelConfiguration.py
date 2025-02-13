@@ -109,6 +109,5 @@ class TracerFlowModel(
     ModelEquations,
     CFModelMixin,
 ):
-
     def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
         return saturation

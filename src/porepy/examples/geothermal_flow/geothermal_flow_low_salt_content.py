@@ -4,59 +4,71 @@ import time
 
 import numpy as np
 
-import porepy as pp
+# Figure 4 single with low pressure (lP) condition
+# Figure 4 single with moderate pressure (mP) condition
+# Figure 4 single with high pressure (hP) condition
+from model_configuration.bc_description.bc_market import (
+    BC_single_phase_high_pressure as BC_hP,
+)
+from model_configuration.bc_description.bc_market import (
+    BC_single_phase_low_pressure as BC_lP,
+)
+from model_configuration.bc_description.bc_market import (
+    BC_single_phase_moderate_pressure as BC_mP,
+)
 
+# geometry description horizontal case
+from model_configuration.geometry_description.geometry_market import (
+    SimpleGeometryHorizontal as ModelGeometryH,
+)
+from model_configuration.geometry_description.geometry_market import (
+    SimpleGeometryVertical as ModelGeometryV,
+)
+from model_configuration.ic_description.ic_market import (
+    IC_single_phase_high_pressure as IC_hP,
+)
+from model_configuration.ic_description.ic_market import (
+    IC_single_phase_low_pressure as IC_lP,
+)
+from model_configuration.ic_description.ic_market import (
+    IC_single_phase_moderate_pressure as IC_mP,
+)
+
+import porepy as pp
 from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (
     DriesnerBrineFlowModel as FlowModel,
 )
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
-
-# geometry description horizontal case
-from model_configuration.geometry_description.geometry_market import SimpleGeometryHorizontal as ModelGeometryH
-from model_configuration.geometry_description.geometry_market import SimpleGeometryVertical as ModelGeometryV
-
-# Figure 4 single with high pressure (hP) condition
-from model_configuration.bc_description.bc_market import BC_single_phase_high_pressure as BC_hP
-from model_configuration.ic_description.ic_market import IC_single_phase_high_pressure as IC_hP
-
-# Figure 4 single with moderate pressure (mP) condition
-from model_configuration.bc_description.bc_market import BC_single_phase_moderate_pressure as BC_mP
-from model_configuration.ic_description.ic_market import IC_single_phase_moderate_pressure as IC_mP
-
-# Figure 4 single with low pressure (lP) condition
-from model_configuration.bc_description.bc_market import BC_single_phase_low_pressure as BC_lP
-from model_configuration.ic_description.ic_market import IC_single_phase_low_pressure as IC_lP
-
 
 # Main directives
 case_name = "case_mP"
 geometry_case = "vertical"
 
 final_times = {
-"horizontal" : [91250.0, 43800.0, 547500.0],
-"vertical" : [273750.0, 127750.0, 547500.0]
+    "horizontal": [91250.0, 43800.0, 547500.0],
+    "vertical": [273750.0, 127750.0, 547500.0],
 }
 
 day = 86400
 # Configuration dictionary mapping cases to their specific classes
 simulation_cases = {
     "case_hP": {
-        "tf":  final_times[geometry_case][0] * day,  # final time [250 years]
-        "dt":  365.0 * day,  # final time [1 years]
+        "tf": final_times[geometry_case][0] * day,  # final time [250 years]
+        "dt": 365.0 * day,  # final time [1 years]
         "bc": BC_hP,
-        "ic": IC_hP
+        "ic": IC_hP,
     },
     "case_mP": {
-        "tf":  final_times[geometry_case][1] * day,  # final time [120 years]
-        "dt":  365.0 * day,  # final time [1 years]
+        "tf": final_times[geometry_case][1] * day,  # final time [120 years]
+        "dt": 365.0 * day,  # final time [1 years]
         "bc": BC_mP,
-        "ic": IC_mP
+        "ic": IC_mP,
     },
     "case_lP": {
-        "tf":  final_times[geometry_case][2] * day,  # final time [1500 years]
-        "dt":  365.0 * day,  # final time [1 years]
+        "tf": final_times[geometry_case][2] * day,  # final time [1500 years]
+        "dt": 365.0 * day,  # final time [1 years]
         "bc": BC_lP,
-        "ic": IC_lP
+        "ic": IC_lP,
     },
 }
 
@@ -103,8 +115,9 @@ params = {
 }
 
 
-class GeothermalWaterFlowModel(ModelGeometry, BoundaryConditions, InitialConditions, FlowModel):
-
+class GeothermalWaterFlowModel(
+    ModelGeometry, BoundaryConditions, InitialConditions, FlowModel
+):
     def after_nonlinear_convergence(self) -> None:
         day = 86400
         year = 365 * day
@@ -122,18 +135,22 @@ class GeothermalWaterFlowModel(ModelGeometry, BoundaryConditions, InitialConditi
 model = GeothermalWaterFlowModel(params)
 
 parametric_space_ref_level = 2
-file_name_prefix = (
-    "model_configuration/constitutive_description/driesner_vtk_files/"
-)
+file_name_prefix = "model_configuration/constitutive_description/driesner_vtk_files/"
 file_name_phz = (
-    file_name_prefix + "XHP_l" + str(parametric_space_ref_level) + "_modified_low_salt_content.vtk"
+    file_name_prefix
+    + "XHP_l"
+    + str(parametric_space_ref_level)
+    + "_modified_low_salt_content.vtk"
 )
 file_name_ptz = (
-    file_name_prefix + "XTP_l" + str(parametric_space_ref_level) + "_modified_low_salt_content.vtk"
+    file_name_prefix
+    + "XTP_l"
+    + str(parametric_space_ref_level)
+    + "_modified_low_salt_content.vtk"
 )
 
 brine_sampler_phz = VTKSampler(file_name_phz)
-brine_sampler_phz.conversion_factors = (1.0, 1.0e+3, 10.0)  # (z,h,p)
+brine_sampler_phz.conversion_factors = (1.0, 1.0e3, 10.0)  # (z,h,p)
 model.vtk_sampler = brine_sampler_phz
 
 brine_sampler_ptz = VTKSampler(file_name_ptz)
