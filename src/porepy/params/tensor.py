@@ -10,7 +10,34 @@ from typing import Optional
 import numpy as np
 
 
-class SecondOrderTensor(object):
+class Tensor:
+    """Class of the common parts of the second and fourth order tensors."""
+
+    @staticmethod
+    def constitutive_parameters(self):
+        # Each constant parameter is assumed to be an array of shape (nc,)
+        return []
+
+    def restrict_to_cells(self, cells) -> None:
+        """Restrict constitutive parameters to cells.
+
+        Used in the case of problems being split into several sub-problems.
+
+        Parameters:
+            cells: Indices of the cells which the constitutive parameters should be
+                restricted to.
+
+        """
+        # Restrict all constitutive parameters.
+        # Exactly why is this line necessary?
+        for field in self.constitutive_parameters(self):
+            setattr(self, field, getattr(self, field)[cells])
+
+        # Restrict the values representation of the tensor.
+        self.values = self.values[::, ::, cells]
+
+
+class SecondOrderTensor(Tensor):
     """Cell-wise permeability represented.
 
     The permeability is always 3-dimensional (since the geometry is always 3D), however,
@@ -109,13 +136,12 @@ class SecondOrderTensor(object):
                 the memory sense).
         """
 
-        kxx = self.values[0, 0, :].copy()
-        kxy = self.values[1, 0, :].copy()
-        kyy = self.values[1, 1, :].copy()
-
-        kxz = self.values[2, 0, :].copy()
-        kyz = self.values[2, 1, :].copy()
-        kzz = self.values[2, 2, :].copy()
+        kxx = self.values[0, 0].copy()
+        kxy = self.values[1, 0].copy()
+        kyy = self.values[1, 1].copy()
+        kxz = self.values[2, 0].copy()
+        kyz = self.values[2, 1].copy()
+        kzz = self.values[2, 2].copy()
 
         return SecondOrderTensor(kxx, kxy=kxy, kxz=kxz, kyy=kyy, kyz=kyz, kzz=kzz)
 
@@ -140,7 +166,7 @@ class SecondOrderTensor(object):
         return self.__str__()
 
 
-class FourthOrderTensor(object):
+class FourthOrderTensor(Tensor):
     """Cell-wise representation of fourth order tensor.
 
     For each cell, there are dim^4 degrees of freedom, stored in a 3^2 * 3^2 matrix
@@ -193,6 +219,8 @@ class FourthOrderTensor(object):
         """Nc array of first Lamé parameter."""
         self.mu = mu
         """Nc array of shear modulus (second Lamé parameter)."""
+        self.phi = phi
+        """Nc array of ... spør Jan eller Eirik."""
 
         # Basis for the contributions of mu, lmbda and phi is hard-coded
         mu_mat = np.array(
@@ -235,7 +263,7 @@ class FourthOrderTensor(object):
             ]
         )
 
-        # Expand dimensions to prepare for cell-wise representation
+        # Expand dimensions to prepare for cell-wise representation.
         mu_mat = mu_mat[:, :, np.newaxis]
         lmbda_mat = lmbda_mat[:, :, np.newaxis]
         phi_mat = phi_mat[:, :, np.newaxis]
@@ -252,9 +280,23 @@ class FourthOrderTensor(object):
                 the memory sense).
 
         """
-        C = FourthOrderTensor(mu=self.mu, lmbda=self.lmbda)
+        C = FourthOrderTensor(mu=self.mu.copy(), lmbda=self.lmbda.copy())
         C.values = self.values.copy()
         return C
+
+    @staticmethod
+    def constitutive_parameters(self) -> list:
+        """Strings for the constitutive parameters found in the fourth order tensor.
+
+        Returns:
+            A list of the constitutive parameter names.
+
+        """
+        return [
+            "mu",
+            "lmbda",
+            # Legge inn phi som attributt??
+        ]
 
     def __str__(self) -> str:
         s = f"Fourth order tensor defined on {self.values.shape[2]} cells.\n"
