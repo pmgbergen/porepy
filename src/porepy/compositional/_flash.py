@@ -1258,7 +1258,7 @@ class FlashNR:
 
         # parsing state arguments
         if guess_from_state is None:
-            assert feed, f"Must provide feed fractions if 'guess_from_state=None'."
+            assert feed, "Must provide feed fractions if 'guess_from_state=None'."
             feed = self._parse_input_feed(feed)
             if len(feed) == num_comp - 1:
                 feed = [1 - safe_sum(feed)] + feed
@@ -1272,7 +1272,7 @@ class FlashNR:
             + f"Method: {method}\n"
             + f"Using Armijo line search: {self.use_armijo}\n"
             + f"Computing initial guess: {not bool(guess_from_state)}\n"
-            + f"\nInitializing state ...\n"
+            + "\nInitializing state ...\n"
         )
         # getting gas-phase index
         gas_phase_index: Optional[int] = None
