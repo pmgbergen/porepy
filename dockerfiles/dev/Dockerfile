@@ -26,15 +26,6 @@ WORKDIR ${POREPY_HOME}
 # Make sure we're on the develop branch
 RUN git checkout develop && git pull
 
-# Do the install
-RUN pip install -e .
-
-# Run a pip freeze. It is always good to know what been installed
-RUN pip freeze
-
-# Add PorePy home to the pythonpath. This may or may not be necessary.
-ENV PYTHONPATH $POREPY_HOME:$PYTHONPATH
-
 # Run tests to check that everything works.
 # NOTE: When run as a GH action (presumably after a PR to the develop branch
 # was accepted, e.g., when the tests have already been run on GH), this should
