@@ -1,11 +1,11 @@
+from dataclasses import dataclass
+from typing import Literal
+
 import numpy as np
+
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.models.protocol import PorePyModel
-from typing import Literal
-
-
-from dataclasses import dataclass
 
 
 def compute_eta(pointset_centers: np.ndarray, center: np.ndarray) -> np.ndarray:
@@ -115,7 +115,7 @@ def get_bc_val(
     Return:
         Boundary values for the displacement
     """
-    
+
     # Equations for f2,f3,f4.f5 can be found in book Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics pages 57, 84-92, 168
     f2 = np.zeros(bound_faces.size)
     f3 = np.zeros(bound_faces.size)
@@ -196,7 +196,6 @@ def assign_bem(
     bound_face_centers = g.face_centers[:, bound_faces]
 
     for i in range(0, u_a.size):
-
         new_bound_face_centers = transform(bem_centers[:, i], bound_face_centers, alpha)
 
         u_bound = get_bc_val(
@@ -211,31 +210,30 @@ def assign_bem(
 class ManuExactSneddon2dSetup:
     """
     Class for setting up the analytical solution for the pressurized fracture problem.
-    
-    
+
+
     """
-  
+
     def __init__(self, setup):
         # Initialize private variables from the setup dictionary
         self.p0 = setup.get("p0")
         self.theta = setup.get("theta")
 
         self.a = setup.get("a")
-        self.shear_modulus  = setup.get("material_constants").get("solid").shear_modulus
+        self.shear_modulus = setup.get("material_constants").get("solid").shear_modulus
         self.poi = setup.get("poi")
         self.length = setup.get("length")
         self.height = setup.get("height")
-         
-  
+
     def exact_sol_global(self, sd):
         """
         Compute the analytical solution for the pressurized fracture problem in question.
-        
+
         Parameters:
             sd: Subdomain for which the analytical solution is to be computed.
-            
+
         """
-        
+
         n = 1000
         h = 2 * self.a / n
         box_faces = sd.get_boundary_faces()
@@ -244,15 +242,14 @@ class ManuExactSneddon2dSetup:
         center = np.array([self.length / 2, self.height / 2, 0])
         bem_centers = get_bem_centers(self.a, h, n, self.theta, center)
         eta = compute_eta(bem_centers, center)
-        
-        
-        u_a = -analytical_displacements(self.a, eta, self.p0, self.shear_modulus, self.poi)
+
+        u_a = -analytical_displacements(
+            self.a, eta, self.p0, self.shear_modulus, self.poi
+        )
         u_bc = assign_bem(sd, h / 2, box_faces, self.theta, bem_centers, u_a, self.poi)
         return u_bc
-    
 
-    def exact_sol_fracture( self,
-    gb: pp.MixedDimensionalGrid) -> tuple:
+    def exact_sol_fracture(self, gb: pp.MixedDimensionalGrid) -> tuple:
         """
         Compute Sneddon's analytical solution for the pressurized crack
         problem in question.
@@ -279,7 +276,9 @@ class ManuExactSneddon2dSetup:
 
         # compute distances from fracture centre with its corresponding apertures
         eta = compute_eta(fracture_faces, fracture_center)
-        apertures = analytical_displacements(self.a, eta, self.p0, self.shear_modulus, self.poi)
+        apertures = analytical_displacements(
+            self.a, eta, self.p0, self.shear_modulus, self.poi
+        )
 
         return eta, apertures
 
@@ -330,11 +329,11 @@ class ModifiedBoundaryConditions(PorePyModel):
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """
         Setting displacement boundary condition values.
-        This method sets the displacement boundary condition values for a given 
-        boundary grid using the Sneddon analytical solution through the Boundary 
+        This method sets the displacement boundary condition values for a given
+        boundary grid using the Sneddon analytical solution through the Boundary
         Element Method (BEM).
         Parameters:
-            The boundary grid for which the displacement boundary condition values 
+            The boundary grid for which the displacement boundary condition values
             are to be set.
         Returns:
             An array of displacement boundary condition values.
@@ -344,11 +343,10 @@ class ModifiedBoundaryConditions(PorePyModel):
         if sd.dim < 2:
             return np.zeros(self.nd * sd.num_faces)
 
-  
-        # Get the analytical solution for the displacement 
+        # Get the analytical solution for the displacement
         exact_sol = ManuExactSneddon2dSetup(self.params)
-        u_exact = exact_sol.exact_sol_global(sd) 
-        
+        u_exact = exact_sol.exact_sol_global(sd)
+
         # Project the values to the grid
         return bg.projection(2) @ u_exact.ravel("F")
 
@@ -389,6 +387,7 @@ class PressureStressMixin(PorePyModel):
 @dataclass
 class SneddonData:
     """Data class for storing the error in the displacement field."""
+
     error_displacement: pp.number
 
 
@@ -397,24 +396,24 @@ class SneddonDataSaving(pp.PorePyModel):
 
     def collect_data(self) -> SneddonData:
         """Collecting the error in the displacement field.
-        
+
         Returns: collected data dictionary
         """
         frac_sd = self.mdg.subdomains(dim=self.nd - 1)
         nd_vec_to_normal = self.normal_component(frac_sd)
-    
+
         # Comuting the numerical displacement jump along the fracture on the fracture cell centers.
         u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(frac_sd)
         u_n = u_n.value(self.equation_system)
-        
+
         exact_setup = ManuExactSneddon2dSetup(self.params)
         # Checking convergence specifically on the fracture
         u_a = exact_setup.exact_sol_fracture(self.mdg)[1]
-    
+
         e = ConvergenceAnalysis.l2_error(
             frac_sd[0], u_a, u_n, is_scalar=False, is_cc=True, relative=True
         )
-        
+
         collect_data = SneddonData(error_displacement=e)
         return collect_data
 
@@ -426,8 +425,6 @@ class MomentumBalanceGeometryBC(
     SneddonDataSaving,
     ModifiedBoundaryConditions,
     pp.constitutive_laws.PressureStress,
-    pp.MomentumBalance
+    pp.MomentumBalance,
 ):
     pass
-    
-

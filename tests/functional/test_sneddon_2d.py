@@ -1,9 +1,11 @@
-import porepy as pp
+import copy
+import math
+
 import numpy as np
 import pytest
-import math
-import copy
-import  tests.functional.setups.manu_sneddon_2d as manu_sneddon_2d
+
+import porepy as pp
+import tests.functional.setups.manu_sneddon_2d as manu_sneddon_2d
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 
 # ----> Set up the material constants
@@ -14,7 +16,7 @@ lam = (
 )  # Convertion formula from shear modulus and poission to lame lambda parameter
 
 solid = pp.SolidConstants(shear_modulus=shear_modulus, lame_lambda=lam)
-   
+
 
 def compute_frac_pts(
     theta_rad: float, a: float, height: float, length: float
@@ -49,10 +51,10 @@ def compute_frac_pts(
 def actual_ooc() -> dict:
     """
     Prepare parameters and model for the convergence analysis of the moment balance equation.
-    
-    This setup validates the linear elasticity model for the analytical Sneddon solution in 2D, describing the analytical displacement on the fracture. 
+
+    This setup validates the linear elasticity model for the analytical Sneddon solution in 2D, describing the analytical displacement on the fracture.
     The problem consists of a 2D domain with a fracture at a given angle and internal pressure.
-    
+
     Returns:
         A dictionary containing the experimental order of convergence for the displacement.
     """
@@ -68,17 +70,19 @@ def actual_ooc() -> dict:
     params = {
         "prepare_simulation": True,
         "material_constants": {"solid": solid},
-        "a": a, # Half-length of the fracture
-        "height": height, # Height of the domain
-        "length": length, # Length of the domain
-        "p0": 1e-4, # Internal pressure of fracture
-        "poi": poi, # Possion ratio (Not standard in solid constants)
+        "a": a,  # Half-length of the fracture
+        "height": height,  # Height of the domain
+        "length": length,  # Length of the domain
+        "p0": 1e-4,  # Internal pressure of fracture
+        "poi": poi,  # Possion ratio (Not standard in solid constants)
         "meshing_arguments": {"cell_size": 0.03},
         "theta": theta_rad,
     }
 
     # Convert angle to radians and compute fracture points
-    params["frac_pts"] = compute_frac_pts(theta_rad=theta_rad, a=a, height=height, length=length)
+    params["frac_pts"] = compute_frac_pts(
+        theta_rad=theta_rad, a=a, height=height, length=length
+    )
 
     # Model for the convergence analysis
     model = manu_sneddon_2d.MomentumBalanceGeometryBC
@@ -89,19 +93,19 @@ def actual_ooc() -> dict:
         model_params=copy.deepcopy(params),
         levels=2,
         spatial_refinement_rate=2,
-        temporal_refinement_rate=1
+        temporal_refinement_rate=1,
     )
 
     # Calculate and return the order of convergence for the displacement
-    order_dict = conv_analysis.order_of_convergence(conv_analysis.run_analysis(), data_range=slice(None, None, None))
+    order_dict = conv_analysis.order_of_convergence(
+        conv_analysis.run_analysis(), data_range=slice(None, None, None)
+    )
     return order_dict
-
 
 
 def test_order_of_convergence(
     actual_ooc,
 ) -> None:
-    """Test observed order of convergence.
-    """
-    # We  the order of L2 convergence on the fracture of displacement to be about 1.0 
-    assert 0.85 <   actual_ooc["ooc_displacement"]
+    """Test observed order of convergence."""
+    # We  the order of L2 convergence on the fracture of displacement to be about 1.0
+    assert 0.85 < actual_ooc["ooc_displacement"]
