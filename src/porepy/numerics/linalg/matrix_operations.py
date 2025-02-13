@@ -386,14 +386,16 @@ def optimized_compressed_storage(A: sps.spmatrix) -> sps.spmatrix:
 
 
 def sparse_dia_from_sparse_blocks(blocks: list[sps.dia_matrix]) -> sps.dia_matrix:
-    """Construct a sparse diagonal matrix from a list of diagonal matrices.
-
-    The blocks are concatenated along the main diagonal.
+    """Construct a sparse diagonal matrix from a list of sparse diagonal matrices.
 
     This is a shortcut that can be used for fast construction of block diagonal matrices
-    where the individual blocks are known to be diagonal. For block diagonal
-    matrices with a more general structure of the matrix blocks (those that have
-    non-zero elements off the main diagonal), use cs{r,c}_matrix_from_sparse_blocks.
+    where the individual blocks are known to be diagonal. The blocks are concatenated
+    along the main diagonal, hence the resulting matrix will be structurally equal to an
+    identity matrix.
+
+    For block diagonal matrices with a more general structure of the matrix blocks
+    (those that have non-zero elements off the main diagonal), use the methods
+    cs{r,c}_matrix_from_sparse_blocks().
 
     Parameters:
         blocks: List of diagonal matrices. Should be of dia-format and only have data
@@ -420,9 +422,10 @@ def sparse_dia_from_sparse_blocks(blocks: list[sps.dia_matrix]) -> sps.dia_matri
 
 
 def csr_matrix_from_sparse_blocks(blocks: list[sps.spmatrix]) -> sps.spmatrix:
-    """Create a csr representation of a block diagonal matrix.
+    """Create a csr representation of a block diagonal matrix from a list of sparse
+    matrices.
 
-    The function is equivalent to, but can be significantly fasteer than, the call
+    The function is equivalent to, but can be significantly faster than, the call
 
         sps.block_diag(blocks)
 
@@ -433,10 +436,16 @@ def csr_matrix_from_sparse_blocks(blocks: list[sps.spmatrix]) -> sps.spmatrix:
     Returns:
         csr representation of the block matrix.
 
+    See also:
+        csc_matrix_from_sparse_blocks() for an equivalent function that is optimized for
+            csc matrices.
+        csr_matrix_from_dense_blocks(), csc_matrix_from_dense_blocks() for functions
+            that create sparse block diagonal matrices from dense data.
+
     Example:
         >>> block_1 = sps.csr_matrix([[1, 2], [3, 4]])
         >>> block_2 = sps.csr_matrix([[5, 6, 7], [8, 9, 10]])
-        >>> csr_matrix_from_dense_blocks([block_1, block_2]).toarray()
+        >>> csr_matrix_from_sparse_blocks([block_1, block_2]).toarray()
         array([[1, 2, 0, 0, 0],
                [3, 4, 0, 0, 0],
                [0, 0, 5, 6, 7],
@@ -447,9 +456,10 @@ def csr_matrix_from_sparse_blocks(blocks: list[sps.spmatrix]) -> sps.spmatrix:
 
 
 def csc_matrix_from_sparse_blocks(blocks: list[sps.spmatrix]) -> sps.spmatrix:
-    """Create a csc representation of a block diagonal matrix.
+    """Create a csc representation of a block diagonal matrix from a list of sparse
+    matrices.
 
-    The function is equivalent to, but can be significantly fasteer than, the call
+    The function is equivalent to, but can be significantly faster than, the call
 
         sps.block_diag(blocks)
 
@@ -460,10 +470,16 @@ def csc_matrix_from_sparse_blocks(blocks: list[sps.spmatrix]) -> sps.spmatrix:
     Returns:
         csc representation of the block matrix.
 
+    See also:
+        csr_matrix_from_sparse_blocks() for an equivalent function that is optimized for
+            csr matrices.
+        csr_matrix_from_dense_blocks(), csc_matrix_from_dense_blocks() for functions
+            that create sparse block diagonal matrices from dense data.
+
     Example:
         >>> block_1 = sps.csc_matrix([[1, 2], [3, 4]])
         >>> block_2 = sps.csc_matrix([[5, 6, 7], [8, 9, 10]])
-        >>> csc_matrix_from_dense_blocks([block_1, block_2]).toarray()
+        >>> csc_matrix_from_sparse_blocks([block_1, block_2]).toarray()
         array([[1, 2, 0, 0, 0],
                [3, 4, 0, 0, 0],
                [0, 0, 5, 6, 7],
@@ -476,7 +492,8 @@ def csc_matrix_from_sparse_blocks(blocks: list[sps.spmatrix]) -> sps.spmatrix:
 def _csx_matrix_from_sparse_blocks(
     blocks: list[sps.spmatrix], matrix_format: Literal["csr", "csc"]
 ) -> sps.spmatrix:
-    """Create a csr or csc representation of a block diagonal matrix.
+    """Create a csr or csc representation of a block diagonal matrix from a list of
+    sparse matrices.
 
     The function is equivalent to, but can be significantly faster than, the call
 
@@ -484,8 +501,7 @@ def _csx_matrix_from_sparse_blocks(
 
     Parameters:
         blocks: List of sparse matrices to be added.
-        matrix_format: type of matrix to be created. Should be either sps.csc_matrix
-            or sps.csr_matrix
+        matrix_format: type of matrix to be created. Should be either 'csr' or 'csc'.
 
     Raises:
         ValueError: If the size of the data does not match the blocks size and number
@@ -543,23 +559,33 @@ def _csx_matrix_from_sparse_blocks(
 def csr_matrix_from_dense_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
-    """Create a csr representation of a block diagonal matrix of uniform block size.
+    """Create a csr representation of a block diagonal matrix from an array of data.
+
+    The block-diagonal matrix is constructed by inserting the data in the blocks in
+    a row-wise fashion. The blocks are assumed to be square and of the same size. See
+    the example below for an illustration.
 
     The function is equivalent to, but orders of magnitude faster than, the call
 
         sps.block_diag(blocks)
 
     Parameters:
-        data (np.array): Matrix values, sorted column-wise.
-        block_size (int): The size of *all* the blocks.
-        num_blocks (int): Number of blocks to be added.
-
-    Returns:
-        sps.csr_matrix: csr representation of the block matrix.
+        data: Matrix values, sorted column-wise.
+        block_size: The size of *all* the blocks.
+        num_blocks: Number of blocks to be added.
 
     Raises:
         ValueError: If the size of the data does not match the blocks size and number
             of blocks.
+
+    Returns:
+        sps.csr_matrix: csr representation of the block matrix.
+
+    See also:
+        csc_matrix_from_dense_blocks() for an equivalent function that is optimized for
+            csc matrices.
+        csr_matrix_from_sparse_blocks(), csc_matrix_from_sparse_blocks() for functions
+            that create block diagonal matrices from sparse matrices.
 
     Example:
         >>> data = np.array([1, 2, 3, 4, 5, 6, 7, 8])
@@ -577,23 +603,33 @@ def csr_matrix_from_dense_blocks(
 def csc_matrix_from_dense_blocks(
     data: np.ndarray, block_size: int, num_blocks: int
 ) -> sps.spmatrix:
-    """Create a csc representation of a block diagonal matrix of uniform block size.
+    """Create a csc representation of a block diagonal matrix from an array of data.
+
+    The block-diagonal matrix is constructed by inserting the data in the blocks in
+    a column-wise fashion. The blocks are assumed to be square and of the same size. See
+    the example below for an illustration.
 
     The function is equivalent to, but orders of magnitude faster than, the call
 
         sps.block_diag(blocks)
 
     Parameters:
-        data (np.array): Matrix values, sorted column-wise.
-        block_size (int): The size of *all* the blocks.
-        num_blocks (int): Number of blocks to be added.
-
-    Returns:
-        sps.csc_matrix: csr representation of the block matrix.
+        data: Matrix values, sorted column-wise.
+        block_size: The size of *all* the blocks.
+        num_blocks: Number of blocks to be added.
 
     Raises:
         ValueError: If the size of the data does not match the blocks size and number
             of blocks.
+
+    Returns:
+        sps.csc_matrix: csc representation of the block matrix.
+
+    See also:
+        csr_matrix_from_dense_blocks() for an equivalent function that is optimized for
+            csc matrices.
+        csr_matrix_from_sparse_blocks(), csc_matrix_from_sparse_blocks() for functions
+            that create block diagonal matrices from sparse matrices.
 
     Example:
         >>> data = np.array([1, 2, 3, 4, 5, 6, 7, 8])
@@ -611,7 +647,8 @@ def csc_matrix_from_dense_blocks(
 def _csx_matrix_from_dense_blocks(
     data: np.ndarray, block_size: int, num_blocks: int, matrix_format
 ) -> sps.spmatrix:
-    """Create a csr representation of a block diagonal matrix of uniform block size.
+    """Create a csr or csc representation of a block diagonal matrix of uniform block
+    size.
 
     The function is equivalent to, but orders of magnitude faster than, the call
 
@@ -675,7 +712,7 @@ def _csx_matrix_from_dense_blocks(
 
 def invert_diagonal_blocks(
     mat: sps.spmatrix, s: np.ndarray, method: Optional[str] = None
-) -> Union[sps.csr, sps.csc]:
+) -> Union[sps.csr_matrix, sps.csc_matrix]:
     """Invert block diagonal matrix.
 
     Three implementations are available, either pure numpy, or a speedup using
