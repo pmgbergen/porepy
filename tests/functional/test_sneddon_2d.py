@@ -8,7 +8,7 @@ import porepy as pp
 import tests.functional.setups.manu_sneddon_2d as manu_sneddon_2d
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 
-# ----> Set up the material constants
+# Set up the material constants
 poi = 0.25
 shear_modulus = 1
 lam = (
@@ -21,8 +21,7 @@ solid = pp.SolidConstants(shear_modulus=shear_modulus, lame_lambda=lam)
 def compute_frac_pts(
     theta_rad: float, a: float, height: float, length: float
 ) -> np.ndarray:
-    """
-    Assuming the fracture center is at the coordinate (height/2, length/2),
+    """Assuming the fracture center is at the coordinate (height/2, length/2),
     compute the endpoints of a fracture given its orientation and fracture length.
 
     Parameters:
@@ -32,8 +31,9 @@ def compute_frac_pts(
         length: Width of the domain.
 
     Returns:
-        frac_pts : A 2x2 array where each column represents the coordinates of an end point of the fracture in 2D.
-            The first column corresponds to one end point, and the second column corresponds to the other.
+        A 2x2 array where each column represents the coordinates of an end point of the
+        fracture in 2D. The first column corresponds to one end point, and the second
+        column corresponds to the other.
 
     """
     # Rotate the fracture with an angle theta_rad
@@ -46,17 +46,18 @@ def compute_frac_pts(
     return frac_pts
 
 
-# ----> Retrieve actual order of convergence
 @pytest.fixture(scope="module")
 def actual_ooc() -> dict:
-    """
-    Prepare parameters and model for the convergence analysis of the moment balance equation.
+    """Performs convergence analysis of the Sneddon setup.
 
-    This setup validates the linear elasticity model for the analytical Sneddon solution in 2D, describing the analytical displacement on the fracture.
-    The problem consists of a 2D domain with a fracture at a given angle and internal pressure.
+    This setup validates the linear elasticity model for the analytical Sneddon solution
+    in 2D, describing the analytical displacement on the fracture. The problem consists
+    of a 2D domain with a fracture at a given angle and internal pressure.
 
     Returns:
-        A dictionary containing the experimental order of convergence for the displacement.
+        A dictionary containing the experimental order of convergence for the
+        displacement.
+
     """
     # Angle of the fracture in degrees
 
@@ -103,9 +104,7 @@ def actual_ooc() -> dict:
     return order_dict
 
 
-def test_order_of_convergence(
-    actual_ooc,
-) -> None:
+def test_order_of_convergence(actual_ooc: dict) -> None:
     """Test observed order of convergence."""
     # We  the order of L2 convergence on the fracture of displacement to be about 1.0
     assert 0.85 < actual_ooc["ooc_displacement"]
