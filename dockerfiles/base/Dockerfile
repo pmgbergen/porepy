@@ -42,6 +42,12 @@ RUN pip install -e .[testing,development]
 # are useful for achieving good performance.
 RUN pip install pypardiso
 
+# Run a pip freeze to know what been installed.
+RUN pip freeze
+
+# Add PorePy home to the pythonpath. This may or may not be necessary.
+ENV PYTHONPATH $POREPY_HOME:$PYTHONPATH
+
 # Move back to code directory
 WORKDIR ${HOME}
 
