@@ -66,7 +66,6 @@ class SoereideMixture:
     def get_phase_configuration(
         self, components: Sequence[ppc.Component]
     ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
-
         eos = ppcpr.PengRobinsonCompiler(
             components, [h_ideal_H2O, h_ideal_CO2], get_bip_matrix(components)
         )
@@ -470,7 +469,6 @@ class BoundaryConditions:
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         # Setting only conditions on matrix
         if sd.dim == 2:
-
             inout = self._inlet_faces(sd) | self._outlet_faces(sd)
             # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, inout, "dir")
@@ -488,7 +486,6 @@ class BoundaryConditions:
             return pp.BoundaryCondition(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
@@ -509,7 +506,6 @@ class BoundaryConditions:
         return vals
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
@@ -533,7 +529,6 @@ class BoundaryConditions:
     def bc_values_overall_fraction(
         self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 

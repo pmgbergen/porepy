@@ -144,7 +144,7 @@ class Flash(abc.ABC):
             NF = 1
         else:
             raise TypeError(
-                f"Could not unify types of input arguments: "
+                "Could not unify types of input arguments: "
                 + f"z_sum={type(z_sum)} "
                 + f"state_1={type(state_1)} "
                 + f"state_2={type(state_2)} "
@@ -153,14 +153,14 @@ class Flash(abc.ABC):
         if isinstance(initial_state, FluidProperties):
             n = len(initial_state.y)
             assert n == nphase, f"Expecting {nphase} phase fractions, {n} provided."
-            assert np.allclose(
-                safe_sum(initial_state.y), 1.0
-            ), f"Initial phase fractions violate strong unity constraint."
+            assert np.allclose(safe_sum(initial_state.y), 1.0), (
+                "Initial phase fractions violate strong unity constraint."
+            )
 
             for j in range(nphase):
-                assert np.all(
-                    safe_sum(initial_state.phases[j].x) <= 1.0 + 1e-7
-                ), f"Component fractions in phase {j} violate weak unity constraint."
+                assert np.all(safe_sum(initial_state.phases[j].x) <= 1.0 + 1e-7), (
+                    f"Component fractions in phase {j} violate weak unity constraint."
+                )
                 n = len(initial_state.phases[j].x)
                 assert n == self.nc_per_phase[j], (
                     f"Expexting {self.nc_per_phase[j]} fractions of components in phase"
@@ -169,12 +169,12 @@ class Flash(abc.ABC):
 
             if "v" in flash_type:
                 n = len(initial_state.sat)
-                assert (
-                    n == nphase
-                ), f"Expecting {nphase} phase saturations, {n} provided."
-                assert np.allclose(
-                    safe_sum(initial_state.sat), 1.0
-                ), f"Initial phase saturations violate strong unity constraint."
+                assert n == nphase, (
+                    f"Expecting {nphase} phase saturations, {n} provided."
+                )
+                assert np.allclose(safe_sum(initial_state.sat), 1.0), (
+                    "Initial phase saturations violate strong unity constraint."
+                )
             fluid_state = initial_state
         else:
             fluid_state = FluidProperties()
@@ -195,7 +195,7 @@ class Flash(abc.ABC):
         except ValueError as err:
             if "broadcast" in str(err):
                 raise TypeError(
-                    f"Failed to uniformize vectorized input for:\n"
+                    "Failed to uniformize vectorized input for:\n"
                     + f"state 1: len = {len(state_1)}"
                     + f"state 2: len = {len(state_2)}"
                     + safe_sum(
@@ -257,7 +257,7 @@ class Flash(abc.ABC):
                 if "broadcast" in str(err):
                     xl = [[len(x) for x in phase.x] for phase in fluid_state.phases]
                     raise TypeError(
-                        f"Failed to uniformize input state for:\n"
+                        "Failed to uniformize input state for:\n"
                         + f"y: lengths ({[len(y for y in fluid_state.y)]})\n"
                         + f"s: lengths ({[len(s for s in fluid_state.sat)]})\n"
                         + f"s: lengths {xl}"

@@ -1370,7 +1370,6 @@ class PengRobinson(AbstractEoS):
 
     @components.setter
     def components(self, components: list) -> None:
-
         a_crits: list[float] = list()
         bs: list[float] = list()
         a_cors: list[float] = list()
@@ -2123,9 +2122,9 @@ class PengRobinson(AbstractEoS):
             [one_root_region, triple_root_region, double_root_region, three_root_region]
         ).sum(axis=0)
         trues_check = np.ones(n, dtype=trues_per_row.dtype)
-        assert np.all(
-            trues_check == trues_per_row
-        ), "Regions with different root scenarios overlap."
+        assert np.all(trues_check == trues_per_row), (
+            "Regions with different root scenarios overlap."
+        )
 
         ### COMPUTATIONS IN THE ONE-ROOT-REGION
         # Missing real root is replaced with conjugated imaginary roots
@@ -2308,9 +2307,9 @@ class PengRobinson(AbstractEoS):
 
             z = -c2_ / 3
 
-            assert np.all(
-                z > B[region]
-            ), "Triple-roots violating the lower physical bound B detected."
+            assert np.all(z > B[region]), (
+                "Triple-roots violating the lower physical bound B detected."
+            )
 
             Z_L[region] = z
             Z_G[region] = z
@@ -3279,9 +3278,9 @@ class _PengRobinson(AbstractEoS):
             [one_root_region, triple_root_region, double_root_region, three_root_region]
         ).sum(axis=0)
         trues_check = np.ones(n, dtype=trues_per_row.dtype)
-        assert np.all(
-            trues_check == trues_per_row
-        ), "Regions with different root scenarios overlap."
+        assert np.all(trues_check == trues_per_row), (
+            "Regions with different root scenarios overlap."
+        )
 
         ### COMPUTATIONS IN THE ONE-ROOT-REGION
         # Missing real root is replaced with conjugated imaginary roots
@@ -3452,9 +3451,9 @@ class _PengRobinson(AbstractEoS):
 
             z = -c2_ / 3
 
-            assert np.all(
-                z > B[region]
-            ), "Triple-roots violating the lower physical bound B detected."
+            assert np.all(z > B[region]), (
+                "Triple-roots violating the lower physical bound B detected."
+            )
 
             Z_L[region] = z
             Z_G[region] = z

@@ -10,7 +10,6 @@ from porepy.models.geometry import ModelGeometry
 
 
 class Geometry(ModelGeometry):
-
     @abstractmethod
     def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
         pass
@@ -23,7 +22,6 @@ class Geometry(ModelGeometry):
 
 
 class Benchmark2DC1(Geometry):
-
     def set_fractures(self) -> None:
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_1()
 
@@ -36,7 +34,6 @@ class Benchmark2DC1(Geometry):
         return mesh_args
 
     def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):
@@ -60,7 +57,6 @@ class Benchmark2DC1(Geometry):
 
 
 class Benchmark2DC3(Geometry):
-
     def set_fractures(self) -> None:
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_3()
 
@@ -73,7 +69,6 @@ class Benchmark2DC3(Geometry):
         return mesh_args
 
     def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):
@@ -97,7 +92,6 @@ class Benchmark2DC3(Geometry):
 
 
 class Benchmark3DC3(Geometry):
-
     def set_geometry(self) -> None:
         """Create mixed-dimensional grid and fracture network."""
 
@@ -126,7 +120,6 @@ class Benchmark3DC3(Geometry):
             self.well_network.mesh(self.mdg)
 
     def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):
@@ -150,9 +143,7 @@ class Benchmark3DC3(Geometry):
 
 
 class SimpleGeometry(Geometry):
-
     def set_domain(self) -> None:
-
         dimension = 2
         size_x = self.solid.convert_units(10.0, "m")
         size_y = self.solid.convert_units(10.0, "m")
@@ -173,7 +164,6 @@ class SimpleGeometry(Geometry):
         return mesh_args
 
     def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):
@@ -243,13 +233,14 @@ class SimpleGeometryHorizontal(Geometry):
         outlet_facets = find_facets(self._outlet_centre)
         return inlet_facets, outlet_facets
 
+
 class SimpleGeometryVertical(Geometry):
     """A class to represent a simple 1D geometry for a simulation domain.
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
     _dist_from_ref_point: float = 5.0
-    _inlet_centre: np.ndarray = np.array([5.0, 0.0,  0.0])
+    _inlet_centre: np.ndarray = np.array([5.0, 0.0, 0.0])
     _outlet_centre: np.ndarray = np.array([5.0, 2000.0, 0.0])
 
     def set_domain(self) -> None:

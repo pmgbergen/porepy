@@ -811,9 +811,7 @@ class PengRobinsonSymbolic:
             dT_A_e * self.T_s**2 + A_s * self.T_s
         ) / B_s * sp.ln(
             (Z_s + (1 + np.sqrt(2)) * B_s) / (Z_s + (1 - np.sqrt(2)) * B_s)
-        ) + R_IDEAL_MOL * self.T_s * (
-            Z_s - 1
-        )
+        ) + R_IDEAL_MOL * self.T_s * (Z_s - 1)
         """Symbolic expression for departure enthalpy."""
 
         d_h_dep_e: list[sp.Expr] = [

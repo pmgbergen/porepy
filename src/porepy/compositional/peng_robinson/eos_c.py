@@ -421,7 +421,7 @@ See :data:`~porepy.compositional.peng_robinson.eos.A_CRIT`.
 # see https://github.com/sympy/sympy/issues/18432
 # https://github.com/numba/numba/issues/5128
 def _compile_d_Z(
-    d_Z_: Callable[[float, float], list[float]]
+    d_Z_: Callable[[float, float], list[float]],
 ) -> Callable[[float, float], np.ndarray]:
     """Helper function to wrap derivatives of compressibility factors into arrays.
 
@@ -1166,7 +1166,7 @@ def _compile_extended_thd_function_derivatives(
 
 
 def _compile_volume_derivative(
-    dv: Callable[[float, float, float], list[float]]
+    dv: Callable[[float, float, float], list[float]],
 ) -> Callable[[float, float, float], np.ndarray]:
     """Helper function to compile the gradient of the specific volume.
 
@@ -1356,7 +1356,6 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_prearg_for_derivatives(
         self,
     ) -> Callable[[float, float, np.ndarray], np.ndarray]:
-
         A_c = self._cfuncs["A"]
         B_c = self._cfuncs["B"]
         dA_c = self._cfuncs["d_A"]

@@ -1,6 +1,7 @@
-from typing import Union, Literal
+from typing import Literal, Union
 
 import numpy as np
+
 import porepy as pp
 import porepy.compositional as ppc
 from porepy.models.compositional_flow import (
@@ -72,6 +73,7 @@ class BoundaryConditions(BoundaryConditionsCF):
             z_NaCl = z_init * np.ones(boundary_grid.num_cells)
             z_NaCl[inlet_idx] = z_inlet
             return z_NaCl
+
 
 class InitialConditions(InitialConditionsCF):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
@@ -157,11 +159,10 @@ class DriesnerBrineFlowModel(
         self._vtk_sampler_ptz = vtk_sampler
 
     def gravity_force(
-            self,
-            subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
-            material: Literal["fluid", "solid"],
+        self,
+        subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
+        material: Literal["fluid", "solid"],
     ) -> pp.ad.Operator:
-
         overall_rho = self.fluid_density(subdomains)
 
         # Keeping the following line for quantitative verification purposes
@@ -175,6 +176,8 @@ class DriesnerBrineFlowModel(
 
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
         e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
-        overall_gravity_flux = pp.ad.Scalar(-1) * e_n @ (overall_rho * overall_gravity_flux)
+        overall_gravity_flux = (
+            pp.ad.Scalar(-1) * e_n @ (overall_rho * overall_gravity_flux)
+        )
         overall_gravity_flux.set_name("overall gravity flux")
         return overall_gravity_flux

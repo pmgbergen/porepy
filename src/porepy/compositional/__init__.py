@@ -39,7 +39,19 @@ References:
 
 __all__ = []
 
-from . import _core, base, compositional_mixins, eos_compiler, flash, materials, states, unified_equilibrium_mixins, uniflash_c, uniflash_utils_c, utils
+from . import (
+    _core,
+    base,
+    compositional_mixins,
+    eos_compiler,
+    flash,
+    materials,
+    states,
+    unified_equilibrium_mixins,
+    uniflash_c,
+    uniflash_utils_c,
+    utils,
+)
 from ._core import *
 from .base import *
 from .compositional_mixins import *

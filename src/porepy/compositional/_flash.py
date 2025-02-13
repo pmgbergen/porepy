@@ -878,9 +878,9 @@ class FlashSystemNR(ThermodynamicState):
         """
 
         num_phases = len(y)
-        assert num_phases == len(
-            densities
-        ), "Need equal amount of densities and fractions"
+        assert num_phases == len(densities), (
+            "Need equal amount of densities and fractions"
+        )
 
         num_vals = len(y[0])
 
@@ -1513,9 +1513,9 @@ class FlashNR:
         # converting AD operators to numeric format
         ad_args = [isinstance(var, pp.ad.Operator) for var in parsed_state]
         if np.any(ad_args):
-            assert np.all(
-                ad_args
-            ), "If any state argument is an AD operator, all must be."
+            assert np.all(ad_args), (
+                "If any state argument is an AD operator, all must be."
+            )
 
             parsed_state = [
                 var.evaluate(self.mixture.system).val for var in parsed_state
@@ -1532,9 +1532,9 @@ class FlashNR:
         ]
 
         # last sanity check, this should always hold if user is not messing around
-        assert isinstance(state_1, np.ndarray) and isinstance(
-            state_2, np.ndarray
-        ), "Failed to parse input state to arrays."
+        assert isinstance(state_1, np.ndarray) and isinstance(state_2, np.ndarray), (
+            "Failed to parse input state to arrays."
+        )
         # last compatibility check that enough values are provided
         assert len(state_1) == len(state_2), "Must provide equally sized state values."
 
@@ -1736,9 +1736,9 @@ class FlashNR:
                 y[corr_neg_2] = 0.0
                 y[corr_pos_2] = 1.0
 
-                assert not np.any(
-                    (y < 0.0) | (1.0 < y)
-                ), "y fraction estimate outside bound [0, 1]."
+                assert not np.any((y < 0.0) | (1.0 < y)), (
+                    "y fraction estimate outside bound [0, 1]."
+                )
                 state.y[1].val = y
                 state.y[0].val = 1 - y
 

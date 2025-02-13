@@ -172,7 +172,7 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
                         # evaluationg partial fractions by normalization
                         fracs_on_bgs[bg][
                             self._partial_fraction_variable(comp, phase)
-                        ] = (np.ones(bg.num_cells) * 1e-16)
+                        ] = np.ones(bg.num_cells) * 1e-16
             else:
                 assert np.all(dir_bc), "Missing logic in BC conditions for flash"
                 p = self.bc_values_pressure(bg)
@@ -195,7 +195,6 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
                 # storing fractional values on boundaries temporarily, and progressing
                 # secondary expressions in time, for which boundary values are required.
                 for j, phase in enumerate(self.fluid_mixture.phases):
-
                     # Update for saturation values
                     fracs_on_bgs[bg][self._saturation_variable(phase)] = (
                         boundary_state.sat[j]
@@ -223,7 +222,6 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
         # NOTE this loop is done additionally to the first loop, because
         # update_boundary_condition itself loops over all boundaries
         for phase in self.fluid_mixture.phases:
-
             # BC values for saturations are required in mobility terms.
             if self.has_independent_saturation(phase):
                 var_name = self._saturation_variable(phase)
@@ -440,7 +438,6 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     def __init__(self, params: dict | None = None) -> None:
-
         super().__init__(params)
 
         # Input validation for set-up

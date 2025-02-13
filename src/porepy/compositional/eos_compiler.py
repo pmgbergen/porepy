@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def _compile_vectorized_prearg(
-    func_c: Callable[[int, float, float, np.ndarray], np.ndarray]
+    func_c: Callable[[int, float, float, np.ndarray], np.ndarray],
 ) -> Callable[[int, np.ndarray, np.ndarray, np.ndarray], np.ndarray]:
     """Helper function implementing the parallelized, compiled computation of
     pre-argument functions ``func_c``, which is called element-wise."""
@@ -46,7 +46,7 @@ def _compile_vectorized_prearg(
 
 
 def _compile_vectorized_fugacity_coeffs(
-    phi_c: Callable[[np.ndarray, float, float, np.ndarray], np.ndarray]
+    phi_c: Callable[[np.ndarray, float, float, np.ndarray], np.ndarray],
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]:
     """Helper function implementing the parallelized, compiled computation of
     fugacity coefficients given by ``phi_c``.
@@ -75,7 +75,7 @@ def _compile_vectorized_fugacity_coeffs(
 
 
 def _compile_vectorized_fugacity_coeff_derivatives(
-    d_phi_c: Callable[[np.ndarray, float, float, np.ndarray], np.ndarray]
+    d_phi_c: Callable[[np.ndarray, float, float, np.ndarray], np.ndarray],
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]:
     """Helper function implementing the parallelized, compiled computation of
     fugacity coefficient derivatives given by ``phi_c``.
@@ -114,7 +114,7 @@ def _compile_vectorized_fugacity_coeff_derivatives(
 
 
 def _compile_vectorized_property(
-    func_c: Callable[[np.ndarray, float, float, np.ndarray], float]
+    func_c: Callable[[np.ndarray, float, float, np.ndarray], float],
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]:
     """Helper function implementing the parallelized, compiled computation of
     properties given by ``func_c`` element-wise."""
@@ -134,7 +134,7 @@ def _compile_vectorized_property(
 
 
 def _compile_vectorized_property_derivatives(
-    func_c: Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]
+    func_c: Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray],
 ) -> Callable[[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray], np.ndarray]:
     """Helper function implementing the parallelized, compiled computation of
     property derivatives given by ``func_c`` element-wise.

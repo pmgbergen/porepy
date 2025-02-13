@@ -244,7 +244,7 @@ class UnifiedPhaseEquilibriumMixin:
         equ = x_ij * phi_ij - x_ir * phi_ir
 
         equ.set_name(
-            f"isofugacity_constraint_" + f"{component.name}_{phase.name}_{rphase.name}"
+            f"isofugacity_constraint_{component.name}_{phase.name}_{rphase.name}"
         )
         return equ
 

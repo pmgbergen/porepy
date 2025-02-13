@@ -12,7 +12,6 @@ from porepy.models.compositional_flow import SecondaryEquationsMixin
 def gas_saturation_func(
     *thermodynamic_dependencies: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
-
     p, h, z_NaCl = thermodynamic_dependencies
     assert len(p) == len(h) == len(z_NaCl)
 
@@ -120,7 +119,6 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         # vals = (55508.435061792) * np.ones(nc)
         vals = (1000.0) * np.ones(nc)
@@ -132,7 +130,6 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = (0.001) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
@@ -143,7 +140,6 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = (1000.0) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
@@ -154,7 +150,6 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = (1.8) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
@@ -224,7 +219,6 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = 1.0 * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
@@ -235,7 +229,6 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = (0.00001) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
@@ -246,7 +239,6 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = (1000.0) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
@@ -257,7 +249,6 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         self,
         *thermodynamic_dependencies: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
-
         nc = len(thermodynamic_dependencies[0])
         vals = (1.0e-2) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array

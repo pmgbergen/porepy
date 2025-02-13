@@ -7,7 +7,6 @@ from . import classify_points as cp
 
 
 class VTKSampler:
-
     def __init__(self, file_name, extended_q=True):
         self.file_name = file_name
         self.taylor_extended_q = extended_q
@@ -267,7 +266,6 @@ class VTKSampler:
         xv[ent_q, 2] = zmax
 
     def __taylor_expansion(self, points, external_idx):
-
         xv = points[external_idx].copy()
         self.__map_external_points_to_surface(xv)
 
