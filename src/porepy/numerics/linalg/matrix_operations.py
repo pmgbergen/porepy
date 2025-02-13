@@ -362,6 +362,81 @@ def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
 
 
 class MatrixSlicer:
+    """Class for slicing (sparse) matrices, vectors, and AD arrays.
+
+    Operating with this class is equivalent to using a projection matrix. However, using
+    this class avoids both the construction of the projection matrix and the
+    matrix-matrix product (alt. matrix-vector product when applied to a matrix). This
+    can give significant speedups for large matrices.
+
+    Example:
+        Let y be a numpy array, scipy sparse matrix, or an AdArray, with size, say, 4.
+        That is, if y is a 1d numpy array, it has shape (4,), if it is an AdArray, it
+        value attribute has shape (4,), and if it is a sparse matrix (or a numpy array
+        of more than one dimension, though that case is not a primary motivation for the
+        slicer), it has 4 rows, while the number of columns is arbitrary. The slicer
+        then permits the following classes of operations:
+
+        1. Restrict y to elements 0 and 2:
+            >>> S = MatrixSlicer(domain_indices=np.array([0, 2]))
+            >>> y_restricted = S @ y
+            This is a mapping from R^4 to R^2 (or the natural generalization if y is a
+            matrix).
+        2. Map y to a larger space, so that element 0 goes to dimension 0, 1 -> 2, 2 ->
+            4, 3 -> 1: >>> S = MatrixSlicer(range_indices=np.array([0, 2, 4, 1])) >>>
+            y_mapped = S @ y This is a mapping from R^4 to R^5, since the highest index
+            in range_indices is 4 (and it is 0-offset).
+        3. Do the same operation as in 2., but leave out the mapping of element 1:
+            >>> S = MatrixSlicer(domain_indices=np.array([0, 2, 3]),
+                                 range_indices=np.array([0, 4, 1])
+                                )
+            >>> y_mapped = S @ y
+        4. Set the size of the range space explicitly (it must be at least as large as
+            the size implied by range_indices): >>> S =
+            MatrixSlicer(domain_indices=np.array([0, 2, 3]),
+                                 range_indices=np.array([0, 4, 1]), range_size=7
+                                )
+            >>> y_mapped = S @ y
+            This is a mapping from R^4 to R^7.
+            The range_size parameter can also be used in the case where only the domain
+            indices are given.
+
+    Warning:
+        Since this class is not constructed to be used as an operand in general
+        arithmetic operations, care is needed when using it in combination with other
+        operands. Consider the expression
+
+            A x S @ y
+
+        where S is a MatrixSlicer instance and y is a quantity to be sliced. Depending
+        on the operator x, and following Python's rules for operator precedence, the
+        expression will be evaluated as either 'A x (S @ y)' or '(A x S) @ y', where the
+        former is the only reasonable interpretation. Unfortunately, if x has equal
+        precedence with @, Python will evaluate the expression from the left, that is,
+        '(A x S) @ y'. This can of course be enforced by using parentheses, but doing so
+        throughout the code will become cumbersome and error-prone (note that the need
+        for parantheses will carry over the Ad operators when a representation of the
+        MatrixSlicer is introduced in that framework). If x has higher precedence than
+        @, parantheses around S @ y are needed.
+
+        As a partial remedy, the MatrixSlicer implements methods __rmatmul__, __rmul__,
+        and __rtruediv__ to handle cases where it is the right operand. These are the
+        relevant operands (e.g., not integer division or the modulus operator) that have
+        equal precedence with @, where issues can arise. These special methods use
+        delayed evaluation to first carry out the slicing (S @ y), and then apply 'A x'
+        to the result.
+
+        *However*, this only works if the methods __rmul__ etc. are called in the first
+        place. Fundamental data types in python (int, float) will do so, as will scipy
+        sparse matrices. *Numpy arrays will most likely not do so*. Instead, it will use
+        its own __mul__ method with the MatrixSlicer as the right operand, and probably
+        return a numpy array with data type object. Some rules of thumb therefore apply:
+            1. Be careful when using the MatrixSlicer in chained operations, in
+               particular with numpy arrays.
+            2. If in doubt, use paranthesis.
+
+    """
+
     def __init__(
         self,
         domain_indices: Optional[np.ndarray] = None,
@@ -373,22 +448,36 @@ class MatrixSlicer:
             raise ValueError("Either range_indices or domain_indices must be set.")
 
         if domain_indices is not None and range_indices is None:
+            # If only domain indices are given, the range is assumed to be the same size
+            # as the domain. The slicing will then be a simple restriction of the
+            # domain.
             range_indices = np.arange(domain_indices.size)
+
         elif range_indices is not None and domain_indices is None:
+            # If only range indices are given, the domain is assumed to be the same size
+            # as the range. The slicing will then be a simple prolongation of the
+            # domain.
+
             domain_indices = np.arange(range_indices.size)
 
         if range_size is None:
+            # If range_size is not given, it is assumed to be the maximum of the range
+            # indices plus one (since the indices are 0-offset).
             range_size = range_indices.max() + 1
-            # raise ValueError("Both range_indices and image_size must be set.")
 
-        assert range_size is not None
+        # Store the indices and size.
+        self._domain_indices: np.ndarray = domain_indices
+        self._range_indices: np.ndarray = range_indices
+        self._range_size: int = range_size
 
-        self._domain_indices = domain_indices
-        self._range_indices = range_indices
-        self._range_size = range_size
+        # Precompute the sorting of the range indices. This is needed when slicing a
+        # matrix, and can be done independently of the matrix to be sliced.
+        self._sort_ind_range = np.argsort(range_indices)
 
-        self._pending_operand = None
+        # Variable to store pending operations and operand; see class documentation for
+        # description.
         self._pending_operation = None
+        self._pending_operand = None
 
     def __matmul__(
         self, x: np.ndarray | sps.spmatrix | pp.ad.AdArray
@@ -405,7 +494,7 @@ class MatrixSlicer:
 
         if self._pending_operand is not None:
             # If there is a pending operand, we need to apply it to the sliced matrix.
-            product = eval(f"self._pending_operand {self._pending_operand} sliced")
+            product = eval(f"self._pending_operand {self._pending_operation} sliced")
             self._pending_operand = None
             return product
         else:
@@ -414,98 +503,95 @@ class MatrixSlicer:
     def __rmatmul__(self, other):
         self._pending_operand = other
         self._pending_operation = "@"
-        # No idea about return type here.
+        return self
+
+    def __rmul__(self, other):
+        self._pending_operand = other
+        self._pending_operation = "*"
+        return self
+
+    def __rtruediv__(self, other):
+        self._pending_operand = other
+        self._pending_operation = "/"
         return self
 
     def __mul__(self, other):
-        raise ValueError("MatrixSlicer does not support multiplication")
-
-    def __rmul__(self, other):
-        # This is okay, but will have to wait
-        self._pending_operand = other
-        self._pending_operation = "*"
+        """There are of course other operations that also are not supported, but we
+        explicitly raise a ValueError for this case, since the user is likely to try
+        slicing by multiplication.
+        """
+        raise ValueError("MatrixSlicer does not support multiplication. Use @ instead.")
 
     def _slice_vector(self, x: np.ndarray) -> np.ndarray:
-        if self._domain_indices is None:
-            domain_indices = np.arange(x.size)
-        else:
-            domain_indices = self._domain_indices
-        if self._range_indices is None:
-            range_indices = np.arange(self._range_size)
-        else:
-            range_indices = self._range_indices
+        """Slice a vector.
 
-        range_size = self._range_size
-        vec = np.zeros(range_size)
-        vec[range_indices] = x[domain_indices]
+        Parameters:
+            x: Vector to be sliced.
+
+        Returns:
+            The sliced vector.
+
+        """
+
+        vec = np.zeros(self._range_size)
+        vec[self._range_indices] = x[self._domain_indices]
         return vec
 
-    def _slice_matrix(
-        self, A: sps.csr_matrix | sps.csr_array
-    ) -> sps.csr_matrix | sps.csr_array:
+    def _slice_matrix(self, A: sps.csr_matrix) -> sps.csr_matrix:
+        """Slice a matrix along rows, accessing data and indices directly.
+
+        Parameters:
+            A: Matrix to be sliced.
+
+        Returns:
+            The sliced matrix.
+
+        """
+
+        # Convert to csr format if not already in csr format.
         if not isinstance(A, (sps.csr_matrix, sps.csr_array)):
             A = A.tocsr()
 
         # Data storage for the matrix to be sliced.
         indptr = A.indptr
-        indices = A.indices
 
-        if self._range_indices is None:
-            # If the range indices are not given, we assume that the range size is the
-            # same as the domain size. That is, we will simply pick out the requested
-            # rows from the matrix.
-            self._range_indices = np.arange(self._domain_indices.size)
-            # If no range indices are given, we assume that the range size is the same
-            # as the domain size.
-        if self._domain_indices is None:
-            # If the domain indices are not given, we assume that the domain size is the
-            # same as the range size. That is, we will fetch all rows from the matrix
-            # and redistribute them.
-            self._domain_indices = np.arange(self._range_indices.size)
-
-        # self._range_size = self._domain_indices.size
-        # To manipulate index pointers, it is convenient to have the range indices
-        # sorted.
-        sort_ind_range = np.argsort(self._range_indices)
+        # Sorting indices for the range indices. This was precomputed, since it does not
+        # depend on the matrix to be sliced.
+        sort_ind_range = self._sort_ind_range
 
         # Number of non-zero elements in each row in the domain.
-        num_elem_per_row_domain = (
-            indptr[self._domain_indices + 1] - indptr[self._domain_indices]
+        num_elem_per_row_domain = np.take(indptr, self._domain_indices + 1) - np.take(
+            indptr, self._domain_indices
         )
 
-        # Number of non-zero elements in the range matrix.
-        num_elem_per_row = np.zeros(self._range_size, dtype=int)
+        # Number of non-zero elements in the range matrix. We will eventually use this
+        # in a cumsum operation, which should be 0 at the start. We therefore prepend a
+        # 0, to avoid having to use array concatenation. The assignment to the sorted
+        # range indices (next statement) starts at 1.
+        num_elem_per_row = np.zeros(self._range_size + 1, dtype=int)
 
         # Assignment to the sorted range indices.
-        num_elem_per_row[self._range_indices[sort_ind_range]] = num_elem_per_row_domain[
-            sort_ind_range
-        ]
-
-        # Expand this so that each sorting index is repeated as many times as
-        # there are elements in the corresponding row in the domain.
-        expanded_sort_range_ind = rldecode(sort_ind_range, num_elem_per_row_domain)
+        num_elem_per_row[self._range_indices[sort_ind_range] + 1] = (
+            num_elem_per_row_domain[sort_ind_range]
+        )
+        # Cumulative sum to get the indptr array.
+        new_indptr = np.cumsum(num_elem_per_row)
 
         # Get the indices (referring to the fields A.data and A.indices) of the non-zero
-        # elements in the target rows.
+        # elements in the target rows. This requires that we
+        sorted_domain_indices = self._domain_indices[sort_ind_range]
         sub_indices = mcolon(
-            indptr[self._domain_indices[sort_ind_range]],
-            indptr[self._domain_indices[sort_ind_range] + 1],
+            indptr[sorted_domain_indices], indptr[sorted_domain_indices + 1]
         )
 
-        # Find the sorting indices for the sub_indices.
-        #        sort_domain_ind = np.lexsort(np.atleast_2d(expanded_sort_range_ind))
-        # new_data = A.data[sub_indices[sort_domain_ind]]
-        # new_indices = indices[sub_indices[sort_domain_ind]]
-        new_data = A.data[sub_indices]
-        new_indices = A.indices[sub_indices]
-
-        new_indptr = np.cumsum(np.concatenate(([0], num_elem_per_row)))
+        # Fetch the data and indices from the original matrix. Implementation note: EK
+        # tried various versions to avoid, or minimize, the chance of a copy operation
+        # here; it us unclear if this succeeded for all cases encountered in practice.
+        new_data = np.take(A.data, sub_indices)
+        new_indices = np.take(A.indices, sub_indices)
 
         new_num_rows = self._range_size
 
-        tmp = sps.csr_matrix(
-            (new_data, new_indices, new_indptr), shape=(new_num_rows, A.shape[1])
-        ).toarray()
         return sps.csr_matrix(
             (new_data, new_indices, new_indptr), shape=(new_num_rows, A.shape[1])
         )
