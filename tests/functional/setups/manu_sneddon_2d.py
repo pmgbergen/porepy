@@ -217,15 +217,15 @@ def assign_bem(
 class ManuSneddonExactSolution2d:
     """Class representing the analytical solution for the pressurized fracture problem."""
 
-    def __init__(self, setup: dict):
-        self.p0 = setup.get("p0")
-        self.theta = setup.get("theta")
+    def __init__(self, params: dict):
+        self.p0 = params.get("p0")
+        self.theta = params.get("theta")
 
-        self.a = setup.get("a")
-        self.shear_modulus = setup.get("material_constants").get("solid").shear_modulus
-        self.poi = setup.get("poi")
-        self.length = setup.get("length")
-        self.height = setup.get("height")
+        self.a = params.get("a")
+        self.shear_modulus = params.get("material_constants").get("solid").shear_modulus
+        self.poi = params.get("poi")
+        self.length = params.get("length")
+        self.height = params.get("height")
 
     def exact_sol_global(self, sd: pp.Grid) -> np.ndarray:
         """Compute the analytical solution for the pressurized fracture problem in
