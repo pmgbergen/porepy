@@ -353,7 +353,7 @@ def find_active_indices(
 
 
 def parse_partition_arguments(
-    partition_arguments: Optional[dict[str, int]] = None
+    partition_arguments: Optional[dict[str, int]] = None,
 ) -> tuple[int | None, int | None]:
     """Parse arguments related to the splitting of discretization into subproblems.
 
@@ -477,9 +477,13 @@ def subproblems(
         raise ValueError("Either max_memory or num_subproblems must be given")
 
     if num_part == 1:
-        yield sd, np.arange(sd.num_faces), np.arange(sd.num_cells), np.arange(
-            sd.num_cells
-        ), np.arange(sd.num_faces)
+        yield (
+            sd,
+            np.arange(sd.num_faces),
+            np.arange(sd.num_cells),
+            np.arange(sd.num_cells),
+            np.arange(sd.num_faces),
+        )
 
     else:
         # Since MPxA discretizations are based on interaction regions (cells in the dual

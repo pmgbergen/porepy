@@ -1182,7 +1182,9 @@ class FractureNetwork3d(object):
             # somewhat to obtain a more robust algorithm. Not sure about how to do
             # this consistent.
             p_new, edges_new, tags = pp.intersections.split_intersecting_segments_2d(
-                p_2d, edges_2d, tol=self.tol  # type: ignore[misc]
+                p_2d,
+                edges_2d,
+                tol=self.tol,  # type: ignore[misc]
             )
             # Then, patch things up by converting new points to 3D,
 

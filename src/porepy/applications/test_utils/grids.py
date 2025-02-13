@@ -1,5 +1,4 @@
-"""Helper methods to compare grids.
-"""
+"""Helper methods to compare grids."""
 
 import numpy as np
 

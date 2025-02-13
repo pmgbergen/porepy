@@ -1,5 +1,4 @@
-"""The module contains the data class for forward mode automatic differentiation.
-"""
+"""The module contains the data class for forward mode automatic differentiation."""
 
 from __future__ import annotations
 

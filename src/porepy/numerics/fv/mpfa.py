@@ -1,6 +1,4 @@
-"""Implementation of the multi-point flux approximation O-method.
-
-"""
+"""Implementation of the multi-point flux approximation O-method."""
 
 from __future__ import annotations
 
@@ -1553,7 +1551,7 @@ class Mpfa(pp.FVElliptic):
         elif num_bound == 0:  # all of them are empty
             neu_rob_dir_ind = neu_rob_ind
         else:
-            raise ValueError("Boundary values should be either Dirichlet or " "Neumann")
+            raise ValueError("Boundary values should be either Dirichlet or Neumann")
 
         num_subfno = subcell_topology.num_subfno_unique
 
