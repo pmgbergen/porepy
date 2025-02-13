@@ -23,7 +23,7 @@ def compute_eta(pointset_centers: np.ndarray, center: np.ndarray) -> np.ndarray:
 
 
 def get_bem_centers(
-    a: float, h: float, n: int, theta: float, center: np.ndarray
+    a: float, h: float, n: int, alpha: float, center: np.ndarray
 ) -> np.ndarray:
     """Compute coordinates of the centers of the BEM segments.
 
@@ -31,7 +31,7 @@ def get_bem_centers(
         a: Half of the fracture length.
         h: BEM segment length.
         n: Number of BEM segments.
-        theta: Orientation of the fracture.
+        alpha: Orientation of the fracture.
         center: Coordinates of the fracture center.
 
     Return:
@@ -43,11 +43,11 @@ def get_bem_centers(
     # Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics
 
     bem_centers = np.zeros((3, n))
-    x_0 = center[0] - (a - 0.5 * h) * np.sin(theta)
-    y_0 = center[1] - (a - 0.5 * h) * np.cos(theta)
+    x_0 = center[0] - (a - 0.5 * h) * np.sin(alpha)
+    y_0 = center[1] - (a - 0.5 * h) * np.cos(alpha)
     for i in range(0, n):
-        bem_centers[0, i] = x_0 + i * h * np.sin(theta)
-        bem_centers[1, i] = y_0 + i * h * np.cos(theta)
+        bem_centers[0, i] = x_0 + i * h * np.sin(alpha)
+        bem_centers[1, i] = y_0 + i * h * np.cos(alpha)
 
     return bem_centers
 
