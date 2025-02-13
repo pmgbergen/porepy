@@ -427,7 +427,7 @@ class Mpfa(pp.FVElliptic):
             # however this scales poorly with the number of blocks. Instead, use the
             # existing workaround to create a csr matrix based on R, and then pick out
             # the right parts of that one.
-            full_rot_mat = pp.matrix_operations.csr_matrix_from_blocks(
+            full_rot_mat = pp.matrix_operations.csr_matrix_from_dense_blocks(
                 # Replicate R with the right ordering of data elements
                 np.tile(R.ravel(), (1, sd.num_cells)).ravel(),
                 # size of the blocks - this will always be the dimension of the rotation
