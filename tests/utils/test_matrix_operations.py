@@ -128,6 +128,23 @@ def test_sliced_matrix(A, column: bool, index: int | np.ndarray):
     )
 
 
+# ------------------ Test matrix_slicer -----------------------
+
+
+def _get_matrix_slicer_target(mat, mode: Literal["float", "dense", "sparse", "ad"]):
+    if mode == "sparse":
+        target = mat
+    elif mode == "float":
+        return 42.0
+    else:
+        vec = np.array([1, 2, 3, 4])
+        if mode == "dense":
+            target = vec
+        else:
+            target = pp.ad.AdArray(vec, mat)
+    return target
+
+
 @pytest.mark.parametrize("mode", ["dense", "sparse", "ad"])
 @pytest.mark.parametrize(
     "domain_inds, range_inds",
@@ -140,20 +157,13 @@ def test_sliced_matrix(A, column: bool, index: int | np.ndarray):
 )
 @pytest.mark.parametrize("range_size", [None, 6])
 def test_matrix_slicer(
-    A: sps.csr_matrix,
+    A,
     mode: Literal["dense", "sparse", "ad"],
     domain_inds: np.ndarray | None,
     range_inds: np.ndarray | None,
     range_size: int,
 ):
-    if mode == "sparse":
-        target = A
-    else:
-        vec = np.array([1, 2, 3, 4])
-        if mode == "dense":
-            target = vec
-        else:
-            target = pp.ad.AdArray(vec, A)
+    target = _get_matrix_slicer_target(A, mode)
     slicer = matrix_operations.MatrixSlicer(domain_inds, range_inds, range_size)
 
     if range_size is not None:
@@ -191,6 +201,82 @@ def test_matrix_slicer(
         jac_known = np.zeros((num_rows, target.jac.shape[1]))
         jac_known[range_inds] = target.jac.toarray()[domain_inds]
         assert np.allclose(result.jac.toarray(), jac_known)
+
+
+@pytest.mark.parametrize(
+    "other_mode, target_mode, operator",
+    [
+        # The following tuples are in the form (A, B, operator), where A and B are the
+        # types of the operands and operator is the operator to be applied. The cases
+        # considered span all permissible combinations of operands and operators. Note
+        # that the 'other' operator never is dense (numpy array), since delayed
+        # evaluation is not supported in this case.
+        ("sparse", "dense", "@"),  # Matrix-vector product
+        (
+            "ad",
+            "dense",
+            "*",
+        ),  # Hadamar product between numpy array and AdArray, with Ad array as the left operand.
+        ("sparse", "sparse", "@"),  # Matrix multiplication between sparse matrices.
+        ("sparse", "ad", "@"),  # Matrix-AdArray product.
+        ("ad", "ad", "*"),  # Hadamar product between AdArrays.
+        ("ad", "dense", "/"),  # Division between AdArray and numpy array.
+        ("float", "ad", "/"),  # Division between float and AdArray.
+        ("float", "ad", "*"),  # Product between float and AdArray.
+        ("float", "dense", "/"),  # Division between float and numpy array.
+        ("float", "dense", "*"),  # Product between float and numpy array.
+    ],
+)
+def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
+    """Test the delayed evaluation of the matrix slicer.
+
+    When the matrix slicer is involved in a three-term operation on the form
+
+        other_operand operator matrix_slicer @ target
+
+    the matrix slicer will in some cases delay the evaluation of the operation, so that
+    the expression is evaluated as
+
+        other_operand operator (matrix_slicer @ target)
+
+    This test checks that the delayed evaluation works as expected.
+
+    Parameters:
+
+
+    """
+    other_operand = _get_matrix_slicer_target(A, other_mode)
+    slicer_target = _get_matrix_slicer_target(A, target_mode)
+
+    other_indices = np.array([0, 2])
+    if other_mode == "dense" or other_mode == "ad":
+        domain_indices = other_indices
+    elif other_mode == "ad" and target_mode == "dense":
+        domain_indices = other_indices
+    else:
+        domain_indices = np.array([0, 1, 2, 3])
+
+    if other_mode == "float":
+        other_operand_sliced = other_operand
+    else:
+        other_operand_sliced = other_operand[other_indices]
+
+    slicer = matrix_operations.MatrixSlicer(domain_indices=domain_indices)
+
+    temp_result = eval(f"other_operand_sliced {operator} slicer")
+
+    result = temp_result @ slicer_target
+
+    sliced_target = slicer_target[domain_indices]
+
+    known_result = eval(f"other_operand_sliced {operator} sliced_target")
+    if target_mode == "ad" or other_mode == "ad":
+        assert np.allclose(result.val, known_result.val)
+        assert np.allclose(result.jac.toarray(), known_result.jac.toarray())
+    elif target_mode == "sparse":
+        assert np.allclose(result.toarray(), known_result.toarray())
+    else:
+        assert np.allclose(result, known_result)
 
 
 # ------------------ Test stack_mat -----------------------
