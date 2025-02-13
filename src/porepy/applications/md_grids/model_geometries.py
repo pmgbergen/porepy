@@ -248,15 +248,3 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
 
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
-
-
-class Test(NonMatchingSquareDomainOrthogonalFractures, pp.SinglePhaseFlow): ...
-
-
-params = {
-    "fracture_indices": [0, 1],
-}
-model = Test(params)
-pp.run_time_dependent_model(model, params)
-
-pp.plot_grid(model.mdg, alpha=0.5, info="cf")
