@@ -761,7 +761,7 @@ class Mpsa(Discretization):
         if not hf_disp:
             # hf2f sums the values, but here we need an average. For now, use simple
             # average, although area weighted values may be more accurate
-            num_subfaces = hf2f.sum(axis=1).A.ravel()
+            num_subfaces = np.asarray(hf2f.sum(axis=1)).ravel()
             scaling = sps.dia_matrix(
                 (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
             )
@@ -1013,9 +1013,9 @@ class Mpsa(Discretization):
 
         fno = subcell_topology.fno_unique
         subfno = subcell_topology.subfno_unique
-        sgn = sd.cell_faces[
-            subcell_topology.fno_unique, subcell_topology.cno_unique
-        ].A.ravel("F")
+        sgn = np.asarray(
+            sd.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique]
+        ).ravel()
 
         num_dir = np.sum(bound.is_dir)
         if not num_rob == np.sum(bound.is_rob):
@@ -1112,7 +1112,7 @@ class Mpsa(Discretization):
         # defined according to the subcell topology [fno], while areas must be drawn
         # from the grid structure, and thus go through fno
         fno_ext = np.tile(fno, nd)
-        num_face_nodes = sd.face_nodes.sum(axis=0).A.ravel("F")
+        num_face_nodes = np.asarray(sd.face_nodes.sum(axis=0)).ravel()
 
         # Coefficients in the matrix. For the Neumann boundary components we set the
         # value as seen from the outside of the domain. Note that they do not have to do
@@ -1285,7 +1285,7 @@ class Mpsa(Discretization):
 
         """
         nd = sd.dim
-        num_cell_nodes = sd.cell_nodes().sum(axis=1).A
+        num_cell_nodes = np.asarray(sd.cell_nodes().sum(axis=1))
 
         # Number of unknowns around a vertex: nd^2 per cell that share the vertex for
         # pressure gradients, and one per cell (cell center pressure)
@@ -1414,9 +1414,11 @@ class Mpsa(Discretization):
         # will be the contribution from the gradients. We integrate over the subface
         # and multiply by the area
         num_nodes = np.diff(sd.face_nodes.indptr)
-        sgn = sd.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique].A
+        sgn = np.asarray(
+            sd.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique]
+        ).ravel()
         scaled_sgn = (
-            sgn[0]
+            sgn
             * sd.face_areas[subcell_topology.fno_unique]
             / num_nodes[subcell_topology.fno_unique]
         )
@@ -1836,12 +1838,14 @@ class Mpsa(Discretization):
 
         """
         nd = sd.dim
-        sgn = sd.cell_faces[subcell_topology.fno, subcell_topology.cno].A
+        sgn = np.asarray(
+            sd.cell_faces[subcell_topology.fno, subcell_topology.cno]
+        ).ravel()
 
         # Contribution from cell center potentials to local systems
         # For pressure continuity, +-1
         d_cont_cell = sps.coo_matrix(
-            (sgn[0], (subcell_topology.subfno, subcell_topology.cno))
+            (sgn, (subcell_topology.subfno, subcell_topology.cno))
         ).tocsr()
         d_cont_cell = sps.kron(sps.eye(nd), d_cont_cell)
         # Zero contribution to stress continuity
