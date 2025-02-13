@@ -68,7 +68,6 @@ class Geometry(pp.PorePyModel):
 
 
 class IntersectionPermeability(Permeability):
-
     def intersection_permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Constant intersection permeability.
 

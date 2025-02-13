@@ -1251,7 +1251,6 @@ class MandelGeometry(pp.PorePyModel):
 
 # -----> Boundary conditions
 class MandelBoundaryConditionsMechanicsTimeDependent(pp.PorePyModel):
-
     exact_sol: MandelExactSolution
     """Exact solution object."""
 
@@ -1333,7 +1332,6 @@ class MandelBoundaryConditionsMechanicsTimeDependent(pp.PorePyModel):
 
 
 class MandelBoundaryConditionsSinglePhaseFlow(pp.PorePyModel):
-
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Define boundary condition types for the Darcy flux.
 

@@ -1,4 +1,4 @@
-"""   PorePy.
+"""PorePy.
 
 Root directory for the PorePy package. Contains the following sub-packages:
 

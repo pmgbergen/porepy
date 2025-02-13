@@ -659,7 +659,6 @@ def invert_diagonal_blocks(
             parallel=True,
         )
         def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
-
             # Construction of simple data structures (low complexity)
             # Indices for block positions, flattened inverse block positions and nonzeros
             # Expanded block positions

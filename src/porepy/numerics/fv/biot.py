@@ -1,4 +1,4 @@
-""" Modules contains discretization of poro-elasticity by the multi-point stress
+"""Modules contains discretization of poro-elasticity by the multi-point stress
 approximation.
 
 The discretization scheme is described in

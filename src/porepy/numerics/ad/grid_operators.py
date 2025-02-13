@@ -1,4 +1,4 @@
-""" Ad representation of grid-related quantities needed to write equations. The classes
+"""Ad representation of grid-related quantities needed to write equations. The classes
 defined here are mainly wrappers that constructs Ad matrices based on grid information.
 
 """

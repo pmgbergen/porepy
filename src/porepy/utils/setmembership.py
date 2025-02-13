@@ -10,7 +10,9 @@ import numpy as np
 from scipy.spatial import KDTree
 
 
-def unique_rows(data: np.ndarray[Any, np.dtype[np.float64]]) -> Tuple[
+def unique_rows(
+    data: np.ndarray[Any, np.dtype[np.float64]],
+) -> Tuple[
     np.ndarray[Any, np.dtype[np.float64]],
     np.ndarray[Any, np.dtype[np.int64]],
     np.ndarray[Any, np.dtype[np.int64]],
