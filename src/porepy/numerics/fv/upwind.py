@@ -298,7 +298,7 @@ class Upwind(Discretization):
         # For Neumann faces we need to assign the sign of the divergence, to counteract
         # multiplication with the same sign when the divergence is applied (e.g. in
         # self.assemble_matrix).
-        sgn_div = sd.divergence(dim=1).sum(axis=0).A.squeeze()
+        sgn_div = np.asarray(sd.divergence(dim=1).sum(axis=0)).squeeze()
 
         bc_discr_neu = sps.coo_matrix(
             (sgn_div[neumann_ind], (neumann_ind, neumann_ind)),
