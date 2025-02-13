@@ -5,8 +5,8 @@ import numpy as np
 import pytest
 
 import porepy as pp
-import tests.functional.setups.manu_sneddon_2d as manu_sneddon_2d
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from tests.functional.setups.manu_sneddon_2d import ManuSneddonSetup2d
 
 # Set up the material constants
 poi = 0.25
@@ -72,11 +72,11 @@ def actual_ooc() -> dict:
         "prepare_simulation": True,
         "material_constants": {"solid": solid},
         "a": a,  # Half-length of the fracture
-        "height": height,  # Height of the domain
-        "length": length,  # Length of the domain
+        "domain_size": height,  # Length of square domain
         "p0": 1e-4,  # Internal pressure of fracture
         "poi": poi,  # Possion ratio (Not standard in solid constants)
         "meshing_arguments": {"cell_size": 0.03},
+        "grid_type": "simplex",
         "theta": theta_rad,
     }
 
@@ -85,12 +85,9 @@ def actual_ooc() -> dict:
         theta_rad=theta_rad, a=a, height=height, length=length
     )
 
-    # Model for the convergence analysis
-    model = manu_sneddon_2d.ManuSneddonSetup2d
-
     # Convergence analysis setup
     conv_analysis = ConvergenceAnalysis(
-        model_class=model,
+        model_class=ManuSneddonSetup2d,
         model_params=copy.deepcopy(params),
         levels=2,
         spatial_refinement_rate=2,

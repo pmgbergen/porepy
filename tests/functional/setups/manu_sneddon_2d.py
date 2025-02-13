@@ -1,10 +1,24 @@
+"""Model setup for the fracturized pressure problem using Sneddon's analytical solution.
+
+References:
+
+    - [1] Starfield, C.: Boundary Element Methods in Solid Mechanics (1983)
+    - [2] Sneddon, I.N.: Fourier transforms (1951)
+
+"""
+
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Callable
 
 import numpy as np
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
 from porepy.geometry.distances import point_pointset
 
 
@@ -39,9 +53,7 @@ def get_bem_centers(
 
     """
 
-    # Coordinate system (4.5.1) in page 57 in in book
-    # Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics
-
+    # See [1], p. 57 coordinate system (4.5.1)
     bem_centers = np.zeros((3, n))
     x_0 = center[0] - (a - 0.5 * h) * np.sin(alpha)
     y_0 = center[1] - (a - 0.5 * h) * np.cos(alpha)
@@ -57,9 +69,6 @@ def analytical_displacements(
 ) -> np.ndarray:
     """Compute Sneddon's analytical solution for the pressurized fracture displacement.
 
-    References:
-        Sneddon Fourier transforms 1951 page 425 eq 92
-
     Parameters:
         a: Half of the fracture length.
         eta: Distances of fracture points to the fracture center.
@@ -71,6 +80,7 @@ def analytical_displacements(
         Array containing the analytical normal displacement jumps.
 
     """
+    # See [2], p. 425 equ. 92
     cons = (1 - poi) / G * p0 * a * 2
     return cons * np.sqrt(1 - np.power(eta / a, 2))
 
@@ -88,15 +98,14 @@ def transform(xc: np.ndarray, x: np.ndarray, alpha: float) -> np.ndarray:
 
     """
     x_bar = np.zeros_like(x)
-    # Terms in (7.4.6) in
-    # Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics page 168
+    # See [1], p. 168 equ. 7.4.6
     x_bar[0, :] = (x[0, :] - xc[0]) * np.cos(alpha) + (x[1, :] - xc[1]) * np.sin(alpha)
     x_bar[1, :] = -(x[0, :] - xc[0]) * np.sin(alpha) + (x[1, :] - xc[1]) * np.cos(alpha)
     return x_bar
 
 
 def get_bc_val(
-    grid: pp.Grid,
+    sd: pp.Grid,
     bound_faces: np.ndarray,
     xf: np.ndarray,
     h: float,
@@ -108,8 +117,8 @@ def get_bc_val(
     the Sneddon problem.
 
     Parameter
-        grid: The matrix grid.
-        bound_faces: Array of indices of boundary faces of ``grid``.
+        sd: The matrix grid.
+        bound_faces: Array of indices of boundary faces of ``sd``.
         xf: Coordinates of boundary faces.
         h: BEM segment length.
         poi: Poisson ratio.
@@ -120,32 +129,25 @@ def get_bc_val(
         Boundary values for the displacement.
 
     """
-
-    # Equations for f2,f3,f4.f5 can be found in book
-    # Crouch Starfield 1983 Boundary Element Methods in Solid Mechanics pages 57, 84-92, 168
+    # See [1], pages 57, 84-92, 168
     f2 = np.zeros(bound_faces.size)
     f3 = np.zeros(bound_faces.size)
     f4 = np.zeros(bound_faces.size)
     f5 = np.zeros(bound_faces.size)
 
-    u = np.zeros((grid.dim, grid.num_faces))
+    u = np.zeros((sd.dim, sd.num_faces))
 
-    # Constant term in (7.4.5)
+    # See [1], equ. (7.4.5)
     m = 1 / (4 * np.pi * (1 - poi))
-
-    # Second term in (7.4.5)
     f2[:] = m * (
         np.log(np.sqrt((xf[0, :] - h) ** 2 + xf[1] ** 2))
         - np.log(np.sqrt((xf[0, :] + h) ** 2 + xf[1] ** 2))
     )
-
-    # First term in (7.4.5)
     f3[:] = -m * (
         np.arctan2(xf[1, :], (xf[0, :] - h)) - np.arctan2(xf[1, :], (xf[0, :] + h))
     )
 
-    # The following equalities can be found on page 91 where f3,f4 as equation (5.5.3) and ux, uy in (5.5.1)
-    # Also this is in the coordinate system described in (4.5.1) at page 57, which essentially is a rotation.
+    # See [1], equations 5.5.3, 5.5.1, and p. 57, equ. 4.5.1
     f4[:] = m * (
         xf[1, :] / ((xf[0, :] - h) ** 2 + xf[1, :] ** 2)
         - xf[1, :] / ((xf[0, :] + h) ** 2 + xf[1, :] ** 2)
@@ -214,18 +216,19 @@ def assign_bem(
     return bc_val
 
 
-class ManuSneddonExactSolution2d:
+class SneddonExactSolution2d:
     """Class representing the analytical solution for the pressurized fracture problem."""
 
-    def __init__(self, params: dict):
-        self.p0 = params.get("p0")
-        self.theta = params.get("theta")
+    def __init__(self, model: "ManuSneddonSetup2d"):
+        self.p0 = model.params.get("p0")
+        self.theta = model.params.get("theta")
 
-        self.a = params.get("a")
-        self.shear_modulus = params.get("material_constants").get("solid").shear_modulus
-        self.poi = params.get("poi")
-        self.length = params.get("length")
-        self.height = params.get("height")
+        self.a = model.params.get("a")
+        self.shear_modulus = (
+            model.params.get("material_constants").get("solid").shear_modulus
+        )
+        self.poi = model.params.get("poi")
+        self.length = model.domain_size
 
     def exact_sol_global(self, sd: pp.Grid) -> np.ndarray:
         """Compute the analytical solution for the pressurized fracture problem in
@@ -241,7 +244,7 @@ class ManuSneddonExactSolution2d:
         box_faces = sd.get_boundary_faces()
         u_bc = np.zeros((sd.dim, sd.num_faces))
 
-        center = np.array([self.length / 2, self.height / 2, 0])
+        center = np.array([self.length / 2, self.length / 2, 0])
         bem_centers = get_bem_centers(self.a, h, n, self.theta, center)
         eta = compute_eta(bem_centers, center)
 
@@ -257,9 +260,6 @@ class ManuSneddonExactSolution2d:
         """Compute Sneddon's analytical solution for the pressurized crack
         problem in question.
 
-        References:
-            Sneddon Fourier transforms 1951 page 425 eq 92
-
         Parameters:
             mdg: Mixed-dimensional domain of the setup.
 
@@ -269,13 +269,13 @@ class ManuSneddonExactSolution2d:
             the respective analytical apertures.
 
         """
+
         ambient_dim = mdg.dim_max()
         g_1 = mdg.subdomains(dim=ambient_dim - 1)[0]
-        fracture_center = np.array([self.length / 2, self.height / 2, 0])
-
+        fracture_center = np.array([self.length / 2, self.length / 2, 0])
         fracture_faces = g_1.cell_centers
 
-        # compute distances from fracture centre with its corresponding apertures
+        # See [2], p. 425, equ. 92
         eta = compute_eta(fracture_faces, fracture_center)
         apertures = analytical_displacements(
             self.a, eta, self.p0, self.shear_modulus, self.poi
@@ -284,33 +284,17 @@ class ManuSneddonExactSolution2d:
         return eta, apertures
 
 
-class ManuSneddonGeometry2d(pp.PorePyModel):
-    def set_domain(self) -> None:
-        """Defining a two-dimensional rectangle with parametrizable ``'length'`` and
-        ``'height'`` in the model parameters."""
-
-        self._domain = pp.Domain(
-            bounding_box={
-                "xmin": 0,
-                "ymin": 0,
-                "xmax": self.params["length"],
-                "ymax": self.params["height"],
-            }
-        )
-
-    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-        """Choosing the grid type for our domain."""
-        return self.params.get("grid_type", "simplex")
+class ManuSneddonGeometry2d(SquareDomainOrthogonalFractures):
+    """Square domain but with single line fracture."""
 
     def set_fractures(self):
         """Setting a single line fracture in the domain using ``params['frac_pts']``."""
 
-        points = self.params["frac_pts"]
-        self._fractures = [pp.LineFracture(points)]
+        self._fractures = [pp.LineFracture(self.params["frac_pts"])]
 
 
 class ManuSneddonBoundaryConditions(pp.PorePyModel):
-    exact_sol: ManuSneddonExactSolution2d
+    exact_sol: SneddonExactSolution2d
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Set boundary condition type for the problem.
@@ -335,8 +319,7 @@ class ManuSneddonBoundaryConditions(pp.PorePyModel):
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """This method sets the displacement boundary condition values for a given
-        boundary grid using the Sneddon analytical solution through the Boundary
-        Element Method (BEM).
+        boundary grid using the Sneddon analytical solution through the BEM.
 
         Parameters:
             bg: The boundary grid for which the displacement boundary condition values
@@ -368,7 +351,7 @@ class ManuSneddonSaveData:
 class ManuSneddonDataSaving(pp.PorePyModel):
     """Class for saving the error in the displacement field."""
 
-    exact_sol: ManuSneddonExactSolution2d
+    exact_sol: SneddonExactSolution2d
 
     displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
 
@@ -437,9 +420,6 @@ class ManuSneddonSetup2d(
 ):
     """Complete Sneddon setup, including data collection and the analytical solution."""
 
-    exact_sol: ManuSneddonExactSolution2d
-
-    def set_materials(self):
-        """Initiating additionally the exact solution."""
-        super().set_materials()
-        self.exact_sol = ManuSneddonExactSolution2d(self.params)
+    def __init__(self, params=None):
+        super().__init__(params)
+        self.exact_sol = SneddonExactSolution2d(self)
