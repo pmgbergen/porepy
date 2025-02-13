@@ -82,7 +82,7 @@ class TangentialNormalProjection:
         else:
             data = np.tile(self._projection[:, :, 0].ravel(order="F"), num)
 
-        mat = pp.matrix_operations.csc_matrix_from_blocks(data, self.dim, num)
+        mat = pp.matrix_operations.csc_matrix_from_dense_blocks(data, self.dim, num)
 
         return mat
 

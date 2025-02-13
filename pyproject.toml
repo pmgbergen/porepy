@@ -44,7 +44,8 @@ development = [
     "isort",
     "ruff",
     "mypy",
-    "mypy-extensions"
+    "mypy-extensions",
+    "traitlets"
 ]
 testing = [
     "pytest >= 4.6",
