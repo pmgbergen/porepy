@@ -292,6 +292,9 @@ class AdArray:
             )
             return AdArray(new_val, new_jac)
 
+        elif isinstance(other, pp.matrix_operations.MatrixSlicer):
+            return other.__rmul__(self)
+
         else:
             raise ValueError(
                 f"Unknown type {type(other)} for AdArray elementwise multiplication."
@@ -478,6 +481,9 @@ class AdArray:
 
         elif isinstance(other, sps.spmatrix):
             raise ValueError("AdArrays cannot be divided by sparse matrices.")
+
+        elif isinstance(other, pp.matrix_operations.MatrixSlicer):
+            return other.__rtruediv__(self)
 
         elif isinstance(other, pp.ad.AdArray):
             if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
