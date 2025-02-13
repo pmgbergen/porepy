@@ -39,8 +39,13 @@ WORKDIR ${POREPY_HOME}
 # are useful for achieving good performance.
 RUN pip install pypardiso
 
-# Install dependencies
-RUN pip install -r ./requirements.txt
+# Use bash for the following RUN commands (the standard /bin/sh does not support process
+# substitution, which is used to fetch dependencies from the pyproject.toml file below).
+SHELL ["/bin/bash", "-c"]
+
+# Fetch the dependencies from the pyproject.toml file and install them.
+RUN pip install --no-build-isolation --no-deps -r <(python -c "import toml; print('\n'.join(toml.load('pyproject.toml')['project']['dependencies']))")
+RUN pip install --no-build-isolation --no-deps -r <(python -c "import toml; print('\n'.join(sum(toml.load('pyproject.toml')['project']['optional-dependencies'].values(), [])))")
 
 # Move back to code directory
 WORKDIR ${HOME}
