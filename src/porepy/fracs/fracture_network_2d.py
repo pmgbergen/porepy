@@ -506,9 +506,9 @@ class FractureNetwork2d:
 
         tags = np.zeros((2, edges.shape[1]), dtype=int)
 
-        tags[0][
-            np.logical_not(self.tags["boundary"])
-        ] = GmshInterfaceTags.FRACTURE.value
+        tags[0][np.logical_not(self.tags["boundary"])] = (
+            GmshInterfaceTags.FRACTURE.value
+        )
         tags[0][self.tags["boundary"]] = GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
         tags[0][constraints] = GmshInterfaceTags.AUXILIARY_LINE.value
 

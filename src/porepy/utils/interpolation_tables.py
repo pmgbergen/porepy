@@ -1,4 +1,4 @@
-""" The module contains interpolation tables, intended for use in function
+"""The module contains interpolation tables, intended for use in function
 evaluations. Specifically, the motivation is to facilitate the parametrization
 framework described in
 

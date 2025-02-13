@@ -77,11 +77,7 @@ References:
 """
 
 import porepy as pp
-from porepy.models.poromechanics import (
-    ConstitutiveLawsPoromechanics,
-    Poromechanics,
-    SolutionStrategyPoromechanics,
-)
+from porepy.models.poromechanics import Poromechanics, SolutionStrategyPoromechanics
 
 
 class SolutionStrategyBiot(SolutionStrategyPoromechanics):
@@ -97,15 +93,9 @@ class SolutionStrategyBiot(SolutionStrategyPoromechanics):
         assert self.fluid.reference_component.compressibility == 0
 
 
-class ConstitutiveLawsBiot(
+class BiotPoromechanics(  # type: ignore[misc]
     pp.constitutive_laws.SpecificStorage,
     pp.constitutive_laws.BiotPoroMechanicsPorosity,
-    ConstitutiveLawsPoromechanics,
-): ...
-
-
-class BiotPoromechanics(  # type: ignore[misc]
-    ConstitutiveLawsBiot,
     SolutionStrategyBiot,
     Poromechanics,
 ): ...

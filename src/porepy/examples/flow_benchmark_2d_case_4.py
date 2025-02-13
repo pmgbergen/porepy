@@ -20,7 +20,6 @@ import numpy as np
 import porepy as pp
 from porepy.examples.flow_benchmark_2d_case_1 import FractureSolidConstants
 from porepy.models.constitutive_laws import DimensionDependentPermeability
-from porepy.models.protocol import PorePyModel
 
 solid_constants = FractureSolidConstants(
     residual_aperture=1e-2,  # m
@@ -30,7 +29,7 @@ solid_constants = FractureSolidConstants(
 )
 
 
-class Geometry(PorePyModel):
+class Geometry(pp.PorePyModel):
     """Geometry specification."""
 
     def set_fractures(self) -> None:
@@ -43,7 +42,7 @@ class Geometry(PorePyModel):
         return pp.Domain({"xmax": 700, "ymax": 600})
 
 
-class BoundaryConditions(PorePyModel):
+class BoundaryConditions(pp.PorePyModel):
     """Boundary conditions for Case 4 of the 2D flow benchmark.
 
     Inflow on west (left) and prescribed pressure on east (right).
@@ -114,6 +113,6 @@ class FlowBenchmark2dCase4Model(  # type: ignore[misc]
     Geometry,
     BoundaryConditions,
     Permeability,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Mixer class for case 4 from the 2d flow benchmark."""

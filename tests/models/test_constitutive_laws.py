@@ -45,14 +45,21 @@ solid_values.update(
     }
 )
 
+mass_weighted_perm = (
+    pp.fluid_values.water['density']
+    / pp.fluid_values.water['viscosity']
+    * solid_values['permeability']
+)
+"""Value for testing evaluation of MassWeightedPermeability."""
+
 
 @pytest.mark.parametrize(
     "model_type,method_name,only_codimension",
     [  # Fluid mass balance
-        ("mass_balance", "mobility_rho", None),
+        ("mass_balance", "advection_weight_mass_balance", None),
         ("mass_balance", "fluid.reference_phase.viscosity", None),
         ("mass_balance", "fluid_source", None),
-        ("mass_balance", "mobility", None),
+        ("mass_balance", "total_mass_mobility", None),
         ("mass_balance", "fluid.density", None),
         ("mass_balance", "aperture", None),
         ("mass_balance", "darcy_flux", None),
@@ -158,7 +165,7 @@ def test_parse_constitutive_laws(
     setup = models.model(model_type, domain_dim, num_fracs=num_fracs)
     # Fetch the relevant method of this model and extract the domains for which it is
     # defined by looping top to bottom through the namespace.
-    method_namespace = method_name.split('.')
+    method_namespace = method_name.split(".")
     owner = setup
     for name in method_namespace:
         method = getattr(owner, name)
@@ -181,7 +188,7 @@ def test_parse_constitutive_laws(
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    op.value_and_jacobian(setup.equation_system)
+    setup.equation_system.evaluate(op, derivative=True)
 
 
 # Shorthand for values with many digits. Used to compute expected values in the tests.
@@ -306,6 +313,26 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             0.01**2 / 12 * np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
             0,
         ),
+        # Tests for mass weighted permeability are analogous to CubicPermeability, only
+        # with a different scalar.
+        (
+            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            "permeability",
+            mass_weighted_perm * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
+            2,
+        ),
+        (
+            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            "permeability",
+            mass_weighted_perm * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
+            1,
+        ),
+        (
+            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            "permeability",
+            mass_weighted_perm * np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
+            0,
+        ),
     ],
 )
 def test_evaluated_values(
@@ -348,6 +375,8 @@ def test_evaluated_values(
     params = {
         "material_constants": {"solid": solid, "fluid": fluid},
         "fracture_indices": [0, 1],
+        "times_to_export": [],
+        "fractional_flow": True,  # For testing MassWeightedPermeability
     }
 
     setup = model(params)
@@ -369,7 +398,7 @@ def test_evaluated_values(
         )
 
     # Obtain the tested method by looping top to bottom through the namespace.
-    method_namespace = method_name.split('.')
+    method_namespace = method_name.split(".")
     owner = setup
     for name in method_namespace:
         method = getattr(owner, name)
@@ -396,19 +425,22 @@ def test_evaluated_values(
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    val = op.value(setup.equation_system)
+    val = setup.equation_system.evaluate(op)
     # Strict tolerance. We know analytical expected values, and some of the
     # perturbations are small relative to
     assert np.allclose(val, expected, rtol=1e-8, atol=1e-10)
 
+
 @pytest.mark.parametrize(
-    'model, quantities',
+    "model, quantities",
     [
-        (models.MassBalance, ['pressure']),
-        (models.MassAndEnergyBalance, ['pressure', 'temperature'])
-    ]
+        (models.MassBalance, ["pressure"]),
+        (models.MassAndEnergyBalance, ["pressure", "temperature"]),
+    ],
 )
-def test_perturbation_from_reference(model: type[models.MassAndEnergyBalance], quantities: list[str]):
+def test_perturbation_from_reference(
+    model: type[models.MassAndEnergyBalance], quantities: list[str]
+):
     """Tests the evaluation of operators perturbed from reference values."""
 
     # Give some non-trivial reference values
@@ -419,6 +451,7 @@ def test_perturbation_from_reference(model: type[models.MassAndEnergyBalance], q
         "reference_variable_values": pp.ReferenceVariableValues(
             pressure=1, temperature=2
         ),
+        "times_to_export": [],
     }
 
     setup = model(params)
@@ -433,9 +466,10 @@ def test_perturbation_from_reference(model: type[models.MassAndEnergyBalance], q
         op = setup.perturbation_from_reference(q, setup.mdg.subdomains())
         # Calling value and jacobian to make sure there are no errors in parsing
         # but only value is checked.
-        op_val = op.value_and_jacobian(setup.equation_system)
+        op_val = setup.equation_system.evaluate(op, derivative=True)
         # value of op is 0 - ref val
-        assert np.allclose(op_val.val, - ref_vals[q])
+        assert np.allclose(op_val.val, -ref_vals[q])
+
 
 @pytest.mark.parametrize(
     "geometry, domain_dimension, expected",
@@ -466,7 +500,11 @@ def test_dimension_reduction_values(
     """
     # Assign non-trivial values to the parameters to avoid masking errors.
     solid = pp.SolidConstants(residual_aperture=0.02)
-    params = {"material_constants": {"solid": solid}, "num_fracs": 3}
+    params = {
+        "material_constants": {"solid": solid},
+        "num_fracs": 3,
+        "times_to_export": [],
+    }
     if geometry is models.RectangularDomainThreeFractures:
         params["fracture_indices"] = [0, 1]
 
@@ -479,10 +517,10 @@ def test_dimension_reduction_values(
     subdomains = setup.mdg.subdomains(dim=domain_dimension)
     interfaces = setup.mdg.interfaces(dim=domain_dimension)
     # Check aperture and specific volume values
-    aperture = setup.aperture(subdomains).value(setup.equation_system)
+    aperture = setup.equation_system.evaluate(setup.aperture(subdomains))
     assert np.allclose(aperture.data, expected[0])
     for grids, expected_value in zip([subdomains, interfaces], expected[1:]):
-        specific_volume = setup.specific_volume(grids).value(setup.equation_system)
+        specific_volume = setup.equation_system.evaluate(setup.specific_volume(grids))
         assert np.allclose(specific_volume.data, expected_value)
 
 
@@ -635,7 +673,9 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     """
 
     # Set up and discretize model
-    model = PoromechanicalTestDiffTpfa({"darcy_flux_discretization": base_discr})
+    model = PoromechanicalTestDiffTpfa(
+        {"darcy_flux_discretization": base_discr, "times_to_export": []}
+    )
     model.prepare_simulation()
     model.discretize()
 
@@ -654,7 +694,7 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     u_m = model.u_mortar
 
     # The permeability is given by the cubic law, calculate this and its derivative.
-    resid_ap = model.residual_aperture([g_1d]).value(model.equation_system)
+    resid_ap = model.equation_system.evaluate(model.residual_aperture([g_1d]))
     k_0 = ((u_m[2] - u_m[0]) + resid_ap) ** 3 / 12
     k_1 = (u_m[3] - u_m[1] + resid_ap) ** 3 / 12
 
@@ -695,7 +735,9 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     true_derivatives = dp * np.array([dtrm_du0, dtrm_du1, dtrm_du2, dtrm_du3])
 
     # The computed flux
-    computed_flux = model.darcy_flux([g_1d]).value_and_jacobian(model.equation_system)
+    computed_flux = model.equation_system.evaluate(
+        model.darcy_flux([g_1d]), derivative=True
+    )
     # Pick out the middle face, and only those faces that are associated with the mortar
     # displacement in the y-direction. The column indices must also be reordered to
     # match the ordering of the 2d cells (which was used to set 'true_derivatives').
@@ -713,13 +755,16 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # the interface flux.
     #
     # The potential reconstruction method
-    potential_trace = model.potential_trace(
-        model.mdg.subdomains(),
-        model.pressure,
-        model.permeability,
-        model.combine_boundary_operators_darcy_flux,
-        "darcy_flux",
-    ).value_and_jacobian(model.equation_system)
+    potential_trace = model.equation_system.evaluate(
+        model.potential_trace(
+            model.mdg.subdomains(),
+            model.pressure,
+            model.permeability,
+            model.combine_boundary_operators_darcy_flux,
+            "darcy_flux",
+        ),
+        derivative=True,
+    )
 
     # Fetch the permeability tensor from the data dictionary.
     data_2d = model.mdg.subdomain_data(model.mdg.subdomains()[0])

@@ -10,7 +10,7 @@ or to a file format other than vtu.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Optional, Union, cast
 
 import numpy as np
 
@@ -29,14 +29,19 @@ class DataSavingMixin(pp.PorePyModel):
     def save_data_time_step(self) -> None:
         """Export the model state at a given time step and log time.
 
-        The options for exporting times are:
-            * `None`: All time steps are exported
-            * `list`: Export if time is in the list. If the list is empty, then no
-            times are exported.
+        The options for exporting times can be given as ``params['times_to_export']``:
+
+        - ``None``: All time steps are exported.
+        - ``list``: Export if time is in the list. If the list is empty, then no
+          times are exported.
 
         In addition, save the solver statistics to file if the option is set.
 
+        Finally, :meth:`collect_data` is called and stored in :attr:`results` for
+        data collection and verification in runtime.
+
         """
+
         # Fetching the desired times to export.
         times_to_export = self.params.get("times_to_export", None)
         if times_to_export is None:
@@ -55,6 +60,40 @@ class DataSavingMixin(pp.PorePyModel):
         # Save solver statistics to file.
         self.nonlinear_solver_statistics.save()
 
+        # Collecting and storing data in runtime for analysis. If default value of None
+        # is returned, nothing is stored to not burden memory.
+        if not self._is_time_dependent():  # stationary problem
+            if (
+                self.nonlinear_solver_statistics.num_iteration > 0
+            ):  # avoid saving initial condition
+                collected_data = self.collect_data()
+                if collected_data is not None:
+                    self.results.append(collected_data)
+        else:  # time-dependent problem
+            t = self.time_manager.time  # current time
+            scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
+            if any(np.isclose(t, scheduled)):
+                collected_data = self.collect_data()
+                if collected_data is not None:
+                    self.results.append(collected_data)
+
+    def collect_data(self) -> Any:
+        """Collect relevant simulation data to be stored in attr:`results`.
+
+        Override to collect data respectively. By default, this method returns None and
+        nothing is stored.
+
+        For stationary problems, this method is called in every iteration. For time
+        dependent problems, it is called after convergence of a time step which is
+        scheduled by the time manager.
+
+        Returns:
+            Any data structure relevant for future verification. By default, None.
+            If it is not None, it is stored in :attr:`results`.
+
+        """
+        return None
+
     def write_pvd_and_vtu(self) -> None:
         """Helper function for writing the .vtu and .pvd files and time information."""
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
@@ -65,7 +104,9 @@ class DataSavingMixin(pp.PorePyModel):
             self.exporter.write_pvd(append=True, from_pvd_file=pvd_file)
         else:
             self.exporter.write_pvd()
-        self.time_manager.write_time_information()
+        self.time_manager.write_time_information(
+            Path(self.params["folder_name"]) / "times.json"
+        )
 
     def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.
@@ -134,7 +175,10 @@ class DataSavingMixin(pp.PorePyModel):
             Array of values for the quantity, scaled to SI units.
 
         """
-        vals_scaled = getattr(self, method_name)([grid]).value(self.equation_system)
+        vals_scaled = cast(
+            np.ndarray,
+            self.equation_system.evaluate(getattr(self, method_name)([grid])),
+        )
         vals = self.units.convert_units(vals_scaled, units, to_si=True)
         return vals
 
@@ -178,6 +222,9 @@ class DataSavingMixin(pp.PorePyModel):
 
         Parameters:
             vtu_files: Path(s) to vtu file(s).
+            time_index: Index of the time step to be loaded.
+            times_file: Path to json file storing history of time and time step size. If
+                ``None``, the same default path as in :meth:`write_pvd_and_vtu` is used.
             keys: Keywords addressing cell data to be transferred. If ``None``, the
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through ``pp.TIME_STEP_SOLUTIONS``.
@@ -188,13 +235,16 @@ class DataSavingMixin(pp.PorePyModel):
             ValueError: If incompatible file types are provided.
 
         """
-
         # Sanity check
         if not (
             isinstance(vtu_files, list)
             and all([vtu_file.suffix == ".vtu" for vtu_file in vtu_files])
         ) and not (isinstance(vtu_files, Path) and vtu_files.suffix == ".vtu"):
             raise ValueError
+
+        # Default path for times_file.
+        if times_file is None:
+            times_file = Path(self.params["folder_name"]) / "times.json"
 
         # Load states and read time index, connecting data and time history.
         self.exporter.import_state_from_vtu(vtu_files, keys, **kwargs)
@@ -217,7 +267,8 @@ class DataSavingMixin(pp.PorePyModel):
             pvd_file: Path to pvd file with exported vtu files.
             is_mdg_pvd: Flag controlling whether pvd file is a mdg file, i.e., generated
                 with ``Exporter._export_mdg_pvd()`` or ``Exporter.write_pvd()``.
-            times_file: Path to json file storing history of time and time step size.
+            times_file: Path to json file storing history of time and time step size. If
+                ``None``, the same default path as in :meth:`write_pvd_and_vtu` is used.
             keys: Keywords addressing cell data to be transferred. If ``None``, the
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through ``pp.TIME_STEP_SOLUTIONS``.
@@ -230,6 +281,10 @@ class DataSavingMixin(pp.PorePyModel):
         if not pvd_file.suffix == ".pvd":
             raise ValueError
 
+        # Default path for times_file.
+        if times_file is None:
+            times_file = Path(self.params["folder_name"]) / "times.json"
+
         # Import data and determine time index corresponding to the pvd file.
         time_index: int = self.exporter.import_from_pvd(pvd_file, is_mdg_pvd, keys)
 
@@ -237,29 +292,3 @@ class DataSavingMixin(pp.PorePyModel):
         self.time_manager.load_time_information(times_file)
         self.time_manager.set_time_and_dt_from_exported_steps(time_index)
         self.exporter._time_step_counter = time_index
-
-
-class VerificationDataSaving(DataSavingMixin):
-    """Class to store relevant data for a generic verification setup."""
-
-    results: list = []
-    """List of objects containing the results of the verification."""
-
-    def save_data_time_step(self) -> None:
-        """Save data to the `results` list."""
-        if not self._is_time_dependent():  # stationary problem
-            if (
-                self.nonlinear_solver_statistics.num_iteration > 0
-            ):  # avoid saving initial condition
-                collected_data = self.collect_data()
-                self.results.append(collected_data)
-        else:  # time-dependent problem
-            t = self.time_manager.time  # current time
-            scheduled = self.time_manager.schedule[1:]  # scheduled times except t_init
-            if any(np.isclose(t, scheduled)):
-                collected_data = self.collect_data()
-                self.results.append(collected_data)
-
-    def collect_data(self):
-        """Collect relevant data for the verification setup."""
-        raise NotImplementedError()
