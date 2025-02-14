@@ -192,7 +192,10 @@ class FourthOrderTensor(Tensor):
     """
 
     def __init__(
-        self, mu: np.ndarray, lmbda: np.ndarray, phi: Optional[np.ndarray] = None
+        self,
+        mu: np.ndarray,
+        lmbda: np.ndarray,
+        other_fields: dict[str, tuple[np.ndarray, np.ndarray]] | None = None,
     ):
         """Constructor for fourth order tensor on Lame-parameter form.
 
@@ -213,22 +216,11 @@ class FourthOrderTensor(Tensor):
         if mu.size != lmbda.size:
             raise ValueError("Mu and lmbda should have the same length")
 
-        if phi is None:
-            phi = 0 * mu  # Default value for phi is zero
-        elif not isinstance(phi, np.ndarray):
-            raise ValueError("Phi should be a numpy array")
-        elif not phi.ndim == 1:
-            raise ValueError("Phi should be 1-D")
-        elif phi.size != lmbda.size:
-            raise ValueError("Phi and Lmbda should have the same length")
-
         # Save lmbda and mu, can be useful to have in some cases
         self.lmbda = lmbda
         """Nc array of first Lamé parameter."""
         self.mu = mu
         """Nc array of shear modulus (second Lamé parameter)."""
-        self.phi = phi
-        """Nc array of ... spør Jan eller Eirik."""
 
         # Basis for the contributions of mu, lmbda and phi is hard-coded
         mu_mat = np.array(
@@ -257,26 +249,25 @@ class FourthOrderTensor(Tensor):
                 [1, 0, 0, 0, 1, 0, 0, 0, 1],
             ]
         )
-        phi_mat = np.array(
-            [
-                [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [0, 1, 1, 1, 0, 1, 1, 1, 0],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                [0, 1, 1, 1, 0, 1, 1, 1, 0],
-            ]
-        )
 
         # Expand dimensions to prepare for cell-wise representation.
         mu_mat = mu_mat[:, :, np.newaxis]
         lmbda_mat = lmbda_mat[:, :, np.newaxis]
-        phi_mat = phi_mat[:, :, np.newaxis]
 
-        c = mu_mat * mu + lmbda_mat * lmbda + phi_mat * phi
+        # List of constitutive parameters
+        self._constitutive_parameters = ["mu", "lmbda"]
+
+        c = mu_mat * mu + lmbda_mat * lmbda
+
+        # Store the other fields. This is needed for the copy method.
+        self._other_matrices = {}
+
+        for key, (mat, field) in other_fields.items():
+            c += mat[:, :, np.newaxis] * field
+            setattr(self, key, field)
+            self._other_matrices[key] = mat
+            self._constitutive_parameters.append(key)
+
         self.values = c
         """Values of the stiffness tensor as a (3^2, 3^2, Nc) array."""
 
@@ -288,23 +279,25 @@ class FourthOrderTensor(Tensor):
                 the memory sense).
 
         """
-        C = FourthOrderTensor(mu=self.mu.copy(), lmbda=self.lmbda.copy())
+        extra_params = {}
+        for key, mat in self._other_matrices.items():
+            extra_params[key] = (mat, getattr(self, key).copy())
+
+        C = FourthOrderTensor(
+            mu=self.mu.copy(), lmbda=self.lmbda.copy(), other_fields=extra_params
+        )
         C.values = self.values.copy()
         return C
 
-    @staticmethod
-    def constitutive_parameters(self) -> list:
+    @property  # This cannot be a static method since it needs access to self and is updated in the constructor
+    def constitutive_parameters(self) -> list[str]:
         """Strings for the constitutive parameters found in the fourth order tensor.
 
         Returns:
             A list of the constitutive parameter names.
 
         """
-        return [
-            "mu",
-            "lmbda",
-            # Legge inn phi som attributt??
-        ]
+        return self._constitutive_parameters
 
     def __str__(self) -> str:
         s = f"Fourth order tensor defined on {self.values.shape[2]} cells.\n"
