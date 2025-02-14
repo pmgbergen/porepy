@@ -1,49 +1,11 @@
 import copy
 import math
 
-import numpy as np
 import pytest
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.manu_sneddon_2d import ManuSneddonSetup2d
-
-# Set up the material constants
-poi = 0.25
-shear_modulus = 1
-lam = (
-    2 * shear_modulus * poi / (1 - 2 * poi)
-)  # Convertion formula from shear modulus and poission to lame lambda parameter
-
-solid = pp.SolidConstants(shear_modulus=shear_modulus, lame_lambda=lam)
-
-
-def compute_frac_pts(
-    theta_rad: float, a: float, height: float, length: float
-) -> np.ndarray:
-    """Assuming the fracture center is at the coordinate (height/2, length/2),
-    compute the endpoints of a fracture given its orientation and fracture length.
-
-    Parameters:
-        theta_rad: Angle of the fracture in radians
-        a: Half-length of the fracture.
-        height: Height of the domain.
-        length: Width of the domain.
-
-    Returns:
-        A 2x2 array where each column represents the coordinates of an end point of the
-        fracture in 2D. The first column corresponds to one end point, and the second
-        column corresponds to the other.
-
-    """
-    # Rotate the fracture with an angle theta_rad
-    y_0 = height / 2 - a * np.cos(theta_rad)
-    x_0 = length / 2 - a * np.sin(theta_rad)
-    y_1 = height / 2 + a * np.cos(theta_rad)
-    x_1 = length / 2 + a * np.sin(theta_rad)
-
-    frac_pts = np.array([[x_0, y_0], [x_1, y_1]]).T
-    return frac_pts
 
 
 @pytest.fixture(scope="module")
@@ -65,8 +27,16 @@ def actual_ooc() -> dict:
     theta_deg = 30.0
     a = 0.3
     height = 1.0
-    length = 1.0
     theta_rad = math.radians(90 - theta_deg)
+    
+    # Set up the material constants
+    poi = 0.25
+    shear_modulus = 1
+    lam = (
+        2 * shear_modulus * poi / (1 - 2 * poi)
+    )  # Convertion formula from shear modulus and poission to lame lambda parameter
+
+    solid = pp.SolidConstants(shear_modulus=shear_modulus, lame_lambda=lam)
 
     params = {
         "prepare_simulation": True,
@@ -77,13 +47,8 @@ def actual_ooc() -> dict:
         "poi": poi,  # Possion ratio (Not standard in solid constants)
         "meshing_arguments": {"cell_size": 0.03},
         "grid_type": "simplex",
-        "theta": theta_rad,
+        "theta_rad": theta_rad,
     }
-
-    # Convert angle to radians and compute fracture points
-    params["frac_pts"] = compute_frac_pts(
-        theta_rad=theta_rad, a=a, height=height, length=length
-    )
 
     # Convergence analysis setup
     conv_analysis = ConvergenceAnalysis(
