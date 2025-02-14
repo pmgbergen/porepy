@@ -57,9 +57,9 @@ def get_bem_centers(
     bem_centers = np.zeros((3, n))
     x_0 = center[0] - (a - 0.5 * h) * np.sin(alpha)
     y_0 = center[1] - (a - 0.5 * h) * np.cos(alpha)
-    for i in range(0, n):
-        bem_centers[0, i] = x_0 + i * h * np.sin(alpha)
-        bem_centers[1, i] = y_0 + i * h * np.cos(alpha)
+    i = np.arange(n)
+    bem_centers[0] = x_0 + i * h * np.sin(alpha)
+    bem_centers[1] = y_0 + i * h * np.cos(alpha)
 
     return bem_centers
 
@@ -220,14 +220,13 @@ class SneddonExactSolution2d:
     """Class representing the analytical solution for the pressurized fracture problem."""
 
     def __init__(self, model: "ManuSneddonSetup2d"):
-        self.p0 = model.params.get("p0")
-        self.theta = model.params.get("theta")
+        self.p0 = model.params["p0"]
+        self.theta_rad = model.params["theta_rad"]
 
-        self.a = model.params.get("a")
-        self.shear_modulus = (
-            model.params.get("material_constants").get("solid").shear_modulus
-        )
-        self.poi = model.params.get("poi")
+        self.a = model.params["a"]
+        self.shear_modulus = model.params["material_constants"]["solid"].shear_modulus
+        self.poi = model.params["poi"]
+        self.n = model.params["num_bem_segments"]
         self.length = model.domain_size
 
     def exact_sol_global(self, sd: pp.Grid) -> np.ndarray:
@@ -239,19 +238,20 @@ class SneddonExactSolution2d:
 
         """
 
-        n = 1000
-        h = 2 * self.a / n
+        h = 2 * self.a / self.n
         box_faces = sd.get_boundary_faces()
         u_bc = np.zeros((sd.dim, sd.num_faces))
 
         center = np.array([self.length / 2, self.length / 2, 0])
-        bem_centers = get_bem_centers(self.a, h, n, self.theta, center)
+        bem_centers = get_bem_centers(self.a, h, self.n, self.theta_rad, center)
         eta = compute_eta(bem_centers, center)
 
         u_a = -analytical_displacements(
             self.a, eta, self.p0, self.shear_modulus, self.poi
         )
-        u_bc = assign_bem(sd, h / 2, box_faces, self.theta, bem_centers, u_a, self.poi)
+        u_bc = assign_bem(
+            sd, h / 2, box_faces, self.theta_rad, bem_centers, u_a, self.poi
+        )
         return u_bc
 
     def exact_sol_fracture(
@@ -288,9 +288,43 @@ class ManuSneddonGeometry2d(SquareDomainOrthogonalFractures):
     """Square domain but with single line fracture."""
 
     def set_fractures(self):
-        """Setting a single line fracture in the domain using ``params['frac_pts']``."""
+        """Setting a single line fracture which runs through the domain center."""
 
-        self._fractures = [pp.LineFracture(self.params["frac_pts"])]
+        theta_rad = self.params["theta_rad"]
+        a = self.params["a"]  # Half-length of the fracture
+        height = length = self.params["domain_size"]
+        frac_pts = self.compute_frac_pts(
+            theta_rad=theta_rad, a=a, height=height, length=length
+        )
+        self._fractures = [pp.LineFracture(frac_pts)]
+
+    @staticmethod
+    def compute_frac_pts(
+        theta_rad: float, a: float, height: float, length: float
+    ) -> np.ndarray:
+        """Assuming the fracture center is at the coordinate (height/2, length/2),
+        compute the endpoints of a fracture given its orientation and fracture length.
+
+        Parameters:
+            theta_rad: Angle of the fracture in radians
+            a: Half-length of the fracture.
+            height: Height of the domain.
+            length: Width of the domain.
+
+        Returns:
+            A 2x2 array where each column represents the coordinates of an end point of
+            the fracture in 2D. The first column corresponds to one end point, and the
+            second column corresponds to the other.
+
+        """
+        # Rotate the fracture with an angle theta_rad
+        y_0 = height / 2 - a * np.cos(theta_rad)
+        x_0 = length / 2 - a * np.sin(theta_rad)
+        y_1 = height / 2 + a * np.cos(theta_rad)
+        x_1 = length / 2 + a * np.sin(theta_rad)
+
+        frac_pts = np.array([[x_0, y_0], [x_1, y_1]]).T
+        return frac_pts
 
 
 class ManuSneddonBoundaryConditions(pp.PorePyModel):
@@ -311,9 +345,7 @@ class ManuSneddonBoundaryConditions(pp.PorePyModel):
         # Set the type of west and east boundaries to Dirichlet. North and south are
         # Neumann by default.
         bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "dir")
-        frac_face = sd.tags["fracture_faces"]
-        bc.is_neu[:, frac_face] = False
-        bc.is_dir[:, frac_face] = True
+        bc.internal_to_dirichlet()
 
         return bc
 
