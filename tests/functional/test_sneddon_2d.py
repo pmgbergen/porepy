@@ -48,6 +48,7 @@ def actual_ooc() -> dict:
         "meshing_arguments": {"cell_size": 0.03},
         "grid_type": "simplex",
         "theta_rad": theta_rad,
+        "num_bem_segments": 1000,
     }
 
     # Convergence analysis setup
