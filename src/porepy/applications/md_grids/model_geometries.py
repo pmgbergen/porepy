@@ -197,19 +197,21 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         # First set the geometry and create a matching mixed-dimensional grid.
         super().set_geometry()
 
-        # Refine and replace fracture grids.
+        # Refine and replace fracture grids. First we fetch the old fracture grids:
         old_fracture_grids = self.mdg.subdomains(dim=1)
 
-        # Ratios which we want to refine the fracture grids with.
-        ratios = []
-        for i in range(len(old_fracture_grids)):
-            ratios.append(i + 2)
+        # Ratios which we want to refine the fracture grids with. Default, if no ratios
+        # are provided, is to not refine at all.
+        ratios = self.params.get(
+            "fracture_refinement_ratios", np.ones(len(old_fracture_grids))
+        )
 
         # The actual refinement of the fracture grids.
         new_fracture_grids = [
             pp.refinement.refine_grid_1d(g=old_grid, ratio=ratio)
             for old_grid, ratio in zip(old_fracture_grids, ratios)
         ]
+
         # Create a mapping between the old and new fracture grids.
         grid_map = dict(zip(old_fracture_grids, new_fracture_grids))
 
@@ -218,31 +220,34 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         # mixed-dimensional grid and donate the interface grids to the original
         # mixed-dimensional grid.
         # We first create a new and more refined mixed-dimensional grid.
-        def mdg_func(self, nx=2, ny=2) -> pp.MixedDimensionalGrid:
+        def mdg_func(self, cell_size) -> pp.MixedDimensionalGrid:
             """Generate a refined version of an already existing mixed-dimensional grid.
 
             Parameters:
-                nx: Number of cells in x-direction.
-                ny: Number of cells in y-direction.
-
+                cell_size: Cell size of the refined grid.
             """
             # Construct a new grid with the same fractures as the original grid.
             # Directly call the meshing function instead of using higher-level methods
             # (e.g., those being called in self.set_geometry), since we don't want to
             # interfere with the original grid at this stage.
             fracs = [self.fractures[i].pts for i in range(len(self.fractures))]
+
             domain = self.domain.bounding_box
+            nx = int(domain["xmax"] / cell_size)
+            ny = int(domain["ymax"] / cell_size)
+
             md_grid = pp.meshing.cart_grid(
                 fracs, np.array([nx, ny]), physdims=[domain["xmax"], domain["ymax"]]
             )
             return md_grid
 
-        mdg_new = mdg_func(self, nx=6, ny=6)
-        g_new = mdg_new.subdomains(dim=2)[0]
-        g_new.compute_geometry()
+        interface_refinement_ratio = self.params.get("interface_refinement_ratio", 1)
+        cell_size_old_grid = self.meshing_arguments()["cell_size"]
+        cell_size_new_grid = cell_size_old_grid / interface_refinement_ratio
+
+        mdg_new = mdg_func(self, cell_size_new_grid)
 
         intf_map = {}
-
         # First we loop through all the interfaces in the new mixed-dimensional grid
         # (donor).
         for intf in mdg_new.interfaces(dim=1):
