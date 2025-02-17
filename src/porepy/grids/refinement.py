@@ -90,9 +90,8 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
     cell_nodes = g.cell_nodes().tocsc()
     nodes, cells, _ = sparse_array_to_row_col_data(cell_nodes)
 
-    #extract the fracture number
+    # Extract the fracture number.
     frac_num = g.frac_num
-
 
     # Every cell will contribute (ratio - 1) new nodes.
     num_new_nodes = (ratio - 1) * g.num_cells + g.num_nodes
@@ -221,7 +220,7 @@ def refine_grid_1d(g: pp.Grid, ratio: int = 2) -> pp.Grid:
     g = Grid(1, x, face_nodes, cell_faces, "Refined 1d grid")
     g.compute_geometry()
 
-    # Keep the original fracture number
+    # Keep the original fracture number.
     g.frac_num = frac_num
 
     return g
