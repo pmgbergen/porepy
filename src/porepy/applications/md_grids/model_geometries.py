@@ -158,36 +158,46 @@ class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
 
 
 class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures):
+    """Create a non-matching mixed-dimensional grid of a square domain with up to two
+    orthogonal fractures.
+
+    The setup is similar to :class:`SquareDomainOrthogonalFractures`, but the
+    geometry allows for non-matching grids and different resolution for each grid.
+    """
+
     def set_geometry(self) -> None:
         """Define geometry and create a non-matching mixed-dimensional grid.
 
         We here make a non-matching mixed-dimensional grid in the sense that neither of
         the fracture grids, interface grids or the rock grid are matching. This is done
-        by refining the fracture grids and interfaces.
-
-        The fracture grids are replaced by a refined version of the fractures which are
-        already present in the grid. The interface grids are replaced by first creating
-        a new mixed-dimensional grid with a higher resolution. The new mixed-dimensional
-        grid will "donate" its interface grids to the original mixed-dimensional grid.
-
-        There are a few things to be aware of when creating a non-matching
-        mixed-dimensional grid:
-            * If _both_ the interface and fracture grids are to be refined/coarsened,
-              you must be aware of:
-                * If you first refine (and replace) the fracture grids, you must also
-                  update the fracture numbering such that the new fracture grids have
-                  the same fracture number as the old ones. This is because the fracture
-                  numbering is used to identify the correct interface grids later.
-                  TODO: Make sure that the refine-grid-functions also copy frac_num
-                  attribute such that the abovementioned is no longer a problem.
-            * Ensure that the "donor" mixed-dimensional grid is physically the same as
-              the "recipient" mixed-dimensional grid. Fractures must be located at the
-              same place and the physical dimension of the grids must be the same.
+        by refining the fracture and interface grids.
 
         """
+
+        # The fracture grids are replaced by a refined version of the fractures which
+        # are already present in the grid. The interface grids are replaced by first
+        # creating a new mixed-dimensional grid with a higher resolution. The new
+        # mixed-dimensional grid will "donate" its interface grids to the original
+        # mixed-dimensional grid.
+
+        # There are a few things to be aware of when creating a non-matching
+        # mixed-dimensional grid:
+        #     * If _both_ the interface and fracture grids are to be refined/coarsened,
+        #       you must be aware of:
+        #         * If you first refine (and replace) the fracture grids, you must also
+        #           update the fracture numbering such that the new fracture grids have
+        #           the same fracture number as the old ones. This is because the fracture
+        #           numbering is used to identify the correct interface grids later.
+        #           TODO: Make sure that the refine-grid-functions also copy frac_num
+        #           attribute such that the abovementioned is no longer a problem.
+        #     * Ensure that the "donor" mixed-dimensional grid is physically the same as
+        #       the "recipient" mixed-dimensional grid. Fractures must be located at the
+        #       same place and the physical dimension of the grids must be the same.
+
+        # First set the geometry and create a matching mixed-dimensional grid.
         super().set_geometry()
 
-        # Refine and replace fracture grids:
+        # Refine and replace fracture grids.
         old_fracture_grids = self.mdg.subdomains(dim=1)
 
         # Ratios which we want to refine the fracture grids with.
@@ -195,14 +205,18 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         for i in range(len(old_fracture_grids)):
             ratios.append(i + 2)
 
+        # The actual refinement of the fracture grids.
         new_fracture_grids = [
             pp.refinement.refine_grid_1d(g=old_grid, ratio=ratio)
             for old_grid, ratio in zip(old_fracture_grids, ratios)
         ]
-
+        # Create a mapping between the old and new fracture grids.
         grid_map = dict(zip(old_fracture_grids, new_fracture_grids))
 
-        # Refine and replace interface grids:
+        # Refine and replace interface grids. This is more complicated, since directly
+        # refining the interface grids is not straightforward. Instead, we create a new
+        # mixed-dimensional grid and donate the interface grids to the original
+        # mixed-dimensional grid.
         # We first create a new and more refined mixed-dimensional grid.
         def mdg_func(self, nx=2, ny=2) -> pp.MixedDimensionalGrid:
             """Generate a refined version of an already existing mixed-dimensional grid.
@@ -212,6 +226,10 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
                 ny: Number of cells in y-direction.
 
             """
+            # Construct a new grid with the same fractures as the original grid.
+            # Directly call the meshing function instead of using higher-level methods
+            # (e.g., those being called in self.set_geometry), since we don't want to
+            # interfere with the original grid at this stage.
             fracs = [self.fractures[i].pts for i in range(len(self.fractures))]
             domain = self.domain.bounding_box
             md_grid = pp.meshing.cart_grid(
