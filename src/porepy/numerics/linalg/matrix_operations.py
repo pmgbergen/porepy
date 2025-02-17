@@ -447,11 +447,13 @@ class MatrixSlicer:
             # We need to know what we are mapping from or to (or both).
             raise ValueError("Either range_indices or domain_indices must be set.")
 
+        is_onto = False
         if domain_indices is not None and range_indices is None:
             # If only domain indices are given, the range is assumed to be the same size
             # as the domain. The slicing will then be a simple restriction of the
             # domain.
             range_indices = np.arange(domain_indices.size)
+            is_onto = True
 
         elif range_indices is not None and domain_indices is None:
             # If only range indices are given, the domain is assumed to be the same size
@@ -459,6 +461,7 @@ class MatrixSlicer:
             # domain.
 
             domain_indices = np.arange(range_indices.size)
+            is_onto = False
 
         if range_size is None:
             # If range_size is not given, it is assumed to be the maximum of the range
@@ -469,6 +472,8 @@ class MatrixSlicer:
         self._domain_indices: np.ndarray = domain_indices
         self._range_indices: np.ndarray = range_indices
         self._range_size: int = range_size
+
+        self._is_onto: bool = is_onto
 
         # Precompute the sorting of the range indices. This is needed when slicing a
         # matrix, and can be done independently of the matrix to be sliced.
@@ -532,6 +537,8 @@ class MatrixSlicer:
             The sliced vector.
 
         """
+        if self.is_onto:
+            return x[self._domain_indices]
 
         vec = np.zeros(self._range_size)
         vec[self._range_indices] = x[self._domain_indices]
@@ -551,6 +558,9 @@ class MatrixSlicer:
         # Convert to csr format if not already in csr format.
         if not isinstance(A, (sps.csr_matrix, sps.csr_array)):
             A = A.tocsr()
+
+        if self.is_onto:
+            return A[self._domain_indices]
 
         # Data storage for the matrix to be sliced.
         indptr = A.indptr
@@ -574,8 +584,11 @@ class MatrixSlicer:
         num_elem_per_row[self._range_indices[sort_ind_range] + 1] = (
             num_elem_per_row_domain[sort_ind_range]
         )
-        # Cumulative sum to get the indptr array.
-        new_indptr = np.cumsum(num_elem_per_row)
+        # Cumulative sum to get the indptr array. Reuse the array
+        # num_elem_per_row_domain to store the indptr array to avoid memory allocation.
+        np.cumsum(num_elem_per_row, out=num_elem_per_row)
+        # Make a reference to the indptr array with a more descriptive name.
+        new_indptr = num_elem_per_row
 
         # Get the indices (referring to the fields A.data and A.indices) of the non-zero
         # elements in the target rows. This requires that we
@@ -584,12 +597,14 @@ class MatrixSlicer:
             indptr[sorted_domain_indices], indptr[sorted_domain_indices + 1]
         )
 
-        # Fetch the data and indices from the original matrix. Implementation note: EK
-        # tried various versions to avoid, or minimize, the chance of a copy operation
-        # here; it us unclear if this succeeded for all cases encountered in practice.
+        # Fetch the data and indices from the original matrix. NOTE: This part will in
+        # many cases (among the) most time-consuming part of the slicing operation.
+        # After a long day of experimenting, the below code is the fastest EK could come
+        # up with. Notably, using take is about 1/3 faster than using fancy indexing
+        # (~A.data[sub_indices]). Ideally, we would have used a view of the arrays, but
+        # numpy could not be convinced to work that way.
         new_data = np.take(A.data, sub_indices)
         new_indices = np.take(A.indices, sub_indices)
-
         new_num_rows = self._range_size
 
         return sps.csr_matrix(
