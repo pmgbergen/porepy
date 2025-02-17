@@ -518,16 +518,16 @@ class SecondOrderTensorUtils(pp.PorePyModel):
             # fall back on reference value.
             permeability = fallback_value * np.ones(sd.num_cells) * volume
             return pp.SecondOrderTensor(permeability)
-        evaluated_value = self.equation_system.evaluate(operator)
-        if not isinstance(evaluated_value, np.ndarray):
+
+        if not isinstance(permeability, np.ndarray):
             # Raise error rather than cast for verbosity of function which is not
             # directly exposed to the user, but depends on a frequently user-defined
             # quantity (the tensor being converted).
             raise ValueError(
-                f"Operator {operator.name} has type {type(evaluated_value)}, "
+                f"Operator {operator.name} has type {type(permeability)}, "
                 f"expected numpy array for conversion to SecondOrderTensor."
             )
-        val = evaluated_value.reshape(9, -1, order="F")
+        val = permeability.reshape(9, -1, order="F")
         # SecondOrderTensor's constructor expects up to six entries: kxx, kyy, kzz,
         # kxy, kxz, kyz. These correspond to entries 0, 4, 8, 1, 2, 5 in the 9 x
         # num_cells array.
