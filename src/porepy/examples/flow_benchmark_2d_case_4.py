@@ -36,10 +36,47 @@ class Geometry(pp.PorePyModel):
         """Setting a fracture list from the fracture set library."""
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_4()
 
-    @property
-    def domain(self) -> pp.Domain:
+    def set_domain(self) -> pp.Domain:
         """Domain of the problem."""
-        return pp.Domain({"xmax": 700, "ymax": 600})
+        x_extent = self.units.convert_units(700, "m")
+        y_extent = self.units.convert_units(600, "m")
+        self._domain = pp.Domain(
+            {"xmin": 0, "xmax": x_extent, "ymin": 0, "ymax": y_extent}
+        )
+
+    def grid_type(self) -> str:
+        """Set a simplex grid, which is the only grid type that can represent this
+        fracture geometry.
+
+        Returns:
+            str: Grid type.
+
+        """
+        return "simplex"
+
+    def meshing_arguments(self) -> dict[str, float]:
+        """Meshing arguments for mixed-dimensional grid generation.
+
+        Set a default cell size of 10 m. This will give a grid of about 23K cells in the
+        2d domain.
+
+        Note that due to complexities of this fracture network, it is not possible to
+        get Gmsh to create a grid with less than about 12K cells in the 2d domain. This
+        can be achieved by setting the cell size to 30 m (possibly also lower). Coarser
+        grids may be possible, but this will require interaction with Gmsh on a more
+        detailed lever than what is available through PorePy.
+
+        Returns:
+            Meshing arguments compatible with
+            :meth:`~porepy.grids.mdg_generation.create_mdg`.
+
+        """
+        # Default value of 10, scaled by the length unit.
+        cell_size = self.units.convert_units(10, "m")
+        default_meshing_args: dict[str, float] = {"cell_size": cell_size}
+        # If meshing arguments are provided in the params, they should already be scaled
+        # by the length unit.
+        return self.params.get("meshing_arguments", default_meshing_args)
 
 
 class BoundaryConditions(pp.PorePyModel):
