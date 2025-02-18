@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 import porepy as pp
+from porepy.grids.mdg_generation import _preprocess_cartesian_args
 
 from . import domains, fracture_sets
 
@@ -201,9 +202,9 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         old_fracture_grids = self.mdg.subdomains(dim=1)
 
         # Ratios which we want to refine the fracture grids with. Default, if no ratios
-        # are provided, is to not refine at all.
+        # are provided, is to refine by a factor of 2.
         ratios = self.params.get(
-            "fracture_refinement_ratios", np.ones(len(old_fracture_grids))
+            "fracture_refinement_ratios", np.ones(len(old_fracture_grids) * 2)
         )
 
         # The actual refinement of the fracture grids.
@@ -215,41 +216,28 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         # Create a mapping between the old and new fracture grids.
         grid_map = dict(zip(old_fracture_grids, new_fracture_grids))
 
-        # Refine and replace interface grids. This is more complicated, since directly
-        # refining the interface grids is not straightforward. Instead, we create a new
-        # mixed-dimensional grid and donate the interface grids to the original
-        # mixed-dimensional grid.
-        # We first create a new and more refined mixed-dimensional grid.
-        def mdg_func(self, cell_size) -> pp.MixedDimensionalGrid:
-            """Generate a refined version of an already existing mixed-dimensional grid.
+        # Refine and replace interface grids.
+        # Directly refining the already existing interface grids is not straightforward.
+        # Instead, we create a new mixed-dimensional grid and donate the interface grids
+        # to the original mixed-dimensional grid.
 
-            Parameters:
-                cell_size: Cell size of the refined grid.
-            """
-            # Construct a new grid with the same fractures as the original grid.
-            # Directly call the meshing function instead of using higher-level methods
-            # (e.g., those being called in self.set_geometry), since we don't want to
-            # interfere with the original grid at this stage.
-            fracs = [self.fractures[i].pts for i in range(len(self.fractures))]
+        # First we gather the number of cells in x- and y- direction, as well as the
+        # physical dimensions of the original mixed-dimensional grid:
+        domain = pp.Domain(self.domain.bounding_box)
+        meshing_args = self.meshing_arguments()
+        nx_cells, phys_dims, _ = _preprocess_cartesian_args(domain, meshing_args, {})
 
-            domain = self.domain.bounding_box
-            nx = int(domain["xmax"] / cell_size)
-            ny = int(domain["ymax"] / cell_size)
+        # Then we create a new mdg with the same fractures and physical dimensions as
+        # the old one, but with a higher resolution:
+        nx_cells_new = np.array(nx_cells) * self.params.get(
+            "interface_refinement_ratio", 2
+        )
+        fracs = [self.fractures[i].pts for i in range(len(self.fractures))]
+        mdg_new = pp.meshing.cart_grid(fracs, nx_cells_new, physdims=phys_dims)
 
-            md_grid = pp.meshing.cart_grid(
-                fracs, np.array([nx, ny]), physdims=[domain["xmax"], domain["ymax"]]
-            )
-            return md_grid
-
-        interface_refinement_ratio = self.params.get("interface_refinement_ratio", 1)
-        cell_size_old_grid = self.meshing_arguments()["cell_size"]
-        cell_size_new_grid = cell_size_old_grid / interface_refinement_ratio
-
-        mdg_new = mdg_func(self, cell_size_new_grid)
-
+        # Loop through all the interfaces in the new mixed-dimensional grid (donor) such
+        # that we can fill intf_map with a map between old and new interface grids.
         intf_map = {}
-        # First we loop through all the interfaces in the new mixed-dimensional grid
-        # (donor).
         for intf in mdg_new.interfaces(dim=1):
             # Then, for each interface, we fetch the secondary grid which belongs to it.
             _, g_sec = mdg_new.interface_to_subdomain_pair(intf)
@@ -259,9 +247,9 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
                 # Fetch the secondary grid of the interface in the original grid.
                 _, g_sec_coarse = self.mdg.interface_to_subdomain_pair(intf_coarse)
 
-                # Checkinc the fracture number of the secondary grid in the recipient
-                # mdg. If they are the same, i.e., the fractures are the same ones, we
-                # update the interface map.
+                # Checking the fracture number of the secondary grid in the recipient
+                # mdg. If they are the same, i.e., if the fractures are the same ones,
+                # we update the interface map.
                 if g_sec_coarse.frac_num == g_sec.frac_num:
                     intf_map.update({intf_coarse: intf})
 
