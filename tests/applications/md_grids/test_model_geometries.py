@@ -7,7 +7,7 @@ from porepy.applications.md_grids.model_geometries import (
 
 
 class TestModel(NonMatchingSquareDomainOrthogonalFractures, pp.SinglePhaseFlow):
-    """Single phase flow with a (potentially) non-matching grid."""
+    """Single phase flow model class setup with a (potentially) non-matching grid."""
 
 
 @pytest.mark.parametrize(
@@ -31,8 +31,8 @@ def test_nonmatching_grid_generation(
     We here test that the expected geometry is created when generating a non-matching
     mixed-dimensional grid. Specifically we monitor whether the number of fracture and
     interface cells are as expected given the refinement ratios we test for. The grids
-    we test are non-matching in the sense that interface-fracture grids are
-    non-matching, as well as interface-matrix grids are non-matching.
+    we test are non-matching in the sense that interface and fracture grids are
+    non-matching, as well as interface and matrix grids are non-matching.
 
     The geometry is a 2d unit square with 2x2 cells. Depending on the parameter
     `fracture_indices` (see documentation below), the grid may contain 0, 1 or 2
@@ -59,7 +59,7 @@ def test_nonmatching_grid_generation(
     }
 
     model = TestModel(params)
-    pp.run_time_dependent_model(model, params)
+    model.prepare_simulation()
 
     for i, fracture in enumerate(model.mdg.subdomains(dim=1)):
         assert fracture.num_cells == expected_fracture_cell_num[i]
