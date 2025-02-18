@@ -5,7 +5,6 @@ intersections along with a surrounding matrix in the form of a mixed-dimensional
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any, Callable, Iterable, Literal, Optional, Union, overload
 
 import numpy as np
@@ -698,11 +697,11 @@ class MixedDimensionalGrid:
 
     def replace_subdomains_and_interfaces(
         self,
-        sd_map: Optional[Mapping[pp.Grid, pp.Grid]] = None,
+        sd_map: Optional[dict[pp.Grid, pp.Grid]] = None,
         intf_map: Optional[
-            Mapping[
+            dict[
                 pp.MortarGrid,
-                Union[pp.MortarGrid, Mapping[mortar_grid.MortarSides, pp.Grid]],
+                Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
             ]
         ] = None,
         tol: float = 1e-6,
