@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from typing import Union, cast
+
 import numpy as np
 
 import porepy as pp
+from porepy.grids import mortar_grid
 from porepy.grids.mdg_generation import _preprocess_cartesian_args
 
 from . import domains, fracture_sets
@@ -255,7 +258,15 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
 
         # Finally replace the subdomains and interfaces in the original
         # mixed-dimensional grid. Both can be done at the same time:
-        self.mdg.replace_subdomains_and_interfaces(sd_map=grid_map, intf_map=intf_map)
-
+        self.mdg.replace_subdomains_and_interfaces(
+            sd_map=grid_map,
+            intf_map=cast(
+                dict[
+                    pp.MortarGrid,
+                    Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
+                ],
+                intf_map,
+            ),
+        )
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
