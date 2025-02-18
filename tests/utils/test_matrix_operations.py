@@ -132,6 +132,15 @@ def test_sliced_matrix(A, column: bool, index: int | np.ndarray):
 
 
 def _get_matrix_slicer_target(mat, mode: Literal["float", "dense", "sparse", "ad"]):
+    """Get the target matrix for the matrix slicer test.
+
+    Parameters:
+        mat: The matrix to be sliced
+
+    Returns:
+        The target quantity to be sliced.
+
+    """
     if mode == "sparse":
         target = mat
     elif mode == "float":
@@ -139,6 +148,9 @@ def _get_matrix_slicer_target(mat, mode: Literal["float", "dense", "sparse", "ad
     else:
         vec = np.array([1, 2, 3, 4])
         if mode == "dense":
+            # The dense mode uses a vector. In principle, it is possible also to
+            # consider 2d numpy arrays, but the MatrixSlicer is not designed to handle
+            # this case.
             target = vec
         else:
             target = pp.ad.AdArray(vec, mat)
@@ -156,15 +168,31 @@ def _get_matrix_slicer_target(mat, mode: Literal["float", "dense", "sparse", "ad
     ],
 )
 @pytest.mark.parametrize("range_size", [None, 6])
+@pytest.mark.parametrize("transpose", [True, False])
 def test_matrix_slicer(
     A,
     mode: Literal["dense", "sparse", "ad"],
     domain_inds: np.ndarray | None,
     range_inds: np.ndarray | None,
     range_size: int,
+    transpose: bool,
 ):
+    """Test the matrix slicer.
+
+    Parameters:
+        A: The matrix to be sliced.
+        mode: The mode of the target matrix. Can be 'dense', 'sparse' or 'ad'.
+        domain_inds: The indices of the domain of the slicer.
+        range_inds: The indices of the range of the slicer.
+        range_size: The size of the range of the slicer.
+        transpose: If True, perform a transpose operation.
+
+    """
     target = _get_matrix_slicer_target(A, mode)
     slicer = matrix_operations.MatrixSlicer(domain_inds, range_inds, range_size)
+
+    if transpose:
+        slicer = slicer.T
 
     if range_size is not None:
         # If the range size is given, the number of rows is known.
@@ -183,16 +211,28 @@ def test_matrix_slicer(
     if domain_inds is None:
         domain_inds = np.arange(range_inds.size)
 
-    result = slicer @ target
+    if transpose and mode == "ad":
+        # Column-wise slicing is not supported for AdArray. This should raise an error.
+        with pytest.raises(ValueError):
+            result = slicer @ target
+        return
+    else:
+        # Slice the target.
+        result = slicer @ target
 
     if mode == "dense":
+        # No special handling of transpose for vectors.
         A_known = np.zeros(num_rows)
         A_known[range_inds] = target[domain_inds]
         assert np.allclose(result, A_known)
     elif mode == "sparse":
-        Nc = target.shape[1]
-        A_known = np.zeros((num_rows, Nc))
-        A_known[range_inds] = target.toarray()[domain_inds]
+        if transpose:
+            A_known = np.zeros((target.shape[0], num_rows))
+            A_known[:, range_inds] = target.toarray()[:, domain_inds]
+        else:
+            A_known = np.zeros((num_rows, target.shape[1]))
+            A_known[range_inds] = target.toarray()[domain_inds]
+
         assert np.allclose(result.toarray(), A_known)
     else:
         val_known = np.zeros(num_rows)
@@ -242,6 +282,12 @@ def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
     This test checks that the delayed evaluation works as expected.
 
     Parameters:
+        A: The matrix to be sliced.
+        other_mode: The mode of the other operand. Can be 'dense', 'sparse', 'ad' or
+            'float'.
+        target_mode: The mode of the target matrix. Can be 'dense', 'sparse', 'ad' or
+            'float'.
+        operator: The operator to be applied.
 
 
     """
