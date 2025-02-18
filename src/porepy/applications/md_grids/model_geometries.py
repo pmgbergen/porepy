@@ -194,20 +194,6 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         # mixed-dimensional grid will "donate" its interface grids to the original
         # mixed-dimensional grid.
 
-        # There are a few things to be aware of when creating a non-matching
-        # mixed-dimensional grid:
-        #     * If _both_ the interface and fracture grids are to be refined/coarsened,
-        #       you must be aware of:
-        #         * If you first refine (and replace) the fracture grids, you must also
-        #           update the fracture numbering such that the new fracture grids have
-        #           the same fracture number as the old ones. This is because the fracture
-        #           numbering is used to identify the correct interface grids later.
-        #           TODO: Make sure that the refine-grid-functions also copy frac_num
-        #           attribute such that the abovementioned is no longer a problem.
-        #     * Ensure that the "donor" mixed-dimensional grid is physically the same as
-        #       the "recipient" mixed-dimensional grid. Fractures must be located at the
-        #       same place and the physical dimension of the grids must be the same.
-
         # First set the geometry and create a matching mixed-dimensional grid.
         super().set_geometry()
 
@@ -267,7 +253,7 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
                     intf_map.update({intf_coarse: intf})
 
         # Finally replace the subdomains and interfaces in the original
-        # mixed-dimensional grid. Both can be done at the same time:
+        # mixed-dimensional grid.
         self.mdg.replace_subdomains_and_interfaces(
             sd_map=grid_map,
             intf_map=cast(
