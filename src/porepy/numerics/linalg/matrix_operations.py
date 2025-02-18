@@ -453,7 +453,8 @@ class MatrixSlicer:
             # as the domain. The slicing will then be a simple restriction of the
             # domain.
             range_indices = np.arange(domain_indices.size)
-            is_onto = True
+            if range_size is None:
+                is_onto = True
 
         elif range_indices is not None and domain_indices is None:
             # If only range indices are given, the domain is assumed to be the same size
@@ -484,6 +485,55 @@ class MatrixSlicer:
         self._pending_operation = None
         self._pending_operand = None
 
+        self._is_transpose = False
+
+    def transpose(self) -> MatrixSlicer:
+        """Return a transposed MatrixSlicer.
+
+        A transposed MatrixSlicer will slice the matrix along columns instead of rows.
+        The domain and range indices will refer to columns instead of rows. The range
+        size will be the number of colums in the resulting matrix. The transpose
+        operation has no effect on the slicing of vectors, while, if applied to an
+        AdArray, the an error will be raised, since the Jacobian of an AdArray should be
+        treated in a row-wise manner.
+
+        Returns:
+            A transposed MatrixSlicer.
+
+        """
+        obj = self.copy()
+        obj._is_transpose = not obj._is_transpose
+        return obj
+
+    def __getattr__(self, name: str) -> MatrixSlicer:
+        """Implement the transpose operation as an attribute. This enables the user to
+        write S.T instead of S.transpose().
+        """
+        if name == "T":
+            return self.transpose()
+        raise AttributeError(f"MatrixSlicer has no attribute {name}")
+
+    def copy(self) -> MatrixSlicer:
+        """Create a copy of the MatrixSlicer instance.
+
+        Returns:
+            A new instance of MatrixSlicer with the same domain and range indices,
+            range size, and state of `is_onto` and `is_transpose`.
+
+        """
+        slicer = MatrixSlicer(
+            domain_indices=self._domain_indices,
+            range_indices=self._range_indices,
+            range_size=self._range_size,
+        )
+        slicer._is_onto = self._is_onto
+        slicer._is_transpose = self._is_transpose
+
+        slicer._pending_operation = self._pending_operation
+        slicer._pending_operand = self._pending_operand
+
+        return slicer
+
     def __matmul__(
         self, x: np.ndarray | sps.spmatrix | pp.ad.AdArray
     ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray:
@@ -493,6 +543,12 @@ class MatrixSlicer:
         elif isinstance(x, (sps.spmatrix, sps.sparray)):
             sliced = self._slice_matrix(x)
         elif isinstance(x, pp.ad.AdArray):
+            if self._is_transpose:
+                # I don't think we want to do this.
+                raise ValueError(
+                    "A transposed MatrixSlicer cannot be applied to an AdArray"
+                )
+
             val = self._slice_vector(x.val)
             jac = self._slice_matrix(x.jac)
             sliced = pp.ad.AdArray(val, jac)
@@ -537,7 +593,7 @@ class MatrixSlicer:
             The sliced vector.
 
         """
-        if self.is_onto:
+        if self._is_onto:
             return x[self._domain_indices]
 
         vec = np.zeros(self._range_size)
@@ -554,13 +610,18 @@ class MatrixSlicer:
             The sliced matrix.
 
         """
-
-        # Convert to csr format if not already in csr format.
-        if not isinstance(A, (sps.csr_matrix, sps.csr_array)):
+        if self._is_transpose:
+            A = A.tocsc()
+            container = sps.csc_matrix
+        else:
             A = A.tocsr()
+            container = sps.csr_matrix
 
-        if self.is_onto:
-            return A[self._domain_indices]
+        if self._is_onto:
+            if self._is_transpose:
+                return A[:, self._domain_indices]
+            else:
+                return A[self._domain_indices]
 
         # Data storage for the matrix to be sliced.
         indptr = A.indptr
@@ -607,9 +668,12 @@ class MatrixSlicer:
         new_indices = np.take(A.indices, sub_indices)
         new_num_rows = self._range_size
 
-        return sps.csr_matrix(
-            (new_data, new_indices, new_indptr), shape=(new_num_rows, A.shape[1])
-        )
+        if self._is_transpose:
+            shape = (A.shape[0], self._range_size)
+        else:
+            shape = (new_num_rows, A.shape[1])
+
+        return container((new_data, new_indices, new_indptr), shape=shape)
 
 
 def optimized_compressed_storage(A: sps.spmatrix) -> sps.spmatrix:
