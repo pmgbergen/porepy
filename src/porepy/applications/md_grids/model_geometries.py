@@ -20,6 +20,16 @@ class SquareDomainOrthogonalFractures(pp.ModelGeometry):
 
     """
 
+    def set_geometry(self) -> None:
+        """Included to make mypy happy.
+
+        Mypy complains about :class:`~NonMatchingSquareDomainOrthogonalFractures`
+        calling super() on set_geometry() when its parent (this class) does not have an
+        explicit implementation of set_geometry().
+
+        """
+        super().set_geometry()
+
     @property
     def domain_size(self) -> pp.number:
         """Return the side length of the square domain.
