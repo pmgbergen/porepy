@@ -18,7 +18,9 @@ from porepy.applications.test_utils.arrays import compare_matrices
 @pytest.fixture()
 def A():
     return sps.csr_matrix(
-        np.array([[1, 0, 2, -1], [3, 0, 0, -4], [4, 5, 6, 0], [0, 7, 8, -2]])
+        np.array(
+            [[1, 0, 2, -1], [3, 0, 0, -4], [4, 5, 6, 0], [0, 7, 8, -2], [1, 3, 4, 5]]
+        )
     )
 
 
@@ -105,7 +107,7 @@ def test_csc_slice():
         np.array([2]),
         np.array([0, 1, 3]),
         np.array([1, 1]),
-        np.array([1, 0, 0, 1], dtype=bool),
+        np.array([1, 0, 0, 1, 0], dtype=bool),
     ],
 )
 def test_sliced_matrix(A, column: bool, index: int | np.ndarray):
@@ -119,6 +121,8 @@ def test_sliced_matrix(A, column: bool, index: int | np.ndarray):
     if column:
         # If we slice columns, we need to convert to csc format.
         A = A.tocsc()
+        if isinstance(index, np.ndarray) and index.dtype == bool:
+            index = index[: A.shape[1]]
         A_known = A[:, index].toarray()
     else:
         A_known = A[index].toarray()
@@ -146,7 +150,7 @@ def _get_matrix_slicer_target(mat, mode: Literal["float", "dense", "sparse", "ad
     elif mode == "float":
         return 42.0
     else:
-        vec = np.array([1, 2, 3, 4])
+        vec = np.array([1, 2, 3, 4, 5])
         if mode == "dense":
             # The dense mode uses a vector. In principle, it is possible also to
             # consider 2d numpy arrays, but the MatrixSlicer is not designed to handle
@@ -162,12 +166,14 @@ def _get_matrix_slicer_target(mat, mode: Literal["float", "dense", "sparse", "ad
     "domain_inds, range_inds",
     [
         (np.array([3, 1]), np.array([0, 3])),
+        (np.array([3, 1]), np.array([0, 4])),
         (np.array([2, 3, 0]), np.array([3, 0, 1])),
         (None, np.array([0, 1, 3])),
         (np.array([0, 1, 3]), None),
     ],
 )
 @pytest.mark.parametrize("range_size", [None, 6])
+@pytest.mark.parametrize("domain_size", [None, 6])
 @pytest.mark.parametrize("transpose", [True, False])
 def test_matrix_slicer(
     A,
@@ -175,6 +181,7 @@ def test_matrix_slicer(
     domain_inds: np.ndarray | None,
     range_inds: np.ndarray | None,
     range_size: int,
+    domain_size: int,
     transpose: bool,
 ):
     """Test the matrix slicer.
@@ -189,57 +196,70 @@ def test_matrix_slicer(
 
     """
     target = _get_matrix_slicer_target(A, mode)
-    slicer = matrix_operations.MatrixSlicer(domain_inds, range_inds, range_size)
+    slicer = matrix_operations.MatrixSlicer(
+        domain_inds, range_inds, range_size, domain_size
+    )
 
     if transpose:
+        # First transpose the slicer.
         slicer = slicer.T
-
-    if range_size is not None:
-        # If the range size is given, the number of rows is known.
-        num_rows = range_size
-    elif range_inds is not None:
-        # If no range size is given but range indices are, the output number of columns
-        # is the maximum index.
-        num_rows = range_inds.max() + 1
+        # Now, the number of rows in the resulting matrix is determined from domain
+        # information, since the slicer is transposed.
+        if domain_size is not None:
+            # If the domain size is given, the number of rows is given by this.
+            num_rows = domain_size
+        elif domain_inds is not None:
+            # If no domain size is given but domain indices are, the output number of
+            # rows is the maximum index + 1 (because indices are 0-offset).
+            num_rows = domain_inds.max() + 1
+        else:
+            # If no domain size or indices are given, the output number of rows is the
+            # number of range indices.
+            num_rows = range_inds.size
     else:
-        # If no range size or indices are given, the output number of columns is the
-        # number of domain indices.
-        num_rows = domain_inds.size
+        # Get the number of output rows from the range information. The logic is the
+        # same as for the transpose case.
+        if range_size is not None:
+            num_rows = range_size
+        elif range_inds is not None:
+            num_rows = range_inds.max() + 1
+        else:
+            num_rows = domain_inds.size
 
     if range_inds is None:
         range_inds = np.arange(domain_inds.size)
     if domain_inds is None:
         domain_inds = np.arange(range_inds.size)
 
-    if transpose and mode == "ad":
-        # Column-wise slicing is not supported for AdArray. This should raise an error.
-        with pytest.raises(ValueError):
-            result = slicer @ target
-        return
-    else:
-        # Slice the target.
-        result = slicer @ target
+    result = slicer @ target
 
     if mode == "dense":
         # No special handling of transpose for vectors.
         A_known = np.zeros(num_rows)
-        A_known[range_inds] = target[domain_inds]
+        if transpose:
+            A_known[domain_inds] = target[range_inds]
+        else:
+            A_known[range_inds] = target[domain_inds]
         assert np.allclose(result, A_known)
     elif mode == "sparse":
+        A_known = np.zeros((num_rows, target.shape[1]))
         if transpose:
-            A_known = np.zeros((target.shape[0], num_rows))
-            A_known[:, range_inds] = target.toarray()[:, domain_inds]
+            A_known[domain_inds] = target.toarray()[range_inds]
         else:
-            A_known = np.zeros((num_rows, target.shape[1]))
             A_known[range_inds] = target.toarray()[domain_inds]
-
         assert np.allclose(result.toarray(), A_known)
     else:
         val_known = np.zeros(num_rows)
-        val_known[range_inds] = target.val[domain_inds]
+        if transpose:
+            val_known[domain_inds] = target.val[range_inds]
+        else:
+            val_known[range_inds] = target.val[domain_inds]
         assert np.allclose(result.val, val_known)
         jac_known = np.zeros((num_rows, target.jac.shape[1]))
-        jac_known[range_inds] = target.jac.toarray()[domain_inds]
+        if transpose:
+            jac_known[domain_inds] = target.jac.toarray()[range_inds]
+        else:
+            jac_known[range_inds] = target.jac.toarray()[domain_inds]
         assert np.allclose(result.jac.toarray(), jac_known)
 
 
