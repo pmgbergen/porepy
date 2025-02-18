@@ -485,7 +485,7 @@ class MatrixSlicer:
         self._pending_operation = None
         self._pending_operand = None
 
-        self._is_transpose = False
+        self._is_transposed = False
 
     def transpose(self) -> MatrixSlicer:
         """Return a transposed MatrixSlicer.
@@ -502,7 +502,7 @@ class MatrixSlicer:
 
         """
         obj = self.copy()
-        obj._is_transpose = not obj._is_transpose
+        obj._is_transposed = not obj._is_transposed
         return obj
 
     def __getattr__(self, name: str) -> MatrixSlicer:
@@ -527,7 +527,7 @@ class MatrixSlicer:
             range_size=self._range_size,
         )
         slicer._is_onto = self._is_onto
-        slicer._is_transpose = self._is_transpose
+        slicer._is_transposed = self._is_transposed
 
         slicer._pending_operation = self._pending_operation
         slicer._pending_operand = self._pending_operand
@@ -543,7 +543,7 @@ class MatrixSlicer:
         elif isinstance(x, (sps.spmatrix, sps.sparray)):
             sliced = self._slice_matrix(x)
         elif isinstance(x, pp.ad.AdArray):
-            if self._is_transpose:
+            if self._is_transposed:
                 # I don't think we want to do this.
                 raise ValueError(
                     "A transposed MatrixSlicer cannot be applied to an AdArray"
@@ -610,7 +610,7 @@ class MatrixSlicer:
             The sliced matrix.
 
         """
-        if self._is_transpose:
+        if self._is_transposed:
             A = A.tocsc()
             container = sps.csc_matrix
         else:
@@ -618,7 +618,7 @@ class MatrixSlicer:
             container = sps.csr_matrix
 
         if self._is_onto:
-            if self._is_transpose:
+            if self._is_transposed:
                 return A[:, self._domain_indices]
             else:
                 return A[self._domain_indices]
@@ -668,7 +668,7 @@ class MatrixSlicer:
         new_indices = np.take(A.indices, sub_indices)
         new_num_rows = self._range_size
 
-        if self._is_transpose:
+        if self._is_transposed:
             shape = (A.shape[0], self._range_size)
         else:
             shape = (new_num_rows, A.shape[1])
