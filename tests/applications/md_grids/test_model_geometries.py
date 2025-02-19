@@ -49,7 +49,7 @@ def test_nonmatching_grid_generation(
         expected_fracture_cell_num: The expected number of fracture cells after
             refinement by the ratio(s) found in `fracture_refinement_ratios`.
         expected_interface_cell_num: The expected number of interface cells
-            refinement by the ratio found in `interface_refinement_ratios`.
+            refinement by the ratio found in `interface_refinement_ratio`.
 
     """
     params = {
