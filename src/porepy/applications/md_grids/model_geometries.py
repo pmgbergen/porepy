@@ -187,6 +187,7 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         # First set the geometry and create a matching mixed-dimensional grid.
         assert isinstance(self, pp.ModelGeometry)
         super().set_geometry()  # type:ignore[safe-super]
+        self.mdg = pp.mdg_library.square_with_orthogonal_fractures(????, non_matching=True)
 
         # Refine and replace fracture grids. First we fetch the old fracture grids:
         old_fracture_grids = self.mdg.subdomains(dim=1)

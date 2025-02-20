@@ -7,13 +7,15 @@ Mainly for use in tests. Other usage should be covered by the model_geometries.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Optional, cast
+from typing import Literal, Optional, cast, Union
 
 import numpy as np
 
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
+from porepy.grids import mortar_grid
+
 
 from . import domains, fracture_sets
 
@@ -24,6 +26,7 @@ def square_with_orthogonal_fractures(
     fracture_indices: list[int],
     fracture_endpoints: Optional[list[np.ndarray]] = None,
     size: pp.number = 1,
+    non_matching: bool = False,
     **meshing_kwargs,
 ) -> tuple[pp.MixedDimensionalGrid, FractureNetwork2d]:
     """Create a mixed-dimensional grid for a square domain with up to two orthogonal
@@ -70,6 +73,84 @@ def square_with_orthogonal_fractures(
         FractureNetwork2d, pp.create_fracture_network(fractures, domain)
     )
     mdg = pp.create_mdg(grid_type, meshing_args, fracture_network, **meshing_kwargs)
+
+    if non_matching:
+        old_fracture_grids = mdg.subdomains(dim=1)
+        fracture_refinement_ratio = meshing_kwargs.get(
+            "fracture_refinement_ratio", 2 * np.ones(len(old_fracture_grids))
+        )
+        if isinstance(fracture_refinement_ratio, (float, int)):
+            fracture_refinement_ratio = (
+                np.ones(len(old_fracture_grids)) * fracture_refinement_ratio
+            )
+        interface_refinement_ratio = meshing_kwargs.get(
+            "interface_refinement_ratio", 2 * np.ones(len(mdg.interfaces(dim=1)))
+        )
+        if isinstance(interface_refinement_ratio, (float, int)):
+            interface_refinement_ratio = (
+                np.ones(len(mdg.interfaces(dim=1))) * interface_refinement_ratio
+            )
+
+        if grid_type == "simplex":
+            meshing_args["mesh_size_frac"] = (
+                meshing_args["mesh_size_frac"] / fracture_refinement_ratio
+                # fracture_refinement_ratio ought to be a scalar here.
+            )
+            # The interface mesh size is set to the same as the fracture mesh size with
+            # a simplex grid.
+        elif grid_type == "cartesian":
+            for key in ["cell_size", "cell_size_x", "cell_size_y"]:
+                if key in meshing_args:
+                    meshing_args[key] = meshing_args[key] / interface_refinement_ratio
+        elif grid_type == "tensor_grid":
+            raise NotImplementedError("Tensor grid not implemented yet.")
+
+        # Refine the fracture grids
+        new_fracture_grids = [
+            pp.refinement.refine_grid_1d(g=old_grid, ratio=ratio)
+            for old_grid, ratio in zip(old_fracture_grids, fracture_refinement_ratio)
+        ]
+        # Create a mapping between the old and new fracture grids.
+        grid_map = dict(zip(old_fracture_grids, new_fracture_grids))
+
+        # Refine the interface grids
+        mdg_new = square_with_orthogonal_fractures(
+            grid_type,
+            meshing_args,
+            fracture_indices,
+            fracture_endpoints,
+            size,
+            non_matching=False,
+        )
+        intf_map = {}
+        for intf in mdg_new.interfaces(dim=1):
+            # Then, for each interface, we fetch the secondary grid which belongs to it.
+            _, g_sec = mdg_new.interface_to_subdomain_pair(intf)
+
+            # We then loop through all the interfaces in the original grid (recipient).
+            for intf_coarse in mdg.interfaces(dim=1):
+                # Fetch the secondary grid of the interface in the original grid.
+                _, g_sec_coarse = mdg.interface_to_subdomain_pair(intf_coarse)
+
+                # Checking the fracture number of the secondary grid in the recipient
+                # mdg. If they are the same, i.e., if the fractures are the same ones,
+                # we update the interface map.
+                if g_sec_coarse.frac_num == g_sec.frac_num:
+                    intf_map.update({intf_coarse: intf})
+
+        # Finally replace the subdomains and interfaces in the original
+        # mixed-dimensional grid.
+        mdg.replace_subdomains_and_interfaces(
+            sd_map=grid_map,
+            intf_map=cast(
+                dict[
+                    pp.MortarGrid,
+                    Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
+                ],
+                intf_map,
+            ),
+        )
+
     return mdg, fracture_network
 
 
