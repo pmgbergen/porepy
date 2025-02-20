@@ -31,6 +31,8 @@ __all__ = [
     "Scalar",
     "Variable",
     "MixedDimensionalVariable",
+    "Projection",
+    "ProjectionList",
     "sum_operator_list",
 ]
 
@@ -1887,6 +1889,136 @@ class MixedDimensionalVariable(Variable):
         op = super().previous_iteration(steps=steps)
         op.sub_vars = [var.previous_iteration(steps=steps) for var in self.sub_vars]
         return op
+
+
+class Projection(Operator):
+    """Wrapper class for Ad representations of projection operators."""
+
+    def __init__(
+        self,
+        domain_indices: np.ndarray,
+        range_indices: np.ndarray,
+        domain_size: int,
+        range_size: int,
+        name: Optional[str] = None,
+    ):
+        """Construct a projection operator.
+
+        Parameters:
+            domain_indices: Indices of the domain space.
+            range_indices: Indices of the range space.
+            domain_size: Size of the domain space.
+            range_size: Size of the range space.
+            name: Name of the operator. Default is None.
+
+        """
+        self._slicer = pp.matrix_operations.MatrixSlicer(
+            domain_indices=domain_indices,
+            range_indices=range_indices,
+            range_size=range_size,
+            domain_size=domain_size,
+        )
+        super().__init__(name=name)
+
+    def transpose(self) -> None:
+        """Return the transpose of the operator."""
+
+        return Projection(
+            domain_indices=self._slicer._range_indices,
+            range_indices=self._slicer._domain_indices,
+            range_size=self._slicer._domain_size,
+            domain_size=self._slicer._range_size,
+            name=self.name,
+        )
+
+    def __repr__(self) -> str:
+        s = "Projcetion operator"
+        if self._name is not None and len(self._name) > 0:
+            s += f" named {self._name}"
+        s += ".\n"
+        s += f"The projection maps from {self._slicer._domain_size} to "
+        s += f"{self._slicer._range_indices.size} dimensions.\n"
+        s += f"The projection maps {self._slicer._domain_indices.size} elements.\n"
+        if self._slicer._is_transposed:
+            s += "The operator is transposed."
+        return s
+
+    def _key(self) -> str:
+        if self._cached_key is None:
+            s = f"(prolongation, range_indices={self._slicer._range_indices})"
+            s += f", domain_size={self._slicer._domain_indices}"
+            s += f", range_size={self._slicer._range_size}"
+            if self._slicer._is_transposed:
+                s += ", transposed"
+            self._cached_key = s
+        return self._cached_key
+
+    def __getattr__(self, name: str) -> Projection:
+        if name == "T":
+            return self.transpose()
+        else:
+            raise AttributeError(f"Prolongation has no attribute {name}")
+
+    def is_transposed(self) -> bool:
+        return self._slicer._is_transposed
+
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> pp.matrix_operations.MatrixSlicer:
+        """Convert the Ad expression into a projection operator.
+
+        Parameters:
+            mdg: Not used, but needed for compatibility with the general parsing method
+                for Operators.
+
+        Returns:
+            Projection operator.
+
+        """
+        return self._slicer
+
+
+class ProjectionList(Operator):
+    """Wrapper class for a list of projection operators that are to be summed.
+
+    Objects of this class will usually be created by invoking the method
+    `pp.ad.sum_projection_list`. Though it is possible to create ProjectionList objects
+    directly, *this is not recommended*. Should you choose to do so, be very careful
+    with the input, and verify that the AdParser treats the object correctly.
+
+    Motivation:
+        The MatrixSlicer objects that underly the Projection objects cannot be combined
+        into a single object, the way one can combine projections represented as sparse
+        matrices. Thus, expressions of the type ``(P1 + P2) @ x``, where P1 and P2 are
+        projections are not directly permissible. Still, it is useful to be allowed to
+        combine projections this way.
+
+        The ProjectionList, together with its treatment in the AdParser's
+        _evaluate_single() method, offers a workaround that allows for summing (but
+        *only* summing) projection operators in the manner described in the previous
+        paragraph.
+
+    """
+
+    def __init__(self, operators: list[Projection], name: Optional[str] = None):
+        super().__init__(name=name, children=operators)
+
+    def _key(self) -> str:
+        if self._cached_key is None:
+            self._cached_key = f"(slicing_operator_list, operators={self.children})"
+        return self._cached_key
+
+    def __repr__(self) -> str:
+        return f"Slicing operator list with {len(self.children)} operators."
+
+    def parse(
+        self, mdg: pp.MixedDimensionalGrid
+    ) -> list[pp.matrix_operations.MatrixSlicer]:
+        """Parse the list items."""
+        return [op.parse(mdg) for op in self.children]
+
+    def __getitem__(self, key: int) -> Projection:
+        """Enable indexing of the list. This is not needed in operational mode, but is
+        useful for testing and development."""
+        return self.children[key]
 
 
 @overload
