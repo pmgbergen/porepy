@@ -335,7 +335,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # but the row corresponding to each cell will be non-zero in all rows
         # corresponding to the tangential basis vectors of this cell. EK: mypy insists
         # that the argument to sum should be a list of booleans. Ignore this error.
-        scalar_to_tangential = pp.ad.sum_operator_list(
+        scalar_to_tangential = pp.ad.sum_projection_list(
             [e_i for e_i in tangential_basis]
         )
 
@@ -356,26 +356,23 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
         # The numerical constant is used to loosen the sensitivity in the transition
-        # between sticking and sliding.
-        # Expanding using only left multiplication to with scalar_to_tangential does not
-        # work for an array, unlike the operators below. Arrays need right
-        # multiplication as well.
+        # between sticking and sliding. Expanding using only left multiplication to with
+        # scalar_to_tangential does not work for an array, unlike the operators below.
+        # Arrays need right multiplication as well.
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
 
         # The numerical parameter is a cell-wise scalar which must be extended to a
         # vector quantity to be used in the equation (multiplied from the right).
         # Spelled out, from the right: Restrict the vector quantity to one dimension in
         # the tangential plane (e_i.T), multiply with the numerical parameter, prolong
-        # to the full vector quantity (e_i), and sum over all all directions in the
+        # to the full vector quantity (e_i), and sum over all directions in the
         # tangential plane. EK: mypy insists that the argument to sum should be a list
         # of booleans. Ignore this error.
-        c_num = pp.ad.sum_operator_list(
-            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
-        )
+        basis_sum = pp.ad.sum_projection_list([e_i @ e_i.T for e_i in tangential_basis])
 
         # Combine the above into expressions that enter the equation. c_num will
-        # effectively be a sum of SparseArrays, thus we use a matrix-vector product @
-        tangential_sum = t_t + c_num @ u_t_increment
+        # effectively be a sum of SparseArrays, thus we use a matrix-vector product @.
+        tangential_sum = t_t + c_num_as_scalar * (basis_sum @ u_t_increment)
 
         norm_tangential_sum = f_norm(tangential_sum)
         norm_tangential_sum.set_name("norm_tangential")
@@ -727,7 +724,7 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         # the total number of cells in the subdomain. The sum will have the same shape,
         # but the row corresponding to each cell will be non-zero in all rows
         # corresponding to the tangential basis vectors of this cell.
-        scalar_to_tangential = pp.ad.sum_operator_list(
+        scalar_to_tangential = pp.ad.sum_projection_list(
             [e_i for e_i in tangential_basis]
         )
 
