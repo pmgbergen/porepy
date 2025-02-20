@@ -631,4 +631,19 @@ class MergedOperator(operators.Operator):
 
         else:
             # This is a standard discretization; wrap it in a diagonal sparse matrix.
-            return sps.block_diag(mat, format="csr")
+
+            if all([m.format == "dia" for m in mat]):
+                # If all matrices are of dia-format, we can try to use a special method
+                # for forming a sparse dia matrix from the blocks. This is more
+                # efficient than the below csr-based method. However, the matrices can
+                # only be nonzero along their main diagonal. This condition does not
+                # hold true for all dia-matrices, so there is a chance a ValueError may
+                # be raised. If so, we let it pass and fall back to the csr-based
+                # method.
+                try:
+                    return pp.matrix_operations.sparse_dia_from_sparse_blocks(mat)
+                except ValueError:
+                    # Use the csr-based method below.
+                    pass
+
+            return pp.matrix_operations.csr_matrix_from_sparse_blocks(mat)
