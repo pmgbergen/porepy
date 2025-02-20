@@ -345,7 +345,7 @@ class ManuSneddonBoundaryConditions(pp.PorePyModel):
         # Set the type of west and east boundaries to Dirichlet. North and south are
         # Neumann by default.
         bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "dir")
-        bc.internal_to_dirichlet()
+        bc.internal_to_dirichlet(sd)
 
         return bc
 

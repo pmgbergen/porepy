@@ -57,13 +57,10 @@ def actual_ooc() -> dict:
         model_params=copy.deepcopy(params),
         levels=2,
         spatial_refinement_rate=2,
-        temporal_refinement_rate=1,
     )
 
     # Calculate and return the order of convergence for the displacement
-    order_dict = conv_analysis.order_of_convergence(
-        conv_analysis.run_analysis(), data_range=slice(None, None, None)
-    )
+    order_dict = conv_analysis.order_of_convergence(conv_analysis.run_analysis())
     return order_dict
 
 
