@@ -1,6 +1,7 @@
 import copy
 import math
 
+import numpy as np
 import pytest
 
 import porepy as pp
@@ -49,6 +50,8 @@ def actual_ooc() -> dict:
         "grid_type": "simplex",
         "theta_rad": theta_rad,
         "num_bem_segments": 1000,
+        # Truncate results from the cells closer than 10% to the fracture tips.
+        "error_exclusion_zone_fracture_tips": 0.1,
     }
 
     # Convergence analysis setup
@@ -66,5 +69,9 @@ def actual_ooc() -> dict:
 
 def test_order_of_convergence(actual_ooc: dict) -> None:
     """Test observed order of convergence."""
-    # We  the order of L2 convergence on the fracture of displacement to be about 1.0
-    assert 0.85 < actual_ooc["ooc_displacement"]
+    # The `error_exclusion_zone_fracture_tips`` is set to 10% to balance the observation
+    # of boundary effects and good convergence. This test evaluates changes in fracture
+    # tip treatment and the inner domain. Raising the threshold to 15% yielded a
+    # convergence order of ~2. Decreasing the threshold to 0% yielded a convergence
+    # order of ~0.85.
+    assert np.isclose(1.66752, actual_ooc["ooc_displacement"])

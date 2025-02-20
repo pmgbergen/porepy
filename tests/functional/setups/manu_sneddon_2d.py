@@ -58,9 +58,7 @@ class SneddonExactSolution2d:
         )
         return u_bc
 
-    def exact_sol_fracture(
-        self, mdg: pp.MixedDimensionalGrid
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def exact_sol_fracture(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
         """Compute Sneddon's analytical solution for the pressurized crack
         problem in question.
 
@@ -68,9 +66,7 @@ class SneddonExactSolution2d:
             mdg: Mixed-dimensional domain of the setup.
 
         Return:
-            A 2-tuple of numpy arrays, where the first vector contains the distances
-            between fracture center to each fracture coordinate, and the second vector
-            the respective analytical apertures.
+            A numpy array with the analytical apertures.
 
         """
 
@@ -83,7 +79,7 @@ class SneddonExactSolution2d:
         eta = point_pointset(fracture_faces, fracture_center)
         apertures = self.analytical_displacements(eta)
 
-        return eta, apertures
+        return apertures
 
     def get_bem_centers(self, h: float, center: np.ndarray) -> np.ndarray:
         """Compute coordinates of the centers of the BEM segments.
@@ -359,13 +355,21 @@ class ManuSneddonDataSaving(pp.PorePyModel):
         frac_sd = self.mdg.subdomains(dim=self.nd - 1)
         nd_vec_to_normal = self.normal_component(frac_sd)
 
-        # Computing the numerical displacement jump along the fracture on the fracture
+        # Computing the numerical displacement jump along the fracture on the fracture.
         # cell centers.
-        u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(frac_sd)
-        u_n = u_n.value(self.equation_system)
+        u_n = (nd_vec_to_normal @ self.displacement_jump(frac_sd)).value(
+            self.equation_system
+        )
 
-        # Checking convergence specifically on the fracture
-        u_a = self.exact_sol.exact_sol_fracture(self.mdg)[1]
+        # Checking convergence specifically on the fracture.
+        u_a = self.exact_sol.exact_sol_fracture(self.mdg)
+
+        # Truncate the solution at the fracture cells close to the boundary.
+        # How close is determined by the parameter eps (percent).
+        eps = self.params["error_exclusion_zone_fracture_tips"]
+        close_to_fracture_tips = self._index_fracture_cells_close_to_fracture_tips(eps)
+        u_a[close_to_fracture_tips] = 0
+        u_n[close_to_fracture_tips] = 0
 
         e = ConvergenceAnalysis.lp_error(
             frac_sd[0], u_a, u_n, is_scalar=False, is_cc=True, relative=True
@@ -373,6 +377,36 @@ class ManuSneddonDataSaving(pp.PorePyModel):
 
         collect_data = ManuSneddonSaveData(error_displacement=e)
         return collect_data
+
+    def _index_fracture_cells_close_to_fracture_tips(self, eps: float) -> np.ndarray:
+        """Compute the boolean mask array with `True` values for the fracture cells
+        close to the fracture tips.
+
+        Parameters:
+            eps: The relative threshold to determine how close the fracture cells
+                are to the fracture tips to be truncated, must be in `[0, 1]`.
+
+        Returns:
+            A boolean array of shape `(num_fracture_cells,)`.
+
+        """
+        frac_sd = self.mdg.subdomains(dim=self.nd - 1)
+        assert len(frac_sd) == 1, "Must be only one fracture."
+
+        # Find the domain center.
+        xmax, xmin = self.domain.bounding_box["xmax"], self.domain.bounding_box["xmin"]
+        ymax, ymin = self.domain.bounding_box["ymax"], self.domain.bounding_box["ymin"]
+        xmean = (xmax - xmin) * 0.5
+        ymean = (ymax - ymin) * 0.5
+
+        # Compute distance from the domain center.
+        x, y, _ = frac_sd[0].cell_centers
+        distance_from_center = np.sqrt((x - xmean) ** 2 + (y - ymean) ** 2)
+
+        # Compute the percentage of how close the cells are to the fracture tips.
+        a = self.exact_sol.a  # Fracture half-length.
+        relative_distance_from_center = (a - distance_from_center) / a
+        return relative_distance_from_center < eps
 
 
 class ManuSneddonConstitutiveLaws(pp.constitutive_laws.PressureStress):
