@@ -15,12 +15,13 @@ References:
 
 """
 
+from typing import Literal
+
 import numpy as np
 
 import porepy as pp
 from porepy.examples.flow_benchmark_2d_case_1 import FractureSolidConstants
 from porepy.models.constitutive_laws import DimensionDependentPermeability
-from porepy.models.protocol import PorePyModel
 
 solid_constants = FractureSolidConstants(
     residual_aperture=1e-2,  # m
@@ -30,20 +31,57 @@ solid_constants = FractureSolidConstants(
 )
 
 
-class Geometry(PorePyModel):
+class Geometry(pp.PorePyModel):
     """Geometry specification."""
 
     def set_fractures(self) -> None:
         """Setting a fracture list from the fracture set library."""
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_4()
 
-    @property
-    def domain(self) -> pp.Domain:
+    def set_domain(self) -> None:
         """Domain of the problem."""
-        return pp.Domain({"xmax": 700, "ymax": 600})
+        x_extent = self.units.convert_units(700, "m")
+        y_extent = self.units.convert_units(600, "m")
+        self._domain = pp.Domain(
+            {"xmin": 0, "xmax": x_extent, "ymin": 0, "ymax": y_extent}
+        )
+
+    def grid_type(self) -> Literal["simplex"]:
+        """Set a simplex grid, which is the only grid type that can represent this
+        fracture geometry.
+
+        Returns:
+            str: Grid type.
+
+        """
+        return "simplex"
+
+    def meshing_arguments(self) -> dict[str, float]:
+        """Meshing arguments for mixed-dimensional grid generation.
+
+        Set a default cell size of 10 m. This will give a grid of about 23K cells in the
+        2d domain.
+
+        Note that due to complexities of this fracture network, it is not possible to
+        get Gmsh to create a grid with less than about 12K cells in the 2d domain. This
+        can be achieved by setting the cell size to 30 m (possibly also lower). Coarser
+        grids may be possible, but this will require interaction with Gmsh on a more
+        detailed lever than what is available through PorePy.
+
+        Returns:
+            Meshing arguments compatible with
+            :meth:`~porepy.grids.mdg_generation.create_mdg`.
+
+        """
+        # Default value of 10, scaled by the length unit.
+        cell_size = self.units.convert_units(10, "m")
+        default_meshing_args: dict[str, float] = {"cell_size": cell_size}
+        # If meshing arguments are provided in the params, they should already be scaled
+        # by the length unit.
+        return self.params.get("meshing_arguments", default_meshing_args)
 
 
-class BoundaryConditions(PorePyModel):
+class BoundaryConditions(pp.PorePyModel):
     """Boundary conditions for Case 4 of the 2D flow benchmark.
 
     Inflow on west (left) and prescribed pressure on east (right).
@@ -114,6 +152,6 @@ class FlowBenchmark2dCase4Model(  # type: ignore[misc]
     Geometry,
     BoundaryConditions,
     Permeability,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Mixer class for case 4 from the 2d flow benchmark."""

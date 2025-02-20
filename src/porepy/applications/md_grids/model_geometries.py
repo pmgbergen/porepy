@@ -11,7 +11,7 @@ from porepy.grids.mdg_generation import _preprocess_cartesian_args
 from . import domains, fracture_sets
 
 
-class SquareDomainOrthogonalFractures(pp.ModelGeometry):
+class SquareDomainOrthogonalFractures(pp.PorePyModel):
     """Create a mixed-dimensional grid for a square domain with up to two
     orthogonal fractures.
 
@@ -66,7 +66,7 @@ class SquareDomainOrthogonalFractures(pp.ModelGeometry):
         self._domain = domains.nd_cube_domain(2, self.domain_size)
 
 
-class CubeDomainOrthogonalFractures(pp.ModelGeometry):
+class CubeDomainOrthogonalFractures(pp.PorePyModel):
     """Create a mixed-dimensional grid for a cube domain with up to three
     orthogonal fractures.
 
@@ -92,7 +92,7 @@ class CubeDomainOrthogonalFractures(pp.ModelGeometry):
         self._domain = domains.nd_cube_domain(3, self.domain_size)
 
 
-class RectangularDomainThreeFractures(pp.ModelGeometry):
+class RectangularDomainThreeFractures(pp.PorePyModel):
     """A rectangular domain with up to three fractures.
 
     The domain is `[0, 2] x [0, 1]`.

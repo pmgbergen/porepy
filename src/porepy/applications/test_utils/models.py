@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import numpy as np
 
@@ -72,9 +72,7 @@ class Thermoporomechanics(  # type: ignore[misc]
     """Combine components needed for poromechanics simulation."""
 
 
-def model(
-    model_type: str, dim: int, num_fracs: int = 1
-) -> MassBalance | MomentumBalance | MassAndEnergyBalance | Poromechanics:
+def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
     """Setup for tests."""
     # Suppress output for tests
     fracture_indices = [i for i in range(num_fracs)]
@@ -114,7 +112,7 @@ def model(
         pass
 
     # Create an instance of the combined class
-    model = Model(params)
+    model = cast(pp.PorePyModel, Model(params))
 
     # Prepare the simulation
     # (create grids, variables, equations, discretize, etc.)
@@ -122,15 +120,9 @@ def model(
     return model
 
 
-class RobinDirichletNeumannConditions:
+class RobinDirichletNeumannConditions(pp.PorePyModel):
     """Mixin for applying Neumann, Dirichlet and Robin conditions for a
     thermoporomechanics model."""
-
-    params: dict
-
-    domain_boundary_sides: Callable[[pp.GridLike], pp.domain.DomainSides]
-
-    nd: int
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         """Assigns pressure values on the north and south boundary."""
@@ -259,7 +251,7 @@ def subdomains_or_interfaces_from_method_name(
     return domains
 
 
-def _add_mixin(mixin, parent):
+def _add_mixin(mixin: type, parent: type) -> type:
     """Helper method to dynamically construct a class by adding a mixin.
 
     Multiple mixins can be added by nested calls to this method.
@@ -347,7 +339,7 @@ def compare_scaled_model_quantities(
                 setup.mdg, method, domain_dimension=dim
             )
             # Convert back to SI units.
-            value = method(domains).value(setup.equation_system)
+            value = setup.equation_system.evaluate(method(domains))
             values.append(setup.units.convert_units(value, method_unit, to_si=True))
         compare_values(values[0], values[1], cell_wise=cell_wise)
 
@@ -378,7 +370,7 @@ def compare_values(
         assert np.isclose(np.sum(values_0 - values_1), 0, atol=1e-10 + rtol)
 
 
-def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
+def get_model_methods_returning_ad_operator(model_setup: pp.PorePyModel) -> list[str]:
     """Get all possible testable methods to be used in test_ad_operator_methods_xx.
 
     A testable method is one that:

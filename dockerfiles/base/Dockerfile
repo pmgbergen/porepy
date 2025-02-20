@@ -6,7 +6,7 @@
 
 # Base the Docker image on the official Python image.
 # For more information, please refer to https://aka.ms/vscode-docker-python
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 
 # Keeps Python from generating .pyc files in the container
@@ -35,12 +35,18 @@ RUN git clone https://github.com/pmgbergen/porepy.git ${POREPY_HOME}
 # Move to PorePy sub-directory
 WORKDIR ${POREPY_HOME}
 
+# Fetch the dependencies from the pyproject.toml file, including testing and development, and install them.
+RUN pip install -e .[testing,development]
+
 # Install pypardiso. This will also install mkl and some other packages, all of which
 # are useful for achieving good performance.
 RUN pip install pypardiso
 
-# Install dependencies
-RUN pip install -r ./requirements.txt
+# Run a pip freeze to know what been installed.
+RUN pip freeze
+
+# Add PorePy home to the pythonpath. This may or may not be necessary.
+ENV PYTHONPATH $POREPY_HOME:$PYTHONPATH
 
 # Move back to code directory
 WORKDIR ${HOME}

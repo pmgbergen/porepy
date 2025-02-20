@@ -21,17 +21,17 @@ jobs:
     # https://help.github.com/en/actions/language-and-framework-guides/using-python-with-github-actions#specifying-a-python-version
     strategy:
       matrix:
-        python-version:  ["3.12"]  # run only the last python version
+        python-version:  ["3.13"]  # run only the last python version
       # Complete all versions in matrix even if one fails.
       fail-fast: false
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Setup Python ${{ matrix.python-version}}
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v5
       with:
         # Version range or exact version of a Python version to use, using SemVer's version range syntax.
         python-version: ${{ matrix.python-version}}
@@ -41,14 +41,11 @@ jobs:
     # Cache pip dependencies
     # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
     - name: Cache dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       id: cache
       with:
-        # Cache the full python environment, this is more efficient than just caching pip
-        # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
         path: ${{ env.pythonLocation }}
-        # Hash requirements.
-        key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('**/requirements.txt') }}
+        key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
 
     - name: Install external libraries
       run: |
@@ -56,29 +53,18 @@ jobs:
         sudo apt-get install libglu1-mesa libgeos-dev libffi-dev
         export LD_LIBRARY_PATH=/usr/local/lib64/:$LD_LIBRARY_PATH
 
-    - name: Install requirements
+    # Install the requirements, including the extras needed for testing, and PorePy
+    # itself.
+    - name: Install requirements and PorePy
       run: |
         pip install -U pip
-        # Install requirements, using eager updates to avoid stalled dependencies due to caching
-        # https://blog.allenai.org/python-caching-in-github-actions-e9452698e98d
-        pip install --upgrade --upgrade-strategy eager -r requirements.txt
+        pip install .[testing]
+        pip freeze
 
     - name: Install pypardiso
       run: |
         pip install pypardiso
 
-    - name: Install jupyter
-      run: |
-        pip install jupyter 
-
-    - name: Install PorePy
-      run: |
-        pip install .
-        pip freeze       
-
     - name: all tests
       if: ${{always()}}
       run: pytest --run-skipped -m "not tutorials"
-
-
-

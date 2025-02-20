@@ -76,6 +76,7 @@ def model_setup():
         "fracture_indices": [0, 1],
         "grid_type": "cartesian",
         "meshing_arguments": {"cell_size_x": 0.5, "cell_size_y": 0.5},
+        "times_to_export": [],
     }
 
     # Instantiate the model setup
@@ -182,7 +183,48 @@ def test_tested_vs_testable_methods_single_phase_flow(
 @pytest.mark.parametrize(
     "method_name, expected_value, dimension_restriction",
     [
+        # Combination of mobility and fluid density = rho/mu
+        # = rho_ref * exp(c_f * (p - p_ref)) / mu = 1000 * exp(4e-10 * 2e7) /  0.001
+        (
+            "advection_weight_mass_balance",
+            water_values["density"]
+            * np.exp(water_values["compressibility"] * 200 * pp.BAR)
+            / water_values["viscosity"],
+            None,
+        ),
         ("aperture", np.array([1, 1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3]), None),
+        (
+            'boundary_fluid_flux',
+            np.array(
+                [
+                    996207.58483034,
+                    0.,
+                    996207.58483034,
+                    996207.58483034,
+                    0.,
+                    996207.58483034,
+                    996207.58483034,
+                    996207.58483034,
+                    0.,
+                    0.,
+                    996207.58483034,
+                    996207.58483034,
+                    0.,
+                    0.,
+                    0.,
+                    0.,
+                    996207.58483034,
+                    0.,
+                    996207.58483034,
+                    0.,
+                    996207.58483034,
+                    0.,
+                    996207.58483034,
+                    0.
+                ]
+            ),
+            None
+        ),
         ("combine_boundary_operators_darcy_flux", np.zeros(24), None),
         # Darcy flux.
         (
@@ -315,17 +357,6 @@ def test_tested_vs_testable_methods_single_phase_flow(
             ),
             None,
         ),
-        # Mobility = 1 / mu
-        ("mobility", 1.0 / (water_values["viscosity"]), None),
-        # Combination of mobility and fluid density = rho / mu
-        # Mobility_rho = rho_ref * exp(c_f * (p - p_ref)) / mu
-        (
-            "mobility_rho",
-            water_values["density"]
-            * np.exp(water_values["compressibility"] * 200 * pp.BAR)
-            / water_values["viscosity"],
-            None,
-        ),
         ("normal_permeability", granite_values["normal_permeability"], None),
         ("permeability", granite_values["permeability"], None),
         ("porosity", granite_values["porosity"], None),
@@ -371,6 +402,14 @@ def test_tested_vs_testable_methods_single_phase_flow(
         # ("reference_pressure", 0, None),
         ("skin_factor", granite_values["skin_factor"], None),
         ("tangential_component", np.array([[1.0, 0.0]]), 0),  # Check only for 0d.
+        # Same as advection weight in 1-phase, 1-component cast
+        (
+            "total_mass_mobility",
+            water_values["density"]
+            * np.exp(water_values["compressibility"] * 200 * pp.BAR)
+            / water_values["viscosity"],
+            None,
+        ),
         ("well_fluid_flux", 0, 2),  # Use dim_restriction=2 to ignore well flux.
         ("well_flux_equation", 0, 2),  # Use dim_restriction=2 to ignore well equation.
         ("well_radius", granite_values["well_radius"], None),
@@ -449,7 +488,7 @@ def test_ad_operator_methods_single_phase_flow(
 
     # Discretize (if necessary), evaluate, and retrieve numerical values.
     operator.discretize(model_setup.mdg)
-    val = operator.value(model_setup.equation_system)
+    val = model_setup.equation_system.evaluate(operator)
 
     if isinstance(val, sps.bsr_matrix):  # needed for `tangential_component`
         val = val.toarray()
@@ -457,6 +496,52 @@ def test_ad_operator_methods_single_phase_flow(
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
+@pytest.mark.parametrize(
+    "method_name, p_or_c, expected_value",
+    [
+        ('phase_mobility', 'phase', 1 / water_values['viscosity']),
+        ('fractional_phase_mass_mobility', 'phase', 1),
+        (
+            'component_mass_mobility',
+            'component',
+            water_values["density"]
+            * np.exp(water_values["compressibility"] * 200 * pp.BAR)
+            / water_values["viscosity"],
+        ),
+        ('fractional_component_mass_mobility', 'component', 1),
+    ]
+)
+def test_mobility_single_phase_flow(
+    model_setup: pp.PorePyModel,
+    method_name: str,
+    p_or_c: Literal['phase', 'component'],
+    expected_value: float,
+) -> None:
+    """Tests the evaluation of various mobility methods in the single-phase,
+    single-component model.
+
+    Fractional mobilities must be 1.
+    The phase and component mobility must be equal to the total mobility.
+
+    """
+    # mobilities are only defined on subdomains
+    domains = model_setup.mdg.subdomains()
+
+    assert model_setup.fluid.num_components == 1
+    assert model_setup.fluid.num_phases == 1
+
+    if p_or_c == 'phase':
+        instance = model_setup.fluid.reference_phase
+    elif p_or_c == 'component':
+        instance = model_setup.fluid.reference_component
+    else:
+        assert False, 'Unclear test input'
+
+    # Fetching method and calling it with the right instance
+    op: pp.ad.Operator = getattr(model_setup, method_name)(instance, domains)
+    val = op.value(model_setup.equation_system)
+    # Compare the actual and expected values.
+    assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
 @pytest.mark.parametrize(
     "units",
@@ -562,13 +647,14 @@ def test_well_incompressible_pressure_values():
         },
         # Use only the horizontal fracture of OrthogonalFractures3d
         "fracture_indices": [2],
+        "times_to_export": [],
     }
 
     setup = WellModel(params)
     pp.run_time_dependent_model(setup)
     # Check that the matrix pressure is close to linear in z
     matrix = setup.mdg.subdomains(dim=3)[0]
-    matrix_pressure = setup.pressure([matrix]).value(setup.equation_system)
+    matrix_pressure = setup.equation_system.evaluate(setup.pressure([matrix]))
     dist = np.absolute(matrix.cell_centers[2, :] - 0.5)
     p_range = np.max(matrix_pressure) - np.min(matrix_pressure)
     expected_p = p_range * (0.5 - dist) / 0.5
@@ -582,7 +668,7 @@ def test_well_incompressible_pressure_values():
     assert np.isclose(np.max(matrix_pressure), 1e6, rtol=1e-1)
     # In the fracture, check that the pressure is log distributed
     fracs = setup.mdg.subdomains(dim=2)
-    fracture_pressure = setup.pressure(fracs).value(setup.equation_system)
+    fracture_pressure = setup.equation_system.evaluate(setup.pressure(fracs))
     sd = fracs[0]
     injection_cell = sd.closest_cell(np.atleast_2d([0.5, 0.5, 0.5]).T)
     # Check that the injection cell is the one with the highest pressure
@@ -595,7 +681,7 @@ def test_well_incompressible_pressure_values():
     expected_p = min_p + 1 / (4 * np.pi * perm) * np.log(dist / scale_dist)
     assert np.isclose(np.min(fracture_pressure), min_p, rtol=1e-2)
     wells = setup.mdg.subdomains(dim=0)
-    well_pressure = setup.pressure(wells).value(setup.equation_system)
+    well_pressure = setup.equation_system.evaluate(setup.pressure(wells))
 
     # Check that the pressure drop from the well to the fracture is as expected The
     # Peacmann well model is: u = 2 * pi * k * h * (p_fracture - p_well) / ( ln(r_e /
@@ -682,6 +768,7 @@ def model_setup_gravity(
         "fracture_indices": [-1],  # Constant y and z coordinates in 2d and 3d, resp.
         "meshing_arguments": {"cell_size": 0.5},
         "darcy_flux_discretization": discretization_method,
+        "times_to_export": [],
     }
     params.update(model_params)
     params["material_constants"] = {
@@ -905,6 +992,7 @@ class TestMixedDimGravity:
         params = {
             "meshing_arguments": {"cell_size": 1 / 3, "cell_size_y": 1 / 2},
             "grid_type": grid_type,
+            "times_to_export": [],
         }
         self.model = model_setup_gravity(
             dimension=2,
@@ -943,6 +1031,7 @@ class TestMixedDimGravity:
         params = {
             "meshing_arguments": {"cell_size": 1.0, "cell_size_y": 1 / 2},
             "grid_type": "cartesian",
+            "times_to_export": [],
         }
         num_nodes_1d = 2
         self.model = model_setup_gravity(
@@ -977,6 +1066,7 @@ class TestMixedDimGravity:
         params = {
             "meshing_arguments": {"cell_size": 1 / 3, "cell_size_y": 1 / 2},
             "grid_type": grid_type,
+            "times_to_export": [],
         }
 
         self.model = model_setup_gravity(
@@ -1005,6 +1095,7 @@ class TestMixedDimGravity:
         params = {
             "meshing_arguments": {"cell_size": 1 / 2},
             "grid_type": grid_type,
+            "times_to_export": [],
         }
         a = 1e-2
         self.model = model_setup_gravity(
