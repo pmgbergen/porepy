@@ -822,10 +822,10 @@ class ContactIndicators(pp.PorePyModel):
 
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
 
-        c_num = pp.ad.sum_operator_list(
-            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
+        basis_product = pp.ad.sum_projection_list(
+            [e_i @ e_i.T for e_i in tangential_basis]
         )
-        tangential_sum = t_t + c_num @ u_t_increment
+        tangential_sum = t_t + c_num_as_scalar * (basis_product @ u_t_increment)
 
         max_arg_1 = f_norm(tangential_sum)
         max_arg_1.set_name("norm_tangential")

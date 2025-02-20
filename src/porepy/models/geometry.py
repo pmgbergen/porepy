@@ -384,7 +384,7 @@ class ModelGeometry(pp.PorePyModel):
         # it in the tangential basis. The two operations are combined in a single
         # operator composed right to left: v will be hit by first e_i.T (row vector) and
         # secondly t_i (column vector).
-        op: pp.ad.Operator = pp.ad.sum_operator_list(
+        op: pp.ad.Operator = pp.ad.sum_projection_list(
             [
                 self.e_i(subdomains, i=i, dim=self.nd - 1)
                 @ self.e_i(subdomains, i=i, dim=self.nd).T
