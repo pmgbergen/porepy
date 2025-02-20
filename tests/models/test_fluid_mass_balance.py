@@ -491,6 +491,11 @@ def test_ad_operator_methods_single_phase_flow(
 
     if isinstance(val, sps.bsr_matrix):  # needed for `tangential_component`
         val = val.toarray()
+    if isinstance(val, pp.matrix_operations.MatrixSlicer):
+        # A MatrixSlicer cannot be directly compared to a numpy array. Use it to slice
+        # an identify matrix to (effectively) get hold of the equivalent projection
+        # matrix.
+        val = val @ np.eye(val._domain_size)
 
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
