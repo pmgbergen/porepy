@@ -1002,13 +1002,15 @@ def test_ad_discretization_class():
     # Assign a value to the discretization matrix, with the right key
     for vi, sd in enumerate(subdomains):
         data = mdg.subdomain_data(sd)
-        data[pp.DISCRETIZATION_MATRICES] = {key: {"foobar": known_val[vi]}}
+        data[pp.DISCRETIZATION_MATRICES] = {
+            key: {"foobar": sps.csr_matrix(known_val[vi])}
+        }
 
     # Same with submatrix
     for vi, sd in enumerate(sub_list):
         data = mdg.subdomain_data(sd)
         data[pp.DISCRETIZATION_MATRICES].update(
-            {sub_key: {"foobar": known_sub_val[vi]}}
+            {sub_key: {"foobar": sps.csr_matrix(known_sub_val[vi])}}
         )
 
     # Compare values under parsing. Note we need to pick out the diagonal, due to the

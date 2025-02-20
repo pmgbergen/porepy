@@ -452,7 +452,9 @@ class ModelGeometry(pp.PorePyModel):
                 ].project_tangential_normal(sd.num_cells)
                 for sd in subdomains
             ]
-            local_coord_proj = sps.block_diag(local_coord_proj_list, format="csr")
+            local_coord_proj = pp.matrix_operations.csc_matrix_from_sparse_blocks(
+                local_coord_proj_list
+            )
         else:
             # Also treat no subdomains.
             local_coord_proj = sps.csr_matrix((0, 0))
@@ -620,7 +622,9 @@ class ModelGeometry(pp.PorePyModel):
                 matrices.append(switcher_int)
 
             # Construct the block diagonal matrix.
-            sign_flipper = pp.ad.SparseArray(sps.block_diag(matrices).tocsr())
+            sign_flipper = pp.ad.SparseArray(
+                pp.matrix_operations.sparse_dia_from_sparse_blocks(matrices)
+            )
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
