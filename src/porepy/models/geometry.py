@@ -353,13 +353,18 @@ class ModelGeometry(pp.PorePyModel):
 
         # Construct a single vector, and later stack it to a matrix
         # Collect the basis functions for each dimension
-        e_i = np.zeros((dim, 1))
-        e_i[i] = 1
         # Expand to cell-wise column vectors.
         num_cells = sum([g.num_cells for g in grids])
-        # Expand to a matrix.
-        mat = sps.kron(sps.eye(num_cells), e_i)
-        return pp.ad.SparseArray(mat)
+        range_ind = np.arange(i, dim * num_cells, dim)
+
+        slicer = pp.ad.Projection(
+            domain_indices=np.arange(num_cells),
+            range_indices=range_ind,
+            range_size=num_cells * dim,
+            domain_size=num_cells,
+        )
+
+        return slicer
 
     # Local basis related methods
     def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
