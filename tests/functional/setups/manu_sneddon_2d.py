@@ -22,200 +22,6 @@ from porepy.applications.md_grids.model_geometries import (
 from porepy.geometry.distances import point_pointset
 
 
-def compute_eta(pointset_centers: np.ndarray, center: np.ndarray) -> np.ndarray:
-    """Compute the distance from fracture points to the fracture centre.
-
-    Parameter:
-        pointset_centers: Coordinates of fracture points.
-        center: Coordinates of the fracture center.
-
-    Return:
-        Array of distances each point in pointset to the center.
-
-    """
-    return point_pointset(pointset_centers, center)
-
-
-def get_bem_centers(
-    a: float, h: float, n: int, alpha: float, center: np.ndarray
-) -> np.ndarray:
-    """Compute coordinates of the centers of the BEM segments.
-
-    Parameters:
-        a: Half of the fracture length.
-        h: BEM segment length.
-        n: Number of BEM segments.
-        alpha: Orientation of the fracture.
-        center: Coordinates of the fracture center.
-
-    Return:
-        Array containing the BEM segment centers.
-
-    """
-
-    # See [1], p. 57 coordinate system (4.5.1)
-    bem_centers = np.zeros((3, n))
-    x_0 = center[0] - (a - 0.5 * h) * np.sin(alpha)
-    y_0 = center[1] - (a - 0.5 * h) * np.cos(alpha)
-    i = np.arange(n)
-    bem_centers[0] = x_0 + i * h * np.sin(alpha)
-    bem_centers[1] = y_0 + i * h * np.cos(alpha)
-
-    return bem_centers
-
-
-def analytical_displacements(
-    a: float, eta: np.ndarray, p0: float, G: float, poi: float
-) -> np.ndarray:
-    """Compute Sneddon's analytical solution for the pressurized fracture displacement.
-
-    Parameters:
-        a: Half of the fracture length.
-        eta: Distances of fracture points to the fracture center.
-        p0: Constant, fixed pressure.
-        G: Shear modulus.
-        poi: Poisson ratio.
-
-    Return
-        Array containing the analytical normal displacement jumps.
-
-    """
-    # See [2], p. 425 equ. 92
-    cons = (1 - poi) / G * p0 * a * 2
-    return cons * np.sqrt(1 - np.power(eta / a, 2))
-
-
-def transform(xc: np.ndarray, x: np.ndarray, alpha: float) -> np.ndarray:
-    """Translation and rotation transform of boundary face coordinates for the BEM.
-
-    Parameters:
-        xc: Coordinates of BEM segment centre.
-        x: Coordinates of boundary faces.
-        alpha: Fracture orientation.
-
-    Return:
-        Transformed coordinates.
-
-    """
-    x_bar = np.zeros_like(x)
-    # See [1], p. 168 equ. 7.4.6
-    x_bar[0, :] = (x[0, :] - xc[0]) * np.cos(alpha) + (x[1, :] - xc[1]) * np.sin(alpha)
-    x_bar[1, :] = -(x[0, :] - xc[0]) * np.sin(alpha) + (x[1, :] - xc[1]) * np.cos(alpha)
-    return x_bar
-
-
-def get_bc_val(
-    sd: pp.Grid,
-    bound_faces: np.ndarray,
-    xf: np.ndarray,
-    h: float,
-    poi: float,
-    alpha: float,
-    du: float,
-) -> np.ndarray:
-    """Computes semi-analytical displacement values on the boundary using the BEM for
-    the Sneddon problem.
-
-    Parameter
-        sd: The matrix grid.
-        bound_faces: Array of indices of boundary faces of ``sd``.
-        xf: Coordinates of boundary faces.
-        h: BEM segment length.
-        poi: Poisson ratio.
-        alpha: Fracture orientation.
-        du: Sneddon's analytical relative normal displacement.
-
-    Return:
-        Boundary values for the displacement.
-
-    """
-    # See [1], pages 57, 84-92, 168
-    f2 = np.zeros(bound_faces.size)
-    f3 = np.zeros(bound_faces.size)
-    f4 = np.zeros(bound_faces.size)
-    f5 = np.zeros(bound_faces.size)
-
-    u = np.zeros((sd.dim, sd.num_faces))
-
-    # See [1], equ. (7.4.5)
-    m = 1 / (4 * np.pi * (1 - poi))
-    f2[:] = m * (
-        np.log(np.sqrt((xf[0, :] - h) ** 2 + xf[1] ** 2))
-        - np.log(np.sqrt((xf[0, :] + h) ** 2 + xf[1] ** 2))
-    )
-    f3[:] = -m * (
-        np.arctan2(xf[1, :], (xf[0, :] - h)) - np.arctan2(xf[1, :], (xf[0, :] + h))
-    )
-
-    # See [1], equations 5.5.3, 5.5.1, and p. 57, equ. 4.5.1
-    f4[:] = m * (
-        xf[1, :] / ((xf[0, :] - h) ** 2 + xf[1, :] ** 2)
-        - xf[1, :] / ((xf[0, :] + h) ** 2 + xf[1, :] ** 2)
-    )
-
-    f5[:] = m * (
-        (xf[0, :] - h) / ((xf[0, :] - h) ** 2 + xf[1, :] ** 2)
-        - (xf[0, :] + h) / ((xf[0, :] + h) ** 2 + xf[1, :] ** 2)
-    )
-
-    u[0, bound_faces] = du * (
-        -(1 - 2 * poi) * np.cos(alpha) * f2[:]
-        - 2 * (1 - poi) * np.sin(alpha) * f3[:]
-        - xf[1, :] * (np.cos(alpha) * f4[:] + np.sin(alpha) * f5[:])
-    )
-    u[1, bound_faces] = du * (
-        -(1 - 2 * poi) * np.sin(alpha) * f2[:]
-        + 2 * (1 - poi) * np.cos(alpha) * f3[:]
-        - xf[1, :] * (np.sin(alpha) * f4[:] - np.cos(alpha) * f5[:])
-    )
-
-    return u
-
-
-def assign_bem(
-    grid: pp.Grid,
-    h: float,
-    bound_faces: np.ndarray,
-    alpha: float,
-    bem_centers: np.ndarray,
-    u_a: np.ndarray,
-    poi: float,
-) -> np.ndarray:
-    """Computes semi-analytical displacement values using the BEM for the Sneddon
-    problem.
-
-    Parameter
-        grid: The matrix grid.
-        h: BEM segment length.
-        bound_faces: Array of indices of boundary faces of ``grid``.
-        alpha: Fracture orientation.
-        bem_centers: BEM segments centers.
-        u_a: Sneddon's analytical relative normal displacement.
-        poi: Poisson ratio.
-
-    Return:
-        Semi-analytical boundary displacement values.
-
-    """
-
-    bc_val = np.zeros((grid.dim, grid.num_faces))
-
-    alpha = np.pi / 2 - alpha
-
-    bound_face_centers = grid.face_centers[:, bound_faces]
-
-    for i in range(0, u_a.size):
-        new_bound_face_centers = transform(bem_centers[:, i], bound_face_centers, alpha)
-
-        u_bound = get_bc_val(
-            grid, bound_faces, new_bound_face_centers, h, poi, alpha, u_a[i]
-        )
-
-        bc_val += u_bound
-
-    return bc_val
-
-
 class SneddonExactSolution2d:
     """Class representing the analytical solution for the pressurized fracture problem."""
 
@@ -243,14 +49,12 @@ class SneddonExactSolution2d:
         u_bc = np.zeros((sd.dim, sd.num_faces))
 
         center = np.array([self.length / 2, self.length / 2, 0])
-        bem_centers = get_bem_centers(self.a, h, self.n, self.theta_rad, center)
-        eta = compute_eta(bem_centers, center)
+        bem_centers = self.get_bem_centers(h, center)
+        eta = point_pointset(bem_centers, center)
 
-        u_a = -analytical_displacements(
-            self.a, eta, self.p0, self.shear_modulus, self.poi
-        )
-        u_bc = assign_bem(
-            sd, h / 2, box_faces, self.theta_rad, bem_centers, u_a, self.poi
+        u_a = -self.analytical_displacements(eta)
+        u_bc = self.displacement_bc_values_from_bem(
+            sd, h / 2, box_faces, bem_centers, u_a
         )
         return u_bc
 
@@ -276,12 +80,175 @@ class SneddonExactSolution2d:
         fracture_faces = g_1.cell_centers
 
         # See [2], p. 425, equ. 92
-        eta = compute_eta(fracture_faces, fracture_center)
-        apertures = analytical_displacements(
-            self.a, eta, self.p0, self.shear_modulus, self.poi
-        )
+        eta = point_pointset(fracture_faces, fracture_center)
+        apertures = self.analytical_displacements(eta)
 
         return eta, apertures
+
+    def get_bem_centers(self, h: float, center: np.ndarray) -> np.ndarray:
+        """Compute coordinates of the centers of the BEM segments.
+
+        Parameters:
+            h: BEM segment length.
+            center: Coordinates of the fracture center.
+
+        Return:
+            Array containing the BEM segment centers.
+
+        """
+
+        # See [1], p. 57 coordinate system (4.5.1)
+        bem_centers = np.zeros((3, self.n))
+        x_0 = center[0] - (self.a - 0.5 * h) * np.sin(self.theta_rad)
+        y_0 = center[1] - (self.a - 0.5 * h) * np.cos(self.theta_rad)
+        i = np.arange(self.n)
+        bem_centers[0] = x_0 + i * h * np.sin(self.theta_rad)
+        bem_centers[1] = y_0 + i * h * np.cos(self.theta_rad)
+
+        return bem_centers
+
+    def analytical_displacements(self, eta: np.ndarray) -> np.ndarray:
+        """Compute Sneddon's analytical solution for the pressurized fracture displacement.
+
+        Parameters:
+            eta: Distances of fracture points to the fracture center.
+
+        Return
+            Array containing the analytical normal displacement jumps.
+
+        """
+        # See [2], p. 425 equ. 92
+        cons = (1 - self.poi) / self.shear_modulus * self.p0 * self.a * 2
+        return cons * np.sqrt(1 - np.power(eta / self.a, 2))
+
+    def tranform_boundary_face_coordinates_bem(
+        self, xc: np.ndarray, x: np.ndarray
+    ) -> np.ndarray:
+        """Translation and rotation transform of boundary face coordinates for the BEM.
+
+        Parameters:
+            xc: Coordinates of BEM segment centre.
+            x: Coordinates of boundary faces.
+
+        Return:
+            Transformed coordinates.
+
+        """
+        alpha = np.pi / 2 - self.theta_rad
+        x_bar = np.zeros_like(x)
+        # See [1], p. 168 equ. 7.4.6
+        x_bar[0, :] = (x[0, :] - xc[0]) * np.cos(alpha) + (x[1, :] - xc[1]) * np.sin(
+            alpha
+        )
+        x_bar[1, :] = -(x[0, :] - xc[0]) * np.sin(alpha) + (x[1, :] - xc[1]) * np.cos(
+            alpha
+        )
+        return x_bar
+
+    def _get_bc_val_from_normal_displacement(
+        self,
+        sd: pp.Grid,
+        bound_faces: np.ndarray,
+        xf: np.ndarray,
+        h: float,
+        du: float,
+    ) -> np.ndarray:
+        """Computes semi-analytical displacement values on the boundary using the BEM for
+        the Sneddon problem.
+
+        Parameter
+            sd: The matrix grid.
+            bound_faces: Array of indices of boundary faces of ``sd``.
+            xf: Coordinates of boundary faces.
+            h: BEM segment length.
+            du: Sneddon's analytical relative normal displacement.
+
+        Return:
+            Boundary values for the displacement.
+
+        """
+        # See [1], pages 57, 84-92, 168
+        f2 = np.zeros(bound_faces.size)
+        f3 = np.zeros(bound_faces.size)
+        f4 = np.zeros(bound_faces.size)
+        f5 = np.zeros(bound_faces.size)
+
+        u = np.zeros((sd.dim, sd.num_faces))
+
+        alpha = np.pi / 2 - self.theta_rad
+
+        # See [1], equ. (7.4.5)
+        m = 1 / (4 * np.pi * (1 - self.poi))
+        f2[:] = m * (
+            np.log(np.sqrt((xf[0, :] - h) ** 2 + xf[1] ** 2))
+            - np.log(np.sqrt((xf[0, :] + h) ** 2 + xf[1] ** 2))
+        )
+        f3[:] = -m * (
+            np.arctan2(xf[1, :], (xf[0, :] - h)) - np.arctan2(xf[1, :], (xf[0, :] + h))
+        )
+
+        # See [1], equations 5.5.3, 5.5.1, and p. 57, equ. 4.5.1
+        f4[:] = m * (
+            xf[1, :] / ((xf[0, :] - h) ** 2 + xf[1, :] ** 2)
+            - xf[1, :] / ((xf[0, :] + h) ** 2 + xf[1, :] ** 2)
+        )
+
+        f5[:] = m * (
+            (xf[0, :] - h) / ((xf[0, :] - h) ** 2 + xf[1, :] ** 2)
+            - (xf[0, :] + h) / ((xf[0, :] + h) ** 2 + xf[1, :] ** 2)
+        )
+
+        u[0, bound_faces] = du * (
+            -(1 - 2 * self.poi) * np.cos(alpha) * f2[:]
+            - 2 * (1 - self.poi) * np.sin(alpha) * f3[:]
+            - xf[1, :] * (np.cos(alpha) * f4[:] + np.sin(alpha) * f5[:])
+        )
+        u[1, bound_faces] = du * (
+            -(1 - 2 * self.poi) * np.sin(alpha) * f2[:]
+            + 2 * (1 - self.poi) * np.cos(alpha) * f3[:]
+            - xf[1, :] * (np.sin(alpha) * f4[:] - np.cos(alpha) * f5[:])
+        )
+
+        return u
+
+    def displacement_bc_values_from_bem(
+        self,
+        grid: pp.Grid,
+        h: float,
+        bound_faces: np.ndarray,
+        bem_centers: np.ndarray,
+        u_a: np.ndarray,
+    ) -> np.ndarray:
+        """Computes semi-analytical displacement values using the BEM for the Sneddon
+        problem.
+
+        Parameter
+            grid: The matrix grid.
+            h: BEM segment length.
+            bound_faces: Array of indices of boundary faces of ``grid``.
+            bem_centers: BEM segments centers.
+            u_a: Sneddon's analytical relative normal displacement.
+
+        Return:
+            Semi-analytical boundary displacement values.
+
+        """
+
+        bc_val = np.zeros((grid.dim, grid.num_faces))
+        bound_face_centers = grid.face_centers[:, bound_faces]
+
+        for i in range(0, u_a.size):
+            new_bound_face_centers = self.tranform_boundary_face_coordinates_bem(
+                bem_centers[:, i], bound_face_centers
+            )
+
+            u_bound = self._get_bc_val_from_normal_displacement(
+                grid, bound_faces, new_bound_face_centers, h, u_a[i]
+            )
+
+            bc_val += u_bound
+
+        return bc_val
 
 
 class ManuSneddonGeometry2d(SquareDomainOrthogonalFractures):
