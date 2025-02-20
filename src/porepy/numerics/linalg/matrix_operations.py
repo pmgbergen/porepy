@@ -523,6 +523,15 @@ class MatrixSlicer:
             return self.transpose()
         raise AttributeError(f"MatrixSlicer has no attribute {name}")
 
+    def __repr__(self) -> str:
+        s = "MatrixSlicer object\n"
+        s += f"Domain size: {self._domain_size}, "
+        s += f"number of domain indices: {self._domain_indices.size}.\n"
+        s += f"Range size: {self._range_size}, "
+        s += f"number of range indices: {self._range_indices.size}.\n"
+        s += f"Is onto: {self._is_onto}, is transposed: {self._is_transposed}.\n"
+        return s
+
     def copy(self) -> MatrixSlicer:
         """Create a copy of the MatrixSlicer instance.
 
@@ -548,6 +557,10 @@ class MatrixSlicer:
         self, x: np.ndarray | sps.spmatrix | pp.ad.AdArray
     ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray:
         # Separate handling for different types of input.
+        if isinstance(x, MatrixSlicer):
+            x._pending_operand = self
+            x._pending_operation = "@"
+            return x
         if isinstance(x, np.ndarray):
             sliced = self._slice_vector(x)
         elif isinstance(x, (sps.spmatrix, sps.sparray)):
@@ -560,25 +573,27 @@ class MatrixSlicer:
         if self._pending_operand is not None:
             # If there is a pending operand, we need to apply it to the sliced matrix.
             product = eval(f"self._pending_operand {self._pending_operation} sliced")
-            self._pending_operand = None
             return product
         else:
             return sliced
 
     def __rmatmul__(self, other):
-        self._pending_operand = other
-        self._pending_operation = "@"
-        return self
+        slicer = self.copy()
+        slicer._pending_operand = other
+        slicer._pending_operation = "@"
+        return slicer
 
     def __rmul__(self, other):
-        self._pending_operand = other
-        self._pending_operation = "*"
-        return self
+        slicer = self.copy()
+        slicer._pending_operand = other
+        slicer._pending_operation = "*"
+        return slicer
 
     def __rtruediv__(self, other):
-        self._pending_operand = other
-        self._pending_operation = "/"
-        return self
+        slicer = self.copy()
+        slicer._pending_operand = other
+        slicer._pending_operation = "/"
+        return slicer
 
     def __mul__(self, other):
         """There are of course other operations that also are not supported, but we
@@ -600,7 +615,15 @@ class MatrixSlicer:
         if self._is_onto:
             return x[self._domain_indices]
 
-        vec = np.zeros(self._range_size)
+        if x.ndim == 1:
+            vec = np.zeros(self._range_size)
+        elif x.ndim == 2:
+            # 2d dense arrays are not really intended used in the Ad framework, which is
+            # the primary client of the MatrixSlicer. However, we can handle them, and
+            # they are invaluable for testing.
+            vec = np.zeros((self._range_size, x.shape[1]))
+        else:
+            raise ValueError("Only 1d and 2d dense arrays are supported")
         vec[self._range_indices] = x[self._domain_indices]
         return vec
 
