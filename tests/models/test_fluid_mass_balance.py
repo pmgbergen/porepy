@@ -121,7 +121,7 @@ def all_tested_methods(request) -> list[str]:
     # Filter the name of the first parameter from the pytest.mark.parametrize
     tested_methods = [test[test.find("[") + 1 : test.find("-")] for test in tests]
 
-    return tested_methods
+    return sorted(tested_methods)
 
 
 @pytest.fixture(scope="function")
@@ -136,7 +136,7 @@ def all_testable_methods(model_setup) -> list[str]:
         List of all possible testable methods for the model.
 
     """
-    return models.get_model_methods_returning_ad_operator(model_setup)
+    return sorted(models.get_model_methods_returning_ad_operator(model_setup))
 
 
 def test_tested_vs_testable_methods_single_phase_flow(
