@@ -230,6 +230,13 @@ class AdParser:
                 self._cache[op] = res
                 return res
 
+        if isinstance(op, pp.ad.ProjectionList):
+            # Special case for lists of projections. These are parsed into lists of the
+            # underlying MatrixSlicer. See also the handling of the resulting lists
+            # below.
+            res = [c.parse(eq_sys.mdg) for c in op.children]
+            return res
+
         # This is not a leaf, but a composite operator. Parse the children and combine
         # them according to the operator.
         child_values = [
@@ -279,6 +286,25 @@ class AdParser:
 
                 # Division, power, and matrix multiplication are binary operations
                 assert len(child_values) == 2
+
+                if operation == Operations.matmul and isinstance(child_values[0], list):
+                    # This is a special case for dealing with pp.ad.PorjectionList.
+                    if all(
+                        [
+                            isinstance(c, pp.matrix_operations.MatrixSlicer)
+                            for c in child_values[0]
+                        ]
+                    ):
+                        # If the first operand is a list of sliced matrices, the
+                        # operation should be performed on each of the matrices in the
+                        # list. The sum is hardcoded here, corresponding to the
+                        # assumptions underlying the use of the ProjectionList.
+                        # Generalizations are possible, but not desirable at the moment
+                        # (it risks complicating the code without clear benefits).
+                        res = sum([c @ (child_values[1]) for c in child_values[0]])
+                        return res
+                    else:
+                        raise ValueError("Operation not supported for this input type.")
 
                 if isinstance(child_values[0], np.ndarray) and isinstance(
                     child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
