@@ -34,6 +34,7 @@ __all__ = [
     "Projection",
     "ProjectionList",
     "sum_operator_list",
+    "sum_projection_list",
 ]
 
 
@@ -2132,5 +2133,86 @@ def sum_operator_list(
 
     if name is not None:
         result.set_name(name)
+
+    return result
+
+
+def sum_projection_list(
+    # This cannot be list[Projection], since list items can be multiplications.
+    operators: list[Operator],
+    name: Optional[str] = None,
+) -> Operator:
+    """Sum a list of projection operators.
+
+    This method should only be called if the input list to be summed consists
+    exclusively of Projection objects, or of products of precisely two Projection
+    objects that have been (matrix) multiplied. For different use cases (such as
+    suming Projection objects multiplied with other types of operators), the standard
+    sum_operator_list method should be used instead.
+
+    Parameters:
+        operators: List of projection operators to be summed. name: Name of the
+        resulting operator.
+
+    Raises:
+        ValueError: If not one of the following two cases is met:
+            1. operators is a list of one or more Projection objects.
+            2. operators is a list of one or more products of precisely two Projection
+                objects that have been (matrix) multiplied.
+
+    Returns:
+        Operator that is the sum of the input operators.
+
+    """
+    # First check if this is a sum of atomic projection operators.
+    is_projection = [isinstance(op, Projection) for op in operators]
+    if any(is_projection):
+        if not all(is_projection):
+            # This is a mix of slicing and non-slicing operators. This is not allowed.
+            raise ValueError("Cannot sum slicing and non-slicing operators.")
+        if len(operators) == 1:
+            # If there is only one operator, there is no need to put it in a list.
+            result = operators[0]
+        else:
+            # We need the list.
+            result = ProjectionList(operators, name)
+    else:
+        # This else covers the case of one or more products of precisily two projections
+        # that have been multiplied. While more cases in principle could be covered,
+        # this is the only one that is currently relevant.
+        #
+        # NOTE TO FUTURE SELF: If it at some point becomes tempting to add more cases,
+        # consider if this is really the right approach to take, or if the approach to
+        # constructing operator trees should be revisited.
+        new_operators = []
+        for op in operators:
+            # Check that this is a case we can handle.
+            if not op.operation == Operations.matmul:
+                raise ValueError(f"Operator {op} is not a valid matmul operation.")
+            if not isinstance(op.children[0], Projection) or not isinstance(
+                op.children[1], Projection
+            ):
+                raise ValueError(
+                    f"Operator {op} does not have valid Projection children."
+                )
+
+            # The trick here is to do a local parsing of the two Projections to fetch
+            # their underlying MatrixSlicer objects. Then we multiply them and set the
+            # combined slicer to the second child (because this is what works together
+            # with the way matrix MatrixSlicer objects are matrix multiplied).
+            child_1 = op.children[1]
+            slicer_0 = op.children[0].parse(None)
+            slicer_1 = child_1.parse(None)
+            prod = slicer_0 @ slicer_1
+            child_1._slicer = prod
+            # Child is now a representation of the combined projection.
+            new_operators.append(child_1)
+
+        if len(new_operators) == 1:
+            # No need to wrap in a list if there is only one operator.
+            result = new_operators[0]
+        else:
+            # We do need the list.
+            result = ProjectionList(new_operators, name)
 
     return result
