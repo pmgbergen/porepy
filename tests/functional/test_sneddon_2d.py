@@ -28,7 +28,7 @@ def actual_ooc() -> dict:
     a = 0.3
     height = 1.0
     theta_rad = math.radians(90 - theta_deg)
-    
+
     # Set up the material constants
     poi = 0.25
     shear_modulus = 1
