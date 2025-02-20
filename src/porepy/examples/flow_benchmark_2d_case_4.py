@@ -15,6 +15,8 @@ References:
 
 """
 
+from typing import Literal
+
 import numpy as np
 
 import porepy as pp
@@ -36,7 +38,7 @@ class Geometry(pp.PorePyModel):
         """Setting a fracture list from the fracture set library."""
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_4()
 
-    def set_domain(self) -> pp.Domain:
+    def set_domain(self) -> None:
         """Domain of the problem."""
         x_extent = self.units.convert_units(700, "m")
         y_extent = self.units.convert_units(600, "m")
@@ -44,7 +46,7 @@ class Geometry(pp.PorePyModel):
             {"xmin": 0, "xmax": x_extent, "ymin": 0, "ymax": y_extent}
         )
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex"]:
         """Set a simplex grid, which is the only grid type that can represent this
         fracture geometry.
 
