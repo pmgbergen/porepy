@@ -20,16 +20,6 @@ class SquareDomainOrthogonalFractures(pp.PorePyModel):
 
     """
 
-    def set_geometry(self) -> None:
-        """Included to make mypy happy.
-
-        Mypy complains about :class:`~NonMatchingSquareDomainOrthogonalFractures`
-        calling super() on set_geometry() when its parent (this class) does not have an
-        explicit implementation of set_geometry().
-
-        """
-        super().set_geometry()
-
     @property
     def domain_size(self) -> pp.number:
         """Return the side length of the square domain.
@@ -195,7 +185,8 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         # mixed-dimensional grid.
 
         # First set the geometry and create a matching mixed-dimensional grid.
-        super().set_geometry()
+        assert isinstance(self, pp.ModelGeometry)
+        super().set_geometry()  # type:ignore[safe-super]
 
         # Refine and replace fracture grids. First we fetch the old fracture grids:
         old_fracture_grids = self.mdg.subdomains(dim=1)
@@ -236,7 +227,10 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
 
         # Loop through all the interfaces in the new mixed-dimensional grid (donor) such
         # that we can fill intf_map with a map between old and new interface grids.
-        intf_map = {}
+        intf_map: dict[
+            pp.MortarGrid,
+            Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
+        ] = {}
         for intf in mdg_new.interfaces(dim=1):
             # Then, for each interface, we fetch the secondary grid which belongs to it.
             _, g_sec = mdg_new.interface_to_subdomain_pair(intf)
@@ -254,15 +248,7 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
 
         # Finally replace the subdomains and interfaces in the original
         # mixed-dimensional grid.
-        self.mdg.replace_subdomains_and_interfaces(
-            sd_map=grid_map,
-            intf_map=cast(
-                dict[
-                    pp.MortarGrid,
-                    Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
-                ],
-                intf_map,
-            ),
-        )
+        self.mdg.replace_subdomains_and_interfaces(sd_map=grid_map, intf_map=intf_map)
+
         # Create projections between local and global coordinates for fracture grids.
         pp.set_local_coordinate_projections(self.mdg)
