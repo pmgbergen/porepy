@@ -142,6 +142,21 @@ class SolutionStrategy(pp.PorePyModel):
         # opposed to e.g. pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
+
+        # This is put here temporarily.
+        # Updating variable values from current time step, to all previous and iterate.
+        val = self.equation_system.get_variable_values(iterate_index=0)
+        for iterate_index in self.iterate_indices:
+            self.equation_system.set_variable_values(
+                val,
+                iterate_index=iterate_index,
+            )
+        for time_step_index in self.time_step_indices:
+            self.equation_system.set_variable_values(
+                val,
+                time_step_index=time_step_index,
+            )
+
         # Initialize time dependent ad arrays, including those for boundary values.
         self.update_time_dependent_ad_arrays()
         self.reset_state_from_file()
@@ -271,9 +286,9 @@ class SolutionStrategy(pp.PorePyModel):
             dict[str, pp.Constants], self.params.get("material_constants", {})
         )
         # If the user provided material constants, assert they are in dictionary form
-        assert isinstance(constants, dict), (
-            "model.params['material_constants'] must be a dictionary."
-        )
+        assert isinstance(
+            constants, dict
+        ), "model.params['material_constants'] must be a dictionary."
 
         # Use standard models for fluid, solid and numerical constants if not provided.
         # Otherwise get the given constants.
