@@ -142,6 +142,8 @@ class SolutionStrategy(pp.PorePyModel):
         # opposed to e.g. pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
+        # Initialize time dependent ad arrays, including those for boundary values.
+        self.update_time_dependent_ad_arrays()
         self.reset_state_from_file()
         self.set_equations()
 
@@ -191,26 +193,6 @@ class SolutionStrategy(pp.PorePyModel):
             raise ValueError(
                 f"Expected a subclass of pp.SolverStatistics, got {statistics}."
             )
-
-    def initial_condition(self) -> None:
-        """Set the initial condition for the problem.
-
-        For each solution index stored in ``self.time_step_indices`` and
-        ``self.iterate_indices`` a zero initial value will be assigned.
-
-        """
-        val = np.zeros(self.equation_system.num_dofs())
-        for time_step_index in self.time_step_indices:
-            self.equation_system.set_variable_values(
-                val,
-                time_step_index=time_step_index,
-            )
-
-        for iterate_index in self.iterate_indices:
-            self.equation_system.set_variable_values(val, iterate_index=iterate_index)
-
-        # Initialize time dependent ad arrays, including those for boundary values.
-        self.update_time_dependent_ad_arrays()
 
     @property
     def time_step_indices(self) -> np.ndarray:
