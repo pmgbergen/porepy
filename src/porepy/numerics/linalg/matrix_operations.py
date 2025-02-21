@@ -5,14 +5,12 @@ module for operations on sparse matrices
 from __future__ import annotations
 
 import warnings
-from typing import Optional, Union
+from typing import Literal, Optional, Union, cast, overload
 
 import numpy as np
 import scipy.sparse as sps
-from typing import Literal
 
 import porepy as pp
-
 from porepy.utils.mcolon import mcolon
 
 try:
@@ -465,15 +463,18 @@ class MatrixSlicer:
             # domain.
             domain_indices = np.arange(range_indices.size)
 
-        if range_size is None:
-            # If range_size is not given, it is assumed to be the maximum of the range
-            # indices plus one (since the indices are 0-offset).
-            range_size = range_indices.max() + 1
+        # By now, both domain_indices and range_indices are set.
+        domain_indices = cast(np.ndarray, domain_indices)
+        range_indices = cast(np.ndarray, range_indices)
 
         # Store the indices and size.
         self._domain_indices: np.ndarray = domain_indices
         self._range_indices: np.ndarray = range_indices
-        self._range_size: int = range_size
+        # If range_size is not given, it is assumed to be the maximum of the range
+        # indices plus one (since the indices are 0-offset).
+        self._range_size: int = (
+            range_size if range_size is not None else range_indices.max() + 1
+        )
         self._domain_size: int = (
             domain_size if domain_size is not None else domain_indices.max() + 1
         )
@@ -487,8 +488,8 @@ class MatrixSlicer:
 
         # Variable to store pending operations and operand; see class documentation for
         # description.
-        self._pending_operation = None
-        self._pending_operand = None
+        self._pending_operation: str | None = None
+        self._pending_operand: MatrixSlicer | None = None
 
         self._is_transposed = False
 
@@ -570,9 +571,18 @@ class MatrixSlicer:
 
         return slicer
 
+    @overload
+    def __matmul__(self, x: np.ndarray) -> np.ndarray: ...
+    @overload
+    def __matmul__(self, x: pp.ad.AdArray) -> pp.ad.AdArray: ...
+    @overload
+    def __matmul__(self, x: MatrixSlicer) -> MatrixSlicer: ...
+    @overload
+    def __matmul__(self, x: sps.spmatrix) -> sps.spmatrix: ...
+
     def __matmul__(
-        self, x: np.ndarray | sps.spmatrix | pp.ad.AdArray
-    ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray:
+        self, x: np.ndarray | sps.spmatrix | pp.ad.AdArray | MatrixSlicer
+    ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray | MatrixSlicer:
         # Separate handling for different types of input.
         if isinstance(x, MatrixSlicer):
             # This is a case of S_0 @ S_1 @ y, where S_0 (self) and S_1 are
@@ -583,10 +593,12 @@ class MatrixSlicer:
             x._pending_operation = "@"
             return x
 
+        sliced: np.ndarray | sps.spmatrix | pp.ad.AdArray
+
         # Slice matrix, vector, or AdArray by calling relevant helper methods.
         if isinstance(x, np.ndarray):
             sliced = self._slice_vector(x)
-        elif isinstance(x, (sps.spmatrix, sps.sparray)):
+        elif isinstance(x, sps.spmatrix):
             sliced = self._slice_matrix(x)
         elif isinstance(x, pp.ad.AdArray):
             val = self._slice_vector(x.val)

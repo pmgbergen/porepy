@@ -268,7 +268,7 @@ class ModelGeometry(pp.PorePyModel):
         array.set_name(f"Array wrapping attribute {attr} on {len(grids)} grids.")
         return array
 
-    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.SparseArray]:
+    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.Projection]:
         """Return a cell-wise basis for all subdomains.
 
         The basis is represented as a list of matrices, each of which represents a
@@ -298,7 +298,7 @@ class ModelGeometry(pp.PorePyModel):
 
         """
         # Collect the basis functions for each dimension
-        basis: list[pp.ad.SparseArray] = []
+        basis: list[pp.ad.Projection] = []
         for i in range(dim):
             basis.append(self.e_i(grids, i=i, dim=dim))
         # Stack the basis functions horizontally
@@ -306,7 +306,7 @@ class ModelGeometry(pp.PorePyModel):
 
     def e_i(
         self, grids: Sequence[pp.GridLike], *, i: int, dim: int
-    ) -> pp.ad.SparseArray:
+    ) -> pp.ad.Projection:
         """Return a cell-wise basis function in a specified dimension.
 
         It is assumed that the grids are embedded in a space of dimension dim and
@@ -333,8 +333,7 @@ class ModelGeometry(pp.PorePyModel):
             dim: Dimension of the functions.
 
         Returns:
-            pp.ad.SparseArray: Ad representation of a matrix with the basis
-            functions as columns.
+            Ad projection that represents a basis function.
 
         Raises:
             ValueError: If i is larger than dim - 1.
@@ -399,7 +398,7 @@ class ModelGeometry(pp.PorePyModel):
         op.set_name("tangential_component")
         return op
 
-    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
+    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Projection:
         """Compute the normal component of a vector field.
 
         The normal space is defined according to the local coordinates of the
@@ -416,8 +415,8 @@ class ModelGeometry(pp.PorePyModel):
             subdomains: List of grids on which the vector field is defined.
 
         Returns:
-            Matrix extracting normal component of the vector field and expressing it
-            in normal basis. The size of the matrix is `(Nc, Nc * self.nd)`, where
+            Projection extracting normal component of the vector field and expressing it
+            in normal basis. The size of the projection is `(Nc, Nc * self.nd)`, where
             `Nc` is the total number of cells in the subdomains.
 
         """

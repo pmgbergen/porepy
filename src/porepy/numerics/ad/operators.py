@@ -8,7 +8,17 @@ from enum import Enum
 from functools import reduce
 from hashlib import sha256
 from itertools import count
-from typing import Any, Callable, Literal, Optional, Sequence, TypeVar, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 from warnings import warn
 
 import networkx as nx
@@ -1913,15 +1923,17 @@ class Projection(Operator):
             name: Name of the operator. Default is None.
 
         """
-        self._slicer = pp.matrix_operations.MatrixSlicer(
-            domain_indices=domain_indices,
-            range_indices=range_indices,
-            range_size=range_size,
-            domain_size=domain_size,
+        self._slicer: pp.matrix_operations.MatrixSlicer = (
+            pp.matrix_operations.MatrixSlicer(
+                domain_indices=domain_indices,
+                range_indices=range_indices,
+                range_size=range_size,
+                domain_size=domain_size,
+            )
         )
         super().__init__(name=name)
 
-    def transpose(self) -> None:
+    def transpose(self) -> Projection:
         """Return the transpose of the operator."""
 
         return Projection(
@@ -2020,7 +2032,7 @@ class ProjectionList(Operator):
     def __getitem__(self, key: int) -> Projection:
         """Enable indexing of the list. This is not needed in operational mode, but is
         useful for testing and development."""
-        return self.children[key]
+        return cast(Projection, self.children[key])
 
 
 @overload
@@ -2176,7 +2188,7 @@ def sum_projection_list(
             result = operators[0]
         else:
             # We need the list.
-            result = ProjectionList(operators, name)
+            result = ProjectionList(cast(list[Projection], operators), name)
     else:
         # This else covers the case of one or more products of precisily two projections
         # that have been multiplied. While more cases in principle could be covered,
@@ -2202,8 +2214,10 @@ def sum_projection_list(
             # combined slicer to the second child (because this is what works together
             # with the way matrix MatrixSlicer objects are matrix multiplied).
             child_1 = op.children[1]
-            slicer_0 = op.children[0].parse(None)
-            slicer_1 = child_1.parse(None)
+            # We know that op.children is a projection, which does not need the md grid
+            # for parsing. Hence, sending in None is okay, despite Mypy complaining.
+            slicer_0 = op.children[0].parse(None)  # type: ignore[arg-type]
+            slicer_1 = child_1.parse(None)  # type: ignore[arg-type]
             prod = slicer_0 @ slicer_1
             child_1._slicer = prod
             # Child is now a representation of the combined projection.
