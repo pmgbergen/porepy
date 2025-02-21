@@ -114,8 +114,8 @@ class BoundaryConditionsThermoporomechanics(
 
 class InitialConditionsThermoporomechanics(
     pp.energy_balance.InitialConditionsEnergy,
-    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
-    pp.momentum_balance.BoundaryConditionsMomentumBalance,
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+    pp.momentum_balance.InitialConditionsMomentumBalance,
 ):
     """Combines initial conditions for energy, mass and momentum balance and associated
     primary variables."""

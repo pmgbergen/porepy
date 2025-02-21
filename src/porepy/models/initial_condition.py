@@ -71,27 +71,15 @@ class InitialConditionMixin(pp.PorePyModel):
     """
 
     def initial_condition(self) -> None:
-        """Attaches to the implementation of ``initial_condition`` of the solution
-        strategy.
+        """The base initial_conditions method.
 
         Calls the methods :meth:`set_initial_values_primary_variables` and copies values
         stored at iterate index 0 to all other time and iterate indices.
 
+        FIXME: Right now we do not copy values of the secondary variables stored at
+        iterate index 0, see https://github.com/pmgbergen/porepy/issues/1344.
+
         """
-        # First call super and let the solution strategy handle the initialization of
-        # everything (likely with zeros).
-        # Then run the functionality given by this class.
-
-        # Mypy complains about the parent (the protocol) having a trivial body.
-        # We ignore the safe-super check here, but do not compromise safety by
-        # explicitly checking the inheritance tree.
-        if isinstance(self, pp.SolutionStrategy):
-            super().initial_condition()  # type:ignore[safe-super]
-        else:
-            raise TypeError(
-                f"Model class {type(self)} does not have a SolutionStrategy included."
-            )
-
         self.set_initial_values_primary_variables()
 
         # Updating variable values from current time step, to all previous and iterate.
@@ -114,4 +102,3 @@ class InitialConditionMixin(pp.PorePyModel):
         super-calls to model-specific initialization procedures.
 
         """
-        pass
