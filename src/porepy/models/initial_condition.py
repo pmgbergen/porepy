@@ -76,24 +76,8 @@ class InitialConditionMixin(pp.PorePyModel):
         Calls the methods :meth:`set_initial_values_primary_variables` and copies values
         stored at iterate index 0 to all other time and iterate indices.
 
-        FIXME: Right now we do not copy values of the secondary variables stored at
-        iterate index 0, see https://github.com/pmgbergen/porepy/issues/1344.
-
         """
         self.set_initial_values_primary_variables()
-
-        # Updating variable values from current time step, to all previous and iterate.
-        val = self.equation_system.get_variable_values(iterate_index=0)
-        for iterate_index in self.iterate_indices:
-            self.equation_system.set_variable_values(
-                val,
-                iterate_index=iterate_index,
-            )
-        for time_step_index in self.time_step_indices:
-            self.equation_system.set_variable_values(
-                val,
-                time_step_index=time_step_index,
-            )
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for primary variables.
