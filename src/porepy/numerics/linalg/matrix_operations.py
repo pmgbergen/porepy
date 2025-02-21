@@ -448,6 +448,7 @@ class MatrixSlicer:
             # We need to know what we are mapping from or to (or both).
             raise ValueError("Either range_indices or domain_indices must be set.")
 
+        # Keep track of whether this is an onto projection.
         is_onto = False
         if domain_indices is not None and range_indices is None:
             # If only domain indices are given, the range is assumed to be the same size
@@ -455,15 +456,14 @@ class MatrixSlicer:
             # domain.
             range_indices = np.arange(domain_indices.size)
             if range_size is None:
+                # This case can be handled with scipy sparse slicing.
                 is_onto = True
 
         elif range_indices is not None and domain_indices is None:
             # If only range indices are given, the domain is assumed to be the same size
             # as the range. The slicing will then be a simple prolongation of the
             # domain.
-
             domain_indices = np.arange(range_indices.size)
-            is_onto = False
 
         if range_size is None:
             # If range_size is not given, it is assumed to be the maximum of the range
@@ -478,6 +478,7 @@ class MatrixSlicer:
             domain_size if domain_size is not None else domain_indices.max() + 1
         )
 
+        # If this is onto, we can use fast scipy sparse slicing.
         self._is_onto: bool = is_onto
 
         # Precompute the sorting of the range indices. This is needed when slicing a
@@ -574,9 +575,15 @@ class MatrixSlicer:
     ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray:
         # Separate handling for different types of input.
         if isinstance(x, MatrixSlicer):
+            # This is a case of S_0 @ S_1 @ y, where S_0 (self) and S_1 are
+            # MatrixSlicers. We need to postpone the operation. Assign self as the
+            # pending operand, and the MatrixSlicer as the pending operation *to the
+            # other operand* (S_1).
             x._pending_operand = self
             x._pending_operation = "@"
             return x
+
+        # Slice matrix, vector, or AdArray by calling relevant helper methods.
         if isinstance(x, np.ndarray):
             sliced = self._slice_vector(x)
         elif isinstance(x, (sps.spmatrix, sps.sparray)):
@@ -587,25 +594,39 @@ class MatrixSlicer:
             sliced = pp.ad.AdArray(val, jac)
 
         if self._pending_operand is not None:
-            # If there is a pending operand, we need to apply it to the sliced matrix.
+            # If there is a pending operand, we need to apply it to the sliced
+            # vector/matrix/AdArray.
             product = eval(f"self._pending_operand {self._pending_operation} sliced")
             return product
         else:
             return sliced
 
     def __rmatmul__(self, other):
+        """The MatrixSlicer is the right operand in the matrix multiplication. This
+        handles the case of chained operations discussed in the class documentation.
+        """
+        # Implementation note: Copy is used to avoid modifying the original object; this
+        # led to all kinds of issues when applied to complex expressions.
         slicer = self.copy()
         slicer._pending_operand = other
         slicer._pending_operation = "@"
         return slicer
 
     def __rmul__(self, other):
+        """Handle the right multiplication of the MatrixSlicer by another operand.
+
+        See class documentation for details.
+        """
         slicer = self.copy()
         slicer._pending_operand = other
         slicer._pending_operation = "*"
         return slicer
 
     def __rtruediv__(self, other):
+        """Handle the right division of the MatrixSlicer by another operand.
+
+        See class documentation for details.
+        """
         slicer = self.copy()
         slicer._pending_operand = other
         slicer._pending_operation = "/"
@@ -653,10 +674,10 @@ class MatrixSlicer:
             The sliced matrix.
 
         """
-        A = A.tocsr()
-        container = sps.csr_matrix
+        A = A.tocsr()  # Ensure that the matrix is in csr format.
 
         if self._is_onto:
+            # Shortcut: If the slicing is onto, we can use scipy sparse matrix slicing.
             return A[self._domain_indices]
 
         # Data storage for the matrix to be sliced.
@@ -706,7 +727,7 @@ class MatrixSlicer:
 
         shape = (new_num_rows, A.shape[1])
 
-        return container((new_data, new_indices, new_indptr), shape=shape)
+        return sps.csr_matrix((new_data, new_indices, new_indptr), shape=shape)
 
 
 def optimized_compressed_storage(A: sps.spmatrix) -> sps.spmatrix:
