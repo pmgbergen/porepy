@@ -248,7 +248,7 @@ class SneddonExactSolution2d:
 
 
 class ManuSneddonGeometry2d(SquareDomainOrthogonalFractures):
-    """Square domain but with single line fracture."""
+    """Square domain  with a single, arbitrarily oriented fracture at the center."""
 
     def set_fractures(self):
         """Setting a single line fracture which runs through the domain center."""
