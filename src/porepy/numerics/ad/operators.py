@@ -1925,30 +1925,31 @@ class Projection(Operator):
         """Return the transpose of the operator."""
 
         return Projection(
-            domain_indices=self._slicer._range_indices,
-            range_indices=self._slicer._domain_indices,
-            range_size=self._slicer._domain_size,
-            domain_size=self._slicer._range_size,
+            domain_indices=self._slicer.range_indices,
+            range_indices=self._slicer.domain_indices,
+            range_size=self._slicer.domain_size,
+            domain_size=self._slicer.range_size,
             name=self.name,
         )
 
     def __repr__(self) -> str:
-        s = "Projcetion operator"
+        s = "Projection operator"
         if self._name is not None and len(self._name) > 0:
             s += f" named {self._name}"
         s += ".\n"
-        s += f"The projection maps from {self._slicer._domain_size} to "
-        s += f"{self._slicer._range_indices.size} dimensions.\n"
-        s += f"The projection maps {self._slicer._domain_indices.size} elements.\n"
+        s += f"The projection maps from {self._slicer.domain_size} to "
+        s += f"{self._slicer.range_indices.size} dimensions.\n"
+        s += f"The projection maps {self._slicer.domain_indices.size} elements.\n"
         if self._slicer._is_transposed:
             s += "The operator is transposed."
         return s
 
     def _key(self) -> str:
         if self._cached_key is None:
-            s = f"(prolongation, range_indices={self._slicer._range_indices})"
-            s += f", domain_size={self._slicer._domain_indices}"
-            s += f", range_size={self._slicer._range_size}"
+            s = f"(prolongation, range_indices={self._slicer.range_indices})"
+            s += f", domain_indices={self._slicer.domain_indices}"
+            s += f", domain_size={self._slicer.domain_indices}"
+            s += f", range_size={self._slicer.range_size}"
             if self._slicer._is_transposed:
                 s += ", transposed"
             self._cached_key = s

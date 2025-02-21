@@ -491,14 +491,30 @@ class MatrixSlicer:
 
         self._is_transposed = False
 
+    @property
+    def domain_indices(self) -> np.ndarray:
+        return self._domain_indices
+
+    @property
+    def range_indices(self) -> np.ndarray:
+        return self._range_indices
+
+    @property
+    def range_size(self) -> int:
+        return self._range_size
+
+    @property
+    def domain_size(self) -> int:
+        return self._domain_size
+
     def transpose(self) -> MatrixSlicer:
         """Return a transposed MatrixSlicer.
 
         A transposed MatrixSlicer will slice the matrix along columns instead of rows.
         The domain and range indices will refer to columns instead of rows. The range
-        size will be the number of colums in the resulting matrix. The transpose
+        size will be the number of columns in the resulting matrix. The transpose
         operation has no effect on the slicing of vectors, while, if applied to an
-        AdArray, the an error will be raised, since the Jacobian of an AdArray should be
+        AdArray, an error will be raised, since the Jacobian of an AdArray should be
         treated in a row-wise manner.
 
         Returns:
