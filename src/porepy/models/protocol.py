@@ -223,7 +223,7 @@ else:
                 dim: Dimension of the basis.
 
             Returns:
-                List of pp.ad.SparseArrayArray, each of which represents a basis
+                List of pp.ad.SparseArray, each of which represents a basis
                 function.
 
             """
@@ -600,9 +600,6 @@ else:
 
         def initial_condition(self) -> None:
             """Set the initial condition for the problem.
-
-            For each solution index stored in ``self.time_step_indices`` and
-            ``self.iterate_indices`` a zero initial value will be assigned.
 
             """
 
