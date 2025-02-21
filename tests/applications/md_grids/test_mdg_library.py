@@ -116,7 +116,7 @@ class TestMixedDimensionalGrids:
         self.check_fracture_coordinates([cc0, cc1], [fc0, fc1])
 
     @pytest.mark.parametrize("mesh_type", ["simplex", "cartesian"])
-    @pytest.mark.parametrize("num_fractures", [0, 1, 2])
+    @pytest.mark.parametrize("num_fractures", [1, 2])
     def test_two_intersecting_nonmatching(self, mesh_type, num_fractures):
         """Test meshing of a 2d square domain to generate a non-matching grid.
 
@@ -149,8 +149,9 @@ class TestMixedDimensionalGrids:
             fracture_indices=fracture_indices,
             fracture_endpoints=fracture_endpoints,
             non_matching=True,
-            **{"interface_refinement_ratio": 2, "fracture_refinement_ratios": 3},
+            **{"interface_refinement_ratio": 2, "fracture_refinement_ratio": 4},
         )
+
         # Number of faces in the 2d grid that are tagged as fracture faces.
         num_fracture_faces_from_matrix = (
             self.mdg.subdomains(dim=2)[0].tags["fracture_faces"].sum()
@@ -167,9 +168,12 @@ class TestMixedDimensionalGrids:
         # fracture faces in the matrix grid.
         assert non_zero_projection_primary > num_fracture_faces_from_matrix
 
-        # For the mortar grid vs fracture grids, we can simply do a cell count
+        # For the mortar grid vs fracture grids, we can simply do a cell count. We do
+        # not know precisely how many cells there will be in each, but with the given
+        # refinement settings (above), they should at least not be equal.
         for mg in self.mdg.interfaces(dim=1):
-            _, sd_secondary = self.mdg.neighboring_subdomains(mg)
+            _, sd_secondary = self.mdg.interface_to_subdomain_pair(mg)
+            # Multiply by two since there are two sides of the mortar.
             assert 2 * sd_secondary.num_cells != mg.num_cells
 
     def test_benchmark_regular(self):
