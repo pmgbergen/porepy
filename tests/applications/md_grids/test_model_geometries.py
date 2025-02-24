@@ -11,17 +11,17 @@ class TestModel(NonMatchingSquareDomainOrthogonalFractures, pp.SinglePhaseFlow):
 
 
 @pytest.mark.parametrize(
-    "fracture_indices, fracture_refinement_ratios, interface_refinement_ratio, expected_fracture_cell_num, expected_interface_cell_num",
+    "fracture_indices, fracture_refinement_ratio, interface_refinement_ratio, expected_fracture_cell_num, expected_interface_cell_num",
     [
-        ([0, 1], [2, 3], 3, [4, 6], [12, 12]),
-        ([0], [5], 4, [10], [16]),
-        ([1], [1], 2, [2], [8]),
-        ([0, 1], [1, 1], 1, [2, 2], [4, 4]),
+        ([0, 1], 3, 3, [6, 6], [12, 12]),
+        ([0], 5, 4, [10], [16]),
+        ([1], 1, 2, [2], [8]),
+        ([0, 1], 1, 1, [2, 2], [4, 4]),
     ],
 )
 def test_nonmatching_grid_generation(
     fracture_indices,
-    fracture_refinement_ratios,
+    fracture_refinement_ratio,
     interface_refinement_ratio,
     expected_fracture_cell_num,
     expected_interface_cell_num,
@@ -41,20 +41,20 @@ def test_nonmatching_grid_generation(
     Parameters:
         fracture_indices: List of (up to two) fracture indices as found in
             :class:`SquareDomainOrthogonalFractures`.
-        fracture_refinement_ratios: The ratio(s) of which the fracture(s) should be
+        fracture_refinement_ratio: The ratio(s) of which the fracture(s) should be
             refined. The fracture corresponding to the n-th element in
             `fracture_indices` will be refined by the ratio corresponding to the n-th
-            element in `fracture_refinement_ratios`.
+            element in `fracture_refinement_ratio`.
         interface_refinement_ratio: The ratio we want to refine the interface grid with.
         expected_fracture_cell_num: The expected number of fracture cells after
-            refinement by the ratio(s) found in `fracture_refinement_ratios`.
+            refinement by the ratio(s) found in `fracture_refinement_ratio`.
         expected_interface_cell_num: The expected number of interface cells
             refinement by the ratio found in `interface_refinement_ratio`.
 
     """
     params = {
         "fracture_indices": fracture_indices,
-        "fracture_refinement_ratios": fracture_refinement_ratios,
+        "fracture_refinement_ratio": fracture_refinement_ratio,
         "interface_refinement_ratio": interface_refinement_ratio,
     }
 
