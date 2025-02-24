@@ -595,6 +595,21 @@ class InitialConditionsSinglePhaseFlow(pp.InitialConditionMixin):
                     iterate_index=0,
                 )
 
+        for sd, data in self.mdg.subdomains(return_data=True):
+            pp.initialize_data(
+                sd,
+                data,
+                self.mobility_keyword,
+                {"darcy_flux": np.zeros(sd.num_faces)},
+            )
+        for intf, data in self.mdg.interfaces(return_data=True):
+            pp.initialize_data(
+                intf,
+                data,
+                self.mobility_keyword,
+                {"darcy_flux": np.zeros(intf.num_cells)},
+            )
+
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for pressure at iterate index 0.
 
@@ -877,27 +892,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         Used to access discretization parameters and store discretization matrices.
 
         """
-
-    def initial_condition(self) -> None:
-        """New formulation requires darcy flux (the flux is "advective" with mobilities
-        included).
-
-        """
-        super().initial_condition()
-        for sd, data in self.mdg.subdomains(return_data=True):
-            pp.initialize_data(
-                sd,
-                data,
-                self.mobility_keyword,
-                {"darcy_flux": np.zeros(sd.num_faces)},
-            )
-        for intf, data in self.mdg.interfaces(return_data=True):
-            pp.initialize_data(
-                intf,
-                data,
-                self.mobility_keyword,
-                {"darcy_flux": np.zeros(intf.num_cells)},
-            )
 
     def set_discretization_parameters(self) -> None:
         """Set default (unitary/zero) parameters for the flow problem.

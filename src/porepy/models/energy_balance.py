@@ -918,6 +918,21 @@ class InitialConditionsEnergy(pp.InitialConditionMixin):
                     iterate_index=0,
                 )
 
+        for sd, data in self.mdg.subdomains(return_data=True):
+            pp.initialize_data(
+                sd,
+                data,
+                self.enthalpy_keyword,
+                {"darcy_flux": np.zeros(sd.num_faces)},
+            )
+        for intf, data in self.mdg.interfaces(return_data=True):
+            pp.initialize_data(
+                intf,
+                data,
+                self.enthalpy_keyword,
+                {"darcy_flux": np.zeros(intf.num_cells)},
+            )
+
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for temperature at iterate index 0.
 
@@ -1157,24 +1172,6 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 {
                     "bc": self.bc_type_enthalpy_flux(sd),
                 },
-            )
-
-    def initial_condition(self) -> None:
-        """Add darcy flux to discretization parameter dictionaries."""
-        super().initial_condition()
-        for sd, data in self.mdg.subdomains(return_data=True):
-            pp.initialize_data(
-                sd,
-                data,
-                self.enthalpy_keyword,
-                {"darcy_flux": np.zeros(sd.num_faces)},
-            )
-        for intf, data in self.mdg.interfaces(return_data=True):
-            pp.initialize_data(
-                intf,
-                data,
-                self.enthalpy_keyword,
-                {"darcy_flux": np.zeros(intf.num_cells)},
             )
 
     def before_nonlinear_iteration(self):
