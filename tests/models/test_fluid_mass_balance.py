@@ -589,7 +589,7 @@ def test_unit_conversion(units, grid):
     params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
-        "fracture_refinement_ratios": [2, 3],
+        "fracture_refinement_ratio": 2,
         "interface_refinement_ratio": 3,
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
