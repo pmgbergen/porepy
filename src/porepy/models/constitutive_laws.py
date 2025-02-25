@@ -41,6 +41,7 @@ class DisplacementJump(pp.PorePyModel):
     elastic_tangential_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the tangential component of the elastic fracture deformation."""
 
+    @pp.ad.cached_method
     def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Displacement jump on fracture-matrix interfaces.
 
@@ -77,6 +78,7 @@ class DisplacementJump(pp.PorePyModel):
         rotated_jumps.set_name("Rotated_displacement_jump")
         return rotated_jumps
 
+    @pp.ad.cached_method
     def elastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The elastic component of the displacement jump [m].
 
@@ -105,6 +107,7 @@ class DisplacementJump(pp.PorePyModel):
         u_n = self.elastic_normal_fracture_deformation(subdomains)
         return tangential_to_nd @ u_t + normal_to_nd @ u_n
 
+    @pp.ad.cached_method
     def plastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The plastic component of the displacement jump.
 
@@ -150,6 +153,7 @@ class DimensionReduction(pp.PorePyModel):
                 aperture = self.solid.residual_aperture * aperture
         return aperture
 
+    @pp.ad.cached_method
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
 
@@ -191,6 +195,7 @@ class DimensionReduction(pp.PorePyModel):
 
         return apertures
 
+    @pp.ad.cached_method
     def specific_volume(
         self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
     ) -> pp.ad.Operator:
@@ -290,6 +295,11 @@ class DisplacementJumpAperture(DimensionReduction):
         """
         return Scalar(self.solid.residual_aperture, name="residual_aperture")
 
+    # NOTE: This method contains a call to self.equation_system.evaluate, signifying
+    # that caching may not be a good idea. However, the evaluated quantity is static, it
+    # depends only on geometric properties of the grid, and the caching is therefore
+    # safe.
+    @pp.ad.cached_method
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
 
@@ -917,6 +927,7 @@ class DarcysLaw(pp.PorePyModel):
         )
         return pressure_trace
 
+    @pp.ad.cached_method
     def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Darcy's law.
 
