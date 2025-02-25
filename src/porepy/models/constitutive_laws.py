@@ -467,6 +467,48 @@ class DisplacementJumpAperture(DimensionReduction):
         return apertures
 
 
+class InterfaceDisplacementArray(pp.PorePyModel):
+    """Displacement on interfaces as a TimeDependentDenseArray.
+
+    Intended usage is to define the displacement on the interfaces as a parameter, not a
+    primary variable.
+
+    """
+
+    interface_displacement_parameter_key: str
+    """Key for the interface displacement parameter."""
+    nd: int
+    """Ambient dimension of the problem."""
+
+    def interface_displacement(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Displacement on interfaces [m].
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the displacement on the interfaces.
+
+        """
+        return pp.ad.TimeDependentDenseArray(
+            self.interface_displacement_parameter_key, interfaces
+        )
+
+    def interface_diplacement_parameter_values(
+        self, interface: pp.MortarGrid
+    ) -> np.ndarray:
+        """Displacement on interfaces [m].
+
+        Parameters:
+            interface: Single interface grid.
+
+        Returns:
+            Array representing the displacement on the interface of shape (nd, num_cells).
+
+        """
+        return np.zeros((self.nd, interface.num_cells))
+
+
 class SecondOrderTensorUtils(pp.PorePyModel):
     def isotropic_second_order_tensor(
         self, subdomains: list[pp.Grid], permeability: pp.ad.Operator
@@ -2810,7 +2852,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
     """
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -3341,7 +3383,7 @@ class CoulombFrictionBound(pp.PorePyModel):
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
 
@@ -3462,7 +3504,7 @@ class BartonBandis(pp.PorePyModel):
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
