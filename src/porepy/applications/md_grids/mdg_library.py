@@ -5,6 +5,7 @@ Mainly for use in tests. Other usage should be covered by the model_geometries.
 """
 
 from __future__ import annotations
+from typing import Union
 
 from pathlib import Path
 from typing import Literal, Optional, cast
@@ -12,6 +13,8 @@ from typing import Literal, Optional, cast
 import numpy as np
 
 import porepy as pp
+from porepy.grids import mortar_grid
+
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
@@ -141,7 +144,10 @@ def square_with_orthogonal_fractures(
             non_matching=False,
         )
 
-        intf_map = {}
+        intf_map: dict[
+            pp.MortarGrid,
+            Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
+        ] = {}
         # Loop over all the interfaces in the new grid. Find its corresponding interface
         # in the old grid, and update the interface map. There is no point in updating
         # the 0d mortar, since there is no room for refinement.
