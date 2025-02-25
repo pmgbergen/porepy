@@ -283,7 +283,7 @@ class ContactTractionVariable(VariableMixin):
             tags={"si_units": "-"},
         )
 
-    def contact_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
+    def contact_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Fracture contact traction [-].
 
         Parameters:
@@ -388,10 +388,10 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         )
         """Key for the interface displacement parameter."""
 
-    def set_parameters(self) -> None:
+    def set_discretization_parameters(self) -> None:
         """Set parameters for the model."""
-        super().set_parameters()
-        for intf, data in self.mdg.interface_data.items():
+        super().set_discretization_parameters()
+        for intf, data in self.mdg.interfaces(return_data=True):
             data[self.interface_displacement_parameter_key] = (
                 self.interface_diplacement_parameter_values(intf).ravel("F")
             )
