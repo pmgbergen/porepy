@@ -255,10 +255,7 @@ class TimeManager:
             )
 
             if dt_init < dt_min_max[0]:
-                if dt_min_max_passed is not None:
-                    raise ValueError(msg_dtmin)
-                else:
-                    raise ValueError(msg_dtmin + msg_unset)
+                raise ValueError(msg_dtmin)
 
             if dt_init > dt_min_max[1]:
                 if dt_min_max_passed is not None:

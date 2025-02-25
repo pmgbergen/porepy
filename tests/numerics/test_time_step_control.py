@@ -160,15 +160,15 @@ class TestParameterInputs:
     def test_initial_time_step_larger_than_minimum_time_step(self):
         """An error should be raised if initial time step is less than minimum time step."""
         msg_dtmin = "Initial time step cannot be smaller than minimum time step. "
-        msg_unset = (
-            "This error was raised since `dt_min_max` was not set on "
-            "initialization. Thus, values of dt_min and dt_max were assigned "
-            "based on the final simulation time. If you still want to use this "
-            "initial time step, consider passing `dt_min_max` explicitly."
-        )
         with pytest.raises(ValueError) as excinfo:
-            pp.TimeManager(schedule=[0, 1], dt_init=0.0009)
-        assert (msg_dtmin + msg_unset) in str(excinfo.value)
+            pp.TimeManager(schedule=[0, 1], dt_min_max=[0.001, 0.1], dt_init=0.0009)
+        assert msg_dtmin in str(excinfo.value)
+
+    def test_initial_time_step_smaller_than_default_minimum_time_step(self):
+        """The default minimum time step should be adjusted if the user passed a smaller
+        value."""
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=1e-6)
+        assert time_manager.dt_min_max[0] == 1e-6
 
     def test_initial_time_step_smaller_than_maximum_time_step(self):
         """An error should be raised if initial time step is larger than the maximum time
@@ -798,9 +798,9 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         if self.num_nonlinear_iters == 0:
             iterate_values = self.equation_system.get_variable_values(iterate_index=0)
             state_values = self.equation_system.get_variable_values(time_step_index=0)
-            assert np.all(iterate_values == state_values), (
-                "Likely, 'iterate' was not reset after the unsuccessful time step."
-            )
+            assert np.all(
+                iterate_values == state_values
+            ), "Likely, 'iterate' was not reset after the unsuccessful time step."
 
         self.num_nonlinear_iters += 1
 
@@ -823,9 +823,9 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         if self.time_step_converged[self.time_step_idx] is False:
             # Diverged
             return False, True
-        assert False, (
-            "Nonlinear solver did not stop iterating after the iteration limit."
-        )
+        assert (
+            False
+        ), "Nonlinear solver did not stop iterating after the iteration limit."
 
     # Minimizing computational expences.
 
