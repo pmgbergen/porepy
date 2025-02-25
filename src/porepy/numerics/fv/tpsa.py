@@ -780,7 +780,7 @@ class Tpsa:
             z = np.zeros(nf)
             Rn_data = np.array([[z, n[2], -n[1]], [-n[2], z, n[0]], [n[1], -n[0], z]])
 
-            Rn_hat = pp.matrix_operations.csr_matrix_from_blocks(
+            Rn_hat = pp.matrix_operations.csr_matrix_from_dense_blocks(
                 Rn_data.ravel("F"), nd, nf
             )
             Rn_bar = Rn_hat
