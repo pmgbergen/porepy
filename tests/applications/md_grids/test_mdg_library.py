@@ -164,7 +164,7 @@ class TestMixedDimensionalGrids:
             self.mdg.subdomains(dim=2)[0].tags["fracture_faces"].sum()
         )
 
-        # Loop over the fractures, fetch the projections to the 2d grid, and count the
+        # Loop over the interfaces between fractures and matrix, fetch the projections to the 2d grid, and count the
         # number of non-zero entries in the projection matrix.
         non_zero_projection_primary = 0
         for mg in self.mdg.interfaces(dim=1):
@@ -190,7 +190,7 @@ class TestMixedDimensionalGrids:
             assert 2 * sd_secondary.num_cells != mg.num_cells
             if mesh_type == "cartesian":
                 # On a Cartesian grid, the refinement level is known, and we can do a
-                # stricter check.
+                # stricter check to make sure the original logic remains correct.
                 assert (
                     2 * interface_refinement_ratio * sd_secondary.num_cells
                     == fracture_refinement_ratio * mg.num_cells
