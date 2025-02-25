@@ -165,24 +165,12 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
     geometry allows for non-matching grids and different resolution for each grid.
     """
 
-    def set_geometry(self) -> None:
-        """Define geometry and create a non-matching mixed-dimensional grid.
+    def set_mdg(self) -> None:
+        """Create a non-matching grid.
 
-        We here make a non-matching mixed-dimensional grid in the sense that neither of
-        the fracture grids, interface grids or the rock grid are matching. This is done
-        by refining the fracture and interface grids.
+        The actual grid is created by the mdg_library function for orthogonal fractures.
 
         """
-
-        # The fracture grids are replaced by a refined version of the fractures which
-        # are already present in the grid. The interface grids are replaced by first
-        # creating a new mixed-dimensional grid with a higher resolution. The new
-        # mixed-dimensional grid will "donate" its interface grids to the original
-        # mixed-dimensional grid.
-
-        # First set the geometry and create a matching mixed-dimensional grid.
-        assert isinstance(self, pp.ModelGeometry)
-        super().set_geometry()  # type:ignore[safe-super]
 
         # Create a non-matching mixed-dimensional grid. The parameters below are picked
         # from the model, with default values set to mirror those applied in

@@ -5,19 +5,16 @@ Mainly for use in tests. Other usage should be covered by the model_geometries.
 """
 
 from __future__ import annotations
-from typing import Union
 
 from pathlib import Path
-from typing import Literal, Optional, cast
+from typing import Literal, Optional, Union, cast
 
 import numpy as np
 
 import porepy as pp
-from porepy.grids import mortar_grid
-
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-
+from porepy.grids import mortar_grid
 
 from . import domains, fracture_sets
 
