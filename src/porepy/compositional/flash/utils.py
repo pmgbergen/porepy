@@ -27,7 +27,7 @@ from __future__ import annotations
 import numba
 import numpy as np
 
-from ._core import NUMBA_FAST_MATH
+from .._core import NUMBA_FAST_MATH
 
 
 @numba.njit(

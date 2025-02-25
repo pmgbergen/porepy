@@ -66,11 +66,12 @@ import numba
 import numpy as np
 import sympy as sp
 
+import porepy as pp
+
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from .._core import R_IDEAL_MOL
-from ..base import Component
 from ..utils import safe_sum
-from .pr_utils import thd_function_type
+from .utils import thd_function_type
 
 __all__ = [
     "A_CRIT",
@@ -605,7 +606,7 @@ class PengRobinsonSymbolic:
 
     def __init__(
         self,
-        components: list[Component],
+        components: list[pp.FluidComponent],
         ideal_enthalpies: list[thd_function_type],
         bip_matrix: np.ndarray,
     ) -> None:
@@ -712,7 +713,8 @@ class PengRobinsonSymbolic:
         # region coterms
 
         b_i_crit: list[float] = [
-            B_CRIT * (R_IDEAL_MOL * comp.T_crit) / comp.p_crit for comp in components
+            B_CRIT * (R_IDEAL_MOL * comp.critical_temperature) / comp.critical_pressure
+            for comp in components
         ]
         """List of critical covolumes per component"""
 
@@ -732,15 +734,19 @@ class PengRobinsonSymbolic:
         self.d_B_f = sp.lambdify(self.thd_arg, d_B_e)
 
         a_i_crit: list[float] = [
-            A_CRIT * (R_IDEAL_MOL**2 * comp.T_crit**2) / comp.p_crit
+            A_CRIT
+            * (R_IDEAL_MOL**2 * comp.critical_temperature**2)
+            / comp.critical_pressure
             for comp in components
         ]
         """List of critical cohesion values per component."""
 
-        ki: list[float] = [self.a_correction_weight(comp.omega) for comp in components]
+        ki: list[float] = [
+            self.a_correction_weight(comp.acentric_factor) for comp in components
+        ]
         """List of corrective weights per cohesion of components."""
         a_i_correction_e: list[sp.Expr] = [
-            1 + k * (1 - sp.sqrt(self.T_s / comp.T_crit))
+            1 + k * (1 - sp.sqrt(self.T_s / comp.critical_temperature))
             for k, comp in zip(ki, components)
         ]
         """Corrective term in component cohesions (per component)."""

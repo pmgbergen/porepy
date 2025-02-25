@@ -31,11 +31,11 @@ References:
 
 __all__ = []
 
-from . import eos_c, eos_s, pr_utils
+from . import eos_c, eos_s, utils
 from .eos_c import *
 from .eos_s import *
-from .pr_utils import *
+from .utils import *
 
 __all__.extend(eos_c.__all__)
 __all__.extend(eos_s.__all__)
-__all__.extend(pr_utils.__all__)
+__all__.extend(utils.__all__)

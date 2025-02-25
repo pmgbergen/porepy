@@ -11,7 +11,7 @@ import numba
 import numpy as np
 
 from ._core import NUMBA_PARALLEL, PhysicalState
-from .base import AbstractEoS, Component
+from .base import Component, EquationOfState
 from .states import PhaseProperties
 from .utils import normalize_rows
 
@@ -169,7 +169,7 @@ def _compile_vectorized_property_derivatives(
     return inner
 
 
-class EoSCompiler(AbstractEoS):
+class EoSCompiler(EquationOfState):
     """Abstract base class for EoS specific compilation using numba.
 
     The :class:`EoSCompiler` needs functions computing

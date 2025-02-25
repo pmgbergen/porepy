@@ -345,7 +345,7 @@ class EnthalpyBasedEnergyBalanceEquations(
     def fluid_internal_energy(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         r"""Returns the internal energy of the fluid using the independent
         :meth:`~porepy.models.energy_balance.EnthalpyVariable.enthalpy` variable and the
-        :attr:`~porepy.compositional.base.FluidMixture.density` of the fluid mixture
+        :attr:`~porepy.compositional.base.Fluid.density` of the fluid mixture
 
         .. math::
 
@@ -549,7 +549,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         self, component: pp.Component, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         r"""Returns the accumulation term in a ``component``'s mass balance equation
-        using the :attr:`~porepy.compositional.base.FluidMixture.density` of the fluid
+        using the :attr:`~porepy.compositional.base.Fluid.density` of the fluid
         mixture and the component's
         :attr:`~porepy.compositional.base.Component.fraction`
 

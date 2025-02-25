@@ -1,10 +1,9 @@
-"""Module containing mixin classes for introducing the local, unified equilibrium
+"""Module containing equation classes for introducing the local, unified equilibrium
 problem into a PorePy model.
 
 Local equilibrium equations are single, cell-wise algebraic equations, introducing
 the thermodynamically consistent approach to modelling secondary expressions like
-phase densities.
-They also introduce necessarily new variables into the system (fractions).
+phase densities and closing a CF model.
 
 Instances of :class:`UnifiedEquilibriumMixin` require the ``'equilibrium_type'`` model
 parameter to be *not* ``None``. This is to inform the remaining framework
@@ -18,9 +17,8 @@ import warnings
 from typing import Callable, Optional, Sequence
 
 import porepy as pp
-
-from .base import Component, FluidMixture, Phase
-from .utils import CompositionalModellingError
+from porepy.compositional.utils import CompositionalModellingError
+from porepy.models.abstract_equations import EquationMixin
 
 __all__ = [
     "UnifiedPhaseEquilibriumMixin",
@@ -30,15 +28,23 @@ __all__ = [
 ]
 
 
-class UnifiedPhaseEquilibriumMixin:
+class UnifiedPhaseEquilibriumMixin(pp.PorePyModel):
     """Base class for introducing local phase equilibrium equations into a model using
     the unified formulation.
 
-    The base class provides means to assemble required equations.
+    The base class provides means to assemble required equations, as well as a
+    verification of model assumptions for the unified formulation.
 
-    Important:
-        This class assumes the mixture is fully set up, including all properties and
-        variables.
+    A :class:`~porepy.compositional.utils.CompositionalModellingError` will be raised
+    if any of the following assumptions is violated:
+
+    1. At least 2 components and 2 phases are modelled.
+    2. The model's ``params['equilibrium_type']`` is not None and contains the keyword
+       ``'unified'``.
+    3. All phases have all components set in them (all extended partial fractions are
+       defined and introduced).
+
+    If the reference phase was not eliminated (dangling variables), a warning is raised.
 
     """
 
@@ -50,23 +56,10 @@ class UnifiedPhaseEquilibriumMixin:
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-    """See :class:`~porepy.models.geometry.ModelGeometry`."""
-    equation_system: pp.ad.EquationSystem
-    """See :class:`~porepy.models.solution_strategy.SolutionStrategy`."""
-    fluid_mixture: FluidMixture
-    """See :class:`FluidMixtureMixin`."""
-
-    enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.compositional_flow.VariablesCF`."""
-    volume: Callable[[list[pp.Grid]], pp.ad.Operator]
+    volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.compositional_flow.SolidSkeletonCF`."""
-
-    params: dict
-    """See :class:`~porepy.models.compositional_flow.SolutionStrategyCF`."""
-
-    ad_time_step: pp.ad.Operator
-    """See solutions trategy."""
 
     _is_ref_phase_eliminated: bool
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
@@ -77,14 +70,17 @@ class UnifiedPhaseEquilibriumMixin:
     def _normalize_constraints(self) -> bool:
         """Returns the flags set in model parameters indicating whether local
         constraints should be normalized (non-dimensional equations)."""
-        return bool(self.params.get("normalize_state_constraints", False))
+        return bool(self.params.get("normalize_state_constraints", True))
 
     def set_equations(self) -> None:
         """The base class method without defined equilibrium type performs a model
         validation to ensure that the assumptions for the unified flash are fulfilled.
         """
-        ncomp = self.fluid_mixture.num_components
-        nphase = self.fluid_mixture.num_phases
+        assert isinstance(self, EquationMixin)
+        super().set_equations()  # type:ignore[safe-super]
+
+        ncomp = self.fluid.num_components
+        nphase = self.fluid.num_phases
 
         if not self._has_unified_equilibrium:
             raise CompositionalModellingError(
@@ -108,8 +104,8 @@ class UnifiedPhaseEquilibriumMixin:
                 + " eliminated. Check model closedness."
             )
 
-        all_comps = set(self.fluid_mixture.components)
-        for phase in self.fluid_mixture.phases:
+        all_comps = set(self.fluid.components)
+        for phase in self.fluid.phases:
             phase_comps = set(phase)
             if all_comps.symmetric_difference(phase_comps):
                 raise CompositionalModellingError(
@@ -118,7 +114,7 @@ class UnifiedPhaseEquilibriumMixin:
                 )
 
     def mass_constraint_for_component(
-        self, component: Component, subdomains: Sequence[pp.Grid]
+        self, component: pp.Component, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
         """Constructs the local mass constraint for a component :math:`i`.
 
@@ -129,7 +125,7 @@ class UnifiedPhaseEquilibriumMixin:
         - :math:`z` : Component :attr:`~porepy.compositional.base.Component.fraction`
         - :math:`y` : Phase :attr:`~porepy.compositional.base.Phase.fraction`
         - :math:`x` : :attr:`~porepy.compositional.base.Phase.extended_fraction_of` the
-          componentn in a phase.
+          component in a phase.
 
         The above sum is performed over all phases the component is present in.
 
@@ -142,7 +138,7 @@ class UnifiedPhaseEquilibriumMixin:
 
         """
         # get all phases the component is present in
-        phases = [phase for phase in self.fluid_mixture.phases if component in phase]
+        phases = [phase for phase in self.fluid.phases if component in phase]
 
         # create operators for fractions
         z_i = component.fraction(subdomains)
@@ -155,7 +151,7 @@ class UnifiedPhaseEquilibriumMixin:
         return equ
 
     def complementarity_condition_for_phase(
-        self, phase: Phase, subdomains: Sequence[pp.Grid]
+        self, phase: pp.Phase, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
         """Constructs the complementarity condition for a given phase.
 
@@ -178,7 +174,8 @@ class UnifiedPhaseEquilibriumMixin:
         Returns:
             The left-hand side of above equation. If the semi-smooth form is
             requested by the solution strategy, then the :math:`\\min\\{\\}` operator is
-            used.
+            used. The semi-smooth form can be requested via
+            ``params['use_semismooth_complementarity']`` and defaults to True.
 
         """
 
@@ -189,7 +186,7 @@ class UnifiedPhaseEquilibriumMixin:
         minimum = lambda x, y: pp.ad.maximum(-x, -y)
         ssmin = pp.ad.Function(minimum, "semi-smooth-minimum")
 
-        if self.params.get("use_semismooth_complementarity", False):
+        if self.params.get("use_semismooth_complementarity", True):
             equ = ssmin(phase.fraction(subdomains), unity)
             equ.set_name(f"semismooth_complementary_condition_{phase.name}")
         else:
@@ -198,7 +195,7 @@ class UnifiedPhaseEquilibriumMixin:
         return equ
 
     def isofugacity_constraint_for_component_in_phase(
-        self, component: Component, phase: Phase, subdomains: Sequence[pp.Grid]
+        self, component: pp.Component, phase: pp.Phase, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
         """Construct the local isofugacity constraint for a component between a given
         phase and the reference phase.
@@ -227,7 +224,7 @@ class UnifiedPhaseEquilibriumMixin:
             The left-hand side of above equation.
 
         """
-        rphase = self.fluid_mixture.reference_phase
+        rphase = self.fluid.reference_phase
         if phase == rphase:
             raise ValueError(
                 "Cannot construct isofugacity constraint between reference phase and "
@@ -277,7 +274,7 @@ class UnifiedPhaseEquilibriumMixin:
 
         """
 
-        h_mix = self.fluid_mixture.specific_enthalpy(subdomains)
+        h_mix = self.fluid.specific_enthalpy(subdomains)
         h_target = self.enthalpy(subdomains)
         if self._normalize_constraints:
             equ = h_mix / h_target - pp.ad.Scalar(1.0)
@@ -317,18 +314,16 @@ class UnifiedPhaseEquilibriumMixin:
 
         """
         if self._normalize_constraints:
-            equ = self.volume(subdomains) * self.fluid_mixture.density(
+            equ = self.volume(subdomains) * self.fluid.density(
                 subdomains
             ) - pp.ad.Scalar(1.0)
         else:
-            equ = self.volume(subdomains) - self.fluid_mixture.specific_volume(
-                subdomains
-            )
+            equ = self.volume(subdomains) - self.fluid.specific_volume(subdomains)
         equ.set_name("local_fluid_volume_constraint")
         return equ
 
     def mass_constraint_for_phase(
-        self, phase: Phase, subdomains: Sequence[pp.Grid]
+        self, phase: pp.Phase, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
         """Constructs a type of local mass constraint based on a relation between
         mixture density, saturated phase density and phase fractions.
@@ -345,14 +340,15 @@ class UnifiedPhaseEquilibriumMixin:
 
         - :math:`y` : Phase :attr:`~porepy.compositional.base.Phase.fraction`
         - :math:`s` : Phase :attr:`~porepy.compositional.base.Phase.saturation`
-        - :math:`\\rho` : Fluid mixture :attr:`~porepy.compositional.base.FluidMixture.density`
+        - :math:`\\rho` : Fluid mixture :attr:`~porepy.compositional.base.Fluid.
+          density`
         - :math:`\\rho_j` : Phase:attr:`~porepy.compositional.base.Phase.density`
 
         Note:
             These equations can be used to close the model if molar phase fractions and
             saturations are independent variables.
 
-            They also appear in the unified flash with isochoric specificitations.
+            They also appear in the unified flash with isochoric specifications.
 
         Parameters:
             phase: A phase for which the equation should be assembled.
@@ -368,9 +364,9 @@ class UnifiedPhaseEquilibriumMixin:
         if self._normalize_constraints:
             equ = phase.fraction(subdomains) - phase.saturation(
                 subdomains
-            ) * phase.density(subdomains) / self.fluid_mixture.density(subdomains)
+            ) * phase.density(subdomains) / self.fluid.density(subdomains)
         else:
-            equ = phase.fraction(subdomains) * self.fluid_mixture.density(
+            equ = phase.fraction(subdomains) * self.fluid.density(
                 subdomains
             ) - phase.saturation(subdomains) * phase.density(subdomains)
         equ.set_name(f"local_density_conservation_{phase.name}")
@@ -394,30 +390,31 @@ class Unified_pT_Equilibrium(UnifiedPhaseEquilibriumMixin):
 
     def set_equations(self) -> None:
         """Introduces the equations into the equation system on all subdomains."""
-        # Perform model validations
-        UnifiedPhaseEquilibriumMixin.set_equations(self)
+        assert isinstance(self, EquationMixin)
+        super().set_equations()  # type:ignore[safe-super]
+
         subdomains = self.mdg.subdomains()
 
         ## starting with equations common to all equilibrium definitions
         # local mass constraint per independent component
-        for comp in self.fluid_mixture.components:
+        for comp in self.fluid.components:
             # skipping reference component according to unified assumptions
-            if comp != self.fluid_mixture.reference_component:
+            if comp != self.fluid.reference_component:
                 equ = self.mass_constraint_for_component(comp, subdomains)
                 self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
         # isofugacity constraints
-        rphase = self.fluid_mixture.reference_phase
-        for phase in self.fluid_mixture.phases:
+        rphase = self.fluid.reference_phase
+        for phase in self.fluid.phases:
             if phase != rphase:
-                for comp in self.fluid_mixture.components:
+                for comp in self.fluid.components:
                     equ = self.isofugacity_constraint_for_component_in_phase(
                         comp, phase, subdomains
                     )
                     self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
         # complementarity conditions
-        for phase in self.fluid_mixture.phases:
+        for phase in self.fluid.phases:
             equ = self.complementarity_condition_for_phase(phase, subdomains)
             self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
@@ -438,7 +435,8 @@ class Unified_ph_Equilibrium(Unified_pT_Equilibrium):
     def set_equations(self) -> None:
         """Introduces the local  enthalpy constraint, atop the equations introduced
         by :class:`Unified_pT_Equilibrium`, on all subdomains."""
-        Unified_pT_Equilibrium.set_equations(self)
+        assert isinstance(self, EquationMixin)
+        super().set_equations()  # type:ignore[safe-super]
         subdomains = self.mdg.subdomains()
         equ = self.mixture_enthalpy_constraint(subdomains)
         self.equation_system.set_equation(equ, subdomains, {"cells": 1})
@@ -460,12 +458,13 @@ class Unified_vh_Equilibrium(Unified_ph_Equilibrium):
     """
 
     def set_equations(self) -> None:
-        Unified_ph_Equilibrium.set_equations(self)
+        assert isinstance(self, EquationMixin)
+        super().set_equations()  # type:ignore[safe-super]
         subdomains = self.mdg.subdomains()
         equ = self.mixture_volume_constraint(subdomains)
         self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 
-        for phase in self.fluid_mixture.phases:
-            if phase != self.fluid_mixture.reference_phase:
+        for phase in self.fluid.phases:
+            if phase != self.fluid.reference_phase:
                 equ = self.mass_constraint_for_phase(phase, subdomains)
                 self.equation_system.set_equation(equ, subdomains, {"cells": 1})
