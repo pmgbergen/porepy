@@ -314,6 +314,7 @@ def test_targeted_rediscretization(model_class):
         ("poromechanics", "mass_balance_equation", None),
         ("poromechanics", "momentum_balance_equation", 0),
         ("poromechanics", "interface_force_balance_equation", 1),
+        ("poromechanics", "normal_fracture_deformation_equation", 1),
         ("thermoporomechanics", "interface_fourier_flux_equation", None),
     ],
 )
