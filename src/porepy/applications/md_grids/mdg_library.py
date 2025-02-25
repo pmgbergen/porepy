@@ -7,7 +7,7 @@ Mainly for use in tests. Other usage should be covered by the model_geometries.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, Optional, cast, Union
+from typing import Literal, Optional, cast
 
 import numpy as np
 
@@ -85,10 +85,10 @@ def square_with_orthogonal_fractures(
     # the if-block below. However, if there are no fractures, we skip this step.
     if non_matching and len(fracture_indices) > 0:
         # Get the mesh refinement ratios for the fracture and interface grids.
-        fracture_refinement_ratio: pp.number = meshing_kwargs.get(
+        fracture_refinement_ratio: int = meshing_kwargs.get(
             "fracture_refinement_ratio", 2
         )
-        interface_refinement_ratio: pp.number = meshing_kwargs.get(
+        interface_refinement_ratio: int = meshing_kwargs.get(
             "interface_refinement_ratio", 2
         )
 
