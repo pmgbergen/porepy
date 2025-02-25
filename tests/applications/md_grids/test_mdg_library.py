@@ -142,14 +142,21 @@ class TestMixedDimensionalGrids:
             fracture_endpoints.append(np.array([0, 1]))
             fracture_indices.append(1)
 
-        # Generate
+        # Refinement ratios.
+        interface_refinement_ratio = 2
+        fracture_refinement_ratio = 4
+
+        # Generate the grid.
         self.mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
             mesh_type,
             meshing_arguments,
             fracture_indices=fracture_indices,
             fracture_endpoints=fracture_endpoints,
             non_matching=True,
-            **{"interface_refinement_ratio": 2, "fracture_refinement_ratio": 4},
+            **{
+                "interface_refinement_ratio": interface_refinement_ratio,
+                "fracture_refinement_ratio": fracture_refinement_ratio,
+            },
         )
 
         # Number of faces in the 2d grid that are tagged as fracture faces.
@@ -167,6 +174,12 @@ class TestMixedDimensionalGrids:
         # hence there should be more items in the projection matrix than there are
         # fracture faces in the matrix grid.
         assert non_zero_projection_primary > num_fracture_faces_from_matrix
+        if mesh_type == "cartesian":
+            # On a Cartesian grid, the refinement level is known.
+            assert (
+                non_zero_projection_primary
+                == interface_refinement_ratio * num_fracture_faces_from_matrix
+            )
 
         # For the mortar grid vs fracture grids, we can simply do a cell count. We do
         # not know precisely how many cells there will be in each, but with the given
@@ -175,6 +188,13 @@ class TestMixedDimensionalGrids:
             _, sd_secondary = self.mdg.interface_to_subdomain_pair(mg)
             # Multiply by two since there are two sides of the mortar.
             assert 2 * sd_secondary.num_cells != mg.num_cells
+            if mesh_type == "cartesian":
+                # On a Cartesian grid, the refinement level is known, and we can do a
+                # stricter check.
+                assert (
+                    2 * interface_refinement_ratio * sd_secondary.num_cells
+                    == fracture_refinement_ratio * mg.num_cells
+                )
 
     def test_benchmark_regular(self):
         """Test the mdg generator for the regular case of the benchmark study.
