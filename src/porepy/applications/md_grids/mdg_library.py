@@ -84,7 +84,7 @@ def square_with_orthogonal_fractures(
     # If a non-matching grid is requested, we refine the fracture and interface grids in
     # the if-block below. However, if there are no fractures, we skip this step.
     if non_matching and len(fracture_indices) > 0:
-        # Get the mesh refinement ratios for the fracture and interface grids..
+        # Get the mesh refinement ratios for the fracture and interface grids.
         fracture_refinement_ratio: pp.number = meshing_kwargs.get(
             "fracture_refinement_ratio", 2
         )
@@ -93,11 +93,12 @@ def square_with_orthogonal_fractures(
         )
 
         # For the fracture grids, we can use the pp.refinement.refine_grid_1d function
-        # and impose the ratio directly. For the interface grids, the simplest way of
-        # refining is to create a new mixed-dimensional grid with the same geometry, but
-        # with refined rates, and then map the new grids to the old ones.
+        # to refine the grid. For the interface grids, the simplest way of refining is
+        # to create a new mixed-dimensional grid with the same geometry, but with the
+        # mesh size reduced by the specified ratio (interface_refinement_ratio), and
+        # then map the new grids to the old ones.
 
-        # Refine the mesh size arguments. Provided interface_refinement_ratio > 1, this
+        # Change the mesh size arguments. Provided interface_refinement_ratio > 1, this
         # will lead to a finer mesh than the one used to generate the old mdg.
         if grid_type == "simplex":
             # Loop over all the possible meshing arguments for the simplex grid, as
