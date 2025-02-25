@@ -236,7 +236,7 @@ class TimeManager:
         # dt_max=0.1*final_time
         dt_min_max_passed = dt_min_max  # store for later use
         if dt_min_max is None:
-            dt_min_max = (0.001 * schedule[-1], 0.1 * schedule[-1])
+            dt_min_max = (min(dt_init, 0.001 * schedule[-1]), 0.1 * schedule[-1])
 
         # More sanity checks below. Note that all the remaining sanity checks (but one)
         # are only needed when constant_dt = False. Thus, to save time when constant_dt
