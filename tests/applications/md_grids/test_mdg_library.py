@@ -181,9 +181,10 @@ class TestMixedDimensionalGrids:
                 == interface_refinement_ratio * num_fracture_faces_from_matrix
             )
 
-        # For the mortar grid vs fracture grids, we can simply do a cell count. We do
-        # not know precisely how many cells there will be in each, but with the given
-        # refinement settings (above), they should at least not be equal.
+        # To compare the grid resolution on the 1d mortar grids and the fracture grids,
+        # we can do a cell count. We do not know precisely how many cells there will be
+        # in each, but with the given refinement settings (above), they should at least
+        # not be equal.
         for mg in self.mdg.interfaces(dim=1):
             _, sd_secondary = self.mdg.interface_to_subdomain_pair(mg)
             # Multiply by two since there are two sides of the mortar.
