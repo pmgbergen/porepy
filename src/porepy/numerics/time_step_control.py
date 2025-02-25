@@ -132,9 +132,10 @@ class TimeManager:
             `schedule` are compatible.
         dt_min_max: Minimum and maximum permissible time steps.
             If None, then the minimum time step is set to 0.1% of the final simulation
-            time and the maximum time step is set to 10% of the final simulation time.
-            If given, then the first and second elements of the tuple corresponds to the
-            minimum and maximum time steps, respectively.
+            time or the initial time step if it is smaller than that. The maximum time
+            step is set to 10% of the final simulation time. If given, then the first
+            and second elements of the tuple corresponds to the minimum and maximum time
+            steps, respectively.
 
             To avoid oscillations and ensure a stable time step adaptation in
             combination with the relaxation factors, we further require:
@@ -232,7 +233,7 @@ class TimeManager:
         self.rtol = rtol
         self.atol = atol
 
-        # If dt_min_max is not given, set dt_min=0.001*final_time and
+        # If dt_min_max is not given, set dt_min=min(0.001*final_time, dt_init) and
         # dt_max=0.1*final_time
         dt_min_max_passed = dt_min_max  # store for later use
         if dt_min_max is None:
