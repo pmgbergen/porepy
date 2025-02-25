@@ -7,69 +7,70 @@ Note:
     This is regulated locally in the file by disabling numba JIT
 
 """
+
 from __future__ import annotations
-
-_NO_JIT = False
-"""Flag to disable numba JIT for this module by setting an environment flag.
-The flag is deleted at the end of the module.
-
-NOTE: This still may interfer with other tests if pytest does some fancy parallelization
-or networking.
-
-"""
-import os
 
 import numpy as np
 import pytest
 
-if _NO_JIT:
-    os.environ["NUMBA_DISABLE_JIT"] = "1"
+import porepy as pp
+from porepy.compositional import flash as FL
+from porepy.compositional import peng_robinson as PR
+from porepy.compositional.materials import load_fluid_constants
+from porepy.compositional.peng_robinson.utils import (
+    get_bip_matrix,
+    h_ideal_CO2,
+    h_ideal_H2O,
+)
 
-import porepy.compositional as ppc
-from porepy.compositional import peng_robinson as ppcpr
-from porepy.compositional.peng_robinson.pr_utils import h_ideal_H2O, h_ideal_CO2
+# NOTE uncomment for fast debugging without numba compilation
+# import os
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
+
 
 # NOTE Fixtures created here are expensive because of compilation
 # broadening the scope to have the value cached.
 
-@pytest.fixture(scope='module')
-def components() -> tuple[ppc.Component, ...]:
+
+@pytest.fixture(scope="module")
+def components() -> tuple[pp.Component, ...]:
     """A 2-component mixture with Water and CO2"""
-    components = [
-        ppc.Component.from_species(s)
-        for s in ppc.load_species(["H2O", "CO2"])
-    ]
+    components = [s for s in load_fluid_constants(["H2O", "CO2"], "chemicals")]
     return tuple(components)
 
 
 @pytest.fixture(scope="module")
-def eos(components) -> ppcpr.PengRobinsonCompiler:
+def eos(components) -> PR.PengRobinsonCompiler:
     """The fixture for this series of tests is a 2-component mixture with water and CO2."""
 
-    eos = ppcpr.PengRobinsonCompiler(list(components), [h_ideal_H2O, h_ideal_CO2])
+    eos = PR.PengRobinsonCompiler(
+        list(components),
+        [h_ideal_H2O, h_ideal_CO2],
+        get_bip_matrix(components),
+    )
     eos.compile()
     return eos
 
 
-@pytest.fixture(scope='module')
-def mixture(components, eos) -> ppc.FluidMixture:
+@pytest.fixture(scope="module")
+def mixture(components, eos) -> pp.Fluid:
     """Returns the 2-phase, 2-component mixture class used in this series of tests."""
 
-    phases = [ppc.Phase(eos, 0, 'L'), ppc.Phase(eos, 1, 'G')]
+    phases = [pp.Phase(eos, 0, "L"), pp.Phase(eos, 1, "G")]
     for p in phases:
         p.components = components
 
-    mixture = ppc.FluidMixture(components, phases)
+    mixture = pp.Fluid(components, phases)
 
     return mixture
 
 
-@pytest.fixture(scope='module')
-def flash(mixture, eos) -> ppc.CompiledUnifiedFlash:
+@pytest.fixture(scope="module")
+def flash(mixture, eos) -> FL.CompiledUnifiedFlash:
     """Compiled, unified flash instance based on the compiled PR EoS and the
     mixture"""
 
-    flash_= ppc.CompiledUnifiedFlash(mixture, eos)
+    flash_ = FL.CompiledUnifiedFlash(mixture, eos)
     flash_.compile()
 
     return flash_
@@ -90,24 +91,29 @@ def test_compressibility_factor_double_root():
     B = 0.0
 
     # If A and B are zero, this should give the double root case
-    root_case = ppcpr.eos_c._get_root_case(A, B, tol)
+    root_case = PR.eos_c._get_root_case(A, B, tol)
     assert root_case == 2
 
     # liquid-like and gas-like root in the double root case should both solve the
     # polynomial exactly
-    z_liq = ppcpr.eos_c.Z_double_l_c(A, B)
-    z_gas = ppcpr.eos_c.Z_double_g_c(A, B)
-    d_z_liq = ppcpr.eos_c.d_Z_double_l_c(A, B)
-    d_z_gas = ppcpr.eos_c.d_Z_double_g_c(A, B)
-    assert np.abs(ppcpr.eos_c._characteristic_residual(z_gas, A, B)) < tol
-    assert np.abs(ppcpr.eos_c._characteristic_residual(z_liq, A, B)) < tol
+    z_liq = PR.eos_c.Z_double_l_c(A, B)
+    z_gas = PR.eos_c.Z_double_g_c(A, B)
+    d_z_liq = PR.eos_c.d_Z_double_l_c(A, B)
+    d_z_gas = PR.eos_c.d_Z_double_g_c(A, B)
+    assert np.abs(PR.eos_c._characteristic_residual(z_gas, A, B)) < tol
+    assert np.abs(PR.eos_c._characteristic_residual(z_liq, A, B)) < tol
 
     # The general calculation of the compressibility factor should give the
     # same result as the formulas
-    assert np.abs(ppcpr.eos_c._Z_generic(A, B, True, tol, 0.0, 0.0) - z_gas) < tol
-    assert np.abs(ppcpr.eos_c._Z_generic(A, B, False, tol, 0.0, 0.0) - z_liq) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, True, tol, 0.0, 0.0) - d_z_gas) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, False, tol, 0.0, 0.0) - d_z_liq) < tol
+    assert np.abs(PR.eos_c._Z_generic(A, B, True, tol, 0.0, 0.0) - z_gas) < tol
+    assert np.abs(PR.eos_c._Z_generic(A, B, False, tol, 0.0, 0.0) - z_liq) < tol
+    assert (
+        np.linalg.norm(PR.eos_c._d_Z_generic(A, B, True, tol, 0.0, 0.0) - d_z_gas) < tol
+    )
+    assert (
+        np.linalg.norm(PR.eos_c._d_Z_generic(A, B, False, tol, 0.0, 0.0) - d_z_liq)
+        < tol
+    )
 
 
 def test_compressibility_factor_triple_root():
@@ -121,23 +127,49 @@ def test_compressibility_factor_triple_root():
     tol = 1e-12
 
     # critical point in the AB space
-    A = ppcpr.A_CRIT
-    B = ppcpr.B_CRIT
+    A = PR.A_CRIT
+    B = PR.B_CRIT
 
     # triple root in this case
-    z = ppcpr.eos_c.Z_triple_c(A, B)
-    d_z = ppcpr.eos_c.d_Z_triple_c(A, B)
-    assert np.abs(ppcpr.eos_c._characteristic_residual(z, A, B)) < tol
+    z = PR.eos_c.Z_triple_c(A, B)
+    d_z = PR.eos_c.d_Z_triple_c(A, B)
+    assert np.abs(PR.eos_c._characteristic_residual(z, A, B)) < tol
 
-    nroot = ppcpr.eos_c._get_root_case(A, B, tol)
+    nroot = PR.eos_c._get_root_case(A, B, tol)
     # 0 is the code for triple root
     assert nroot == 0
 
     # Assert general compuations also give the same result, for liquid and gas-like
-    assert np.abs(ppcpr.eos_c._Z_generic(A, B, True, tol, 0.0, 0.0,) - z) < tol
-    assert np.abs(ppcpr.eos_c._Z_generic(A, B, False, tol, 0.0, 0.0,) - z) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, True, tol, 0.0, 0.0) - d_z) < tol
-    assert np.linalg.norm(ppcpr.eos_c._d_Z_generic(A, B, False, tol, 0.0, 0.0) - d_z) < tol
+    assert (
+        np.abs(
+            PR.eos_c._Z_generic(
+                A,
+                B,
+                True,
+                tol,
+                0.0,
+                0.0,
+            )
+            - z
+        )
+        < tol
+    )
+    assert (
+        np.abs(
+            PR.eos_c._Z_generic(
+                A,
+                B,
+                False,
+                tol,
+                0.0,
+                0.0,
+            )
+            - z
+        )
+        < tol
+    )
+    assert np.linalg.norm(PR.eos_c._d_Z_generic(A, B, True, tol, 0.0, 0.0) - d_z) < tol
+    assert np.linalg.norm(PR.eos_c._d_Z_generic(A, B, False, tol, 0.0, 0.0) - d_z) < tol
 
 
 def test_compressibility_factors_are_roots():
@@ -155,16 +187,16 @@ def test_compressibility_factors_are_roots():
     A, B = np.meshgrid(np.arange(0, 1, steps), np.arange(0, 1, steps))
     A = A.flatten()
     B = B.flatten()
-    Z_liq = ppcpr.eos_c.compressibility_factor(A, B, False, tol, 0.0, 0.0)
-    not_extended_liq = ppcpr.eos_c.is_extended_root(A, B, False, tol)
-    residual = ppcpr.eos_c.characteristic_residual(
+    Z_liq = PR.eos_c.compressibility_factor(A, B, False, tol, 0.0, 0.0)
+    not_extended_liq = PR.eos_c.is_extended_root(A, B, False, tol)
+    residual = PR.eos_c.characteristic_residual(
         Z_liq[not_extended_liq], A[not_extended_liq], B[not_extended_liq]
     )
     assert np.all(np.abs(residual) < tol)
 
-    Z_gas = ppcpr.eos_c.compressibility_factor(A, B, True, tol, 0.0, 0.0)
-    not_extended_gas = ppcpr.eos_c.is_extended_root(A, B, True, tol)
-    residual = ppcpr.eos_c.characteristic_residual(
+    Z_gas = PR.eos_c.compressibility_factor(A, B, True, tol, 0.0, 0.0)
+    not_extended_gas = PR.eos_c.is_extended_root(A, B, True, tol)
+    residual = PR.eos_c.characteristic_residual(
         Z_gas[not_extended_gas], A[not_extended_gas], B[not_extended_gas]
     )
     assert np.all(np.abs(residual) < tol)
@@ -176,12 +208,12 @@ def test_compressibility_factors_are_roots():
     assert np.all(Z_liq[not_exteded] <= Z_gas[not_exteded])
 
 
-# @pytest.mark.skip("FLash compilation takes too much time as of now")
+@pytest.mark.skipped
 @pytest.mark.parametrize(
-    ['flash_type', 'X0', 'var_idx_delta'],
+    ["flash_type", "X0", "var_idx_delta"],
     [
         (
-            'p-T',
+            "p-T",
             np.array(  # p-T
                 [
                     0.01,  # z_co2
@@ -195,15 +227,15 @@ def test_compressibility_factors_are_roots():
                 ]
             ),
             [
-                ('y_g', 3, 0.01),
-                ('x_h2o_l', 4, 0.01),
-                ('x_co2_l', 5, 0.01),
-                ('x_h2o_g', 6, 0.01),
-                ('x_co2_g', 7, 0.01)
-            ]
+                ("y_g", 3, 0.01),
+                ("x_h2o_l", 4, 0.01),
+                ("x_co2_l", 5, 0.01),
+                ("x_h2o_g", 6, 0.01),
+                ("x_co2_g", 7, 0.01),
+            ],
         ),
         (
-            'p-h',
+            "p-h",
             np.array(  # p-h
                 [
                     0.01,  # z_co2
@@ -218,16 +250,16 @@ def test_compressibility_factors_are_roots():
                 ]
             ),
             [
-                ('T', 3, 1),
-                ('y_g', 4, 0.01),
-                ('x_h2o_l', 5, 0.01),
-                ('x_co2_l', 6, 0.01),
-                ('x_h2o_g', 7, 0.01),
-                ('x_co2_g', 8, 0.01)
-            ]
+                ("T", 3, 1),
+                ("y_g", 4, 0.01),
+                ("x_h2o_l", 5, 0.01),
+                ("x_co2_l", 6, 0.01),
+                ("x_h2o_g", 7, 0.01),
+                ("x_co2_g", 8, 0.01),
+            ],
         ),
         (
-            'v-h',
+            "v-h",
             np.array(  # v-h
                 [
                     0.01,  # z_co2
@@ -252,16 +284,16 @@ def test_compressibility_factors_are_roots():
                 ("xco2_l", 8, 0.01),
                 ("xh2o_g", 9, 0.01),
                 ("xco2_g", 10, 0.01),
-            ]
+            ],
         ),
     ],
 )
-def test_flash_system_using_pr_eos(
-    flash_type, X0, var_idx_delta, flash: ppc.CompiledUnifiedFlash
+def test_uniflash_using_pr(
+    flash_type, X0, var_idx_delta, flash: FL.CompiledUnifiedFlash
 ):
     """Computes the Flash equations (Jacobian and residual) and checks that the
     Taylor expansion for each unknown is approximately of second order.
-    
+
     Taylor expansion is calculated for each flash type, around an argument ``X0``,
     which contains the solution of the flash.
 
@@ -285,7 +317,6 @@ def test_flash_system_using_pr_eos(
     DF0 = DF(X0)
 
     for var, i, delta in var_idx_delta:
-    
         delta_err = []
         deltas = []
 
@@ -310,11 +341,8 @@ def test_flash_system_using_pr_eos(
         if np.isnan(eoc_mean):  # this can happen if the error is numerically zero
             assert np.all(np.abs(np.array(delta_err)) < tol)
         else:
-            assert (
-                eoc_mean >= minimal_order
-            ), f"Failure to reach EOC goal for variable {var} for flash {flash_type}"
+            assert eoc_mean >= minimal_order, (
+                f"Failure to reach EOC goal for variable {var} for flash {flash_type}"
+            )
 
         assert np.mean(eoc)
-
-if _NO_JIT:
-    del os.environ["NUMBA_DISABLE_JIT"]

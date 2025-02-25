@@ -29,7 +29,6 @@ def get_mock_model(
     eliminate_reference,
     equilibrium_type,
 ):
-
     # simple set up, 1 cell domain, with 1 boundary grid
     g = pp.CartGrid(np.array([1, 1]))
     mdg = pp.MixedDimensionalGrid()
@@ -126,12 +125,14 @@ def test_mixture_contexts(
     # Creating dummy components and eos. Physical properties have no relevance here
     # 1 separate component for the dummy eos, just to instantiate it.
     h2o = compositional.Component(name="H2O")
-    components: list[compositional.Component] = [compositional.Component(name=s) for s in species]
+    components: list[compositional.Component] = [
+        compositional.Component(name=s) for s in species
+    ]
 
     if ncomp == 0:
         with pytest.raises(compositional.CompositionalModellingError):
             _ = compositional.EquationOfState(components)
-        eos= compositional.EquationOfState([h2o])
+        eos = compositional.EquationOfState([h2o])
     else:
         eos = compositional.EquationOfState(components)
 
@@ -189,20 +190,22 @@ def test_mixture_contexts(
 
 
 @pytest.mark.parametrize(
-    "eliminate_reference", [True, False]  # for component and phase, test if eliminated
+    "eliminate_reference",
+    [True, False],  # for component and phase, test if eliminated
 )
 @pytest.mark.parametrize("equilibrium_type", [None, "unified-p-T", "p-T"])
 def test_mixture_member_assignment(
-    eliminate_reference: bool, equilibrium_type: None | str,
+    eliminate_reference: bool,
+    equilibrium_type: None | str,
 ):
     """Testint that all requried members of phases, components, compounds and
     fluid mixtures are assigned by the compositional mixins. Tested with and without
     independent reference component/phase fractions."""
 
     # Creating dummy components. Physical properties have no relevance for this test
-    comp1 = compositional.Compound(name='H2O', molar_mass=1.)
-    comp1.active_tracers = [pp.FluidComponent(name='NaCl')]
-    comp2 = pp.FluidComponent(name='CO2')
+    comp1 = compositional.Compound(name="H2O", molar_mass=1.0)
+    comp1.active_tracers = [pp.FluidComponent(name="NaCl")]
+    comp2 = pp.FluidComponent(name="CO2")
     # dummy EoS for completeness
     eos = compositional.EquationOfState([comp1, comp2])
     phases = [
@@ -378,7 +381,9 @@ def test_mixture_member_assignment(
         # NOTE Volume is taken as the reciprocal of density, hence a general operator
         assert isinstance(phase.specific_volume(bgs), pp.ad.Operator)
         assert isinstance(phase.viscosity(bgs), pp.ad.TimeDependentDenseArray)
-        assert isinstance(phase.thermal_conductivity(bgs), pp.ad.TimeDependentDenseArray)
+        assert isinstance(
+            phase.thermal_conductivity(bgs), pp.ad.TimeDependentDenseArray
+        )
 
         # Fugacities are always created as well
         for comp in phase:
@@ -433,7 +438,8 @@ def test_mixture_member_assignment(
 
 # Parametrization to test for any combination
 @pytest.mark.parametrize(
-    "equilibrium_type", [None, "unified-p-T", "p-T"]  # for None, no y or extended
+    "equilibrium_type",
+    [None, "unified-p-T", "p-T"],  # for None, no y or extended
 )
 @pytest.mark.parametrize("phase_names", [["L"], ["L", "G"]])
 @pytest.mark.parametrize("species", [["H2O"], ["H2O", "CO2"]])
@@ -442,9 +448,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
     In this case, the number of created variables follows certain rules."""
 
     # Creating dummy components and EoS. Physical properties have no relevance here
-    components: list[pp.FluidComponent] = [
-        pp.FluidComponent(name=s) for s in species
-    ]
+    components: list[pp.FluidComponent] = [pp.FluidComponent(name=s) for s in species]
     hash(components[0])
 
     eos = compositional.EquationOfState(components)

@@ -30,13 +30,20 @@ import numpy as np
 from numba.core import types as nbtypes
 from numba.typed import Dict as nbdict
 
-from ._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, R_IDEAL_MOL
-from .base import FluidMixture
-from .eos_compiler import EoSCompiler
+import porepy as pp
+
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, R_IDEAL_MOL
+from ..eos_compiler import EoSCompiler
+from ..states import FluidProperties, PhysicalState
+from ..utils import (
+    _chainrule_fractional_derivatives,
+    _compute_saturations,
+    normalize_rows,
+    safe_sum,
+)
 from .flash import Flash
-from .npipm_c import solver as npipmsolver
-from .states import FluidProperties, PhysicalState
-from .uniflash_utils_c import (
+from .solvers.npipm import npipm_solver
+from .utils import (
     insert_pT,
     insert_sat,
     insert_xy,
@@ -44,12 +51,6 @@ from .uniflash_utils_c import (
     parse_sat,
     parse_target_state,
     parse_xyz,
-)
-from .utils import (
-    _chainrule_fractional_derivatives,
-    _compute_saturations,
-    normalize_rows,
-    safe_sum,
 )
 
 __all__ = ["CompiledUnifiedFlash"]
@@ -92,7 +93,7 @@ for the solution strategy in this module.
 """
 
 
-SOLVERS: dict[str, Callable] = {"npipm": npipmsolver}
+SOLVERS: dict[str, Callable] = {"npipm": npipm_solver}
 """Map of available solvers.
 
 Currently available:
@@ -526,7 +527,7 @@ class CompiledUnifiedFlash(Flash):
 
     def __init__(
         self,
-        mixture: FluidMixture,
+        mixture: pp.Fluid[pp.FluidComponent, pp.Phase[pp.FluidComponent]],
         eos_compiler: EoSCompiler,
     ) -> None:
         super().__init__(mixture)
@@ -538,13 +539,21 @@ class CompiledUnifiedFlash(Flash):
         )
 
         # data used in initializers
-        self._pcrits: list[float] = [comp.p_crit for comp in mixture.components]
+        self._pcrits: list[float] = [
+            comp.critical_pressure for comp in mixture.components
+        ]
         """A list containing critical pressures per component in ``mixture``."""
-        self._Tcrits: list[float] = [comp.T_crit for comp in mixture.components]
+        self._Tcrits: list[float] = [
+            comp.critical_temperature for comp in mixture.components
+        ]
         """A list containing critical temperatures per component in ``mixture``."""
-        self._vcrits: list[float] = [comp.V_crit for comp in mixture.components]
+        self._vcrits: list[float] = [
+            comp.critical_specific_volume for comp in mixture.components
+        ]
         """A list containing critical volumes per component in ``mixture``."""
-        self._omegas: list[float] = [comp.omega for comp in mixture.components]
+        self._omegas: list[float] = [
+            comp.acentric_factor for comp in mixture.components
+        ]
         """A list containing acentric factors per component in ``mixture``."""
         self._phasestates: Sequence[PhysicalState] = [
             phase.state for phase in mixture.phases
@@ -758,9 +767,7 @@ class CompiledUnifiedFlash(Flash):
 
         nphase, ncomp = self.npnc
         npnc = self.npnc
-        phasestates = np.array(
-            [state.value for state in self._phasestates], dtype=np.int32
-        )
+        phasestates = np.array([state for state in self._phasestates], dtype=np.int32)
 
         # NOTE the functions here still use a hard-coded gas phase index -1.
         # Consider changing to use the mixture's gas index property.

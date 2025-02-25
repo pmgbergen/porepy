@@ -21,7 +21,7 @@ import porepy as pp
 
 from .._core import R_IDEAL_MOL, T_REF
 from ..base import Component, Compound
-from ..chem_species import load_species
+from ..materials import load_fluid_constants
 
 __all__ = [
     "thd_function_type",
@@ -142,6 +142,10 @@ def get_bip_matrix(components: list[Component], package: str = "thermo") -> np.n
     """Loads the Peng-Robinson binary interaction parameters from a
     third-party database.
 
+    Note:
+        Requires the package ``chemicals`` to load and identify components by
+        CAS registry numbers.
+
     Parameters:
         components: A list of components with valid CASs registry numbers.
         package: ``default='thermo'``
@@ -174,6 +178,15 @@ def get_bip_matrix(components: list[Component], package: str = "thermo") -> np.n
     # in string format
     fetcher: Callable[[str, str], float]
 
+    try:
+        import chemicals  # type:ignore
+
+        cas_numbers = [chemicals.CAS_from_any(comp.name) for comp in components]
+    except ModuleNotFoundError as err:
+        raise ModuleNotFoundError(
+            "Require chemicals package to load CAS registry numbers."
+        ) from err
+
     if package == "thermo":
         from thermo.interaction_parameters import IPDB
 
@@ -186,10 +199,12 @@ def get_bip_matrix(components: list[Component], package: str = "thermo") -> np.n
 
     for i in range(nc):
         comp_i = components[i]
+        cas_i = cas_numbers[i]
         for j in range(i + 1, nc):
             comp_j = components[j]
+            cas_j = cas_numbers[j]
 
-            bip_ij = fetcher(comp_i.CASr_number, comp_j.CASr_number)
+            bip_ij = fetcher(cas_i, cas_j)
 
             if bip_ij == 0.0:
                 warnings.warn(
@@ -203,7 +218,7 @@ def get_bip_matrix(components: list[Component], package: str = "thermo") -> np.n
     return bip_mat + bip_mat.T
 
 
-class NaClBrine(Compound):
+class NaClBrine(Compound, pp.FluidComponent):
     """A compound representing water - sodium chloride brine, where water is the solvent
     and NaCl a solute.
 
@@ -219,7 +234,7 @@ class NaClBrine(Compound):
         super().__init__(**kwargs)
 
         # instantiate NaCl_ps as a solute
-        solute = load_species(["NaCl"], species_type="basic")
+        solute = load_fluid_constants(["NaCl"], "chemicals")
         # add solute to self
         self.pseudo_components = solute
 
@@ -229,7 +244,7 @@ class NaClBrine(Compound):
 
         def alpha(T: NumericType) -> NumericType:
             # molal salinity
-            T_r = T / self.T_crit
+            T_r = T / self.critical_temperature
             b = self.molalities[1]
 
             alpha_ = (
@@ -240,10 +255,10 @@ class NaClBrine(Compound):
 
         self.alpha = alpha
 
-        co2, h2s, n2 = load_species(["CO2", "H2S", "N2"])
+        co2, h2s, n2 = load_fluid_constants(["CO2", "H2S", "N2"], "chemicals")
 
         def bip_co2(T: NumericType) -> tuple[NumericType, NumericType]:
-            T_r = T / co2.T_crit
+            T_r = T / co2.critical_temperature
             b = self.molalities[1]
 
             return (
@@ -251,22 +266,24 @@ class NaClBrine(Compound):
                 - 21.2566 * pp.ad.exp(-6.7222 * T_r - b)
                 - 0.31092 * (1 + 0.15587 * b**0.7505)
             ), (
-                21.2566 * pp.ad.exp(-6.7222 * T_r - b) * (6.7222 / co2.T_crit)
-                + 0.23580 * (1 + 0.17837 * b**0.979) / co2.T_crit
+                21.2566
+                * pp.ad.exp(-6.7222 * T_r - b)
+                * (6.7222 / co2.critical_temperature)
+                + 0.23580 * (1 + 0.17837 * b**0.979) / co2.critical_temperature
             )
 
         def bip_h2s(T: NumericType) -> tuple[NumericType, NumericType]:
-            T_r = T / h2s.T_crit
-            return (-0.20441 + 0.23426 * T_r, 0.23426 / h2s.T_crit)
+            T_r = T / h2s.critical_temperature
+            return (-0.20441 + 0.23426 * T_r, 0.23426 / h2s.critical_temperature)
 
         def bip_n2(T: NumericType) -> tuple[NumericType, NumericType]:
-            T_r = T / n2.T_crit
+            T_r = T / n2.critical_temperature
             b = self.molalities[1]
 
             return (
                 T_r * 0.44338 * (1 + 0.08126 * b**0.75)
                 - 1.70235 * (1 + 0.25587 * b**0.75)
-            ), (0.44338 * (1 + 0.08126 * b**0.75) / n2.T_crit)
+            ), (0.44338 * (1 + 0.08126 * b**0.75) / n2.critical_temperature)
 
         self.bip_map = {
             co2.CASr_number: bip_co2,

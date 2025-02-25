@@ -26,13 +26,14 @@ import porepy as pp
 import porepy.compositional as ppc
 
 from . import compositional_flow as cf
+from .unified_local_equilibrium import Unified_ph_Equilibrium
 
 logger = logging.getLogger(__name__)
 
 
-class EquationsCFLE_ph(
+class EnthalpyBasedEquationsCFLE(
+    Unified_ph_Equilibrium,
     cf.PrimaryEquationsCF,
-    ppc.Unified_ph_Equilibrium,
 ):
     """Model equations for compositional flow with isobaric-isenthalpic equilibrium
     conditions.
@@ -51,22 +52,17 @@ class EquationsCFLE_ph(
 
     def set_equations(self):
         """Assembles primary balance equations, local equilibrium equations and
-        local phase mass conservation, in that order."""
-        cf.PrimaryEquationsCF.set_equations(self)
-        ppc.Unified_ph_Equilibrium.set_equations(self)
-        self.set_mass_conservations_for_phases()
-
-    def set_mass_conservations_for_phases(self) -> None:
-        """Method setting the local mass conservation equation for each phase which has
-        an independent fraction variable.
+        local phase mass conservation, in that order.
 
         The phase fraction variable usually appears in equilibrium formulations.
         Since saturations are variables as well, the system must be closed by relating
         those two phase-related quantities to each other.
 
         """
+        super().set_equations()
+
         subdomains = self.mdg.subdomains()
-        for phase in self.fluid_mixture.phases:
+        for phase in self.fluid.phases:
             if self.has_independent_fraction(phase):
                 equ = self.mass_constraint_for_phase(phase, subdomains)
                 self.equation_system.set_equation(equ, subdomains, {"cells": 1})
@@ -186,7 +182,7 @@ class BoundaryConditionsCFLE(cf.BoundaryConditionsCF):
                     z=[z for z in feed],
                     p=p,
                     T=T,
-                    parameters=self.flash_params,
+                    params=self.flash_params,
                 )
 
                 if not np.all(success == 0):
@@ -296,9 +292,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
             ]
 
             # computing initial equilibrium
-            state, success, _ = self.flash.flash(
-                z, p=p, T=T, parameters=self.flash_params
-            )
+            state, success, _ = self.flash.flash(z, p=p, T=T, params=self.flash_params)
 
             if not np.all(success == 0):
                 raise ValueError(f"Initial equilibriam not successful on grid {grid}")
@@ -569,8 +563,8 @@ class SolutionStrategyCFLE(cf.SolutionStrategyCF, ppc.FlashMixin):
                     )
 
 
-class CFLEModelMixin_ph(
-    EquationsCFLE_ph,
+class EnthalpyBasedCFLETemplate(
+    EnthalpyBasedEquationsCFLE,
     InitialConditionsCFLE,
     BoundaryConditionsCFLE,
     SolutionStrategyCFLE,

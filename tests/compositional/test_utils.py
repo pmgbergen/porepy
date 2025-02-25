@@ -33,7 +33,9 @@ def test_compute_saturations(nphase: int, vectorized: int):
     with pytest.raises(ValueError):
         compositional.compute_saturations(np.ones((nphase + 1, vectorized)), rho)
     with pytest.raises(ValueError):
-        compositional.compute_saturations(rho / nphase, np.ones((nphase, vectorized + 1)))
+        compositional.compute_saturations(
+            rho / nphase, np.ones((nphase, vectorized + 1))
+        )
 
     # special case, single-phase is always saturated
     if nphase == 1:

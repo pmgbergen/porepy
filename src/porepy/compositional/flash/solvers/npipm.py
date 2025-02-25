@@ -10,8 +10,8 @@ from typing import Callable
 import numba
 import numpy as np
 
-from ._core import NUMBA_CACHE, NUMBA_FAST_MATH
-from .uniflash_utils_c import parse_xyz
+from ..._core import NUMBA_CACHE, NUMBA_FAST_MATH
+from ..utils import parse_xyz
 
 
 @numba.njit(
@@ -298,7 +298,7 @@ def _npipm_extend_and_regularize_jac(
 #     # cache=True,
 # )
 @numba.njit
-def solver(
+def npipm_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
     DF: Callable[[np.ndarray], np.ndarray],

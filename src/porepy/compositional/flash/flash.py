@@ -9,11 +9,9 @@ from typing import Callable, Literal, Optional, Sequence
 import numpy as np
 
 import porepy as pp
-import porepy.compositional as ppc
 
-from .base import FluidMixture
-from .states import FluidProperties
-from .utils import CompositionalModellingError, safe_sum
+from ..states import FluidProperties
+from ..utils import CompositionalModellingError, safe_sum
 
 __all__ = ["Flash", "FlashMixin"]
 
@@ -28,17 +26,17 @@ class Flash(abc.ABC):
 
     """
 
-    def __init__(self, mixture: ppc.FluidMixture) -> None:
+    def __init__(self, fluid: pp.Fluid[pp.FluidComponent, pp.Phase]) -> None:
         super().__init__()
 
-        ncomp = mixture.num_components
-        nphase = mixture.num_phases
+        ncomp = fluid.num_components
+        nphase = fluid.num_phases
 
         self.npnc: tuple[int, int] = (nphase, ncomp)
         """Number of phases and components present in mixture."""
 
         self.nc_per_phase: tuple[int, ...] = tuple(
-            [phase.num_components for phase in mixture.phases]
+            [phase.num_components for phase in fluid.phases]
         )
         """Number of components modelled in each phase."""
 
@@ -62,7 +60,7 @@ class Flash(abc.ABC):
         int,
         int,
     ]:
-        """Helper method to parse the input and construct a provisorical fluid state
+        """Helper method to parse the input and construct a preliminary fluid state
         with uniform input (numpy arrays of same size).
 
         The parameters are described in :meth:`flash`.
@@ -71,26 +69,26 @@ class Flash(abc.ABC):
         problem and the number of values for vectorized input.
 
         Hint:
-            The returned fluid state structure can be used by :meth:`flash` to fill it
+            The returned fluid properties can be used by :meth:`flash` to fill it
             up with results and return it to the caller of the flash.
 
         Raises:
-            AssertionError: If an insufficient amount of any fraction set has been
-                passed.
+            AssertionError: If an insufficient amount of any provided family of
+                fractions has been passed.
             ValueError: If any feed fraction violates the strict bound ``(0,1)``.
-            AssertionError: If the sum of any fraction set violates the unity
-                cosntraint.
+            AssertionError: If the sum of any family of fractions violates the unity
+                constraint.
             TypeError: If the parser fails to broadcast the state input into a uniform
                 format (numpy arrays of equal length).
 
         Returns:
-            A tuple containing
+            A 4-tuple containing
 
             1. The fluid state consisting of feed fractions and equilibrium state.
                If ``initial_state`` is not none, it includes the values.
             2. A string denoting the equilibrium type.
             3. A number denoting the size of the locall equilibrium problem (dofs).
-            4. A number denoting the size of the input after uniformization.
+            4. A number denoting the size of the input after broadcasting.
 
         """
 
@@ -274,24 +272,23 @@ class Flash(abc.ABC):
         h: Optional[np.ndarray] = None,
         v: Optional[np.ndarray] = None,
         initial_state: Optional[FluidProperties] = None,
-        parameters: dict = dict(),
+        params: Optional[dict] = None,
     ) -> tuple[FluidProperties, np.ndarray, np.ndarray]:
         """Abstract method for performing a flash procedure.
 
         Exactly 2 thermodynamic states must be defined in terms of ``p, T, h`` or ``v``
         for an equilibrium problem to be well-defined.
 
-        One state must relate to pressure or volume.
-        The other to temperature or energy.
+        One state must relate to pressure or volume. The other to temperature or energy.
 
         Parameters:
             z: ``len=num_components``
 
-                A squence of feed fractions per component.
+                A sequence of feed fractions per component.
             p: Pressure at equilibrium.
             T: Temperature at equilibrium.
-            h: Specific enthalpy of the mixture at equilibrium,
-            v: Specific volume of the mixture at equilibrium,
+            h: Specific enthalpy of the fluid at equilibrium.
+            v: Specific volume of the fluid at equilibrium.
             initial_state: ``default=None``
 
                 If not given, an initial guess must be computed by the flash class.
@@ -304,22 +301,21 @@ class Flash(abc.ABC):
 
                 It must have additionally values for pressure and saturations, for
                 state definitions where pressure is not known at equilibrium.
-            parameters: ``default={}``
+            params: ``default={}``
 
                 Optional dictionary containing anything else required for custom flash
                 classes.
 
         Returns:
             A 3-tuple containing the results, success flags and number of iterations.
-            The results are stored in a fluid state structure.
+            The results are stored in a fluid property data class.
 
             Important:
                 If the equilibrium state is not defined in terms of pressure or
                 temperature, the resulting volume or enthalpy values of the fluid might
                 differ slightly from the input values, due to precision and convergence
-                criterion.
-                Extensive properties are always returned in terms of the computed
-                pressure or temperature.
+                criterion. Extensive properties are always returned in terms of the
+                computed pressure or temperature.
 
         """
         ...

@@ -39,7 +39,7 @@ import porepy as pp
 t_0 = time.time()
 import porepy.compositional as ppc
 import porepy.compositional.peng_robinson as ppcpr
-from porepy.compositional.peng_robinson.pr_utils import (
+from porepy.compositional.peng_robinson.utils import (
     get_bip_matrix,
     h_ideal_CO2,
     h_ideal_H2O,
@@ -556,7 +556,7 @@ class GeothermalFlow(
     CompiledFlash,
     InitialConditions,
     BoundaryConditions,
-    cfle.CFLEModelMixin_ph,
+    cfle.EnthalpyBasedCFLETemplate,
 ):
     """Geothermal flow using a fluid defined by the Soereide model and the compiled
     flash."""

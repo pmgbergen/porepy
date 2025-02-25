@@ -67,7 +67,7 @@ from .eos_s import (
     d_Z_triple_f,
     discriminant,
 )
-from .pr_utils import thd_function_type
+from .utils import thd_function_type
 
 __all__ = [
     "characteristic_residual",
