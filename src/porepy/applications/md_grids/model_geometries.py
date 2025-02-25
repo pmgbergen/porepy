@@ -184,6 +184,9 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
         assert isinstance(self, pp.ModelGeometry)
         super().set_geometry()  # type:ignore[safe-super]
 
+        # Create a non-matching mixed-dimensional grid. The parameters below are picked
+        # from the model, with default values set to mirror those applied in
+        # SquareDomainOrthogonalFractures.
         self.mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
             grid_type=self.grid_type(),
             meshing_args=self.meshing_arguments(),
