@@ -968,7 +968,7 @@ class Exporter:
             if not value.size == num_dofs and not (
                 len(value.shape) > 1 and value.shape[1] == num_dofs
             ):
-                value = np.reshape(value, (-1, num_dofs), "F")
+                value = np.reshape(value, (-1, num_dofs), order="F")
 
             return value
 
