@@ -258,6 +258,8 @@ class ConstitutiveLawsContactMechanics(
     constitutive_laws.CoulombFrictionBound,
     constitutive_laws.DisplacementJump,
     constitutive_laws.DimensionReduction,
+    constitutive_laws.ElasticModuli,
+    constitutive_laws.ElasticTangentialFractureDeformation,
 ):
     """Class for constitutive equations for contact mechanics."""
 
@@ -354,6 +356,15 @@ class InitialConditionsContactTraction(pp.InitialConditionMixin):
         traction_vals = np.zeros((self.nd, num_frac_cells))
         traction_vals[-1] = -1  # Unitary nondimensional traction.
         return traction_vals.ravel("F")
+
+
+class BoundaryConditionsContactMechanics(pp.BoundaryConditionMixin):
+    """No boundary values for contact mechanics.
+
+    The class is nevertheless required for compatibility with contracts
+    between model classes and their run methods.
+
+    """
 
 
 class SolutionStrategyContactMechanics(pp.SolutionStrategy):
@@ -498,6 +509,7 @@ class ContactMechanics(
     ConstitutiveLawsContactMechanics,
     ContactTractionVariable,
     InitialConditionsContactTraction,
+    BoundaryConditionsContactMechanics,
     SolutionStrategyContactMechanics,
     # For clarity, the functionality of the FluidMixin is not really used in the pure
     # contact mechanics model, but for unity of implementation (and to avoid some

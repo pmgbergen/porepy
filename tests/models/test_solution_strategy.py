@@ -128,11 +128,11 @@ def test_restart(solid_vals: dict, north_displacement: float):
             reference_dir / Path(f"data_{i}_000001.vtu"),
         )
     assert compare_vtu_files(
-        visualization_dir / Path(f"data_mortar_1_000001.vtu"),
-        reference_dir / Path(f"data_mortar_1_000001.vtu"),
+        visualization_dir / Path("data_mortar_1_000001.vtu"),
+        reference_dir / Path("data_mortar_1_000001.vtu"),
     )
 
-    # 2. Check whether the successive time step has been computed correctely.
+    # 2. Check whether the successive time step has been computed correctly.
     # Visit all dimensions and the mortar grids for this.
     for i in ["1", "2"]:
         assert compare_vtu_files(
@@ -140,20 +140,20 @@ def test_restart(solid_vals: dict, north_displacement: float):
             reference_dir / Path(f"data_{i}_000002.vtu"),
         )
     assert compare_vtu_files(
-        visualization_dir / Path(f"data_mortar_1_000002.vtu"),
-        reference_dir / Path(f"data_mortar_1_000002.vtu"),
+        visualization_dir / Path("data_mortar_1_000002.vtu"),
+        reference_dir / Path("data_mortar_1_000002.vtu"),
     )
 
     # 3. Check whether the mdg pvd file is defined correctly.
     assert compare_pvd_files(
-        visualization_dir / Path(f"data_000002.pvd"),
-        reference_dir / Path(f"data_000002.pvd"),
+        visualization_dir / Path("data_000002.pvd"),
+        reference_dir / Path("data_000002.pvd"),
     )
 
     # 4. Check whether the pvd file is compiled correctly, combining old and new data.
     assert compare_pvd_files(
-        visualization_dir / Path(f"data.pvd"),
-        reference_dir / Path(f"data.pvd"),
+        visualization_dir / Path("data.pvd"),
+        reference_dir / Path("data.pvd"),
     )
 
     # 5. the logging of times and step sizes is correct.

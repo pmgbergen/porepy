@@ -508,6 +508,37 @@ class InterfaceDisplacementArray(pp.PorePyModel):
         """
         return np.zeros((self.nd, interface.num_cells))
 
+    def update_time_dependent_ad_arrays(self) -> None:
+        """Update values of external sources and boundary conditions."""
+        super().update_time_dependent_ad_arrays()
+
+        name = self.interface_displacement_parameter_key
+        for intf, data in self.mdg.interfaces(return_data=True):
+            if pp.ITERATE_SOLUTIONS in data and name in data[pp.ITERATE_SOLUTIONS]:
+                # Use the values at the unknown time step from the previous time step.
+                vals = pp.get_solution_values(name=name, data=data, iterate_index=0)
+            else:
+                # No current value stored. The method was called during the
+                # initialization.
+                vals = self.interface_diplacement_parameter_values(intf).ravel(
+                    order="F"
+                )
+
+            # Before setting the new, most recent time step, shift the stored values
+            # backwards in time.
+            pp.shift_solution_values(
+                name=name,
+                data=data,
+                location=pp.TIME_STEP_SOLUTIONS,
+                max_index=len(self.time_step_indices),
+            )
+            # Set the values of current time to most recent previous time.
+            pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
+
+            # Set the unknown time step values.
+            vals = self.interface_diplacement_parameter_values(intf).ravel(order="F")
+            pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
+
 
 class SecondOrderTensorUtils(pp.PorePyModel):
     def isotropic_second_order_tensor(

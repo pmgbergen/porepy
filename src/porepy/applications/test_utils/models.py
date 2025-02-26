@@ -12,6 +12,7 @@ from porepy.applications.md_grids.model_geometries import (
     OrthogonalFractures3d,
     RectangularDomainThreeFractures,
 )
+from porepy.models.contact_mechanics import ContactMechanics
 
 
 class NoPhysics(  # type: ignore[misc]
@@ -70,6 +71,42 @@ class Thermoporomechanics(  # type: ignore[misc]
     pp.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""
+
+
+class ContactMechanicsTester(ContactMechanics):
+    def interface_diplacement_parameter_values(self, intf: pp.MortarGrid) -> np.ndarray:
+        """Return the interface displacement values.
+
+        This implementation identifies the side of the interface on the "top" of the
+        fracture and sets nonzero displacement values at that side. The top side is
+        defined as the one on the positive side of the vector v=np.ones(self.nd) and
+        identified by the inner product between v and the outwards normal vector of the
+        interface. Values are retrieved from the parameter dictionary using the key
+        "interface_displacement_parameter_values".
+
+        Parameters:
+            intf: Interface where the displacement values are to be returned.
+
+        Returns:
+            Array of interface displacement values, shaped as (self.nd, num_cells).
+
+        """
+        # PorePy grid coordinates are 3d regardless of the dimension of the grid.
+        coord_dim = 3
+        # v is a vector pointing in the positive direction of all dimensions. It can be
+        # used to identify the top side of the interface for all fractures in which do
+        # not contain it.
+        v = np.ones((coord_dim, intf.num_cells))
+        vals: np.ndarray = np.zeros((self.nd, intf.num_cells))
+        sd_primary = self.mdg.interface_to_subdomain_pair(intf)[0]
+        top_side, _, _ = pp.sides_of_fracture(intf, sd_primary, v)
+
+        top_val = self.params["interface_displacement_parameter_values"][
+            :, self.time_manager.time_index
+        ]
+        # Broadcast and assign.
+        vals[:, top_side] = np.tile(top_val, (top_side.shape[0], 1)).T
+        return vals
 
 
 def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:

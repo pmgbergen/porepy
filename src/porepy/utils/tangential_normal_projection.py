@@ -365,3 +365,56 @@ def set_local_coordinate_projections(
         d_l = mdg.subdomain_data(sd_secondary)
         # Store the projection operator in the lower-dimensional data.
         d_l["tangential_normal_projection"] = projection
+
+
+def sides_of_fracture(
+    intf: pp.MortarGrid, sd_primary: pp.Grid, direction: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, bool]:
+    """Identify the top and bottom sides of the interface based on a direction vector.
+
+    The top side is defined as the one having outwards normal vectors pointing in the
+    opposite direction of the vector. The bottom side is defined as the one having
+    outwards normal vectors pointing in the same direction as the vector.
+
+    Usage note: The third return value is used to identify whether the top side is the
+    first side of the mortar grid. This is important e.g. when considering the jump
+    across the interface, which is defined as the the second side minus the first side.
+    Thus, if the top side is the first side, the jump is the bottom side minus the top
+    side, implying that a negative jump (in global coordinates) is a tensile opening.
+
+    Parameters:
+        intf: Interface where the sides are to be identified. sd_primary: Subdomain of
+        the primary grid. direction: Vector used to identify the top side.
+
+    Returns:
+        Tuple of two arrays, the first containing the indices of the top side, and the
+        second containing the indices of the bottom side. The third element is a boolean
+        indicating if the top side is the first side of the mortar grid.
+
+    """
+    # PorePy grid coordinates are 3d regardless of the dimension of the grid.
+    coord_dim = 3
+
+    # Compute outwards normals on the interface.
+    faces_on_fracture_surface = np.where(sd_primary.tags["fracture_faces"])[0]
+    switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
+        sd_primary, coord_dim, faces_on_fracture_surface
+    )
+    normal_primary = switcher_int @ sd_primary.face_normals.ravel(order="F")
+    normal_intf = (intf.primary_to_mortar_avg(coord_dim) @ normal_primary).reshape(
+        (coord_dim, -1), order="F"
+    )
+    # Identify the top side of the interface.
+    top_side = np.where(np.sum(normal_intf * direction, axis=0) < 0)[0]
+    bottom_side = np.where(np.sum(normal_intf * direction, axis=0) >= 0)[0]
+    # Compare with sides of the mortar grid.
+    for i, (proj, _) in enumerate(intf.project_to_side_grids()):
+        proj_inds = proj.nonzero()[1]
+        if np.allclose(top_side, proj_inds):
+            top_side_first = i == 0
+        else:
+            assert np.allclose(bottom_side, proj_inds)
+    if top_side_first is None:
+        # This should not happen for planar surfaces and underlying assumptions.
+        raise ValueError("Could not identify the top side as the first or second side.")
+    return top_side, bottom_side, top_side_first
