@@ -49,16 +49,17 @@ def test_contact_mechanics(nd):
     displacement_jump_local = model.equation_system.evaluate(
         model.displacement_jump(fractures)
     ).reshape((nd, -1), order="F")
-    # Check if the top side is the first side of the fracture. Remember, the jump is
-    # defined as u_2 - u_1, where u_1 is the displacement of the first side of the
-    # fracture. If the top side is the first side, the jump will be the negative of the
+    # Check if the positive side is the first side of the fracture. Remember, the jump
+    # is defined as u_2 - u_1, where u_1 is the displacement of the first side of the
+    # fracture. If the negative side is the first side, the jump will be the negative of
+    # the applied displacement.
     direction_vec = np.array([0.0, 1.0, 0.0])
-    _, _, top_side_first = pp.sides_of_fracture(
+    _, _, positive_side_first = pp.sides_of_fracture(
         model.mdg.interfaces()[0], model.mdg.subdomains()[0], direction_vec
     )
     # Check that the jump is equal to the applied displacement.
     expected_jump = displacement_vals[:, 1].reshape((nd, -1))
-    if top_side_first:
+    if not positive_side_first:
         expected_jump *= -1
     np.testing.assert_allclose(displacement_jump_global - expected_jump, 0)
     # Check the contact traction.

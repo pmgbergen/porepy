@@ -99,7 +99,9 @@ class ContactMechanicsTester(ContactMechanics):
         v = np.ones(coord_dim, intf.num_cells)
         vals: np.ndarray = np.zeros((self.nd, intf.num_cells))
         sd_primary = self.mdg.interface_to_subdomain_pair(intf)[0]
-        top_side, _, _ = pp.sides_of_fracture(intf, sd_primary, v)
+        # The second return is the side of the fracture having outwards normals in the
+        # negative direction of v, i.e. the top side.
+        _, top_side, _ = pp.sides_of_fracture(intf, sd_primary, v)
 
         top_val = self.params["interface_displacement_parameter_values"][
             :, self.time_manager.time_index
