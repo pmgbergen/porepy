@@ -1949,7 +1949,7 @@ class SolutionStrategyCF(
     fully functional solution strategy for fluid mass and energy balance equations,
     including an independent fluid enthalpy variable.
 
-    The initialization parameters can contain the following entries:
+    Supports the following model parameters:
 
     - ``'eliminate_reference_phase'``: Defaults to True. If True, the molar fraction
       and saturation of the reference phase are eliminated by unity, reducing the size
@@ -1964,11 +1964,6 @@ class SolutionStrategyCF(
       weights explicitly. It also uses fractional mobilities, instead of regular ones.
       To be used with consistently discretized diffusive parts or balance equations
       (see also :class:`SolutionStrategyNonlinearMPFA`).
-    - ``'equilibrium_type'``: Defaults to None. If the model contains an equilibrium
-      part, it should be a string indicating the fixed state of the local phase
-      equilibrium problem e.g., ``'p-T'``,``'p-h'``. The string can also contain other
-      qualifiers providing information about the equilibrium model, for example
-      ``'unified-p-h'``.
 
     """
 

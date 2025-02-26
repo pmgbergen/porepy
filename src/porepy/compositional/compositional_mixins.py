@@ -21,16 +21,13 @@ Important:
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Sequence, cast
-
-import numpy as np
+from typing import Callable, Sequence, cast
 
 import porepy as pp
 
 from ._core import COMPOSITIONAL_VARIABLE_SYMBOLS as symbols
 from ._core import PhysicalState
 from .base import Component, ComponentLike, Compound, EquationOfState, Fluid, Phase
-from .states import FluidProperties, PhaseProperties
 from .utils import CompositionalModellingError
 
 __all__ = [
@@ -96,8 +93,7 @@ def has_unified_equilibrium(model: pp.PorePyModel) -> bool:
         if given at all. Defaults to False.
 
     """
-    et = str(get_equilibrium_type(model)).lower()
-    if "unified" in et:
+    if "unified" in str(get_equilibrium_type(model)).lower():
         return True
     else:
         return False
@@ -386,7 +382,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         if component not in self.fluid.components:
             raise ValueError(f"Component {component} not in fluid mixture.")
 
-        if "unified" in str(get_equilibrium_type(self)).lower():
+        if has_unified_equilibrium(self):
             if component not in phase:
                 raise CompositionalModellingError(
                     f"Component {component} not in phase {phase}."
@@ -557,85 +553,6 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
         fractions).
 
     """
-
-    def fractional_state_from_vector(
-        self,
-        subdomains: Sequence[pp.Grid],
-        state: Optional[np.ndarray] = None,
-    ) -> FluidProperties:
-        """Uses the AD framework to create a fluid state from currently stored values of
-        fractions.
-
-        Convenience function to get the values for fractions in iterative procedures.
-
-        Evaluates:
-
-        1. Overall fractions per component
-        2. Fractions per phase
-        3. Volumetric fractions per phase (saturations)
-        4. Fractions per phase per component
-           (extended if equilibrium defined, else partial)
-
-        Parameters:
-            state: ``default=None``
-
-                See :meth:`~porepy.numerics.ad.operators.Operator.value`.
-
-        Returns:
-            A partially filled fluid state data structure containing the above
-            fractional values.
-
-        """
-
-        z = np.array(
-            [
-                self.equation_system.evaluate(
-                    component.fraction(subdomains), state=state
-                )
-                for component in self.fluid.components
-            ]
-        )
-
-        y = np.array(
-            [
-                self.equation_system.evaluate(phase.fraction(subdomains), state=state)
-                for phase in self.fluid.phases
-            ]
-        )
-
-        sat = np.array(
-            [
-                self.equation_system.evaluate(phase.saturation(subdomains), state=state)
-                for phase in self.fluid.phases
-            ]
-        )
-
-        x = [
-            np.array(
-                [
-                    (
-                        self.equation_system.evaluate(
-                            phase.extended_fraction_of[component](subdomains),
-                            state=state,
-                        )
-                        if has_unified_equilibrium(self)
-                        else self.equation_system.evaluate(
-                            phase.partial_fraction_of[component](subdomains),
-                            state=state,
-                        )
-                    )
-                    for component in phase
-                ]
-            )
-            for phase in self.fluid.phases
-        ]
-
-        return FluidProperties(
-            z=z,
-            y=y,
-            sat=sat,
-            phases=[PhaseProperties(x=x_) for x_ in x],
-        )
 
     def create_variables(self) -> None:
         """Creates the sets of required variables for a fluid mixture.

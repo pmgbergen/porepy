@@ -5,13 +5,43 @@ To be used by the compiled flash for parallelized computations."""
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Literal
 
 import numba
 import numpy as np
 
 from ..._core import NUMBA_CACHE, NUMBA_FAST_MATH
 from ..utils import parse_xyz
+
+DEFAULT_NPIPM_SOLVER_PARAMS: dict[
+    Literal["npipm_u1", "npipm_u2", "npipm_eta"], float
+] = {
+    "npipm_u1": 1.0,
+    "npipm_u2": 1.0,
+    "npipm_eta": 0.5,
+}
+"""Default solver parameters required by the NPIPM solver.
+
+- ``'npipm_u1': 1.`` penalty for violating complementarity
+- ``'npipm_u2': 1.`` penalty for violating negativity of fractions
+- ``'npipm_eta': 0.5`` linear decline in slack variable
+
+"""
+
+DEFAULT_ARMIJO_PARAMS: dict[
+    Literal["armijo_rho", "armijo_kappa", "armijo_max_iterations"], float
+] = {
+    "armijo_rho": 0.99,
+    "armijo_kappa": 0.4,
+    "armijo_max_iterations": 50.0,
+}
+"""Default parameters for the Armijo line search.
+
+- ``'armijo_rho': 0.99`` initial step size factor
+- ``'armijo_kappa': 0.5`` steepness of line for line search
+- ``'armijo_max_iterations': 50.`` maximal number of line search iterations
+
+"""
 
 
 @numba.njit(
@@ -334,16 +364,16 @@ def npipm_solver(
 
     # extracting solver parameters
     f_dim = int(solver_params["f_dim"])
-    npnc = (int(solver_params["num_phase"]), int(solver_params["num_comp"]))
-    tol = float(solver_params["tol"])
-    max_iter = int(solver_params["max_iter"])
-    rho = float(solver_params["rho"])
-    kappa = float(solver_params["kappa"])
-    max_iter_armijo = int(solver_params["max_iter_armijo"])
-    u1 = float(solver_params["u1"])
-    u2 = float(solver_params["u2"])
-    eta = float(solver_params["eta"])
-    heavy_ball = int(solver_params["hbm"])
+    npnc = (int(solver_params["num_phases"]), int(solver_params["num_components"]))
+    tol = float(solver_params["tolerance"])
+    max_iter = int(solver_params["max_iterations"])
+    rho = float(solver_params["armijo_rho"])
+    kappa = float(solver_params["armijo_kappa"])
+    max_iter_armijo = int(solver_params["armijo_max_iterations"])
+    u1 = float(solver_params["npipm_u1"])
+    u2 = float(solver_params["npipm_u2"])
+    eta = float(solver_params["npipm_eta"])
+    heavy_ball = int(solver_params["heavy_ball_momentum"])
 
     nu = _initial_nu_for_npipm(X0, npnc)
 
