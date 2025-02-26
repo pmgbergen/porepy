@@ -388,7 +388,10 @@ def sides_of_fracture(
     Parameters:
         intf: Interface where the sides are to be identified.
         sd_primary: Subdomain of the primary grid.
-        direction: Vector used to identify the top side.
+        direction: Vector used to identify the top side. Shape is ``(3,)``,  ``(3,1)`` or
+            ``(3, intf.num_cells)``. The former two will be broadcasted. The latter in
+            theory allows for different direction vectors for each cell, but this is not
+            tested.
 
     Returns:
         Tuple of two arrays and a bool. The first containing the indices of the top
@@ -411,7 +414,7 @@ def sides_of_fracture(
     )
     # Identify the top side of the interface using the inner product with the direction
     # vector.
-    inner = np.sum(normal_intf * direction, axis=0)
+    inner = np.sum(normal_intf * direction.reshape(coord_dim, -1), axis=0)
     if np.allclose(inner, 0):
         raise ValueError("The direction vector is orthogonal to the normal vectors.")
     top_side = np.where(inner < 0)[0]
