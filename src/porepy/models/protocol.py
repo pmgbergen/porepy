@@ -598,11 +598,6 @@ else:
             """Returns True if ``params['eliminate_reference_component'] == True`.
             Defaults to True."""
 
-        def initial_condition(self) -> None:
-            """Set the initial condition for the problem.
-
-            """
-
         def before_nonlinear_iteration(self) -> None:
             """Method to be called at the start of every non-linear iteration.
 
@@ -804,6 +799,25 @@ else:
 
             """
 
+    class InitialConditionProtocol(Protocol):
+        """This protocol declares the interfaces to methods related to the
+        initialization of values for a model."""
+
+        def initial_condition(self) -> None:
+            """Interface method for the solution strategy to be called to set initial
+            values for all variables.
+
+            Calls the methods :meth:`set_initial_values_primary_variables`.
+
+            Can be overridden to set other initial conditions after a super-call.
+
+            Important:
+                The user must set initial values at ``iterate_index=0``. The solution
+                strategy copies said values by default to all other indices in order to
+                get a runable model.
+
+            """
+
     class EquationProtocol(Protocol):
         """This protocol provides declarations of methods and properties related to
         equations.
@@ -918,6 +932,7 @@ else:
 
     class PorePyModel(
         BoundaryConditionProtocol,
+        InitialConditionProtocol,
         EquationProtocol,
         VariableProtocol,
         FluidProtocol,

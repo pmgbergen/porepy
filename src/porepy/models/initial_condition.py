@@ -71,10 +71,17 @@ class InitialConditionMixin(pp.PorePyModel):
     """
 
     def initial_condition(self) -> None:
-        """The base initial_conditions method.
+        """Interface method for the solution strategy to be called to set initial values
+        for all variables.
 
-        Calls the methods :meth:`set_initial_values_primary_variables` and copies values
-        stored at iterate index 0 to all other time and iterate indices.
+        Calls the methods :meth:`set_initial_values_primary_variables`.
+
+        Can be overridden to set other initial conditions after a super-call.
+
+        Important:
+            The user must set initial values at ``iterate_index=0``. The solution
+            strategy copies said values by default to all other indices in order to get
+            a runable model.
 
         """
         self.set_initial_values_primary_variables()
