@@ -74,7 +74,9 @@ class Thermoporomechanics(  # type: ignore[misc]
 
 
 class ContactMechanicsTester(ContactMechanics):
-    def interface_diplacement_parameter_values(self, intf: pp.MortarGrid) -> np.ndarray:
+    def interface_displacement_parameter_values(
+        self, intf: pp.MortarGrid
+    ) -> np.ndarray:
         """Return the interface displacement values.
 
         This implementation identifies the side of the interface on the "top" of the
