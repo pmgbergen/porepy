@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 import porepy as pp
 
 
@@ -74,7 +76,10 @@ class InitialConditionMixin(pp.PorePyModel):
         """Interface method for the solution strategy to be called to set initial values
         for all variables.
 
-        Calls the methods :meth:`set_initial_values_primary_variables`.
+        A first, global initialization with zeros is required for the equation system to
+        be able to evaluate operators.
+
+        Then the method :meth:`set_initial_values_primary_variables` is called.
 
         Can be overridden to set other initial conditions after a super-call.
 
@@ -84,6 +89,9 @@ class InitialConditionMixin(pp.PorePyModel):
             a runable model.
 
         """
+        self.equation_system.set_variable_values(
+            np.zeros(self.equation_system.num_dofs()), iterate_index=0
+        )
         self.set_initial_values_primary_variables()
 
     def set_initial_values_primary_variables(self) -> None:
