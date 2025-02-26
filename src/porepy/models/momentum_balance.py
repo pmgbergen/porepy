@@ -20,8 +20,8 @@ from typing import Callable, Optional, Sequence, cast
 import numpy as np
 
 import porepy as pp
-from porepy.models.abstract_equations import VariableMixin
 from porepy.models import contact_mechanics
+from porepy.models.abstract_equations import VariableMixin
 
 from . import constitutive_laws
 

@@ -383,8 +383,9 @@ def sides_of_fracture(
     side, implying that a negative jump (in global coordinates) is a tensile opening.
 
     Parameters:
-        intf: Interface where the sides are to be identified. sd_primary: Subdomain of
-        the primary grid. direction: Vector used to identify the top side.
+        intf: Interface where the sides are to be identified.
+        sd_primary: Subdomain of the primary grid.
+        direction: Vector used to identify the top side.
 
     Returns:
         Tuple of two arrays, the first containing the indices of the top side, and the

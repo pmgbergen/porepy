@@ -57,11 +57,11 @@ def test_contact_mechanics(nd):
     _, _, top_side_first = pp.sides_of_fracture(
         model.mdg.interfaces()[0], model.mdg.subdomains()[0], direction_vec
     )
+    # Check that the jump is equal to the applied displacement
     if top_side_first:
         np.testing.assert_allclose(displacement_jump_global, -displacement_vals)
     else:
         np.testing.assert_allclose(displacement_jump_global, displacement_vals)
-    # Check that the jump is equal to the applied displacement
     scaled_traction = model.contact_traction(
         fractures
     ) * model.characteristic_contact_traction(fractures)
@@ -77,5 +77,5 @@ def test_contact_mechanics(nd):
     u_n_max = solid.maximum_elastic_fracture_opening
     u_n = displacement_vals[1, 1]
     sigma_n = k_n * u_n_max * (1 - u_n_max / u_n)
-    # Check that the traction is equal to the calculated value
+    # Check that the traction is equal to the calculated value.
     np.testing.assert_allclose(traction[-1], sigma_n)
