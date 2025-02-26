@@ -96,7 +96,7 @@ class ContactMechanicsTester(ContactMechanics):
         # v is a vector pointing in the positive direction of all dimensions. It can be
         # used to identify the top side of the interface for all fractures in which do
         # not contain it.
-        v = np.ones((coord_dim, intf.num_cells))
+        v = np.ones(coord_dim, intf.num_cells)
         vals: np.ndarray = np.zeros((self.nd, intf.num_cells))
         sd_primary = self.mdg.interface_to_subdomain_pair(intf)[0]
         top_side, _, _ = pp.sides_of_fracture(intf, sd_primary, v)

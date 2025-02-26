@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import copy
-
 import numpy as np
 import pytest
 
@@ -14,8 +12,6 @@ from porepy.applications.md_grids.model_geometries import (
 )
 from porepy.applications.test_utils.models import (
     ContactMechanicsTester,
-    compare_scaled_model_quantities,
-    compare_scaled_primary_variables,
     _add_mixin,
 )
 
@@ -50,6 +46,9 @@ def test_contact_mechanics(nd):
         model.local_coordinates(fractures).transpose()
         @ model.displacement_jump(fractures)
     ).reshape((nd, -1), order="F")
+    displacement_jump_local = model.equation_system.evaluate(
+        model.displacement_jump(fractures)
+    ).reshape((nd, -1), order="F")
     # Check if the top side is the first side of the fracture. Remember, the jump is
     # defined as u_2 - u_1, where u_1 is the displacement of the first side of the
     # fracture. If the top side is the first side, the jump will be the negative of the
@@ -57,25 +56,33 @@ def test_contact_mechanics(nd):
     _, _, top_side_first = pp.sides_of_fracture(
         model.mdg.interfaces()[0], model.mdg.subdomains()[0], direction_vec
     )
-    # Check that the jump is equal to the applied displacement
+    # Check that the jump is equal to the applied displacement.
+    expected_jump = displacement_vals[:, 1].reshape((nd, -1))
     if top_side_first:
-        np.testing.assert_allclose(displacement_jump_global, -displacement_vals)
-    else:
-        np.testing.assert_allclose(displacement_jump_global, displacement_vals)
+        expected_jump *= -1
+    np.testing.assert_allclose(displacement_jump_global - expected_jump, 0)
+    # Check the contact traction.
     scaled_traction = model.contact_traction(
         fractures
     ) * model.characteristic_contact_traction(fractures)
     traction = model.equation_system.evaluate(scaled_traction).reshape(
         (nd, -1), order="F"
     )
-    # In the normal direction, we have
+    # In the normal direction, we have according to the Barton-Bandis model
     # \Delta u_n = \Delta u_n^{max}
     #         + \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n - \sigma_n}
     # Solving for \sigma_n gives
     # \sigma_n = K_n \Delta u_n^{max} * (1 - \Delta u_n^{max} / \Delta u_n)
     k_n = solid.fracture_normal_stiffness
     u_n_max = solid.maximum_elastic_fracture_opening
-    u_n = displacement_vals[1, 1]
+    # Use local coordinates since the inverted relation is defined in local coordinates.
+    u_n = displacement_jump_local[-1]
     sigma_n = k_n * u_n_max * (1 - u_n_max / u_n)
     # Check that the traction is equal to the calculated value.
-    np.testing.assert_allclose(traction[-1], sigma_n)
+    np.testing.assert_allclose(traction[-1] - sigma_n, 0)
+    # In the tangential direction, we have
+    # \sigma_t = k_t * \Delta u_t
+    # Note that in 3d, we test both the nonzero and zero displacement jumps.
+    inds_t = np.arange(nd - 1)
+    sigma_t = solid.fracture_tangential_stiffness * displacement_jump_local[inds_t]
+    np.testing.assert_allclose(traction[inds_t] - sigma_t, 0)
