@@ -372,16 +372,17 @@ def sides_of_fracture(
 ) -> tuple[np.ndarray, np.ndarray, bool]:
     """Identify the top and bottom sides of the interface based on a direction vector.
 
-    The top side is defined as the one where the outwards normal vectors of the matrix
-    point in the opposite direction of the direction vector. The bottom side is defined
-    as the one having outwards normal vectors pointing in the same direction as the
+    The positive side is defined as the one where the outwards normal vectors of the
+    matrix point in the direction of the direction vector. The negative side is defined
+    as the one having outwards normal vectors pointing in the opposite direction as the
     direction vector.
 
-    Usage note: The third return value is used to identify whether the top side is the
+    Usage note: The third return value is used to identify whether the positive side is the
     first side of the mortar grid. This is important e.g. when considering the jump
     across the interface, which is defined as the second side minus the first side.
-    Thus, if the top side is the first side, the jump is the bottom side minus the top
-    side, implying that a negative jump (in global coordinates) is a tensile opening.
+    Thus, if the negative side is the first side, the jump is the bottom side (relative
+    to the direction vector) minus the top side, implying that a negative jump (in
+    global coordinates) is a tensile opening.
 
     The current implementation assumes that the interface represents a planar surface.
 
@@ -394,10 +395,10 @@ def sides_of_fracture(
             tested.
 
     Returns:
-        Tuple of two arrays and a bool. The first containing the indices of the top
-        side, and the second containing the indices of the bottom side. The third
-        element is a boolean indicating if the top side is the first side of the mortar
-        grid.
+        Tuple of two arrays and a bool. The first containing the indices of the positive
+        side, and the second containing the indices of the negative side. The third
+        element is a boolean indicating if the positive side is the first side of the
+        mortar grid.
 
     """
     # PorePy grid coordinates are 3d regardless of the dimension of the grid.
@@ -417,9 +418,9 @@ def sides_of_fracture(
     inner = np.sum(normal_intf * direction.reshape(coord_dim, -1), axis=0)
     if np.allclose(inner, 0):
         raise ValueError("The direction vector is orthogonal to the normal vectors.")
-    top_side = np.where(inner < 0)[0]
-    bottom_side = np.where(inner >= 0)[0]
-    top_side_first = None
+    negative_side = np.where(inner < 0)[0]
+    positive_side = np.where(inner >= 0)[0]
+    positive_side_first = None
     # Compare with sides of the mortar grid.
 
     for i, (proj, _) in enumerate(intf.project_to_side_grids()):
@@ -427,11 +428,12 @@ def sides_of_fracture(
         # from the mortar grid cells of the side grid in question. Thus, the nonzero
         # column indices identify the mortar cells on this side.
         proj_inds = proj.nonzero()[1]
-        if np.allclose(top_side, proj_inds):
-            top_side_first = i == 0
+        if np.allclose(positive_side, proj_inds):
+            positive_side_first = i == 0
         else:
-            assert np.allclose(bottom_side, proj_inds)
-    if top_side_first is None:
-        # This should not happen for planar surfaces and possibly other underlying assumptions.
+            assert np.allclose(negative_side, proj_inds)
+    if positive_side_first is None:
+        # This should not happen for planar surfaces (and possibly other underlying
+        # assumptions).
         raise ValueError("Could not identify the top side as the first or second side.")
-    return top_side, bottom_side, top_side_first
+    return positive_side, negative_side, positive_side_first
