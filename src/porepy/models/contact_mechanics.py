@@ -299,7 +299,7 @@ class InterfaceDisplacementArray(pp.PorePyModel):
             self.interface_displacement_parameter_key, interfaces
         )
 
-    def interface_diplacement_parameter_values(
+    def interface_displacement_parameter_values(
         self, interface: pp.MortarGrid
     ) -> np.ndarray:
         """Displacement on interfaces [m].
@@ -325,7 +325,7 @@ class InterfaceDisplacementArray(pp.PorePyModel):
             else:
                 # No current value stored. The method was called during the
                 # initialization.
-                vals = self.interface_diplacement_parameter_values(intf).ravel(
+                vals = self.interface_displacement_parameter_values(intf).ravel(
                     order="F"
                 )
 
@@ -341,7 +341,7 @@ class InterfaceDisplacementArray(pp.PorePyModel):
             pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
 
             # Set the unknown time step values.
-            vals = self.interface_diplacement_parameter_values(intf).ravel(order="F")
+            vals = self.interface_displacement_parameter_values(intf).ravel(order="F")
             pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
 
 
@@ -468,8 +468,6 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
     :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
 
     """
-    interface_diplacement_parameter_values: Callable[[pp.MortarGrid], np.ndarray]
-    """Interface displacement parameter values."""
 
     def __init__(self, params: Optional[dict] = None) -> None:
         super().__init__(params)
@@ -481,14 +479,6 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
             "interface_displacement_parameter"
         )
         """Key for the interface displacement parameter."""
-
-    def set_discretization_parameters(self) -> None:
-        """Set parameters for the model."""
-        super().set_discretization_parameters()
-        for intf, data in self.mdg.interfaces(return_data=True):
-            data[self.interface_displacement_parameter_key] = (
-                self.interface_diplacement_parameter_values(intf).ravel("F")
-            )
 
     def contact_mechanics_numerical_constant(
         self, subdomains: list[pp.Grid]
