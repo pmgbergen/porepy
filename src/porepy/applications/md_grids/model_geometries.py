@@ -165,7 +165,7 @@ class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures
     geometry allows for non-matching grids and different resolution for each grid.
     """
 
-    def set_mdg(self) -> None:
+    def create_mdg(self) -> None:
         """Create a non-matching grid.
 
         The actual grid is created by the mdg_library function for orthogonal fractures.
