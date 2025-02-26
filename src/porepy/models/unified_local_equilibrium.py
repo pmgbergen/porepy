@@ -21,14 +21,74 @@ from porepy.compositional.utils import CompositionalModellingError
 from porepy.models.abstract_equations import EquationMixin
 
 __all__ = [
-    "UnifiedPhaseEquilibriumMixin",
+    "EnthalpyTemperatureRelation",
+    "UnifiedPhaseEquilibriumEquations",
     "Unified_pT_Equilibrium",
     "Unified_ph_Equilibrium",
     "Unified_vh_Equilibrium",
 ]
 
 
-class UnifiedPhaseEquilibriumMixin(pp.PorePyModel):
+class EnthalpyTemperatureRelation(EquationMixin):
+    r"""A single, local equation for closing models with independent enthalpy and
+    temperature variables.
+
+    It relates the independent enthalpy variable to the enthalpy of the fluid
+
+    .. math::
+
+        \tilde{h} = \sum_j y_j h_j  - h = (\sum_j y_j h_j) / h - 1= 0~,
+
+    where the user can pass ``params['normalize_state_constraints']`` to determine which
+    form should be used.
+
+    Additionally, a float ``params['relaxation_enthalpy_constraint']`` can be passed to
+    introduce a temporal relaxation
+
+    .. math::
+
+        \frac{\partial}{\partial t} \tilde{h} + \frac{a}{\Delta t} \tilde{h} = 0~,
+
+    with :math:`a` being the respective parameters.
+
+    Note:
+        Use this equation only in models where the local equilibrium is not defined in
+        terms of enthalpy. Otherwise the regular enthalpy constraint should be used.
+
+    """
+
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.energy_balance.EnthalpyVariable`."""
+
+    def set_equations(self):
+        """Introduces the (relaxed) enthalpy-temperature relation on all subdomains."""
+        super().set_equations()
+
+        subdomains = self.mdg.subdomains()
+
+        h_mix = self.fluid.specific_enthalpy(subdomains)
+        h_target = self.enthalpy(subdomains)
+        if self.params.get("normalize_state_constraints", True):
+            equ = h_mix / h_target - pp.ad.Scalar(1.0)
+        else:
+            equ = h_mix - h_target
+
+        relaxation_parameter: Optional[float] = self.params.get(
+            "relaxation_enthalpy_constraint", None
+        )
+        if relaxation_parameter is not None:
+            equ = (
+                pp.ad.dt(equ, self.ad_time_step)
+                + (pp.ad.Scalar(relaxation_parameter) / self.ad_time_step) * equ
+            )
+            equ.set_name("relaxed_local_fluid_enthalpy_constraint")
+        else:
+            equ.set_name("local_fluid_enthalpy_constraint")
+
+        self.equation_system.set_equation(equ, subdomains, {"cells": 1})
+
+
+class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
     """Base class for introducing local phase equilibrium equations into a model using
     the unified formulation.
 
@@ -48,23 +108,10 @@ class UnifiedPhaseEquilibriumMixin(pp.PorePyModel):
 
     """
 
-    equilibrium_type: Optional[str]
-    """See :class:`~porepy.models.compositional_flow.SolutionStrategyCF`
-
-    The equilibrium type parameter in models using the unified setting must contain
-    the string ``'unified'``.
-
-    """
-
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.compositional_flow.VariablesCF`."""
+    """See :class:`~porepy.models.energy_balance.EnthalpyVariable`."""
     volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.compositional_flow.SolidSkeletonCF`."""
-
-    _is_ref_phase_eliminated: bool
-    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
-    _has_unified_equilibrium: bool
-    """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     @property
     def _normalize_constraints(self) -> bool:
@@ -82,7 +129,7 @@ class UnifiedPhaseEquilibriumMixin(pp.PorePyModel):
         ncomp = self.fluid.num_components
         nphase = self.fluid.num_phases
 
-        if not self._has_unified_equilibrium:
+        if not pp.compositional.has_unified_equilibrium(self):
             raise CompositionalModellingError(
                 "Must define a `equilibrium_type` model parameter containing the"
                 + " keyword `unified` when using the Unified Equilibrium Mixin."
@@ -98,7 +145,7 @@ class UnifiedPhaseEquilibriumMixin(pp.PorePyModel):
                 "Unified equilibrium models require at least to components in the fluid"
                 + f" mixture, {ncomp} given."
             )
-        if not self._is_ref_phase_eliminated:
+        if not self._is_reference_phase_eliminated():
             warnings.warn(
                 "Unified equilibrium model included, but reference phase not"
                 + " eliminated. Check model closedness."
@@ -273,22 +320,15 @@ class UnifiedPhaseEquilibriumMixin(pp.PorePyModel):
             returned.
 
         """
-
         h_mix = self.fluid.specific_enthalpy(subdomains)
         h_target = self.enthalpy(subdomains)
+
         if self._normalize_constraints:
             equ = h_mix / h_target - pp.ad.Scalar(1.0)
         else:
             equ = h_mix - h_target
 
-        if "p-T" in self.equilibrium_type:
-            equ = (
-                pp.ad.dt(equ, self.ad_time_step)
-                + (pp.ad.Scalar(1 / 5) / self.ad_time_step) * equ
-            )
-            equ.set_name("relaxed_local_fluid_enthalpy_constraint")
-        else:
-            equ.set_name("local_fluid_enthalpy_constraint")
+        equ.set_name("local_fluid_enthalpy_constraint")
         return equ
 
     def mixture_volume_constraint(
@@ -373,7 +413,7 @@ class UnifiedPhaseEquilibriumMixin(pp.PorePyModel):
         return equ
 
 
-class Unified_pT_Equilibrium(UnifiedPhaseEquilibriumMixin):
+class Unified_pT_Equilibrium(UnifiedPhaseEquilibriumEquations):
     """Mixin class modelling the unified p-T flash.
 
     The unified p-T flash consists of

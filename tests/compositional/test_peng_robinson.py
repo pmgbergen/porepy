@@ -13,19 +13,23 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-# NOTE uncomment for fast debugging without numba compilation
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
-
 import porepy as pp
 from porepy.compositional import flash as FL
 from porepy.compositional import peng_robinson as PR
+from porepy.compositional.flash.solvers.npipm import (
+    DEFAULT_ARMIJO_PARAMS,
+    DEFAULT_NPIPM_SOLVER_PARAMS,
+)
 from porepy.compositional.materials import load_fluid_constants
 from porepy.compositional.peng_robinson.utils import (
     get_bip_matrix,
     h_ideal_CO2,
     h_ideal_H2O,
 )
+
+# NOTE uncomment for fast debugging without numba compilation
+# import os
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 
 # NOTE Fixtures created here are expensive because of compilation
@@ -66,11 +70,13 @@ def mixture(components, eos) -> pp.Fluid:
 
 
 @pytest.fixture(scope="module")
-def flash(mixture, eos) -> FL.CompiledUnifiedFlash:
+def flash(mixture) -> FL.CompiledUnifiedFlash:
     """Compiled, unified flash instance based on the compiled PR EoS and the
     mixture"""
 
-    flash_ = FL.CompiledUnifiedFlash(mixture, eos)
+    flash_ = FL.CompiledUnifiedFlash(mixture)
+    flash_.solver_params.update(DEFAULT_ARMIJO_PARAMS)
+    flash_.solver_params.update(DEFAULT_NPIPM_SOLVER_PARAMS)
     flash_.compile()
 
     return flash_

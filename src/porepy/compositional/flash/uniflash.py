@@ -510,11 +510,7 @@ class CompiledUnifiedFlash(Flash):
     definitions.
 
     Parameters:
-        mixture: A mixture model containing modelled components and phases.
-        eos_compiler: An EoS compiler instance.
-
-            Important:
-                As of now, all phases must have the same EoS.
+        fluid: A mixture model containing modelled components and phases.
 
     Raises:
         AssertionError: If any of the following assumptions is violated
@@ -527,44 +523,50 @@ class CompiledUnifiedFlash(Flash):
 
     def __init__(
         self,
-        mixture: pp.Fluid[pp.FluidComponent, pp.Phase[pp.FluidComponent]],
-        eos_compiler: EoSCompiler,
+        fluid: pp.Fluid[pp.FluidComponent, pp.Phase[pp.FluidComponent]],
+        params: Optional[dict] = None,
     ) -> None:
-        super().__init__(mixture)
+        super().__init__(fluid, params)
 
-        assert self.npnc[0] == 2, "Supports only 2-phase mixtures."
-        assert self.npnc[1] >= 2, "Must have at least two components."
-        assert set(self.nc_per_phase) == set([self.npnc[1]]), (
-            "Supports only unified mixtures (all components in all phases)."
+        assert self.params["num_components"] == 2, "Supports only 2-phase mixtures."
+        assert self.params["num_phases"] >= 2, "Must have at least two components."
+        assert set(self.params["components_per_phase"]) == set(
+            [self.params["num_components"]]
+        ), "Supports only unified mixtures (all components in all phases)."
+
+        assert len(set([p.eos for p in fluid.phases])) == 1, (
+            "All phases must have the same EoS instance."
         )
 
         # data used in initializers
         self._pcrits: list[float] = [
-            comp.critical_pressure for comp in mixture.components
+            comp.critical_pressure for comp in fluid.components
         ]
-        """A list containing critical pressures per component in ``mixture``."""
+        """A list containing critical pressures per component in ``fluid``."""
         self._Tcrits: list[float] = [
-            comp.critical_temperature for comp in mixture.components
+            comp.critical_temperature for comp in fluid.components
         ]
-        """A list containing critical temperatures per component in ``mixture``."""
+        """A list containing critical temperatures per component in ``fluid``."""
         self._vcrits: list[float] = [
-            comp.critical_specific_volume for comp in mixture.components
+            comp.critical_specific_volume for comp in fluid.components
         ]
-        """A list containing critical volumes per component in ``mixture``."""
-        self._omegas: list[float] = [
-            comp.acentric_factor for comp in mixture.components
-        ]
-        """A list containing acentric factors per component in ``mixture``."""
+        """A list containing critical volumes per component in ``fluid``."""
+        self._omegas: list[float] = [comp.acentric_factor for comp in fluid.components]
+        """A list containing acentric factors per component in ``fluid``."""
         self._phasestates: Sequence[PhysicalState] = [
-            phase.state for phase in mixture.phases
+            phase.state for phase in fluid.phases
         ]
-        """A sequence containing the physical phase state per phase in ``mixture``."""
-        self._gas_phase_index: Optional[int] = mixture.gas_phase_index
+        """A sequence containing the physical phase state per phase in ``fluid``."""
+        self._gas_phase_index: Optional[int] = fluid.gas_phase_index
         """The index of the gas phase. None if gas not existent."""
 
-        self.eos_compiler: EoSCompiler = eos_compiler
-        """Assembler and compiler of EoS-related expressions equation.
-        passed at instantiation."""
+        eos = fluid.reference_phase.eos
+        assert isinstance(eos, EoSCompiler)
+        self._eos: EoSCompiler = eos
+        """Compiled EoS of the reference phase, assuming all phases have the same EoS."""
+
+        # TODO find better place for this parameter.
+        self.solver_params["heavy_ball_momentum"] = 0.0
 
         self.residuals: dict[
             Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
@@ -581,43 +583,11 @@ class CompiledUnifiedFlash(Flash):
         ] = dict()
         """Contains per flash configuration the initialization procedure."""
 
-        self.npipm_parameters: dict[str, float] = {
-            "eta": 0.5,
-            "u1": 1.0,
-            "u2": 1.0,
-        }
-        """A dictionary containing per parameter name (str, key) the respective
-        parameter for the NPIPM:
-
-        - ``'eta': 0.5`` linear decline in slack variable
-        - ``'u1': 1.`` penalty for violating complementarity
-        - ``'u2': 1.`` penalty for violating negativitiy of fractions
-
-        Values can be set directly by modifying the values of this dictionary.
-
-        """
-
-        self.armijo_parameters: dict[str, float] = {
-            "kappa": 0.4,
-            "rho": 0.99,
-            "max_iter": 50,
-        }
-        """A dictionary containing per parameter name (str, key) the respective
-        parameter for the Armijo line-search:
-
-        - ``'kappa': 0.4``
-        - ``'rho_0': 0.99``
-        - ``'j_max': 50`` (maximal number of Armijo iterations)
-
-        Values can be set directly by modifying the values of this dictionary.
-
-        """
-
         self.initialization_parameters: dict[str, float | int] = {
             "N1": 3,
             "N2": 1,
             "N3": 5,
-            "eps": self.tolerance,
+            "eps": self.solver_params["tolerance"],
         }
         """Numbers of iterations for initialization procedures and other configurations
 
@@ -631,31 +601,6 @@ class CompiledUnifiedFlash(Flash):
           Used only for flashes other than p-T to unecessarily expensive initialization.
 
         """
-
-        self._solver_params: dict = _convert_solver_parameters(
-            {
-                "f_dim": 1,
-                "num_phase": self.npnc[0],
-                "num_comp": self.npnc[1],
-                "tol": self.tolerance,
-                "max_iter": self.max_iter,
-                "rho": self.armijo_parameters["rho"],
-                "kappa": self.armijo_parameters["kappa"],
-                "max_iter_armijo": self.armijo_parameters["max_iter"],
-                "u1": self.npipm_parameters["u1"],
-                "u2": self.npipm_parameters["u2"],
-                "eta": self.npipm_parameters["eta"],
-            }
-        )
-        """Typed numba dicitionary to pass parameters to the solver.
-        Compiled once, updated once every flash.
-
-        NOTE: This is a numba experimental feature.
-
-        """
-
-        self.heavy_ball_momentum: bool = False
-        """Flag to use the have ball momentum descend. Used in some solvers."""
 
     def _parse_and_complete_results(
         self,
@@ -674,7 +619,8 @@ class CompiledUnifiedFlash(Flash):
         stored as 2D arrays for convenience (row-wise per phase/component/derivative).
 
         """
-        nphase, ncomp = self.npnc
+        nphase = self.params["num_phases"]
+        ncomp = self.params["num_components"]
         # index of first phase fraction
         idx_y = -(nphase * ncomp + nphase - 1)
 
@@ -718,7 +664,7 @@ class CompiledUnifiedFlash(Flash):
         fluid_state.phases = list()
         for j in range(nphase):
             fluid_state.phases.append(
-                self.eos_compiler.compute_phase_properties(
+                self._eos.compute_phase_properties(
                     self._phasestates[j], fluid_state.p, fluid_state.T, x[j]
                 )
             )
@@ -733,21 +679,6 @@ class CompiledUnifiedFlash(Flash):
         fluid_state.evaluate_extensive_state()
 
         return fluid_state
-
-    def _update_solver_params(self, f_dim: int) -> None:
-        """Helper function to update the numba-typed solver parameter dict."""
-        self._solver_params["f_dim"] = float(f_dim)
-        self._solver_params["tol"] = self.tolerance
-        self._solver_params["max_iter"] = float(self.max_iter)
-        self._solver_params["rho"] = self.armijo_parameters["rho"]
-        self._solver_params["kappa"] = self.armijo_parameters["kappa"]
-        self._solver_params["max_iter_armijo"] = float(
-            self.armijo_parameters["max_iter"]
-        )
-        self._solver_params["u1"] = self.npipm_parameters["u1"]
-        self._solver_params["u2"] = self.npipm_parameters["u2"]
-        self._solver_params["eta"] = self.npipm_parameters["eta"]
-        self._solver_params["hbm"] = float(self.heavy_ball_momentum)
 
     def compile(self) -> None:
         """Triggers the assembly and compilation of equilibrium equations.
@@ -765,8 +696,9 @@ class CompiledUnifiedFlash(Flash):
 
         """
 
-        nphase, ncomp = self.npnc
-        npnc = self.npnc
+        nphase = self.params["num_phases"]
+        ncomp = self.params["num_components"]
+        npnc = (nphase, ncomp)
         phasestates = np.array([state for state in self._phasestates], dtype=np.int32)
 
         # NOTE the functions here still use a hard-coded gas phase index -1.
@@ -793,30 +725,30 @@ class CompiledUnifiedFlash(Flash):
         start = time.time()
         logger.debug("Compiling flash equations: EoS functions")
 
-        prearg_val_c = self.eos_compiler.funcs.get("prearg_val", None)
+        prearg_val_c = self._eos.funcs.get("prearg_val", None)
         if prearg_val_c is None:
-            prearg_val_c = self.eos_compiler.get_prearg_for_values()
-        prearg_jac_c = self.eos_compiler.funcs.get("prearg_jac", None)
+            prearg_val_c = self._eos.get_prearg_for_values()
+        prearg_jac_c = self._eos.funcs.get("prearg_jac", None)
         if prearg_jac_c is None:
-            prearg_jac_c = self.eos_compiler.get_prearg_for_derivatives()
-        phi_c = self.eos_compiler.funcs.get("phi", None)
+            prearg_jac_c = self._eos.get_prearg_for_derivatives()
+        phi_c = self._eos.funcs.get("phi", None)
         if phi_c is None:
-            phi_c = self.eos_compiler.get_fugacity_function()
-        d_phi_c = self.eos_compiler.funcs.get("d_phi", None)
+            phi_c = self._eos.get_fugacity_function()
+        d_phi_c = self._eos.funcs.get("d_phi", None)
         if d_phi_c is None:
-            d_phi_c = self.eos_compiler.get_dpTX_fugacity_function()
-        h_c = self.eos_compiler.funcs.get("h", None)
+            d_phi_c = self._eos.get_dpTX_fugacity_function()
+        h_c = self._eos.funcs.get("h", None)
         if h_c is None:
-            h_c = self.eos_compiler.get_enthalpy_function()
-        d_h_c = self.eos_compiler.funcs.get("d_h", None)
+            h_c = self._eos.get_enthalpy_function()
+        d_h_c = self._eos.funcs.get("d_h", None)
         if d_h_c is None:
-            d_h_c = self.eos_compiler.get_dpTX_enthalpy_function()
-        rho_c = self.eos_compiler.funcs.get("rho", None)
+            d_h_c = self._eos.get_dpTX_enthalpy_function()
+        rho_c = self._eos.funcs.get("rho", None)
         if rho_c is None:
-            rho_c = self.eos_compiler.get_density_function()
-        d_rho_c = self.eos_compiler.funcs.get("d_rho", None)
+            rho_c = self._eos.get_density_function()
+        d_rho_c = self._eos.funcs.get("d_rho", None)
         if d_rho_c is None:
-            d_rho_c = self.eos_compiler.get_dpTX_density_function()
+            d_rho_c = self._eos.get_dpTX_density_function()
 
         @numba.njit("float64[:,:](float64,float64,float64[:,:])")
         def get_prearg_res(p: float, T: float, xn: np.ndarray) -> np.ndarray:
@@ -1808,7 +1740,8 @@ class CompiledUnifiedFlash(Flash):
         solver = parameters.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}"
 
-        nphase, ncomp = self.npnc
+        nphase = self.params["num_phases"]
+        ncomp = self.params["num_components"]
         fluid_state, flash_type, f_dim, NF = self.parse_flash_input(
             z, p, T, h, v, initial_state
         )
@@ -1897,17 +1830,19 @@ class CompiledUnifiedFlash(Flash):
             logger.debug("Provided initial state parsed.")
         F = self.residuals[flash_type]
         DF = self.jacobians[flash_type]
-        self._update_solver_params(f_dim)
+        self.solver_params["f_dim"] = f_dim
+
+        converted_params = _convert_solver_parameters(self.solver_params)
 
         logger.debug(f"Starting {solver} ({mode}) solver ..")
         start = time.time()
         if mode == "linear":
             results, success, num_iter = linear_solver(
-                X0.T, F, DF, SOLVERS[solver], self._solver_params
+                X0.T, F, DF, SOLVERS[solver], converted_params
             )
         elif mode == "parallel":
             results, success, num_iter = parallel_solver(
-                X0.T, F, DF, SOLVERS[solver], self._solver_params
+                X0.T, F, DF, SOLVERS[solver], converted_params
             )
         end = time.time()
         minim_time = end - start

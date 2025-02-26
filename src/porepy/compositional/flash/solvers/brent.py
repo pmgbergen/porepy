@@ -46,7 +46,7 @@ def brent_method_c(
         A 3-tuple containing
 
         - a float, the root
-        - an integer, the convergence flag (0 not converged)
+        - an integer, the failure flag (0 means success)
         - an integer, the number of iterations.
 
     """
@@ -71,10 +71,10 @@ def brent_method_c(
     min2: float
     xm: float
 
-    # default return values (converged == 0 means failure withing given maxiter)
+    # default return values (failure == 1 means failure by reaching max iter)
     # root is assumed to be stored in b
     iter_num = 0
-    converged = 0
+    failure = 1
 
     for i in range(maxiter):
         iter_num = i
@@ -98,7 +98,7 @@ def brent_method_c(
         xm = 0.5 * (c - b)
         # Check convergence
         if np.abs(xm) <= tol1 or fb == 0.0:
-            converged = 1
+            failure = 0
             break
         # Inverse quadratic interpolation
         if np.abs(e) >= tol1 and np.abs(fa) > np.abs(fb):
@@ -139,7 +139,7 @@ def brent_method_c(
         fb = f(b)
 
     # for loop finished
-    return b, converged, iter_num
+    return b, failure, iter_num
 
 
 def brent_method(
