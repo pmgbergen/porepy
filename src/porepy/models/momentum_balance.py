@@ -193,7 +193,6 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 class ConstitutiveLawsMomentumBalance(
     constitutive_laws.ZeroGravityForce,
     constitutive_laws.ElasticModuli,
-    constitutive_laws.ElasticTangentialFractureDeformation,
     constitutive_laws.LinearElasticMechanicalStress,
     constitutive_laws.ConstantSolidDensity,
 ):

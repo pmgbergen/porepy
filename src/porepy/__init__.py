@@ -103,6 +103,7 @@ from porepy.utils import adtree
 from porepy.utils.tangential_normal_projection import (
     TangentialNormalProjection,
     set_local_coordinate_projections,
+    sides_of_fracture,
 )
 
 # Fractures
