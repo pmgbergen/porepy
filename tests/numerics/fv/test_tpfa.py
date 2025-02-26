@@ -119,16 +119,8 @@ class UnitTestAdTpfaFlux(
         self._nonzero_dirichlet_face = 5
         self._dirichlet_pressure = 1683
 
-    def initial_condition(self):
-        super().initial_condition()
-        for _, data in self.mdg.subdomains(return_data=True):
-            pp.set_solution_values(
-                name=self.pressure_variable,
-                values=np.array([2, 3], dtype=float),
-                data=data,
-                iterate_index=0,
-                time_step_index=0,
-            )
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        return np.array([2, 3], dtype=float)
 
     def set_geometry(self):
         # Create the geometry through domain amd fracture set.
