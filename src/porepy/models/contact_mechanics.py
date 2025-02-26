@@ -1,3 +1,12 @@
+"""Model for contact mechanics.
+
+Implements the contact mechanics equations for fracture deformation. The model consists
+of classes for the equations, constitutive laws, variables, initial conditions, boundary
+conditions, and solution strategy. The model is primarily intended to be used in
+combination with the momentum balance model, but can be used as a standalone model.
+
+"""
+
 from functools import partial
 from typing import Callable, Optional, cast
 
@@ -264,6 +273,79 @@ class ConstitutiveLawsContactMechanics(
     """Class for constitutive equations for contact mechanics."""
 
 
+class InterfaceDisplacementArray(pp.PorePyModel):
+    """Displacement on interfaces as a TimeDependentDenseArray.
+
+    Intended usage is to define the displacement on the interfaces as a parameter, not a
+    primary variable.
+
+    """
+
+    interface_displacement_parameter_key: str
+    """Key for the interface displacement parameter."""
+    nd: int
+    """Ambient dimension of the problem."""
+
+    def interface_displacement(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
+        """Displacement on interfaces [m].
+
+        Parameters:
+            interfaces: List of interface grids.
+
+        Returns:
+            Operator representing the displacement on the interfaces.
+
+        """
+        return pp.ad.TimeDependentDenseArray(
+            self.interface_displacement_parameter_key, interfaces
+        )
+
+    def interface_diplacement_parameter_values(
+        self, interface: pp.MortarGrid
+    ) -> np.ndarray:
+        """Displacement on interfaces [m].
+
+        Parameters:
+            interface: Single interface grid.
+
+        Returns:
+            Array representing the displacement on the interface of shape (nd, num_cells).
+
+        """
+        return np.zeros((self.nd, interface.num_cells))
+
+    def update_time_dependent_ad_arrays(self) -> None:
+        """Update values of external sources and boundary conditions."""
+        super().update_time_dependent_ad_arrays()
+
+        name = self.interface_displacement_parameter_key
+        for intf, data in self.mdg.interfaces(return_data=True):
+            if pp.ITERATE_SOLUTIONS in data and name in data[pp.ITERATE_SOLUTIONS]:
+                # Use the values at the unknown time step from the previous time step.
+                vals = pp.get_solution_values(name=name, data=data, iterate_index=0)
+            else:
+                # No current value stored. The method was called during the
+                # initialization.
+                vals = self.interface_diplacement_parameter_values(intf).ravel(
+                    order="F"
+                )
+
+            # Before setting the new, most recent time step, shift the stored values
+            # backwards in time.
+            pp.shift_solution_values(
+                name=name,
+                data=data,
+                location=pp.TIME_STEP_SOLUTIONS,
+                max_index=len(self.time_step_indices),
+            )
+            # Set the values of current time to most recent previous time.
+            pp.set_solution_values(name=name, values=vals, data=data, time_step_index=0)
+
+            # Set the unknown time step values.
+            vals = self.interface_diplacement_parameter_values(intf).ravel(order="F")
+            pp.set_solution_values(name=name, values=vals, data=data, iterate_index=0)
+
+
 class ContactTractionVariable(VariableMixin):
     """Contact traction variable for contact mechanics."""
 
@@ -505,7 +587,7 @@ class ContactMechanics(
     ContactMechanicsEquations,
     # Keep interface displacement array separate from other constituive laws
     # to avoid conflicts with other mixins, e.g. in momentum balance.
-    constitutive_laws.InterfaceDisplacementArray,
+    InterfaceDisplacementArray,
     ConstitutiveLawsContactMechanics,
     ContactTractionVariable,
     InitialConditionsContactTraction,
