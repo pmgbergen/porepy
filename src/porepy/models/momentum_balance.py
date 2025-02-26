@@ -1,14 +1,9 @@
-"""
-Class types:
-    - MomentumBalanceEquations defines subdomain and interface equations through the
-    terms entering. Momentum balance between opposing fracture interfaces is imposed.
+"""This module contains the momentum balance model, including force balance at the
+fractures.
 
-Notes:
-    - The class MomentumBalanceEquations is a mixin class, and should be inherited by a
-      class that defines the variables and discretization.
-
-    - Refactoring needed for constitutive equations. Modularisation and moving to the
-      library.
+It contains classes for equations, constitutive laws, variables, boundary conditions,
+solution strategy, and initial conditions. The complete, runnable model is also based on
+the contact mechanics model.
 
 """
 
