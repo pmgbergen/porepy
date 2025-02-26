@@ -218,8 +218,7 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         # Spelled out, from the right: Restrict the vector quantity to one dimension in
         # the tangential plane (e_i.T), multiply with the numerical parameter, prolong
         # to the full vector quantity (e_i), and sum over all all directions in the
-        # tangential plane. EK: mypy insists that the argument to sum should be a list
-        # of booleans. Ignore this error.
+        # tangential plane.
         c_num = pp.ad.sum_operator_list(
             [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
         )
@@ -395,7 +394,9 @@ class InitialConditionsContactTraction(pp.InitialConditionMixin):
     """See :class:`VariablesMomentumBalance`."""
 
     def set_initial_values_primary_variables(self) -> None:
-        """Method to set initial values contact traction at iterate index 0 after the super-call."""
+        """Method to set initial values contact traction at iterate index 0 after the
+        super-call.
+        """
         # Super call for compatibility with multi-physics.
         super().set_initial_values_primary_variables()
 
