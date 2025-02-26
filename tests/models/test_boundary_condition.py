@@ -197,7 +197,9 @@ class BCRobin:
         alpha = self.params["alpha"]
 
         r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
-        bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F") * alpha
+        bc.robin_weight = (
+            np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), order="F") * alpha
+        )
         return bc
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
