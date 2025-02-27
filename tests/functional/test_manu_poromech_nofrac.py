@@ -102,9 +102,9 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     # Retrieve actual L2-relative errors.
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
-    for ModelClass in [ManuPoroMechModel2d, ManuPoroMechModel3d]:
+    for model_class in [ManuPoroMechModel2d, ManuPoroMechModel3d]:
         # Make deep copy of params to avoid nasty bugs.
-        model: pp.PorePyModel = ModelClass(deepcopy(model_params))
+        model: pp.PorePyModel = model_class(deepcopy(model_params))
         pp.run_time_dependent_model(model)
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
@@ -238,7 +238,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     """
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models.
-    for model_idx, ModelClass in enumerate([ManuPoroMechModel2d, ManuPoroMechModel3d]):
+    for model_idx, model_class in enumerate([ManuPoroMechModel2d, ManuPoroMechModel3d]):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type.
         for grid_type in ["cartesian", "simplex"]:
@@ -257,7 +257,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                 # Use 4 levels of refinement for 2d and 3 levels for 3d.
                 if model_idx == 0:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=ModelClass,
+                        model_class=model_class,
                         model_params=deepcopy(params),
                         levels=4,
                         spatial_refinement_rate=2,
@@ -265,7 +265,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                     )
                 else:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=ModelClass,
+                        model_class=model_class,
                         model_params=deepcopy(params),
                         levels=3,
                         spatial_refinement_rate=2,

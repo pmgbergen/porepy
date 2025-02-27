@@ -38,14 +38,14 @@ def equation_system() -> pp.ad.EquationSystem:
     mdg = pp.create_mdg("cartesian", mesh_args, network_2d)
     mdg.compute_geometry()
 
-    sds = mdg.subdomains()
-    intfs = mdg.interfaces()
+    subdomains = mdg.subdomains()
+    interfaces = mdg.interfaces()
 
     equation_system = pp.ad.EquationSystem(mdg)
 
-    equation_system.create_variables(VAR1_NAME, {"cells": 1}, subdomains=sds)
-    equation_system.create_variables(VAR2_NAME, {"cells": 1}, subdomains=sds)
-    equation_system.create_variables(INTFVAR_NAME, {"cells": 1}, interfaces=intfs)
+    equation_system.create_variables(VAR1_NAME, {"cells": 1}, subdomains=subdomains)
+    equation_system.create_variables(VAR2_NAME, {"cells": 1}, subdomains=subdomains)
+    equation_system.create_variables(INTFVAR_NAME, {"cells": 1}, interfaces=interfaces)
 
     # set zero values at current iterate to kickstart AD
     equation_system.set_variable_values(np.zeros(equation_system.num_dofs()), iterate_index=0)
@@ -94,13 +94,13 @@ def test_secondary_operators(
     """Test all aspects of the secondary operator at current time and iter."""
 
     mdg = equation_system.mdg
-    sds = mdg.subdomains()
-    intfs = mdg.interfaces()
-    bgs = mdg.boundaries()
+    subdomains = mdg.subdomains()
+    interfaces = mdg.interfaces()
+    boundary_grids = mdg.boundaries()
 
     if on_intf:
         nc = mdg.num_interface_cells()
-        domains = intfs
+        domains = interfaces
         vars = [get_var(INTFVAR_NAME)(domains)]
         diff_vals = [2 * np.ones(nc)]
         expr = pp.ad.SurrogateFactory(
@@ -110,7 +110,7 @@ def test_secondary_operators(
         )
     else:
         nc = mdg.num_subdomain_cells()
-        domains = sds
+        domains = subdomains
         vars = [get_var(VAR1_NAME)(domains), get_var(VAR2_NAME)(domains)]
 
         diff_vals = [2 * np.ones(nc), 3 * np.ones(nc)]
@@ -147,7 +147,7 @@ def test_secondary_operators(
     assert all(v.time_step_index == 0 for v in sop_pt.children)
 
     # At this point, no data has been set, check correct return format for no data case
-    for g in sds + intfs + bgs:
+    for g in subdomains + interfaces + boundary_grids:
         with pytest.raises(KeyError):
             expr.fetch_data(sop, g, get_derivatives=True)
         with pytest.raises(KeyError):
@@ -162,7 +162,7 @@ def test_secondary_operators(
 
     ## Testing that setting arbitrary data not using the framework will raise errors
     # if data does not fit
-    data = mdg.boundary_grid_data(bgs[0])
+    data = mdg.boundary_grid_data(boundary_grids[0])
     if pp.ITERATE_SOLUTIONS not in data:
         data[pp.ITERATE_SOLUTIONS] = {}
     if expr.name not in data[pp.ITERATE_SOLUTIONS]:

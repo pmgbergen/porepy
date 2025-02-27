@@ -1,4 +1,4 @@
-r"""Model setups for testing the CF framework.
+r"""Models for testing the CF framework.
 
 Two models are implemented, a single-phase, 2-component model and a 3-phase, 2-component
 model.
@@ -7,7 +7,7 @@ of cells, i.e. actually a 1D-problem blown up to a 2D-problem for simplicity.
 
 **Single-phase, 2-components:**
 
-Classical tracer setup, with an incompressible fluid and a higher tracer amount entering
+Classical tracer model, with an incompressible fluid and a higher tracer amount entering
 the domain. All fluid properties are chosen to be equal 1.
 
 Due to assumptions on the fluid properties, the pressure equation is reduced to
@@ -129,7 +129,7 @@ class LinearTracerSaveData:
     # Below fields have default values since they are used only in the 3-phase set-up.
 
     errors_saturations: np.ndarray = field(default_factory=lambda: np.zeros(3))
-    """L2-errors for phase saturations for the 3-phase setup."""
+    """L2-errors for phase saturations for the 3-phase model."""
     errors_phase_fractions: np.ndarray = field(default_factory=lambda: np.zeros(3))
     """L2-errors for phase fractions."""
     errors_partial_fractions: np.ndarray = field(
@@ -158,7 +158,7 @@ class LinearTracerExactSolution1D:
     p_outlet: float = 1.0
     """Pressure at the outlet."""
 
-    def __init__(self, tracer_model: TracerFlowSetup_1p) -> None:
+    def __init__(self, tracer_model: TracerFlowModel_1p) -> None:
         self._mu = tracer_model.fluid.reference_component.viscosity
         self._rho = tracer_model.fluid.reference_component.density
         self._perm = tracer_model.solid.permeability
@@ -267,18 +267,18 @@ class LinearTracerDataSaving_1p(pp.PorePyModel):
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def collect_data(self) -> LinearTracerSaveData:
-        sds = self.mdg.subdomains()
+        subdomains = self.mdg.subdomains()
 
         t = self.time_manager.time
         dt = self.time_manager.dt
         num_iter = self.nonlinear_solver_statistics.num_iteration
 
         _, tracer = self.fluid.components
-        approx_p = self.pressure(sds).value(self.equation_system)
-        exact_p = self.exact_sol.pressure(sds[0])
-        approx_z_tracer = tracer.fraction(sds).value(self.equation_system)
-        exact_z_tracer = self.exact_sol.tracer_fraction(sds[0], t)
-        diffused_z_tracer = self.exact_sol.diffused_tracer_fraction(sds[0], t, dt)
+        approx_p = self.pressure(subdomains).value(self.equation_system)
+        exact_p = self.exact_sol.pressure(subdomains[0])
+        approx_z_tracer = tracer.fraction(subdomains).value(self.equation_system)
+        exact_z_tracer = self.exact_sol.tracer_fraction(subdomains[0], t)
+        diffused_z_tracer = self.exact_sol.diffused_tracer_fraction(subdomains[0], t, dt)
 
         return LinearTracerSaveData(
             approx_z_tracer=approx_z_tracer,
@@ -287,7 +287,7 @@ class LinearTracerDataSaving_1p(pp.PorePyModel):
             exact_p=exact_p,
             diffused_z_tracer=diffused_z_tracer,
             error_z_tracer=ConvergenceAnalysis.lp_error(
-                sds[0], 
+                subdomains[0], 
                 exact_z_tracer,
                 approx_z_tracer,
                 is_scalar=True,
@@ -295,14 +295,14 @@ class LinearTracerDataSaving_1p(pp.PorePyModel):
                 p=1,
             ),
             error_p=ConvergenceAnalysis.lp_error(
-                sds[0],
+                subdomains[0],
                 exact_p,
                 approx_p,
                 is_scalar=True,
                 is_cc=True,
             ),
             error_diffused_z_tracer=ConvergenceAnalysis.lp_error(
-                sds[0],
+                subdomains[0],
                 diffused_z_tracer,
                 approx_z_tracer,
                 is_scalar=True,
@@ -357,7 +357,7 @@ class SimplePipe2D(pp.PorePyModel):
         )
 
     def set_fractures(self) -> None:
-        """Need this to override fractures from base tracer flow setup."""
+        """Need this to override fractures from base tracer flow model."""
         self._fractures = []
 
 
@@ -441,7 +441,7 @@ class TracerBC_1p(pp.PorePyModel):
         return z
 
 
-class TracerFlowSetup_1p(
+class TracerFlowModel_1p(
     SimplePipe2D,
     TracerFluid_1p,
     TracerIC_1p,
@@ -449,7 +449,7 @@ class TracerFlowSetup_1p(
     LinearTracerDataSaving_1p,
     TracerFlowSetup,
 ):
-    """Tracer setup with 2 components and 1 phase."""
+    """Tracer model with 2 components and 1 phase."""
 
     exact_sol: LinearTracerExactSolution1D
     results: list[LinearTracerSaveData]
@@ -481,7 +481,7 @@ class TracerBC_1p_ff(BoundaryConditionsFractionalFlow):
 # SinglePhaseFlow. We want the massic pressure equation instead of the total mass
 # balance equation, and due to how the models are designed, we essentially have to
 # re-compose it.
-class TracerFlowSetup_1p_ff(
+class TracerFlowModel_1p_ff(
     SimplePipe2D,
     TracerFluid_1p,
     LinearTracerDataSaving_1p,
@@ -504,7 +504,7 @@ class TracerFlowSetup_1p_ff(
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
-    """Tracer flow setup using the pressure equation and a fractional flow formulation."""
+    """Tracer flow model using the pressure equation and a fractional flow formulation."""
 
     exact_sol: LinearTracerExactSolution1D
     results: list[LinearTracerSaveData]
@@ -556,24 +556,24 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
     def collect_data(self) -> LinearTracerSaveData:
         """Adds errors for additional fractions, and the energy variables."""
         data = super().collect_data()
-        sds = self.mdg.subdomains()
+        subdomains = self.mdg.subdomains()
 
         # T and h are expected to stay zero (trivial IC and BC) in the isothermal
         # setting.
-        approx_h = self.enthalpy(sds).value(self.equation_system)
+        approx_h = self.enthalpy(subdomains).value(self.equation_system)
         exact_h = np.zeros(approx_h.shape)
-        approx_T = self.temperature(sds).value(self.equation_system)
+        approx_T = self.temperature(subdomains).value(self.equation_system)
         exact_T = np.zeros(approx_T.shape)
 
         data.error_h = ConvergenceAnalysis.lp_error(
-            sds[0],
+            subdomains[0],
             exact_h,
             approx_h,
             is_scalar=True,
             is_cc=True,
         )
         data.error_T = ConvergenceAnalysis.lp_error(
-            sds[0],
+            subdomains[0],
             exact_T,
             approx_T,
             is_scalar=True,
@@ -588,11 +588,11 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
         errors_y = []
         errors_x: list[list] = []
         for phase in self.fluid.phases:
-            approx_s = phase.saturation(sds).value(self.equation_system)
-            approx_y = phase.fraction(sds).value(self.equation_system)
+            approx_s = phase.saturation(subdomains).value(self.equation_system)
+            approx_y = phase.fraction(subdomains).value(self.equation_system)
             errors_s.append(
                 ConvergenceAnalysis.lp_error(
-                    sds[0],
+                    subdomains[0],
                     exact_sy,
                     approx_s,
                     is_scalar=True,
@@ -601,7 +601,7 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
             )
             errors_y.append(
                 ConvergenceAnalysis.lp_error(
-                    sds[0],
+                    subdomains[0],
                     exact_sy,
                     approx_y,
                     is_scalar=True,
@@ -613,13 +613,13 @@ class LinearTracerDataSaving_3p(LinearTracerDataSaving_1p):
             # respective component
             errors_x.append([])
             for component in self.fluid.components:
-                approx_x = phase.partial_fraction_of[component](sds).value(
+                approx_x = phase.partial_fraction_of[component](subdomains).value(
                     self.equation_system
                 )
-                exact_x = component.fraction(sds).value(self.equation_system)
+                exact_x = component.fraction(subdomains).value(self.equation_system)
                 errors_x[-1].append(
                     ConvergenceAnalysis.lp_error(
-                        sds[0], exact_x, approx_x, is_scalar=True, is_cc=True
+                        subdomains[0], exact_x, approx_x, is_scalar=True, is_cc=True
                     )
                 )
 
@@ -694,19 +694,19 @@ class ModelClosure_3p(pp.LocalElimination):
         """Relates the two energy variables h and T with each other by using the
         heuristic law."""
 
-        sds = self.mdg.subdomains()
-        op = self.enthalpy(sds) - self.fluid.specific_enthalpy(sds)
+        subdomains = self.mdg.subdomains()
+        op = self.enthalpy(subdomains) - self.fluid.specific_enthalpy(subdomains)
         op.set_name("enthalpy_closure")
-        self.equation_system.set_equation(op, sds, {"cells": 1})
+        self.equation_system.set_equation(op, subdomains, {"cells": 1})
 
     def _set_phase_fraction_closure(self) -> None:
         """Relates the phase fractions to the saturation variables y=s."""
-        sds = self.mdg.subdomains()
+        subdomains = self.mdg.subdomains()
         for phase in self.fluid.phases:
             if phase != self.fluid.reference_phase:
-                op = phase.fraction(sds) - phase.saturation(sds)
+                op = phase.fraction(subdomains) - phase.saturation(subdomains)
                 op.set_name(f"phase_fraction_relation_{phase.name}")
-                self.equation_system.set_equation(op, sds, {"cells": 1})
+                self.equation_system.set_equation(op, subdomains, {"cells": 1})
 
     def _set_partial_fraction_closure(self) -> None:
         """Closes the system by introducing local mass balance equations for the
@@ -720,35 +720,35 @@ class ModelClosure_3p(pp.LocalElimination):
         with each other using a K-value of 1 (same amount in every phase)
 
         """
-        sds = self.mdg.subdomains()
+        subdomains = self.mdg.subdomains()
         _, tracer = self.fluid.components
         rphase = self.fluid.reference_phase
         # Local mass conservation for the tracer.
-        op = tracer.fraction(sds) - pp.ad.sum_operator_list(
+        op = tracer.fraction(subdomains) - pp.ad.sum_operator_list(
             [
-                phase.fraction(sds) * phase.partial_fraction_of[tracer](sds)
+                phase.fraction(subdomains) * phase.partial_fraction_of[tracer](subdomains)
                 for phase in self.fluid.phases
             ]
         )
         op.set_name(f"local_mass_conservation_{tracer.name}")
-        self.equation_system.set_equation(op, sds, {"cells": 1})
+        self.equation_system.set_equation(op, subdomains, {"cells": 1})
 
         indpendent_phases = [p for p in self.fluid.phases if p != rphase]
         assert len(indpendent_phases) == 2
 
         # K-value equations for tracer, with K-value 1, distributing the tracer equally
         # accross all phases.
-        op = rphase.partial_fraction_of[tracer](sds) - indpendent_phases[
+        op = rphase.partial_fraction_of[tracer](subdomains) - indpendent_phases[
             0
-        ].partial_fraction_of[tracer](sds)
+        ].partial_fraction_of[tracer](subdomains)
         op.set_name(f"K_value_{tracer.name}_{indpendent_phases[0].name}")
-        self.equation_system.set_equation(op, sds, {"cells": 1})
+        self.equation_system.set_equation(op, subdomains, {"cells": 1})
 
-        op = rphase.partial_fraction_of[tracer](sds) - indpendent_phases[
+        op = rphase.partial_fraction_of[tracer](subdomains) - indpendent_phases[
             1
-        ].partial_fraction_of[tracer](sds)
+        ].partial_fraction_of[tracer](subdomains)
         op.set_name(f"K_value_{tracer.name}_{indpendent_phases[1].name}")
-        self.equation_system.set_equation(op, sds, {"cells": 1})
+        self.equation_system.set_equation(op, subdomains, {"cells": 1})
 
     def update_all_boundary_conditions(self):
         """Partial fractions for the tracer must be provided on the boundary.
@@ -758,33 +758,33 @@ class ModelClosure_3p(pp.LocalElimination):
         _, tracer = self.fluid.components
 
         f = partial(TracerBC_1p.bc_values_overall_fraction, self, tracer)
-        sds = self.mdg.subdomains()
+        subdomains = self.mdg.subdomains()
 
         for phase in self.fluid.phases:
-            x = phase.partial_fraction_of[tracer](sds)
+            x = phase.partial_fraction_of[tracer](subdomains)
             self.update_boundary_condition(x.name, f)
 
     def initial_condition(self):
         """Set initial values for partial fractions equal to overall fractions and
         initial phase fractions equal to phase saturations."""
         super().initial_condition()
-        sds = self.mdg.subdomains()
+        subdomains = self.mdg.subdomains()
 
         _, tracer = self.fluid.components
 
-        z = tracer.fraction(sds).value(self.equation_system)
+        z = tracer.fraction(subdomains).value(self.equation_system)
         for phase in self.fluid.phases:
-            x = phase.partial_fraction_of[tracer](sds)
+            x = phase.partial_fraction_of[tracer](subdomains)
             self.equation_system.set_variable_values(z, [x], iterate_index=0)
 
             if phase != self.fluid.reference_phase:
-                s = phase.saturation(sds).value(self.equation_system)
+                s = phase.saturation(subdomains).value(self.equation_system)
                 self.equation_system.set_variable_values(
-                    s, [phase.fraction(sds)], iterate_index=0
+                    s, [phase.fraction(subdomains)], iterate_index=0
                 )
 
 
-class TracerFlowSetup_3p(
+class TracerFlowModel_3p(
     SimplePipe2D,
     # Putting this constitutive law above the fluid to have enthalpy as a function,
     # and not a surrogate operator,

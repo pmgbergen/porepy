@@ -33,11 +33,10 @@ grid = pp.GridLike
 
 # -----> Exact solution
 class ManuIncompExactSolution3d:
-    """Class containing the exact manufactured solution for the verification setup."""
+    """Class containing the exact manufactured solution for the verification model."""
 
-    def __init__(self, setup):
-        # Model setup
-        self.setup = setup
+    def __init__(self, model):
+        self.model = model
 
         # Symbolic variables
         x, y, z = sym.symbols("x y z")
@@ -127,13 +126,13 @@ class ManuIncompExactSolution3d:
         assert where in ["cc", "fc", "bg"]
 
         # Retrieve coordinates
-        sd = self.setup.mdg.subdomains()[0]
+        sd = self.model.mdg.subdomains()[0]
         if where == "cc":
             x = sd.cell_centers
         elif where == "fc":
             x = sd.face_centers
         else:
-            bg = self.setup.mdg.subdomain_to_boundary_grid(sd)
+            bg = self.model.mdg.subdomain_to_boundary_grid(sd)
             assert bg is not None
             x = bg.cell_centers
 
@@ -730,7 +729,7 @@ class SingleEmbeddedVerticalPlaneFracture:
 
 # -----> Solution strategy
 class ManuIncompSolutionStrategy3d(ManuIncompSolutionStrategy2d):
-    """Modified solution strategy for the verification setup."""
+    """Modified solution strategy for the verification model."""
 
     exact_sol: ManuIncompExactSolution3d
     """Exact solution object."""
@@ -744,7 +743,7 @@ class ManuIncompSolutionStrategy3d(ManuIncompSolutionStrategy2d):
         """Exact solution object."""
 
     def set_materials(self):
-        """Set material constants for the verification setup."""
+        """Set material constants for the verification model."""
         super().set_materials()
         # Instantiate exact solution object
         self.exact_sol = ManuIncompExactSolution3d(self)
@@ -757,5 +756,5 @@ class ManuIncompFlowModel3d(  # type: ignore[misc]
     ManuIncompFlowModel2d,
 ):
     """
-    Mixer class for the 3d incompressible flow setup with a single fracture.
+    Mixer class for the 3d incompressible flow model with a single fracture.
     """

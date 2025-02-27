@@ -6,7 +6,7 @@ import pytest
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from tests.functional.setups.manu_sneddon_2d import ManuSneddonSetup2d
+from tests.functional.setups.manu_sneddon_2d import ManuSneddonModel2d
 
 
 @pytest.fixture(scope="module")
@@ -56,7 +56,7 @@ def actual_ooc() -> dict:
 
     # Convergence analysis setup
     conv_analysis = ConvergenceAnalysis(
-        model_class=ManuSneddonSetup2d,
+        model_class=ManuSneddonModel2d,
         model_params=copy.deepcopy(params),
         levels=2,
         spatial_refinement_rate=2,
