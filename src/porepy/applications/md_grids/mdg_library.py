@@ -141,31 +141,33 @@ def square_with_orthogonal_fractures(
             non_matching=False,
         )
 
-        intf_map: dict[
+        interface_map: dict[
             pp.MortarGrid,
             Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
         ] = {}
         # Loop over all the interfaces in the new grid. Find its corresponding interface
         # in the old grid, and update the interface map. There is no point in updating
         # the 0d mortar, since there is no room for refinement.
-        for intf in mdg_new.interfaces(dim=1):
+        for interface in mdg_new.interfaces(dim=1):
             # Then, for each interface, we fetch the secondary grid which belongs to it.
-            _, g_sec_new = mdg_new.interface_to_subdomain_pair(intf)
+            _, g_sec_new = mdg_new.interface_to_subdomain_pair(interface)
 
             # We then loop through all the interfaces in the original grid (recipient).
-            for intf_old in mdg.interfaces(dim=1):
+            for interface_old in mdg.interfaces(dim=1):
                 # Fetch the secondary grid of the interface in the old grid.
-                _, g_sec_old = mdg.interface_to_subdomain_pair(intf_old)
+                _, g_sec_old = mdg.interface_to_subdomain_pair(interface_old)
 
                 # Checking the fracture number of the secondary grid in the old mdg. If
                 # they are the same, i.e., if the fractures are the same ones, we update
                 # the interface map.
                 if g_sec_old.frac_num == g_sec_new.frac_num:
-                    intf_map.update({intf_old: intf})
+                    interface_map.update({interface_old: interface})
 
         # Finally replace the subdomains and interfaces in the original
         # mixed-dimensional grid.
-        mdg.replace_subdomains_and_interfaces(sd_map=grid_map, intf_map=intf_map)
+        mdg.replace_subdomains_and_interfaces(
+            sd_map=grid_map, interface_map=interface_map
+        )
 
     return mdg, fracture_network
 

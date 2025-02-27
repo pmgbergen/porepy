@@ -75,7 +75,7 @@ class Thermoporomechanics(  # type: ignore[misc]
 
 class ContactMechanicsTester(ContactMechanics):
     def interface_displacement_parameter_values(
-        self, intf: pp.MortarGrid
+        self, interface: pp.MortarGrid
     ) -> np.ndarray:
         """Return the interface displacement values.
 
@@ -87,7 +87,7 @@ class ContactMechanicsTester(ContactMechanics):
         "interface_displacement_parameter_values".
 
         Parameters:
-            intf: Interface where the displacement values are to be returned.
+            interface: Interface where the displacement values are to be returned.
 
         Returns:
             Array of interface displacement values, shaped as (self.nd, num_cells).
@@ -98,12 +98,12 @@ class ContactMechanicsTester(ContactMechanics):
         # v is a vector pointing in the positive direction of all dimensions. It can be
         # used to identify the top side of the interface for all fractures in which do
         # not contain it.
-        v = np.ones((coord_dim, intf.num_cells))
-        vals: np.ndarray = np.zeros((self.nd, intf.num_cells))
-        sd_primary = self.mdg.interface_to_subdomain_pair(intf)[0]
+        v = np.ones((coord_dim, interface.num_cells))
+        vals: np.ndarray = np.zeros((self.nd, interface.num_cells))
+        sd_primary = self.mdg.interface_to_subdomain_pair(interface)[0]
         # The second return is the side of the fracture having outwards normals in the
         # negative direction of v, i.e. the top side.
-        _, top_side, _ = pp.sides_of_fracture(intf, sd_primary, v)
+        _, top_side, _ = pp.sides_of_fracture(interface, sd_primary, v)
         # Get the displacement values from the parameter dictionary.
         param_values = cast(
             np.ndarray, self.params["interface_displacement_parameter_values"]
