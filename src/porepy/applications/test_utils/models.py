@@ -422,7 +422,7 @@ def get_model_methods_returning_ad_operator(model: pp.PorePyModel) -> list[str]:
         (3) Returns either a 'pp.ad.Operator' or a 'pp.ad.DenseArray'.
 
     Parameters:
-        model: Model setup after `prepare_simulation()` has been called.
+        model: Model after `prepare_simulation()` has been called.
 
     Returns:
         List of all possible testable method names for the given model.
