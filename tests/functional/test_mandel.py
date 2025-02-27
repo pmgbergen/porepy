@@ -32,7 +32,7 @@ from porepy.examples.mandel_biot import (
 
 @pytest.fixture(scope="module")
 def results() -> list[MandelSaveData]:
-    # Run verification setup and retrieve results for three different times
+    # Run verification model and retrieve results for three different times
     material_constants = {
         "fluid": pp.FluidComponent(**mandel_fluid_constants),
         "solid": pp.SolidConstants(**mandel_solid_constants),
@@ -43,9 +43,9 @@ def results() -> list[MandelSaveData]:
         "time_manager": time_manager,
         "times_to_export": [],  # Suppress output for tests
     }
-    setup = MandelSetup(model_params)
-    pp.run_time_dependent_model(setup)
-    return setup.results
+    model = MandelSetup(model_params)
+    pp.run_time_dependent_model(model)
+    return model.results
 
 
 # Desired errors

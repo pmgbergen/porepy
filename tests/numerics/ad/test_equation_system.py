@@ -43,11 +43,11 @@ def test_evaluate_variables():
     g_2 = pp.CartGrid([1, 1])
     mdg.add_subdomains([g_1, g_2])
 
-    eq_system = pp.ad.EquationSystem(mdg)
+    equation_system = pp.ad.EquationSystem(mdg)
 
     # Define variables
     var_name = "foo"
-    eq_system.create_variables(var_name, subdomains=[g_1, g_2])
+    equation_system.create_variables(var_name, subdomains=[g_1, g_2])
 
     for sd, d in mdg.subdomains(return_data=True):
         vals_sol = np.ones([sd.num_cells])
@@ -61,9 +61,9 @@ def test_evaluate_variables():
         pp.set_solution_values(name=var_name, values=vals_it, data=d, iterate_index=1)
 
     # We only need to test a single variable, they should all be the same.
-    single_variable = eq_system.variables[0]
+    single_variable = equation_system.variables[0]
     # Make a md wrapper around the variable.
-    md_variable = eq_system.md_variable(single_variable.name)
+    md_variable = equation_system.md_variable(single_variable.name)
 
     # Try testing both the individual variable and its mixed-dimensional wrapper. In the
     # below checks, the anticipated value of the variables is based on the values
@@ -71,7 +71,7 @@ def test_evaluate_variables():
     known_jacs = [np.array([1, 0]), np.eye(2)]
     for var, known_jac in zip([single_variable, md_variable], known_jacs):
         # First evaluate the variable. This should give the iterate value.
-        ad_array = var.value_and_jacobian(eq_system)
+        ad_array = var.value_and_jacobian(equation_system)
         assert isinstance(ad_array, pp.ad.AdArray)
         assert np.allclose(ad_array.val, 2)
         assert np.allclose(ad_array.jac.toarray(), known_jac)
@@ -79,7 +79,7 @@ def test_evaluate_variables():
         # Now create the variable at the previous iterate. This should also give the
         # most recent value in pp.ITERATE_SOLUTIONS, but it should not yield an AdArray.
         var_prev_iter = var.previous_iteration()
-        ad_array_prev_iter = var_prev_iter.value_and_jacobian(eq_system)
+        ad_array_prev_iter = var_prev_iter.value_and_jacobian(equation_system)
         assert isinstance(ad_array_prev_iter, pp.ad.AdArray)
         assert np.allclose(ad_array_prev_iter.val, 2)
         assert np.allclose(ad_array_prev_iter.jac.toarray(), np.zeros(known_jac.shape))
@@ -87,7 +87,7 @@ def test_evaluate_variables():
         # Create the variable at the previous time step. This should give the most
         # recent value in pp.TIME_STEP_SOLUTIONS.
         var_prev_timestep = var.previous_timestep()
-        ad_array_prev_timestep = var_prev_timestep.value_and_jacobian(eq_system)
+        ad_array_prev_timestep = var_prev_timestep.value_and_jacobian(equation_system)
         assert isinstance(ad_array_prev_timestep, pp.ad.AdArray)
         assert np.allclose(ad_array_prev_timestep.val, 1)
         assert np.allclose(
@@ -98,7 +98,7 @@ def test_evaluate_variables():
         # time step. This should give an AdArray with the same value as that obtained by
         # subtracting the evaluated variables.
         var_increment = pp.ad.time_increment(var)
-        ad_array_increment = var_increment.value_and_jacobian(eq_system)
+        ad_array_increment = var_increment.value_and_jacobian(equation_system)
         assert isinstance(ad_array_increment, pp.ad.AdArray)
         assert np.allclose(
             ad_array_increment.val, ad_array.val - ad_array_prev_timestep.val
@@ -950,43 +950,43 @@ def test_parse_variable_like(model: EquationSystemMockModel):
     type of domain for a variable.
 
     """
-    eq_system = model.equation_system
+    equation_system = model.equation_system
 
     num_subdomains = model.mdg.num_subdomains()
     num_interfaces = model.mdg.num_interfaces()
 
     # First pass None, this should give all variables
-    received_variables_1 = eq_system._parse_variable_type(None)
+    received_variables_1 = equation_system._parse_variable_type(None)
     assert len(received_variables_1) == len(set(received_variables_1))
     assert len(received_variables_1) == num_interfaces + num_subdomains + 2
 
     # Next pass an empty list. We expect to receive an empty list back
-    received_variables_2 = eq_system._parse_variable_type([])
+    received_variables_2 = equation_system._parse_variable_type([])
     assert len(received_variables_2) == 0
 
     # Pass a Variable, we should get it back
     var = model.sd_top_variable.sub_vars[0]
-    received_variables_3 = eq_system._parse_variable_type([var])
+    received_variables_3 = equation_system._parse_variable_type([var])
     assert len(received_variables_3) == 1
     assert received_variables_3[0] == var
 
     # Pass an md-variable with one sub-variable, check we get back the sub-variable
-    received_variables_4 = eq_system._parse_variable_type([model.sd_top_variable])
+    received_variables_4 = equation_system._parse_variable_type([model.sd_top_variable])
     assert len(received_variables_4) == 1
     assert received_variables_4[0] == model.sd_top_variable.sub_vars[0]
 
     # Send an md-variable with two sub-variables
-    received_variables_5 = eq_system._parse_variable_type([model.sd_variable])
+    received_variables_5 = equation_system._parse_variable_type([model.sd_variable])
     assert len(received_variables_5) == len(model.sd_variable.sub_vars)
     assert all([var in received_variables_5 for var in model.sd_variable.sub_vars])
 
     # Send in the md-variable as a string, it should not make a difference
-    received_variables_6 = eq_system._parse_variable_type([model.name_sd_variable])
+    received_variables_6 = equation_system._parse_variable_type([model.name_sd_variable])
     assert len(received_variables_6) == len(model.sd_variable.sub_vars)
     assert all([var in received_variables_6 for var in model.sd_variable.sub_vars])
 
     # Send in two md-variables
-    received_variables_7 = eq_system._parse_variable_type(
+    received_variables_7 = equation_system._parse_variable_type(
         [model.sd_variable, model.sd_top_variable]
     )
     assert len(received_variables_7) == len(model.sd_variable.sub_vars) + len(
@@ -998,7 +998,7 @@ def test_parse_variable_like(model: EquationSystemMockModel):
     # (list of strings and list of variable is permitted, combined lists are not), the
     # current implementation actually allows for this. If the implementation is changed,
     # the checks involving received_variables_8 and _9 can be deleted.
-    received_variables_8 = eq_system._parse_variable_type(
+    received_variables_8 = equation_system._parse_variable_type(
         model.sd_variable.sub_vars + [model.name_sd_top_variable]
     )
     assert len(received_variables_8) == len(model.sd_variable.sub_vars) + len(
@@ -1006,7 +1006,7 @@ def test_parse_variable_like(model: EquationSystemMockModel):
     )
 
     # Send in a combination of string and md-variables
-    received_variables_9 = eq_system._parse_variable_type(
+    received_variables_9 = equation_system._parse_variable_type(
         [model.sd_variable, model.name_sd_top_variable]
     )
     assert len(received_variables_9) == len(model.sd_variable.sub_vars) + len(
@@ -1024,7 +1024,7 @@ def test_parse_single_equation(model: EquationSystemMockModel):
     and verifies that the returned index sets are correctly ordered.
 
     """
-    eq_system = model.equation_system
+    equation_system = model.equation_system
 
     # Represent the equation both by its string and its operator form.
     # This could have been parametrized to the price of computational higher cost
@@ -1035,14 +1035,14 @@ def test_parse_single_equation(model: EquationSystemMockModel):
 
         # First parse the equation as it is, without any restriction.
         # This should give back the full equation with no restriction.
-        restriction_1 = eq_system._parse_single_equation(eq)
+        restriction_1 = equation_system._parse_single_equation(eq)
         assert len(restriction_1) == 1
 
         assert name in restriction_1
         assert restriction_1[name] is None
 
         # Next, restrict the equation to a single subdomain.
-        restriction_2 = eq_system._parse_single_equation({eq: [model.sd_top]})
+        restriction_2 = equation_system._parse_single_equation({eq: [model.sd_top]})
         assert len(restriction_2) == 1
         # The numbering of the subdomanis in the EquationSystem is the same as that of
         # the MixedDimensionalGrid, thus the indices associated with this subdomain
@@ -1055,7 +1055,7 @@ def test_parse_single_equation(model: EquationSystemMockModel):
         # the MixedDimensionalGrid.subdomains() method, thus the indices should again
         # be linear.
         eq_def = {eq: model.subdomains[::-1]}
-        restriction_3 = eq_system._parse_single_equation(eq_def)
+        restriction_3 = equation_system._parse_single_equation(eq_def)
         assert np.allclose(
             restriction_3[name], np.arange(model.mdg.num_subdomain_cells())
         )
@@ -1070,14 +1070,14 @@ def test_parse_equations(model: EquationSystemMockModel):
     equations and check that the order of the returned equations is correct.
 
     """
-    eq_system = model.equation_system
+    equation_system = model.equation_system
 
     # All equations. The order is the same as that in the helper class
     # EquationSystemSetup.
     all_equation_names = model.all_equation_names
 
     # First pass None. This should give as all equations on all subdomains.
-    received_equations_1 = eq_system._parse_equations(None)
+    received_equations_1 = equation_system._parse_equations(None)
     received_keys_1 = list(received_equations_1.keys())
 
     # We expect to receive all equations, thus the length of the dictionary should be
@@ -1093,7 +1093,7 @@ def test_parse_equations(model: EquationSystemMockModel):
 
     # Next, pass the single subdomain and all subdomains, in that order. We should
     # receive the same keys, but in reverse order.
-    received_equations_2 = eq_system._parse_equations(
+    received_equations_2 = equation_system._parse_equations(
         [all_equation_names[1], all_equation_names[0]]
     )
     received_keys_2 = list(received_equations_2.keys())
@@ -1103,7 +1103,7 @@ def test_parse_equations(model: EquationSystemMockModel):
 
     # Send in the all_subdomains equation in both unrestricted and restricted form.
     # The restriction should override the unrestricted form.
-    received_equations_3 = eq_system._parse_equations(
+    received_equations_3 = equation_system._parse_equations(
         {all_equation_names[0]: None, all_equation_names[0]: [model.sd_top]}
     )
     assert len(received_equations_3) == 1
@@ -1371,7 +1371,7 @@ def test_schur_complement(eq_var_to_exclude):
 
     # Ensure the system is square by leaving out eq_combined
     model = EquationSystemMockModel(square_system=True)
-    eq_system = model.equation_system
+    equation_system = model.equation_system
     # Always exclude eq_combined to get a square system.
     eq_to_exclude.append("eq_combined")
 
@@ -1385,7 +1385,7 @@ def test_schur_complement(eq_var_to_exclude):
         # kept on all subdomains (which we somewhat cumbersomely obtain from a private
         # variable of EquationSystem).
         equations = {
-            eq: list(eq_system._equation_image_space_composition[eq].keys())
+            eq: list(equation_system._equation_image_space_composition[eq].keys())
             for eq in eq_names
         }
         # In addition, we keep 'eq_all_subdomains' on the top subdomain.
@@ -1395,7 +1395,7 @@ def test_schur_complement(eq_var_to_exclude):
         # excluded, which is kept on the top subdomain only.
         domain_to_exclude = model.subdomains[1:]
         variables = []
-        for var in eq_system.variables:
+        for var in equation_system.variables:
             if not (var.name in var_to_exclude and var.domain in domain_to_exclude):
                 variables.append(var)
     else:
@@ -1438,7 +1438,7 @@ def test_schur_complement(eq_var_to_exclude):
     b_known = b_2 - B * inverter(D) * b_1
 
     # Compute Schur complement with method to be tested
-    S, bS = eq_system.assemble_schur_complement_system(
+    S, bS = equation_system.assemble_schur_complement_system(
         equations, variables, inverter=inverter
     )
 
@@ -1450,6 +1450,6 @@ def test_schur_complement(eq_var_to_exclude):
     # the same as the solution computed directly from the full system.
     x_schur = sps.linalg.spsolve(S, bS)
     x_expected = sps.linalg.spsolve(model.A, model.b)
-    x_reconstructed = eq_system.expand_schur_complement_solution(x_schur)
+    x_reconstructed = equation_system.expand_schur_complement_solution(x_schur)
 
     assert np.allclose(x_reconstructed, x_expected)

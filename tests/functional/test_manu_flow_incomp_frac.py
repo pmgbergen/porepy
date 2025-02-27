@@ -88,9 +88,9 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
     # Retrieve actual L2-relative errors
     errors: list[dict[str, float]] = []
     # Loop through models, i.e., 2d and 3d
-    for ModelClass in [ManuIncompFlowModel2d, ManuIncompFlowModel3d]:
+    for model_class in [ManuIncompFlowModel2d, ManuIncompFlowModel3d]:
         # Make deep copy of params to avoid nasty bugs.
-        model: ManuIncompFlowModel2d | ManuIncompFlowModel3d = ModelClass(
+        model: ManuIncompFlowModel2d | ManuIncompFlowModel3d = model_class(
             deepcopy(model_params)
         )
         pp.run_time_dependent_model(model)
@@ -207,7 +207,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     """
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models
-    for model_idx, ModelClass in enumerate([ManuIncompFlowModel2d, ManuIncompFlowModel3d]):
+    for model_idx, model_class in enumerate([ManuIncompFlowModel2d, ManuIncompFlowModel3d]):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type
         for grid_type in ["cartesian", "simplex"]:
@@ -225,14 +225,14 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                 # Use 4 levels of refinement for 2d and 3 levels for 3d
                 if model_idx == 0:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=ModelClass,
+                        model_class=model_class,
                         model_params=deepcopy(params),
                         levels=4,
                         spatial_refinement_rate=2,
                     )
                 else:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=ModelClass,
+                        model_class=model_class,
                         model_params=deepcopy(params),
                         levels=3,
                         spatial_refinement_rate=2,

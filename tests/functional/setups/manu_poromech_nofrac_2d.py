@@ -1,5 +1,5 @@
 """
-This module contains the implementation of a verification setup for a poromechanical
+This module contains the implementation of a verification model for a poromechanical
 system (without fractures) using two-dimensional manufactured solutions.
 
 The implementation considers a compressible fluid, resulting in a coupled non-linear
@@ -57,7 +57,6 @@ import sympy as sym
 
 import porepy as pp
 
-import porepy.models.fluid_mass_balance as mass
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
@@ -70,7 +69,7 @@ grid = pp.GridLike
 # -----> Data-saving
 @dataclass
 class ManuPoroMechSaveData:
-    """Data class to save relevant results from the verification setup."""
+    """Data class to save relevant results from the verification model."""
 
     approx_displacement: np.ndarray
     """Numerical displacement."""
@@ -144,7 +143,7 @@ class ManuPoroMechDataSaving(pp.PorePyModel):
     """
 
     def collect_data(self) -> ManuPoroMechSaveData:
-        """Collect data from the verification setup.
+        """Collect data from the verification model.
 
         Returns:
             ManuPoroMechSaveData object containing the results of the verification for
@@ -227,22 +226,22 @@ class ManuPoroMechDataSaving(pp.PorePyModel):
 
 # -----> Exact solution
 class ManuPoroMechExactSolution2d:
-    """Class containing the exact manufactured solution for the verification setup."""
+    """Class containing the exact manufactured solution for the verification model."""
 
-    def __init__(self, setup: pp.PorePyModel):
+    def __init__(self, model: pp.PorePyModel):
         """Constructor of the class."""
 
         # Physical parameters
-        lame_lmbda = setup.solid.lame_lambda  # [Pa] Lamé parameter
-        lame_mu = setup.solid.shear_modulus  # [Pa] Lamé parameter
-        alpha = setup.solid.biot_coefficient  # [-] Biot coefficient
-        rho_0 = setup.fluid.reference_component.density  # [kg / m^3] Reference density
-        phi_0 = setup.solid.porosity  # [-] Reference porosity
-        p_0 = setup.reference_variable_values.pressure  # [Pa] Reference pressure
+        lame_lmbda = model.solid.lame_lambda  # [Pa] Lamé parameter
+        lame_mu = model.solid.shear_modulus  # [Pa] Lamé parameter
+        alpha = model.solid.biot_coefficient  # [-] Biot coefficient
+        rho_0 = model.fluid.reference_component.density  # [kg / m^3] Reference density
+        phi_0 = model.solid.porosity  # [-] Reference porosity
+        p_0 = model.reference_variable_values.pressure  # [Pa] Reference pressure
         # [Pa^-1] Fluid compressibility
-        c_f = setup.fluid.reference_component.compressibility
-        k = setup.solid.permeability  # [m^2] Permeability
-        mu_f = setup.fluid.reference_component.viscosity  # [Pa * s] Fluid viscosity
+        c_f = model.fluid.reference_component.compressibility
+        k = model.solid.permeability  # [m^2] Permeability
+        mu_f = model.fluid.reference_component.viscosity  # [Pa * s] Fluid viscosity
         K_d = lame_lmbda + (2 / 3) * lame_mu  # [Pa] Bulk modulus
 
         # Symbolic variables
@@ -250,7 +249,7 @@ class ManuPoroMechExactSolution2d:
         pi = sym.pi
 
         # Exact pressure and displacement solutions
-        manufactured_sol = setup.params.get("manufactured_solution", "parabolic")
+        manufactured_sol = model.params.get("manufactured_solution", "parabolic")
         if manufactured_sol == "parabolic":
             p = t * x * (1 - x) * y * (1 - y)
             u = [p, p]
@@ -567,7 +566,7 @@ class ManuPoroMechExactSolution2d:
 
 # -----> Utilities
 class ManuPoroMechUtils(VerificationUtils):
-    """Mixin class containing useful utility methods for the setup."""
+    """Mixin class containing useful utility methods for the model."""
 
     results: list[ManuPoroMechSaveData]
     """List of ManuPoroMechSaveData objects."""
@@ -648,7 +647,7 @@ class ManuPoroMechMassBalance:
         """
         The following is a "hack" to include cross term missing from the dt operator.
         This reduces the discretization error significantly, but we don't include it
-        since the purpose of this verification setup is to be used in functional
+        since the purpose of this verification model is to be used in functional
         tests to check the correct *default* behaviour of the models.
 
         Add cross term missing from dt operator relative to proper application of
@@ -690,7 +689,7 @@ class ManuPoroMechEquations(
 
 # -----> Solution strategy
 class ManuPoroMechSolutionStrategy2d(pp.poromechanics.SolutionStrategyPoromechanics):
-    """Solution strategy for the verification setup."""
+    """Solution strategy for the verification model."""
 
     exact_sol: ManuPoroMechExactSolution2d
     """Exact solution object."""
@@ -757,6 +756,6 @@ class ManuPoroMechModel2d(  # type: ignore[misc]
     pp.Poromechanics,
 ):
     """
-    Mixer class for the two-dimensional non-linear poromechanics verification setup.
+    Mixer class for the two-dimensional non-linear poromechanics verification model.
 
     """
