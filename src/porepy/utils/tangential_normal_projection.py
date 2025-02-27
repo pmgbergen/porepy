@@ -431,6 +431,9 @@ def sides_of_fracture(
         if np.allclose(positive_side, proj_inds):
             positive_side_first = i == 0
         else:
+            # If this assertion is broken, the side grid (in the mortar grid) has cells
+            # on both sides of the fracture. This would signify that something is very
+            # wrong.
             assert np.allclose(negative_side, proj_inds)
     if positive_side_first is None:
         # This should not happen for planar surfaces (and possibly other underlying
