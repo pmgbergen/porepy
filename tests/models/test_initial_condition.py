@@ -44,7 +44,7 @@ def create_local_model_class(
     return local_model_class
 
 
-class ICTestAllVariablesMixin(pp.PorePyModel):
+class ICAllVariablesTestMixin(pp.PorePyModel):
     """Mixin defining interface for testing results of initialization procedure."""
 
     @property
@@ -99,7 +99,7 @@ class ICTestAllVariablesMixin(pp.PorePyModel):
         self.initialize_time_and_iteration_indices()
 
 
-class ICTestPrimaryVariablesMixin(ICTestAllVariablesMixin):
+class ICPrimaryVariablesTestMixin(ICAllVariablesTestMixin):
     """A special mixin for testing purpose which overloads the method setting
     initial values for primary variables.
 
@@ -151,7 +151,7 @@ class ICTestPrimaryVariablesMixin(ICTestAllVariablesMixin):
         assert set(all_variables) == set(self.equation_system.variables)
 
 
-class ICTestSinglePhaseFlowMixin(pp.PorePyModel):
+class ICSinglePhaseFlow(pp.PorePyModel):
     """Single phase flow class with non-trivial IC for every variable.
 
     The only primary variable is pressure.
@@ -168,7 +168,7 @@ class ICTestSinglePhaseFlowMixin(pp.PorePyModel):
         return self.process_initialization(self.well_flux, intf, False)
 
 
-class ICTestEnergyMixin(pp.PorePyModel):
+class ICEnergy(pp.PorePyModel):
     """Non-trivial IC for the energy-related variables.
 
     The only primary variable is temperature.
@@ -188,7 +188,7 @@ class ICTestEnergyMixin(pp.PorePyModel):
         return self.process_initialization(self.well_enthalpy_flux, intf, False)
 
 
-class ICTestMomentumBalancerMixin(pp.PorePyModel):
+class ICMomentumBalance(pp.PorePyModel):
     """Non-trivial IC for the mechanics-related variables.
 
     Both displacement and interface displacement are considered primary.
@@ -202,7 +202,7 @@ class ICTestMomentumBalancerMixin(pp.PorePyModel):
         return self.process_initialization(self.interface_displacement, intf, True)
 
 
-class ICTestContactMechanicsMixin(pp.PorePyModel):
+class ICContactMechanics(pp.PorePyModel):
     """Non-trivial IC for contact mechanics variables.
 
     The contact traction is considered a primary variable.
@@ -213,7 +213,7 @@ class ICTestContactMechanicsMixin(pp.PorePyModel):
         return self.process_initialization(self.contact_traction, sd, True)
 
 
-class ICTestTracerFlowMixin(pp.PorePyModel):
+class ICTracerFlow(pp.PorePyModel):
     """Non-trivial IC values for fractions in tracer flow.
 
     Overall component fractions are considered primary.
@@ -229,57 +229,57 @@ class ICTestTracerFlowMixin(pp.PorePyModel):
 model_configurations: list[tuple[type[pp.PorePyModel], list[type[pp.PorePyModel]]]] = [
     (
         pp.fluid_mass_balance.SinglePhaseFlow,
-        [ICTestSinglePhaseFlowMixin],
+        [ICSinglePhaseFlow],
     ),
     (
         pp.momentum_balance.MomentumBalance,
         [
-            ICTestMomentumBalancerMixin,
-            ICTestContactMechanicsMixin,
+            ICMomentumBalance,
+            ICContactMechanics,
         ],
     ),
     (
         pp.contact_mechanics.ContactMechanics,
-        [ICTestContactMechanicsMixin],
+        [ICContactMechanics],
     ),
     (
         pp.poromechanics.Poromechanics,
         [
-            ICTestSinglePhaseFlowMixin,
-            ICTestMomentumBalancerMixin,
-            ICTestContactMechanicsMixin,
+            ICSinglePhaseFlow,
+            ICMomentumBalance,
+            ICContactMechanics,
         ],
     ),
     (
         pp.thermoporomechanics.Thermoporomechanics,
         [
-            ICTestSinglePhaseFlowMixin,
-            ICTestMomentumBalancerMixin,
-            ICTestContactMechanicsMixin,
-            ICTestEnergyMixin,
+            ICSinglePhaseFlow,
+            ICMomentumBalance,
+            ICContactMechanics,
+            ICEnergy,
         ],
     ),
     (
         BiotPoromechanics,
         [
-            ICTestSinglePhaseFlowMixin,
-            ICTestMomentumBalancerMixin,
-            ICTestContactMechanicsMixin,
+            ICSinglePhaseFlow,
+            ICMomentumBalance,
+            ICContactMechanics,
         ],
     ),
     (
         MandelSetup,
         [
-            ICTestSinglePhaseFlowMixin,
-            ICTestMomentumBalancerMixin,
-            ICTestContactMechanicsMixin,
+            ICSinglePhaseFlow,
+            ICMomentumBalance,
+            ICContactMechanics,
         ],
     ),
     (
         TracerFlowSetup,
         [
-            ICTestSinglePhaseFlowMixin,
-            ICTestTracerFlowMixin,
+            ICSinglePhaseFlow,
+            ICTracerFlow,
         ],
     ),
 ]
@@ -300,7 +300,7 @@ Note:
 
 
 @pytest.mark.parametrize(
-    "ic_test_mixin", [ICTestAllVariablesMixin, ICTestPrimaryVariablesMixin]
+    "ic_test_mixin", [ICAllVariablesTestMixin, ICPrimaryVariablesTestMixin]
 )
 @pytest.mark.parametrize(
     "geometry_model",
@@ -341,7 +341,7 @@ def test_initial_values_are_set(
     local_mixins += [ic_test_mixin]
 
     # create local model class and add some extra typing support.
-    local_model_class: type[ICTestAllVariablesMixin] = create_local_model_class(
+    local_model_class: type[ICAllVariablesTestMixin] = create_local_model_class(
         model_class, local_mixins
     )
 
@@ -385,7 +385,7 @@ def test_initial_values_are_set(
 
 
 @pytest.mark.parametrize(
-    "ic_test_mixin", [ICTestAllVariablesMixin, ICTestPrimaryVariablesMixin]
+    "ic_test_mixin", [ICAllVariablesTestMixin, ICPrimaryVariablesTestMixin]
 )
 @pytest.mark.parametrize(
     "permutations_ic_thermoporomechanics",
@@ -433,15 +433,15 @@ def test_thermoporomechanics_initialization_is_mro_insensitive(
     local_mixins: list[type[pp.PorePyModel]] = (
         [_ for _ in permutations_ic_thermoporomechanics]
         + [
-            ICTestSinglePhaseFlowMixin,
-            ICTestMomentumBalancerMixin,
-            ICTestContactMechanicsMixin,
-            ICTestEnergyMixin,
+            ICSinglePhaseFlow,
+            ICMomentumBalance,
+            ICContactMechanics,
+            ICEnergy,
         ]
         + [CubeDomainOrthogonalFractures, ic_test_mixin]
     )
 
-    model_class: type[ICTestAllVariablesMixin] = create_local_model_class(
+    model_class: type[ICAllVariablesTestMixin] = create_local_model_class(
         LocalThermoporomechanics, local_mixins
     )
 
