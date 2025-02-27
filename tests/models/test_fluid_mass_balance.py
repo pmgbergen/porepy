@@ -40,7 +40,7 @@ from porepy.applications.material_values.fluid_values import (
 
 
 @pytest.fixture(scope="function")
-def model_setup():
+def model() -> pp.PorePyModel:
     """Minimal compressible single-phase flow setup with two intersecting fractures.
 
     The model is set up with realistic physical parameters using water and granite.
@@ -64,7 +64,7 @@ def model_setup():
 
     """
 
-    class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
+    class LocalModel(SquareDomainOrthogonalFractures, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
     # Material constants
@@ -80,24 +80,24 @@ def model_setup():
     }
 
     # Instantiate the model setup
-    setup = Model(params)
+    model = LocalModel(params)
 
     # Prepare to simulate
-    setup.prepare_simulation()
+    model.prepare_simulation()
 
     # Set constant but non-zero values for the primary variables
-    setup.equation_system.set_variable_values(
-        200 * pp.BAR * np.ones(setup.mdg.num_subdomain_cells()),
-        [setup.pressure_variable],
+    model.equation_system.set_variable_values(
+        200 * pp.BAR * np.ones(model.mdg.num_subdomain_cells()),
+        [model.pressure_variable],
         iterate_index=0,
     )
-    setup.equation_system.set_variable_values(
-        1e-12 * np.ones(setup.mdg.num_interface_cells()),
-        [setup.interface_darcy_flux_variable],
+    model.equation_system.set_variable_values(
+        1e-12 * np.ones(model.mdg.num_interface_cells()),
+        [model.interface_darcy_flux_variable],
         iterate_index=0,
     )
 
-    return setup
+    return model
 
 
 @pytest.fixture(scope="function")
@@ -126,7 +126,7 @@ def all_tested_methods(request) -> list[str]:
 
 
 @pytest.fixture(scope="function")
-def all_testable_methods(model_setup) -> list[str]:
+def all_testable_methods(model) -> list[str]:
     """Get all testable methods.
 
     Parameters:
@@ -137,7 +137,7 @@ def all_testable_methods(model_setup) -> list[str]:
         List of all possible testable methods for the model.
 
     """
-    return models.get_model_methods_returning_ad_operator(model_setup)
+    return models.get_model_methods_returning_ad_operator(model)
 
 
 def test_tested_vs_testable_methods_single_phase_flow(
@@ -450,7 +450,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
     ],
 )
 def test_ad_operator_methods_single_phase_flow(
-    model_setup,
+    model: pp.PorePyModel,
     method_name: str,
     expected_value: float | np.ndarray,
     dimension_restriction: int | None,
@@ -469,7 +469,7 @@ def test_ad_operator_methods_single_phase_flow(
     """
     # Processing name space.
     method_namespace = method_name.split(".")
-    owner = model_setup
+    owner = model
     # loop top to bottom through namespace to get to the actual method defined on some
     # grids and returning an operator.
     for name in method_namespace:
@@ -478,17 +478,17 @@ def test_ad_operator_methods_single_phase_flow(
 
     # Obtain list of subdomain or interface grids where the method is defined.
     domains = models.subdomains_or_interfaces_from_method_name(
-        model_setup.mdg,
+        model.mdg,
         method,
         dimension_restriction,
     )
 
     # Obtain operator in AD form.
-    operator = method(domains)
+    operator: pp.ad.Operator = method(domains)
 
     # Discretize (if necessary), evaluate, and retrieve numerical values.
-    operator.discretize(model_setup.mdg)
-    val = model_setup.equation_system.evaluate(operator)
+    operator.discretize(model.mdg)
+    val = model.equation_system.evaluate(operator)
 
     if isinstance(val, sps.bsr_matrix):  # needed for `tangential_component`
         val = val.toarray()
@@ -512,7 +512,7 @@ def test_ad_operator_methods_single_phase_flow(
     ]
 )
 def test_mobility_single_phase_flow(
-    model_setup: pp.PorePyModel,
+    model: pp.PorePyModel,
     method_name: str,
     p_or_c: Literal['phase', 'component'],
     expected_value: float,
@@ -525,21 +525,21 @@ def test_mobility_single_phase_flow(
 
     """
     # mobilities are only defined on subdomains
-    domains = model_setup.mdg.subdomains()
+    domains = model.mdg.subdomains()
 
-    assert model_setup.fluid.num_components == 1
-    assert model_setup.fluid.num_phases == 1
+    assert model.fluid.num_components == 1
+    assert model.fluid.num_phases == 1
 
     if p_or_c == 'phase':
-        instance = model_setup.fluid.reference_phase
+        instance = model.fluid.reference_phase
     elif p_or_c == 'component':
-        instance = model_setup.fluid.reference_component
+        instance = model.fluid.reference_component
     else:
         assert False, 'Unclear test input'
 
     # Fetching method and calling it with the right instance
-    op: pp.ad.Operator = getattr(model_setup, method_name)(instance, domains)
-    val = op.value(model_setup.equation_system)
+    op: pp.ad.Operator = getattr(model, method_name)(instance, domains)
+    val = op.value(model.equation_system)
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
@@ -566,7 +566,7 @@ def test_unit_conversion(units, grid):
 
     """
 
-    class Model(grid, SinglePhaseFlow):
+    class LocalModel(grid, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -604,22 +604,22 @@ def test_unit_conversion(units, grid):
     reference_solver_params = copy.deepcopy(solver_params)
 
     # Create model and run simulation
-    setup_0 = Model(reference_params)
-    pp.run_time_dependent_model(setup_0, reference_solver_params)
+    reference_model = LocalModel(reference_params)
+    pp.run_time_dependent_model(reference_model, reference_solver_params)
 
     params["units"] = pp.Units(**units)
-    setup_1 = Model(params)
+    model = LocalModel(params)
 
-    pp.run_time_dependent_model(setup_1, solver_params)
-    variables = [setup_1.pressure_variable, setup_1.interface_darcy_flux_variable]
+    pp.run_time_dependent_model(model, solver_params)
+    variables = [model.pressure_variable, model.interface_darcy_flux_variable]
     variable_units = ["Pa", "Pa * m^2 * s^-1"]
-    models.compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    models.compare_scaled_primary_variables(reference_model, model, variables, variable_units)
     flux_names = ["darcy_flux", "fluid_flux"]
     flux_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1"]
     # No domain restrictions.
     domain_dimensions = [None, None]
     models.compare_scaled_model_quantities(
-        setup_0, setup_1, flux_names, flux_units, domain_dimensions
+        reference_model, model, flux_names, flux_units, domain_dimensions
     )
 
 
@@ -650,11 +650,11 @@ def test_well_incompressible_pressure_values():
         "times_to_export": [],
     }
 
-    setup = WellModel(params)
-    pp.run_time_dependent_model(setup)
+    model = WellModel(params)
+    pp.run_time_dependent_model(model)
     # Check that the matrix pressure is close to linear in z
-    matrix = setup.mdg.subdomains(dim=3)[0]
-    matrix_pressure = setup.equation_system.evaluate(setup.pressure([matrix]))
+    matrix = model.mdg.subdomains(dim=3)[0]
+    matrix_pressure = model.equation_system.evaluate(model.pressure([matrix]))
     dist = np.absolute(matrix.cell_centers[2, :] - 0.5)
     p_range = np.max(matrix_pressure) - np.min(matrix_pressure)
     expected_p = p_range * (0.5 - dist) / 0.5
@@ -667,8 +667,8 @@ def test_well_incompressible_pressure_values():
     # bottom), and 1/2 for the distance from the fracture to the boundary.
     assert np.isclose(np.max(matrix_pressure), 1e6, rtol=1e-1)
     # In the fracture, check that the pressure is log distributed
-    fracs = setup.mdg.subdomains(dim=2)
-    fracture_pressure = setup.equation_system.evaluate(setup.pressure(fracs))
+    fracs = model.mdg.subdomains(dim=2)
+    fracture_pressure = model.equation_system.evaluate(model.pressure(fracs))
     sd = fracs[0]
     injection_cell = sd.closest_cell(np.atleast_2d([0.5, 0.5, 0.5]).T)
     # Check that the injection cell is the one with the highest pressure
@@ -680,8 +680,8 @@ def test_well_incompressible_pressure_values():
     perm = 1e-3
     expected_p = min_p + 1 / (4 * np.pi * perm) * np.log(dist / scale_dist)
     assert np.isclose(np.min(fracture_pressure), min_p, rtol=1e-2)
-    wells = setup.mdg.subdomains(dim=0)
-    well_pressure = setup.equation_system.evaluate(setup.pressure(wells))
+    wells = model.mdg.subdomains(dim=0)
+    well_pressure = model.equation_system.evaluate(model.pressure(wells))
 
     # Check that the pressure drop from the well to the fracture is as expected The
     # Peacmann well model is: u = 2 * pi * k * h * (p_fracture - p_well) / ( ln(r_e /
