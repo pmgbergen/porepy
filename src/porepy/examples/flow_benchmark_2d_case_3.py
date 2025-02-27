@@ -38,10 +38,10 @@ class Geometry:
 class Case3aBoundaryConditions(BoundaryConditionsMassDirNorthSouth):
     """Boundary conditions for Case 3a, flow from top to bottom."""
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure value of 4 on top and 1 on bottom side."""
-        bounds = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros(boundary_grid.num_cells)
+        bounds = self.domain_boundary_sides(bg)
+        values = np.zeros(bg.num_cells)
         values[bounds.north] = self.units.convert_units(4, "Pa")
         values[bounds.south] = self.units.convert_units(1, "Pa")
         return values
@@ -50,10 +50,10 @@ class Case3aBoundaryConditions(BoundaryConditionsMassDirNorthSouth):
 class Case3bBoundaryConditions(BoundaryConditionsMassDirWestEast):
     """Boundary conditions for Case 3b, flow from left to right."""
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure value of 4 on left/west and 1 on right/east side."""
-        bounds = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros(boundary_grid.num_cells)
+        bounds = self.domain_boundary_sides(bg)
+        values = np.zeros(bg.num_cells)
         values[bounds.west] = self.units.convert_units(4, "Pa")
         values[bounds.east] = self.units.convert_units(1, "Pa")
         return values
