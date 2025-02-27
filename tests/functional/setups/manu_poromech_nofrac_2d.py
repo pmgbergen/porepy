@@ -748,7 +748,7 @@ class ManuPoroMechSolutionStrategy2d(pp.poromechanics.SolutionStrategyPoromechan
 
 
 # -----> Mixer class
-class ManuPoroMechSetup2d(  # type: ignore[misc]
+class ManuPoroMechModel2d(  # type: ignore[misc]
     UnitSquareGrid,
     ManuPoroMechEquations,
     ManuPoroMechSolutionStrategy2d,

@@ -21,9 +21,6 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.md_grids.model_geometries import (
-    SquareDomainOrthogonalFractures,
-)
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 

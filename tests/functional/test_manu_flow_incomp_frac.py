@@ -36,11 +36,11 @@ import pytest
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
-    ManuIncompFlowSetup2d,
+    ManuIncompFlowModel2d,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from tests.functional.setups.manu_flow_incomp_frac_3d import ManuIncompFlowSetup3d
+from tests.functional.setups.manu_flow_incomp_frac_3d import ManuIncompFlowModel3d
 
 
 # --> Declaration of module-wide fixtures that are re-used throughout the tests
@@ -48,7 +48,7 @@ from tests.functional.setups.manu_flow_incomp_frac_3d import ManuIncompFlowSetup
 def material_constants() -> dict:
     """Set material constants.
 
-    Use default values provided in the module where the setup class is included.
+    Use default values provided in the module where the model class is included.
 
     Returns:
         Dictionary containing the material constants with the `solid` and `fluid`
@@ -66,7 +66,7 @@ def material_constants() -> dict:
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
 def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
-    """Run verification setups and retrieve results.
+    """Run verification models and retrieve results.
 
     Parameters:
         material_constants: Dictionary containing the material constant classes.
@@ -88,19 +88,19 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
     # Retrieve actual L2-relative errors
     errors: list[dict[str, float]] = []
     # Loop through models, i.e., 2d and 3d
-    for model in [ManuIncompFlowSetup2d, ManuIncompFlowSetup3d]:
+    for ModelClass in [ManuIncompFlowModel2d, ManuIncompFlowModel3d]:
         # Make deep copy of params to avoid nasty bugs.
-        setup: ManuIncompFlowSetup2d | ManuIncompFlowSetup3d = model(
+        model: ManuIncompFlowModel2d | ManuIncompFlowModel3d = ModelClass(
             deepcopy(model_params)
         )
-        pp.run_time_dependent_model(setup)
+        pp.run_time_dependent_model(model)
         errors.append(
             {
-                "error_matrix_pressure": setup.results[0].error_matrix_pressure,
-                "error_matrix_flux": setup.results[0].error_matrix_flux,
-                "error_frac_pressure": setup.results[0].error_frac_pressure,
-                "error_frac_flux": setup.results[0].error_frac_flux,
-                "error_intf_flux": setup.results[0].error_intf_flux,
+                "error_matrix_pressure": model.results[0].error_matrix_pressure,
+                "error_matrix_flux": model.results[0].error_matrix_flux,
+                "error_frac_pressure": model.results[0].error_frac_pressure,
+                "error_frac_flux": model.results[0].error_frac_flux,
+                "error_intf_flux": model.results[0].error_intf_flux,
             }
         )
 
@@ -207,7 +207,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     """
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models
-    for model_idx, model in enumerate([ManuIncompFlowSetup2d, ManuIncompFlowSetup3d]):
+    for model_idx, ModelClass in enumerate([ManuIncompFlowModel2d, ManuIncompFlowModel3d]):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type
         for grid_type in ["cartesian", "simplex"]:
@@ -225,14 +225,14 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                 # Use 4 levels of refinement for 2d and 3 levels for 3d
                 if model_idx == 0:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=model,
+                        model_class=ModelClass,
                         model_params=deepcopy(params),
                         levels=4,
                         spatial_refinement_rate=2,
                     )
                 else:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=model,
+                        model_class=ModelClass,
                         model_params=deepcopy(params),
                         levels=3,
                         spatial_refinement_rate=2,
