@@ -368,11 +368,11 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         # to the full vector quantity (e_i), and sum over all directions in the
         # tangential plane. EK: mypy insists that the argument to sum should be a list
         # of booleans. Ignore this error.
-        basis_sum = pp.ad.sum_projection_list([e_i @ e_i.T for e_i in tangential_basis])
+        basis_sum = pp.ad.sum_projection_list([e_i for e_i in tangential_basis])
 
         # Combine the above into expressions that enter the equation. c_num will
         # effectively be a sum of SparseArrays, thus we use a matrix-vector product @.
-        tangential_sum = t_t + c_num_as_scalar * (basis_sum @ u_t_increment)
+        tangential_sum = t_t + (basis_sum @ c_num_as_scalar) * u_t_increment
 
         norm_tangential_sum = f_norm(tangential_sum)
         norm_tangential_sum.set_name("norm_tangential")
