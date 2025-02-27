@@ -67,7 +67,7 @@ class TracerBC(BoundaryConditionsMassDirNorthSouth, BoundaryConditionsMulticompo
 
     """
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         The pressure at most of the boundary is inherited from
@@ -75,31 +75,31 @@ class TracerBC(BoundaryConditionsMassDirNorthSouth, BoundaryConditionsMulticompo
         pressure equal to the x-coordinate along the boundary.
 
         """
-        values = super().bc_values_pressure(boundary_grid)
-        domain_sides = self.domain_boundary_sides(boundary_grid)
+        values = super().bc_values_pressure(bg)
+        domain_sides = self.domain_boundary_sides(bg)
         values[domain_sides.north] = (
             self.reference_variable_values.pressure
-            + boundary_grid.cell_centers[0, domain_sides.north]
+            + bg.cell_centers[0, domain_sides.north]
         )
 
         return values
 
     def bc_values_overall_fraction(
-        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, bg: pp.BoundaryGrid
     ) -> np.ndarray:
         """Defines some non-trivial inflow of the tracer component on the inlet
         (north)."""
 
-        z = np.zeros(boundary_grid.num_cells)
+        z = np.zeros(bg.num_cells)
 
         assert component.name == "tracer", "Only the tracer is independent."
 
         # Set the tracer concentration to 0.1 on the left half of the north boundary,
         # and 0.2 on the right half.
-        if boundary_grid.parent.dim == 2:
-            domain_sides = self.domain_boundary_sides(boundary_grid)
+        if bg.parent.dim == 2:
+            domain_sides = self.domain_boundary_sides(bg)
             z[domain_sides.north] = 0.1 + 0.1 * (
-                boundary_grid.cell_centers[0, domain_sides.north] > 0.5
+                bg.cell_centers[0, domain_sides.north] > 0.5
             )
 
         return z

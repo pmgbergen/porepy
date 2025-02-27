@@ -88,10 +88,10 @@ class BoundaryConditions(pp.PorePyModel):
 
     """
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure value of one atmosphere (101325 Pa) on west side."""
-        bounds = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros(boundary_grid.num_cells)
+        bounds = self.domain_boundary_sides(bg)
+        values = np.zeros(bg.num_cells)
         values[bounds.west] = self.units.convert_units(101325, "Pa")
         return values
 
@@ -102,7 +102,7 @@ class BoundaryConditions(pp.PorePyModel):
         bc = pp.BoundaryCondition(sd, bounds.east + bounds.west, "dir")
         return bc
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Inflow on the west boundary.
 
         Per PorePy convention, the sign is negative for inflow and the value is
@@ -110,13 +110,13 @@ class BoundaryConditions(pp.PorePyModel):
         fracture, the latter includes the fracture specific volume.
 
         Parameters:
-            boundary_grid: Boundary grid.
+            bg: Boundary grid.
 
         Returns:
             Boundary values.
 
         """
-        values = np.zeros(boundary_grid.num_cells)
+        values = np.zeros(bg.num_cells)
         return values
 
 
