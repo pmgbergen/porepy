@@ -8,6 +8,7 @@ needed to avoid degenerate mass balance equation in fracture.
 from __future__ import annotations
 
 import copy
+from typing import Callable
 
 import numpy as np
 import pytest
@@ -19,6 +20,12 @@ from porepy.applications.test_utils import models, well_models
 
 class NonzeroFractureGapPoromechanics(pp.PorePyModel):
     """Adjust bc values and initial condition."""
+
+    pressure_variable: str
+    displacement_variable: str
+    interface_displacement_variable: str
+    fracture_stress: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    fluid_source: Callable[[list[pp.Grid]], pp.ad.Operator]
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         domain_sides = self.domain_boundary_sides(sd)
@@ -41,7 +48,7 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
             time_step_index=0,
             iterate_index=0,
         )
-        sd, sd_data = self.mdg.subdomains(return_data=True)[0]
+        sd = self.mdg.subdomains()[0]
         # Initial displacement.
         if len(self.mdg.subdomains()) > 1:
             top_cells = sd.cell_centers[1] > self.units.convert_units(0.5, "m")

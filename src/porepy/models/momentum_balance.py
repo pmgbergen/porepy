@@ -1,26 +1,21 @@
-"""
-Class types:
-    - MomentumBalanceEquations defines subdomain and interface equations through the
-    terms entering. Momentum balance between opposing fracture interfaces is imposed.
+"""This module contains the momentum balance model, including force balance at the
+fractures.
 
-Notes:
-    - The class MomentumBalanceEquations is a mixin class, and should be inherited by a
-      class that defines the variables and discretization.
-
-    - Refactoring needed for constitutive equations. Modularisation and moving to the
-      library.
+It contains classes for equations, constitutive laws, variables, boundary conditions,
+solution strategy, and initial conditions. The complete, runnable model is also based on
+the contact mechanics model.
 
 """
 
 from __future__ import annotations
 
 import logging
-from functools import partial
 from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
 
 import porepy as pp
+from porepy.models import contact_mechanics
 from porepy.models.abstract_equations import VariableMixin
 
 from . import constitutive_laws
@@ -41,46 +36,6 @@ class MomentumBalanceEquations(pp.BalanceEquation):
     the physical laws governing the stress, see for instance
     :class:`~porepy.models.constitutive_laws.LinearElasticMechanicalStress` or
     :class:`~porepy.models.constitutive_laws.PressureStress`.
-
-    """
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
-    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the plastic displacement jump on fracture grids. Normally defined
-    in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
-    """
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
-
-    """
-    fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Gap of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.FractureGap`.
-
-    """
-    friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Friction bound of a fracture. Normally provided by a mixin instance of
-    :class:`~porepy.models.constitutive_laws.CoulombFrictionBound`.
-
-    """
-    contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Scalar]
-    """Numerical constant for contact mechanics. Normally provided by a mixin instance
-    of :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-
-    contact_mechanics_open_state_characteristic: Callable[
-        [list[pp.Grid]], pp.ad.Operator
-    ]
-    """Characteristic function used in the tangential contact mechanics relation.
-    Can be interpreted as an indicator of the fracture cells in the open state.
-    Normally provided by a mixin instance of
-    :class:`~porepy.models.momuntum_balance.SolutionStrategyMomentumBalance`.
 
     """
     gravity_force: Callable[[list[pp.Grid] | list[pp.MortarGrid], str], pp.ad.Operator]
@@ -104,26 +59,11 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         """
         super().set_equations()
         matrix_subdomains = self.mdg.subdomains(dim=self.nd)
-        fracture_subdomains = self.mdg.subdomains(dim=self.nd - 1)
         interfaces = self.mdg.interfaces(dim=self.nd - 1, codim=1)
         matrix_eq = self.momentum_balance_equation(matrix_subdomains)
-        # We split the fracture deformation equations into two parts, for the normal and
-        # tangential components for convenience.
-        fracture_eq_normal = self.normal_fracture_deformation_equation(
-            fracture_subdomains
-        )
-        fracture_eq_tangential = self.tangential_fracture_deformation_equation(
-            fracture_subdomains
-        )
         intf_eq = self.interface_force_balance_equation(interfaces)
         self.equation_system.set_equation(
             matrix_eq, matrix_subdomains, {"cells": self.nd}
-        )
-        self.equation_system.set_equation(
-            fracture_eq_normal, fracture_subdomains, {"cells": 1}
-        )
-        self.equation_system.set_equation(
-            fracture_eq_tangential, fracture_subdomains, {"cells": self.nd - 1}
         )
         self.equation_system.set_equation(intf_eq, interfaces, {"cells": self.nd})
 
@@ -230,186 +170,6 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         force_balance_eq.set_name("interface_force_balance_equation")
         return force_balance_eq
 
-    def normal_fracture_deformation_equation(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Equation for the normal component of the fracture deformation.
-
-        This constraint equation enforces non-penetration of opposing fracture
-        interfaces. The equation is dimensionless, as we use nondimensionalized
-        contact traction.
-
-        Parameters:
-            subdomains: List of subdomains where the normal deformation equation is
-            defined.
-
-        Returns:
-            Operator for the normal deformation equation.
-
-        """
-        # The lines below is an implementation of equations (24) and (26) in the paper
-        #
-        # Berge et al. (2020): Finite volume discretization for poroelastic media with
-        #   fractures modeled by contact mechanics (IJNME, DOI: 10.1002/nme.6238). The
-        #
-        # Note that:
-        #  - We do not directly implement the matrix elements of the contact traction
-        #    as are derived by Berge in their equations (28)-(32). Instead, we directly
-        #    implement the complimentarity function, and let the AD framework take care
-        #    of the derivatives.
-        #  - Related to the previous point, we do not implement the regularization that
-        #    is discussed in Section 3.2.1 of the paper.
-
-        # Variables
-        nd_vec_to_normal = self.normal_component(subdomains)
-        # The normal component of the contact traction and the displacement jump.
-        t_n: pp.ad.Operator = nd_vec_to_normal @ self.contact_traction(subdomains)
-        u_n: pp.ad.Operator = nd_vec_to_normal @ self.displacement_jump(subdomains)
-
-        # Maximum function
-        num_cells: int = sum([sd.num_cells for sd in subdomains])
-        max_function = pp.ad.Function(pp.ad.maximum, "max_function")
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells), "zeros_frac")
-
-        # The complimentarity condition
-        equation: pp.ad.Operator = t_n + max_function(
-            pp.ad.Scalar(-1.0) * t_n
-            - self.contact_mechanics_numerical_constant(subdomains)
-            * (u_n - self.fracture_gap(subdomains)),
-            zeros_frac,
-        )
-        equation.set_name("normal_fracture_deformation_equation")
-        return equation
-
-    def tangential_fracture_deformation_equation(
-        self,
-        subdomains: list[pp.Grid],
-    ) -> pp.ad.Operator:
-        """Contact mechanics equation for the tangential constraints.
-
-        The equation is dimensionless, as we use nondimensionalized contact traction.
-        The function reads
-        .. math::
-            C_t = max(b_p, ||T_t+c_t u_t||) T_t - max(0, b_p) (T_t+c_t u_t)
-
-        with `u` being displacement jump increments, `t` denoting tangential component
-        and `b_p` the friction bound.
-
-        For `b_p = 0`, the equation `C_t = 0` does not in itself imply `T_t = 0`, which
-        is what the contact conditions require. The case is handled through the use of a
-        characteristic function.
-
-        Parameters:
-            subdomains: List of fracture subdomains.
-
-        Returns:
-            complementary_eq: Contact mechanics equation for the tangential constraints.
-
-        """
-        # The lines below is an implementation of equations (25) and (27) in the paper
-        #
-        # Berge et al. (2020): Finite volume discretization for poroelastic media with
-        #   fractures modeled by contact mechanics (IJNME, DOI: 10.1002/nme.6238). The
-        #
-        # Note that:
-        #  - We do not directly implement the matrix elements of the contact traction
-        #    as are derived by Berge in their equations (28)-(32). Instead, we directly
-        #    implement the complimentarity function, and let the AD framework take care
-        #    of the derivatives.
-        #  - Related to the previous point, we do not implement the regularization that
-        #    is discussed in Section 3.2.1 of the paper.
-
-        # Basis vector combinations
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        # Mapping from a full vector to the tangential component
-        nd_vec_to_tangential = self.tangential_component(subdomains)
-
-        # Basis vectors for the tangential components. This is a list of Ad matrices,
-        # each of which represents a cell-wise basis vector which is non-zero in one
-        # dimension (and this is known to be in the tangential plane of the subdomains).
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
-
-        # To map a scalar to the tangential plane, we need to sum the basis vectors. The
-        # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
-        # the total number of cells in the subdomain. The sum will have the same shape,
-        # but the row corresponding to each cell will be non-zero in all rows
-        # corresponding to the tangential basis vectors of this cell. EK: mypy insists
-        # that the argument to sum should be a list of booleans. Ignore this error.
-        scalar_to_tangential = pp.ad.sum_operator_list(
-            [e_i for e_i in tangential_basis]
-        )
-
-        # Variables: The tangential component of the contact traction and the plastic
-        # displacement jump.
-        t_t: pp.ad.Operator = nd_vec_to_tangential @ self.contact_traction(subdomains)
-        u_t: pp.ad.Operator = nd_vec_to_tangential @ self.plastic_displacement_jump(
-            subdomains
-        )
-        # The time increment of the tangential displacement jump
-        u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
-
-        # Vectors needed to express the governing equations
-        ones_frac = pp.ad.DenseArray(np.ones(num_cells * (self.nd - 1)))
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
-
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-        f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-
-        # The numerical constant is used to loosen the sensitivity in the transition
-        # between sticking and sliding.
-        # Expanding using only left multiplication to with scalar_to_tangential does not
-        # work for an array, unlike the operators below. Arrays need right
-        # multiplication as well.
-        c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
-
-        # The numerical parameter is a cell-wise scalar which must be extended to a
-        # vector quantity to be used in the equation (multiplied from the right).
-        # Spelled out, from the right: Restrict the vector quantity to one dimension in
-        # the tangential plane (e_i.T), multiply with the numerical parameter, prolong
-        # to the full vector quantity (e_i), and sum over all all directions in the
-        # tangential plane. EK: mypy insists that the argument to sum should be a list
-        # of booleans. Ignore this error.
-        c_num = pp.ad.sum_operator_list(
-            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
-        )
-
-        # Combine the above into expressions that enter the equation. c_num will
-        # effectively be a sum of SparseArrays, thus we use a matrix-vector product @
-        tangential_sum = t_t + c_num @ u_t_increment
-
-        norm_tangential_sum = f_norm(tangential_sum)
-        norm_tangential_sum.set_name("norm_tangential")
-
-        b_p = f_max(self.friction_bound(subdomains), zeros_frac)
-        b_p.set_name("bp")
-
-        # Remove parentheses to make the equation more readable if possible. The product
-        # between (the SparseArray) scalar_to_tangential and b_p is of matrix-vector
-        # type (thus @), and the result is then multiplied elementwise with
-        # tangential_sum.
-        bp_tang = (scalar_to_tangential @ b_p) * tangential_sum
-
-        # For the use of @, see previous comment.
-        maxbp_abs = scalar_to_tangential @ f_max(b_p, norm_tangential_sum)
-
-        # The characteristic function below reads "1 if (abs(b_p) < tol) else 0".
-        # With the active set method, the performance of the Newton solver is sensitive
-        # to changes in state between sticking and sliding. To reduce the sensitivity to
-        # round-off errors, we use a tolerance to allow for slight inaccuracies before
-        # switching between the two cases. The tolerance is a numerical method parameter
-        # and can be tailored.
-        characteristic = self.contact_mechanics_open_state_characteristic(subdomains)
-
-        # Compose the equation itself. The last term handles the case bound=0, in which
-        # case t_t = 0 cannot be deduced from the standard version of the complementary
-        # function (i.e. without the characteristic function). Filter out the other
-        # terms in this case to improve convergence
-        equation: pp.ad.Operator = (ones_frac - characteristic) * (
-            bp_tang - maxbp_abs * t_t
-        ) + characteristic * t_t
-        equation.set_name("tangential_fracture_deformation_equation")
-        return equation
-
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Body force integrated over the subdomain cells.
 
@@ -428,13 +188,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 class ConstitutiveLawsMomentumBalance(
     constitutive_laws.ZeroGravityForce,
     constitutive_laws.ElasticModuli,
-    constitutive_laws.ElasticTangentialFractureDeformation,
     constitutive_laws.LinearElasticMechanicalStress,
     constitutive_laws.ConstantSolidDensity,
-    constitutive_laws.FractureGap,
-    constitutive_laws.CoulombFrictionBound,
-    constitutive_laws.DisplacementJump,
-    constitutive_laws.DimensionReduction,
 ):
     """Class for constitutive equations for momentum balance equations."""
 
@@ -458,7 +213,6 @@ class VariablesMomentumBalance(VariableMixin):
     The variables are:
         - Displacement in matrix
         - Displacement on fracture-matrix interfaces
-        - Fracture contact traction.
 
     """
 
@@ -471,12 +225,6 @@ class VariablesMomentumBalance(VariableMixin):
     interface_displacement_variable: str
     """Name of the primary variable representing the displacement on an interface.
     Normally defined in a mixin of instance
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
-
-    """
-    contact_traction_variable: str
-    """Name of the primary variable representing the contact traction on a fracture
-    subdomain. Normally defined in a mixin of instance
     :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
 
     """
@@ -502,12 +250,6 @@ class VariablesMomentumBalance(VariableMixin):
             name=self.interface_displacement_variable,
             interfaces=self.mdg.interfaces(dim=self.nd - 1, codim=1),
             tags={"si_units": "m"},
-        )
-        self.equation_system.create_variables(
-            dof_info={"cells": self.nd},
-            name=self.contact_traction_variable,
-            subdomains=self.mdg.subdomains(dim=self.nd - 1),
-            tags={"si_units": "-"},
         )
 
     def displacement(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
@@ -574,26 +316,6 @@ class VariablesMomentumBalance(VariableMixin):
             self.interface_displacement_variable, interfaces
         )
 
-    def contact_traction(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
-        """Fracture contact traction [-].
-
-        Parameters:
-            subdomains: List of subdomains where the contact traction is defined. Should
-                be of co-dimension one, i.e. fractures.
-
-        Returns:
-            Variable for nondimensionalized fracture contact traction.
-
-        """
-        # Check that the subdomains are fractures
-        for sd in subdomains:
-            if sd.dim != self.nd - 1:
-                raise ValueError("Contact traction only defined on fractures")
-
-        return self.equation_system.md_variable(
-            self.contact_traction_variable, subdomains
-        )
-
 
 class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
     """Solution strategy for the momentum balance.
@@ -638,9 +360,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
         self.interface_displacement_variable: str = "u_interface"
         """Name of the displacement variable on fracture-matrix interfaces."""
 
-        self.contact_traction_variable: str = "t"
-        """Name of the contact traction variable."""
-
         # Discretization
         self.stress_keyword: str = "mechanics"
         """Keyword for stress term.
@@ -664,95 +383,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
                         "fourth_order_tensor": self.stiffness_tensor(sd),
                     },
                 )
-
-    def contact_mechanics_numerical_constant(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Numerical constant for the contact problem [m^-1].
-
-        A physical interpretation of this constant is a characteristic length of
-        the fracture, as it appears as a scaling of displacement jumps when
-        comparing to nondimensionalized contact tractions.
-
-        Parameters:
-            subdomains: List of subdomains. Only the first is used.
-
-        Returns:
-            c_num: Numerical constant.
-
-        """
-        # Interpretation (EK):
-        # The scaling factor should not be too large, otherwise the contact problem
-        # may be discretized wrongly. I therefore introduce a safety factor here; its
-        # value is somewhat arbitrary.
-        softening_factor = pp.ad.Scalar(self.numerical.contact_mechanics_scaling)
-
-        constant = softening_factor / self.characteristic_displacement(subdomains)
-        constant.set_name("Contact_mechanics_numerical_constant")
-        return constant
-
-    def contact_mechanics_open_state_characteristic(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        r"""Characteristic function used in the tangential contact mechanics relation.
-        Can be interpreted as an indicator of the fracture cells in the open state.
-        Used to make the problem well-posed in the case b_p is zero.
-
-        The function reads
-        .. math::
-            \begin{equation}
-            \text{characteristic} =
-            \begin{cases}
-                1 & \\text{if }~~ |b_p| < tol  \\
-                0 & \\text{otherwise.}
-            \end{cases}
-            \end{equation}
-        or simply `1 if (abs(b_p) < tol) else 0`
-
-        Parameters:
-            subdomains: List of fracture subdomains.
-
-        Returns:
-            characteristic: Characteristic function.
-
-        """
-
-        # Basis vectors for the tangential components. This is a list of Ad matrices,
-        # each of which represents a cell-wise basis vector which is non-zero in one
-        # dimension (and this is known to be in the tangential plane of the subdomains).
-        tangential_basis = self.basis(subdomains, dim=self.nd - 1)
-
-        # To map a scalar to the tangential plane, we need to sum the basis vectors. The
-        # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
-        # the total number of cells in the subdomain. The sum will have the same shape,
-        # but the row corresponding to each cell will be non-zero in all rows
-        # corresponding to the tangential basis vectors of this cell.
-        scalar_to_tangential = pp.ad.sum_operator_list(
-            [e_i for e_i in tangential_basis]
-        )
-
-        # With the active set method, the performance of the Newton solver is sensitive
-        # to changes in state between sticking and sliding. To reduce the sensitivity to
-        # round-off errors, we use a tolerance to allow for slight inaccuracies before
-        # switching between the two cases.
-        tol = self.numerical.open_state_tolerance
-        # The characteristic function will evaluate to 1 if the argument is less than
-        # the tolerance, and 0 otherwise.
-        f_characteristic = pp.ad.Function(
-            partial(pp.ad.functions.characteristic_function, tol),
-            "characteristic_function_for_zero_normal_traction",
-        )
-
-        # Composing b_p = max(friction_bound, 0).
-        num_cells = sum([sd.num_cells for sd in subdomains])
-        zeros_frac = pp.ad.DenseArray(np.zeros(num_cells))
-        f_max = pp.ad.Function(pp.ad.maximum, "max_function")
-        b_p = f_max(self.friction_bound(subdomains), zeros_frac)
-        b_p.set_name("bp")
-
-        characteristic: pp.ad.Operator = scalar_to_tangential @ f_characteristic(b_p)
-        characteristic.set_name("characteristic_function_of_b_p")
-        return characteristic
 
     def _is_nonlinear_problem(self) -> bool:
         """
@@ -838,9 +468,6 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
     interface_displacement: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
     """See :class:`VariablesMomentumBalance`."""
 
-    contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """See :class:`VariablesMomentumBalance`."""
-
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for displacement, contact traction and interface
         displacement at iterate index 0 after the super-call.
@@ -863,14 +490,6 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
                 self.equation_system.set_variable_values(
                     self.ic_values_displacement(sd),
                     [cast(pp.ad.Variable, self.displacement([sd]))],
-                    iterate_index=0,
-                )
-
-            # contact traction is only defined on fractures
-            if sd.dim == self.nd - 1:
-                self.equation_system.set_variable_values(
-                    self.ic_values_contact_traction(sd),
-                    [cast(pp.ad.Variable, self.contact_traction([sd]))],
                     iterate_index=0,
                 )
 
@@ -920,38 +539,6 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
         """
         return np.zeros(intf.num_cells * self.nd)
 
-    def ic_values_contact_traction(self, sd: pp.Grid) -> np.ndarray:
-        """Initial values for the contact traction variable.
-
-        Override this method to customize the initialization.
-
-        Note:
-            This method will only be called for grids with dimension ``nd-1``.
-
-        Important:
-            By default, this initialization does not return trivial values.
-            The contact traction is set to zero in the tangential direction, and -1
-            (that is, in contact) in the normal direction.
-
-            This initialization is consistent with the zero displacement on matrix and
-            interfaces.
-
-        Parameters:
-            sd: A subdomain in the md-grid.
-
-        Returns:
-            The initial displacement values on the matrix with
-            ``shape=(sd.num_cells * nd,)``. Defaults to zero array.
-
-        """
-        # Contact as initial guess. Ensure traction is consistent with zero jump, which
-        # follows from the default zeros set for all variables, specifically interface
-        # displacement.
-        num_frac_cells = sd.num_cells
-        traction_vals = np.zeros((self.nd, num_frac_cells))
-        traction_vals[-1] = -1  # Unitary nondimensional traction.
-        return traction_vals.ravel("F")
-
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
 # definitions of the mixins, related to the enforcement of keyword-only arguments. The
@@ -962,15 +549,20 @@ class InitialConditionsMomentumBalance(pp.InitialConditionMixin):
 # For this reason, we ignore the error here, and rely on the tests to catch any
 # inconsistencies.
 class MomentumBalance(  # type: ignore[misc]
+    contact_mechanics.ContactMechanicsEquations,
     MomentumBalanceEquations,
+    contact_mechanics.ContactTractionVariable,
     VariablesMomentumBalance,
+    contact_mechanics.ConstitutiveLawsContactMechanics,
     ConstitutiveLawsMomentumBalance,
     BoundaryConditionsMomentumBalance,
+    contact_mechanics.InitialConditionsContactTraction,
     InitialConditionsMomentumBalance,
+    contact_mechanics.SolutionStrategyContactMechanics,
     SolutionStrategyMomentumBalance,
     # For clarity, the functionality of the FluidMixin is not really used in the pure
     # momentum balance model, but for unity of implementation (and to avoid some
-    # technical programing related to the FluidMixin not always being present) it is
+    # technical programming related to the FluidMixin not always being present) it is
     # convenient to mix it in here.
     pp.FluidMixin,
     pp.ModelGeometry,

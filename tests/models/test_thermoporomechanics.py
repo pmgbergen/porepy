@@ -442,7 +442,7 @@ class ThermoporomechanicsWell(
     well_models.OneVerticalWell,
     model_geometries.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
-    pp.Poromechanics,
+    pp.Thermoporomechanics,
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:
