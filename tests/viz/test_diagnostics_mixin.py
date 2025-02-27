@@ -49,11 +49,14 @@ def test_diagnostics_mixin_custom_handler(
     _, setup: PoromechanicsWithDiagnostics
 ) -> None:
     """Making a custom handler and testing grouping="dense"."""
-    last_equation_name = tuple(setup.equation_system.equations.keys())[0]
-    last_variable_name = setup.equation_system.variables[0].name
+    tracked_variable = setup.contact_traction_variable
+    tracked_equation = "normal_fracture_deformation_equation"
+
+    # Safeguard in case if the equation name is once changed.
+    assert tracked_equation in setup.equation_system.equations
 
     def custom_handler(mat, equation_name, variable_name) -> float:
-        if equation_name == last_equation_name and variable_name == last_variable_name:
+        if equation_name == tracked_equation and variable_name == tracked_variable:
             return mat.shape[0]
         return 0
 
@@ -62,10 +65,19 @@ def test_diagnostics_mixin_custom_handler(
         additional_handlers={"custom_handler": custom_handler},
     )
 
-    assert diagnostics_data[0, 0]["custom_handler"] != 0
-    assert diagnostics_data[0, 1]["custom_handler"] == 0
-    assert diagnostics_data[1, 0]["custom_handler"] == 0
-    assert diagnostics_data[1, 1]["custom_handler"] == 0
+    # Run along all diagnostics data. Discard empty blocks. Assert that nonzero is only
+    # in the tracked equation and variable combination.
+    for submatrix_data in diagnostics_data.values():
+        if submatrix_data["is_empty_block"]:
+            assert "custom_handler" not in submatrix_data
+            continue
+        if (
+            submatrix_data["variable_name"] == tracked_variable
+            and submatrix_data["equation_name"] == tracked_equation
+        ):
+            assert submatrix_data["custom_handler"] != 0
+        else:
+            assert submatrix_data["custom_handler"] == 0
 
 
 @patch("matplotlib.pyplot.show")
