@@ -1032,7 +1032,7 @@ class ManuThermoPoroMechSolutionStrategy3d(
             ] = scalar_vector_mapping
 
 
-class ManuThermoPoroMechSetup3d(  # type: ignore[misc]
+class ManuThermoPoroMechModel3d(  # type: ignore[misc]
     UnitCubeGrid,
     SourceTerms,
     ManuThermoPoroMechDataSaving,

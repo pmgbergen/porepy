@@ -22,7 +22,7 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
-    ManuIncompFlowSetup2d,
+    ManuIncompFlowModel2d,
     ManuIncompSolutionStrategy2d,
 )
 
@@ -751,10 +751,10 @@ class ManuIncompSolutionStrategy3d(ManuIncompSolutionStrategy2d):
 
 
 # -----> Mixer
-class ManuIncompFlowSetup3d(  # type: ignore[misc]
+class ManuIncompFlowModel3d(  # type: ignore[misc]
     SingleEmbeddedVerticalPlaneFracture,
     ManuIncompSolutionStrategy3d,
-    ManuIncompFlowSetup2d,
+    ManuIncompFlowModel2d,
 ):
     """
     Mixer class for the 3d incompressible flow setup with a single fracture.

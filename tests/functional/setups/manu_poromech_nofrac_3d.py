@@ -61,7 +61,7 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from tests.functional.setups.manu_poromech_nofrac_2d import (
-    ManuPoroMechSetup2d,
+    ManuPoroMechModel2d,
     ManuPoroMechSolutionStrategy2d,
 )
 
@@ -514,10 +514,10 @@ class ManuPoroMechSolutionStrategy3d(ManuPoroMechSolutionStrategy2d):
 
 
 # -----> Mixer class
-class ManuPoroMechSetup3d(  # type: ignore[misc]
+class ManuPoroMechModel3d(  # type: ignore[misc]
     UnitCubeGrid,
     ManuPoroMechSolutionStrategy3d,
-    ManuPoroMechSetup2d,
+    ManuPoroMechModel2d,
 ):
     """
     Mixer class for the two-dimensional non-linear poromechanics verification setup.

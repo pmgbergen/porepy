@@ -3,7 +3,6 @@ import sys
 import pytest
 
 import numpy as np
-import scipy.sparse as sps
 
 import porepy as pp
 from porepy.grids import coarsening as co
