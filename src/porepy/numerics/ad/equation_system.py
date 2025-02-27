@@ -245,7 +245,8 @@ class EquationSystem:
         equations = list(self._parse_equations(equation_names).keys())
         variables = self._parse_variable_type(variable_names)
 
-        # Check that the requested equations and variables are known to the system.
+        # Check that the requested equations and variables are known to the equation
+        # system.
         known_equations = set(self._equations.keys())
         unknown_equations = set(equations).difference(known_equations)
         if len(unknown_equations) > 0:
@@ -254,7 +255,7 @@ class EquationSystem:
         if len(unknown_variables) > 0:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
-        # Create the new subsystem.
+        # Create the new equation system.
         new_equation_system = EquationSystem(self.mdg)
 
         # IMPLEMENTATION NOTE: This method imitates the variable creation and equation
@@ -264,15 +265,15 @@ class EquationSystem:
         # Loop over known variables to preserve DOF order.
         for variable in self.variables:
             if variable in variables:
-                # Update variables in subsystem.
+                # Update variables.
                 new_equation_system._variables[variable.id] = variable
 
-                # Update variable numbers in subsystem.
+                # Update variable numbers.
                 new_equation_system._variable_dof_type[variable.id] = (
                     self._variable_dof_type[variable.id]
                 )
 
-                # Create dofs in subsystem.
+                # Create DOFs.
                 new_equation_system._append_dofs(variable)
 
         new_equation_system._cluster_dofs_gridwise()
@@ -294,7 +295,7 @@ class EquationSystem:
     @property
     def equations(self) -> dict[str, Operator]:
         """Dictionary containing names of operators (keys) and operators (values), which
-        have been set as equations in this system.
+        have been set as equations in this EquationSystem.
 
         """
         return self._equations
@@ -318,13 +319,13 @@ class EquationSystem:
     ### Variable management ------------------------------------------------------------
 
     def md_variable(
-        self, name: str, grids: Optional[DomainList] = None
+        self, name: str, domains: Optional[DomainList] = None
     ) -> MixedDimensionalVariable:
         """Create a mixed-dimensional variable for a given name-domain list combination.
 
         Parameters:
             name (str): Name of the mixed-dimensional variable.
-            grids (optional): List of grids where the variable is defined. If None
+            domains (optional): List of grids where the variable is defined. If None
                 (default), all grids where the variable is defined are used.
 
         Returns:
@@ -332,10 +333,10 @@ class EquationSystem:
 
         Raises:
             ValueError: If variables name exist on both grids and interfaces and domain
-                type is not specified (grids is None).
+                type is not specified (domains is None).
 
         """
-        if grids is None:
+        if domains is None:
             variables = [var for var in self.variables if var.name == name]
             # We don't allow combinations of variables with different domain types
             # in a md variable.
@@ -358,7 +359,7 @@ class EquationSystem:
             variables = [
                 var
                 for var in self.variables
-                if var.name == name and var.domain in grids
+                if var.name == name and var.domain in domains
             ]
         return MixedDimensionalVariable(variables)
 
@@ -381,7 +382,8 @@ class EquationSystem:
 
             .. code:: Python
 
-                p = ad_system.create_variables('pressure', subdomains=mdg.subdomains())
+                p = equation_system.create_variables('pressure',
+                                                     subdomains=mdg.subdomains())
 
         Parameters:
             name: Name of the variable.
@@ -537,12 +539,12 @@ class EquationSystem:
         """Filter variables based on grid, tag name and tag value.
 
         Particular usage: calling without arguments will return all variables in the
-        system.
+        EquationSystem.
 
         Parameters:
-            variables: List of variables to filter. If None, all variables in the system
-                are included. Variables can be given as a list of variables, mixed-
-                dimensional variables, or variable names (strings).
+            variables: List of variables to filter. If None, all variables in the
+                EquationSystem are included. Variables can be given as a list of
+                variables, mixed- dimensional variables, or variable names (strings).
             grids: List of grids to filter on. If None, all grids are included.
             tag_name: Name of the tag to filter on. If None, no filtering on tags.
             tag_value: Value of the tag to filter on. If None, no filtering on tag
@@ -733,7 +735,7 @@ class EquationSystem:
             variables: ``default=None``
 
                 VariableType input for which the values should be shifted in time.
-                If None, all variables created by this system will be shifted.
+                If None, all variables created by this EquationSystem will be shifted.
             max_index: ``default=None``
 
                 A positive integer, capping the range of the shift operation to
@@ -1528,11 +1530,11 @@ class EquationSystem:
         included will simply be sliced out.
 
         Note:
-            The ordering of columns in the returned system are defined by the global DOF
-            order. The row blocks are in the same order as equations were added to this
-            system. If an equation is defined on multiple grids, the respective
-            row-block is internally ordered as given by the mixed-dimensional grid (for
-            sd in subdomains, for intf in interfaces).
+            The ordering of columns in the returned EquationSystem are defined by the
+            global DOF order. The row blocks are in the same order as equations were
+            added to this EquationSystem. If an equation is defined on multiple grids,
+            the respective row-block is internally ordered as given by the
+            mixed-dimensional grid (for sd in subdomains, for intf in interfaces).
 
             The columns of the subsystem are assumed to be properly defined by
             ``variables``, otherwise a matrix of shape ``(M,)`` is returned. This

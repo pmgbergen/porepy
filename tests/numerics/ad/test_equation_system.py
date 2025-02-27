@@ -158,7 +158,7 @@ def test_variable_creation():
     # Next, fetch a version of var_1, restricted to a single subdomain. This should
     # in practice be equivalent to var_2.
     single_subdomain_variable_fetched = equation_system.md_variable(
-        "var_1", grids=single_subdomain
+        "var_1", domains=single_subdomain
     )
     assert len(single_subdomain_variable_fetched.sub_vars) == 1
     assert (
@@ -187,7 +187,9 @@ def test_variable_creation():
     )
     ndof_interface = mdg.num_interface_cells() * num_dof_per_cell
 
-    assert (equation_system.dofs_of(subdomain_variable.sub_vars).size) == ndof_subdomains
+    assert (
+        equation_system.dofs_of(subdomain_variable.sub_vars).size
+    ) == ndof_subdomains
     assert (
         equation_system.dofs_of(single_subdomain_variable.sub_vars).size
         == ndof_single_subdomain
@@ -195,7 +197,8 @@ def test_variable_creation():
     assert equation_system.dofs_of(interface_variable.sub_vars).size == ndof_interface
 
     assert (
-        equation_system.num_dofs() == ndof_subdomains + ndof_single_subdomain + ndof_interface
+        equation_system.num_dofs()
+        == ndof_subdomains + ndof_single_subdomain + ndof_interface
     )
 
 
@@ -295,7 +298,9 @@ def test_variable_tags():
     var_1 = equation_system.create_variables(
         "var_1", dof_info, subdomains=subdomains, tags={"tag_1": 1}
     )
-    var_2 = equation_system.create_variables("var_2", dof_info, subdomains=single_subdomain)
+    var_2 = equation_system.create_variables(
+        "var_2", dof_info, subdomains=single_subdomain
+    )
 
     assert var_1.tags == {"tag_1": 1}
     # By default, variables should not have tags
@@ -305,7 +310,11 @@ def test_variable_tags():
     # var_1 itself.
     equation_system.update_variable_tags({"tag_2": 2}, [var_1])
     assert all(
-        [var.tags["tag_2"] == 2 for var in equation_system.variables if var.name == "var_1"]
+        [
+            var.tags["tag_2"] == 2
+            for var in equation_system.variables
+            if var.name == "var_1"
+        ]
     )
 
     assert "tag_2" not in var_1.tags
@@ -653,8 +662,13 @@ def _variable_from_model(
 @pytest.mark.parametrize("full_grid", [True, False])
 @pytest.mark.parametrize("iterate", [True, False])
 def test_set_get_methods(
-    model: EquationSystemMockModel, as_str, on_interface, on_subdomain, single_grid,
-    full_grid, iterate
+    model: EquationSystemMockModel,
+    as_str,
+    on_interface,
+    on_subdomain,
+    single_grid,
+    full_grid,
+    iterate,
 ):
     """Test the set and get methods of the EquationSystem class.
 
@@ -717,18 +731,24 @@ def test_set_get_methods(
         # the global ordering.
         assert np.allclose(model.initial_values[np.sort(inds)], retrieved_vals)
     # The time step solution should not have been updated
-    retrieved_vals_state = equation_system.get_variable_values(variables, time_step_index=0)
+    retrieved_vals_state = equation_system.get_variable_values(
+        variables, time_step_index=0
+    )
     assert np.allclose(model.initial_values[np.sort(inds)], retrieved_vals_state)
 
     # Set values again, this time also to the time step solutions.
     if iterate:
-        equation_system.set_variable_values(vals, variables, iterate_index=0, time_step_index=0)
+        equation_system.set_variable_values(
+            vals, variables, iterate_index=0, time_step_index=0
+        )
     else:
         equation_system.set_variable_values(vals, variables, time_step_index=0)
     # Retrieve only values from time step solutions; iterate should be the same as
     # before (and the additive mode is checked below).
 
-    retrieved_vals_state = equation_system.get_variable_values(variables, time_step_index=0)
+    retrieved_vals_state = equation_system.get_variable_values(
+        variables, time_step_index=0
+    )
 
     assert np.allclose(vals, retrieved_vals_state)
 
@@ -737,9 +757,13 @@ def test_set_get_methods(
     new_vals = np.random.rand(inds.size)
     if iterate:
         equation_system.set_variable_values(new_vals, variables, iterate_index=0)
-        retrieved_vals2 = equation_system.get_variable_values(variables, iterate_index=0)
+        retrieved_vals2 = equation_system.get_variable_values(
+            variables, iterate_index=0
+        )
     if not iterate:
-        retrieved_vals2 = equation_system.get_variable_values(variables, time_step_index=0)
+        retrieved_vals2 = equation_system.get_variable_values(
+            variables, time_step_index=0
+        )
     # Iterate has either been updated, or it still has the initial value
     if iterate:
         assert np.allclose(new_vals, retrieved_vals2)
@@ -754,16 +778,24 @@ def test_set_get_methods(
         )
     else:
         equation_system.set_variable_values(new_vals, variables, time_step_index=0)
-    retrieved_vals_state_2 = equation_system.get_variable_values(variables, time_step_index=0)
+    retrieved_vals_state_2 = equation_system.get_variable_values(
+        variables, time_step_index=0
+    )
     assert np.allclose(new_vals, retrieved_vals_state_2)
 
     # Set the values again, this time with additive=True. This should double the
     # retrieved values.
     if iterate:
-        equation_system.set_variable_values(new_vals, variables, iterate_index=0, additive=True)
-        retrieved_vals3 = equation_system.get_variable_values(variables, iterate_index=0)
+        equation_system.set_variable_values(
+            new_vals, variables, iterate_index=0, additive=True
+        )
+        retrieved_vals3 = equation_system.get_variable_values(
+            variables, iterate_index=0
+        )
     elif not iterate:
-        retrieved_vals3 = equation_system.get_variable_values(variables, time_step_index=0)
+        retrieved_vals3 = equation_system.get_variable_values(
+            variables, time_step_index=0
+        )
 
     if iterate:
         assert np.allclose(2 * new_vals, retrieved_vals3)
@@ -780,7 +812,9 @@ def test_set_get_methods(
         equation_system.set_variable_values(
             new_vals, variables, time_step_index=0, additive=True
         )
-    retrieved_vals_state_3 = equation_system.get_variable_values(variables, time_step_index=0)
+    retrieved_vals_state_3 = equation_system.get_variable_values(
+        variables, time_step_index=0
+    )
     assert np.allclose(2 * new_vals, retrieved_vals_state_3)
 
     # Test storage of multiple values of time step and iterate solutions from here and
@@ -806,7 +840,9 @@ def test_set_get_methods(
 
     # Test setting values at several indices and then gathering them
     for i, val in zip(solution_indices, vals_mat):
-        equation_system.set_variable_values(values=val, variables=variables, time_step_index=i)
+        equation_system.set_variable_values(
+            values=val, variables=variables, time_step_index=i
+        )
 
     _retrieve_and_check_time_step([vals0, vals1, vals2])
 
@@ -825,9 +861,13 @@ def test_set_get_methods(
     _retrieve_and_check_time_step([2 * vals0, vals0, vals1])
 
     # Finally test setting and getting values at a non-zero storage index
-    equation_system.set_variable_values(values=vals2, variables=variables, time_step_index=2)
+    equation_system.set_variable_values(
+        values=vals2, variables=variables, time_step_index=2
+    )
 
-    retrieved_set_ind_vals2 = equation_system.get_variable_values(variables, time_step_index=2)
+    retrieved_set_ind_vals2 = equation_system.get_variable_values(
+        variables, time_step_index=2
+    )
 
     assert np.allclose(retrieved_set_ind_vals2, vals2)
 
@@ -853,7 +893,9 @@ def test_projection_matrix(model: EquationSystemMockModel, var_names):
     # Jacobian matrix is altered only in columns that correspond to eliminated
     # variables.
 
-    variables = [var for var in model.equation_system.variables if var.name not in var_names]
+    variables = [
+        var for var in model.equation_system.variables if var.name not in var_names
+    ]
 
     proj = model.equation_system.projection_to(variables=variables)
 
@@ -865,7 +907,9 @@ def test_projection_matrix(model: EquationSystemMockModel, var_names):
     else:
         removed_dofs = []
 
-    remaining_dofs = np.setdiff1d(np.arange(model.equation_system.num_dofs()), removed_dofs)
+    remaining_dofs = np.setdiff1d(
+        np.arange(model.equation_system.num_dofs()), removed_dofs
+    )
 
     assert np.allclose(proj.indices, remaining_dofs)
 
@@ -981,7 +1025,9 @@ def test_parse_variable_like(model: EquationSystemMockModel):
     assert all([var in received_variables_5 for var in model.sd_variable.sub_vars])
 
     # Send in the md-variable as a string, it should not make a difference
-    received_variables_6 = equation_system._parse_variable_type([model.name_sd_variable])
+    received_variables_6 = equation_system._parse_variable_type(
+        [model.name_sd_variable]
+    )
     assert len(received_variables_6) == len(model.sd_variable.sub_vars)
     assert all([var in received_variables_6 for var in model.sd_variable.sub_vars])
 
@@ -1133,12 +1179,16 @@ def test_secondary_variable_assembly(model: EquationSystemMockModel, var_names):
     # Jacobian matrix is altered only in columns that correspond to eliminated
     # variables.
 
-    variables = [var for var in model.equation_system.variables if var.name not in var_names]
+    variables = [
+        var for var in model.equation_system.variables if var.name not in var_names
+    ]
     A, b = model.equation_system.assemble(variables=variables)
 
     # Get dof indices of the variables that have been eliminated
     if len(var_names) > 0:
-        dofs = np.sort(np.hstack([model.equation_system.dofs_of([var]) for var in var_names]))
+        dofs = np.sort(
+            np.hstack([model.equation_system.dofs_of([var]) for var in var_names])
+        )
     else:
         dofs = []
 
@@ -1204,7 +1254,9 @@ def test_assemble(model: EquationSystemMockModel, equation_variables):
     # Convert variable names into variables
     if var_names is None:
         var_names = []
-    variables = [var for var in model.equation_system.variables if var.name in var_names]
+    variables = [
+        var for var in model.equation_system.variables if var.name in var_names
+    ]
 
     A_sub, b_sub = equation_system.assemble(equations=eq_names, variables=var_names)
     b_sub_only_rhs = equation_system.assemble(
@@ -1310,7 +1362,9 @@ def test_extract_subsystem(model: EquationSystemMockModel, equation_variables):
     # Convert variable names into variables
     if var_names is None:
         var_names = []
-    variables = [var for var in model.equation_system.variables if var.name in var_names]
+    variables = [
+        var for var in model.equation_system.variables if var.name in var_names
+    ]
 
     new_manager = equation_system.SubSystem(eq_names, var_names)
 
