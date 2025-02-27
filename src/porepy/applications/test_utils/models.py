@@ -294,7 +294,9 @@ def subdomains_or_interfaces_from_method_name(
     return domains
 
 
-def _add_mixin(mixin: type, parent: type) -> type:
+def _add_mixin(
+    mixin: type[pp.PorePyModel], parent: type[pp.PorePyModel]
+) -> type[pp.PorePyModel]:
     """Helper method to dynamically construct a class by adding a mixin.
 
     Multiple mixins can be added by nested calls to this method.
