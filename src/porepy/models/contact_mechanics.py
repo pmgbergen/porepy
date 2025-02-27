@@ -58,7 +58,7 @@ class ContactMechanicsEquations(pp.BalanceEquation):
     """Characteristic function used in the tangential contact mechanics relation.
     Can be interpreted as an indicator of the fracture cells in the open state.
     Normally provided by a mixin instance of
-    :class:`~porepy.models.momentum_balance.SolutionStrategyMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.SolutionStrategyMomentumBalance`.
 
     """
 
