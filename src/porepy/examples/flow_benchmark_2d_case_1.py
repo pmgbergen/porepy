@@ -86,15 +86,15 @@ class BoundaryConditions:
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure value of 1 Pa on east side."""
-        bounds = self.domain_boundary_sides(bg)
+        domain_sides = self.domain_boundary_sides(bg)
         values = np.zeros(bg.num_cells)
-        values[bounds.east] = self.units.convert_units(1, "Pa")
+        values[domain_sides.east] = self.units.convert_units(1, "Pa")
         return values
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign Dirichlet to the east boundary. The rest are Neumann by default."""
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.east, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, domain_sides.east, "dir")
         return bc
 
     def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -111,12 +111,12 @@ class BoundaryConditions:
             Boundary values.
 
         """
-        bounds = self.domain_boundary_sides(bg)
+        domain_sides = self.domain_boundary_sides(bg)
         values = np.zeros(bg.num_cells)
         # Inflow on the west boundary. Sign as per PorePy convention.
         val = self.units.convert_units(-1, "m * s^-1")
         # Integrate over the boundary cell volumes.
-        values[bounds.west] = val * bg.cell_volumes[bounds.west]
+        values[domain_sides.west] = val * bg.cell_volumes[domain_sides.west]
         # Scale with specific volume.
         sd = bg.parent
         trace = sd.trace()
