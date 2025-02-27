@@ -40,10 +40,10 @@ class Case3aBoundaryConditions(BoundaryConditionsMassDirNorthSouth):
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure value of 4 on top and 1 on bottom side."""
-        bounds = self.domain_boundary_sides(bg)
+        domain_sides = self.domain_boundary_sides(bg)
         values = np.zeros(bg.num_cells)
-        values[bounds.north] = self.units.convert_units(4, "Pa")
-        values[bounds.south] = self.units.convert_units(1, "Pa")
+        values[domain_sides.north] = self.units.convert_units(4, "Pa")
+        values[domain_sides.south] = self.units.convert_units(1, "Pa")
         return values
 
 
@@ -52,10 +52,10 @@ class Case3bBoundaryConditions(BoundaryConditionsMassDirWestEast):
 
     def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure value of 4 on left/west and 1 on right/east side."""
-        bounds = self.domain_boundary_sides(bg)
+        domain_sides = self.domain_boundary_sides(bg)
         values = np.zeros(bg.num_cells)
-        values[bounds.west] = self.units.convert_units(4, "Pa")
-        values[bounds.east] = self.units.convert_units(1, "Pa")
+        values[domain_sides.west] = self.units.convert_units(4, "Pa")
+        values[domain_sides.east] = self.units.convert_units(1, "Pa")
         return values
 
 
