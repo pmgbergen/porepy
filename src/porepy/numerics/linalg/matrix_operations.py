@@ -312,7 +312,7 @@ def slice_indices(
 def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
     """Function for slicing sparse matrix along rows or columns.
 
-    If the matrix is a csc_matrix it will be sliced along columns, while if matrix is a
+    If the matrix is a csc_matrix it will be sliced along columns, while if it is a
     csr_matrix it will be sliced along the rows.
 
     Parameters:
@@ -369,7 +369,7 @@ class MatrixSlicer:
 
     Example:
         Let y be a numpy array, scipy sparse matrix, or an AdArray, with size, say, 4.
-        That is, if y is a 1d numpy array, it has shape (4,), if it is an AdArray, it
+        That is, if y is a 1d numpy array, it has shape (4,), if it is an AdArray, it's
         value attribute has shape (4,), and if it is a sparse matrix (or a numpy array
         of more than one dimension, though that case is not a primary motivation for the
         slicer), it has 4 rows, while the number of columns is arbitrary. The slicer
@@ -431,7 +431,7 @@ class MatrixSlicer:
         return a numpy array with data type object. Some rules of thumb therefore apply:
             1. Be careful when using the MatrixSlicer in chained operations, in
                particular with numpy arrays.
-            2. If in doubt, use paranthesis.
+            2. If in doubt, use parantheses.
 
     """
 

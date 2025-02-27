@@ -193,36 +193,36 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ),
         ("aperture", np.array([1, 1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3]), None),
         (
-            'boundary_fluid_flux',
+            "boundary_fluid_flux",
             np.array(
                 [
                     996207.58483034,
-                    0.,
+                    0.0,
                     996207.58483034,
                     996207.58483034,
-                    0.,
+                    0.0,
                     996207.58483034,
                     996207.58483034,
                     996207.58483034,
-                    0.,
-                    0.,
+                    0.0,
+                    0.0,
                     996207.58483034,
                     996207.58483034,
-                    0.,
-                    0.,
-                    0.,
-                    0.,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
                     996207.58483034,
-                    0.,
+                    0.0,
                     996207.58483034,
-                    0.,
+                    0.0,
                     996207.58483034,
-                    0.,
+                    0.0,
                     996207.58483034,
-                    0.
+                    0.0,
                 ]
             ),
-            None
+            None,
         ),
         ("combine_boundary_operators_darcy_flux", np.zeros(24), None),
         # Darcy flux.
@@ -493,32 +493,33 @@ def test_ad_operator_methods_single_phase_flow(
         val = val.toarray()
     if isinstance(val, pp.matrix_operations.MatrixSlicer):
         # A MatrixSlicer cannot be directly compared to a numpy array. Use it to slice
-        # an identify matrix to (effectively) get hold of the equivalent projection
+        # an identity matrix to (effectively) get hold of the equivalent projection
         # matrix.
         val = val @ np.eye(val._domain_size)
 
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
+
 @pytest.mark.parametrize(
     "method_name, p_or_c, expected_value",
     [
-        ('phase_mobility', 'phase', 1 / water_values['viscosity']),
-        ('fractional_phase_mass_mobility', 'phase', 1),
+        ("phase_mobility", "phase", 1 / water_values["viscosity"]),
+        ("fractional_phase_mass_mobility", "phase", 1),
         (
-            'component_mass_mobility',
-            'component',
+            "component_mass_mobility",
+            "component",
             water_values["density"]
             * np.exp(water_values["compressibility"] * 200 * pp.BAR)
             / water_values["viscosity"],
         ),
-        ('fractional_component_mass_mobility', 'component', 1),
-    ]
+        ("fractional_component_mass_mobility", "component", 1),
+    ],
 )
 def test_mobility_single_phase_flow(
     model_setup: pp.PorePyModel,
     method_name: str,
-    p_or_c: Literal['phase', 'component'],
+    p_or_c: Literal["phase", "component"],
     expected_value: float,
 ) -> None:
     """Tests the evaluation of various mobility methods in the single-phase,
@@ -534,18 +535,19 @@ def test_mobility_single_phase_flow(
     assert model_setup.fluid.num_components == 1
     assert model_setup.fluid.num_phases == 1
 
-    if p_or_c == 'phase':
+    if p_or_c == "phase":
         instance = model_setup.fluid.reference_phase
-    elif p_or_c == 'component':
+    elif p_or_c == "component":
         instance = model_setup.fluid.reference_component
     else:
-        assert False, 'Unclear test input'
+        assert False, "Unclear test input"
 
     # Fetching method and calling it with the right instance
     op: pp.ad.Operator = getattr(model_setup, method_name)(instance, domains)
     val = op.value(model_setup.equation_system)
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
+
 
 @pytest.mark.parametrize(
     "units",
