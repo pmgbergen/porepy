@@ -1,5 +1,4 @@
-"""Contains code for setting up a simple but non-trivial model with a well.
-"""
+"""Contains code for setting up a simple but non-trivial model with a well."""
 
 from typing import Literal
 
@@ -9,7 +8,6 @@ import porepy as pp
 
 
 class OneVerticalWell(pp.PorePyModel):
-
     def set_well_network(self) -> None:
         """Assign well network class."""
         points = np.array([[0.5, 0.5], [0.5, 0.5], [0.2, 1]])
@@ -154,7 +152,6 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
 
 
 class WellPermeability(pp.constitutive_laws.CubicLawPermeability):
-
     def permeability(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Permeability [m^2].
 

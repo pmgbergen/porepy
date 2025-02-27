@@ -48,10 +48,7 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.CoulombFrictionBound,
     pp.constitutive_laws.DisplacementJump,
 ):
-    """Class for the coupling of mass and momentum balance to obtain poromechanics
-    equations.
-
-    """
+    """Class for combined constitutive laws for poromechanics."""
 
     def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Stress operator.
@@ -70,15 +67,17 @@ class ConstitutiveLawsPoromechanics(
 class EquationsPoromechanics(
     pp.momentum_balance.MomentumBalanceEquations,
     pp.fluid_mass_balance.FluidMassBalanceEquations,
+    pp.contact_mechanics.ContactMechanicsEquations,
 ):
-    """Combines mass and momentum balance equations."""
+    """Combines mass and momentum balance and contact mechanics equations."""
 
 
 class VariablesPoromechanics(
     pp.momentum_balance.VariablesMomentumBalance,
     pp.fluid_mass_balance.VariablesSinglePhaseFlow,
+    pp.contact_mechanics.ContactTractionVariable,
 ):
-    """Combines mass and momentum balance variables."""
+    """Combines mass and momentum balance and contact mechanics variables."""
 
 
 class BoundaryConditionsPoromechanics(
@@ -105,16 +104,18 @@ class BoundaryConditionsPoromechanics(
 class InitialConditionsPoromechanics(
     pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
     pp.momentum_balance.InitialConditionsMomentumBalance,
+    pp.contact_mechanics.InitialConditionsContactTraction,
 ):
-    """Combines initial conditions for mass and momentum balance, and associated
-    primary variables."""
+    """Combines initial conditions for mass and momentum balance and contact mechanics,
+    and associated primary variables."""
 
 
 class SolutionStrategyPoromechanics(
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
     pp.momentum_balance.SolutionStrategyMomentumBalance,
+    pp.contact_mechanics.SolutionStrategyContactMechanics,
 ):
-    """Combines mass and momentum balance solution strategies.
+    """Combines mass and momentum balance and contact mechanics solution strategies.
 
     This class has a diamond structure inheritance. The user should be aware of this
     and take method resolution order into account when defining new methods.
@@ -145,9 +146,9 @@ class SolutionStrategyPoromechanics(
                 "scalar_vector_mappings", {}
             )
             scalar_vector_mappings[self.darcy_keyword] = self.biot_tensor([sd])
-            data[pp.PARAMETERS][self.stress_keyword][
-                "scalar_vector_mappings"
-            ] = scalar_vector_mappings
+            data[pp.PARAMETERS][self.stress_keyword]["scalar_vector_mappings"] = (
+                scalar_vector_mappings
+            )
 
     def _is_nonlinear_problem(self) -> bool:
         """The coupled problem is nonlinear."""

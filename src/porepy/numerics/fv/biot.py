@@ -1,4 +1,4 @@
-""" Modules contains discretization of poro-elasticity by the multi-point stress
+"""Modules contains discretization of poro-elasticity by the multi-point stress
 approximation.
 
 The discretization scheme is described in
@@ -952,7 +952,9 @@ class Biot(pp.Mpsa):
             # component-based. This is to build a block diagonal sparse matrix
             # compatible with igrad * rhs_units, that is first all x-component, then y,
             # and z
-            return sps.block_diag([mat[:, ind[i]] for i in range(nd)], format="csr")
+            return pp.matrix_operations.csr_matrix_from_sparse_blocks(
+                [mat[:, ind[i]] for i in range(nd)]
+            )
 
         # Reshape nAlpha component-wise
         nAlpha_grad = component_wise_ordering(nAlpha_grad, nd, sub_cell_index)

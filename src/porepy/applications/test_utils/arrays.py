@@ -1,5 +1,4 @@
-"""Test helpers for arrays and matrices.
-"""
+"""Test helpers for arrays and matrices."""
 
 import numpy as np
 import scipy.sparse as sps

@@ -1,6 +1,4 @@
-"""Geometry definition for simulation setup.
-
-"""
+"""Geometry definition for simulation setup."""
 
 from __future__ import annotations
 
@@ -33,15 +31,10 @@ class ModelGeometry(pp.PorePyModel):
         # Create the geometry through domain amd fracture set.
         self.set_domain()
         self.set_fractures()
-        # Create a fracture network.
-        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
-        # Create a mixed-dimensional grid.
-        self.mdg = pp.create_mdg(
-            self.grid_type(),
-            self.meshing_arguments(),
-            self.fracture_network,
-            **self.meshing_kwargs(),
-        )
+        # Create a fracture network and a mixed-dimensional grid.
+        self.create_fracture_network()
+        self.create_mdg()
+
         self.nd: int = self.mdg.dim_max()
 
         # Create projections between local and global coordinates for fracture grids.
@@ -84,6 +77,21 @@ class ModelGeometry(pp.PorePyModel):
 
         """
         self._fractures = []
+
+    def create_fracture_network(self) -> None:
+        """Set the fracture network from the fractures and domain."""
+        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
+
+    def create_mdg(self) -> None:
+        """Set the mixed-dimensional grid from the domain, fracture network and meshing
+        arguments.
+        """
+        self.mdg = pp.create_mdg(
+            self.grid_type(),
+            self.meshing_arguments(),
+            self.fracture_network,
+            **self.meshing_kwargs(),
+        )
 
     def set_well_network(self) -> None:
         """Assign well network class."""
@@ -454,7 +462,9 @@ class ModelGeometry(pp.PorePyModel):
                 ].project_tangential_normal(sd.num_cells)
                 for sd in subdomains
             ]
-            local_coord_proj = sps.block_diag(local_coord_proj_list, format="csr")
+            local_coord_proj = pp.matrix_operations.csc_matrix_from_sparse_blocks(
+                local_coord_proj_list
+            )
         else:
             # Also treat no subdomains.
             local_coord_proj = sps.csr_matrix((0, 0))
@@ -622,7 +632,9 @@ class ModelGeometry(pp.PorePyModel):
                 matrices.append(switcher_int)
 
             # Construct the block diagonal matrix.
-            sign_flipper = pp.ad.SparseArray(sps.block_diag(matrices).tocsr())
+            sign_flipper = pp.ad.SparseArray(
+                pp.matrix_operations.sparse_dia_from_sparse_blocks(matrices)
+            )
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
@@ -689,7 +701,6 @@ class ModelGeometry(pp.PorePyModel):
         # Normalize by face area if requested.
         if unitary:
             # 1 over cell volumes on the interfaces
-            # Ignore mypy complaint about unexpected keyword arguments.
             cell_volumes_inv = pp.ad.Scalar(1) / self.wrap_grid_attribute(
                 interfaces, "cell_volumes", dim=self.nd
             )
