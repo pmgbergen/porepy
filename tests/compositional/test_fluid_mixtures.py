@@ -36,7 +36,7 @@ def get_mock_model(
     mdg.add_subdomains(g)
     mdg.compute_geometry()
     mdg.set_boundary_grid_projections()
-    eqsys = pp.ad.EquationSystem(mdg)
+    equation_system = pp.ad.EquationSystem(mdg)
 
     # mimicing pressure and temperatur variable
     def pressure(grid):
@@ -69,7 +69,7 @@ def get_mock_model(
     mixin = Model()
 
     mixin.mdg = mdg
-    mixin.equation_system = eqsys
+    mixin.equation_system = equation_system
     mixin.params = {
         "eliminate_reference_component": eliminate_reference,
         "eliminate_reference_phase": eliminate_reference,
@@ -217,8 +217,8 @@ def test_mixture_member_assignment(
         equilibrium_type,
     )
 
-    sds = mixin.mdg.subdomains()
-    bgs = mixin.mdg.boundaries()
+    subdomains = mixin.mdg.subdomains()
+    boundary_grids = mixin.mdg.boundaries()
     ncomp = 2
     nphase = 2
 
@@ -274,66 +274,66 @@ def test_mixture_member_assignment(
         # fractions should be defined in equilibrium setting
         if compositional.get_equilibrium_type(mixin) is not None:
             if mixin.has_independent_fraction(phase):
-                assert isinstance(phase.fraction(sds), pp.ad.Variable)
-                assert isinstance(phase.fraction(bgs), pp.ad.TimeDependentDenseArray)
+                assert isinstance(phase.fraction(subdomains), pp.ad.Variable)
+                assert isinstance(phase.fraction(boundary_grids), pp.ad.TimeDependentDenseArray)
             else:
-                assert isinstance(phase.fraction(sds), pp.ad.Operator)
-                assert isinstance(phase.fraction(bgs), pp.ad.Operator)
+                assert isinstance(phase.fraction(subdomains), pp.ad.Operator)
+                assert isinstance(phase.fraction(boundary_grids), pp.ad.Operator)
         # If no equilibrium setting, calling phase fractions should yield an error
         else:
             with pytest.raises(compositional.CompositionalModellingError):
-                phase.fraction(sds)
+                phase.fraction(subdomains)
             for comp in phase:
                 with pytest.raises(compositional.CompositionalModellingError):
-                    phase.extended_fraction_of[comp](sds)
+                    phase.extended_fraction_of[comp](subdomains)
 
         # extended fraction only in unified equilibrium setting
         if compositional.has_unified_equilibrium(mixin):
             for comp in phase:
-                assert isinstance(phase.extended_fraction_of[comp](sds), pp.ad.Variable)
+                assert isinstance(phase.extended_fraction_of[comp](subdomains), pp.ad.Variable)
                 assert isinstance(
-                    phase.extended_fraction_of[comp](bgs), pp.ad.TimeDependentDenseArray
+                    phase.extended_fraction_of[comp](boundary_grids), pp.ad.TimeDependentDenseArray
                 )
                 # partial fractions are not variables in unified equilibrium
                 assert not isinstance(
-                    phase.partial_fraction_of[comp](sds), pp.ad.Variable
+                    phase.partial_fraction_of[comp](subdomains), pp.ad.Variable
                 )
                 assert not isinstance(
-                    phase.partial_fraction_of[comp](bgs), pp.ad.TimeDependentDenseArray
+                    phase.partial_fraction_of[comp](boundary_grids), pp.ad.TimeDependentDenseArray
                 )
-                assert isinstance(phase.partial_fraction_of[comp](sds), pp.ad.Operator)
-                assert isinstance(phase.partial_fraction_of[comp](bgs), pp.ad.Operator)
+                assert isinstance(phase.partial_fraction_of[comp](subdomains), pp.ad.Operator)
+                assert isinstance(phase.partial_fraction_of[comp](boundary_grids), pp.ad.Operator)
         else:
             # Extended fraction without unified equilibrium make no sense
             for comp in phase:
                 with pytest.raises(compositional.CompositionalModellingError):
-                    phase.extended_fraction_of[comp](sds)
+                    phase.extended_fraction_of[comp](subdomains)
             # Both cases, non-unified equilibrium and no equilibrium have independent
             # partial fractions
             for comp in phase:
                 # reference componet partial fraction is always eliminated
                 if mixin.has_independent_partial_fraction(comp, phase):
                     assert isinstance(
-                        phase.partial_fraction_of[comp](sds), pp.ad.Variable
+                        phase.partial_fraction_of[comp](subdomains), pp.ad.Variable
                     )
                     assert isinstance(
-                        phase.partial_fraction_of[comp](bgs),
+                        phase.partial_fraction_of[comp](boundary_grids),
                         pp.ad.TimeDependentDenseArray,
                     )
                 else:
                     assert comp == phase.reference_component
                     assert not isinstance(
-                        phase.partial_fraction_of[comp](sds), pp.ad.Variable
+                        phase.partial_fraction_of[comp](subdomains), pp.ad.Variable
                     )
                     assert isinstance(
-                        phase.partial_fraction_of[comp](sds), pp.ad.Operator
+                        phase.partial_fraction_of[comp](subdomains), pp.ad.Operator
                     )
                     assert not isinstance(
-                        phase.partial_fraction_of[comp](bgs),
+                        phase.partial_fraction_of[comp](boundary_grids),
                         pp.ad.TimeDependentDenseArray,
                     )
                     assert isinstance(
-                        phase.partial_fraction_of[comp](bgs), pp.ad.Operator
+                        phase.partial_fraction_of[comp](boundary_grids), pp.ad.Operator
                     )
 
         # Check that the reference phase saturation is a dependent operator
@@ -341,51 +341,51 @@ def test_mixture_member_assignment(
             assert phase == mixin.fluid.reference_phase
             # reference phase fraction and saturations are dependent operators
             # if eliminated
-            assert not isinstance(phase.saturation(sds), pp.ad.Variable)
-            assert isinstance(phase.saturation(sds), pp.ad.Operator)
-            assert not isinstance(phase.saturation(bgs), pp.ad.TimeDependentDenseArray)
-            assert isinstance(phase.saturation(bgs), pp.ad.Operator)
+            assert not isinstance(phase.saturation(subdomains), pp.ad.Variable)
+            assert isinstance(phase.saturation(subdomains), pp.ad.Operator)
+            assert not isinstance(phase.saturation(boundary_grids), pp.ad.TimeDependentDenseArray)
+            assert isinstance(phase.saturation(boundary_grids), pp.ad.Operator)
             # same holds for reference phase fraction in the equilibrium setting
             if compositional.get_equilibrium_type(mixin) is not None:
-                assert not isinstance(phase.fraction(sds), pp.ad.Variable)
-                assert isinstance(phase.fraction(sds), pp.ad.Operator)
+                assert not isinstance(phase.fraction(subdomains), pp.ad.Variable)
+                assert isinstance(phase.fraction(subdomains), pp.ad.Operator)
                 assert not isinstance(
-                    phase.fraction(bgs), pp.ad.TimeDependentDenseArray
+                    phase.fraction(boundary_grids), pp.ad.TimeDependentDenseArray
                 )
-                assert isinstance(phase.fraction(bgs), pp.ad.Operator)
+                assert isinstance(phase.fraction(boundary_grids), pp.ad.Operator)
         else:
             # otherwise it must be a variable
-            assert isinstance(phase.saturation(sds), pp.ad.Variable)
+            assert isinstance(phase.saturation(subdomains), pp.ad.Variable)
             if compositional.get_equilibrium_type(mixin) is not None:
-                assert isinstance(phase.fraction(sds), pp.ad.Variable)
+                assert isinstance(phase.fraction(subdomains), pp.ad.Variable)
 
             # fraction and saturation on boundaries are time-dependent dense arrays
-            assert isinstance(phase.saturation(bgs), pp.ad.TimeDependentDenseArray)
+            assert isinstance(phase.saturation(boundary_grids), pp.ad.TimeDependentDenseArray)
             if compositional.get_equilibrium_type(mixin) is not None:
-                assert isinstance(phase.saturation(bgs), pp.ad.TimeDependentDenseArray)
+                assert isinstance(phase.saturation(boundary_grids), pp.ad.TimeDependentDenseArray)
 
         # Now check the thermodynamic properties.
         # On domains it must be some kind of Operator (use most basic for check)
         # On boundaries we expect a time-dependent dense array
-        assert isinstance(phase.density(sds), pp.ad.Operator)
-        assert isinstance(phase.specific_enthalpy(sds), pp.ad.Operator)
-        assert isinstance(phase.specific_volume(sds), pp.ad.Operator)
-        assert isinstance(phase.viscosity(sds), pp.ad.Operator)
-        assert isinstance(phase.thermal_conductivity(sds), pp.ad.Operator)
+        assert isinstance(phase.density(subdomains), pp.ad.Operator)
+        assert isinstance(phase.specific_enthalpy(subdomains), pp.ad.Operator)
+        assert isinstance(phase.specific_volume(subdomains), pp.ad.Operator)
+        assert isinstance(phase.viscosity(subdomains), pp.ad.Operator)
+        assert isinstance(phase.thermal_conductivity(subdomains), pp.ad.Operator)
 
-        assert isinstance(phase.density(bgs), pp.ad.TimeDependentDenseArray)
-        assert isinstance(phase.specific_enthalpy(bgs), pp.ad.TimeDependentDenseArray)
+        assert isinstance(phase.density(boundary_grids), pp.ad.TimeDependentDenseArray)
+        assert isinstance(phase.specific_enthalpy(boundary_grids), pp.ad.TimeDependentDenseArray)
         # NOTE Volume is taken as the reciprocal of density, hence a general operator
-        assert isinstance(phase.specific_volume(bgs), pp.ad.Operator)
-        assert isinstance(phase.viscosity(bgs), pp.ad.TimeDependentDenseArray)
-        assert isinstance(phase.thermal_conductivity(bgs), pp.ad.TimeDependentDenseArray)
+        assert isinstance(phase.specific_volume(boundary_grids), pp.ad.Operator)
+        assert isinstance(phase.viscosity(boundary_grids), pp.ad.TimeDependentDenseArray)
+        assert isinstance(phase.thermal_conductivity(boundary_grids), pp.ad.TimeDependentDenseArray)
 
         # Fugacities are always created as well
         for comp in phase:
             assert comp in phase.fugacity_coefficient_of
-            assert isinstance(phase.fugacity_coefficient_of[comp](sds), pp.ad.Operator)
+            assert isinstance(phase.fugacity_coefficient_of[comp](subdomains), pp.ad.Operator)
             assert isinstance(
-                phase.fugacity_coefficient_of[comp](bgs), pp.ad.TimeDependentDenseArray
+                phase.fugacity_coefficient_of[comp](boundary_grids), pp.ad.TimeDependentDenseArray
             )
 
     # Check components and their overall fractions
@@ -395,13 +395,13 @@ def test_mixture_member_assignment(
         # Overall fraction of reference component is eliminated (if requested)
         if not mixin.has_independent_fraction(comp):
             assert comp == mixin.fluid.reference_component
-            assert not isinstance(comp.fraction(sds), pp.ad.Variable)
-            assert isinstance(comp.fraction(sds), pp.ad.Operator)
-            assert not isinstance(comp.fraction(bgs), pp.ad.TimeDependentDenseArray)
-            assert isinstance(comp.fraction(bgs), pp.ad.Operator)
+            assert not isinstance(comp.fraction(subdomains), pp.ad.Variable)
+            assert isinstance(comp.fraction(subdomains), pp.ad.Operator)
+            assert not isinstance(comp.fraction(boundary_grids), pp.ad.TimeDependentDenseArray)
+            assert isinstance(comp.fraction(boundary_grids), pp.ad.Operator)
         else:
-            assert isinstance(comp.fraction(sds), pp.ad.Variable)
-            assert isinstance(comp.fraction(bgs), pp.ad.TimeDependentDenseArray)
+            assert isinstance(comp.fraction(subdomains), pp.ad.Variable)
+            assert isinstance(comp.fraction(boundary_grids), pp.ad.TimeDependentDenseArray)
 
         # IF it is a compound, check relative fractions of pseudo components
         if isinstance(comp, compositional.Compound):
@@ -409,26 +409,26 @@ def test_mixture_member_assignment(
             for pc in comp.active_tracers:
                 assert pc in comp.tracer_fraction_of
                 # solute fractions are aalways variables
-                assert isinstance(comp.tracer_fraction_of[pc](sds), pp.ad.Variable)
+                assert isinstance(comp.tracer_fraction_of[pc](subdomains), pp.ad.Variable)
                 assert isinstance(
-                    comp.tracer_fraction_of[pc](bgs), pp.ad.TimeDependentDenseArray
+                    comp.tracer_fraction_of[pc](boundary_grids), pp.ad.TimeDependentDenseArray
                 )
 
     # Finally, check the assignment of the overall properties of the mixture
     # Density, volume and enthalpy
     # The mixture must implement thermodynamic laws, they must not be variables
-    assert isinstance(mixin.fluid.density(sds), pp.ad.Operator)
-    assert not isinstance(mixin.fluid.density(sds), pp.ad.Variable)
-    assert isinstance(mixin.fluid.specific_volume(sds), pp.ad.Operator)
-    assert not isinstance(mixin.fluid.specific_volume(sds), pp.ad.Variable)
+    assert isinstance(mixin.fluid.density(subdomains), pp.ad.Operator)
+    assert not isinstance(mixin.fluid.density(subdomains), pp.ad.Variable)
+    assert isinstance(mixin.fluid.specific_volume(subdomains), pp.ad.Operator)
+    assert not isinstance(mixin.fluid.specific_volume(subdomains), pp.ad.Variable)
     if compositional.get_equilibrium_type(mixin) is not None:
-        assert isinstance(mixin.fluid.specific_enthalpy(sds), pp.ad.Operator)
-        assert not isinstance(mixin.fluid.specific_enthalpy(sds), pp.ad.Variable)
+        assert isinstance(mixin.fluid.specific_enthalpy(subdomains), pp.ad.Operator)
+        assert not isinstance(mixin.fluid.specific_enthalpy(subdomains), pp.ad.Variable)
     else:
         # the basic defintion of enthalpy relies on phase fractions, which are not
         # available without equilibrium
         with pytest.raises(compositional.CompositionalModellingError):
-            mixin.fluid.specific_enthalpy(sds)
+            mixin.fluid.specific_enthalpy(subdomains)
 
 
 # Parametrization to test for any combination
@@ -452,7 +452,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
 
     mixin: MockModel = get_mock_model(components, phases, True, equilibrium_type)
 
-    sds = mixin.mdg.subdomains()
+    subdomains = mixin.mdg.subdomains()
 
     mixin.create_fluid()
     mixin.create_variables()
@@ -468,9 +468,9 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
         # Neither are the phase fraction and saturation
         phase = list(mixin.fluid.phases)[0]
         assert phase == mixin.fluid.reference_phase
-        assert not isinstance(phase.saturation(sds), pp.ad.Variable)
+        assert not isinstance(phase.saturation(subdomains), pp.ad.Variable)
         if compositional.get_equilibrium_type(mixin) is not None:
-            assert not isinstance(phase.fraction(sds), pp.ad.Variable)
+            assert not isinstance(phase.fraction(subdomains), pp.ad.Variable)
 
         for comp in mixin.fluid.components:
             assert comp in phase
@@ -480,49 +480,49 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
             assert comp.fraction == phase.partial_fraction_of[comp]
             # Extended fractions are always variable
             if compositional.has_unified_equilibrium(mixin):
-                assert isinstance(phase.extended_fraction_of[comp](sds), pp.ad.Variable)
+                assert isinstance(phase.extended_fraction_of[comp](subdomains), pp.ad.Variable)
 
             # checking overall fraction
             if mixin.has_independent_fraction(comp):
                 assert comp != mixin.fluid.reference_component
-                assert isinstance(comp.fraction(sds), pp.ad.Variable)
+                assert isinstance(comp.fraction(subdomains), pp.ad.Variable)
             else:
                 assert comp == mixin.fluid.reference_component
-                assert not isinstance(comp.fraction(sds), pp.ad.Variable)
+                assert not isinstance(comp.fraction(subdomains), pp.ad.Variable)
     elif nphase > 1 and ncomp == 1:
         # In this case, there is no overall fraction
         # Partial fractions are also not independent, since only 1 component per phase
         # Extended fractions remain independent
         comp = list(mixin.fluid.components)[0]
         assert comp == mixin.fluid.reference_component
-        assert not isinstance(comp.fraction(sds), pp.ad.Variable)
+        assert not isinstance(comp.fraction(subdomains), pp.ad.Variable)
 
         for phase in mixin.fluid.phases:
             if mixin.has_independent_saturation(phase):
-                assert isinstance(phase.saturation(sds), pp.ad.Variable)
+                assert isinstance(phase.saturation(subdomains), pp.ad.Variable)
                 if compositional.get_equilibrium_type(mixin) is not None:
-                    assert isinstance(phase.fraction(sds), pp.ad.Variable)
+                    assert isinstance(phase.fraction(subdomains), pp.ad.Variable)
                 else:
                     with pytest.raises(compositional.CompositionalModellingError):
-                        phase.fraction(sds)
+                        phase.fraction(subdomains)
             else:
                 assert phase == mixin.fluid.reference_phase
-                assert not isinstance(phase.saturation(sds), pp.ad.Variable)
+                assert not isinstance(phase.saturation(subdomains), pp.ad.Variable)
                 if compositional.get_equilibrium_type(mixin) is not None:
-                    assert not isinstance(phase.fraction(sds), pp.ad.Variable)
+                    assert not isinstance(phase.fraction(subdomains), pp.ad.Variable)
                 else:
                     with pytest.raises(compositional.CompositionalModellingError):
-                        phase.fraction(sds)
+                        phase.fraction(subdomains)
 
             # no phase without the single component
             assert comp in phase.components
             assert comp in phase.partial_fraction_of
             assert comp in phase.extended_fraction_of
             assert comp == phase.reference_component
-            assert not isinstance(phase.partial_fraction_of[comp](sds), pp.ad.Variable)
+            assert not isinstance(phase.partial_fraction_of[comp](subdomains), pp.ad.Variable)
             # Extended fractions remain variables, in case phase vanishes
             if compositional.has_unified_equilibrium(mixin):
-                assert isinstance(phase.extended_fraction_of[comp](sds), pp.ad.Variable)
+                assert isinstance(phase.extended_fraction_of[comp](subdomains), pp.ad.Variable)
     elif nphase == 1 and ncomp == 1:
         # In this singular case, no fractional variable is independent
         comp = list(mixin.fluid.components)[0]
@@ -532,8 +532,8 @@ def test_singular_mixtures(species, phase_names, equilibrium_type):
         assert phase == mixin.fluid.reference_phase
         assert comp == phase.reference_component
 
-        assert not isinstance(comp.fraction(sds), pp.ad.Variable)
-        assert not isinstance(phase.fraction(sds), pp.ad.Variable)
-        assert not isinstance(phase.saturation(sds), pp.ad.Variable)
-        assert not isinstance(phase.partial_fraction_of[comp](sds), pp.ad.Variable)
-        assert not isinstance(phase.extended_fraction_of[comp](sds), pp.ad.Variable)
+        assert not isinstance(comp.fraction(subdomains), pp.ad.Variable)
+        assert not isinstance(phase.fraction(subdomains), pp.ad.Variable)
+        assert not isinstance(phase.saturation(subdomains), pp.ad.Variable)
+        assert not isinstance(phase.partial_fraction_of[comp](subdomains), pp.ad.Variable)
+        assert not isinstance(phase.extended_fraction_of[comp](subdomains), pp.ad.Variable)

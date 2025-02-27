@@ -31,7 +31,7 @@ from porepy.utils.examples_utils import VerificationUtils
 number = pp.number
 grid = pp.GridLike
 
-# Material constants for the verification setup. Constants with (**) cannot be
+# Material constants for the verification model. Constants with (**) cannot be
 # changed since the manufactured solution implicitly assume such values.
 manu_incomp_fluid: dict[str, number] = {
     "compressibility": 0,  # (**)
@@ -49,7 +49,7 @@ manu_incomp_solid: dict[str, number] = {
 # -----> Data-saving
 @dataclass
 class ManuIncompSaveData:
-    """Data class to save relevant results from the verification setup."""
+    """Data class to save relevant results from the verification model."""
 
     approx_frac_flux: np.ndarray
     """Numerical flux in the fracture."""
@@ -124,7 +124,7 @@ class ManuIncompDataSaving(pp.PorePyModel):
     """
 
     def collect_data(self) -> ManuIncompSaveData:
-        """Collect data from the verification setup.
+        """Collect data from the verification model.
 
         Returns:
             ManuIncompSaveData object containing the results of the verification.
@@ -221,7 +221,7 @@ class ManuIncompDataSaving(pp.PorePyModel):
 
 # -----> Exact solution
 class ManuIncompExactSolution2d:
-    """Class containing the exact manufactured solution for the verification setup."""
+    """Class containing the exact manufactured solution for the verification model."""
 
     def __init__(self):
         """Constructor of the class."""
@@ -552,7 +552,7 @@ class ManuIncompExactSolution2d:
 
 # -----> Utilities
 class ManuIncompUtils(VerificationUtils):
-    """Mixin class containing useful utility methods for the setup."""
+    """Mixin class containing useful utility methods for the model."""
 
     results: list[ManuIncompSaveData]
     """List of ManuIncompSaveData objects."""
@@ -738,7 +738,7 @@ class ManuIncompBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations)
 class ManuIncompSolutionStrategy2d(
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
 ):
-    """Modified solution strategy for the verification setup."""
+    """Modified solution strategy for the verification model."""
 
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
@@ -747,7 +747,7 @@ class ManuIncompSolutionStrategy2d(
     """Exact solution object."""
 
     plot_results: Callable
-    """Method to plot results of the verification setup. Usually provided by the
+    """Method to plot results of the verification model. Usually provided by the
     mixin class :class:`SetupUtilities`.
 
     """
@@ -756,7 +756,7 @@ class ManuIncompSolutionStrategy2d(
     """List of SaveData objects."""
 
     def set_materials(self):
-        """Set material constants for the verification setup."""
+        """Set material constants for the verification model."""
         super().set_materials()
 
         # Sanity checks to guarantee the validity of the manufactured solution
@@ -795,5 +795,5 @@ class ManuIncompFlowModel2d(  # type: ignore[misc]
     pp.SinglePhaseFlow,
 ):
     """
-    Mixer class for the 2d incompressible flow setup with a single fracture.
+    Mixer class for the 2d incompressible flow model with a single fracture.
     """
