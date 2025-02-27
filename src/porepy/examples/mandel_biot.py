@@ -1305,7 +1305,7 @@ class MandelBoundaryConditionsMechanicsTimeDependent(pp.PorePyModel):
 
         return bc
 
-    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for mechanics.
 
         Parameters:
@@ -1317,11 +1317,11 @@ class MandelBoundaryConditionsMechanicsTimeDependent(pp.PorePyModel):
 
         """
 
-        bc_vals = np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
+        bc_vals = np.zeros((self.nd, bg.num_cells)).ravel("F")
 
-        sides = self.domain_boundary_sides(boundary_grid)
+        sides = self.domain_boundary_sides(bg)
         # Cells of the boundary grid are faces of the parent subdomain.
-        face_centers = boundary_grid.cell_centers
+        face_centers = bg.cell_centers
         yf_north = face_centers[1, sides.north]
 
         t = self.time_manager.time  # scaled [s]

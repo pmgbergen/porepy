@@ -104,20 +104,20 @@ class BoundaryConditions(pp.PorePyModel):
         bc = pp.BoundaryCondition(sd, dir_faces, "dir")
         return bc
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assign non-zero Darcy flux to the middle south (y=y_min) boundary."""
         # Retrieve boundary sides and cell centers.
-        bounds = self.domain_boundary_sides(boundary_grid)
-        cc = boundary_grid.cell_centers
+        bounds = self.domain_boundary_sides(bg)
+        cc = bg.cell_centers
         # Get inlet faces.
-        inlet_faces = np.zeros(boundary_grid.num_cells, dtype=bool)
+        inlet_faces = np.zeros(bg.num_cells, dtype=bool)
         inlet_faces[bounds.south] = (cc[2][bounds.south] < (2 / 3)) & (
             cc[2][bounds.south] > (1 / 3)
         )
         # Assign unitary flow. Negative since fluid is entering into the domain.
         val = self.units.convert_units(-1, "m * s^-1")
-        values = np.zeros(boundary_grid.num_cells)
-        values[inlet_faces] = val * boundary_grid.cell_volumes[inlet_faces]
+        values = np.zeros(bg.num_cells)
+        values[inlet_faces] = val * bg.cell_volumes[inlet_faces]
         return values
 
 
