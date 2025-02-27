@@ -1,6 +1,5 @@
-""" Tests of functionality of :class:`~porepy.viz.diagnostics_mixin.DiagnosticsMixin`.
+"""Tests of functionality of :class:`~porepy.viz.diagnostics_mixin.DiagnosticsMixin`."""
 
-"""
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -37,8 +36,12 @@ def test_diagnostics_mixin_basic(_, setup: PoromechanicsWithDiagnostics) -> None
         default_handlers=("max", "cond"),
         grouping=None,
     )
-    assert "max" in diagnostics_data[0, 0]
-    assert "cond" in diagnostics_data[0, 0]
+    for block in diagnostics_data.values():
+        if not block["is_empty_block"]:
+            assert "max" in block
+            assert "cond" in block
+            assert block["max"] > 0
+            assert block["cond"] > 0
 
 
 @patch("matplotlib.pyplot.show")
