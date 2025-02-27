@@ -56,10 +56,7 @@ class ConstitutiveLawsThermoporomechanics(
     pp.constitutive_laws.CoulombFrictionBound,
     pp.constitutive_laws.DisplacementJump,
 ):
-    """Class for the coupling of energy, mass and momentum balance to obtain
-    thermoporomechanics equations.
-
-    """
+    """Class for combined constitutive laws for thermoporomechanics."""
 
     def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Thermo-poromechanical stress operator.
@@ -85,16 +82,19 @@ class EquationsThermoporomechanics(
     pp.energy_balance.TotalEnergyBalanceEquations,
     pp.fluid_mass_balance.FluidMassBalanceEquations,
     pp.momentum_balance.MomentumBalanceEquations,
+    pp.contact_mechanics.ContactMechanicsEquations,
 ):
-    """Combines energy, mass and momentum balance equations."""
+    """Combines energy, mass and momentum balance equations and
+    contact mechanics equations."""
 
 
 class VariablesThermoporomechanics(
     pp.energy_balance.VariablesEnergyBalance,
     pp.fluid_mass_balance.VariablesSinglePhaseFlow,
     pp.momentum_balance.VariablesMomentumBalance,
+    pp.contact_mechanics.ContactTractionVariable,
 ):
-    """Combines mass and momentum balance variables."""
+    """Combines energy, mass, momentum and contact mechanics balance variables."""
 
 
 class BoundaryConditionsThermoporomechanics(
@@ -116,17 +116,19 @@ class InitialConditionsThermoporomechanics(
     pp.energy_balance.InitialConditionsEnergy,
     pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
     pp.momentum_balance.BoundaryConditionsMomentumBalance,
+    pp.contact_mechanics.InitialConditionsContactTraction,
 ):
-    """Combines initial conditions for energy, mass and momentum balance and associated
-    primary variables."""
+    """Combines initial conditions for energy, mass and momentum balance and contact
+    mechanics and associated primary variables."""
 
 
 class SolutionStrategyThermoporomechanics(
     pp.energy_balance.SolutionStrategyEnergyBalance,
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
     pp.momentum_balance.SolutionStrategyMomentumBalance,
+    pp.contact_mechanics.SolutionStrategyContactMechanics,
 ):
-    """Combines mass and momentum balance solution strategies.
+    """Combines solution strategies for thermoporomechanics.
 
     This class has an extended diamond structure inheritance, i.e., all parent classes
     inherit from :class:`~porepy.models.solution_strategy.SolutionStrategy`. The user
