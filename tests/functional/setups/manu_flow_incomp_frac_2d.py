@@ -785,7 +785,7 @@ class ManuIncompSolutionStrategy2d(
 
 
 # -----> Mixer
-class ManuIncompFlowSetup2d(  # type: ignore[misc]
+class ManuIncompFlowModel2d(  # type: ignore[misc]
     SingleEmbeddedVerticalLineFracture,
     ManuIncompBalanceEquation,
     ManuIncompBoundaryConditions,

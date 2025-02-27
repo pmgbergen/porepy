@@ -112,7 +112,7 @@ def test_plot_grid_simple_grid(mdg: MixedDimensionalGrid, vector_variable: str):
 
 
 @pytest.fixture
-def image_name() -> str:
+def image_name():
     image_name = "test_save_img.png"
     assert not os.path.exists(image_name)
     yield image_name

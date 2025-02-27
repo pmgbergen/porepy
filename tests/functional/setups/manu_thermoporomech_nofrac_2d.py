@@ -1196,7 +1196,7 @@ class ManuThermoPoroMechSolutionStrategy2d(
             )
 
 
-class ManuThermoPoroMechSetup2d(  # type: ignore[misc]
+class ManuThermoPoroMechModel2d(  # type: ignore[misc]
     UnitSquareGrid,
     SourceTerms,
     ManuThermoPoroMechSolutionStrategy2d,
