@@ -370,15 +370,16 @@ def set_local_coordinate_projections(
 def sides_of_fracture(
     intf: pp.MortarGrid, sd_primary: pp.Grid, direction: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray, bool]:
-    """Identify the top and bottom sides of the interface based on a direction vector.
+    """Identify the two sides of the interface as positive and negative relative to a
+    direction vector.
 
     The positive side is defined as the one where the outwards normal vectors of the
     matrix point in the direction of the direction vector. The negative side is defined
     as the one having outwards normal vectors pointing in the opposite direction as the
     direction vector.
 
-    Usage note: The third return value is used to identify whether the positive side is the
-    first side of the mortar grid. This is important e.g. when considering the jump
+    Usage note: The third return value is used to identify whether the positive side is
+    the first side of the mortar grid. This is important e.g. when considering the jump
     across the interface, which is defined as the second side minus the first side.
     Thus, if the negative side is the first side, the jump is the bottom side (relative
     to the direction vector) minus the top side, implying that a negative jump (in
@@ -387,9 +388,9 @@ def sides_of_fracture(
     The current implementation assumes that the interface represents a planar surface.
 
     Parameters:
-        intf: Interface where the sides are to be identified.
-        sd_primary: Subdomain of the primary grid.
-        direction: Vector used to identify the top side. Shape is ``(3,)``,  ``(3,1)`` or
+        intf: Interface where the sides are to be identified. sd_primary: Subdomain of
+        the primary grid. direction: Vector used to identify the top side. Shape is
+        ``(3,)``,  ``(3,1)`` or
             ``(3, intf.num_cells)``. The former two will be broadcasted. The latter in
             theory allows for different direction vectors for each cell, but this is not
             tested.
