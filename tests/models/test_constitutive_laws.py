@@ -17,7 +17,7 @@ constitutive laws, the first test might be removed.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Type
+from typing import Any, Literal, Type, Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -114,7 +114,11 @@ mass_weighted_perm = (
 # By default we run only a 2d test. Activate 3d if needed in debugging.
 @pytest.mark.parametrize("domain_dim", [2, pytest.param(3, marks=pytest.mark.skipped)])
 def test_parse_constitutive_laws(
-    model_type, method_name, only_codimension, num_fracs, domain_dim
+    model_type: str,
+    method_name: str,
+    only_codimension: Optional[int],
+    num_fracs: int,
+    domain_dim: int,
 ):
     """Test that the ad parsing of constitutive laws works as intended.
 
@@ -162,17 +166,17 @@ def test_parse_constitutive_laws(
         return
 
     # Set up an object of the prescribed model
-    setup = models.model(model_type, domain_dim, num_fracs=num_fracs)
+    model = models.model(model_type, domain_dim, num_fracs=num_fracs)
     # Fetch the relevant method of this model and extract the domains for which it is
     # defined by looping top to bottom through the namespace.
     method_namespace = method_name.split(".")
-    owner = setup
+    owner = model
     for name in method_namespace:
         method = getattr(owner, name)
         owner = method
 
     domains = models.subdomains_or_interfaces_from_method_name(
-        setup.mdg, method, dimensions_to_assemble
+        model.mdg, method, dimensions_to_assemble
     )
 
     # Call the method with the domain as argument. An error here will indicate that
@@ -183,12 +187,12 @@ def test_parse_constitutive_laws(
     assert isinstance(op, pp.ad.Operator)
 
     # Carry out discretization.
-    op.discretize(setup.mdg)
+    op.discretize(model.mdg)
     # Evaluate the discretized operator. An error here would typically be caused by the
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    setup.equation_system.evaluate(op, derivative=True)
+    model.equation_system.evaluate(op, derivative=True)
 
 
 # Shorthand for values with many digits. Used to compute expected values in the tests.
@@ -200,7 +204,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
 
 
 @pytest.mark.parametrize(
-    "model, method_name, expected, dimension",
+    "model_class, method_name, expected, dimension",
     [
         (models.Poromechanics, "fluid.density", 998.2 * np.exp(4.559e-10 * 2), None),
         (
@@ -336,7 +340,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
     ],
 )
 def test_evaluated_values(
-    model: (
+    model_class: (
         Type[models.Poromechanics]
         | Type[models.Thermoporomechanics]
         | Type[models.MassAndEnergyBalance]
@@ -379,27 +383,27 @@ def test_evaluated_values(
         "fractional_flow": True,  # For testing MassWeightedPermeability
     }
 
-    setup = model(params)
-    setup.prepare_simulation()
+    model = model_class(params)
+    model.prepare_simulation()
 
     # Set variable values different from default zeros in iterate.
     # This yields non-zero perturbations.
-    if hasattr(setup, "pressure_variable"):
-        setup.equation_system.set_variable_values(
-            2 * np.ones(setup.mdg.num_subdomain_cells()),
-            [setup.pressure_variable],
+    if hasattr(model, "pressure_variable"):
+        model.equation_system.set_variable_values(
+            2 * np.ones(model.mdg.num_subdomain_cells()),
+            [model.pressure_variable],
             iterate_index=0,
         )
-    if hasattr(setup, "temperature_variable"):
-        setup.equation_system.set_variable_values(
-            3 * np.ones(setup.mdg.num_subdomain_cells()),
-            [setup.temperature_variable],
+    if hasattr(model, "temperature_variable"):
+        model.equation_system.set_variable_values(
+            3 * np.ones(model.mdg.num_subdomain_cells()),
+            [model.temperature_variable],
             iterate_index=0,
         )
 
     # Obtain the tested method by looping top to bottom through the namespace.
     method_namespace = method_name.split(".")
-    owner = setup
+    owner = model
     for name in method_namespace:
         method = getattr(owner, name)
         owner = method
@@ -408,7 +412,7 @@ def test_evaluated_values(
     # something is wrong with the way the method combines terms and factors (e.g., grids
     # parameters, variables, other methods) to form an Ad operator object.
     # TODO: At some point, we should also consider interface laws.
-    op = method(setup.mdg.subdomains(dim=dimension))
+    op = method(model.mdg.subdomains(dim=dimension))
     if isinstance(op, np.ndarray):
         # This will happen if the return type of method is a pp.ad.DenseArray. EK is not
         # sure if we still have such methods among the constitutive laws, but the test
@@ -420,26 +424,26 @@ def test_evaluated_values(
     assert isinstance(op, pp.ad.Operator)
 
     # Carry out discretization.
-    op.discretize(setup.mdg)
+    op.discretize(model.mdg)
     # Evaluate the discretized operator. An error here would typically be caused by the
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    val = setup.equation_system.evaluate(op)
+    val = model.equation_system.evaluate(op)
     # Strict tolerance. We know analytical expected values, and some of the
     # perturbations are small relative to
     assert np.allclose(val, expected, rtol=1e-8, atol=1e-10)
 
 
 @pytest.mark.parametrize(
-    "model, quantities",
+    "model_class, quantities",
     [
         (models.MassBalance, ["pressure"]),
         (models.MassAndEnergyBalance, ["pressure", "temperature"]),
     ],
 )
 def test_perturbation_from_reference(
-    model: type[models.MassAndEnergyBalance], quantities: list[str]
+    model_class: type[models.MassAndEnergyBalance], quantities: list[str]
 ):
     """Tests the evaluation of operators perturbed from reference values."""
 
@@ -454,19 +458,19 @@ def test_perturbation_from_reference(
         "times_to_export": [],
     }
 
-    setup = model(params)
-    setup.prepare_simulation()
+    model = model_class(params)
+    model.prepare_simulation()
 
     # Set all variable values to zero
-    setup.equation_system.set_variable_values(
-        np.zeros(setup.equation_system.num_dofs()), time_step_index=0, iterate_index=0
+    model.equation_system.set_variable_values(
+        np.zeros(model.equation_system.num_dofs()), time_step_index=0, iterate_index=0
     )
 
     for q in quantities:
-        op = setup.perturbation_from_reference(q, setup.mdg.subdomains())
+        op = model.perturbation_from_reference(q, model.mdg.subdomains())
         # Calling value and jacobian to make sure there are no errors in parsing
         # but only value is checked.
-        op_val = setup.equation_system.evaluate(op, derivative=True)
+        op_val = model.equation_system.evaluate(op, derivative=True)
         # value of op is 0 - ref val
         assert np.allclose(op_val.val, -ref_vals[q])
 
@@ -508,19 +512,19 @@ def test_dimension_reduction_values(
     if geometry is models.RectangularDomainThreeFractures:
         params["fracture_indices"] = [0, 1]
 
-    class Model(geometry, pp.constitutive_laws.DimensionReduction, models.NoPhysics):
+    class LocalModel(geometry, pp.constitutive_laws.DimensionReduction, models.NoPhysics):
         pass
 
-    setup = Model(params)
-    setup.prepare_simulation()
+    model = LocalModel(params)
+    model.prepare_simulation()
 
-    subdomains = setup.mdg.subdomains(dim=domain_dimension)
-    interfaces = setup.mdg.interfaces(dim=domain_dimension)
+    subdomains = model.mdg.subdomains(dim=domain_dimension)
+    interfaces = model.mdg.interfaces(dim=domain_dimension)
     # Check aperture and specific volume values
-    aperture = setup.equation_system.evaluate(setup.aperture(subdomains))
+    aperture = model.equation_system.evaluate(model.aperture(subdomains))
     assert np.allclose(aperture.data, expected[0])
     for grids, expected_value in zip([subdomains, interfaces], expected[1:]):
-        specific_volume = setup.equation_system.evaluate(setup.specific_volume(grids))
+        specific_volume = model.equation_system.evaluate(model.specific_volume(grids))
         assert np.allclose(specific_volume.data, expected_value)
 
 

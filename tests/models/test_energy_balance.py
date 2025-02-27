@@ -145,34 +145,34 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
     }
 
     # Create model and run simulation
-    setup = EnergyBalanceTailoredBCs(model_params)
-    pp.run_time_dependent_model(setup)
+    model = EnergyBalanceTailoredBCs(model_params)
+    pp.run_time_dependent_model(model)
 
     if solid_vals["thermal_conductivity"] > 1:
         # Diffusion dominated case.
         # Check that the temperature is linear.
-        for sd in setup.mdg.subdomains():
-            var = setup.equation_system.get_variables(["temperature"], [sd])
-            vals = setup.equation_system.get_variable_values(
+        for sd in model.mdg.subdomains():
+            var = model.equation_system.get_variables(["temperature"], [sd])
+            vals = model.equation_system.get_variable_values(
                 variables=var, time_step_index=0
             )
             assert np.allclose(
                 vals,
-                1 - sd.cell_centers[0] / setup.domain.bounding_box["xmax"],
+                1 - sd.cell_centers[0] / model.domain.bounding_box["xmax"],
                 rtol=1e-4,
             )
     else:
         # Advection dominated case.
         # Check that the enthalpy flux over each face is bounded by the value
         # corresponding to a fully saturated domain.
-        for sd in setup.mdg.subdomains():
-            val = setup.equation_system.evaluate(setup.enthalpy_flux([sd]))
+        for sd in model.mdg.subdomains():
+            val = model.equation_system.evaluate(model.enthalpy_flux([sd]))
             # Account for specific volume, default value of .01 in fractures.
-            normals = np.abs(sd.face_normals[0]) * np.power(0.1, setup.nd - sd.dim)
-            k = setup.solid.permeability / setup.fluid.reference_component.viscosity
-            grad = 1 / setup.domain.bounding_box["xmax"]
+            normals = np.abs(sd.face_normals[0]) * np.power(0.1, model.nd - sd.dim)
+            k = model.solid.permeability / model.fluid.reference_component.viscosity
+            grad = 1 / model.domain.bounding_box["xmax"]
             enth = (
-                setup.fluid.reference_component.specific_heat_capacity
+                model.fluid.reference_component.specific_heat_capacity
                 * normals
                 * grad
                 * k
@@ -181,17 +181,17 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
 
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
         # influx =grad * dp * k=1/2*k)
-        sds = setup.mdg.subdomains(dim=2)
-        total_energy = setup.equation_system.evaluate(
-            setup.volume_integral(
-                setup.total_internal_energy(sds),
+        sds = model.mdg.subdomains(dim=2)
+        total_energy = model.equation_system.evaluate(
+            model.volume_integral(
+                model.total_internal_energy(sds),
                 sds,
                 dim=1,
             )
         )
         expected = (
-            setup.fluid.reference_component.specific_heat_capacity
-            * setup.solid.permeability
+            model.fluid.reference_component.specific_heat_capacity
+            * model.solid.permeability
             / 2
         )
         assert np.allclose(np.sum(total_energy), expected, rtol=1e-3)
@@ -212,7 +212,7 @@ def test_unit_conversion(units):
 
     """
 
-    class Model(EnergyBalanceTailoredBCs):
+    class LocalModel(EnergyBalanceTailoredBCs):
         def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
             """ """
 
@@ -252,18 +252,18 @@ def test_unit_conversion(units):
     # Create model and run simulation
     model_reference_params = copy.deepcopy(model_params)
     model_reference_params["file_name"] = "unit_conversion_reference"
-    reference_setup = Model(model_reference_params)
-    pp.run_time_dependent_model(reference_setup)
+    reference_model = LocalModel(model_reference_params)
+    pp.run_time_dependent_model(reference_model)
 
     model_params["units"] = pp.Units(**units)
-    setup = Model(model_params)
+    model = LocalModel(model_params)
 
-    pp.run_time_dependent_model(setup)
+    pp.run_time_dependent_model(model)
     variable_names = [
-        setup.temperature_variable,
-        setup.pressure_variable,
-        setup.interface_darcy_flux_variable,
-        setup.interface_enthalpy_flux_variable,
+        model.temperature_variable,
+        model.pressure_variable,
+        model.interface_darcy_flux_variable,
+        model.interface_enthalpy_flux_variable,
     ]
     variable_units = ["K", "Pa", "m^2 * s^-1 * Pa", "m^-1 * s^-1 * J"]
     secondary_variables = ["darcy_flux", "enthalpy_flux", "fourier_flux"]
@@ -271,10 +271,10 @@ def test_unit_conversion(units):
     # No domain restrictions.
     domain_dimensions = [None, None, None]
     models.compare_scaled_primary_variables(
-        setup, reference_setup, variable_names, variable_units
+        model, reference_model, variable_names, variable_units
     )
     models.compare_scaled_model_quantities(
-        setup, reference_setup, secondary_variables, secondary_units, domain_dimensions
+        model, reference_model, secondary_variables, secondary_units, domain_dimensions
     )
 
 
@@ -321,29 +321,29 @@ def test_energy_conservation():
         "times_to_export": [],  # Suppress output for tests
     }
 
-    setup = MassAndEnergyWellModel(model_params)
-    pp.run_time_dependent_model(setup)
+    model = MassAndEnergyWellModel(model_params)
+    pp.run_time_dependent_model(model)
     # Check that the total enthalpy equals the injected one.
     in_val = 1e7
     u_expected = in_val * dt
 
-    sds = setup.mdg.subdomains()
-    u = setup.volume_integral(setup.total_internal_energy(sds), sds, 1)
-    h_f = setup.fluid.specific_enthalpy(sds) * setup.porosity(sds)
-    h_s = setup.solid_enthalpy(sds) * (pp.ad.Scalar(1) - setup.porosity(sds))
-    h = setup.volume_integral(h_f + h_s, sds, 1)
-    u_val = np.sum(setup.equation_system.evaluate(u))
-    h_val = np.sum(setup.equation_system.evaluate(h))
+    sds = model.mdg.subdomains()
+    u = model.volume_integral(model.total_internal_energy(sds), sds, 1)
+    h_f = model.fluid.specific_enthalpy(sds) * model.porosity(sds)
+    h_s = model.solid_enthalpy(sds) * (pp.ad.Scalar(1) - model.porosity(sds))
+    h = model.volume_integral(h_f + h_s, sds, 1)
+    u_val = np.sum(model.equation_system.evaluate(u))
+    h_val = np.sum(model.equation_system.evaluate(h))
     assert np.isclose(u_val, u_expected, rtol=1e-3)
     # u and h should be close with our setup
     assert np.isclose(u_val, h_val, rtol=1e-3)
-    well_intf = setup.mdg.interfaces(codim=2)
-    well_enthalpy_flux = setup.equation_system.evaluate(
-        setup.well_enthalpy_flux(well_intf)
+    well_intf = model.mdg.interfaces(codim=2)
+    well_enthalpy_flux = model.equation_system.evaluate(
+        model.well_enthalpy_flux(well_intf)
     )
-    well_fluid_flux = setup.equation_system.evaluate(setup.well_flux(well_intf))
-    h_well = setup.equation_system.evaluate(
-        setup.fluid.specific_enthalpy(setup.mdg.subdomains(dim=0))
+    well_fluid_flux = model.equation_system.evaluate(model.well_flux(well_intf))
+    h_well = model.equation_system.evaluate(
+        model.fluid.specific_enthalpy(model.mdg.subdomains(dim=0))
     )
     # The well enthalpy flux should be equal to well enthalpy times well fluid flux
     assert np.isclose(well_enthalpy_flux, h_well * well_fluid_flux, rtol=1e-10)
