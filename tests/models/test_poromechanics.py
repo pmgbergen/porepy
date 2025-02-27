@@ -8,6 +8,7 @@ needed to avoid degenerate mass balance equation in fracture.
 from __future__ import annotations
 
 import copy
+from typing import Callable
 
 import numpy as np
 import pytest
@@ -19,6 +20,12 @@ from porepy.applications.test_utils import models, well_models
 
 class NonzeroFractureGapPoromechanics(pp.PorePyModel):
     """Adjust bc values and initial condition."""
+
+    pressure_variable: str
+    displacement_variable: str
+    interface_displacement_variable: str
+    fracture_stress: Callable[[list[pp.MortarGrid]], pp.ad.Operator]
+    fluid_source: Callable[[list[pp.Grid]], pp.ad.Operator]
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         domain_sides = self.domain_boundary_sides(sd)
@@ -35,12 +42,13 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
         super().initial_condition()
         # Initial pressure equals reference pressure (defaults to zero).
         self.equation_system.set_variable_values(
-            self.reference_variable_values.pressure * np.ones(self.mdg.num_subdomain_cells()),
+            self.reference_variable_values.pressure
+            * np.ones(self.mdg.num_subdomain_cells()),
             [self.pressure_variable],
             time_step_index=0,
             iterate_index=0,
         )
-        sd, sd_data = self.mdg.subdomains(return_data=True)[0]
+        sd = self.mdg.subdomains()[0]
         # Initial displacement.
         if len(self.mdg.subdomains()) > 1:
             top_cells = sd.cell_centers[1] > self.units.convert_units(0.5, "m")
@@ -71,8 +79,7 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
             # Set mortar displacement to zero on bottom and fracture gap value on top
             vals = np.zeros((self.nd, intf.num_cells))
             vals[1, top_cells] = (
-                self.solid.fracture_gap
-                + self.solid.maximum_elastic_fracture_opening
+                self.solid.fracture_gap + self.solid.maximum_elastic_fracture_opening
             )
             self.equation_system.set_variable_values(
                 vals.ravel("F"),
@@ -203,8 +210,7 @@ def get_variables(
     sd = setup.mdg.subdomains(dim=setup.nd)[0]
     u_var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
     u_vals = setup.equation_system.get_variable_values(
-        variables=u_var, 
-        time_step_index=0
+        variables=u_var, time_step_index=0
     ).reshape(setup.nd, -1, order="F")
 
     p_var = setup.equation_system.get_variables(
@@ -221,15 +227,11 @@ def get_variables(
     )
     # Fracture
     sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
-    jump = (
-        setup.displacement_jump(sd_frac)
-        .value(setup.equation_system)
-        .reshape(setup.nd, -1, order="F")
+    jump = setup.equation_system.evaluate(setup.displacement_jump(sd_frac)).reshape(
+        setup.nd, -1, order="F"
     )
-    traction = (
-        setup.contact_traction(sd_frac)
-        .value(setup.equation_system)
-        .reshape(setup.nd, -1, order="F")
+    traction = setup.equation_system.evaluate(setup.contact_traction(sd_frac)).reshape(
+        setup.nd, -1, order="F"
     )
     return u_vals, p_vals, p_frac, jump, traction
 
@@ -336,8 +338,8 @@ def test_without_fracture(biot_coefficient):
     pp.run_time_dependent_model(m)
 
     sd = m.mdg.subdomains(dim=m.nd)
-    u = m.displacement(sd).value(m.equation_system).reshape((m.nd, -1), order="F")
-    p = m.pressure(sd).value(m.equation_system)
+    u = m.equation_system.evaluate(m.displacement(sd)).reshape((m.nd, -1), order="F")
+    p = m.equation_system.evaluate(m.pressure(sd))
 
     # By symmetry (reasonable to expect from this grid), the average x displacement
     # should be zero
@@ -378,7 +380,7 @@ def test_pull_north_positive_opening():
 
 def test_pull_south_positive_opening():
     """Check solution for a pull on the south side with one horizontal fracture."""
-    
+
     setup = create_fractured_setup({}, {}, {}, 0.0)
     setup.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(setup)

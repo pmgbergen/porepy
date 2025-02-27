@@ -27,6 +27,7 @@ from porepy.applications.discretizations.flux_discretization import FluxDiscreti
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
+    NonMatchingSquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models, well_models
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
@@ -36,6 +37,7 @@ from porepy.applications.material_values.solid_values import (
 from porepy.applications.material_values.fluid_values import (
     extended_water_values_for_testing as water_values,
 )
+
 
 @pytest.fixture(scope="function")
 def model_setup():
@@ -486,7 +488,7 @@ def test_ad_operator_methods_single_phase_flow(
 
     # Discretize (if necessary), evaluate, and retrieve numerical values.
     operator.discretize(model_setup.mdg)
-    val = operator.value(model_setup.equation_system)
+    val = model_setup.equation_system.evaluate(operator)
 
     if isinstance(val, sps.bsr_matrix):  # needed for `tangential_component`
         val = val.toarray()
@@ -547,16 +549,24 @@ def test_mobility_single_phase_flow(
         {"m": 2, "kg": 3, "s": 1, "K": 1},
     ],
 )
-def test_unit_conversion(units):
+@pytest.mark.parametrize(
+    "grid",
+    [
+        SquareDomainOrthogonalFractures,
+        NonMatchingSquareDomainOrthogonalFractures,
+    ],
+)
+def test_unit_conversion(units, grid):
     """Test that solution is independent of units.
 
     Parameters:
         units (dict): Dictionary with keys as those in
             :class:`~pp.compositional.materials.Constants`.
+        grid: Mixed dimensional grid class which the test is performed on.
 
     """
 
-    class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
+    class Model(grid, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
         def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
@@ -579,6 +589,8 @@ def test_unit_conversion(units):
     params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
+        "fracture_refinement_ratio": 2,
+        "interface_refinement_ratio": 3,
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
         "reference_variable_values": reference_values,
@@ -642,7 +654,7 @@ def test_well_incompressible_pressure_values():
     pp.run_time_dependent_model(setup)
     # Check that the matrix pressure is close to linear in z
     matrix = setup.mdg.subdomains(dim=3)[0]
-    matrix_pressure = setup.pressure([matrix]).value(setup.equation_system)
+    matrix_pressure = setup.equation_system.evaluate(setup.pressure([matrix]))
     dist = np.absolute(matrix.cell_centers[2, :] - 0.5)
     p_range = np.max(matrix_pressure) - np.min(matrix_pressure)
     expected_p = p_range * (0.5 - dist) / 0.5
@@ -656,7 +668,7 @@ def test_well_incompressible_pressure_values():
     assert np.isclose(np.max(matrix_pressure), 1e6, rtol=1e-1)
     # In the fracture, check that the pressure is log distributed
     fracs = setup.mdg.subdomains(dim=2)
-    fracture_pressure = setup.pressure(fracs).value(setup.equation_system)
+    fracture_pressure = setup.equation_system.evaluate(setup.pressure(fracs))
     sd = fracs[0]
     injection_cell = sd.closest_cell(np.atleast_2d([0.5, 0.5, 0.5]).T)
     # Check that the injection cell is the one with the highest pressure
@@ -669,7 +681,7 @@ def test_well_incompressible_pressure_values():
     expected_p = min_p + 1 / (4 * np.pi * perm) * np.log(dist / scale_dist)
     assert np.isclose(np.min(fracture_pressure), min_p, rtol=1e-2)
     wells = setup.mdg.subdomains(dim=0)
-    well_pressure = setup.pressure(wells).value(setup.equation_system)
+    well_pressure = setup.equation_system.evaluate(setup.pressure(wells))
 
     # Check that the pressure drop from the well to the fracture is as expected The
     # Peacmann well model is: u = 2 * pi * k * h * (p_fracture - p_well) / ( ln(r_e /

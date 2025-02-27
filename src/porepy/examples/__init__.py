@@ -16,3 +16,11 @@ acceptance criteria for new examples are relatively strict.
 from .flow_benchmark_3d_case_3 import FlowBenchmark3dCase3Model
 from .mandel_biot import MandelExactSolution, MandelSolutionStrategy
 from .terzaghi_biot import TerzaghiExactSolution, TerzaghiSetup
+
+__all__ = [
+    "FlowBenchmark3dCase3Model",
+    "MandelExactSolution",
+    "MandelSolutionStrategy",
+    "TerzaghiExactSolution",
+    "TerzaghiSetup",
+]

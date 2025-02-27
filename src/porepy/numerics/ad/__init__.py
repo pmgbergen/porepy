@@ -1,4 +1,4 @@
-""" Init file for all AD functionality.
+"""Init file for all AD functionality.
 
 They should all be accessible through a calling
    >>> import porepy as pp

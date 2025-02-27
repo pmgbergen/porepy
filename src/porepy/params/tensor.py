@@ -46,8 +46,7 @@ class SecondOrderTensor(object):
 
         if np.any(kxx < 0):
             raise ValueError(
-                "Tensor is not positive definite because of "
-                "components in x-direction"
+                "Tensor is not positive definite because of components in x-direction"
             )
 
         perm[0, 0, ::] = kxx
@@ -64,8 +63,7 @@ class SecondOrderTensor(object):
         # Onsager's principle - tensor should be positive definite
         if np.any((kxx * kyy - kxy * kxy) < 0):
             raise ValueError(
-                "Tensor is not positive definite because of "
-                "components in y-direction"
+                "Tensor is not positive definite because of components in y-direction"
             )
 
         perm[1, 0, ::] = kxy
@@ -92,8 +90,7 @@ class SecondOrderTensor(object):
             < 0
         ):
             raise ValueError(
-                "Tensor is not positive definite because of "
-                "components in z-direction"
+                "Tensor is not positive definite because of components in z-direction"
             )
 
         perm[2, 0, ::] = kxz
@@ -268,9 +265,9 @@ class FourthOrderTensor(object):
         # below acknowledges the full fourth-order nature of this tensor (as opposed to
         # the storage format in self.values, which joins two and two dimensions).
         if self.values.shape[:2] == (4, 4):
-            s += f"Each cell has a tensor of shape (2, 2, 2, 2)"
+            s += "Each cell has a tensor of shape (2, 2, 2, 2)"
         elif self.values.shape[:2] == (9, 9):
-            s += f"Each cell has a tensor of shape (3, 3, 3, 3)"
+            s += "Each cell has a tensor of shape (3, 3, 3, 3)"
         else:
             # In EK's understanding, this should never happen. Give a fair description
             # of the situation, and hope the user knows what is going on.

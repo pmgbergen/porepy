@@ -132,9 +132,10 @@ class TimeManager:
             `schedule` are compatible.
         dt_min_max: Minimum and maximum permissible time steps.
             If None, then the minimum time step is set to 0.1% of the final simulation
-            time and the maximum time step is set to 10% of the final simulation time.
-            If given, then the first and second elements of the tuple corresponds to the
-            minimum and maximum time steps, respectively.
+            time or the initial time step if it is smaller than that. The maximum time
+            step is set to 10% of the final simulation time. If given, then the first
+            and second elements of the tuple corresponds to the minimum and maximum time
+            steps, respectively.
 
             To avoid oscillations and ensure a stable time step adaptation in
             combination with the relaxation factors, we further require:
@@ -232,11 +233,11 @@ class TimeManager:
         self.rtol = rtol
         self.atol = atol
 
-        # If dt_min_max is not given, set dt_min=0.001*final_time and
+        # If dt_min_max is not given, set dt_min=min(0.001*final_time, dt_init) and
         # dt_max=0.1*final_time
         dt_min_max_passed = dt_min_max  # store for later use
         if dt_min_max is None:
-            dt_min_max = (0.001 * schedule[-1], 0.1 * schedule[-1])
+            dt_min_max = (min(dt_init, 0.001 * schedule[-1]), 0.1 * schedule[-1])
 
         # More sanity checks below. Note that all the remaining sanity checks (but one)
         # are only needed when constant_dt = False. Thus, to save time when constant_dt
@@ -254,10 +255,7 @@ class TimeManager:
             )
 
             if dt_init < dt_min_max[0]:
-                if dt_min_max_passed is not None:
-                    raise ValueError(msg_dtmin)
-                else:
-                    raise ValueError(msg_dtmin + msg_unset)
+                raise ValueError(msg_dtmin)
 
             if dt_init > dt_min_max[1]:
                 if dt_min_max_passed is not None:
@@ -722,7 +720,7 @@ class TimeManager:
         return schedule.size == np.sum(in1d)
 
     # I/O
-    def write_time_information(self, path: Optional[Path] = None) -> None:
+    def write_time_information(self, path: Path) -> None:
         """Keep track of history of time and time step size and store as json file
         storing lists the evolution of both as lists.
 
@@ -730,8 +728,7 @@ class TimeManager:
         is called. This routine does neither guarantee completeness, nor duplicated.
 
         Parameters:
-            path: specified path for storing time and dt; if 'None' provided,
-                a default path within the default 'visualization' folder is used.
+            path: Specified path for storing time and dt.
 
         """
 
@@ -742,27 +739,20 @@ class TimeManager:
         self.exported_dt.append(
             int(self.dt) if isinstance(self.dt, np.integer) else float(self.dt)
         )
-
-        # Storing as json
-        if path is None:
-            path = Path("visualization") / Path("times.json")
-
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as out_file:
             json.dump({"time": self.exported_times, "dt": self.exported_dt}, out_file)
 
-    def load_time_information(self, path: Optional[Path] = None) -> None:
+    def load_time_information(self, path: Path) -> None:
         """Keep track of history of time and time step size and store.
 
         Mirrors :meth:`write_time_information`.
 
         Parameters:
-            path: specified path for retrieving time and dt; if 'None' is provided, the
-            default choice from self.write_time_information() is used.
+            path: Specified path for retrieving time and dt.
 
         """
-        default_path = Path("visualization") / Path("times.json")
-        with open(path if path is not None else default_path) as in_file:
+        with path.open("r") as in_file:
             data = json.load(in_file)
             self.exported_times = data["time"]
             self.exported_dt = data["dt"]

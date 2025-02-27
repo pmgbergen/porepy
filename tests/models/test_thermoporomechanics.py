@@ -183,7 +183,6 @@ def test_thermoporomechanics_model_no_modification():
 
 
 def test_pull_north_positive_opening():
-
     setup = create_fractured_setup({}, {}, {"u_north": [0.0, 0.001]})
     pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
@@ -206,7 +205,6 @@ def test_pull_north_positive_opening():
 
 
 def test_pull_south_positive_opening():
-
     setup = create_fractured_setup({}, {}, {"u_south": [0.0, -0.001]})
     pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
@@ -229,7 +227,6 @@ def test_pull_south_positive_opening():
 
 
 def test_push_north_zero_opening():
-
     setup = create_fractured_setup({}, {}, {"u_north": [0.0, -0.001]})
     pp.run_time_dependent_model(setup)
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
@@ -320,7 +317,7 @@ def test_robin_boundary_flux():
 
     # Create dictionary of evaluated boundary operators in bc_operators
     values = {
-        key: operator([subdomain]).value(model.equation_system)
+        key: model.equation_system.evaluate(operator([subdomain]))
         for key, operator in bc_operators.items()
     }
 
@@ -363,8 +360,7 @@ def test_robin_boundary_flux():
     # indices of the north and south boundaries in the pressure_values array, before
     # finally asserting that the values are correct.
     bg = model.mdg.subdomain_to_boundary_grid(subdomain)
-    pressure_operator = model.pressure([bg])
-    pressure_values = pressure_operator.value(model.equation_system)
+    pressure_values = model.equation_system.evaluate(model.pressure([bg]))
 
     ind_north = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.north)[0]))[0]
     ind_south = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.south)[0]))[0]
@@ -446,7 +442,7 @@ class ThermoporomechanicsWell(
     well_models.OneVerticalWell,
     model_geometries.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
-    pp.Poromechanics,
+    pp.Thermoporomechanics,
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:

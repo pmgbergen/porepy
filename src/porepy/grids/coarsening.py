@@ -64,9 +64,7 @@ def coarsen(
         if method_kwargs.get("if_seeds", False):
             seeds = generate_seeds(g)
         matrix = _tpfa_matrix(g)
-        partition = create_partition(
-            matrix, g, seeds=seeds, **method_kwargs
-        )  # type: ignore
+        partition = create_partition(matrix, g, seeds=seeds, **method_kwargs)  # type: ignore
 
     else:
         raise ValueError(f"Undefined method `{method}` for coarsening algorithm.")
