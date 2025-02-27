@@ -141,7 +141,7 @@ def square_with_orthogonal_fractures(
             non_matching=False,
         )
 
-        intf_map: dict[
+        interface_map: dict[
             pp.MortarGrid,
             Union[pp.MortarGrid, dict[mortar_grid.MortarSides, pp.Grid]],
         ] = {}
@@ -161,11 +161,13 @@ def square_with_orthogonal_fractures(
                 # they are the same, i.e., if the fractures are the same ones, we update
                 # the interface map.
                 if g_sec_old.frac_num == g_sec_new.frac_num:
-                    intf_map.update({intf_old: intf})
+                    interface_map.update({intf_old: intf})
 
         # Finally replace the subdomains and interfaces in the original
         # mixed-dimensional grid.
-        mdg.replace_subdomains_and_interfaces(sd_map=grid_map, intf_map=intf_map)
+        mdg.replace_subdomains_and_interfaces(
+            sd_map=grid_map, interface_map=interface_map
+        )
 
     return mdg, fracture_network
 
