@@ -562,20 +562,20 @@ class TerzaghiBoundaryConditionsMechanics(pp.PorePyModel):
 
         return bc
 
-    def bc_values_stress(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for mechanics.
 
         Parameters:
-            boundary_grid: The boundary grid on which to define boundary conditions.
+            bg: The boundary grid on which to define boundary conditions.
 
         Returns:
             Array of boundary values. Only non-zero values are the ones associated to
             the North side of the domain.
 
         """
-        north = self.domain_boundary_sides(boundary_grid).north
-        bc_values = np.zeros((2, boundary_grid.num_cells))
-        boundary_face_areas = boundary_grid.cell_volumes
+        north = self.domain_boundary_sides(bg).north
+        bc_values = np.zeros((2, bg.num_cells))
+        boundary_face_areas = bg.cell_volumes
         bc_values[1, north] = -self.applied_load() * boundary_face_areas[north]
         return bc_values.ravel("F")
 
