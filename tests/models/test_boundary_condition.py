@@ -74,29 +74,29 @@ def test_boundary_condition_mixin(t_end: int):
     3) Previous timestep values are set correctly for the time dependent Neumann.
 
     """
-    setup = MassBalance(
+    model = MassBalance(
         {
             "times_to_export": [],  # Suppress output for tests
         }
     )
-    setup.time_manager.dt = 1
-    setup.time_manager.time_final = t_end
-    pp.run_time_dependent_model(setup)
+    model.time_manager.dt = 1
+    model.time_manager.time_final = t_end
+    pp.run_time_dependent_model(model)
 
-    subdomains = setup.mdg.subdomains()
+    subdomains = model.mdg.subdomains()
 
     for sd in subdomains:
-        bc_type = setup.bc_type_dummy(sd)
-        bc_operator = setup.create_dummy_ad_boundary_condition([sd])
-        bc_val = setup.equation_system.evaluate(bc_operator)
+        bc_type = model.bc_type_dummy(sd)
+        bc_operator = model.create_dummy_ad_boundary_condition([sd])
+        bc_val = model.equation_system.evaluate(bc_operator)
 
         # Testing the Dirichlet values. They should be equal to the fluid density.
-        expected_val = setup.fluid.reference_component.density
+        expected_val = model.fluid.reference_component.density
         assert np.allclose(bc_val[bc_type.is_dir], expected_val)
         assert not np.allclose(bc_val[bc_type.is_neu], expected_val)
 
         # Testing the Neumann values.
-        bg = setup.mdg.subdomain_to_boundary_grid(sd)
+        bg = model.mdg.subdomain_to_boundary_grid(sd)
         assert bg is not None
         expected_val = np.arange(bg.num_cells) * bg.parent.dim * t_end
         # Projecting the expected value to the subdomain.
@@ -104,7 +104,7 @@ def test_boundary_condition_mixin(t_end: int):
         assert np.allclose(bc_val[bc_type.is_neu], expected_val[bc_type.is_neu])
 
         # Testing previous timestep.
-        bc_val_prev_ts = setup.equation_system.evaluate(bc_operator.previous_timestep())
+        bc_val_prev_ts = model.equation_system.evaluate(bc_operator.previous_timestep())
         expected_val = np.arange(bg.num_cells) * bg.parent.dim * (t_end - 1)
         # Projecting the expected value to the subdomain.
         expected_val = bg.projection().T @ expected_val
@@ -114,7 +114,7 @@ def test_boundary_condition_mixin(t_end: int):
 """Here follows mixins related to testing of Robin limit cases, and eventually the test itself. """
 
 
-class BCValuesDirichletIndices:
+class BCValuesDirichletIndices(pp.PorePyModel):
     """Boundary values for primary variables on Dirichlet boundaries.
 
     Used for:
@@ -170,7 +170,7 @@ class BCValuesDirichletIndices:
         return self._bc_values_scalar(bg=bg)
 
 
-class BCRobin:
+class BCRobin(pp.PorePyModel):
     """Set Dirichlet and Robin for momentum balance and mass and energy balance.
 
     Sets Dirichlet on dir_inds-boundaries, and Robin on the remaining ones. The value of
@@ -224,7 +224,7 @@ class BCRobin:
         return self._bc_type_scalar(sd=sd)
 
 
-class BCNeumannReference:
+class BCNeumannReference(pp.PorePyModel):
     """Set Dirichlet and Neumann for momentum balance and mass and energy balance."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
@@ -251,7 +251,7 @@ class BCNeumannReference:
         return self._bc_type_scalar(sd=sd)
 
 
-class BCValuesFlux:
+class BCValuesFlux(pp.PorePyModel):
     def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Fourier flux values on Robin index boundaries."""
         return self._bc_values_scalar_flux(bg)
@@ -292,7 +292,7 @@ class BCValuesFlux:
         return values.ravel("F")
 
 
-class BCDirichletReference:
+class BCDirichletReference(pp.PorePyModel):
     """Set all Dirichlet boundaries for momentum balance and mass and energy balance."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
@@ -384,7 +384,7 @@ class MomentumBalanceRobin(BCRobin, CommonMomentumBalance):
     """
 
 
-def run_model(balance_class, alpha):
+def run_model(model_class: type[pp.PorePyModel], alpha: float) -> dict[str, np.ndarray]:
     params = {
         "times_to_export": [],
         "fracture_indices": [],
@@ -393,22 +393,22 @@ def run_model(balance_class, alpha):
     }
 
     params["alpha"] = alpha
-    instance = balance_class(params)
-    pp.run_time_dependent_model(instance)
-    sd = instance.mdg.subdomains(dim=2)[0]
+    model = model_class(params)
+    pp.run_time_dependent_model(model)
+    sd = model.mdg.subdomains(dim=2)[0]
 
-    if isinstance(instance, MomentumBalance):
-        displacement = instance.equation_system.evaluate(instance.displacement([sd]))
+    if isinstance(model, MomentumBalance):
+        displacement = model.equation_system.evaluate(model.displacement([sd]))
         return {"displacement": displacement}
-    elif isinstance(instance, pp.MassAndEnergyBalance):
-        pressure = instance.equation_system.evaluate(instance.pressure([sd]))
-        temperature = instance.equation_system.evaluate(instance.temperature([sd]))
+    elif isinstance(model, pp.MassAndEnergyBalance):
+        pressure = model.equation_system.evaluate(model.pressure([sd]))
+        temperature = model.equation_system.evaluate(model.temperature([sd]))
         return {"temperature": temperature, "pressure": pressure}
 
 
 # Parameterize the test function with the necessary balance types and conditions
 @pytest.mark.parametrize(
-    "rob_class, reference_class, alpha",
+    "model_class, reference_model_class, alpha",
     [
         (MomentumBalanceRobin, CommonMomentumBalance, 0),
         (MassAndEnergyBalanceRobin, CommonMassEnergyBalance, 0),
@@ -416,7 +416,11 @@ def run_model(balance_class, alpha):
         (MomentumBalanceRobin, CommonMomentumBalance, 1e8),
     ],
 )
-def test_robin_limit_case(rob_class, reference_class, alpha):
+def test_robin_limit_case(
+    model_class: type[pp.PorePyModel],
+    reference_model_class: type[pp.PorePyModel],
+    alpha: float
+):
     """Test Robin limit cases.
 
     The Robin conditions are implemented on the form: sigma * n + alpha * u = G. That
@@ -437,11 +441,11 @@ def test_robin_limit_case(rob_class, reference_class, alpha):
     elif alpha == 0:
         reference_bc_class = BCNeumannReference
 
-    class LocalReference(reference_bc_class, reference_class):
+    class LocalReferenceModel(reference_bc_class, reference_model_class):
         """Reference class with the correct reference boundary types."""
 
-    rob_results = run_model(rob_class, alpha)
-    reference_results = run_model(LocalReference, alpha)
+    rob_results = run_model(model_class, alpha)
+    reference_results = run_model(LocalReferenceModel, alpha)
 
     assert all(
         np.allclose(rob_results[key], reference_results[key], atol=1e-7)
