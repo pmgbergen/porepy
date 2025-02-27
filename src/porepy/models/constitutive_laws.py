@@ -2810,7 +2810,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
     """
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -3341,7 +3341,7 @@ class CoulombFrictionBound(pp.PorePyModel):
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
 
@@ -3462,7 +3462,7 @@ class BartonBandis(pp.PorePyModel):
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
