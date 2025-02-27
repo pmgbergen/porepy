@@ -339,9 +339,6 @@ class ModelGeometry(pp.PorePyModel):
             ValueError: If i is larger than dim - 1.
 
         """
-        # TODO: Should we expand this to grids not aligned with the coordinate axes, and
-        # possibly unify with ``porepy.utils.projections.TangentialNormalProjection``?
-        # This is not a priority for the moment, though.
 
         if dim is None:
             dim = self.nd
@@ -350,8 +347,6 @@ class ModelGeometry(pp.PorePyModel):
         if i >= dim:
             raise ValueError("Basis function index out of range")
 
-        # Construct a single vector, and later stack it to a matrix
-        # Collect the basis functions for each dimension
         # Expand to cell-wise column vectors.
         num_cells = sum([g.num_cells for g in grids])
         range_ind = np.arange(i, dim * num_cells, dim)
