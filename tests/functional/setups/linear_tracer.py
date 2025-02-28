@@ -409,8 +409,8 @@ class TracerBC_1p(pp.PorePyModel):
         """Flagging the inlet and outlet faces as Dirichlet boundary, where pressure
         is given."""
         dirichlet_faces = np.zeros(sd.num_faces, dtype=bool)
-        sides = self.domain_boundary_sides(sd)
-        dirichlet_faces[sides.east | sides.west] = True
+        domain_sides = self.domain_boundary_sides(sd)
+        dirichlet_faces[domain_sides.east | domain_sides.west] = True
 
         return pp.BoundaryCondition(sd, dirichlet_faces, "dir")
 
@@ -422,9 +422,9 @@ class TracerBC_1p(pp.PorePyModel):
         """Defines some non-trivial values on inlet and outlet faces of the matrix."""
 
         p = np.zeros(bg.num_cells)
-        sides = self.domain_boundary_sides(bg)
-        p[sides.west] = self.exact_sol.p_inlet
-        p[sides.east] = self.exact_sol.p_outlet
+        domain_sides = self.domain_boundary_sides(bg)
+        p[domain_sides.west] = self.exact_sol.p_inlet
+        p[domain_sides.east] = self.exact_sol.p_outlet
 
         return p
 
@@ -435,8 +435,8 @@ class TracerBC_1p(pp.PorePyModel):
 
         assert component.name == "tracer"
         z = np.zeros(bg.num_cells)
-        sides = self.domain_boundary_sides(bg)
-        z[sides.west] = self.exact_sol.z_tracer_inlet
+        domain_sides = self.domain_boundary_sides(bg)
+        z[domain_sides.west] = self.exact_sol.z_tracer_inlet
 
         return z
 
@@ -472,8 +472,8 @@ class TracerBC_1p_ff(BoundaryConditionsFractionalFlow):
         as the inflowing tracer fraction."""
         assert component.name == "tracer"
         f_tracer = np.zeros(bg.num_cells)
-        sides = self.domain_boundary_sides(bg)
-        f_tracer[sides.west] = self.exact_sol.z_tracer_inlet
+        domain_sides = self.domain_boundary_sides(bg)
+        f_tracer[domain_sides.west] = self.exact_sol.z_tracer_inlet
         return f_tracer
 
 

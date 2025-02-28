@@ -551,10 +551,6 @@ class TestTpsaTailoredGrid:
 
         matrices = _discretize_get_matrices(self.g, self.data)
 
-        d_0_x_bound = rw_0_x
-        d_0_y_bound = rw_0_y
-        d_6_bound = rw_6
-
         # Shorthand for the shear modulus divided by the cell to face distance.
         mu_0_d = self.mu_0 / self.d_0_0
         mu_1_d = self.mu_1 / self.d_1_6
@@ -1267,7 +1263,7 @@ def _assemble_matrices(
     """
     # Deal with the different dimensions of the rotation variable.
     rot_dim = g.dim if g.dim == 3 else 1
-    
+
     n_rot_face = g.num_faces * rot_dim
     n_rot_cell = g.num_cells * rot_dim
     div_rot = g.divergence(dim=rot_dim)
@@ -1394,7 +1390,6 @@ def _set_bc_by_direction(
     """
 
     face_ind = g.get_all_boundary_faces()
-    nf = face_ind.size
 
     # Find the faces on the boundary in each direction.
     domain = pp.domain.domain_sides_from_grid(g)

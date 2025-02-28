@@ -153,7 +153,7 @@ def test_domain_contains_point(dim):
         "south": np.array([6, 7]),
         "north": np.array([10, 11]),
         "bottom": np.array([], dtype=int),
-        "top": np.array([], dtype=int)        
+        "top": np.array([], dtype=int)
         }
     ),
     # A 2d grid with 2x2 cells, the full domain has unit size.
@@ -189,6 +189,6 @@ def test_domain_sides_from_grid(g: pp.Grid, known: dict):
     """
     g.compute_geometry()
     # Get the sides from the function to be tested, and check that they are correct.
-    sides = pp.domain.domain_sides_from_grid(g)
+    domain_sides = pp.domain.domain_sides_from_grid(g)
     for key, val in known.items():
-        assert np.all(np.where(getattr(sides, key))[0] == val)
+        assert np.all(np.where(getattr(domain_sides, key))[0] == val)

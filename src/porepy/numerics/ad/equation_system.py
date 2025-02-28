@@ -1148,8 +1148,8 @@ class EquationSystem:
             )
 
         # We loop over the subdomains and interfaces in that order to assert a correct
-        # indexation according to the global order (for grid in sds, for grid in intfs).
-        # The user does not have to care about the order in grids.
+        # indexation according to the global order (for grid in subdomains, for grid in
+        # interfaces). The user does not have to care about the order in grids.
         for sd in self.mdg.subdomains():
             if sd in grids:
                 # Equations on subdomains can be defined on any grid quantity.
