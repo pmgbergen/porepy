@@ -153,7 +153,7 @@ def _get_matrix_slicer_target(mat, mode: Literal["float", "dense", "sparse", "ad
         vec = np.array([1, 2, 3, 4, 5])
         if mode == "dense":
             # The dense mode uses a vector. In principle, it is possible also to
-            # consider 2d numpy arrays, but the MatrixSlicer is not designed to handle
+            # consider 2d numpy arrays, but the ArraySlicer is not designed to handle
             # this case.
             target = vec
         else:
@@ -196,7 +196,7 @@ def test_matrix_slicer(
 
     """
     target = _get_matrix_slicer_target(A, mode)
-    slicer = matrix_operations.MatrixSlicer(
+    slicer = matrix_operations.ArraySlicer(
         domain_inds, range_inds, range_size, domain_size
     )
 
@@ -327,7 +327,7 @@ def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
     else:
         other_operand_sliced = other_operand[other_indices]
 
-    slicer = matrix_operations.MatrixSlicer(domain_indices=domain_indices)
+    slicer = matrix_operations.ArraySlicer(domain_indices=domain_indices)
 
     temp_result = eval(f"other_operand_sliced {operator} slicer")
 

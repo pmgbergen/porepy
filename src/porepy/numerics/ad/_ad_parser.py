@@ -232,7 +232,7 @@ class AdParser:
 
         if isinstance(op, pp.ad.ProjectionList):
             # Special case for lists of projections. These are parsed into lists of the
-            # underlying MatrixSlicer. See also the handling of the resulting lists
+            # underlying ArraySlicer. See also the handling of the resulting lists
             # below.
             res = [c.parse(eq_sys.mdg) for c in op.children]
             return res
@@ -291,7 +291,7 @@ class AdParser:
                     # This is a special case for dealing with pp.ad.PorjectionList.
                     if all(
                         [
-                            isinstance(c, pp.matrix_operations.MatrixSlicer)
+                            isinstance(c, pp.matrix_operations.ArraySlicer)
                             for c in child_values[0]
                         ]
                     ):

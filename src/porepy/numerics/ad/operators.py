@@ -1941,7 +1941,7 @@ class Projection(Operator):
             range_indices=self._slicer.domain_indices,
             range_size=self._slicer.domain_size,
             domain_size=self._slicer.range_size,
-            name=self.name,
+            name=self.name + "transpose",
         )
 
     def __repr__(self) -> str:
@@ -1976,7 +1976,7 @@ class Projection(Operator):
     def is_transposed(self) -> bool:
         return self._slicer._is_transposed
 
-    def parse(self, mdg: pp.MixedDimensionalGrid) -> pp.matrix_operations.MatrixSlicer:
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> pp.matrix_operations.ArraySlicer:
         """Convert the Ad expression into a projection operator.
 
         Parameters:
@@ -1993,13 +1993,18 @@ class Projection(Operator):
 class ProjectionList(Operator):
     """Wrapper class for a list of projection operators that are to be summed.
 
+    This is a container for projection operators that are to be summed, see technical
+    note below. Objects of type ProjectionList can be used with matrix multiplication
+    from the left, i.e., ``P @ x``, where P is a ProjectionList and x is a vector, while
+    other operations are not supported.
+
     Objects of this class will usually be created by invoking the method
     `pp.ad.sum_projection_list`. Though it is possible to create ProjectionList objects
     directly, *this is not recommended*. Should you choose to do so, be very careful
     with the input, and verify that the AdParser treats the object correctly.
 
-    Motivation:
-        The MatrixSlicer objects that underly the Projection objects cannot be combined
+    Technical note:
+        The ArraySlicer objects that underly the Projection objects cannot be combined
         into a single object, the way one can combine projections represented as sparse
         matrices. Thus, expressions of the type ``(P1 + P2) @ x``, where P1 and P2 are
         projections are not directly permissible. Still, it is useful to be allowed to
@@ -2012,7 +2017,15 @@ class ProjectionList(Operator):
 
     """
 
-    def __init__(self, operators: list[Projection], name: Optional[str] = None):
+    def __init__(self, operators: list[Projection], name: Optional[str] = None) -> None:
+        """Construct a list of projection operators.
+
+        Parameters:
+            operators: A list of projection operators to be summed. Note that other
+                operations (e.g., subtraction) are not supported.
+            name: Optional name for the projection list.
+
+        """
         super().__init__(name=name, children=operators)
 
     def _key(self) -> str:
@@ -2025,8 +2038,8 @@ class ProjectionList(Operator):
 
     def parse(
         self, mdg: pp.MixedDimensionalGrid
-    ) -> list[pp.matrix_operations.MatrixSlicer]:
-        """Parse the list items."""
+    ) -> list[pp.matrix_operations.ArraySlicer]:
+        """Parsing returns a list of the underlying ArraySlicer objects."""
         return [op.parse(mdg) for op in self.children]
 
     def __getitem__(self, key: int) -> Projection:
@@ -2151,7 +2164,8 @@ def sum_operator_list(
 
 
 def sum_projection_list(
-    # This cannot be list[Projection], since list items can be multiplications.
+    # Implementation note: This cannot be list[Projection], since list items can be
+    # multiplications.
     operators: list[Operator],
     name: Optional[str] = None,
 ) -> Operator:
@@ -2160,12 +2174,12 @@ def sum_projection_list(
     This method should only be called if the input list to be summed consists
     exclusively of Projection objects, or of products of precisely two Projection
     objects that have been (matrix) multiplied. For different use cases (such as
-    suming Projection objects multiplied with other types of operators), the standard
+    summing Projection objects multiplied with other types of operators), the standard
     sum_operator_list method should be used instead.
 
     Parameters:
-        operators: List of projection operators to be summed. name: Name of the
-        resulting operator.
+        operators: List of projection operators to be summed.
+        name: Name of the resulting operator.
 
     Raises:
         ValueError: If not one of the following two cases is met:
@@ -2210,9 +2224,9 @@ def sum_projection_list(
                 )
 
             # The trick here is to do a local parsing of the two Projections to fetch
-            # their underlying MatrixSlicer objects. Then we multiply them and set the
+            # their underlying ArraySlicer objects. Then we multiply them and set the
             # combined slicer to the second child (because this is what works together
-            # with the way matrix MatrixSlicer objects are matrix multiplied).
+            # with the way matrix ArraySlicer objects are matrix multiplied).
             child_1 = op.children[1]
             # We know that op.children is a projection, which does not need the md grid
             # for parsing. Hence, sending in None is okay, despite Mypy complaining.
