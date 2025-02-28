@@ -470,13 +470,13 @@ class ManuCompExactSolution3d:
 
     def matrix_boundary_pressure(
         self,
-        bg_matrix: pp.BoundaryGrid,
+        bg: pp.BoundaryGrid,
         time: pp.number,
     ) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            bg_matrix: Boundary grid of the matrix.
+            bg: Boundary grid of the matrix.
             time: time in seconds.
 
         Returns:
@@ -488,14 +488,14 @@ class ManuCompExactSolution3d:
         x, y, z, t = sym.symbols("x y z t")
 
         # Get list of face indices
-        fc = bg_matrix.cell_centers
+        fc = bg.cell_centers
         face_idx = self.get_region_indices(where="bg")
 
         # Lambdify expression
         p_fun = [sym.lambdify((x, y, z, t), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(bg_matrix.num_cells)
+        p_bf = np.zeros(bg.num_cells)
         for p, idx in zip(p_fun, face_idx):
             p_bf += p(fc[0], fc[1], fc[2], time) * idx
 
