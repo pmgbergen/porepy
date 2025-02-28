@@ -314,15 +314,16 @@ class ModelGeometry(pp.PorePyModel):
         Moreover, the grid is assumed to be planar.
 
         Example:
-            For a grid with two cells, and with `i=1` and `dim=3`, the returned
-            basis will be (after conversion to a numpy array)
+            For a grid with two cells, and with `i=1` and `dim=3`, the returned basis
+            will be a Projection that is equivalent to applying the following projection
+            matrix:
             .. code-block:: python
                 array([[0., 0.],
-                    [1., 0.],
-                    [0., 0.],
-                    [0., 0.],
-                    [0., 1.],
-                    [0., 0.]])
+                       [1., 0.],
+                       [0., 0.],
+                       [0., 0.],
+                       [0., 1.],
+                       [0., 0.]])
 
         See also:
             :meth:`basis` for the construction of a full basis.
