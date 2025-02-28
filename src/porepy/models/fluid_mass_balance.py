@@ -798,7 +798,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
 
 
 class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
-    """Setup and numerics-related methods for a single-phase flow problem.
+    """Solution strategy and numerics-related methods for a single-phase flow problem.
 
     At some point, this will be refined to be a more sophisticated (modularised)
     solution strategy class. More refactoring may be beneficial.

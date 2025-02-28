@@ -1,11 +1,11 @@
 """
 This module contains the implementation of Case 4 from the 2D flow benchmark [1].
 
-The setup is composed of 64 fractures grouped in 13 different connected networks,
+The geometry is composed of 64 fractures grouped in 13 different connected networks,
 ranging from isolated fractures up to tens of fractures each.
 
 Note:
-    At the current stage, the setup is meant only for performance profiling and does not
+    At the current stage, the model is meant only for performance profiling and does not
     fully match the paper.
 
 References:

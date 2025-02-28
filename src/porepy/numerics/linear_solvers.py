@@ -1,7 +1,7 @@
 """
 Module for the Linear Solver class, which is used to solve the linear
 system when using the model classes for linear systems. Note that the
-setup object has its own system to assemble and solve the system; this
+model object has its own system to assemble and solve the system; this
 is just a wrapper around that, mostly for compliance with the nonlinear
 case, see numerics.nonlinear.nonlinear_solvers.
 """
@@ -62,7 +62,7 @@ class LinearSolver:
             # something wrong with how the linear and non-linear solvers interact with the
             # models (and it illustrates that the model convention for the before_nonlinear_*
             # and after_nonlinear_* methods is not ideal).
-            # Since the setup's after_nonlinear_convergence may expect that the converged
+            # Since the model's after_nonlinear_convergence may expect that the converged
             # solution is already stored as an iterate (this may happen if a model is
             # implemented to be valid for both linear and non-linear problems, as is
             # the case for ContactMechanics and possibly others). Thus, we first call

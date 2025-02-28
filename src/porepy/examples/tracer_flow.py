@@ -1,4 +1,4 @@
-"""Module containing a simple tracer flow setup, modelled as a single phase, 2-component
+"""Module containing a simple tracer flow model, modelled as a single phase, 2-component
 flow."""
 
 from __future__ import annotations
@@ -105,7 +105,7 @@ class TracerBC(BoundaryConditionsMassDirNorthSouth, BoundaryConditionsMulticompo
         return z
 
 
-class TracerFlowSetup(  # type: ignore[misc]
+class TracerFlowModel(  # type: ignore[misc]
     SquareDomainOrthogonalFractures,
     TracerFluid,
     CompositionalVariables,
@@ -162,7 +162,7 @@ if __name__ == "__main__":
         "grid_type": "simplex",
     }
 
-    model = TracerFlowSetup(params)
+    model = TracerFlowModel(params)
     pp.run_time_dependent_model(model, params)
     pp.plot_grid(
         model.mdg,

@@ -94,7 +94,7 @@ def test_restart(solid_vals: dict, north_displacement: float):
         north_displacement: Value of displacement on the north boundary.
 
     """
-    # Setup and run model for full time interval. With this generate reference files
+    # Set up and run model for full time interval. With this generate reference files
     # for comparison with a restarted simulation. At the same time, this generates the
     # restart files.
     model = create_restart_model(solid_vals, {}, north_displacement, restart=False)
@@ -320,7 +320,7 @@ def test_targeted_rediscretization(model_class):
 )
 # Run the test for models with and without fractures. We skip the case of more than one
 # fracture, since it seems unlikely this will uncover any errors that will not be found
-# with the simpler setups. Activate more fractures if needed in debugging.
+# with the simpler models. Activate more fractures if needed in debugging.
 @pytest.mark.parametrize(
     "num_fracs",
     [  # Number of fractures

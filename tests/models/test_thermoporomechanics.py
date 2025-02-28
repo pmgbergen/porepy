@@ -35,10 +35,10 @@ class TailoredThermoporomechanics(
     pass
 
 
-def create_fractured_setup(
+def create_fractured_model(
     solid_vals: dict, fluid_vals: dict, params: dict
 ) -> TailoredThermoporomechanics:
-    """Create a setup for a 2d problem with a single fracture.
+    """Create a model for a 2d problem with a single fracture.
 
     Parameters:
         solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants`
@@ -49,7 +49,7 @@ def create_fractured_setup(
             :class:`TailoredThermoporomechanics`.
 
     Returns:
-        setup: Model object for the problem.
+        model: Model object for the problem.
 
     """
     # Instantiate constants and store in params.
@@ -108,7 +108,7 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float):
     """
 
     # Create model and run simulation
-    model = create_fractured_setup(solid_vals, {}, {"u_north": [0.0, uy_north]})
+    model = create_fractured_model(solid_vals, {}, {"u_north": [0.0, uy_north]})
     pp.run_time_dependent_model(model)
 
     # Check that the pressure is linear
@@ -183,7 +183,7 @@ def test_thermoporomechanics_model_no_modification():
 
 
 def test_pull_north_positive_opening():
-    model = create_fractured_setup({}, {}, {"u_north": [0.0, 0.001]})
+    model = create_fractured_model({}, {}, {"u_north": [0.0, 0.001]})
     pp.run_time_dependent_model(model)
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
 
@@ -205,7 +205,7 @@ def test_pull_north_positive_opening():
 
 
 def test_pull_south_positive_opening():
-    model = create_fractured_setup({}, {}, {"u_south": [0.0, -0.001]})
+    model = create_fractured_model({}, {}, {"u_south": [0.0, -0.001]})
     pp.run_time_dependent_model(model)
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
 
@@ -227,7 +227,7 @@ def test_pull_south_positive_opening():
 
 
 def test_push_north_zero_opening():
-    model = create_fractured_setup({}, {}, {"u_north": [0.0, -0.001]})
+    model = create_fractured_model({}, {}, {"u_north": [0.0, -0.001]})
     pp.run_time_dependent_model(model)
     u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
 
@@ -243,7 +243,7 @@ def test_push_north_zero_opening():
 
 
 def test_positive_p_frac_positive_opening():
-    model = create_fractured_setup({}, {}, {"fracture_source_value": 0.001})
+    model = create_fractured_model({}, {}, {"fracture_source_value": 0.001})
     pp.run_time_dependent_model(model)
     _, _, p_frac, jump, traction, _, t_frac = get_variables(model)
 
@@ -265,7 +265,7 @@ def test_positive_p_frac_positive_opening():
 
 
 def test_robin_boundary_flux():
-    """Tests model setup with Robin boundary conditions.
+    """Tests model with Robin boundary conditions.
 
     Neumann and Robin boundary values are set by the same method
     (bc_values_"flux_name"). This test ensures that the correct values are assigned to

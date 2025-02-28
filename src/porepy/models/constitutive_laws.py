@@ -988,7 +988,7 @@ class DarcysLaw(pp.PorePyModel):
         this method to define and assign another boundary operator of your choice. The
         new operator should then be passed as an argument to the
         _combine_boundary_operators method, just like self.darcy_flux is passed to
-        robin_operator in the default setup.
+        robin_operator in the default model.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
@@ -2298,7 +2298,7 @@ class FouriersLaw(pp.PorePyModel):
         this method to define and assign another boundary operator of your choice. The
         new operator should then be passed as an argument to the
         _combine_boundary_operators method, just like self.fourier_flux is passed to
-        robin_operator in the default setup.
+        robin_operator in the default model.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
@@ -2903,7 +2903,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         this method to define and assign another boundary operator of your choice. The
         new operator should then be passed as an argument to the
         _combine_boundary_operators method, just like self.mechanical_stress is passed
-        to robin_operator in the default setup.
+        to robin_operator in the default model.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be

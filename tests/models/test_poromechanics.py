@@ -156,7 +156,7 @@ class TailoredPoromechanics(
 def create_model_with_fracture(
     solid_vals: dict, fluid_vals: dict, reference_vals: dict, uy_north: float
 ) -> TailoredPoromechanics:
-    """Create a setup for a fractured domain.
+    """Create a model for a fractured domain.
 
     The domain is a unit square with two intersecting fractures.
 
@@ -167,7 +167,7 @@ def create_model_with_fracture(
         uy_north: Displacement in y-direction on the north boundary.
 
     Returns:
-        TailoredPoromechanics: A setup for a fractured domain.
+        TailoredPoromechanics: A model for a fractured domain.
 
     """
     # Instantiate constants and store in params.
@@ -193,10 +193,10 @@ def create_model_with_fracture(
 def get_variables(
     model: TailoredPoromechanics,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Utility function to extract variables from a setup.
+    """Utility function to extract variables from a model.
 
     Parameters:
-        setup: A setup for a fractured domain.
+        model: A model for a fractured domain.
 
     Returns:
         Tuple containing the following variables:

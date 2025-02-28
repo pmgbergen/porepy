@@ -57,7 +57,7 @@ from tests.functional.setups.manu_flow_comp_3d_frac import ManuCompFlowModel3d
 @pytest.fixture(scope="module")
 def material_constants() -> dict:
     """Set material constants.
-    Use default values provided in the module where the setup class is included.
+    Use default values provided in the module where the model class is included.
 
     Returns:
         Dictionary containing the material constants with the `solid` and `fluid`
@@ -72,7 +72,7 @@ def material_constants() -> dict:
 @pytest.fixture(scope="module")
 def reference_values() -> pp.ReferenceVariableValues:
     """Reference values for pressure and temperature.
-    Use default values provided in the module where the setup class is included.
+    Use default values provided in the module where the model class is included.
 
     Returns:
         Dictionary containing the reference value data structure.

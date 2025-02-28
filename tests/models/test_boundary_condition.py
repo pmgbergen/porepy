@@ -127,7 +127,7 @@ class BCValuesDirichletIndices(pp.PorePyModel):
         """Indices for the non-Dirichlet boundaries for test.
 
         The Robin limit case test tests Robin approximating either Dirichlet or Neumann.
-        All test setups have Dirichlet on dir_inds (Dirichlet index) boundaries, and
+        All test models have Dirichlet on dir_inds (Dirichlet index) boundaries, and
         Robin approximating Dirichlet or Neumann on the remaining ones. This method
         returns the indices of the north and south boundaries, which are the Dirichlet
         indices.
@@ -140,7 +140,7 @@ class BCValuesDirichletIndices(pp.PorePyModel):
         """Indices for the Dirichlet boundaries for test.
 
         The Robin limit case test tests Robin approximating either Dirichlet or Neumann.
-        All test setups have Dirichlet on dir_inds (Dirichlet index) boundaries, and
+        All test models have Dirichlet on dir_inds (Dirichlet index) boundaries, and
         Robin approximating Dirichlet or Neumann on the remaining ones. This method
         returns the indices of the west and east boundaries, which are the Robin
         indices.
@@ -429,10 +429,10 @@ def test_robin_limit_case(
 
     We test this for momentum balance and mass and energy balance.
 
-    Common for all model setups is that all of them have Dirichlet conditions on the
-    boundaries returned by the method dir_inds.
+    Common for all models is that the have Dirichlet conditions on the boundaries
+    returned by the method dir_inds.
 
-    The model class setups with documentation are further up in this document.
+    The model classes with documentation are further up in this document.
 
     """
     if alpha > 0:

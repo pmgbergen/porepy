@@ -79,7 +79,7 @@ from scipy.special import erf
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.examples.tracer_flow import TracerFlowSetup, TracerIC
+from porepy.examples.tracer_flow import TracerFlowModel, TracerIC
 from porepy.models.compositional_flow import (
     BoundaryConditionsFractionalFlow,
     MassicPressureEquations,
@@ -287,7 +287,7 @@ class LinearTracerDataSaving_1p(pp.PorePyModel):
             exact_p=exact_p,
             diffused_z_tracer=diffused_z_tracer,
             error_z_tracer=ConvergenceAnalysis.lp_error(
-                subdomains[0], 
+                subdomains[0],
                 exact_z_tracer,
                 approx_z_tracer,
                 is_scalar=True,
@@ -447,7 +447,7 @@ class TracerFlowModel_1p(
     TracerIC_1p,
     TracerBC_1p,
     LinearTracerDataSaving_1p,
-    TracerFlowSetup,
+    TracerFlowModel,
 ):
     """Tracer model with 2 components and 1 phase."""
 

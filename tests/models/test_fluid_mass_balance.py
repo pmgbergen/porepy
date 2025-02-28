@@ -41,7 +41,7 @@ from porepy.applications.material_values.fluid_values import (
 
 @pytest.fixture(scope="function")
 def model() -> pp.PorePyModel:
-    """Minimal compressible single-phase flow setup with two intersecting fractures.
+    """Minimal compressible single-phase flow model with two intersecting fractures.
 
     The model is set up with realistic physical parameters using water and granite.
     A 2x2 Cartesian grid on a unit domain is employed. One horizontal and one vertical
@@ -79,10 +79,10 @@ def model() -> pp.PorePyModel:
         "times_to_export": [],
     }
 
-    # Instantiate the model setup
+    # Instantiate the model.
     model = LocalModel(params)
 
-    # Prepare to simulate
+    # Prepare to simulate.
     model.prepare_simulation()
 
     # Set constant but non-zero values for the primary variables
@@ -130,8 +130,7 @@ def all_testable_methods(model) -> list[str]:
     """Get all testable methods.
 
     Parameters:
-        model_setup: Single-phase flow model setup after `prepare_simulation()`
-            has been called.
+        model: Single-phase flow model after `prepare_simulation()` has been called.
 
     Returns:
         List of all possible testable methods for the model.
@@ -458,7 +457,7 @@ def test_ad_operator_methods_single_phase_flow(
     """Test that Ad operator methods return expected values.
 
     Parameters:
-        model_setup: Prepared-for-simulation single phase flow model setup.
+        model: Prepared-for-simulation single phase flow model.
         method_name: Name of the method to be tested.
         expected_value: The expected value from the evaluation.
         dimension_restriction: Dimension in which the method is restricted. If None,

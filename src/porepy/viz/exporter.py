@@ -794,7 +794,7 @@ class Exporter:
                 self._exported_timesteps_constants[i] for i in indices
             ]
 
-        # Setup file name and check whether it already exists in storage
+        # Set up file name and check whether it already exists in storage.
         pvd_file: Path = Path(
             self._append_folder_name(self._folder_name, self._file_name) + ".pvd"
         )
