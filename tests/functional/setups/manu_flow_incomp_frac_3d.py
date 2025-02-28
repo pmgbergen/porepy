@@ -403,14 +403,14 @@ class ManuIncompExactSolution3d:
 
         return lmbda_cc
 
-    def boundary_values(self, boundary_grid_matrix: pp.BoundaryGrid) -> np.ndarray:
+    def boundary_values(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            boundary_grid_matrix: Matrix boundary grid.
+            bg: Matrix boundary grid.
 
         Returns:
-            Array of ``shape=(boundary_grid_matrix.num_cells, )`` with the exact
+            Array of ``shape=(bg.num_cells, )`` with the exact
             pressure values at the exterior boundary faces.
 
         """
@@ -418,14 +418,14 @@ class ManuIncompExactSolution3d:
         x, y, z = sym.symbols("x y z")
 
         # Get list of face indices
-        fc = boundary_grid_matrix.cell_centers
+        fc = bg.cell_centers
         face_idx = self.get_region_indices(where="bg")
 
         # Lambdify expression
         p_fun = [sym.lambdify((x, y, z), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(boundary_grid_matrix.num_cells)
+        p_bf = np.zeros(bg.num_cells)
         for p, idx in zip(p_fun, face_idx):
             p_bf += p(fc[0], fc[1], fc[2]) * idx
 
