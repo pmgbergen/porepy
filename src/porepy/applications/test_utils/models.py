@@ -186,7 +186,10 @@ class RobinDirichletNeumannConditions(pp.PorePyModel):
         domain_sides = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(
             sd,
-            domain_sides.north + domain_sides.south + domain_sides.east + domain_sides.west,
+            domain_sides.north
+            + domain_sides.south
+            + domain_sides.east
+            + domain_sides.west,
             "dir",
         )
         bc.is_dir[:, domain_sides.west + domain_sides.east] = False
@@ -196,7 +199,7 @@ class RobinDirichletNeumannConditions(pp.PorePyModel):
 
         # Assign the robin weight
         r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
-        bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F")
+        bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), order="F")
         return bc
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -208,7 +211,10 @@ class RobinDirichletNeumannConditions(pp.PorePyModel):
         domain_sides = self.domain_boundary_sides(sd)
         bc = pp.BoundaryCondition(
             sd,
-            domain_sides.north + domain_sides.south + domain_sides.west + domain_sides.east,
+            domain_sides.north
+            + domain_sides.south
+            + domain_sides.west
+            + domain_sides.east,
             "dir",
         )
         bc.is_dir[domain_sides.west + domain_sides.east] = False
