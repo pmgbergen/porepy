@@ -223,7 +223,7 @@ class RandomPressureBCs(
     pp.model_boundary_conditions.BoundaryConditionsMassDirNorthSouth,
     pp.model_boundary_conditions.BoundaryConditionsEnergyDirNorthSouth,
 ):
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries. We
@@ -231,14 +231,14 @@ class RandomPressureBCs(
         boundary.
 
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
 
         Returns:
             Boundary condition values array.
 
         """
-        domain_sides = self.domain_boundary_sides(boundary_grid)
-        vals_loc = np.zeros(boundary_grid.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
+        vals_loc = np.zeros(bg.num_cells)
         # Fix the random seed to make it possible to debug in the future.
         np.random.seed(0)
         vals_loc[domain_sides.north] = np.random.rand(domain_sides.north.sum())
@@ -332,7 +332,11 @@ def test_targeted_rediscretization(model_class):
 )
 @pytest.mark.parametrize("domain_dim", [2, 3])
 def test_parse_equations(
-    model_type: str, equation_name: str, only_codimension: Optional[int], num_fracs: int, domain_dim: int
+    model_type: str,
+    equation_name: str,
+    only_codimension: Optional[int],
+    num_fracs: int,
+    domain_dim: int,
 ):
     """Test that equation parsing works as expected.
 
