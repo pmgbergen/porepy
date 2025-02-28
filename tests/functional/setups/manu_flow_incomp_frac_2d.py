@@ -518,14 +518,14 @@ class ManuIncompExactSolution2d:
 
         return lmbda_cc
 
-    def boundary_values(self, boundary_grid_matrix: pp.BoundaryGrid) -> np.ndarray:
+    def boundary_values(self, bg_matrix: pp.BoundaryGrid) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            boundary_grid_matrix: Matrix boundary grid.
+            bg_matrix: Matrix boundary grid.
 
         Returns:
-            Array of ``shape=(boundary_grid_matrix.num_cells, )`` with the exact
+            Array of ``shape=(bg_matrix.num_cells, )`` with the exact
             pressure values at the exterior boundary faces.
 
         """
@@ -533,7 +533,7 @@ class ManuIncompExactSolution2d:
         x, y = sym.symbols("x y")
 
         # Get list of face indices
-        fc = boundary_grid_matrix.cell_centers
+        fc = bg_matrix.cell_centers
         bot = fc[1] < 0.25
         mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
         top = fc[1] > 0.75
@@ -543,7 +543,7 @@ class ManuIncompExactSolution2d:
         p_fun = [sym.lambdify((x, y), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(boundary_grid_matrix.num_cells)
+        p_bf = np.zeros(bg_matrix.num_cells)
         for p, idx in zip(p_fun, face_idx):
             p_bf += p(fc[0], fc[1]) * idx
 
@@ -681,20 +681,20 @@ class ManuIncompBoundaryConditions(
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Analytical boundary condition values for Darcy flux.
 
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
 
         Returns:
             Boundary condition values array.
 
         """
-        vals = np.zeros(boundary_grid.num_cells)
-        if boundary_grid.dim == (self.mdg.dim_max() - 1):
+        vals = np.zeros(bg.num_cells)
+        if bg.dim == (self.mdg.dim_max() - 1):
             # Dirichlet for matrix
-            vals[:] = self.exact_sol.boundary_values(boundary_grid_matrix=boundary_grid)
+            vals[:] = self.exact_sol.boundary_values(bg_matrix=bg)
         return vals
 
 
