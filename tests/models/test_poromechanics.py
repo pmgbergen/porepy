@@ -153,7 +153,7 @@ class TailoredPoromechanics(
     pass
 
 
-def create_fractured_setup(
+def create_model_with_fracture(
     solid_vals: dict, fluid_vals: dict, reference_vals: dict, uy_north: float
 ) -> TailoredPoromechanics:
     """Create a setup for a fractured domain.
@@ -258,7 +258,7 @@ def test_2d_single_fracture(solid_vals, north_displacement):
 
     """
 
-    model = create_fractured_setup(solid_vals, {}, {}, north_displacement)
+    model = create_model_with_fracture(solid_vals, {}, {}, north_displacement)
     pp.run_time_dependent_model(model)
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
@@ -362,7 +362,7 @@ def test_without_fracture(biot_coefficient):
 
 def test_pull_north_positive_opening():
     """Check solution for a pull on the north side with one horizontal fracture."""
-    model = create_fractured_setup({}, {}, {}, 0.001)
+    model = create_model_with_fracture({}, {}, {}, 0.001)
     pp.run_time_dependent_model(model)
     _, _s, p_frac, jump, traction = get_variables(model)
 
@@ -385,7 +385,7 @@ def test_pull_north_positive_opening():
 def test_pull_south_positive_opening():
     """Check solution for a pull on the south side with one horizontal fracture."""
 
-    model = create_fractured_setup({}, {}, {}, 0.0)
+    model = create_model_with_fracture({}, {}, {}, 0.0)
     model.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(model)
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
@@ -407,7 +407,7 @@ def test_pull_south_positive_opening():
 
 
 def test_push_north_zero_opening():
-    model = create_fractured_setup({}, {}, {}, -0.001)
+    model = create_model_with_fracture({}, {}, {}, -0.001)
     pp.run_time_dependent_model(model)
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
@@ -422,7 +422,7 @@ def test_push_north_zero_opening():
 
 
 def test_positive_p_frac_positive_opening():
-    model = create_fractured_setup({}, {}, {}, 0.0)
+    model = create_model_with_fracture({}, {}, {}, 0.0)
     model.params["fracture_source_value"] = 0.001
     pp.run_time_dependent_model(model)
     _, _, p_frac, jump, traction = get_variables(model)
@@ -446,7 +446,7 @@ def test_positive_p_frac_positive_opening():
 
 def test_pull_south_positive_reference_pressure():
     """Compare with and without nonzero reference (and initial) solution."""
-    reference_model = create_fractured_setup({}, {}, {}, 0.0)
+    reference_model = create_model_with_fracture({}, {}, {}, 0.0)
     reference_model.subtract_p_frac = False
     reference_model.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(reference_model)
@@ -454,7 +454,7 @@ def test_pull_south_positive_reference_pressure():
         reference_model
     )
 
-    model = create_fractured_setup({}, {}, {"pressure": 1}, 0.0)
+    model = create_model_with_fracture({}, {}, {"pressure": 1}, 0.0)
     model.subtract_p_frac = False
     model.params["u_south"] = [0.0, -0.001]
     pp.run_time_dependent_model(model)

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from porepy.models.solution_strategy import SolutionStrategy
+import porepy as pp
 
 
 class LinearSolver:
@@ -31,29 +31,29 @@ class LinearSolver:
             params = {}
         self.params = params
 
-    def solve(self, setup: SolutionStrategy) -> bool:
+    def solve(self, model: pp.PorePyModel) -> bool:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:
-            setup (subclass of pp.SolutionStrategy): Model to be solved.
+            model: Model to be solved.
 
         Returns:
             boolean: True if the linear solver converged.
 
         """
 
-        setup.before_nonlinear_loop()
+        model.before_nonlinear_loop()
 
         # For linear problems, the tolerance is irrelevant
         # FIXME: This assumes a direct solver is applied, but it may also be that parameters
         # for linear solvers should be a property of the model, not the solver. This
         # needs clarification at some point.
 
-        setup.assemble_linear_system()
-        residual = setup.equation_system.assemble(evaluate_jacobian=False)
-        nonlinear_increment = setup.solve_linear_system()
+        model.assemble_linear_system()
+        residual = model.equation_system.assemble(evaluate_jacobian=False)
+        nonlinear_increment = model.solve_linear_system()
 
-        is_converged, _ = setup.check_convergence(
+        is_converged, _ = model.check_convergence(
             nonlinear_increment, residual, residual.copy(), self.params
         )
 
@@ -67,8 +67,8 @@ class LinearSolver:
             # implemented to be valid for both linear and non-linear problems, as is
             # the case for ContactMechanics and possibly others). Thus, we first call
             # after_nonlinear_iteration(), and then after_nonlinear_convergence()
-            setup.after_nonlinear_iteration(nonlinear_increment)
-            setup.after_nonlinear_convergence()
+            model.after_nonlinear_iteration(nonlinear_increment)
+            model.after_nonlinear_convergence()
         else:
-            setup.after_nonlinear_failure()
+            model.after_nonlinear_failure()
         return is_converged

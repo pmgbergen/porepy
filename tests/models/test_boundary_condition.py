@@ -183,7 +183,7 @@ class BCRobin(pp.PorePyModel):
     """
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Sets Robin and Dirichlet conditions for the test setup.
+        """Sets Robin and Dirichlet conditions.
 
         Sets Dirichlet boundary condition type on the Dirichlet index-boundaries and
         Robin on all others.
@@ -228,7 +228,7 @@ class BCNeumannReference(pp.PorePyModel):
     """Set Dirichlet and Neumann for momentum balance and mass and energy balance."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Assigns Neumann and Dirichlet boundaries for the Neumann reference setup."""
+        """Assigns Neumann and Dirichlet boundaries for the Neumann case."""
         bc = pp.BoundaryConditionVectorial(sd, self.dir_inds(sd), "dir")
         return bc
 
@@ -264,7 +264,7 @@ class BCValuesFlux(pp.PorePyModel):
         val = 24
         if self.params["alpha"] > 0:  # Robin-Dirichlet
             # The flux value here will be the value of the Robin condition and not seen
-            # in the Dirichlet reference setup. We need to multiply with the cell volume
+            # in the Dirichlet reference case. We need to multiply with the cell volume
             # and the alpha value to account for Robin being interpreted as an
             # integrated flux (volume) and being compared to alpha * u, since the Robin
             # condition is on the form sigma * n + alpha * u = G and the first term is
@@ -275,12 +275,12 @@ class BCValuesFlux(pp.PorePyModel):
         return values.ravel("F")
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns stress values on the non-Dirichlet boundaries for the test setup."""
+        """Assigns stress values on the non-Dirichlet boundaries."""
         values = np.zeros((self.nd, bg.num_cells))
         val = 24
         if self.params["alpha"] > 0:  # Robin-Dirichlet
             # The flux value here will be the value of the Robin condition and not seen
-            # in the Dirichlet reference setup. We need to multiply with the cell volume
+            # in the Dirichlet reference case. We need to multiply with the cell volume
             # and the alpha value to account for Robin being interpreted as an
             # integrated flux (volume) and being compared to alpha * u, since the Robin
             # condition is on the form sigma * n + alpha * u = G and the first term is
@@ -341,11 +341,11 @@ class CommonMassEnergyBalance(
     BCValuesFlux,
     pp.MassAndEnergyBalance,
 ):
-    """Base mass and energy balance setup.
+    """Base mass and energy balance model.
 
-    The setup in this class is common for the reference class for mass and energy
+    The model in this class is common for the reference class for mass and energy
     balance and for the "test" class for mass and energy balance. The "test" class is
-    the class which represents a problem setup with Robin boundaries.
+    the class which represents a problem model with Robin boundaries.
 
     """
 
@@ -365,11 +365,11 @@ class CommonMomentumBalance(
     BCValuesFlux,
     MomentumBalance,
 ):
-    """Base momentum balance setup.
+    """Base momentum balance model.
 
-    The setup in this class is common for the reference class for momentum balance and
+    The model in this class is common for the reference class for momentum balance and
     for the "test" class for momentum balance. The "test" class is the class which
-    represents a problem setup with Robin boundaries.
+    represents a problem model with Robin boundaries.
 
     """
 

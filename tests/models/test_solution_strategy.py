@@ -34,7 +34,7 @@ import porepy as pp
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 
-from .test_poromechanics import TailoredPoromechanics, create_fractured_setup
+from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
@@ -46,16 +46,16 @@ visualization_dir = Path("visualization")
 def create_restart_model(
     solid_vals: dict, fluid_vals: dict, uy_north: float, restart: bool
 ) -> TailoredPoromechanics:
-    # Create fractured setup
-    fractured_setup = create_fractured_setup(solid_vals, fluid_vals, {}, uy_north)
+    # Create model with a fractured geometry
+    model = create_model_with_fracture(solid_vals, fluid_vals, {}, uy_north)
 
     # Fetch parameters for enhancing them
-    params = fractured_setup.params
+    params = model.params
 
     # Enable exporting
     params["times_to_export"] = None
 
-    # Add time stepping to the setup
+    # Add time stepping to the model
     params["time_manager"] = pp.TimeManager(
         schedule=[0, 1], dt_init=0.5, constant_dt=True
     )
@@ -67,7 +67,7 @@ def create_restart_model(
         "times_file": reference_dir / Path("previous_times.json"),
     }
 
-    # Redefine setup
+    # Redefine model
     model = TailoredPoromechanics(params)
     return model
 
