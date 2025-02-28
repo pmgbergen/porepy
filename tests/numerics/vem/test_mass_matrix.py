@@ -3,7 +3,6 @@
 from typing import Union
 
 import numpy as np
-import pytest
 
 import porepy as pp
 from porepy.fracs.fracture_network_2d import FractureNetwork2d

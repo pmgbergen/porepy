@@ -385,7 +385,6 @@ class MomentumBalanceRobin(BCRobin, CommonMomentumBalance):
 
 def run_model(model_class: type[pp.PorePyModel], alpha: float) -> dict[str, np.ndarray]:
     params = {
-        "times_to_export": [],
         "fracture_indices": [],
         "meshing_arguments": {"cell_size": 0.5},
         "times_to_export": [],  # Suppress output for tests

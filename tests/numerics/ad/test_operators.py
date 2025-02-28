@@ -29,7 +29,6 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
-from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 
 AdType = Union[float, np.ndarray, sps.spmatrix, pp.ad.AdArray]
 _operations = pp.ad.operators.Operations
@@ -1626,7 +1625,7 @@ def test_arithmetic_operations_on_ad_objects(
                 [equation_system.get_variable_values(time_step_index=0)]
             )[0]
             val = equation_system._ad_parser._evaluate_single(expression, state, equation_system)
-        except (TypeError, ValueError, NotImplementedError) as e:
+        except (TypeError, ValueError, NotImplementedError):
             # The variable e is not used here, but it is invaluable for debugging.
             assert not expected
             return

@@ -284,11 +284,6 @@ def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | Ad
     as numpy for ``.val`` only.
 
     """
-
-    val = np.arange(N)
-    jac = sps.csr_matrix(np.eye(N))
-    ad = AdArray(val, jac)
-
     global result_numpy, result_ad
     result_numpy = np.empty(N)
     result_ad = np.empty(N)
@@ -308,7 +303,7 @@ def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | Ad
             exec(f"result_ad = ad {logical_op} other")
 
         # Comparison of exceptions by type and message content
-        assert ad_error.type == type(numpy_err)
+        assert ad_error.type is type(numpy_err)
         assert str(ad_error.value) == str(numpy_err)
     # If numpy does not fail, the logical operation on AD should have same result,
     # dtype and shape

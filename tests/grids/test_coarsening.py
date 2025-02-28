@@ -29,7 +29,7 @@ class TestPartitioning:
 
         pt = np.tile(np.array([2, 1, 0]), (g.nodes.shape[1], 1)).T
         find = np.isclose(pt, g.nodes).all(axis=0)
-        assert find.any() == False
+        assert not find.any()
 
         faces_cell0, _, orient_cell0 = sparse_array_to_row_col_data(g.cell_faces[:, 0])
         assert np.array_equal(faces_cell0, [1, 2, 4, 5, 7, 8, 10, 11])

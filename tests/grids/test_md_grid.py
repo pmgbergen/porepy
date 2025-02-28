@@ -251,13 +251,13 @@ def test_sort_lists():
     intf_list = mdg.interfaces()
 
     sd_list_random = [sd_1, sd_4, sd_2, sd_3]
-    sorted_sds = mdg.sort_subdomains(sd_list_random)
-    for sd_0, sd_1 in zip(sd_list, sorted_sds):
+    sorted_subdomains = mdg.sort_subdomains(sd_list_random)
+    for sd_0, sd_1 in zip(sd_list, sorted_subdomains):
         assert sd_0 == sd_1
     # Same for interfaces
     intf_list_random = [intf_21, intf_43, intf_31]
-    sorted_intfs = mdg.sort_interfaces(intf_list_random)
-    for intf_0, intf_1 in zip(intf_list, sorted_intfs):
+    sorted_interfaces = mdg.sort_interfaces(intf_list_random)
+    for intf_0, intf_1 in zip(intf_list, sorted_interfaces):
         assert intf_0 == intf_1
 
     subdomains_132 = [sd_1, sd_3, sd_2]
