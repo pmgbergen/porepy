@@ -30,7 +30,7 @@ class CustomBoundaryCondition(pp.PorePyModel):
             name=self.custom_bc_neumann_key, function=self.bc_values_neumann
         )
 
-    def bc_values_neumann(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_neumann(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Returns values on the whole boundary. We implicitly rely on the filter that
         sets zeros at the cells related to Dirichlet condition.
 
@@ -38,12 +38,12 @@ class CustomBoundaryCondition(pp.PorePyModel):
 
         """
         t = self.time_manager.time
-        return np.arange(boundary_grid.num_cells) * boundary_grid.parent.dim * t
+        return np.arange(bg.num_cells) * bg.parent.dim * t
 
-    def bc_type_dummy(self, subdomain: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_dummy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """The north boundary is Dirichlet, the remainder is Neumann."""
-        sides = self.domain_boundary_sides(subdomain)
-        return pp.BoundaryCondition(sd=subdomain, faces=sides.north, cond="dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd=sd, faces=domain_sides.north, cond="dir")
 
     def create_dummy_ad_boundary_condition(
         self, subdomains: Sequence[pp.Grid]
@@ -123,7 +123,7 @@ class BCValuesDirichletIndices(pp.PorePyModel):
 
     """
 
-    def rob_inds(self, g) -> np.ndarray:
+    def rob_inds(self, sd) -> np.ndarray:
         """Indices for the non-Dirichlet boundaries for test.
 
         The Robin limit case test tests Robin approximating either Dirichlet or Neumann.
@@ -133,10 +133,10 @@ class BCValuesDirichletIndices(pp.PorePyModel):
         indices.
 
         """
-        bounds = self.domain_boundary_sides(g)
-        return bounds.north + bounds.south
+        domain_sides = self.domain_boundary_sides(sd)
+        return domain_sides.north + domain_sides.south
 
-    def dir_inds(self, g) -> np.ndarray:
+    def dir_inds(self, sd) -> np.ndarray:
         """Indices for the Dirichlet boundaries for test.
 
         The Robin limit case test tests Robin approximating either Dirichlet or Neumann.
@@ -146,8 +146,8 @@ class BCValuesDirichletIndices(pp.PorePyModel):
         indices.
 
         """
-        bounds = self.domain_boundary_sides(g)
-        return bounds.west + bounds.east
+        domain_sides = self.domain_boundary_sides(sd)
+        return domain_sides.west + domain_sides.east
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns displacement values in the x-direction of the Dirichlet boundaries."""
@@ -189,8 +189,8 @@ class BCRobin(pp.PorePyModel):
         Robin on all others.
 
         """
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "rob")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, domain_sides.all_bf, "rob")
         bc.is_rob[:, self.dir_inds(sd)] = False
         bc.is_dir[:, self.dir_inds(sd)] = True
 
@@ -209,8 +209,8 @@ class BCRobin(pp.PorePyModel):
         Robin on all others.
 
         """
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.all_bf, "rob")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, domain_sides.all_bf, "rob")
         bc.is_rob[self.dir_inds(sd)] = False
         bc.is_dir[self.dir_inds(sd)] = True
 
@@ -229,7 +229,6 @@ class BCNeumannReference(pp.PorePyModel):
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Assigns Neumann and Dirichlet boundaries for the Neumann reference setup."""
-        bounds = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(sd, self.dir_inds(sd), "dir")
         return bc
 
@@ -297,8 +296,8 @@ class BCDirichletReference(pp.PorePyModel):
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Assigns Dirichlet boundaries on all domain boundary sides."""
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, domain_sides.all_bf, "dir")
         return bc
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -307,8 +306,8 @@ class BCDirichletReference(pp.PorePyModel):
         The function sets Dirichlet on all boundaries.
 
         """
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.all_bf, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, domain_sides.all_bf, "dir")
         return bc
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -419,7 +418,7 @@ def run_model(model_class: type[pp.PorePyModel], alpha: float) -> dict[str, np.n
 def test_robin_limit_case(
     model_class: type[pp.PorePyModel],
     reference_model_class: type[pp.PorePyModel],
-    alpha: float
+    alpha: float,
 ):
     """Test Robin limit cases.
 
