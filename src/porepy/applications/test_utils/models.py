@@ -166,15 +166,15 @@ class RobinDirichletNeumannConditions(pp.PorePyModel):
     """Mixin for applying Neumann, Dirichlet and Robin conditions for a
     thermoporomechanics model."""
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns pressure values on the north and south boundary."""
         p_north = self.params.get("pressure_north", 1)
         p_south = self.params.get("pressure_south", 1)
-        values = np.zeros(boundary_grid.num_cells)
-        bounds = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros(bg.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
 
-        values[bounds.north] += np.ones(len(values[bounds.north])) * p_north
-        values[bounds.south] += np.ones(len(values[bounds.south])) * p_south
+        values[domain_sides.north] += np.ones(len(values[domain_sides.north])) * p_north
+        values[domain_sides.south] += np.ones(len(values[domain_sides.south])) * p_south
         return values
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
@@ -183,16 +183,16 @@ class RobinDirichletNeumannConditions(pp.PorePyModel):
         Puts Robin on west, Neumann on east and Dirichlet on north and south.
 
         """
-        bounds = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(
             sd,
-            bounds.north + bounds.south + bounds.east + bounds.west,
+            domain_sides.north + domain_sides.south + domain_sides.east + domain_sides.west,
             "dir",
         )
-        bc.is_dir[:, bounds.west + bounds.east] = False
+        bc.is_dir[:, domain_sides.west + domain_sides.east] = False
 
-        bc.is_rob[:, bounds.west] = True
-        bc.is_neu[:, bounds.east] = True
+        bc.is_rob[:, domain_sides.west] = True
+        bc.is_neu[:, domain_sides.east] = True
 
         # Assign the robin weight
         r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
@@ -205,13 +205,15 @@ class RobinDirichletNeumannConditions(pp.PorePyModel):
         Puts Robin on west, Neumann on east and Dirichlet on north and south.
 
         """
-        bounds = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         bc = pp.BoundaryCondition(
-            sd, bounds.north + bounds.south + bounds.west + bounds.east, "dir"
+            sd,
+            domain_sides.north + domain_sides.south + domain_sides.west + domain_sides.east,
+            "dir",
         )
-        bc.is_dir[bounds.west + bounds.east] = False
-        bc.is_rob[bounds.west] = True
-        bc.is_neu[bounds.east] = True
+        bc.is_dir[domain_sides.west + domain_sides.east] = False
+        bc.is_rob[domain_sides.west] = True
+        bc.is_neu[domain_sides.east] = True
 
         bc.robin_weight = np.ones(sd.num_faces)
         return bc
@@ -222,26 +224,26 @@ class RobinDirichletNeumannConditions(pp.PorePyModel):
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self._bc_type_scalar(sd=sd)
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Darcy flux values on the west and east boundaries."""
         df_west = self.params.get("darcy_flux_west", 1)
         df_east = self.params.get("darcy_flux_east", 1)
-        values = np.zeros(boundary_grid.num_cells)
-        bounds = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros(bg.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
 
-        values[bounds.west] += np.ones(len(values[bounds.west])) * df_west
-        values[bounds.east] += np.ones(len(values[bounds.east])) * df_east
+        values[domain_sides.west] += np.ones(len(values[domain_sides.west])) * df_west
+        values[domain_sides.east] += np.ones(len(values[domain_sides.east])) * df_east
         return values
 
-    def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Fourier flux values on the west and east boundaries."""
         ff_west = self.params.get("fourier_flux_west", 1)
         ff_east = self.params.get("fourier_flux_east", 1)
-        values = np.zeros(boundary_grid.num_cells)
-        bounds = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros(bg.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
 
-        values[bounds.west] += np.ones(len(values[bounds.west])) * ff_west
-        values[bounds.east] += np.ones(len(values[bounds.east])) * ff_east
+        values[domain_sides.west] += np.ones(len(values[domain_sides.west])) * ff_west
+        values[domain_sides.east] += np.ones(len(values[domain_sides.east])) * ff_east
         return values
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -249,10 +251,14 @@ class RobinDirichletNeumannConditions(pp.PorePyModel):
         ms_west = self.params.get("mechanical_stress_west", 1)
         ms_east = self.params.get("mechanical_stress_east", 1)
         values = np.zeros((self.nd, bg.num_cells))
-        bounds = self.domain_boundary_sides(bg)
+        domain_sides = self.domain_boundary_sides(bg)
 
-        values[0][bounds.west] += np.ones(len(values[0][bounds.west])) * ms_west
-        values[0][bounds.east] += np.ones(len(values[0][bounds.east])) * ms_east
+        values[0][domain_sides.west] += (
+            np.ones(len(values[0][domain_sides.west])) * ms_west
+        )
+        values[0][domain_sides.east] += (
+            np.ones(len(values[0][domain_sides.east])) * ms_east
+        )
         return values.ravel("F")
 
 
