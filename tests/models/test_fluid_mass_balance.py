@@ -552,7 +552,7 @@ def test_mobility_single_phase_flow(
     ],
 )
 @pytest.mark.parametrize(
-    "grid",
+    "grid_class",
     [
         SquareDomainOrthogonalFractures,
         NonMatchingSquareDomainOrthogonalFractures,

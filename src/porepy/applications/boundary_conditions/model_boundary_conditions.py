@@ -241,8 +241,12 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.PorePyModel):
         u_s = np.tile(
             self.params.get("u_south", np.zeros(self.nd)), (bg.num_cells, 1)
         ).T
-        values[:, domain_sides.north] = self.units.convert_units(u_n, "m")[ :, domain_sides.north ]
-        values[:, domain_sides.south] = self.units.convert_units(u_s, "m")[ :, domain_sides.south ]
+        values[:, domain_sides.north] = self.units.convert_units(u_n, "m")[
+            :, domain_sides.north
+        ]
+        values[:, domain_sides.south] = self.units.convert_units(u_s, "m")[
+            :, domain_sides.south
+        ]
         return values.ravel("F")
 
 
