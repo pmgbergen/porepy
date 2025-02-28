@@ -72,9 +72,8 @@ def compare_matrices(m1: sps.spmatrix, m2: sps.spmatrix, tol: float = 1e-10) -> 
     return True
 
 
-def projection_matrix_from_matrix_slicer(
-    slicers: pp.matrix_operations.MatrixSlicer
-    | list[pp.matrix_operations.MatrixSlicer],
+def projection_matrix_from_array_slicers(
+    slicers: pp.matrix_operations.ArraySlicer | list[pp.matrix_operations.ArraySlicer],
     dim: int,
 ) -> sps.coo_matrix:
     """Recover a projection matrix from a one or multiple matrix slicers.
@@ -84,7 +83,7 @@ def projection_matrix_from_matrix_slicer(
         P = P_1 + P_2 + ... + P_n.
 
     Parameters:
-        slicers: Basis vector(s) as one or more operators.
+        slicers: One or more ArraySlicers.
         dim: Dimension of the domain space of the slicer.
 
     Returns:
@@ -92,7 +91,7 @@ def projection_matrix_from_matrix_slicer(
 
     """
     # Always deal with a list of slicers.
-    if isinstance(slicers, pp.matrix_operations.MatrixSlicer):
+    if isinstance(slicers, pp.matrix_operations.ArraySlicer):
         slicers = [slicers]
 
     # Initialize result.

@@ -359,7 +359,7 @@ def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
         return sps.csr_matrix((data, indices, indptr), shape=(N, A.shape[1]))
 
 
-class MatrixSlicer:
+class ArraySlicer:
     """Class for slicing (sparse) matrices, vectors, and AD arrays.
 
     Operating with this class is equivalent to using a projection matrix. However, using
@@ -376,22 +376,22 @@ class MatrixSlicer:
         then permits the following classes of operations:
 
         1. Restrict y to elements 0 and 2:
-            >>> S = MatrixSlicer(domain_indices=np.array([0, 2]))
+            >>> S = ArraySlicer(domain_indices=np.array([0, 2]))
             >>> y_restricted = S @ y
             This is a mapping from R^4 to R^2 (or the natural generalization if y is a
             matrix).
         2. Map y to a larger space, so that element 0 goes to dimension 0, 1 -> 2, 2 ->
-            4, 3 -> 1: >>> S = MatrixSlicer(range_indices=np.array([0, 2, 4, 1])) >>>
+            4, 3 -> 1: >>> S = ArraySlicer(range_indices=np.array([0, 2, 4, 1])) >>>
             y_mapped = S @ y This is a mapping from R^4 to R^5, since the highest index
             in range_indices is 4 (and it is 0-offset).
         3. Do the same operation as in 2., but leave out the mapping of element 1:
-            >>> S = MatrixSlicer(domain_indices=np.array([0, 2, 3]),
+            >>> S = ArraySlicer(domain_indices=np.array([0, 2, 3]),
                                  range_indices=np.array([0, 4, 1])
                                 )
             >>> y_mapped = S @ y
         4. Set the size of the range space explicitly (it must be at least as large as
             the size implied by range_indices): >>> S =
-            MatrixSlicer(domain_indices=np.array([0, 2, 3]),
+            ArraySlicer(domain_indices=np.array([0, 2, 3]),
                                  range_indices=np.array([0, 4, 1]), range_size=7
                                 )
             >>> y_mapped = S @ y
@@ -406,7 +406,7 @@ class MatrixSlicer:
 
             A x S @ y
 
-        where S is a MatrixSlicer instance and y is a quantity to be sliced. Depending
+        where S is a ArraySlicer instance and y is a quantity to be sliced. Depending
         on the operator x, and following Python's rules for operator precedence, the
         expression will be evaluated as either 'A x (S @ y)' or '(A x S) @ y', where the
         former is the only reasonable interpretation. Unfortunately, if x has equal
@@ -414,10 +414,10 @@ class MatrixSlicer:
         '(A x S) @ y'. This can of course be enforced by using parentheses, but doing so
         throughout the code will become cumbersome and error-prone (note that the need
         for parantheses will carry over the Ad operators when a representation of the
-        MatrixSlicer is introduced in that framework). If x has higher precedence than
+        ArraySlicer is introduced in that framework). If x has higher precedence than
         @, parantheses around S @ y are needed.
 
-        As a partial remedy, the MatrixSlicer implements methods __rmatmul__, __rmul__,
+        As a partial remedy, the ArraySlicer implements methods __rmatmul__, __rmul__,
         and __rtruediv__ to handle cases where it is the right operand. These are the
         relevant operands (e.g., not integer division or the modulus operator) that have
         equal precedence with @, where issues can arise. These special methods use
@@ -427,9 +427,9 @@ class MatrixSlicer:
         *However*, this only works if the methods __rmul__ etc. are called in the first
         place. Fundamental data types in python (int, float) will do so, as will scipy
         sparse matrices. *Numpy arrays will most likely not do so*. Instead, it will use
-        its own __mul__ method with the MatrixSlicer as the right operand, and probably
+        its own __mul__ method with the ArraySlicer as the right operand, and probably
         return a numpy array with data type object. Some rules of thumb therefore apply:
-            1. Be careful when using the MatrixSlicer in chained operations, in
+            1. Be careful when using the ArraySlicer in chained operations, in
                particular with numpy arrays.
             2. If in doubt, use parantheses.
 
@@ -489,7 +489,7 @@ class MatrixSlicer:
         # Variable to store pending operations and operand; see class documentation for
         # description.
         self._pending_operation: str | None = None
-        self._pending_operand: MatrixSlicer | None = None
+        self._pending_operand: ArraySlicer | None = None
 
         self._is_transposed = False
 
@@ -509,10 +509,10 @@ class MatrixSlicer:
     def domain_size(self) -> int:
         return self._domain_size
 
-    def transpose(self) -> MatrixSlicer:
-        """Return a transposed MatrixSlicer.
+    def transpose(self) -> ArraySlicer:
+        """Return a transposed ArraySlicer.
 
-        A transposed MatrixSlicer will slice the matrix along columns instead of rows.
+        A transposed ArraySlicer will slice the matrix along columns instead of rows.
         The domain and range indices will refer to columns instead of rows. The range
         size will be the number of columns in the resulting matrix. The transpose
         operation has no effect on the slicing of vectors, while, if applied to an
@@ -520,10 +520,10 @@ class MatrixSlicer:
         treated in a row-wise manner.
 
         Returns:
-            A transposed MatrixSlicer.
+            A transposed ArraySlicer.
 
         """
-        obj = MatrixSlicer(
+        obj = ArraySlicer(
             domain_indices=self._range_indices,
             range_indices=self._domain_indices,
             range_size=self._domain_size,
@@ -533,16 +533,16 @@ class MatrixSlicer:
         obj._is_transposed = not obj._is_transposed
         return obj
 
-    def __getattr__(self, name: str) -> MatrixSlicer:
+    def __getattr__(self, name: str) -> ArraySlicer:
         """Implement the transpose operation as an attribute. This enables the user to
         write S.T instead of S.transpose().
         """
         if name == "T":
             return self.transpose()
-        raise AttributeError(f"MatrixSlicer has no attribute {name}")
+        raise AttributeError(f"ArraySlicer has no attribute {name}")
 
     def __repr__(self) -> str:
-        s = "MatrixSlicer object\n"
+        s = "ArraySlicer object\n"
         s += f"Domain size: {self._domain_size}, "
         s += f"number of domain indices: {self._domain_indices.size}.\n"
         s += f"Range size: {self._range_size}, "
@@ -550,15 +550,15 @@ class MatrixSlicer:
         s += f"Is onto: {self._is_onto}, is transposed: {self._is_transposed}.\n"
         return s
 
-    def copy(self) -> MatrixSlicer:
-        """Create a copy of the MatrixSlicer instance.
+    def copy(self) -> ArraySlicer:
+        """Create a copy of the ArraySlicer instance.
 
         Returns:
-            A new instance of MatrixSlicer with the same domain and range indices,
+            A new instance of ArraySlicer with the same domain and range indices,
             range size, and state of `is_onto` and `is_transpose`.
 
         """
-        slicer = MatrixSlicer(
+        slicer = ArraySlicer(
             domain_indices=self._domain_indices,
             range_indices=self._range_indices,
             range_size=self._range_size,
@@ -576,18 +576,18 @@ class MatrixSlicer:
     @overload
     def __matmul__(self, x: pp.ad.AdArray) -> pp.ad.AdArray: ...
     @overload
-    def __matmul__(self, x: MatrixSlicer) -> MatrixSlicer: ...
+    def __matmul__(self, x: ArraySlicer) -> ArraySlicer: ...
     @overload
     def __matmul__(self, x: sps.spmatrix) -> sps.spmatrix: ...
 
     def __matmul__(
-        self, x: np.ndarray | sps.spmatrix | pp.ad.AdArray | MatrixSlicer
-    ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray | MatrixSlicer:
+        self, x: np.ndarray | sps.spmatrix | pp.ad.AdArray | ArraySlicer
+    ) -> np.ndarray | sps.spmatrix | pp.ad.AdArray | ArraySlicer:
         # Separate handling for different types of input.
-        if isinstance(x, MatrixSlicer):
+        if isinstance(x, ArraySlicer):
             # This is a case of S_0 @ S_1 @ y, where S_0 (self) and S_1 are
-            # MatrixSlicers. We need to postpone the operation. Assign self as the
-            # pending operand, and the MatrixSlicer as the pending operation *to the
+            # ArraySlicers. We need to postpone the operation. Assign self as the
+            # pending operand, and the ArraySlicer as the pending operation *to the
             # other operand* (S_1).
             x._pending_operand = self
             x._pending_operation = "@"
@@ -614,7 +614,7 @@ class MatrixSlicer:
             return sliced
 
     def __rmatmul__(self, other):
-        """The MatrixSlicer is the right operand in the matrix multiplication. This
+        """The ArraySlicer is the right operand in the matrix multiplication. This
         handles the case of chained operations discussed in the class documentation.
         """
         # Implementation note: Copy is used to avoid modifying the original object; this
@@ -625,7 +625,7 @@ class MatrixSlicer:
         return slicer
 
     def __rmul__(self, other):
-        """Handle the right multiplication of the MatrixSlicer by another operand.
+        """Handle the right multiplication of the ArraySlicer by another operand.
 
         See class documentation for details.
         """
@@ -635,7 +635,7 @@ class MatrixSlicer:
         return slicer
 
     def __rtruediv__(self, other):
-        """Handle the right division of the MatrixSlicer by another operand.
+        """Handle the right division of the ArraySlicer by another operand.
 
         See class documentation for details.
         """
@@ -649,7 +649,7 @@ class MatrixSlicer:
         explicitly raise a ValueError for this case, since the user is likely to try
         slicing by multiplication.
         """
-        raise ValueError("MatrixSlicer does not support multiplication. Use @ instead.")
+        raise ValueError("ArraySlicer does not support multiplication. Use @ instead.")
 
     def _slice_vector(self, x: np.ndarray) -> np.ndarray:
         """Slice a vector.
@@ -668,7 +668,7 @@ class MatrixSlicer:
             vec = np.zeros(self._range_size)
         elif x.ndim == 2:
             # 2d dense arrays are not really intended used in the Ad framework, which is
-            # the primary client of the MatrixSlicer. However, we can handle them, and
+            # the primary client of the ArraySlicer. However, we can handle them, and
             # they are invaluable for testing.
             vec = np.zeros((self._range_size, x.shape[1]))
         else:

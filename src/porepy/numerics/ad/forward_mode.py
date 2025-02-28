@@ -292,7 +292,7 @@ class AdArray:
             )
             return AdArray(new_val, new_jac)
 
-        elif isinstance(other, pp.matrix_operations.MatrixSlicer):
+        elif isinstance(other, pp.matrix_operations.ArraySlicer):
             return other.__rmul__(self)
 
         else:
@@ -482,7 +482,7 @@ class AdArray:
         elif isinstance(other, sps.spmatrix):
             raise ValueError("AdArrays cannot be divided by sparse matrices.")
 
-        elif isinstance(other, pp.matrix_operations.MatrixSlicer):
+        elif isinstance(other, pp.matrix_operations.ArraySlicer):
             return other.__rtruediv__(self)
 
         elif isinstance(other, pp.ad.AdArray):
