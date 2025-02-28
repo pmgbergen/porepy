@@ -285,6 +285,13 @@ def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | Ad
     as numpy for ``.val`` only.
 
     """
+
+    val = np.arange(N)
+    jac = sps.csr_matrix(np.eye(N))
+    # Ignore ad not being accessed, it is used in the exec statement.
+    ad = AdArray(val, jac)  # noqa: F841
+
+
     global result_numpy, result_ad
     result_numpy = np.empty(N)
     result_ad = np.empty(N)
