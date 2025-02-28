@@ -1084,10 +1084,6 @@ def _find_cell_color(g: pp.Grid, cells: np.ndarray) -> np.ndarray:
     child_cell_ind = -np.ones(g.num_cells, dtype=int)
     child_cell_ind[c] = np.arange(cell_faces.shape[1])
 
-    # Create a copy of the cell-face relation, so that we can modify it at will.
-    # RB: I don't think this is necessary as slice_sparse_matrix creates a copy cell_faces =
-    # cf_sub.copy()
-
     # Direction of normal vector does not matter here, only 0s and 1s
     cell_faces.data = np.abs(cell_faces.data)
 

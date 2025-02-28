@@ -449,9 +449,8 @@ class ArraySlicer:
         # Keep track of whether this is an onto projection.
         is_onto = False
         if domain_indices is not None and range_indices is None:
-            # If only domain indices are given, the range is assumed to be the same size
-            # as the domain. The slicing will then be a simple restriction of the
-            # domain.
+            # If only domain indices are given, the range is assigned indices from 0 to
+            # the number of domain indices.
             range_indices = np.arange(domain_indices.size)
             if range_size is None:
                 # This case can be handled with scipy sparse slicing.
