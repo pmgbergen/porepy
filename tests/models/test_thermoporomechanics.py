@@ -307,7 +307,7 @@ def test_robin_boundary_flux():
     model = TailoredPoromechanicsRobin(model_params)
     pp.run_time_dependent_model(model)
 
-    subdomain = model.mdg.subdomains(dim=model.nd, return_data=True)[0][0]
+    sd = model.mdg.subdomains(dim=model.nd, return_data=True)[0][0]
 
     bc_operators = {
         "darcy_flux": model.combine_boundary_operators_darcy_flux,
@@ -317,38 +317,38 @@ def test_robin_boundary_flux():
 
     # Create dictionary of evaluated boundary operators in bc_operators
     values = {
-        key: model.equation_system.evaluate(operator([subdomain]))
+        key: model.equation_system.evaluate(operator([sd]))
         for key, operator in bc_operators.items()
     }
 
     # Reshape mechanical stress values
     values["mechanical_stress"] = values["mechanical_stress"].reshape(
-        (model.nd, subdomain.num_faces), order="F"
+        (model.nd, sd.num_faces), order="F"
     )
 
     # Get boundary sides and assert boundary condition values
-    bounds = model.domain_boundary_sides(subdomain)
+    domain_sides = model.domain_boundary_sides(sd)
 
     assert np.allclose(
-        values["darcy_flux"][bounds.west], model_params["darcy_flux_west"]
+        values["darcy_flux"][domain_sides.west], model_params["darcy_flux_west"]
     )
     assert np.allclose(
-        values["darcy_flux"][bounds.east], model_params["darcy_flux_east"]
-    )
-
-    assert np.allclose(
-        values["fourier_flux"][bounds.west], model_params["fourier_flux_west"]
-    )
-    assert np.allclose(
-        values["fourier_flux"][bounds.east], model_params["fourier_flux_east"]
+        values["darcy_flux"][domain_sides.east], model_params["darcy_flux_east"]
     )
 
     assert np.allclose(
-        values["mechanical_stress"][0][bounds.west],
+        values["fourier_flux"][domain_sides.west], model_params["fourier_flux_west"]
+    )
+    assert np.allclose(
+        values["fourier_flux"][domain_sides.east], model_params["fourier_flux_east"]
+    )
+
+    assert np.allclose(
+        values["mechanical_stress"][0][domain_sides.west],
         model_params["mechanical_stress_west"],
     )
     assert np.allclose(
-        values["mechanical_stress"][0][bounds.east],
+        values["mechanical_stress"][0][domain_sides.east],
         model_params["mechanical_stress_east"],
     )
 
@@ -359,11 +359,15 @@ def test_robin_boundary_flux():
     # First constructing the pressure operator and evaluating it, then finding the
     # indices of the north and south boundaries in the pressure_values array, before
     # finally asserting that the values are correct.
-    bg = model.mdg.subdomain_to_boundary_grid(subdomain)
+    bg = model.mdg.subdomain_to_boundary_grid(sd)
     pressure_values = model.equation_system.evaluate(model.pressure([bg]))
 
-    ind_north = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.north)[0]))[0]
-    ind_south = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.south)[0]))[0]
+    ind_north = np.nonzero(
+        np.isin(domain_sides.all_bf, np.where(domain_sides.north)[0])
+    )[0]
+    ind_south = np.nonzero(
+        np.isin(domain_sides.all_bf, np.where(domain_sides.south)[0])
+    )[0]
 
     assert np.allclose(pressure_values[ind_north], model_params["pressure_north"])
     assert np.allclose(pressure_values[ind_south], model_params["pressure_south"])
