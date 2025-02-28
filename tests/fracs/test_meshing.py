@@ -3,6 +3,7 @@
 So far, only a test of the function _tag_faces() is implemented.
 
 """
+
 import numpy as np
 
 from porepy.applications.test_utils import reference_dense_arrays

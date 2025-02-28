@@ -3,6 +3,7 @@
 The test coverage is somewhat patchy for now, see however additional tests (primarily in
 the bounding box functionality) in test_fracture_network.py.
 """
+
 import numpy as np
 import pytest
 
@@ -145,38 +146,47 @@ def test_domain_contains_point(dim):
         assert (p in domain) == i
 
 
-@pytest.mark.parametrize("g,known", [
-    # A 2d grid, cells have unit size.
-    (pp.CartGrid([2, 2]),
-        {"west": np.array([0, 3]),
-        "east": np.array([2, 5]),
-        "south": np.array([6, 7]),
-        "north": np.array([10, 11]),
-        "bottom": np.array([], dtype=int),
-        "top": np.array([], dtype=int)
-        }
-    ),
-    # A 2d grid with 2x2 cells, the full domain has unit size.
-    (pp.CartGrid([2, 2], physdims=[1, 1]),
-        {"west": np.array([0, 3]),
-        "east": np.array([2, 5]),
-        "south": np.array([6, 7]),
-        "north": np.array([10, 11]),
-        "bottom": np.array([], dtype=int),
-        "top": np.array([], dtype=int)
-        }
-    ),
-    # A 3d grid.
-    (pp.CartGrid([2, 2, 2]),
-        {"west": np.array([0, 3, 6, 9]),
-        "east": np.array([2, 5, 8, 11]),
-        "south": np.array([12, 13, 18, 19]),
-        "north": np.array([16, 17, 22, 23]),
-        "bottom": np.array([24, 25, 26, 27]),
-        "top": np.array([32, 33, 34, 35])
-        }
-    )
-])
+@pytest.mark.parametrize(
+    "g,known",
+    [
+        # A 2d grid, cells have unit size.
+        (
+            pp.CartGrid([2, 2]),
+            {
+                "west": np.array([0, 3]),
+                "east": np.array([2, 5]),
+                "south": np.array([6, 7]),
+                "north": np.array([10, 11]),
+                "bottom": np.array([], dtype=int),
+                "top": np.array([], dtype=int),
+            },
+        ),
+        # A 2d grid with 2x2 cells, the full domain has unit size.
+        (
+            pp.CartGrid([2, 2], physdims=[1, 1]),
+            {
+                "west": np.array([0, 3]),
+                "east": np.array([2, 5]),
+                "south": np.array([6, 7]),
+                "north": np.array([10, 11]),
+                "bottom": np.array([], dtype=int),
+                "top": np.array([], dtype=int),
+            },
+        ),
+        # A 3d grid.
+        (
+            pp.CartGrid([2, 2, 2]),
+            {
+                "west": np.array([0, 3, 6, 9]),
+                "east": np.array([2, 5, 8, 11]),
+                "south": np.array([12, 13, 18, 19]),
+                "north": np.array([16, 17, 22, 23]),
+                "bottom": np.array([24, 25, 26, 27]),
+                "top": np.array([32, 33, 34, 35]),
+            },
+        ),
+    ],
+)
 def test_domain_sides_from_grid(g: pp.Grid, known: dict):
     """Test the Domain.sides_from_grid method.
 

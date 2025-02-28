@@ -278,7 +278,9 @@ class LinearTracerDataSaving_1p(pp.PorePyModel):
         exact_p = self.exact_sol.pressure(subdomains[0])
         approx_z_tracer = tracer.fraction(subdomains).value(self.equation_system)
         exact_z_tracer = self.exact_sol.tracer_fraction(subdomains[0], t)
-        diffused_z_tracer = self.exact_sol.diffused_tracer_fraction(subdomains[0], t, dt)
+        diffused_z_tracer = self.exact_sol.diffused_tracer_fraction(
+            subdomains[0], t, dt
+        )
 
         return LinearTracerSaveData(
             approx_z_tracer=approx_z_tracer,
@@ -726,7 +728,8 @@ class ModelClosure_3p(pp.LocalElimination):
         # Local mass conservation for the tracer.
         op = tracer.fraction(subdomains) - pp.ad.sum_operator_list(
             [
-                phase.fraction(subdomains) * phase.partial_fraction_of[tracer](subdomains)
+                phase.fraction(subdomains)
+                * phase.partial_fraction_of[tracer](subdomains)
                 for phase in self.fluid.phases
             ]
         )

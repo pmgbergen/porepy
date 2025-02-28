@@ -23,6 +23,7 @@ References:
       media using PorePy. Results in Applied Mathematics, 21, 100428.
 
 """
+
 from __future__ import annotations
 
 import numpy as np

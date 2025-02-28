@@ -1,4 +1,5 @@
 """Tests for the Biot discretization."""
+
 import numpy as np
 import pytest
 
@@ -36,7 +37,9 @@ def discretization_matrices(flow_keyword, mechanics_keyword):
 
     discr = pp.Biot()
     discr.discretize(g, data)
-    displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][discr.displacement_divergence_matrix_key]
+    displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
+        discr.displacement_divergence_matrix_key
+    ]
     bound_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.bound_displacement_divergence_matrix_key
     ]
@@ -49,19 +52,28 @@ def discretization_matrices(flow_keyword, mechanics_keyword):
     bound_pressure = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.bound_pressure_matrix_key
     ]
-    return g, stiffness, bnd, displacement_divergence, bound_displacement_divergence, scalar_gradient, stab, bound_pressure
+    return (
+        g,
+        stiffness,
+        bnd,
+        displacement_divergence,
+        bound_displacement_divergence,
+        scalar_gradient,
+        stab,
+        bound_pressure,
+    )
 
 
 def partial_update_parameters(stiffness, bnd, num_cells):
     """Return parameter dictionary for partial update tests."""
 
-    tensor = pp.SecondOrderTensor(kxx=np.ones(num_cells), kyy=10*np.ones(num_cells))
+    tensor = pp.SecondOrderTensor(kxx=np.ones(num_cells), kyy=10 * np.ones(num_cells))
 
     specified_data = {
         "fourth_order_tensor": stiffness,
         "bc": bnd,
         "inverter": "python",
-        "scalar_vector_mappings": {'foo': 1, 'bar': tensor},
+        "scalar_vector_mappings": {"foo": 1, "bar": tensor},
     }
     return specified_data
 
@@ -106,12 +118,12 @@ def test_partial_discretization_specified_nodes(
         g, discr, specified_data, cell_id
     )
 
-    partial_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.displacement_divergence_matrix_key
-    ]
-    partial_bound_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
-        discr.bound_displacement_divergence_matrix_key
-    ]
+    partial_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][
+        mechanics_keyword
+    ][discr.displacement_divergence_matrix_key]
+    partial_bound_displacement_divergence = data[pp.DISCRETIZATION_MATRICES][
+        mechanics_keyword
+    ][discr.bound_displacement_divergence_matrix_key]
     partial_scalar_gradient = data[pp.DISCRETIZATION_MATRICES][mechanics_keyword][
         discr.scalar_gradient_matrix_key
     ]
@@ -157,7 +169,11 @@ def test_partial_discretization_specified_nodes(
             assert np.allclose(partial.data, 0)
     # Compare scalar matrices
     for partial, full in zip(
-        [partial_displacement_divergence, partial_bound_displacement_divergence, partial_stab],
+        [
+            partial_displacement_divergence,
+            partial_bound_displacement_divergence,
+            partial_stab,
+        ],
         [displacement_divergence_full, bound_displacement_divergence_full, stab_full],
     ):
         if isinstance(partial, dict):

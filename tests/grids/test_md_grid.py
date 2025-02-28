@@ -1,6 +1,7 @@
-""" Various tests of MixedDimensionalGrid functionality. Covers getters and setters,
+"""Various tests of MixedDimensionalGrid functionality. Covers getters and setters,
 topological information on the bucket, and pickling and unpickling of buckets.
 """
+
 import os
 import pickle
 
