@@ -207,8 +207,10 @@ def get_variables(
             np.ndarray: Contact traction values.
 
     """
-    sd = model.mdg.subdomains(dim=model.nd)[0]
-    u_var = model.equation_system.get_variables([model.displacement_variable], [sd])
+    matrix_subdomain = model.mdg.subdomains(dim=model.nd)[0]
+    u_var = model.equation_system.get_variables(
+        [model.displacement_variable], [matrix_subdomain]
+    )
     u_vals = model.equation_system.get_variable_values(
         variables=u_var, time_step_index=0
     ).reshape(model.nd, -1, order="F")
@@ -226,13 +228,13 @@ def get_variables(
         variables=p_var, time_step_index=0
     )
     # Fracture
-    sd_frac = model.mdg.subdomains(dim=model.nd - 1)
-    jump = model.equation_system.evaluate(model.displacement_jump(sd_frac)).reshape(
-        model.nd, -1, order="F"
-    )
-    traction = model.equation_system.evaluate(model.contact_traction(sd_frac)).reshape(
-        model.nd, -1, order="F"
-    )
+    fracture_subdomains = model.mdg.subdomains(dim=model.nd - 1)
+    jump = model.equation_system.evaluate(
+        model.displacement_jump(fracture_subdomains)
+    ).reshape(model.nd, -1, order="F")
+    traction = model.equation_system.evaluate(
+        model.contact_traction(fracture_subdomains)
+    ).reshape(model.nd, -1, order="F")
     return u_vals, p_vals, p_frac, jump, traction
 
 
@@ -261,9 +263,9 @@ def test_2d_single_fracture(solid_vals, north_displacement):
     u_vals, p_vals, p_frac, jump, traction = get_variables(model)
 
     # Create model and run simulation
-    sd_nd = model.mdg.subdomains(dim=model.nd)[0]
-    top = sd_nd.cell_centers[1] > 0.5
-    bottom = sd_nd.cell_centers[1] < 0.5
+    sd = model.mdg.subdomains(dim=model.nd)[0]
+    top = sd.cell_centers[1] > 0.5
+    bottom = sd.cell_centers[1] < 0.5
     tol = 1e-10
     if np.isclose(north_displacement, 0.0):
         assert np.allclose(u_vals[:, bottom], 0)
@@ -280,9 +282,9 @@ def test_2d_single_fracture(solid_vals, north_displacement):
         # Check that x displacement is negative for left half and positive for right
         # half. Tolerance excludes cells at the centerline, where the displacement is
         # zero.
-        left = sd_nd.cell_centers[0] < model.domain.bounding_box["xmax"] / 2 - tol
+        left = sd.cell_centers[0] < model.domain.bounding_box["xmax"] / 2 - tol
         assert np.all(u_vals[0, left] < 0)
-        right = sd_nd.cell_centers[0] > model.domain.bounding_box["xmax"] / 2 + tol
+        right = sd.cell_centers[0] > model.domain.bounding_box["xmax"] / 2 + tol
         assert np.all(u_vals[0, right] > 0)
         # Compression implies pressure increase
         assert np.all(p_vals > 0 - tol)
@@ -338,7 +340,9 @@ def test_without_fracture(biot_coefficient):
     pp.run_time_dependent_model(model)
 
     sd = model.mdg.subdomains(dim=model.nd)
-    u = model.equation_system.evaluate(model.displacement(sd)).reshape((model.nd, -1), order="F")
+    u = model.equation_system.evaluate(model.displacement(sd)).reshape(
+        (model.nd, -1), order="F"
+    )
     p = model.equation_system.evaluate(model.pressure(sd))
 
     # By symmetry (reasonable to expect from this grid), the average x displacement
@@ -511,7 +515,9 @@ def test_unit_conversion(units):
         model.interface_displacement_variable,
     ]
     variable_units = ["Pa", "Pa * m^2 * s^-1", "m", "m"]
-    models.compare_scaled_primary_variables(reference_model, model, variables, variable_units)
+    models.compare_scaled_primary_variables(
+        reference_model, model, variables, variable_units
+    )
     flux_names = ["darcy_flux", "fluid_flux", "stress", "fracture_stress"]
     flux_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1", "Pa * m", "Pa"]
     domain_dimensions = [None, None, 2, 1]
