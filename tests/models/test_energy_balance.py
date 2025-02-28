@@ -36,32 +36,32 @@ class BoundaryConditionLinearPressure(
 
         """
         # Define boundary regions
-        sides = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         # Define Dirichlet conditions on the left and right boundaries
-        return pp.BoundaryCondition(sd, sides.east + sides.west, "dir")
+        return pp.BoundaryCondition(sd, domain_sides.east + domain_sides.west, "dir")
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for the pressure.
 
         Parameters:
-            boundary_grid: The boundary grid on which to define boundary conditions.
+            bg: The boundary grid on which to define boundary conditions.
 
         Returns:
             Array of boundary values.
 
         """
 
-        sides = self.domain_boundary_sides(boundary_grid)
-        vals = np.zeros(boundary_grid.num_cells)
-        vals[sides.west] = self.units.convert_units(1, "Pa")
+        domain_sides = self.domain_boundary_sides(bg)
+        vals = np.zeros(bg.num_cells)
+        vals[domain_sides.west] = self.units.convert_units(1, "Pa")
         return vals
 
 
 class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance):
-    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-        sides = self.domain_boundary_sides(boundary_grid)
-        vals = np.zeros(boundary_grid.num_cells)
-        vals[sides.west] = self.units.convert_units(1, "K")
+    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
+        domain_sides = self.domain_boundary_sides(bg)
+        vals = np.zeros(bg.num_cells)
+        vals[domain_sides.west] = self.units.convert_units(1, "K")
         return vals
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -75,15 +75,15 @@ class BoundaryConditionsEnergy(pp.energy_balance.BoundaryConditionsEnergyBalance
 
         """
         # Define boundary regions
-        sides = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         # Define Dirichlet conditions on the left and right boundaries
-        return pp.BoundaryCondition(sd, sides.west + sides.east, "dir")
+        return pp.BoundaryCondition(sd, domain_sides.west + domain_sides.east, "dir")
 
     def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         # Define boundary regions
-        sides = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         # Define Dirichlet conditions on the left and right boundaries
-        return pp.BoundaryCondition(sd, sides.west, "dir")
+        return pp.BoundaryCondition(sd, domain_sides.west, "dir")
 
 
 class EnergyBalanceTailoredBCs(
@@ -181,11 +181,11 @@ def test_advection_or_diffusion_dominated(fluid_vals, solid_vals):
 
         # Total advected matrix energy: (bc_val=1) * specific_heat * (time=1 s) * (total
         # influx =grad * dp * k=1/2*k)
-        sds = model.mdg.subdomains(dim=2)
+        subdomains = model.mdg.subdomains(dim=2)
         total_energy = model.equation_system.evaluate(
             model.volume_integral(
-                model.total_internal_energy(sds),
-                sds,
+                model.total_internal_energy(subdomains),
+                subdomains,
                 dim=1,
             )
         )
@@ -213,20 +213,20 @@ def test_unit_conversion(units):
     """
 
     class LocalModel(EnergyBalanceTailoredBCs):
-        def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
             """ """
 
-            sides = self.domain_boundary_sides(boundary_grid)
-            vals = np.zeros(boundary_grid.num_cells)
-            vals[sides.west] = self.units.convert_units(10.0, "K")
+            domain_sides = self.domain_boundary_sides(bg)
+            vals = np.zeros(bg.num_cells)
+            vals[domain_sides.west] = self.units.convert_units(10.0, "K")
             return vals
 
-        def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
             """ """
 
-            sides = self.domain_boundary_sides(boundary_grid)
-            vals = np.zeros(boundary_grid.num_cells)
-            vals[sides.west] = self.units.convert_units(1e4, "Pa")
+            domain_sides = self.domain_boundary_sides(bg)
+            vals = np.zeros(bg.num_cells)
+            vals[domain_sides.west] = self.units.convert_units(1e4, "Pa")
             return vals
 
     solid_vals = pp.solid_values.extended_granite_values_for_testing
@@ -327,11 +327,13 @@ def test_energy_conservation():
     in_val = 1e7
     u_expected = in_val * dt
 
-    sds = model.mdg.subdomains()
-    u = model.volume_integral(model.total_internal_energy(sds), sds, 1)
-    h_f = model.fluid.specific_enthalpy(sds) * model.porosity(sds)
-    h_s = model.solid_enthalpy(sds) * (pp.ad.Scalar(1) - model.porosity(sds))
-    h = model.volume_integral(h_f + h_s, sds, 1)
+    subdomains = model.mdg.subdomains()
+    u = model.volume_integral(model.total_internal_energy(subdomains), subdomains, 1)
+    h_f = model.fluid.specific_enthalpy(subdomains) * model.porosity(subdomains)
+    h_s = model.solid_enthalpy(subdomains) * (
+        pp.ad.Scalar(1) - model.porosity(subdomains)
+    )
+    h = model.volume_integral(h_f + h_s, subdomains, 1)
     u_val = np.sum(model.equation_system.evaluate(u))
     h_val = np.sum(model.equation_system.evaluate(h))
     assert np.isclose(u_val, u_expected, rtol=1e-3)
