@@ -100,4 +100,18 @@ class InitialConditionMixin(pp.PorePyModel):
         The base method does nothing except provide an interface and compatibility for
         super-calls to model-specific initialization procedures.
 
+        Important:
+            For orderering of initialization procedures to work as intended, this method
+            **must not** be called anywhere, with two exceptions:
+
+            1. It is only called directly in :meth:`initial_condition` in this base
+               class.
+            2. Only in overrides of this method in the context of
+               ``super().set_initial_values_primary_variables()``
+
+            Calling this method anywhere else explicitely via
+            ``self.set_initial_values_primary_variables()`` will invalidate the guarante
+            that the primary variables are initialized first, because it risks
+            circumventing the intended ``super()`` resolution.
+
         """
