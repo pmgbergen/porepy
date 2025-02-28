@@ -880,7 +880,7 @@ class ManuThermoPoroMechSolutionStrategy3d(
         super().__init__(params)
 
         self.stress_variable: str = "thermoporoelastic_force"
-        """Keyword to access the thermoporoelastic force."""      
+        """Keyword to access the thermoporoelastic force."""
 
     def set_materials(self):
         """Set material parameters."""
@@ -1026,9 +1026,9 @@ class ManuThermoPoroMechSolutionStrategy3d(
                 self.darcy_keyword: biot_alpha,
                 self.enthalpy_keyword: thermal_stress,
             }
-            data[pp.PARAMETERS][self.stress_keyword][
-                "scalar_vector_mappings"
-            ] = scalar_vector_mapping
+            data[pp.PARAMETERS][self.stress_keyword]["scalar_vector_mappings"] = (
+                scalar_vector_mapping
+            )
 
 
 class ManuThermoPoroMechModel3d(  # type: ignore[misc]

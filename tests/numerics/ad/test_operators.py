@@ -118,25 +118,33 @@ def test_copy_operator_tree():
 
     # In their initial state, all operators should have the same values
     assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_deepcopy))
+    assert np.allclose(
+        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
+    )
 
     # Increase the value of the scalar. This should have no effect, since the scalar
     # wrapps an immutable, see comment in pp.ad.Scalar
     a_val += 1
     assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_deepcopy))
+    assert np.allclose(
+        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
+    )
 
     # Increase the value of the Scalar. This will be seen by the copy, but not the
     # deepcopy.
     a._value += 1
     assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert not np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_deepcopy))
+    assert not np.allclose(
+        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
+    )
 
     # Next increase the values in the array. This changes the shallow copy, but not the
     # deep one.
     b_arr += 1
     assert np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_copy))
-    assert not np.allclose(equation_system.evaluate(c), equation_system.evaluate(c_deepcopy))
+    assert not np.allclose(
+        equation_system.evaluate(c), equation_system.evaluate(c_deepcopy)
+    )
 
 
 ## Test of pp.ad.SparseArray, pp.ad.DenseArray, pp.ad.Scalar
@@ -571,7 +579,10 @@ def test_ad_variable_evaluation():
 
     # Check that the state is correctly evaluated.
     inds_var = np.hstack(
-        [equation_system.dofs_of(equation_system.get_variables([var], [g])) for g in subdomains]
+        [
+            equation_system.dofs_of(equation_system.get_variables([var], [g]))
+            for g in subdomains
+        ]
     )
     assert np.allclose(
         true_iterate[inds_var], equation_system.evaluate(var_ad, state=true_iterate)
@@ -583,7 +594,8 @@ def test_ad_variable_evaluation():
 
     # Evaluate the equation using the double iterate
     assert np.allclose(
-        2 * true_iterate[inds_var], equation_system.evaluate(var_ad, state=double_iterate)
+        2 * true_iterate[inds_var],
+        equation_system.evaluate(var_ad, state=double_iterate),
     )
 
     # Represent the variable on the previous time step. This should be a numpy array
@@ -610,7 +622,10 @@ def test_ad_variable_evaluation():
         [equation_system.dofs_of([var]) for var in variable_interfaces]
     )
     interface_values = np.hstack(
-        [equation_system.evaluate(var, state=true_iterate) for var in variable_interfaces]
+        [
+            equation_system.evaluate(var, state=true_iterate)
+            for var in variable_interfaces
+        ]
     )
     assert np.allclose(
         true_iterate[interface_inds],
@@ -625,8 +640,12 @@ def test_ad_variable_evaluation():
     ind1 = equation_system.dofs_of(equation_system.get_variables([var], [g]))
     ind2 = equation_system.dofs_of(equation_system.get_variables([var2], [g]))
 
-    assert np.allclose(true_iterate[ind1], equation_system.evaluate(v1, state=true_iterate))
-    assert np.allclose(true_iterate[ind2], equation_system.evaluate(v2, state=true_iterate))
+    assert np.allclose(
+        true_iterate[ind1], equation_system.evaluate(v1, state=true_iterate)
+    )
+    assert np.allclose(
+        true_iterate[ind2], equation_system.evaluate(v2, state=true_iterate)
+    )
 
     v1_prev = v1.previous_timestep()
     assert np.allclose(
@@ -649,7 +668,9 @@ def test_ad_variable_prev_time_and_iter(prev_time):
     var_name = "foo"
     vec = np.ones(mdg.num_subdomain_cells())
 
-    equation_system.create_variables(var_name, dof_info={"cells": 1}, subdomains=mdg.subdomains())
+    equation_system.create_variables(
+        var_name, dof_info={"cells": 1}, subdomains=mdg.subdomains()
+    )
     var = equation_system.md_variable(var_name)
 
     # Starting point is time step index is None, iterate index is 0
@@ -1624,7 +1645,9 @@ def test_arithmetic_operations_on_ad_objects(
             state = pp.ad.initAdArrays(
                 [equation_system.get_variable_values(time_step_index=0)]
             )[0]
-            val = equation_system._ad_parser._evaluate_single(expression, state, equation_system)
+            val = equation_system._ad_parser._evaluate_single(
+                expression, state, equation_system
+            )
         except (TypeError, ValueError, NotImplementedError):
             # The variable e is not used here, but it is invaluable for debugging.
             assert not expected

@@ -288,9 +288,7 @@ class UnitTestAdTpfaFlux(
         vals_loc = np.zeros(bg.num_cells)
 
         dirichlet_face_boundary = (
-            bg.projection()[:, self._nonzero_dirichlet_face]
-            .tocsc()
-            .indices[0]
+            bg.projection()[:, self._nonzero_dirichlet_face].tocsc().indices[0]
         )
 
         vals_loc[dirichlet_face_boundary] = self._dirichlet_pressure
@@ -675,7 +673,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
         {
             "darcy_flux_discretization": base_discr,
             "grid_type": grid_type,
-            "times_to_export": []
+            "times_to_export": [],
         }
     )
     model.prepare_simulation()

@@ -1,5 +1,4 @@
-""" Tests of methods from porepy.vis.plot_grid.
-"""
+"""Tests of methods from porepy.vis.plot_grid."""
 
 import os
 

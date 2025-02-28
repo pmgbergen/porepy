@@ -1,9 +1,9 @@
 """Tests for the Tpsa discretization. Contains two sets of tests:
-    1. TestTpsaTailoredGrid is a class that defines a cell of two grids and verifies the
-       discretization matrices for the Tpsa discretization. Both interior cells and all
-       types of boundary conditions are tested.
-    2. Various other tests that probe different aspects of the Tpsa discretization.
-       These are not grouped in a class, but are individual tests.
+1. TestTpsaTailoredGrid is a class that defines a cell of two grids and verifies the
+   discretization matrices for the Tpsa discretization. Both interior cells and all
+   types of boundary conditions are tested.
+2. Various other tests that probe different aspects of the Tpsa discretization.
+   These are not grouped in a class, but are individual tests.
 
 """
 

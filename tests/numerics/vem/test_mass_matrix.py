@@ -1,4 +1,4 @@
-"""Test for the discretization of mass matrices. """
+"""Test for the discretization of mass matrices."""
 
 from typing import Union
 

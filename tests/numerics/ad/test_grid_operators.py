@@ -368,8 +368,12 @@ def test_mortar_projections(mdg, scalar, non_matching):
         assert _compare_matrices(proj_known_primary_int.T, proj.primary_to_mortar_avg())
 
         # Same for the mapping to the secondary subdomains.
-        assert _compare_matrices(proj_known_secondary_int, proj.mortar_to_secondary_int())
-        assert _compare_matrices(proj_known_secondary_avg, proj.mortar_to_secondary_avg())
+        assert _compare_matrices(
+            proj_known_secondary_int, proj.mortar_to_secondary_int()
+        )
+        assert _compare_matrices(
+            proj_known_secondary_avg, proj.mortar_to_secondary_avg()
+        )
         # See the mapping from primary to mortar above for comments.
         assert _compare_matrices(
             proj_known_secondary_avg.T, proj.secondary_to_mortar_int()

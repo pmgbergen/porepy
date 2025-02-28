@@ -1,8 +1,5 @@
-""" Tests for the Parameters class and dictionary initialization.
+"""Tests for the Parameters class and dictionary initialization."""
 
-
-
-"""
 import numpy as np
 import pytest
 

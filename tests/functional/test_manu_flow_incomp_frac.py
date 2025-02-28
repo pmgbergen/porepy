@@ -207,7 +207,9 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     """
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models
-    for model_idx, model_class in enumerate([ManuIncompFlowModel2d, ManuIncompFlowModel3d]):
+    for model_idx, model_class in enumerate(
+        [ManuIncompFlowModel2d, ManuIncompFlowModel3d]
+    ):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type
         for grid_type in ["cartesian", "simplex"]:

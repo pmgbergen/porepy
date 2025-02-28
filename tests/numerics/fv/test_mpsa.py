@@ -13,6 +13,7 @@ Content:
     - Test that the discretization reproduces expected values on 2d grids.
 
 """
+
 from math import pi
 
 import numpy as np
@@ -325,7 +326,6 @@ class TestMpsaExactReproduction:
         g_list = [pp.CartGrid([n, n], physdims=physdims) for n in g_size]
         [g.compute_geometry() for g in g_list]
         for g in g_list:
-
             domain_sides = pp.domain.domain_sides_from_grid(g)
             south = np.where(domain_sides.south)[0]
             west = np.where(domain_sides.west)[0]

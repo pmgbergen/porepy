@@ -12,6 +12,7 @@ References:
       elliptic equations. Journal of Numerical Mathematics.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable, Literal

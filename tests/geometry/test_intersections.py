@@ -1,6 +1,7 @@
 """This file contains testing of funcionality found within
 porepy.geometry.intersections.py.
 """
+
 import numpy as np
 import pytest
 

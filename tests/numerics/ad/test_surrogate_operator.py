@@ -48,7 +48,9 @@ def equation_system() -> pp.ad.EquationSystem:
     equation_system.create_variables(INTFVAR_NAME, {"cells": 1}, interfaces=interfaces)
 
     # set zero values at current iterate to kickstart AD
-    equation_system.set_variable_values(np.zeros(equation_system.num_dofs()), iterate_index=0)
+    equation_system.set_variable_values(
+        np.zeros(equation_system.num_dofs()), iterate_index=0
+    )
 
     # setting also variable values at prev time and iter for testing
     equation_system.set_variable_values(
@@ -359,4 +361,6 @@ def test_secondary_operators_on_boundaries(
     assert np.all(equation_system.evaluate(sop) == 3 * np.ones(nc))
     # parsing the operator at the previous time step should give the old values
     assert np.all(equation_system.evaluate(sop.previous_timestep()) == 2 * np.ones(nc))
-    assert np.all(equation_system.evaluate(sop.previous_timestep(steps=2)) == np.ones(nc))
+    assert np.all(
+        equation_system.evaluate(sop.previous_timestep(steps=2)) == np.ones(nc)
+    )
