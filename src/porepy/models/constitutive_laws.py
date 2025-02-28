@@ -221,16 +221,18 @@ class DimensionReduction(pp.PorePyModel):
             interfaces: list[pp.MortarGrid] = [
                 g for g in grids if isinstance(g, pp.MortarGrid)
             ]  # appease mypy.
-            neighbor_sds = self.interfaces_to_subdomains(interfaces)
-            projection = pp.ad.MortarProjections(self.mdg, neighbor_sds, interfaces)
+            neighbor_subdomains = self.interfaces_to_subdomains(interfaces)
+            projection = pp.ad.MortarProjections(
+                self.mdg, neighbor_subdomains, interfaces
+            )
             # Check that all interfaces are of the same co-dimension
             codim = interfaces[0].codim
             assert all(intf.codim == codim for intf in interfaces)
             if codim == 1:
-                trace = pp.ad.Trace(neighbor_sds)
-                v_h = trace.trace @ self.specific_volume(neighbor_sds)
+                trace = pp.ad.Trace(neighbor_subdomains)
+                v_h = trace.trace @ self.specific_volume(neighbor_subdomains)
             else:
-                v_h = self.specific_volume(neighbor_sds)
+                v_h = self.specific_volume(neighbor_subdomains)
             v = projection.primary_to_mortar_avg() @ v_h
             v.set_name("specific_volume")
             return v
