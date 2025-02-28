@@ -1,4 +1,4 @@
-"""Testing the isothermal linear tracer setups and some of the CF machinery."""
+"""Testing the isothermal linear tracer models and some of the CF machinery."""
 
 from __future__ import annotations
 

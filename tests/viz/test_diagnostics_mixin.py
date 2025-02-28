@@ -16,14 +16,14 @@ class PoromechanicsWithDiagnostics(DiagnosticsMixin, Poromechanics):
 
 @pytest.fixture
 def model() -> PoromechanicsWithDiagnostics:
-    """Assembles test PorePy model setup."""
-    setup = PoromechanicsWithDiagnostics()
+    """Assembles test PorePy model."""
+    model = PoromechanicsWithDiagnostics()
     # Common preprocessing is done to assemble the linear system.
-    setup.prepare_simulation()
-    setup.before_nonlinear_loop()
-    setup.before_nonlinear_iteration()
-    setup.assemble_linear_system()
-    return setup
+    model.prepare_simulation()
+    model.before_nonlinear_loop()
+    model.before_nonlinear_iteration()
+    model.assemble_linear_system()
+    return model
 
 
 @patch("matplotlib.pyplot.show")

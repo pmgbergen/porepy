@@ -14,7 +14,7 @@ We consider three functional tests:
       exact Terzaghi's solution.
 
     - The last test checks if we obtain the same results for an unscaled and a scaled
-      setup. The scaled setup employs units of length in millimeters and units of
+      model. The scaled model employs units of length in millimeters and units of
       mass in grams.
 
 """
@@ -28,7 +28,7 @@ from porepy.examples.terzaghi_biot import (
     TerzaghiDataSaving,
     TerzaghiPoromechanicsBoundaryConditions,
     TerzaghiInitialConditions,
-    TerzaghiSetup,
+    TerzaghiModel,
     TerzaghiSolutionStrategy,
     TerzaghiUtils,
     terzaghi_fluid_constants,
@@ -51,7 +51,7 @@ class TerzaghiModelPoromechanics(
 def test_biot_equal_to_incompressible_poromechanics():
     """Checks equality between Biot and incompressible poromechanics results."""
 
-    # Run Terzaghi setup with full poromechanics model
+    # Run Terzaghi model with full poromechanics model
     model_params_poromech = {
         "material_constants": {
             "solid": pp.SolidConstants(**terzaghi_solid_constants),
@@ -65,7 +65,7 @@ def test_biot_equal_to_incompressible_poromechanics():
     p_poromechanics = model_poromech.results[0].approx_pressure
     u_poromechanics = model_poromech.results[0].approx_consolidation_degree
 
-    # Run Terzaghi setup with Biot model
+    # Run Terzaghi model with Biot model
     model_params_biot = {
         "material_constants": {
             "solid": pp.SolidConstants(**terzaghi_solid_constants),
@@ -74,7 +74,7 @@ def test_biot_equal_to_incompressible_poromechanics():
         "num_cells": 10,
         "times_to_export": [],  # Suppress output for tests
     }
-    model_biot = TerzaghiSetup(model_params_biot)
+    model_biot = TerzaghiModel(model_params_biot)
     pp.run_time_dependent_model(model=model_biot)
     p_biot = model_biot.results[0].approx_pressure
     u_biot = model_biot.results[0].approx_consolidation_degree
@@ -120,7 +120,7 @@ def test_pressure_and_consolidation_degree_errors():
         "num_cells": 10,
         "times_to_export": [],  # Suppress output for tests
     }
-    model = TerzaghiSetup(model_params)
+    model = TerzaghiModel(model_params)
     pp.run_time_dependent_model(model)
 
     # Check pressure error
@@ -153,7 +153,7 @@ def test_scaled_vs_unscaled_systems():
         "material_constants": material_constants_unscaled,
         "times_to_export": [],  # Suppress output for tests
     }
-    unscaled = TerzaghiSetup(params=model_params_unscaled)
+    unscaled = TerzaghiModel(params=model_params_unscaled)
     pp.run_time_dependent_model(model=unscaled)
 
     # The scaled problem
@@ -168,7 +168,7 @@ def test_scaled_vs_unscaled_systems():
         "units": units,
         "times_to_export": [],  # Suppress output for tests
     }
-    scaled_model = TerzaghiSetup(params=model_params_scaled)
+    scaled_model = TerzaghiModel(params=model_params_scaled)
     pp.run_time_dependent_model(model=scaled_model)
 
     # Compare results

@@ -253,9 +253,9 @@ class MandelDataSaving(pp.PorePyModel):
 class MandelExactSolution:
     """Exact solutions to Mandel's problem taken from [2]."""
 
-    def __init__(self, setup) -> None:
+    def __init__(self, model) -> None:
         """Constructor of the class."""
-        self.setup = setup
+        self.model = model
 
         # For convenience, store the approximated roots
         self.roots: np.ndarray = self.approximate_roots()
@@ -283,15 +283,15 @@ class MandelExactSolution:
 
         """
         # Retrieve physical data
-        nu_s = self.setup.poisson_coefficient()  # [-]
-        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
+        nu_s = self.model.poisson_coefficient()  # [-]
+        nu_u = self.model.undrained_poisson_coefficient()  # [-]
 
         # Define algebraic function
         def f(x):
             y = np.tan(x) - ((1 - nu_s) / (nu_u - nu_s)) * x
             return y
 
-        n_series = self.setup.params.get("number_of_roots", 200)
+        n_series = self.model.params.get("number_of_roots", 200)
         a_n = np.zeros(n_series)  # initialize roots
         x0 = 0.0  # initial point
         for i in range(n_series):
@@ -320,11 +320,11 @@ class MandelExactSolution:
         """
 
         # Retrieve data
-        F = self.setup.vertical_load()  # scaled [N * m^-1]
-        B = self.setup.skempton_coefficient()  # [-]
-        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
-        a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
+        F = self.model.vertical_load()  # scaled [N * m^-1]
+        B = self.model.skempton_coefficient()  # [-]
+        nu_u = self.model.undrained_poisson_coefficient()  # [-]
+        c_f = self.model.fluid_diffusivity()  # scaled [m^2 * s^-1]
+        a = self.model.domain.bounding_box["xmax"]  # scaled [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -372,12 +372,12 @@ class MandelExactSolution:
         """
 
         # Retrieve data
-        F = self.setup.vertical_load()  # scaled [N * m^-1]
-        nu_s = self.setup.poisson_coefficient()  # [-]
-        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus  # scaled [Pa]
-        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
-        a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
+        F = self.model.vertical_load()  # scaled [N * m^-1]
+        nu_s = self.model.poisson_coefficient()  # [-]
+        nu_u = self.model.undrained_poisson_coefficient()  # [-]
+        mu_s = self.model.solid.shear_modulus  # scaled [Pa]
+        c_f = self.model.fluid_diffusivity()  # scaled [m^2 * s^-1]
+        a = self.model.domain.bounding_box["xmax"]  # scaled [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -418,12 +418,12 @@ class MandelExactSolution:
         """
 
         # Retrieve data
-        F = self.setup.vertical_load()  # scaled [N * m^-1]
-        nu_s = self.setup.poisson_coefficient()  # [-]
-        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus  # scaled [Pa]
-        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
-        a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
+        F = self.model.vertical_load()  # scaled [N * m^-1]
+        nu_s = self.model.poisson_coefficient()  # [-]
+        nu_u = self.model.undrained_poisson_coefficient()  # [-]
+        mu_s = self.model.solid.shear_modulus  # scaled [Pa]
+        c_f = self.model.fluid_diffusivity()  # scaled [m^2 * s^-1]
+        a = self.model.domain.bounding_box["xmax"]  # scaled [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -476,13 +476,13 @@ class MandelExactSolution:
 
         """
         # Retrieve physical data
-        F = self.setup.vertical_load()  # scaled [N * m^-1]
-        B = self.setup.skempton_coefficient()  # [-]
-        k = self.setup.solid.permeability  # scaled [m^2]
-        mu_f = self.setup.fluid.reference_component.viscosity  # scaled [Pa * s]
-        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
-        a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
+        F = self.model.vertical_load()  # scaled [N * m^-1]
+        B = self.model.skempton_coefficient()  # [-]
+        k = self.model.solid.permeability  # scaled [m^2]
+        mu_f = self.model.fluid.reference_component.viscosity  # scaled [Pa * s]
+        nu_u = self.model.undrained_poisson_coefficient()  # [-]
+        c_f = self.model.fluid_diffusivity()  # scaled [m^2 * s^-1]
+        a = self.model.domain.bounding_box["xmax"]  # scaled [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -536,11 +536,11 @@ class MandelExactSolution:
 
         """
         # Retrieve physical data
-        F = self.setup.vertical_load()  # scaled [N * m^-1]
-        nu_s = self.setup.poisson_coefficient()  # [-]
-        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        c_f = self.setup.fluid_diffusivity()  # scaled [m^2 * s^-1]
-        a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
+        F = self.model.vertical_load()  # scaled [N * m^-1]
+        nu_s = self.model.poisson_coefficient()  # [-]
+        nu_u = self.model.undrained_poisson_coefficient()  # [-]
+        c_f = self.model.fluid_diffusivity()  # scaled [m^2 * s^-1]
+        a = self.model.domain.bounding_box["xmax"]  # scaled [m]
 
         # Retrieve roots
         aa_n = self.roots[:, np.newaxis]
@@ -602,12 +602,12 @@ class MandelExactSolution:
 
         """
         # Retrieve physical and geometric data
-        nu_u = self.setup.undrained_poisson_coefficient()  # [-]
-        nu_s = self.setup.poisson_coefficient()  # [-]
-        mu_s = self.setup.solid.shear_modulus  # scaled [Pa]
-        F = self.setup.vertical_load()  # scaled [N * m^-1]
-        a = self.setup.domain.bounding_box["xmax"]  # scaled [m]
-        b = self.setup.domain.bounding_box["ymax"]  # scaled [m]
+        nu_u = self.model.undrained_poisson_coefficient()  # [-]
+        nu_s = self.model.poisson_coefficient()  # [-]
+        mu_s = self.model.solid.shear_modulus  # scaled [Pa]
+        F = self.model.vertical_load()  # scaled [N * m^-1]
+        a = self.model.domain.bounding_box["xmax"]  # scaled [m]
+        b = self.model.domain.bounding_box["ymax"]  # scaled [m]
 
         # Vertical displacement on the north boundary at time `t`
         uy_b_t = self.vertical_displacement_profile(np.array([b]), t)
@@ -1406,7 +1406,7 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         return False
 
 
-class MandelSetup(  # type: ignore[misc]
+class MandelModel(  # type: ignore[misc]
     MandelGeometry,
     MandelPoromechanicsBoundaryConditions,
     MandelInitialConditions,

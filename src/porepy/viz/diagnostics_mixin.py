@@ -56,14 +56,14 @@ class DiagnosticsMixin:
         Basic usage:
 
         >>> import porepy
-        >>> from porepy.applications.verification_setups.mandel_biot import MandelSetup
+        >>> from porepy.examples.mandel_biot import MandelModel
         >>> from porepy.viz.diagnostics_mixin import DiagnosticsMixin
         >>>
-        >>> class MandelDiagnostics(DiagnosticsMixin, MandelSetup):
+        >>> class MandelDiagnostics(DiagnosticsMixin, MandelModel):
         >>>     pass
-        >>> setup = MandelDiagnostics(params={})
-        >>> porepy.run_time_dependent_model(setup)
-        >>> setup.run_diagnostics()
+        >>> model = MandelDiagnostics(params={})
+        >>> porepy.run_time_dependent_model(model)
+        >>> model.run_diagnostics()
 
     """
 

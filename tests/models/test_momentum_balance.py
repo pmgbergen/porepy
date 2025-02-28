@@ -345,7 +345,7 @@ def verify_elastoplastic_deformation(
     values within the given tolerances.
 
     Parameters:
-        setup: The model setup.
+        model: The model instance.
         u_e_expected: ``len=nd``
 
             Expected values of the elastic displacement jump in the x and y directions.

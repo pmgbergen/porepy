@@ -13,7 +13,7 @@ cause an instantaneous rise in the fluid pressure, which will be equal to the ap
 load. After that, the fluid pressure will monotonically decrease towards zero.
 
 Even though Terzaghi's consolidation problem is strictly speaking one-dimensional, the
-implemented setup employs a two-dimensional Cartesian grid with roller boundary
+implemented model employs a two-dimensional Cartesian grid with roller boundary
 conditions for the mechanical subproblem and no-flux boundary conditions for the flow
 subproblem on the sides of the domain such that the one-dimensional process can be
 emulated.
@@ -190,13 +190,13 @@ class TerzaghiDataSaving(pp.PorePyModel):
 class TerzaghiExactSolution:
     """Class containing exact solutions to Terzaghi's consolidation problem."""
 
-    def __init__(self, setup) -> None:
+    def __init__(self, model) -> None:
         """Constructor of the class"""
 
-        self.setup = setup
-        """Instance of Terzaghi Setup."""
+        self.model = model
+        """Instance of TerzaghiModel."""
 
-        self.uls: int = self.setup.params.get("upper_limit_summation", 1000)
+        self.uls: int = self.model.params.get("upper_limit_summation", 1000)
         """Upper limit summation. Used to truncate the infinite series needed for
         computing the exact solutions. Defaults to 1000 terms.
 
@@ -213,9 +213,9 @@ class TerzaghiExactSolution:
             Exact pressure profile for the given time ``t``.
 
         """
-        F = self.setup.applied_load()  # scaled [Pa]
-        nondim_y = self.setup.nondim_length(y)  # [-]
-        nondim_t = self.setup.nondim_time(t)  # [-]
+        F = self.model.applied_load()  # scaled [Pa]
+        nondim_y = self.model.nondim_length(y)  # [-]
+        nondim_t = self.model.nondim_time(t)  # [-]
 
         if t == 0:  # initially, the pressure equals the vertical load
             p = F * np.ones_like(y)
@@ -241,7 +241,7 @@ class TerzaghiExactSolution:
             Degree of consolidation [-] for the given time ``t``.
 
         """
-        t_nondim = self.setup.nondim_time(t)  # [-]
+        t_nondim = self.model.nondim_time(t)  # [-]
 
         if t == 0:  # initially, the soil is unconsolidated
             deg_cons = 0.0
@@ -260,7 +260,7 @@ class TerzaghiExactSolution:
 
 # -----> Utilities
 class TerzaghiUtils(VerificationUtils):
-    """Mixin class containing useful utility methods for the setup."""
+    """Mixin class containing useful utility methods for the model."""
 
     applied_load: Callable[[], pp.number]
     """Method that sets the applied load in scaled [Pa]. Normally provided by an
@@ -630,7 +630,7 @@ class TerzaghiInitialConditions:
 
 # -----> Solution strategy
 class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
-    """Solution strategy class for Terzaghi's setup."""
+    """Solution strategy class for Terzaghi's model."""
 
     exact_sol: TerzaghiExactSolution
     """Exact solution object."""
@@ -668,7 +668,7 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         return False
 
 
-class TerzaghiSetup(  # type: ignore[misc]
+class TerzaghiModel(  # type: ignore[misc]
     PseudoOneDimensionalColumn,
     TerzaghiPoromechanicsBoundaryConditions,
     TerzaghiInitialConditions,
@@ -677,7 +677,7 @@ class TerzaghiSetup(  # type: ignore[misc]
     TerzaghiDataSaving,
     BiotPoromechanics,
 ):
-    """Mixer class for Terzaghi's consolidation problem.
+    """Model class for Terzaghi's consolidation problem.
 
     Model parameters of special relevance for this class:
 
