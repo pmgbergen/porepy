@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-import porepy as pp
+from porepy.models.solution_strategy import SolutionStrategy
 
 
 class LinearSolver:
@@ -31,7 +31,7 @@ class LinearSolver:
             params = {}
         self.params = params
 
-    def solve(self, model: pp.PorePyModel) -> bool:
+    def solve(self, model: SolutionStrategy) -> bool:
         """Solve a linear problem defined by the current state of the model.
 
         Parameters:
