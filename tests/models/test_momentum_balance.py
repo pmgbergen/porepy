@@ -59,8 +59,10 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
     pp.run_time_dependent_model(model)
 
     # Check that the pressure is linear
-    sd = model.mdg.subdomains(dim=model.nd)[0]
-    var = model.equation_system.get_variables([model.displacement_variable], [sd])
+    matrix_subdomain = model.mdg.subdomains(dim=model.nd)[0]
+    var = model.equation_system.get_variables(
+        [model.displacement_variable], [matrix_subdomain]
+    )
     vals = model.equation_system.get_variable_values(variables=var, time_step_index=0)
     if np.isclose(north_displacement, 0):
         assert np.allclose(vals, 0)
@@ -75,8 +77,14 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
             # through what happens around the symmetry line of x=0.5 when pulling or
             # pushing the top (north) boundary.
             tol = 1e-10
-            left = sd.cell_centers[0] < model.domain.bounding_box["xmax"] / 2 - tol
-            right = sd.cell_centers[0] > model.domain.bounding_box["xmax"] / 2 + tol
+            left = (
+                matrix_subdomain.cell_centers[0]
+                < model.domain.bounding_box["xmax"] / 2 - tol
+            )
+            right = (
+                matrix_subdomain.cell_centers[0]
+                > model.domain.bounding_box["xmax"] / 2 + tol
+            )
             assert np.all(
                 np.sign(vals[:: model.nd][left]) == np.sign(north_displacement)
             )
@@ -85,21 +93,23 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
             )
         else:
             # Check that y displacement is positive in top half of domain
-            top = sd.cell_centers[1] > 0.5
+            top = matrix_subdomain.cell_centers[1] > 0.5
             assert np.all(
                 np.sign(vals[model.nd - 1 :: model.nd][top])
                 == np.sign(north_displacement)
             )
             # Fracture cuts the domain in half, so the bottom half should be undisplaced.
-            bottom = sd.cell_centers[1] < 0.5
+            bottom = matrix_subdomain.cell_centers[1] < 0.5
             assert np.allclose(vals[model.nd - 1 :: model.nd][bottom], 0)
             # No displacement in x direction
             assert np.allclose(vals[:: model.nd], 0)
 
     # Check that the displacement jump and traction are as expected
-    sd_frac = model.mdg.subdomains(dim=model.nd - 1)
-    jump = model.equation_system.evaluate(model.displacement_jump(sd_frac))
-    traction = model.equation_system.evaluate(model.contact_traction(sd_frac))
+    fracture_subdomains = model.mdg.subdomains(dim=model.nd - 1)
+    jump = model.equation_system.evaluate(model.displacement_jump(fracture_subdomains))
+    traction = model.equation_system.evaluate(
+        model.contact_traction(fracture_subdomains)
+    )
     if north_displacement > 0:
         # Normal component of displacement jump should be positive
         assert np.all(jump[model.nd - 1 :: model.nd] > 0)
@@ -367,14 +377,18 @@ def verify_elastoplastic_deformation(
     # based on the assumption that the fracture has constant y-coordinate.
     fracture_ind = 1
     tang_ind = np.setdiff1d(np.arange(nd), fracture_ind)
-    matrix = model.mdg.subdomains(dim=nd)[0]
-    fractures = model.mdg.subdomains(dim=nd - 1)
-    assert len(fractures) == 1  # Below code assumes a single fracture.
-    fracture = fractures[0]
+    matrix_subdomain = model.mdg.subdomains(dim=nd)[0]
+    fracture_subdomains = model.mdg.subdomains(dim=nd - 1)
+    assert len(fracture_subdomains) == 1  # Below code assumes a single fracture.
+    fracture = fracture_subdomains[0]
 
     # Get plastic and elastic displacement jumps on the fracture in local coordinates.
-    u_p_loc = model.equation_system.evaluate(model.plastic_displacement_jump(fractures))
-    u_e_loc = model.equation_system.evaluate(model.elastic_displacement_jump(fractures))
+    u_p_loc = model.equation_system.evaluate(
+        model.plastic_displacement_jump(fracture_subdomains)
+    )
+    u_e_loc = model.equation_system.evaluate(
+        model.elastic_displacement_jump(fracture_subdomains)
+    )
 
     # Transform the jumps to global coordinates and corresponding to the j side of the
     # fracture being the one with the lower y-coordinate (jumps are k-j).
@@ -393,10 +407,10 @@ def verify_elastoplastic_deformation(
     u_p = (sign * u_p).reshape((nd, -1), order="F")
     u_e = (sign * u_e).reshape((nd, -1), order="F")
 
-    u_domain = model.equation_system.evaluate(model.displacement([matrix])).reshape(
-        (nd, -1), order="F"
-    )
-    u_top = u_domain[:, matrix.cell_centers[fracture_ind] > 0.5]
+    u_domain = model.equation_system.evaluate(
+        model.displacement([matrix_subdomain])
+    ).reshape((nd, -1), order="F")
+    u_top = u_domain[:, matrix_subdomain.cell_centers[fracture_ind] > 0.5]
     # Compare the computed values to the expected values.
     if compare_means:
         assert np.allclose(np.mean(u_e, axis=1), u_e_expected, rtol=tols[0])
@@ -591,14 +605,14 @@ class TimeDependentBCs(
         displacement is imposed on the north boundary. The south boundary is fixed.
 
         Parameters:
-            boundary_grid: Boundary grid for which boundary values are to be returned.
+            bg: Boundary grid for which boundary values are to be returned.
 
         Returns:
             Array of boundary values, with one value for each dimension of the problem,
             for each face in the subdomain.
 
         """
-        sides = self.domain_boundary_sides(bg)
+        domain_sides = self.domain_boundary_sides(bg)
         values = np.zeros((self.nd, bg.num_cells))
 
         # Add fracture width on top if there is a fracture.
@@ -606,7 +620,7 @@ class TimeDependentBCs(
             frac_val = self.solid.fracture_gap
         else:
             frac_val = 0
-        values[1, sides.north] = frac_val
+        values[1, domain_sides.north] = frac_val
 
         if bg.dim < self.nd - 1:
             return values.ravel("F")
@@ -614,7 +628,9 @@ class TimeDependentBCs(
             # Create slip for second time step.
             u_z = 50.0 if self.time_manager.time > 1.1 else 1.0
             u_n = np.tile([1, -1, u_z], (bg.num_cells, 1)).T
-            values[:, sides.north] += self.units.convert_units(u_n, "m")[:, sides.north]
+            values[:, domain_sides.north] += self.units.convert_units(u_n, "m")[
+                :, domain_sides.north
+            ]
         return values.ravel("F")
 
 
