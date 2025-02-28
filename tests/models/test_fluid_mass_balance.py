@@ -194,36 +194,36 @@ def test_tested_vs_testable_methods_single_phase_flow(
         ),
         ("aperture", np.array([1, 1, 1, 1, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3]), None),
         (
-            'boundary_fluid_flux',
+            "boundary_fluid_flux",
             np.array(
                 [
                     996207.58483034,
-                    0.,
+                    0.0,
                     996207.58483034,
                     996207.58483034,
-                    0.,
+                    0.0,
                     996207.58483034,
                     996207.58483034,
                     996207.58483034,
-                    0.,
-                    0.,
+                    0.0,
+                    0.0,
                     996207.58483034,
                     996207.58483034,
-                    0.,
-                    0.,
-                    0.,
-                    0.,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
                     996207.58483034,
-                    0.,
+                    0.0,
                     996207.58483034,
-                    0.,
+                    0.0,
                     996207.58483034,
-                    0.,
+                    0.0,
                     996207.58483034,
-                    0.
+                    0.0,
                 ]
             ),
-            None
+            None,
         ),
         ("combine_boundary_operators_darcy_flux", np.zeros(24), None),
         # Darcy flux.
@@ -496,25 +496,26 @@ def test_ad_operator_methods_single_phase_flow(
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
+
 @pytest.mark.parametrize(
     "method_name, p_or_c, expected_value",
     [
-        ('phase_mobility', 'phase', 1 / water_values['viscosity']),
-        ('fractional_phase_mass_mobility', 'phase', 1),
+        ("phase_mobility", "phase", 1 / water_values["viscosity"]),
+        ("fractional_phase_mass_mobility", "phase", 1),
         (
-            'component_mass_mobility',
-            'component',
+            "component_mass_mobility",
+            "component",
             water_values["density"]
             * np.exp(water_values["compressibility"] * 200 * pp.BAR)
             / water_values["viscosity"],
         ),
-        ('fractional_component_mass_mobility', 'component', 1),
-    ]
+        ("fractional_component_mass_mobility", "component", 1),
+    ],
 )
 def test_mobility_single_phase_flow(
     model: pp.PorePyModel,
     method_name: str,
-    p_or_c: Literal['phase', 'component'],
+    p_or_c: Literal["phase", "component"],
     expected_value: float,
 ) -> None:
     """Tests the evaluation of various mobility methods in the single-phase,
@@ -530,18 +531,19 @@ def test_mobility_single_phase_flow(
     assert model.fluid.num_components == 1
     assert model.fluid.num_phases == 1
 
-    if p_or_c == 'phase':
+    if p_or_c == "phase":
         instance = model.fluid.reference_phase
-    elif p_or_c == 'component':
+    elif p_or_c == "component":
         instance = model.fluid.reference_component
     else:
-        assert False, 'Unclear test input'
+        assert False, "Unclear test input"
 
     # Fetching method and calling it with the right instance
     op: pp.ad.Operator = getattr(model, method_name)(instance, domains)
     val = op.value(model.equation_system)
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
+
 
 @pytest.mark.parametrize(
     "units",
@@ -556,25 +558,23 @@ def test_mobility_single_phase_flow(
         NonMatchingSquareDomainOrthogonalFractures,
     ],
 )
-def test_unit_conversion(units, grid):
+def test_unit_conversion(units, grid_class):
     """Test that solution is independent of units.
 
     Parameters:
         units (dict): Dictionary with keys as those in
             :class:`~pp.compositional.materials.Constants`.
-        grid: Mixed dimensional grid class which the test is performed on.
+        grid_class: Mixin class providing the model geometry.
 
     """
 
-    class LocalModel(grid, SinglePhaseFlow):
+    class LocalModel(grid_class, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
-        def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
             """Ensure nontrivial solution."""
-            vals = self.reference_variable_values.pressure * np.ones(
-                boundary_grid.num_cells
-            )
-            faces = self.domain_boundary_sides(boundary_grid).east
+            vals = self.reference_variable_values.pressure * np.ones(bg.num_cells)
+            faces = self.domain_boundary_sides(bg).east
             vals[faces] += self.units.convert_units(1e5, "Pa")
             return vals
 
@@ -613,7 +613,9 @@ def test_unit_conversion(units, grid):
     pp.run_time_dependent_model(model, solver_params)
     variables = [model.pressure_variable, model.interface_darcy_flux_variable]
     variable_units = ["Pa", "Pa * m^2 * s^-1"]
-    models.compare_scaled_primary_variables(reference_model, model, variables, variable_units)
+    models.compare_scaled_primary_variables(
+        reference_model, model, variables, variable_units
+    )
     flux_names = ["darcy_flux", "fluid_flux"]
     flux_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1"]
     # No domain restrictions.
@@ -653,9 +655,9 @@ def test_well_incompressible_pressure_values():
     model = WellModel(params)
     pp.run_time_dependent_model(model)
     # Check that the matrix pressure is close to linear in z
-    matrix = model.mdg.subdomains(dim=3)[0]
-    matrix_pressure = model.equation_system.evaluate(model.pressure([matrix]))
-    dist = np.absolute(matrix.cell_centers[2, :] - 0.5)
+    matrix_subdomain = model.mdg.subdomains(dim=3)[0]
+    matrix_pressure = model.equation_system.evaluate(model.pressure([matrix_subdomain]))
+    dist = np.absolute(matrix_subdomain.cell_centers[2, :] - 0.5)
     p_range = np.max(matrix_pressure) - np.min(matrix_pressure)
     expected_p = p_range * (0.5 - dist) / 0.5
     diff = expected_p - matrix_pressure
@@ -667,9 +669,11 @@ def test_well_incompressible_pressure_values():
     # bottom), and 1/2 for the distance from the fracture to the boundary.
     assert np.isclose(np.max(matrix_pressure), 1e6, rtol=1e-1)
     # In the fracture, check that the pressure is log distributed
-    fracs = model.mdg.subdomains(dim=2)
-    fracture_pressure = model.equation_system.evaluate(model.pressure(fracs))
-    sd = fracs[0]
+    fracture_subdomains = model.mdg.subdomains(dim=2)
+    fracture_pressure = model.equation_system.evaluate(
+        model.pressure(fracture_subdomains)
+    )
+    sd = fracture_subdomains[0]
     injection_cell = sd.closest_cell(np.atleast_2d([0.5, 0.5, 0.5]).T)
     # Check that the injection cell is the one with the highest pressure
     assert np.argmax(fracture_pressure) == injection_cell
@@ -853,13 +857,13 @@ def model_setup_gravity(
                 to the top boundary.
 
             """
-            sides = self.domain_boundary_sides(grid)
+            domain_sides = self.domain_boundary_sides(grid)
             if self.nd == 2:
-                return sides.south, sides.north
+                return domain_sides.south, domain_sides.north
             else:
-                return sides.bottom, sides.top
+                return domain_sides.bottom, domain_sides.top
 
-        def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
             """Boundary pressure values.
 
             Parameters:
@@ -870,27 +874,27 @@ def model_setup_gravity(
                 Cell-wise nd-vector source term operator.
 
             """
-            b_val = np.zeros(boundary_grid.num_cells)
-            if boundary_grid.dim == (self.nd - 1) and dir_val_top is not None:
-                b_val[self._bound_sides(boundary_grid)[1]] = dir_val_top
+            b_val = np.zeros(bg.num_cells)
+            if bg.dim == (self.nd - 1) and dir_val_top is not None:
+                b_val[self._bound_sides(bg)[1]] = dir_val_top
             return b_val
 
-        def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
             """Darcy flux values for the Neumann boundary condition.
 
             Parameters:
-                boundary_grid: Boundary grid to provide values for.
+                bg: Boundary grid to provide values for.
 
             Returns:
-                An array with ``shape=(boundary_grid.num_cells,)`` containing the
+                An array with ``shape=(bg.num_cells,)`` containing the
                 volumetric Darcy flux values on the provided boundary grid. Zero unless
                 ``neu_val_top`` is not None.
 
             """
-            vals = np.zeros(boundary_grid.num_cells)
-            if boundary_grid.parent.dim == self.nd and neu_val_top is not None:
-                cells = self._bound_sides(boundary_grid)[1]
-                vals[cells] = neu_val_top * boundary_grid.cell_volumes[cells]
+            vals = np.zeros(bg.num_cells)
+            if bg.parent.dim == self.nd and neu_val_top is not None:
+                cells = self._bound_sides(bg)[1]
+                vals[cells] = neu_val_top * bg.cell_volumes[cells]
             return vals
 
         def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -905,11 +909,11 @@ def model_setup_gravity(
 
             """
             # Define boundary faces.
-            sides = self._bound_sides(sd)[0]
+            domain_sides = self._bound_sides(sd)[0]
             if neu_val_top is None:
-                sides += self._bound_sides(sd)[1]
+                domain_sides += self._bound_sides(sd)[1]
             # Define boundary condition on all boundary faces.
-            return pp.BoundaryCondition(sd, sides, "dir")
+            return pp.BoundaryCondition(sd, domain_sides, "dir")
 
     return Model(params)
 
