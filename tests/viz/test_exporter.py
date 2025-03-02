@@ -707,8 +707,8 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "viscosity": 1.002e-1,  # [Pa s], absolute viscosity
         }
         nontrivial_reference_values = {
-            'pressure': 1.0,  # [Pa]
-            'temperature': 2.0,  # [K]
+            "pressure": 1.0,  # [Pa]
+            "temperature": 2.0,  # [K]
         }
 
         model_params = {

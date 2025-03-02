@@ -55,54 +55,64 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
     }
 
     # Create model and run simulation
-    setup = LinearModel(params)
-    pp.run_time_dependent_model(setup)
+    model = LinearModel(params)
+    pp.run_time_dependent_model(model)
 
     # Check that the pressure is linear
-    sd = setup.mdg.subdomains(dim=setup.nd)[0]
-    var = setup.equation_system.get_variables([setup.displacement_variable], [sd])
-    vals = setup.equation_system.get_variable_values(variables=var, time_step_index=0)
+    matrix_subdomain = model.mdg.subdomains(dim=model.nd)[0]
+    var = model.equation_system.get_variables(
+        [model.displacement_variable], [matrix_subdomain]
+    )
+    vals = model.equation_system.get_variable_values(variables=var, time_step_index=0)
     if np.isclose(north_displacement, 0):
         assert np.allclose(vals, 0)
     else:
         if north_displacement < 0:
             # Boundary displacement is negative, so the y displacement should be
             # negative
-            assert np.all(np.sign(vals[setup.nd - 1 :: setup.nd]) < 0)
+            assert np.all(np.sign(vals[model.nd - 1 :: model.nd]) < 0)
 
             # Check that x displacement has the same sign as north_displacement for
             # x<0.5, and the opposite sign for x>0.5. To see why this makes sense, think
             # through what happens around the symmetry line of x=0.5 when pulling or
             # pushing the top (north) boundary.
             tol = 1e-10
-            left = sd.cell_centers[0] < setup.domain.bounding_box["xmax"] / 2 - tol
-            right = sd.cell_centers[0] > setup.domain.bounding_box["xmax"] / 2 + tol
-            assert np.all(
-                np.sign(vals[:: setup.nd][left]) == np.sign(north_displacement)
+            left = (
+                matrix_subdomain.cell_centers[0]
+                < model.domain.bounding_box["xmax"] / 2 - tol
+            )
+            right = (
+                matrix_subdomain.cell_centers[0]
+                > model.domain.bounding_box["xmax"] / 2 + tol
             )
             assert np.all(
-                np.sign(vals[:: setup.nd][right]) == -np.sign(north_displacement)
+                np.sign(vals[:: model.nd][left]) == np.sign(north_displacement)
+            )
+            assert np.all(
+                np.sign(vals[:: model.nd][right]) == -np.sign(north_displacement)
             )
         else:
             # Check that y displacement is positive in top half of domain
-            top = sd.cell_centers[1] > 0.5
+            top = matrix_subdomain.cell_centers[1] > 0.5
             assert np.all(
-                np.sign(vals[setup.nd - 1 :: setup.nd][top])
+                np.sign(vals[model.nd - 1 :: model.nd][top])
                 == np.sign(north_displacement)
             )
             # Fracture cuts the domain in half, so the bottom half should be undisplaced.
-            bottom = sd.cell_centers[1] < 0.5
-            assert np.allclose(vals[setup.nd - 1 :: setup.nd][bottom], 0)
+            bottom = matrix_subdomain.cell_centers[1] < 0.5
+            assert np.allclose(vals[model.nd - 1 :: model.nd][bottom], 0)
             # No displacement in x direction
-            assert np.allclose(vals[:: setup.nd], 0)
+            assert np.allclose(vals[:: model.nd], 0)
 
     # Check that the displacement jump and traction are as expected
-    sd_frac = setup.mdg.subdomains(dim=setup.nd - 1)
-    jump = setup.equation_system.evaluate(setup.displacement_jump(sd_frac))
-    traction = setup.equation_system.evaluate(setup.contact_traction(sd_frac))
+    fracture_subdomains = model.mdg.subdomains(dim=model.nd - 1)
+    jump = model.equation_system.evaluate(model.displacement_jump(fracture_subdomains))
+    traction = model.equation_system.evaluate(
+        model.contact_traction(fracture_subdomains)
+    )
     if north_displacement > 0:
         # Normal component of displacement jump should be positive
-        assert np.all(jump[setup.nd - 1 :: setup.nd] > 0)
+        assert np.all(jump[model.nd - 1 :: model.nd] > 0)
         # Traction should be zero
         assert np.allclose(traction, 0)
     else:
@@ -110,7 +120,7 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
         assert np.all(np.isclose(jump, 0))
         # Normal traction should be non-positive. Zero if north_displacement is zero.
         if north_displacement < 0:
-            assert np.all(traction[setup.nd - 1 :: setup.nd] <= 0)
+            assert np.all(traction[model.nd - 1 :: model.nd] <= 0)
         else:
             assert np.allclose(traction, 0)
 
@@ -143,25 +153,25 @@ def test_unit_conversion(units: dict, uy_north: float):
     }
     reference_params = copy.deepcopy(params)
     # Create model and run simulation.
-    setup_0 = LinearModel(reference_params)
-    pp.run_time_dependent_model(setup_0)
+    reference_model = LinearModel(reference_params)
+    pp.run_time_dependent_model(reference_model)
 
     params["units"] = pp.Units(**units)
-    setup_1 = LinearModel(params)
+    model = LinearModel(params)
 
-    pp.run_time_dependent_model(setup_1)
+    pp.run_time_dependent_model(model)
     variables = [
-        setup_1.displacement_variable,
-        setup_1.interface_displacement_variable,
-        setup_1.contact_traction_variable,
+        model.displacement_variable,
+        model.interface_displacement_variable,
+        model.contact_traction_variable,
     ]
     variable_units = ["m", "m", "-"]
-    compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    compare_scaled_primary_variables(reference_model, model, variables, variable_units)
     secondary_variables = ["stress", "displacement_jump"]
     secondary_units = ["Pa * m", "m"]
     domain_dimensions = [2, 1]
     compare_scaled_model_quantities(
-        setup_0, setup_1, secondary_variables, secondary_units, domain_dimensions
+        reference_model, model, secondary_variables, secondary_units, domain_dimensions
     )
 
 
@@ -321,7 +331,7 @@ solid_vals_elastoplastic = {
 
 
 def verify_elastoplastic_deformation(
-    setup: pp.MomentumBalance,
+    model: pp.MomentumBalance,
     u_e_expected: list[pp.number],
     u_p_expected: list[pp.number],
     u_top_expected: list[pp.number],
@@ -335,7 +345,7 @@ def verify_elastoplastic_deformation(
     values within the given tolerances.
 
     Parameters:
-        setup: The model setup.
+        model: The model instance.
         u_e_expected: ``len=nd``
 
             Expected values of the elastic displacement jump in the x and y directions.
@@ -362,19 +372,23 @@ def verify_elastoplastic_deformation(
 
 
     """
-    nd = setup.nd  # Shorthand for number of dimensions.
+    nd = model.nd  # Shorthand for number of dimensions.
     # Get the indices of the tangential components in global coordinates. Hardcoded
     # based on the assumption that the fracture has constant y-coordinate.
     fracture_ind = 1
     tang_ind = np.setdiff1d(np.arange(nd), fracture_ind)
-    matrix = setup.mdg.subdomains(dim=nd)[0]
-    fractures = setup.mdg.subdomains(dim=nd - 1)
-    assert len(fractures) == 1  # Below code assumes a single fracture.
-    fracture = fractures[0]
+    matrix_subdomain = model.mdg.subdomains(dim=nd)[0]
+    fracture_subdomains = model.mdg.subdomains(dim=nd - 1)
+    assert len(fracture_subdomains) == 1  # Below code assumes a single fracture.
+    fracture = fracture_subdomains[0]
 
     # Get plastic and elastic displacement jumps on the fracture in local coordinates.
-    u_p_loc = setup.equation_system.evaluate(setup.plastic_displacement_jump(fractures))
-    u_e_loc = setup.equation_system.evaluate(setup.elastic_displacement_jump(fractures))
+    u_p_loc = model.equation_system.evaluate(
+        model.plastic_displacement_jump(fracture_subdomains)
+    )
+    u_e_loc = model.equation_system.evaluate(
+        model.elastic_displacement_jump(fracture_subdomains)
+    )
 
     # Transform the jumps to global coordinates and corresponding to the j side of the
     # fracture being the one with the lower y-coordinate (jumps are k-j).
@@ -383,20 +397,20 @@ def verify_elastoplastic_deformation(
     # the fracture normal points downwards. This is needed to counteract the cases when
     # the j ("left") side of the fracture is the one with the higher y-coordinate, i.e.
     # the upper half of the domain.
-    proj = setup.mdg.subdomain_data(fracture)["tangential_normal_projection"]
+    proj = model.mdg.subdomain_data(fracture)["tangential_normal_projection"]
     n = proj.normals
     rot = proj.project_tangential_normal().T
     u_p = rot @ u_p_loc
     u_e = rot @ u_e_loc
 
-    sign = np.tile(np.sign(n[1]), (setup.nd, 1)).ravel("F")
+    sign = np.tile(np.sign(n[1]), (model.nd, 1)).ravel("F")
     u_p = (sign * u_p).reshape((nd, -1), order="F")
     u_e = (sign * u_e).reshape((nd, -1), order="F")
 
-    u_domain = setup.equation_system.evaluate(setup.displacement([matrix])).reshape(
-        (nd, -1), order="F"
-    )
-    u_top = u_domain[:, matrix.cell_centers[fracture_ind] > 0.5]
+    u_domain = model.equation_system.evaluate(
+        model.displacement([matrix_subdomain])
+    ).reshape((nd, -1), order="F")
+    u_top = u_domain[:, matrix_subdomain.cell_centers[fracture_ind] > 0.5]
     # Compare the computed values to the expected values.
     if compare_means:
         assert np.allclose(np.mean(u_e, axis=1), u_e_expected, rtol=tols[0])
@@ -420,9 +434,9 @@ def verify_elastoplastic_deformation(
 
     # Traction on the fracture.
     open_cells = u_p[fracture_ind] > 1e-10
-    traction = setup.equation_system.evaluate(
-        setup.characteristic_contact_traction([fracture])
-        * setup.contact_traction([fracture])
+    traction = model.equation_system.evaluate(
+        model.characteristic_contact_traction([fracture])
+        * model.contact_traction([fracture])
     )
     # Rotate to global coordinates.
     traction = rot @ traction
@@ -434,7 +448,7 @@ def verify_elastoplastic_deformation(
     # magnitudes equal to stiffness for closed cells.
     assert np.allclose(
         traction[tang_ind][:, ~open_cells] / u_e[tang_ind][:, ~open_cells],
-        setup.solid.fracture_tangential_stiffness,
+        model.solid.fracture_tangential_stiffness,
         atol=1e-10,
     )
     # Check that open cells have zero traction.
@@ -488,10 +502,10 @@ def test_elastoplastic_2d_single_fracture(
     }
 
     # Create model and run simulation.
-    setup = ElastoplasticModel2d(params)
-    pp.run_time_dependent_model(setup, params)
+    model = ElastoplasticModel2d(params)
+    pp.run_time_dependent_model(model, params)
     verify_elastoplastic_deformation(
-        setup,
+        model,
         u_e_expected,
         u_p_expected,
         u_expected,
@@ -568,10 +582,10 @@ def test_elastoplastic_3d_single_fracture(
     }
 
     # Create model and run simulation
-    setup = ElastoplasticModel3d(params)
-    pp.run_time_dependent_model(setup, params)
+    model = ElastoplasticModel3d(params)
+    pp.run_time_dependent_model(model, params)
     verify_elastoplastic_deformation(
-        setup,
+        model,
         u_e_expected,
         u_p_expected,
         u_expected,
@@ -591,14 +605,14 @@ class TimeDependentBCs(
         displacement is imposed on the north boundary. The south boundary is fixed.
 
         Parameters:
-            boundary_grid: Boundary grid for which boundary values are to be returned.
+            bg: Boundary grid for which boundary values are to be returned.
 
         Returns:
             Array of boundary values, with one value for each dimension of the problem,
             for each face in the subdomain.
 
         """
-        sides = self.domain_boundary_sides(bg)
+        domain_sides = self.domain_boundary_sides(bg)
         values = np.zeros((self.nd, bg.num_cells))
 
         # Add fracture width on top if there is a fracture.
@@ -606,7 +620,7 @@ class TimeDependentBCs(
             frac_val = self.solid.fracture_gap
         else:
             frac_val = 0
-        values[1, sides.north] = frac_val
+        values[1, domain_sides.north] = frac_val
 
         if bg.dim < self.nd - 1:
             return values.ravel("F")
@@ -614,7 +628,9 @@ class TimeDependentBCs(
             # Create slip for second time step.
             u_z = 50.0 if self.time_manager.time > 1.1 else 1.0
             u_n = np.tile([1, -1, u_z], (bg.num_cells, 1)).T
-            values[:, sides.north] += self.units.convert_units(u_n, "m")[:, sides.north]
+            values[:, domain_sides.north] += self.units.convert_units(u_n, "m")[
+                :, domain_sides.north
+            ]
         return values.ravel("F")
 
 
@@ -640,12 +656,12 @@ def test_time_dependent_bc():
     }
 
     # Create model and run simulation. The north displacement is 1, -1, 1.
-    setup = ElastoplasticModelTimeDependentBCs(params)
-    pp.run_time_dependent_model(setup, params)
+    model = ElastoplasticModelTimeDependentBCs(params)
+    pp.run_time_dependent_model(model, params)
     tols = [5e-2, 1e-10, 1e-3, 5e-2]
 
     verify_elastoplastic_deformation(
-        setup,
+        model,
         [0.86, 0, 0.86],
         [0, 0, 0],
         [np.nan, np.nan, np.nan],
@@ -653,7 +669,7 @@ def test_time_dependent_bc():
         tols,
     )
     # Continue for one more time step. This time, the north displacement is 1, -1, 2.
-    setup.time_manager = pp.TimeManager([1.0, 2.0], 1.0, True)
+    model.time_manager = pp.TimeManager([1.0, 2.0], 1.0, True)
     params["prepare_simulation"] = False
 
     # Fixed values from a previous run. Both normal value (u_y=0) and ratio of
@@ -664,9 +680,9 @@ def test_time_dependent_bc():
     traction[1] = -2.54
     # Same goes here. We expect -0.75, since the top coordinate is 0.75.
     u_top = [0.97917835, -0.75, 48.95893718]
-    pp.run_time_dependent_model(setup, params)
+    pp.run_time_dependent_model(model, params)
     verify_elastoplastic_deformation(
-        setup,
+        model,
         u_e,
         u_p,
         u_top,

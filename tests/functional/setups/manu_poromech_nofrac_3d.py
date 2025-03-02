@@ -1,5 +1,5 @@
 """
-This module contains the implementation of a verification setup for a poromechanical
+This module contains the implementation of a verification model for a poromechanical
 system (without fractures) using three-dimensional manufactured solutions.
 
 The implementation considers a compressible fluid, resulting in a coupled non-linear
@@ -51,6 +51,7 @@ References:
       for Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable
@@ -61,7 +62,7 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from tests.functional.setups.manu_poromech_nofrac_2d import (
-    ManuPoroMechSetup2d,
+    ManuPoroMechModel2d,
     ManuPoroMechSolutionStrategy2d,
 )
 
@@ -72,22 +73,22 @@ grid = pp.GridLike
 
 # -----> Exact solution
 class ManuPoroMechExactSolution3d:
-    """Class containing the exact manufactured solution for the verification setup."""
+    """Class containing the exact manufactured solution for the verification model."""
 
-    def __init__(self, setup: pp.PorePyModel):
+    def __init__(self, model: pp.PorePyModel):
         """Constructor of the class."""
 
         # Physical parameters
-        lame_lmbda = setup.solid.lame_lambda  # [Pa] Lamé parameter
-        lame_mu = setup.solid.shear_modulus  # [Pa] Lamé parameter
-        alpha = setup.solid.biot_coefficient  # [-] Biot coefficient
-        rho_0 = setup.fluid.reference_component.density  # [kg / m^3] Reference density
-        phi_0 = setup.solid.porosity  # [-] Reference porosity
-        p_0 = setup.reference_variable_values.pressure  # [Pa] Reference pressure
+        lame_lmbda = model.solid.lame_lambda  # [Pa] Lamé parameter
+        lame_mu = model.solid.shear_modulus  # [Pa] Lamé parameter
+        alpha = model.solid.biot_coefficient  # [-] Biot coefficient
+        rho_0 = model.fluid.reference_component.density  # [kg / m^3] Reference density
+        phi_0 = model.solid.porosity  # [-] Reference porosity
+        p_0 = model.reference_variable_values.pressure  # [Pa] Reference pressure
         # [Pa^-1] Fluid compressibility
-        c_f = setup.fluid.reference_component.compressibility
-        k = setup.solid.permeability  # [m^2] Permeability
-        mu_f = setup.fluid.reference_component.viscosity  # [Pa * s] Fluid viscosity
+        c_f = model.fluid.reference_component.compressibility
+        k = model.solid.permeability  # [m^2] Permeability
+        mu_f = model.fluid.reference_component.viscosity  # [Pa * s] Fluid viscosity
         K_d = lame_lmbda + (2 / 3) * lame_mu  # [Pa] Bulk modulus
 
         # Symbolic variables
@@ -95,7 +96,7 @@ class ManuPoroMechExactSolution3d:
         pi = sym.pi
 
         # Exact pressure and displacement solutions
-        manufactured_sol = setup.params.get("manufactured_solution", "parabolic")
+        manufactured_sol = model.params.get("manufactured_solution", "parabolic")
         if manufactured_sol == "parabolic":
             p = t * x * (1 - x) * y * (1 - y) * (1 - z)
             u = [p, p, p]
@@ -493,7 +494,7 @@ class UnitCubeGrid:
 
 # -----> Solution strategy
 class ManuPoroMechSolutionStrategy3d(ManuPoroMechSolutionStrategy2d):
-    """Solution strategy for the verification setup."""
+    """Solution strategy for the verification model."""
 
     exact_sol: ManuPoroMechExactSolution3d
     """Exact solution object."""
@@ -514,12 +515,12 @@ class ManuPoroMechSolutionStrategy3d(ManuPoroMechSolutionStrategy2d):
 
 
 # -----> Mixer class
-class ManuPoroMechSetup3d(  # type: ignore[misc]
+class ManuPoroMechModel3d(  # type: ignore[misc]
     UnitCubeGrid,
     ManuPoroMechSolutionStrategy3d,
-    ManuPoroMechSetup2d,
+    ManuPoroMechModel2d,
 ):
     """
-    Mixer class for the two-dimensional non-linear poromechanics verification setup.
+    Mixer class for the two-dimensional non-linear poromechanics verification model.
 
     """

@@ -1,11 +1,11 @@
 """
 This module contains the implementation of Case 4 from the 2D flow benchmark [1].
 
-The setup is composed of 64 fractures grouped in 13 different connected networks,
+The geometry is composed of 64 fractures grouped in 13 different connected networks,
 ranging from isolated fractures up to tens of fractures each.
 
 Note:
-    At the current stage, the setup is meant only for performance profiling and does not
+    At the current stage, the model is meant only for performance profiling and does not
     fully match the paper.
 
 References:
@@ -88,21 +88,21 @@ class BoundaryConditions(pp.PorePyModel):
 
     """
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure value of one atmosphere (101325 Pa) on west side."""
-        bounds = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros(boundary_grid.num_cells)
-        values[bounds.west] = self.units.convert_units(101325, "Pa")
+        domain_sides = self.domain_boundary_sides(bg)
+        values = np.zeros(bg.num_cells)
+        values[domain_sides.west] = self.units.convert_units(101325, "Pa")
         return values
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign Dirichlet to the east and west boundary. The rest are Neumann by
         default."""
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.east + bounds.west, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, domain_sides.east + domain_sides.west, "dir")
         return bc
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Inflow on the west boundary.
 
         Per PorePy convention, the sign is negative for inflow and the value is
@@ -110,13 +110,13 @@ class BoundaryConditions(pp.PorePyModel):
         fracture, the latter includes the fracture specific volume.
 
         Parameters:
-            boundary_grid: Boundary grid.
+            bg: Boundary grid.
 
         Returns:
             Boundary values.
 
         """
-        values = np.zeros(boundary_grid.num_cells)
+        values = np.zeros(bg.num_cells)
         return values
 
 
