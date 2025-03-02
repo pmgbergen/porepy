@@ -1,7 +1,7 @@
 """Simulation examples for PorePy.
 
 This module contains a number of examples of how to run a simulation using PorePy. Each
-example contains functionality specific to the setup in question.
+example contains functionality specific to the model in question.
 
 The simulation setups serve the following purposes:
     - Reuse in testing
@@ -15,12 +15,12 @@ acceptance criteria for new examples are relatively strict.
 
 from .flow_benchmark_3d_case_3 import FlowBenchmark3dCase3Model
 from .mandel_biot import MandelExactSolution, MandelSolutionStrategy
-from .terzaghi_biot import TerzaghiExactSolution, TerzaghiSetup
+from .terzaghi_biot import TerzaghiExactSolution, TerzaghiModel
 
 __all__ = [
     "FlowBenchmark3dCase3Model",
     "MandelExactSolution",
     "MandelSolutionStrategy",
     "TerzaghiExactSolution",
-    "TerzaghiSetup",
+    "TerzaghiModel",
 ]

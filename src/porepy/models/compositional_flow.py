@@ -95,7 +95,7 @@ The two template models, :class:`CompositionalFlowTemplate` and
 :class:`CompositionalFractionalFlowTemplate` are starting points for non-isothermal,
 multiphase, multicomponent flow & transport models. They do not contain the constitutive
 modelling of fluid properties though and are hence not runable.
-The steps required by users to close the setups and obtain runable models are:
+The steps required by users to close the models and obtain runable models are:
 
 1. Define a fluid with all its phases and components.
 2. Close the system with local equations for dangling, fractional variables. These can
@@ -2004,7 +2004,7 @@ class CompositionalFlowTemplate(  # type: ignore[misc]
     """General class for setting up a multi-phase multi-component flow model, with
     thermodynamic properties of phases being represented as surrogate factories.
 
-    The setup can be used as a starting point to add various thermodynamic models and
+    The model can be used as a starting point to add various thermodynamic models and
     correlations (constitutive modelling).
 
     The primary, transportable variables are:
@@ -2059,7 +2059,7 @@ class CompositionalFractionalFlowTemplate(  # type: ignore[misc]
     fluxes explicitely, without evaluating phase properties. This functionality is given
     by :class:`BoundaryConditionsFractionalFlow`.
 
-    Correspondingly, this is a skeleton setup. It is not runable and requires
+    Correspondingly, this is a skeleton model. It is not runable and requires
     constitutive modelling from the user's side.
 
     """

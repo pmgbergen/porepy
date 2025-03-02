@@ -1,4 +1,4 @@
-""" Various tests related to grids:
+"""Various tests related to grids:
 * The main grid class, including geometry computation.
 * Specific tests for Simplex and Structured Grids
 * Tests for the mortar grid.
@@ -133,7 +133,6 @@ def test_cell_faces_as_dense(g: pp.Grid):
 
 
 class TestDivergenceTrace:
-
     def create_grids(self) -> list[pp.Grid]:
         """Create grids used for testing the divergence and trace operators.
 
@@ -232,7 +231,6 @@ class TestDivergenceTrace:
 
         """
         for g in self.create_grids():
-
             # Divergence operator to be tested.
             div = g.divergence(dim=dim).toarray()
             # First a simple shape check.

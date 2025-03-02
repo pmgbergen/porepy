@@ -21,9 +21,6 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.md_grids.model_geometries import (
-    SquareDomainOrthogonalFractures,
-)
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
@@ -798,9 +795,9 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         if self.num_nonlinear_iters == 0:
             iterate_values = self.equation_system.get_variable_values(iterate_index=0)
             state_values = self.equation_system.get_variable_values(time_step_index=0)
-            assert np.all(
-                iterate_values == state_values
-            ), "Likely, 'iterate' was not reset after the unsuccessful time step."
+            assert np.all(iterate_values == state_values), (
+                "Likely, 'iterate' was not reset after the unsuccessful time step."
+            )
 
         self.num_nonlinear_iters += 1
 
@@ -823,9 +820,9 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
         if self.time_step_converged[self.time_step_idx] is False:
             # Diverged
             return False, True
-        assert (
-            False
-        ), "Nonlinear solver did not stop iterating after the iteration limit."
+        assert False, (
+            "Nonlinear solver did not stop iterating after the iteration limit."
+        )
 
     # Minimizing computational expences.
 

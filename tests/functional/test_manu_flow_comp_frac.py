@@ -45,19 +45,19 @@ import pytest
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.manu_flow_comp_2d_frac import (
-    ManuCompFlowSetup2d,
+    ManuCompFlowModel2d,
     manu_comp_fluid,
     manu_comp_solid,
     manu_comp_ref_vals,
 )
-from tests.functional.setups.manu_flow_comp_3d_frac import ManuCompFlowSetup3d
+from tests.functional.setups.manu_flow_comp_3d_frac import ManuCompFlowModel3d
 
 
 # --> Declaration of module-wide fixtures that are re-used throughout the tests
 @pytest.fixture(scope="module")
 def material_constants() -> dict:
     """Set material constants.
-    Use default values provided in the module where the setup class is included.
+    Use default values provided in the module where the model class is included.
 
     Returns:
         Dictionary containing the material constants with the `solid` and `fluid`
@@ -72,7 +72,7 @@ def material_constants() -> dict:
 @pytest.fixture(scope="module")
 def reference_values() -> pp.ReferenceVariableValues:
     """Reference values for pressure and temperature.
-    Use default values provided in the module where the setup class is included.
+    Use default values provided in the module where the model class is included.
 
     Returns:
         Dictionary containing the reference value data structure.
@@ -115,13 +115,13 @@ def actual_l2_errors(
     # Retrieve actual L2-relative errors.
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
-    for model in [ManuCompFlowSetup2d, ManuCompFlowSetup3d]:
+    for model_class in [ManuCompFlowModel2d, ManuCompFlowModel3d]:
         # Make deep copy of params to avoid nasty bugs.
-        setup: pp.PorePyModel = model(deepcopy(model_params))
-        pp.run_time_dependent_model(setup, {})
+        model: pp.PorePyModel = model_class(deepcopy(model_params))
+        pp.run_time_dependent_model(model, {})
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
-        for result in setup.results:
+        for result in model.results:
             errors_setup.append(
                 {
                     "error_matrix_pressure": getattr(result, "error_matrix_pressure"),
@@ -266,7 +266,7 @@ def actual_ooc(
     """
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models
-    for model_idx, model in enumerate([ManuCompFlowSetup2d, ManuCompFlowSetup3d]):
+    for model_idx, model_class in enumerate([ManuCompFlowModel2d, ManuCompFlowModel3d]):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type
         for grid_type in ["cartesian", "simplex"]:
@@ -285,7 +285,7 @@ def actual_ooc(
                 # Use 4 levels of refinement for 2d and 3 levels for 3d
                 if model_idx == 0:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=model,
+                        model_class=model_class,
                         model_params=deepcopy(params),
                         levels=4,
                         spatial_refinement_rate=2,
@@ -293,7 +293,7 @@ def actual_ooc(
                     )
                 else:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=model,
+                        model_class=model_class,
                         model_params=deepcopy(params),
                         levels=3,
                         spatial_refinement_rate=2,
