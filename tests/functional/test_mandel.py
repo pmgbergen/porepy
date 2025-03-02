@@ -24,7 +24,7 @@ import porepy as pp
 
 from porepy.examples.mandel_biot import (
     MandelSaveData,
-    MandelSetup,
+    MandelModel,
     mandel_fluid_constants,
     mandel_solid_constants,
 )
@@ -32,7 +32,7 @@ from porepy.examples.mandel_biot import (
 
 @pytest.fixture(scope="module")
 def results() -> list[MandelSaveData]:
-    # Run verification setup and retrieve results for three different times
+    # Run verification model and retrieve results for three different times
     material_constants = {
         "fluid": pp.FluidComponent(**mandel_fluid_constants),
         "solid": pp.SolidConstants(**mandel_solid_constants),
@@ -43,9 +43,9 @@ def results() -> list[MandelSaveData]:
         "time_manager": time_manager,
         "times_to_export": [],  # Suppress output for tests
     }
-    setup = MandelSetup(model_params)
-    pp.run_time_dependent_model(setup)
-    return setup.results
+    model = MandelModel(model_params)
+    pp.run_time_dependent_model(model)
+    return model.results
 
 
 # Desired errors
@@ -158,7 +158,7 @@ def test_scaled_vs_unscaled_systems():
         "time_manager": time_manager_unscaled,
         "times_to_export": [],  # Suppress output for tests
     }
-    model_unscaled = MandelSetup(params=model_params_unscaled)
+    model_unscaled = MandelModel(params=model_params_unscaled)
     pp.run_time_dependent_model(model_unscaled)
 
     # The scaled problem
@@ -175,7 +175,7 @@ def test_scaled_vs_unscaled_systems():
         "units": units,
         "times_to_export": [],  # Suppress output for tests
     }
-    scaled_model = MandelSetup(params=model_params_scaled)
+    scaled_model = MandelModel(params=model_params_scaled)
     pp.run_time_dependent_model(model=scaled_model)
 
     # Compare results

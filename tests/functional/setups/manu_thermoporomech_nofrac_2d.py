@@ -1,5 +1,5 @@
 r"""
-This module contains the setup for a 2d verification test for the coupled
+This module contains the model for a 2d verification test for the coupled
 thermo-poromechanical problem. The problem is defined on a unit square domain, and
 consists of a fluid flow equation, a mechanical equation, and an energy equation.
 
@@ -56,7 +56,7 @@ grid = pp.GridLike
 # -----> Data-saving
 @dataclass
 class ManuThermoPoroMechSaveData:
-    """Data class to save relevant results from the verification setup."""
+    """Data class to save relevant results from the verification model."""
 
     approx_displacement: np.ndarray
     """Numerical displacement."""
@@ -156,7 +156,7 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
     """
 
     def collect_data(self) -> ManuThermoPoroMechSaveData:
-        """Collect data from the verification setup.
+        """Collect data from the verification model.
 
         Returns:
             Object containing the results of the verification for the current time.
@@ -272,7 +272,7 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
 
 
 class ManuThermoPoroMechExactSolution2d:
-    """Class containing the exact manufactured solution for the verification setup.
+    """Class containing the exact manufactured solution for the verification model.
 
     The exact solutions for the primary variables pressure, displacement and temperature,
     are defined below, as well as the exact solutions for the secondary variables Darcy
@@ -296,13 +296,13 @@ class ManuThermoPoroMechExactSolution2d:
 
     """
 
-    def __init__(self, setup: pp.PorePyModel):
+    def __init__(self, model: pp.PorePyModel):
         """Constructor of the class."""
 
         # Heterogeneity factor.
-        heterogeneity: float = setup.params.get("heterogeneity")
+        heterogeneity: float = model.params.get("heterogeneity")
 
-        # Physical parameters, fetched from the material constants in the setup object.
+        # Physical parameters, fetched from the material constants in the model object.
 
         # The parameters for mechanical stiffness and permeability can be made
         # heterogeneous, by means of the parameter 'hetereogeneity'. The values fetched
@@ -310,39 +310,39 @@ class ManuThermoPoroMechExactSolution2d:
         # expanded by the heterogeneity factor below
         #
         # Lamé parameters
-        lame_lmbda_base = setup.solid.lame_lambda
-        lame_mu_base = setup.solid.shear_modulus
+        lame_lmbda_base = model.solid.lame_lambda
+        lame_mu_base = model.solid.shear_modulus
         # Permeability
-        permeability_base = setup.solid.permeability
+        permeability_base = model.solid.permeability
 
         # Biot coefficient. Will be used to define the Biot tensor below.
-        alpha = setup.solid.biot_coefficient
+        alpha = model.solid.biot_coefficient
         # Reference density and compressibility for fluid.
-        reference_fluid_density = setup.fluid.reference_component.density
-        fluid_compressibility = setup.fluid.reference_component.compressibility
+        reference_fluid_density = model.fluid.reference_component.density
+        fluid_compressibility = model.fluid.reference_component.compressibility
         # Density of the solid.
-        solid_density = setup.solid.density
+        solid_density = model.solid.density
 
         # Reference porosity
-        phi_0 = setup.solid.porosity
+        phi_0 = model.solid.porosity
         # Specific heat capacity of the fluid
-        fluid_specific_heat = setup.fluid.reference_component.specific_heat_capacity
+        fluid_specific_heat = model.fluid.reference_component.specific_heat_capacity
         # Specific heat capacity of the solid
-        solid_specific_heat = setup.solid.specific_heat_capacity
+        solid_specific_heat = model.solid.specific_heat_capacity
         # Reference pressure and temperature
-        p_0 = setup.reference_variable_values.pressure
-        T_0 = setup.reference_variable_values.temperature
+        p_0 = model.reference_variable_values.pressure
+        T_0 = model.reference_variable_values.temperature
 
         # Thermal expansion coefficients
-        fluid_thermal_expansion = setup.fluid.reference_component.thermal_expansion
-        solid_thermal_expansion = setup.solid.thermal_expansion
+        fluid_thermal_expansion = model.fluid.reference_component.thermal_expansion
+        solid_thermal_expansion = model.solid.thermal_expansion
 
         # Conductivity for the fluid and solid
-        fluid_conductivity = setup.fluid.reference_component.thermal_conductivity
-        solid_conductivity = setup.solid.thermal_conductivity
+        fluid_conductivity = model.fluid.reference_component.thermal_conductivity
+        solid_conductivity = model.solid.thermal_conductivity
 
         # Fluid viscosity
-        mu_f = setup.fluid.reference_component.viscosity
+        mu_f = model.fluid.reference_component.viscosity
 
         ## Done with fetching constants. Now, introduce heterogeneities and define
         # the exact solutions for the primary variables.
@@ -1034,7 +1034,7 @@ class SourceTerms:
 class ManuThermoPoroMechSolutionStrategy2d(
     pp.thermoporomechanics.SolutionStrategyThermoporomechanics
 ):
-    """Solution strategy for the verification setup."""
+    """Solution strategy for the verification model."""
 
     exact_sol: ManuThermoPoroMechExactSolution2d
     """Exact solution object."""
@@ -1196,7 +1196,7 @@ class ManuThermoPoroMechSolutionStrategy2d(
             )
 
 
-class ManuThermoPoroMechSetup2d(  # type: ignore[misc]
+class ManuThermoPoroMechModel2d(  # type: ignore[misc]
     UnitSquareGrid,
     SourceTerms,
     ManuThermoPoroMechSolutionStrategy2d,
