@@ -6,6 +6,7 @@ For AD quantities, four cases are considered: scalar, variable, sparse Jacobian,
 scalar times a variable.
 
 """
+
 import warnings
 
 import numpy as np
@@ -59,7 +60,9 @@ def test_exp_scalar_times_ad_var():
     b = af.exp(c * a)
     jac = c * sps.diags(np.exp(c * val)) * J
 
-    assert np.allclose(b.val, np.exp(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.exp(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -105,7 +108,9 @@ def test_log_scalar_times_ad_var():
     b = af.log(c * a)
     jac = sps.diags(1 / val) * J
 
-    assert np.allclose(b.val, np.log(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.log(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -183,7 +188,9 @@ def test_sin_scalar_times_ad_var():
     b = af.sin(c * a)
     jac = c * sps.diags(np.cos(c * val)) * J
 
-    assert np.allclose(b.val, np.sin(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.sin(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -230,7 +237,9 @@ def test_cos_scalar_times_ad_var():
     b = af.cos(c * a)
     jac = -c * sps.diags(np.sin(c * val)) * J
 
-    assert np.allclose(b.val, np.cos(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.cos(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -277,7 +286,9 @@ def test_tan_scalar_times_ad_var():
     b = af.tan(c * a)
     jac = c * sps.diags((np.cos(c * val) ** 2) ** (-1)) * J
 
-    assert np.allclose(b.val, np.tan(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.tan(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -324,7 +335,9 @@ def test_arcsin_scalar_times_ad_var():
     b = af.arcsin(c * a)
     jac = sps.diags(c * (1 - (c * val) ** 2) ** (-0.5)) * J
 
-    assert np.allclose(b.val, np.arcsin(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.arcsin(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [0.1, 0.2, 0.3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -371,7 +384,9 @@ def test_arccos_scalar_times_ad_var():
     b = af.arccos(c * a)
     jac = -sps.diags(c * (1 - (c * val) ** 2) ** (-0.5)) * J
 
-    assert np.allclose(b.val, np.arccos(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.arccos(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [0.1, 0.2, 0.3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -418,7 +433,9 @@ def test_arctan_scalar_times_ad_var():
     b = af.arctan(c * a)
     jac = sps.diags(c * (1 + (c * val) ** 2) ** (-1)) * J
 
-    assert np.allclose(b.val, np.arctan(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.arctan(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [0.1, 0.2, 0.3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -465,7 +482,9 @@ def test_sinh_scalar_times_ad_var():
     b = af.sinh(c * a)
     jac = c * sps.diags(np.cosh(c * val)) * J
 
-    assert np.allclose(b.val, np.sinh(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.sinh(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -512,7 +531,9 @@ def test_cosh_scalar_times_ad_var():
     b = af.cosh(c * a)
     jac = c * sps.diags(np.sinh(c * val)) * J
 
-    assert np.allclose(b.val, np.cosh(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.cosh(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -559,7 +580,9 @@ def test_tanh_scalar_times_ad_var():
     b = af.tanh(c * a)
     jac = c * sps.diags((np.cosh(c * val) ** 2) ** (-1)) * J
 
-    assert np.allclose(b.val, np.tanh(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.tanh(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -608,7 +631,9 @@ def test_arcsinh_scalar_times_ad_var():
     b = af.arcsinh(c * a)
     jac = sps.diags(c * (1 + (c * val) ** 2) ** (-0.5)) * J
 
-    assert np.allclose(b.val, np.arcsinh(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.arcsinh(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [0.1, 0.2, 0.3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -658,7 +683,9 @@ def test_arccosh_scalar_times_ad_var():
     b = af.arccosh(c * a)
     jac = sps.diags(c * (c * val - 1) ** (-0.5) * (c * val + 1) ** (-0.5)) * J
 
-    assert np.allclose(b.val, np.arccosh(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.arccosh(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -707,7 +734,9 @@ def test_arctanh_scalar_times_ad_var():
     b = af.arctanh(c * a)
     jac = sps.diags(c * (1 - (c * val) ** 2) ** (-1)) * J
 
-    assert np.allclose(b.val, np.arctanh(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.arctanh(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [0.1, 0.2, 0.3]) and np.all(a.jac.toarray() == J.toarray())
 
 
@@ -736,9 +765,7 @@ def test_heaviside_smooth_vector():
     b = af.heaviside_smooth(a)
 
     true_val = 0.5 * (1 + 2 * np.pi ** (-1) * np.arctan(val * 1e3))
-    true_jac = np.dot(
-        np.diag(np.pi ** (-1) * (1e-3 * (1e-3**2 + val**2) ** (-1))), J
-    )
+    true_jac = np.dot(np.diag(np.pi ** (-1) * (1e-3 * (1e-3**2 + val**2) ** (-1))), J)
 
     assert np.allclose(b.val, true_val) and np.allclose(b.jac.toarray(), true_jac)
     assert np.all(J == np.array([[3, -2, 1], [-5, 6, 1], [2, 3, -5]]))
@@ -770,5 +797,7 @@ def test_heaviside_smooth_times_ad_var():
         sps.diags(c * np.pi ** (-1) * (1e-3 * (1e-3**2 + (c * val) ** 2) ** (-1))) * J
     )
 
-    assert np.allclose(b.val, true_val) and np.allclose(b.jac.toarray(), true_jac.toarray())
+    assert np.allclose(b.val, true_val) and np.allclose(
+        b.jac.toarray(), true_jac.toarray()
+    )
     assert np.all(a.val == [1, -2, -3]) and np.all(a.jac.toarray() == J.toarray())

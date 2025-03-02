@@ -1,5 +1,5 @@
-""" Tests related to fracture propagation.
-"""
+"""Tests related to fracture propagation."""
+
 import numpy as np
 import pytest
 
@@ -98,8 +98,10 @@ def test_partial_discretization(geometry, discretization):
             "fourth_order_tensor": pp.FourthOrderTensor(
                 np.ones(sd.num_cells), np.ones(sd.num_cells)
             ),
-            "scalar_vector_mappings": {'foo': 1,
-                 'bar': pp.SecondOrderTensor(np.ones(sd.num_cells))},
+            "scalar_vector_mappings": {
+                "foo": 1,
+                "bar": pp.SecondOrderTensor(np.ones(sd.num_cells)),
+            },
         }
 
     # Populate parameters

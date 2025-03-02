@@ -372,7 +372,7 @@ class _Arrow3D(FancyArrowPatch):
             kwargs: Keyword arguments for FancyArrowPatch
 
         """
-        # Setup an empty arrow using the base class
+        # Set up an empty arrow using the base class.
         FancyArrowPatch.__init__(self, (0, 0), (0, 0), *args, **kwargs)
         # Store the coordinates
         self._verts3d = xs, ys, zs

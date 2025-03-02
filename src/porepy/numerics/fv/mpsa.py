@@ -485,7 +485,7 @@ class Mpsa(Discretization):
         approximation.
 
         Parameters:
-            g: Grid to be discretized.
+            sd: Grid to be discretized.
             data: dictionary to store the data. For details on necessary keywords,
                 see ``:meth:discretize``.
 
@@ -585,7 +585,7 @@ class Mpsa(Discretization):
         and internal faces are mixed together, decided by their face ordering.
 
         Parameters:
-            g: Grid to be discretized.
+            sd: Grid to be discretized.
             constit: Constitutive law for the rock.
             bound: Boundary conditions for the displacement.
             eta: Parameter controlling continuity of displacement. If None, a default
