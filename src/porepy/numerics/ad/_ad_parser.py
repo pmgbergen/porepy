@@ -304,7 +304,7 @@ class AdParser:
                         res = sum([c @ (child_values[1]) for c in child_values[0]])
                         return res
                     else:
-                        raise ValueError("Operation not supported for this input type.")
+                        raise ValueError("Matrix multiplication not supported for this input type.")
 
                 if isinstance(child_values[0], np.ndarray) and isinstance(
                     child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
