@@ -406,16 +406,16 @@ class ArraySlicer:
 
             A x S @ y
 
-        where S is a ArraySlicer instance and y is a quantity to be sliced. Depending
-        on the operator x, and following Python's rules for operator precedence, the
-        expression will be evaluated as either 'A x (S @ y)' or '(A x S) @ y', where the
-        former is the only reasonable interpretation. Unfortunately, if x has equal
-        precedence with @, Python will evaluate the expression from the left, that is,
-        '(A x S) @ y'. This can of course be enforced by using parentheses, but doing so
-        throughout the code will become cumbersome and error-prone (note that the need
-        for parantheses will carry over the Ad operators when a representation of the
-        ArraySlicer is introduced in that framework). If x has higher precedence than
-        @, parantheses around S @ y are needed.
+        where S is a ArraySlicer instance, x is a mathematical operation, and y is a
+        quantity to be sliced. Depending on the operator x, and following Python's rules
+        for operator precedence, the expression will be evaluated as either 'A x (S @
+        y)' or '(A x S) @ y', where the former is the only reasonable interpretation.
+        Unfortunately, if x has equal precedence with @, Python will evaluate the
+        expression from the left, that is, '(A x S) @ y'. This can of course be enforced
+        by using parentheses, but doing so throughout the code will become cumbersome
+        and error-prone (note that the need for parantheses will carry over the Ad
+        operators). If x has higher precedence than @, parantheses around S @ y are
+        needed.
 
         As a partial remedy, the ArraySlicer implements methods __rmatmul__, __rmul__,
         and __rtruediv__ to handle cases where it is the right operand. These are the
@@ -432,6 +432,23 @@ class ArraySlicer:
             1. Be careful when using the ArraySlicer in chained operations, in
                particular with numpy arrays.
             2. If in doubt, use parantheses.
+
+    Parameters:
+        domain_indices: Row indices to be selected. If not provided, the dimensions of
+            the mapping is taken from the range_indices, and the domain indices are
+            set to [0, 1, .., range_indices.size - 1].
+        range_indices: Row indices to be selected. If not provided, the dimensions of
+            the mapping is taken from the domain_indices, and the range indices are
+            set to [0, 1, .., domain_indices.size - 1].
+        range_size: Size of the range space. If not provided, it is set according to the
+            maximum of the range indices (range_size=range_indices.max() + 1, 1 is added
+            since the range indices are 0-offset).
+        domain_size: Size of the domain space. If not provided, it is set according to
+            the maximum of the domain indices (domain_size=domain_indices.max() + 1, 1
+            is added since the domain indices are 0-offset).
+
+            The domain_size parameter is not ordinarily needed, but will be used if the
+            transposed slicer is created, when the domain and range sizes are swapped.
 
     """
 
