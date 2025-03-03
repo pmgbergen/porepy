@@ -25,7 +25,7 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models
-from porepy.applications.test_utils.arrays import projection_matrix_from_matrix_slicer
+from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
 
 # List of geometry classes to test.
 # Turn mixins of specific grids into proper model geometries.
@@ -541,7 +541,7 @@ class TestGeometry:
                 # Consider both subdomains and interfaces here, since the method allows
                 # it.
                 num_cells = sum([sd.num_cells for sd in subdomains + interfaces])
-                e_i = projection_matrix_from_matrix_slicer(
+                e_i = projection_matrix_from_array_slicers(
                     eq_sys.evaluate(
                         geometry.e_i(subdomains + interfaces, i=i, dim=basis_dim)
                     ),
@@ -560,7 +560,7 @@ class TestGeometry:
                 if basis_dim == dim:
                     # the dimension of the basis vector space is not specified, the
                     # value should be the same as for basis_dim = dim.
-                    e_None = projection_matrix_from_matrix_slicer(
+                    e_None = projection_matrix_from_array_slicers(
                         eq_sys.evaluate(
                             geometry.e_i(subdomains + interfaces, i=i, dim=dim)
                         ),
@@ -585,7 +585,7 @@ class TestGeometry:
             (data_normal_component, (rows_normal_component, cols_normal_component)),
             shape=(num_subdomain_cells, dim * num_subdomain_cells),
         )
-        normal_component_matrix = projection_matrix_from_matrix_slicer(
+        normal_component_matrix = projection_matrix_from_array_slicers(
             normal_component, sum([sd.num_cells * dim for sd in subdomains])
         )
         assert np.allclose((known_normal_component - normal_component_matrix).data, 0)
@@ -616,7 +616,7 @@ class TestGeometry:
             ),
             shape=((dim - 1) * num_subdomain_cells, dim * num_subdomain_cells),
         )
-        tangential_component_matrix = projection_matrix_from_matrix_slicer(
+        tangential_component_matrix = projection_matrix_from_array_slicers(
             tangential_component, sum([sd.num_cells * dim for sd in subdomains])
         )
 
