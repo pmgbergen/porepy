@@ -56,7 +56,6 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
