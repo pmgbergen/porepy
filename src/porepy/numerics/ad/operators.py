@@ -2232,7 +2232,10 @@ def sum_projection_list(
             # for parsing. Hence, sending in None is okay, despite Mypy complaining.
             slicer_0 = op.children[0].parse(None)  # type: ignore[arg-type]
             slicer_1 = child_1.parse(None)  # type: ignore[arg-type]
-            prod = slicer_0 @ slicer_1
+
+            # Create a copy of the second (rightmost) slicer, since we will modify it.
+            slicer_1_copy = slicer_1.copy()
+            prod = slicer_0 @ slicer_1_copy
             child_1._slicer = prod
             # Child is now a representation of the combined projection.
             new_operators.append(child_1)
