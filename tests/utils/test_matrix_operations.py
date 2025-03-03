@@ -161,7 +161,7 @@ def _get_arrayslicer_target(mat, mode: Literal["float", "dense", "sparse", "ad"]
     return target
 
 
-@pytest.mark.parametrize("mode", ["dense", "sparse", "ad"])
+@pytest.mark.parametrize("mode", ["dense", "sparse", "ad", "float"])
 @pytest.mark.parametrize(
     "domain_inds, range_inds",
     [
@@ -187,7 +187,7 @@ def _get_arrayslicer_target(mat, mode: Literal["float", "dense", "sparse", "ad"]
 @pytest.mark.parametrize("transpose", [True, False])
 def test_array_slicer(
     A,
-    mode: Literal["dense", "sparse", "ad"],
+    mode: Literal["dense", "sparse", "ad", "float"],
     domain_inds: np.ndarray | None,
     range_inds: np.ndarray | None,
     range_size: int,
@@ -251,7 +251,21 @@ def test_array_slicer(
 
     result = slicer @ target
 
-    if mode == "dense":
+    if mode == "float":
+        # A scalar target will effectively be broadcast to a vector. The result is known
+        # to be a vector. Create an empty one, then fill in the relevant entries from
+        # the target.
+        known_scalar = target
+        known_array = np.zeros(num_rows)
+        if transpose:
+            known_array[domain_inds] = known_scalar
+        else:
+            known_array[range_inds] = known_scalar
+        assert isinstance(result, np.ndarray)
+        assert result.size == num_rows
+        np.testing.assert_allclose(result, known_array)
+
+    elif mode == "dense":
         # The result is known to be a vector. Create an empty one, then fill in the
         # relevant entries from the target.
         A_known = np.zeros(num_rows)
@@ -307,12 +321,31 @@ def test_array_slicer(
         ),  # Hadamar product between numpy array and AdArray, with Ad array as the left operand.
         ("sparse", "sparse", "@"),  # Matrix multiplication between sparse matrices.
         ("sparse", "ad", "@"),  # Matrix-AdArray product.
+        (
+            "sparse",
+            "float",
+            "@",
+        ),  # Broadcasting of a float, followed by matrix-vector product.
         ("ad", "ad", "*"),  # Hadamar product between AdArrays.
+        ("ad", "ad", "/"),  # Division between AdArrays.
+        ("ad", "dense", "*"),  # Product between AdArray and numpy array.
         ("ad", "dense", "/"),  # Division between AdArray and numpy array.
+        ("ad", "float", "*"),  # Broadcasting of a float, followed by Hadamar product.
+        ("ad", "float", "/"),  # Broadcasting of a float, followed by division.
         ("float", "ad", "/"),  # Division between float and AdArray.
         ("float", "ad", "*"),  # Product between float and AdArray.
         ("float", "dense", "/"),  # Division between float and numpy array.
         ("float", "dense", "*"),  # Product between float and numpy array.
+        (
+            "float",
+            "float",
+            "*",
+        ),  # Broadcasting of the target float, followed by scaling.
+        (
+            "float",
+            "float",
+            "/",
+        ),  # Broadcasting of the target float, followed by scaling.
     ],
 )
 def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
@@ -360,6 +393,9 @@ def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
     temp_result = eval(f"other_operand_sliced {operator} slicer")
 
     result = temp_result @ slicer_target
+
+    if target_mode == "float":
+        slicer_target = np.full(domain_indices.max() + 1, slicer_target)
 
     sliced_target = slicer_target[domain_indices]
 

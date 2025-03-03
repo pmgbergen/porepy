@@ -447,9 +447,6 @@ class ArraySlicer:
             the maximum of the domain indices (domain_size=domain_indices.max() + 1, 1
             is added since the domain indices are 0-offset).
 
-            The domain_size parameter is not ordinarily needed, but will be used if the
-            transposed slicer is created, when the domain and range sizes are swapped.
-
     """
 
     def __init__(
@@ -610,7 +607,7 @@ class ArraySlicer:
             x._pending_operation = "@"
             return x
 
-        sliced: np.ndarray | sps.spmatrix | pp.ad.AdArray
+        sliced: np.ndarray | sps.spmatrix | pp.ad.AdArray | float | int
 
         # Slice matrix, vector, or AdArray by calling relevant helper methods.
         if isinstance(x, np.ndarray):
@@ -621,6 +618,13 @@ class ArraySlicer:
             val = self._slice_vector(x.val)
             jac = self._slice_matrix(x.jac)
             sliced = pp.ad.AdArray(val, jac)
+        elif isinstance(x, (float, int)):
+            # If the input is a scalar, we need to create a vector of the same size as
+            # the range size.
+            tmp = np.full(self._domain_size, x)
+            sliced = self._slice_vector(tmp)
+        else:
+            raise ValueError(f"Unsupported type {type(x)}")
 
         if self._pending_operand is not None:
             # If there is a pending operand, we need to apply it to the sliced
