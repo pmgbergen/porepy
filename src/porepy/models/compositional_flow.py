@@ -837,11 +837,29 @@ class PrimaryEquationsCF(
 
     They are PDEs consisting of
 
-    - 1 pressure equation,
+    - 1 fluid mass balance equation,
     - mass balance equations per component,
     - 1 energy balance,
 
     in this order (reverse order to the base classes).
+
+    """
+
+
+class PrimaryEquationsCFF(
+    EnthalpyBasedEnergyBalanceEquations,
+    ComponentMassBalanceEquations,
+    MassicPressureEquations,
+):
+    """A collection of primary equations in the CFF setting.
+
+    They are PDEs consisting of
+
+    - 1 (massic) pressure equation,
+    - mass balance equations per component,
+    - 1 energy balance,
+
+    and relies on re-discretization of the Darcy flux.
 
     """
 
@@ -2044,7 +2062,7 @@ class CompositionalFlowTemplate(  # type: ignore[misc]
 
 class CompositionalFractionalFlowTemplate(  # type: ignore[misc]
     ConstitutiveLawsCF,
-    PrimaryEquationsCF,
+    PrimaryEquationsCFF,
     VariablesCF,
     BoundaryConditionsCFF,
     InitialConditionsCF,
