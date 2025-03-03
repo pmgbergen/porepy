@@ -41,6 +41,6 @@ def test_brent(
     else:
         root, converged, iter = brent_method(func, a, b, maxiter, tol)
 
-    assert converged
+    assert converged == 0
     assert np.abs(root - root_target) < tol
     assert iter < maxiter

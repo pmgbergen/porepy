@@ -14,7 +14,7 @@ that local equilibrium assumptions (instead of some constitutive laws) were intr
 from __future__ import annotations
 
 import warnings
-from typing import Callable, Optional, Sequence
+from typing import Callable, Sequence
 
 import porepy as pp
 from porepy.compositional.utils import CompositionalModellingError
@@ -73,9 +73,7 @@ class EnthalpyTemperatureRelation(EquationMixin):
         else:
             equ = h_mix - h_target
 
-        relaxation_parameter: Optional[float] = self.params.get(
-            "relaxation_enthalpy_constraint", None
-        )
+        relaxation_parameter = self.params.get("relaxation_enthalpy_constraint", None)
         if relaxation_parameter is not None:
             equ = (
                 pp.ad.dt(equ, self.ad_time_step)
@@ -161,7 +159,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
                 )
 
     def mass_constraint_for_component(
-        self, component: pp.Component, subdomains: Sequence[pp.Grid]
+        self, component: pp.FluidComponent, subdomains: Sequence[pp.Grid]
     ) -> pp.ad.Operator:
         """Constructs the local mass constraint for a component :math:`i`.
 
@@ -242,7 +240,10 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
         return equ
 
     def isofugacity_constraint_for_component_in_phase(
-        self, component: pp.Component, phase: pp.Phase, subdomains: Sequence[pp.Grid]
+        self,
+        component: pp.FluidComponent,
+        phase: pp.Phase,
+        subdomains: Sequence[pp.Grid],
     ) -> pp.ad.Operator:
         """Construct the local isofugacity constraint for a component between a given
         phase and the reference phase.
