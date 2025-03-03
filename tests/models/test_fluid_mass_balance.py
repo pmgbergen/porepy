@@ -36,6 +36,7 @@ from porepy.applications.material_values.solid_values import (
 from porepy.applications.material_values.fluid_values import (
     extended_water_values_for_testing as water_values,
 )
+from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
 
 
 @pytest.fixture(scope="function")
@@ -491,11 +492,10 @@ def test_ad_operator_methods_single_phase_flow(
 
     if isinstance(val, sps.bsr_matrix):  # needed for `tangential_component`
         val = val.toarray()
-    if isinstance(val, pp.matrix_operations.MatrixSlicer):
-        # A MatrixSlicer cannot be directly compared to a numpy array. Use it to slice
-        # an identity matrix to (effectively) get hold of the equivalent projection
-        # matrix.
-        val = val @ np.eye(val._domain_size)
+    if isinstance(val, pp.matrix_operations.ArraySlicer):
+        # An ArraySlicer cannot be directly compared to a numpy array. Recover the
+        # equivalent projection matrix.
+        val = projection_matrix_from_array_slicers(val, model_setup.nd).toarray()
 
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
