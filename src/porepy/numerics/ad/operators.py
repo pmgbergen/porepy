@@ -1923,8 +1923,8 @@ class Projection(Operator):
             name: Name of the operator. Default is None.
 
         """
-        self._slicer: pp.matrix_operations.MatrixSlicer = (
-            pp.matrix_operations.MatrixSlicer(
+        self._slicer: pp.matrix_operations.ArraySlicer = (
+            pp.matrix_operations.ArraySlicer(
                 domain_indices=domain_indices,
                 range_indices=range_indices,
                 range_size=range_size,
