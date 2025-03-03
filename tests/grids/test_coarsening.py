@@ -1,8 +1,8 @@
 import inspect
 import sys
-import pytest
 
 import numpy as np
+import pytest
 
 import porepy as pp
 from porepy.grids import coarsening as co

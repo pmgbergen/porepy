@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from porepy.utils import sort_points
 from porepy.applications.test_utils.arrays import compare_arrays
+from porepy.utils import sort_points
 
 
 @pytest.mark.parametrize(

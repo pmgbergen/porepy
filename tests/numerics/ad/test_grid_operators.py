@@ -16,6 +16,7 @@ Checks performed include the following:
 import numpy as np
 import pytest
 import scipy.sparse as sps
+
 import porepy as pp
 
 

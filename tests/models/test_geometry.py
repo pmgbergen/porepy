@@ -26,7 +26,6 @@ import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models
 
-
 # List of geometry classes to test.
 # Turn mixins of specific grids into proper model geometries.
 geometry_list: list[type[pp.ModelGeometry]] = [
