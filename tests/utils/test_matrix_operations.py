@@ -15,7 +15,7 @@ from porepy.applications.test_utils.arrays import compare_matrices
 # ------------------ Test zero_columns -----------------------
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def A():
     return sps.csr_matrix(
         np.array(
@@ -132,11 +132,11 @@ def test_sliced_matrix(A, column: bool, index: int | np.ndarray):
     )
 
 
-# ------------------ Test matrix_slicer -----------------------
+# ------------------ Test ArraySlicer -----------------------
 
 
-def _get_matrix_slicer_target(mat, mode: Literal["float", "dense", "sparse", "ad"]):
-    """Get the target matrix for the matrix slicer test.
+def _get_arrayslicer_target(mat, mode: Literal["float", "dense", "sparse", "ad"]):
+    """Get the target matrix for the array slicer test.
 
     Parameters:
         mat: The matrix to be sliced
@@ -165,17 +165,27 @@ def _get_matrix_slicer_target(mat, mode: Literal["float", "dense", "sparse", "ad
 @pytest.mark.parametrize(
     "domain_inds, range_inds",
     [
+        # Extract selected rows, insert at specified rows in the range domain.
         (np.array([3, 1]), np.array([0, 3])),
+        # Extract selected columns, force the range to have at least five dimensions.
         (np.array([3, 1]), np.array([0, 4])),
+        # Extract selected columns. Both domain and range indices vary non-monotonically.
         (np.array([2, 3, 0]), np.array([3, 0, 1])),
+        # Domain indices are not specified. The first three rows will be extracted.
         (None, np.array([0, 1, 3])),
+        # Range indices are not specified. The mapped rows will be inserted in the first
+        # three rows.
         (np.array([0, 1, 3]), None),
     ],
 )
+# If None, the range size is given by the range indices. The value 6 will force the
+# result to have exactly 6 rows, independent of the range indices.
 @pytest.mark.parametrize("range_size", [None, 6])
+# The domain size is not used for the ArraySlicer, however, when transpose is True, it
+# will take the role of the range_size, see description above.
 @pytest.mark.parametrize("domain_size", [None, 6])
 @pytest.mark.parametrize("transpose", [True, False])
-def test_matrix_slicer(
+def test_array_slicer(
     A,
     mode: Literal["dense", "sparse", "ad"],
     domain_inds: np.ndarray | None,
@@ -184,7 +194,15 @@ def test_matrix_slicer(
     domain_size: int,
     transpose: bool,
 ):
-    """Test the matrix slicer.
+    """Test that the ArraySlicer acts as expected.
+
+    The test constructs an ArraySlicer with a given domain and range indices, and
+    applies it to a target array. By parametrization, this target is etiher a numpy
+    array, a scipy sparse matrix, or an AdArray (that is, the three data types on which
+    the ArraySlicer is meant to operate).
+
+    A failure in this test indicates that the ArraySlicer does not behave as expected;
+    quite likely, something is wrong with the treatment of indices in the slicer class.
 
     Parameters:
         A: The matrix to be sliced.
@@ -192,10 +210,10 @@ def test_matrix_slicer(
         domain_inds: The indices of the domain of the slicer.
         range_inds: The indices of the range of the slicer.
         range_size: The size of the range of the slicer.
-        transpose: If True, perform a transpose operation.
+        transpose: If True, transpose the slicer before applying it.
 
     """
-    target = _get_matrix_slicer_target(A, mode)
+    target = _get_arrayslicer_target(A, mode)
     slicer = matrix_operations.ArraySlicer(
         domain_inds, range_inds, range_size, domain_size
     )
@@ -234,27 +252,37 @@ def test_matrix_slicer(
     result = slicer @ target
 
     if mode == "dense":
-        # No special handling of transpose for vectors.
+        # The result is known to be a vector. Create an empty one, then fill in the
+        # relevant entries from the target.
         A_known = np.zeros(num_rows)
         if transpose:
+            # Flip the domain and range indices in the transposed case.
             A_known[domain_inds] = target[range_inds]
         else:
             A_known[range_inds] = target[domain_inds]
         assert np.allclose(result, A_known)
+
     elif mode == "sparse":
+        # The result is known to be a sparse matrix. Create an empty one, having the
+        # same number of columns as the target, but with the number of rows given by the
+        # input to the slicer. Fill in the relevant entries from the target.
         A_known = np.zeros((num_rows, target.shape[1]))
         if transpose:
+            # Flip the domain and range indices in the transposed case.
             A_known[domain_inds] = target.toarray()[range_inds]
         else:
             A_known[range_inds] = target.toarray()[domain_inds]
         assert np.allclose(result.toarray(), A_known)
-    else:
+    else:  # AdArray.
+        # The logic is the same as in the two above cases. Consider the val and jac
+        # attributes of the AdArray separately.
         val_known = np.zeros(num_rows)
         if transpose:
             val_known[domain_inds] = target.val[range_inds]
         else:
             val_known[range_inds] = target.val[domain_inds]
         assert np.allclose(result.val, val_known)
+
         jac_known = np.zeros((num_rows, target.jac.shape[1]))
         if transpose:
             jac_known[domain_inds] = target.jac.toarray()[range_inds]
@@ -311,8 +339,8 @@ def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
 
 
     """
-    other_operand = _get_matrix_slicer_target(A, other_mode)
-    slicer_target = _get_matrix_slicer_target(A, target_mode)
+    other_operand = _get_arrayslicer_target(A, other_mode)
+    slicer_target = _get_arrayslicer_target(A, target_mode)
 
     other_indices = np.array([0, 2])
     if other_mode == "dense" or other_mode == "ad":
