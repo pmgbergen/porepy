@@ -23,12 +23,10 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Callable, Literal, Optional, Sequence
+from typing import Callable, Literal, Optional, Sequence, cast
 
 import numba
 import numpy as np
-from numba.core import types as nbtypes
-from numba.typed import Dict as nbdict
 
 import porepy as pp
 
@@ -304,26 +302,6 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
 
     """
     return np.sum(-z * np.log(np.abs(_rr_poles(y, K))))
-
-
-def _convert_solver_parameters(params: SOLVER_PARAMETERS) -> nbdict:
-    """Helper function to convert the parameter dictionary into a typed dict
-    recognizable by numba.
-
-    Key type: unicode type (string).
-    Value type: float64.
-
-    Note:
-        Numba dicts must have precise types, so any value is converted to a float.
-        If a parameter is an integer, the solver must convert it back to int.
-
-    """
-
-    out = nbdict.empty(key_type=nbtypes.unicode_type, value_type=nbtypes.float64)
-    for key, val in params.items():
-        out[str(key)] = float(val)
-
-    return out
 
 
 # endregion
@@ -602,6 +580,10 @@ class CompiledUnifiedFlash(Flash):
 
         """
 
+        self._converted_solver_params: dict[str, float]
+        """Numba typed dict which can be passed to compiled functions. Created during first
+        call to :meth:`_convert_solver_params`."""
+
     def _parse_and_complete_results(
         self,
         results: np.ndarray,
@@ -663,9 +645,10 @@ class CompiledUnifiedFlash(Flash):
         # Computing states for each phase after filling p, T and x
         fluid_state.phases = list()
         for j in range(nphase):
+            x_j_norm = normalize_rows(x[j].T).T
             fluid_state.phases.append(
                 self._eos.compute_phase_properties(
-                    self._phasestates[j], fluid_state.p, fluid_state.T, x[j]
+                    self._phasestates[j], fluid_state.p, fluid_state.T, x_j_norm
                 )
             )
 
@@ -679,6 +662,23 @@ class CompiledUnifiedFlash(Flash):
         fluid_state.evaluate_extensive_state()
 
         return fluid_state
+
+    def _convert_solver_params(self) -> None:
+        """Helper method to convert the solver parameters dictionary into a numba-conformal
+        type."""
+
+        if not hasattr(self, "_converted_solver_params"):
+            # NOTE: numba.typed has a spurious py.typed file which confuses mypy and makes it
+            # render an endless amount of errors related to attributes of the numba package.
+            # As a temporary fix, this import is put here in a scope.
+            from numba.core import types as nbtypes
+            from numba.typed import Dict
+
+            d = Dict.empty(key_type=nbtypes.unicode_type, value_type=nbtypes.float64)
+            self._converted_solver_params = cast(dict[str, float], d)
+
+        for k, v in self.solver_params.items():
+            self._converted_solver_params[k] = float(v)
 
     def compile(self) -> None:
         """Triggers the assembly and compilation of equilibrium equations.
@@ -695,6 +695,10 @@ class CompiledUnifiedFlash(Flash):
             The compilation is therefore separated from the instantiation of this class.
 
         """
+
+        if not self._eos.is_compiled:
+            logger.info("Compiling equation of state ..")
+            self._eos.compile()
 
         nphase = self.params["num_phases"]
         ncomp = self.params["num_components"]
@@ -723,32 +727,16 @@ class CompiledUnifiedFlash(Flash):
 
         logger.info("Compiling flash equations ..")
         start = time.time()
-        logger.debug("Compiling flash equations: EoS functions")
+        logger.debug("Compiling flash equations: pre-argument functions")
 
-        prearg_val_c = self._eos.funcs.get("prearg_val", None)
-        if prearg_val_c is None:
-            prearg_val_c = self._eos.get_prearg_for_values()
-        prearg_jac_c = self._eos.funcs.get("prearg_jac", None)
-        if prearg_jac_c is None:
-            prearg_jac_c = self._eos.get_prearg_for_derivatives()
-        phi_c = self._eos.funcs.get("phi", None)
-        if phi_c is None:
-            phi_c = self._eos.get_fugacity_function()
-        d_phi_c = self._eos.funcs.get("d_phi", None)
-        if d_phi_c is None:
-            d_phi_c = self._eos.get_dpTX_fugacity_function()
-        h_c = self._eos.funcs.get("h", None)
-        if h_c is None:
-            h_c = self._eos.get_enthalpy_function()
-        d_h_c = self._eos.funcs.get("d_h", None)
-        if d_h_c is None:
-            d_h_c = self._eos.get_dpTX_enthalpy_function()
-        rho_c = self._eos.funcs.get("rho", None)
-        if rho_c is None:
-            rho_c = self._eos.get_density_function()
-        d_rho_c = self._eos.funcs.get("d_rho", None)
-        if d_rho_c is None:
-            d_rho_c = self._eos.get_dpTX_density_function()
+        prearg_val_c = self._eos.funcs["prearg_val"]
+        prearg_jac_c = self._eos.funcs["prearg_jac"]
+        phi_c = self._eos.funcs["phi"]
+        d_phi_c = self._eos.funcs["d_phi"]
+        h_c = self._eos.funcs["h"]
+        d_h_c = self._eos.funcs["d_h"]
+        rho_c = self._eos.funcs["rho"]
+        d_rho_c = self._eos.funcs["d_rho"]
 
         @numba.njit("float64[:,:](float64,float64,float64[:,:])")
         def get_prearg_res(p: float, T: float, xn: np.ndarray) -> np.ndarray:
@@ -1706,7 +1694,7 @@ class CompiledUnifiedFlash(Flash):
         h: Optional[np.ndarray] = None,
         v: Optional[np.ndarray] = None,
         initial_state: Optional[FluidProperties] = None,
-        parameters: dict = dict(),
+        params: Optional[dict] = None,
     ) -> tuple[FluidProperties, np.ndarray, np.ndarray]:
         """Performes the flash for given feed fractions and state definition.
 
@@ -1735,9 +1723,13 @@ class CompiledUnifiedFlash(Flash):
                 of thermodynamic states is passed.
 
         """
-        mode = parameters.get("mode", "linear")
+
+        if params is None:
+            params = {"mode": "linear", "solver": "npipm"}
+
+        mode = params.get("mode", "linear")
         assert mode in ["linear", "parallel"], f"Unsupported mode {mode}."
-        solver = parameters.get("solver", "npipm")
+        solver = params.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}"
 
         nphase = self.params["num_phases"]
@@ -1758,6 +1750,7 @@ class CompiledUnifiedFlash(Flash):
         # vectorized, generic flash argument
         # the generic argument has additional ncomp - 1 feed fractions and 2 states
         X0 = np.zeros((ncomp + 1 + f_dim, NF))
+        init_args: tuple[float | int, ...]
 
         # Filling the independent feed fractions into X0
         for i in range(1, ncomp):
@@ -1832,17 +1825,17 @@ class CompiledUnifiedFlash(Flash):
         DF = self.jacobians[flash_type]
         self.solver_params["f_dim"] = f_dim
 
-        converted_params = _convert_solver_parameters(self.solver_params)
+        self._convert_solver_params()
 
         logger.debug(f"Starting {solver} ({mode}) solver ..")
         start = time.time()
         if mode == "linear":
             results, success, num_iter = linear_solver(
-                X0.T, F, DF, SOLVERS[solver], converted_params
+                X0.T, F, DF, SOLVERS[solver], self._converted_solver_params
             )
         elif mode == "parallel":
             results, success, num_iter = parallel_solver(
-                X0.T, F, DF, SOLVERS[solver], converted_params
+                X0.T, F, DF, SOLVERS[solver], self._converted_solver_params
             )
         end = time.time()
         minim_time = end - start

@@ -60,16 +60,15 @@ The following standard names are used for thermodynamic quantities:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Sequence
 
 import numba
 import numpy as np
 import sympy as sp
 
-import porepy as pp
-
 from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from .._core import R_IDEAL_MOL
+from ..materials import FluidComponent
 from ..utils import safe_sum
 from .utils import thd_function_type
 
@@ -547,7 +546,7 @@ def VanDerWaals_cohesion(
     x: Sequence[Any],
     a: Sequence[Any],
     bip: np.ndarray,
-    sqrt_of_any: Optional[Callable[[Any], Any]] = sp.sqrt,
+    sqrt_of_any: Callable[[Any], Any] = sp.sqrt,
 ) -> Any:
     r"""
     Parameters:
@@ -606,7 +605,7 @@ class PengRobinsonSymbolic:
 
     def __init__(
         self,
-        components: list[pp.FluidComponent],
+        components: list[FluidComponent],
         ideal_enthalpies: list[thd_function_type],
         bip_matrix: np.ndarray,
     ) -> None:
