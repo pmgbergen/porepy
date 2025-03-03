@@ -152,7 +152,7 @@ class Flash(abc.ABC):
         t = z_sum + state_1 + state_2
         if isinstance(t, np.ndarray):
             NF = t.shape[0]
-        elif isinstance(t, pp.number):
+        elif isinstance(t, (int, float)):
             NF = 1
         else:
             raise TypeError(
@@ -165,12 +165,12 @@ class Flash(abc.ABC):
         if isinstance(initial_state, FluidProperties):
             n = len(initial_state.y)
             assert n == nphase, f"Expecting {nphase} phase fractions, {n} provided."
-            assert np.allclose(safe_sum(initial_state.y), 1.0), (
+            assert np.allclose(initial_state.y.sum(axis=0), 1.0), (
                 "Initial phase fractions violate strong unity constraint."
             )
 
             for j in range(nphase):
-                assert np.all(safe_sum(initial_state.phases[j].x) <= 1.0 + 1e-7), (
+                assert np.all(initial_state.phases[j].x.sum(axis=0) <= 1.0 + 1e-7), (
                     f"Component fractions in phase {j} violate weak unity constraint."
                 )
                 n = len(initial_state.phases[j].x)
@@ -184,7 +184,7 @@ class Flash(abc.ABC):
                 assert n == nphase, (
                     f"Expecting {nphase} phase saturations, {n} provided."
                 )
-                assert np.allclose(safe_sum(initial_state.sat), 1.0), (
+                assert np.allclose(initial_state.sat.sum(axis=0), 1.0), (
                     "Initial phase saturations violate strong unity constraint."
                 )
             fluid_state = initial_state
@@ -192,28 +192,17 @@ class Flash(abc.ABC):
             fluid_state = FluidProperties()
 
         # Uniformization of state values
-        try:
-            s_1 = np.zeros(NF)
-            s_2 = np.zeros(NF)
-            s_1[:] = state_1
-            s_2[:] = state_2
+        s_1 = np.zeros(NF)
+        s_2 = np.zeros(NF)
+        s_1[:] = state_1
+        s_2[:] = state_2
 
-            Z = list()
-            for z_ in z:
-                _z = np.zeros(NF)
-                _z[:] = z_
-                Z.append(_z)
-            fluid_state.z = np.array(Z)
-        except ValueError as err:
-            if "broadcast" in str(err):
-                raise TypeError(
-                    "Failed to uniformize vectorized input for:\n"
-                    + f"state 1: len = {len(state_1)}"
-                    + f"state 2: len = {len(state_2)}"
-                    + safe_sum(
-                        [f"feed {i}: len = {len(z_)}\n" for i, z_ in enumerate(z)]
-                    )
-                )
+        Z = list()
+        for z_ in z:
+            _z = np.zeros(NF)
+            _z[:] = z_
+            Z.append(_z)
+        fluid_state.z = np.array(Z)
 
         if flash_type == "p-T":
             fluid_state.p = s_1
@@ -267,12 +256,11 @@ class Flash(abc.ABC):
                     fluid_state.T = T
             except ValueError as err:
                 if "broadcast" in str(err):
-                    xl = [[len(x) for x in phase.x] for phase in fluid_state.phases]
                     raise TypeError(
                         "Failed to uniformize input state for:\n"
-                        + f"y: lengths ({[len(y for y in fluid_state.y)]})\n"
-                        + f"s: lengths ({[len(s for s in fluid_state.sat)]})\n"
-                        + f"s: lengths {xl}"
+                        + f"y: {initial_state.y}\n"
+                        + f"s: {initial_state.sat}\n"
+                        + f"x per phase: {[phase.x for phase in initial_state.phases]}"
                     )
 
         return fluid_state, flash_type, f_dim, NF

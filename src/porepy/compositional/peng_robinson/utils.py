@@ -13,7 +13,7 @@ Note:
 from __future__ import annotations
 
 import warnings
-from typing import Callable, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, Protocol
 
 import numpy as np
 
@@ -34,23 +34,52 @@ __all__ = [
 ]
 
 
-NumericType = Union[pp.number, np.ndarray, pp.ad.AdArray]
+if not TYPE_CHECKING:
 
-# NOTE Consider adding typing of objects which support arithmetic overloads
-# see https://stackoverflow.com/questions/76821158/
-# specify-that-a-typevar-supports-the-operator-among-its-values
-_Any = TypeVar("_Any")
-"""Type Variable representing a type which supports basic arithmetic operations
-``+,-,*, **``, which are used to type the abstract callables represnting thermodynamic
-functions in this module."""
+    class ArithmeticType:
+        """Preliminarty protocol for tpyes supporting all arithmetic operations in Python.
+
+        See Also:
+            https://stackoverflow.com/questions/76821158/
+            specify-that-a-typevar-supports-the-operator-among-its-values
+
+        """
+
+        ...
+else:
+
+    class ArithmeticType(Protocol):
+        def __add__(self, other): ...
+
+        def __radd__(self, other): ...
+
+        def __sub__(self, other): ...
+
+        def __rsub__(self, other): ...
+
+        def __mul__(self, other): ...
+
+        def __rmul__(self, other): ...
+
+        def __pow__(self, other): ...
+
+        def __rpow__(self, other): ...
+
+        def __truediv__(self, other): ...
+
+        def __rtruediv__(self, other): ...
+
+        def __matmul__(self, other): ...
+
+        def __rmatmul__(self, other): ...
 
 
-thd_function_type = Callable[[_Any], _Any]
+thd_function_type = Callable[[ArithmeticType], ArithmeticType]
 """Type alias for a 1-D, scalar function, taking any type supporting basic arithmetic
 operations and returning an instance of that type."""
 
 
-def h_ideal_H2O(T: _Any) -> _Any:
+def h_ideal_H2O(T: ArithmeticType) -> ArithmeticType:
     """Specific, ideal enthalpy of water based on below reference.
 
     Can be called with any object supporting overloads of ``+,-,*, **``.
@@ -73,7 +102,7 @@ def h_ideal_H2O(T: _Any) -> _Any:
     )
 
 
-def h_ideal_CO2(T: _Any) -> _Any:
+def h_ideal_CO2(T: ArithmeticType) -> ArithmeticType:
     """Specific, ideal enthalpy of CO2 based on below reference.
 
     Can be called with any object supporting overloads of ``+,-,*, **``.
@@ -96,7 +125,7 @@ def h_ideal_CO2(T: _Any) -> _Any:
     )
 
 
-def h_ideal_H2S(T: _Any) -> _Any:
+def h_ideal_H2S(T: ArithmeticType) -> ArithmeticType:
     """Specific, ideal enthalpy of CO2 based on below reference.
 
     Can be called with any object supporting overloads of ``+,-,*, **``.
@@ -117,7 +146,7 @@ def h_ideal_H2S(T: _Any) -> _Any:
     )
 
 
-def h_ideal_N2(T: _Any) -> _Any:
+def h_ideal_N2(T: ArithmeticType) -> ArithmeticType:
     """Specific, ideal enthalpy of N2 based on below reference.
 
     Can be called with any object supporting overloads of ``+,-,*, **``.
@@ -188,7 +217,7 @@ def get_bip_matrix(components: list[Component], package: str = "thermo") -> np.n
         ) from err
 
     if package == "thermo":
-        from thermo.interaction_parameters import IPDB
+        from thermo.interaction_parameters import IPDB  # type:ignore[import-untyped]
 
         def fetcher(cas_1: str, cas_2: str) -> float:
             bip = IPDB.get_ip_automatic(CASs=[cas_1, cas_2], ip_type="PR kij", ip="kij")
@@ -242,7 +271,7 @@ class NaClBrine(Compound, pp.FluidComponent):
         self.NaCl = solute
         """Reference to the pseudo-component representing NaCl."""
 
-        def alpha(T: NumericType) -> NumericType:
+        def alpha(T):
             # molal salinity
             T_r = T / self.critical_temperature
             b = self.molalities[1]
@@ -257,7 +286,7 @@ class NaClBrine(Compound, pp.FluidComponent):
 
         co2, h2s, n2 = load_fluid_constants(["CO2", "H2S", "N2"], "chemicals")
 
-        def bip_co2(T: NumericType) -> tuple[NumericType, NumericType]:
+        def bip_co2(T):
             T_r = T / co2.critical_temperature
             b = self.molalities[1]
 
@@ -272,11 +301,11 @@ class NaClBrine(Compound, pp.FluidComponent):
                 + 0.23580 * (1 + 0.17837 * b**0.979) / co2.critical_temperature
             )
 
-        def bip_h2s(T: NumericType) -> tuple[NumericType, NumericType]:
+        def bip_h2s(T):
             T_r = T / h2s.critical_temperature
             return (-0.20441 + 0.23426 * T_r, 0.23426 / h2s.critical_temperature)
 
-        def bip_n2(T: NumericType) -> tuple[NumericType, NumericType]:
+        def bip_n2(T):
             T_r = T / n2.critical_temperature
             b = self.molalities[1]
 
@@ -284,9 +313,3 @@ class NaClBrine(Compound, pp.FluidComponent):
                 T_r * 0.44338 * (1 + 0.08126 * b**0.75)
                 - 1.70235 * (1 + 0.25587 * b**0.75)
             ), (0.44338 * (1 + 0.08126 * b**0.75) / n2.critical_temperature)
-
-        self.bip_map = {
-            co2.CASr_number: bip_co2,
-            h2s.CASr_number: bip_h2s,
-            n2.CASr_number: bip_n2,
-        }

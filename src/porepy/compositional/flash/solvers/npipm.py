@@ -108,7 +108,7 @@ def _slack_equation_res(
 )
 def _slack_equation_jac(
     v: np.ndarray, w: np.ndarray, nu: float, u1: float, u2: float, eta: float
-) -> float:
+) -> np.ndarray:
     """Implementation of the gradient of the slack equation for the non-parametric
     interior point method (see :func:`slack_equation_res`).
 
@@ -462,7 +462,7 @@ def npipm_solver(
                     # scale with previous update to avoid large over-shooting
                     delta_heavy = 1 / (1 + np.linalg.norm(DX_prev))
                 else:
-                    delta_heavy = 0.0
+                    delta_heavy = 0.0  # type:ignore[assignment]
                 X = X + delta_heavy * DX_prev
                 DX_prev = DX
 

@@ -33,17 +33,14 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Sequence
+from typing import Any, Callable
 
 import numba
 import numpy as np
 
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH
-from ..base import Component
-from ..eos_compiler import EoSCompiler
-from ..states import PhaseProperties, PhysicalState
-from ..utils import normalize_rows
+from ..eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
+from ..materials import FluidComponent
 from .eos_s import (
     A_CRIT,
     B_CRIT,
@@ -75,7 +72,6 @@ __all__ = [
     "is_extended_root",
     "compressibility_factor",
     "compressibility_factor_dAB",
-    "PhasePropertiesCubic",
     "PengRobinsonCompiler",
 ]
 
@@ -229,7 +225,7 @@ Returns:
 
 
 @numba.njit("float64(float64,float64,float64)", **_STATIC_FAST_COMPILE_ARGS)
-def _characteristic_residual(Z: float, A: float, B: float) -> int:
+def _characteristic_residual(Z: float, A: float, B: float) -> float:
     r"""Internal, scalar function for :data:`characteristic_residual`"""
     c2 = coeff_2_c(A, B)
     c1 = coeff_1_c(A, B)
@@ -1187,48 +1183,6 @@ def _compile_volume_derivative(
     return inner
 
 
-@dataclass
-class PhasePropertiesCubic(PhaseProperties):
-    """Extended data class for cubic equations of state including the compressibility
-    factor, cohesion and covolume."""
-
-    Z: np.ndarray = field(default_factory=lambda: np.zeros(0))
-    """Compressibility factor."""
-
-    A: np.ndarray = field(default_factory=lambda: np.zeros(0))
-    """Dimensionless cohesion."""
-
-    B: np.ndarray = field(default_factory=lambda: np.zeros(0))
-    """Dimensionless co-volume."""
-
-    dZ: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    """Derivative of compressibility factor with respect to pressure, temperature
-    and each ``x`` in :attr:`x`.
-
-    The derivatives are stored row-wise in a 2D array.
-    The length of ``dh`` is ``2 + len(x)``.
-
-    """
-
-    dA: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    """Derivative of dimensionless cohesion factor with respect to pressure, temperature
-    and each ``x`` in :attr:`x`.
-
-    The derivatives are stored row-wise in a 2D array.
-    The length of ``dh`` is ``2 + len(x)``.
-
-    """
-
-    dB: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))
-    """Derivative of dimensionless co-volume factor with respect to pressure,
-    temperature and each ``x`` in :attr:`x`.
-
-    The derivatives are stored row-wise in a 2D array.
-    The length of ``dh`` is ``2 + len(x)``.
-
-    """
-
-
 class PengRobinsonCompiler(EoSCompiler):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS.
@@ -1244,7 +1198,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
     def __init__(
         self,
-        components: list[Component],
+        components: list[FluidComponent],
         ideal_enthalpies: list[thd_function_type],
         bip_matrix: np.ndarray,
     ) -> None:
@@ -1331,9 +1285,7 @@ class PengRobinsonCompiler(EoSCompiler):
             + " (elapsed time: %.5f (s))." % (time.time() - start)
         )
 
-    def get_prearg_for_values(
-        self,
-    ) -> Callable[[float, float, np.ndarray], np.ndarray]:
+    def get_prearg_for_values(self) -> VectorFunction:
         A_c = self._cfuncs["A"]
         B_c = self._cfuncs["B"]
 
@@ -1353,9 +1305,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return prearg_val_c
 
-    def get_prearg_for_derivatives(
-        self,
-    ) -> Callable[[float, float, np.ndarray], np.ndarray]:
+    def get_prearg_for_derivatives(self) -> VectorFunction:
         A_c = self._cfuncs["A"]
         B_c = self._cfuncs["B"]
         dA_c = self._cfuncs["d_A"]
@@ -1387,9 +1337,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return prearg_jac_c
 
-    def get_fugacity_function(
-        self,
-    ) -> Callable[[np.ndarray, float, float, np.ndarray], np.ndarray]:
+    def get_fugacity_function(self) -> VectorFunction:
         phi_c = self._cfuncs["phi"]
 
         @numba.njit("float64[:](float64[:], float64, float64, float64[:])")
@@ -1400,9 +1348,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return phi_mix_c
 
-    def get_dpTX_fugacity_function(
-        self,
-    ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
+    def get_dpTX_fugacity_function(self) -> VectorFunction:
         d_phi_c = self._cfuncs["d_phi"]
         # number of derivatives
         d = 2 + self._nc
@@ -1433,9 +1379,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return d_phi_mix_c
 
-    def get_enthalpy_function(
-        self,
-    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
+    def get_enthalpy_function(self) -> ScalarFunction:
         h_dep_c = self._cfuncs["h_dep"]
         h_ideal_c = self._cfuncs["h_ideal"]
 
@@ -1447,9 +1391,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return h_c
 
-    def get_dpTX_enthalpy_function(
-        self,
-    ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
+    def get_dpTX_enthalpy_function(self) -> VectorFunction:
         d = 2 + self._nc
         d_h_dep_c = self._cfuncs["d_h_dep"]
         d_h_ideal_c = self._cfuncs["d_h_ideal"]
@@ -1476,9 +1418,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return d_h_c
 
-    def get_density_function(
-        self,
-    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
+    def get_density_function(self) -> ScalarFunction:
         rho_c_ = self._cfuncs["rho"]
 
         @numba.njit("float64(float64[:], float64, float64, float64[:])")
@@ -1487,9 +1427,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return rho_c
 
-    def get_dpTX_density_function(
-        self,
-    ) -> Callable[[np.ndarray, np.ndarray, float, float, np.ndarray], np.ndarray]:
+    def get_dpTX_density_function(self) -> VectorFunction:
         d = 2 + self._nc
         d_rho_c_ = self._cfuncs["d_rho"]
 
@@ -1512,18 +1450,14 @@ class PengRobinsonCompiler(EoSCompiler):
         return d_rho_c
 
     # TODO need models for below functions
-    def get_viscosity_function(
-        self,
-    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
+    def get_viscosity_function(self) -> ScalarFunction:
         @numba.njit("float64(float64[:], float64, float64, float64[:])")
-        def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
+        def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return mu_c
 
-    def get_dpTX_viscosity_function(
-        self,
-    ) -> Callable[[np.ndarray, float, float, np.ndarray], np.ndarray]:
+    def get_dpTX_viscosity_function(self) -> VectorFunction:
         @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def dmu_c(
             prearg_val: np.ndarray,
@@ -1536,20 +1470,14 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return dmu_c
 
-    def get_conductivity_function(
-        self,
-    ) -> Callable[[np.ndarray, float, float, np.ndarray], float]:
+    def get_conductivity_function(self) -> ScalarFunction:
         @numba.njit("float64(float64[:], float64, float64, float64[:])")
-        def kappa_c(
-            prearg: np.ndarray, p: float, T: float, xn: np.ndarray
-        ) -> np.ndarray:
+        def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return kappa_c
 
-    def get_dpTX_conductivity_function(
-        self,
-    ) -> Callable[[np.ndarray, float, float, np.ndarray], np.ndarray]:
+    def get_dpTX_conductivity_function(self) -> VectorFunction:
         @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def d_kappa_c(
             prearg_val: np.ndarray,
@@ -1561,63 +1489,6 @@ class PengRobinsonCompiler(EoSCompiler):
             return np.zeros(2 + xn.shape[0], dtype=np.float64)
 
         return d_kappa_c
-
-    def compute_phase_properties(
-        self,
-        phase_state: PhysicalState,
-        p: np.ndarray,
-        T: np.ndarray,
-        x: Sequence[np.ndarray],
-    ) -> PhasePropertiesCubic:
-        """Computes and stores additional properties relevant for cubic EoS.
-
-        These include:
-
-        - Compressibility factor
-        - Dimensionless cohesion
-        - Dimensionless co-volume
-        - and their derivatives.
-
-        """
-        # NOTE we do not call super to avoid computing A, B, Z twice, since they are
-        # in the pre-arguments
-        if not isinstance(x, np.ndarray):
-            x = np.array(x)
-        xn = normalize_rows(x.T).T
-
-        d = 2 + self._nc
-
-        prearg_val = self.gufuncs["prearg_val"](phase_state.value, p, T, xn)
-        prearg_jac = self.gufuncs["prearg_jac"](phase_state.value, p, T, xn)
-
-        state = PhasePropertiesCubic(
-            state=phase_state,
-            x=x,
-            h=self.gufuncs["h"](prearg_val, p, T, xn),
-            rho=self.gufuncs["rho"](prearg_val, p, T, xn),
-            # shape = (num_comp, num_vals), sequence per component
-            phis=self.gufuncs["phi"](prearg_val, p, T, xn),
-            # shape = (num_diffs, num_vals), sequence per derivative
-            dh=self.gufuncs["d_h"](prearg_val, prearg_jac, p, T, xn),
-            # shape = (num_diffs, num_vals), sequence per derivative
-            drho=self.gufuncs["d_rho"](prearg_val, prearg_jac, p, T, xn),
-            # shape = (num_comp, num_diffs, num_vals)
-            dphis=self.gufuncs["d_phi"](prearg_val, prearg_jac, p, T, xn),
-            mu=self.gufuncs["mu"](prearg_val, p, T, xn),
-            dmu=self.gufuncs["d_mu"](prearg_val, prearg_jac, p, T, xn),
-            kappa=self.gufuncs["kappa"](prearg_val, p, T, xn),
-            dkappa=self.gufuncs["d_kappa"](prearg_val, prearg_jac, p, T, xn),
-        )
-
-        state.A = prearg_val[:, 0]
-        state.B = prearg_val[:, 1]
-        state.Z = prearg_val[:, 2]
-
-        state.dA = prearg_jac[:, :d].T
-        state.dB = prearg_jac[:, d : 2 * d].T
-        state.dZ = prearg_jac[:, 2 * d : 3 * d].T
-
-        return state
 
 
 logger.info(
