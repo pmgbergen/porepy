@@ -540,8 +540,8 @@ class ArraySlicer:
 
         """
         obj = ArraySlicer(
-            domain_indices=self._range_indices,
-            range_indices=self._domain_indices,
+            domain_indices=self._range_indices.copy(),
+            range_indices=self._domain_indices.copy(),
             range_size=self._domain_size,
             domain_size=self._range_size,
         )
@@ -578,6 +578,7 @@ class ArraySlicer:
             domain_indices=self._domain_indices,
             range_indices=self._range_indices,
             range_size=self._range_size,
+            domain_size=self._domain_size,
         )
         slicer._is_onto = self._is_onto
         slicer._is_transposed = self._is_transposed
