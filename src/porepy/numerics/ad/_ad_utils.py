@@ -275,19 +275,19 @@ def discretize_from_list(
         # discr is a discretization (on node or interface in the MixedDimensionalGrid sense)
 
         # Loop over all subdomains (or MixedDimensionalGrid edges), do discretization.
-        for g in discretizations[discr]:
-            if isinstance(g, pp.MortarGrid):
-                data = mdg.interface_data(g)  # type:ignore
-                g_primary, g_secondary = mdg.interface_to_subdomain_pair(g)
+        for grid in discretizations[discr]:
+            if isinstance(grid, pp.MortarGrid):
+                data = mdg.interface_data(grid)  # type:ignore
+                g_primary, g_secondary = mdg.interface_to_subdomain_pair(grid)
                 d_primary = mdg.subdomain_data(g_primary)
                 d_secondary = mdg.subdomain_data(g_secondary)
                 discr.discretize(
-                    g_primary, g_secondary, g, d_primary, d_secondary, data
+                    g_primary, g_secondary, grid, d_primary, d_secondary, data
                 )
             else:
-                data = mdg.subdomain_data(g)
+                data = mdg.subdomain_data(grid)
                 try:
-                    discr.discretize(g, data)
+                    discr.discretize(grid, data)
                 except NotImplementedError:
                     # This will likely be GradP and other Biot discretizations
                     pass
@@ -602,12 +602,12 @@ class MergedOperator(operators.Operator):
 
         # Loop over all grid-discretization combinations, get hold of the discretization
         # matrix for this grid quantity.
-        for g in self.domains:
+        for grid in self.domains:
             # Get data dictionary for either grid or interface
-            if isinstance(g, pp.MortarGrid):
-                data = mdg.interface_data(g)
-            elif isinstance(g, pp.Grid):
-                data = mdg.subdomain_data(g)
+            if isinstance(grid, pp.MortarGrid):
+                data = mdg.interface_data(grid)
+            elif isinstance(grid, pp.Grid):
+                data = mdg.subdomain_data(grid)
             else:
                 s = "Did not expect a discretization defined on a BoundaryGrid."
                 raise ValueError(s)
