@@ -314,9 +314,9 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
 
         #  Default robin weights
         r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
-        self.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F")
+        self.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), order="F")
         basis = np.tile(np.eye(sd.dim), (1, sd.num_faces))
-        self.basis = np.reshape(basis, (sd.dim, sd.dim, sd.num_faces), "F")
+        self.basis = np.reshape(basis, (sd.dim, sd.dim, sd.num_faces), order="F")
 
     def __repr__(self) -> str:
         s = (

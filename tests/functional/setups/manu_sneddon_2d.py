@@ -1,4 +1,4 @@
-"""Model setup for the fracturized pressure problem using Sneddon's analytical solution.
+"""Model for the fracturized pressure problem using Sneddon's analytical solution.
 
 References:
 
@@ -25,7 +25,7 @@ from porepy.geometry.distances import point_pointset
 class SneddonExactSolution2d:
     """Class representing the analytical solution for the pressurized fracture problem."""
 
-    def __init__(self, model: "ManuSneddonSetup2d"):
+    def __init__(self, model: "ManuSneddonModel2d"):
         self.p0 = model.params["p0"]
         self.theta_rad = model.params["theta_rad"]
 
@@ -63,7 +63,7 @@ class SneddonExactSolution2d:
         problem in question.
 
         Parameters:
-            mdg: Mixed-dimensional domain of the setup.
+            mdg: Mixed-dimensional domain of the model.
 
         Return:
             A numpy array with the analytical apertures.
@@ -303,11 +303,11 @@ class ManuSneddonBoundaryConditions(pp.PorePyModel):
             Boundary condition type for the problem.
 
         """
-        bounds = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
 
         # Set the type of west and east boundaries to Dirichlet. North and south are
         # Neumann by default.
-        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "dir")
+        bc = pp.BoundaryConditionVectorial(sd, domain_sides.all_bf, "dir")
         bc.internal_to_dirichlet(sd)
 
         return bc
@@ -444,14 +444,14 @@ class ManuSneddonConstitutiveLaws(pp.constitutive_laws.PressureStress):
         return pp.ad.MpsaAd(self.stress_keyword, subdomains)
 
 
-class ManuSneddonSetup2d(
+class ManuSneddonModel2d(
     ManuSneddonGeometry2d,
     ManuSneddonDataSaving,
     ManuSneddonBoundaryConditions,
     ManuSneddonConstitutiveLaws,
     pp.MomentumBalance,
 ):
-    """Complete Sneddon setup, including data collection and the analytical solution."""
+    """Complete Sneddon model, including data collection and the analytical solution."""
 
     def __init__(self, params=None):
         super().__init__(params)

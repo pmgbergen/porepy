@@ -221,16 +221,18 @@ class DimensionReduction(pp.PorePyModel):
             interfaces: list[pp.MortarGrid] = [
                 g for g in grids if isinstance(g, pp.MortarGrid)
             ]  # appease mypy.
-            neighbor_sds = self.interfaces_to_subdomains(interfaces)
-            projection = pp.ad.MortarProjections(self.mdg, neighbor_sds, interfaces)
+            neighbor_subdomains = self.interfaces_to_subdomains(interfaces)
+            projection = pp.ad.MortarProjections(
+                self.mdg, neighbor_subdomains, interfaces
+            )
             # Check that all interfaces are of the same co-dimension
             codim = interfaces[0].codim
             assert all(intf.codim == codim for intf in interfaces)
             if codim == 1:
-                trace = pp.ad.Trace(neighbor_sds)
-                v_h = trace.trace @ self.specific_volume(neighbor_sds)
+                trace = pp.ad.Trace(neighbor_subdomains)
+                v_h = trace.trace @ self.specific_volume(neighbor_subdomains)
             else:
-                v_h = self.specific_volume(neighbor_sds)
+                v_h = self.specific_volume(neighbor_subdomains)
             v = projection.primary_to_mortar_avg() @ v_h
             v.set_name("specific_volume")
             return v
@@ -986,7 +988,7 @@ class DarcysLaw(pp.PorePyModel):
         this method to define and assign another boundary operator of your choice. The
         new operator should then be passed as an argument to the
         _combine_boundary_operators method, just like self.darcy_flux is passed to
-        robin_operator in the default setup.
+        robin_operator in the default model.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
@@ -2296,7 +2298,7 @@ class FouriersLaw(pp.PorePyModel):
         this method to define and assign another boundary operator of your choice. The
         new operator should then be passed as an argument to the
         _combine_boundary_operators method, just like self.fourier_flux is passed to
-        robin_operator in the default setup.
+        robin_operator in the default model.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
@@ -2810,7 +2812,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
     """
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -2901,7 +2903,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         this method to define and assign another boundary operator of your choice. The
         new operator should then be passed as an argument to the
         _combine_boundary_operators method, just like self.mechanical_stress is passed
-        to robin_operator in the default setup.
+        to robin_operator in the default model.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
@@ -3341,7 +3343,7 @@ class CoulombFrictionBound(pp.PorePyModel):
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
 
@@ -3462,7 +3464,7 @@ class BartonBandis(pp.PorePyModel):
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]

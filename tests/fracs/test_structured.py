@@ -1,4 +1,5 @@
 """Test of meshing of 2d and 3d domains with fractures, using structured grids."""
+
 import numpy as np
 import pytest
 

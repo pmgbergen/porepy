@@ -27,6 +27,7 @@ from porepy.applications.discretizations.flux_discretization import FluxDiscreti
 from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
+    NonMatchingSquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models, well_models
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
@@ -40,8 +41,8 @@ from porepy.applications.test_utils.arrays import projection_matrix_from_array_s
 
 
 @pytest.fixture(scope="function")
-def model_setup():
-    """Minimal compressible single-phase flow setup with two intersecting fractures.
+def model() -> pp.PorePyModel:
+    """Minimal compressible single-phase flow model with two intersecting fractures.
 
     The model is set up with realistic physical parameters using water and granite.
     A 2x2 Cartesian grid on a unit domain is employed. One horizontal and one vertical
@@ -64,7 +65,7 @@ def model_setup():
 
     """
 
-    class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
+    class LocalModel(SquareDomainOrthogonalFractures, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
     # Material constants
@@ -79,25 +80,25 @@ def model_setup():
         "times_to_export": [],
     }
 
-    # Instantiate the model setup
-    setup = Model(params)
+    # Instantiate the model.
+    model = LocalModel(params)
 
-    # Prepare to simulate
-    setup.prepare_simulation()
+    # Prepare to simulate.
+    model.prepare_simulation()
 
     # Set constant but non-zero values for the primary variables
-    setup.equation_system.set_variable_values(
-        200 * pp.BAR * np.ones(setup.mdg.num_subdomain_cells()),
-        [setup.pressure_variable],
+    model.equation_system.set_variable_values(
+        200 * pp.BAR * np.ones(model.mdg.num_subdomain_cells()),
+        [model.pressure_variable],
         iterate_index=0,
     )
-    setup.equation_system.set_variable_values(
-        1e-12 * np.ones(setup.mdg.num_interface_cells()),
-        [setup.interface_darcy_flux_variable],
+    model.equation_system.set_variable_values(
+        1e-12 * np.ones(model.mdg.num_interface_cells()),
+        [model.interface_darcy_flux_variable],
         iterate_index=0,
     )
 
-    return setup
+    return model
 
 
 @pytest.fixture(scope="function")
@@ -126,18 +127,17 @@ def all_tested_methods(request) -> list[str]:
 
 
 @pytest.fixture(scope="function")
-def all_testable_methods(model_setup) -> list[str]:
+def all_testable_methods(model) -> list[str]:
     """Get all testable methods.
 
     Parameters:
-        model_setup: Single-phase flow model setup after `prepare_simulation()`
-            has been called.
+        model: Single-phase flow model after `prepare_simulation()` has been called.
 
     Returns:
         List of all possible testable methods for the model.
 
     """
-    return sorted(models.get_model_methods_returning_ad_operator(model_setup))
+    return sorted(models.get_model_methods_returning_ad_operator(model))
 
 
 def test_tested_vs_testable_methods_single_phase_flow(
@@ -450,7 +450,7 @@ def test_tested_vs_testable_methods_single_phase_flow(
     ],
 )
 def test_ad_operator_methods_single_phase_flow(
-    model_setup,
+    model: pp.PorePyModel,
     method_name: str,
     expected_value: float | np.ndarray,
     dimension_restriction: int | None,
@@ -458,7 +458,7 @@ def test_ad_operator_methods_single_phase_flow(
     """Test that Ad operator methods return expected values.
 
     Parameters:
-        model_setup: Prepared-for-simulation single phase flow model setup.
+        model: Prepared-for-simulation single phase flow model.
         method_name: Name of the method to be tested.
         expected_value: The expected value from the evaluation.
         dimension_restriction: Dimension in which the method is restricted. If None,
@@ -469,7 +469,7 @@ def test_ad_operator_methods_single_phase_flow(
     """
     # Processing name space.
     method_namespace = method_name.split(".")
-    owner = model_setup
+    owner = model
     # loop top to bottom through namespace to get to the actual method defined on some
     # grids and returning an operator.
     for name in method_namespace:
@@ -478,17 +478,17 @@ def test_ad_operator_methods_single_phase_flow(
 
     # Obtain list of subdomain or interface grids where the method is defined.
     domains = models.subdomains_or_interfaces_from_method_name(
-        model_setup.mdg,
+        model.mdg,
         method,
         dimension_restriction,
     )
 
     # Obtain operator in AD form.
-    operator = method(domains)
+    operator: pp.ad.Operator = method(domains)
 
     # Discretize (if necessary), evaluate, and retrieve numerical values.
-    operator.discretize(model_setup.mdg)
-    val = model_setup.equation_system.evaluate(operator)
+    operator.discretize(model.mdg)
+    val = model.equation_system.evaluate(operator)
 
     if isinstance(val, sps.bsr_matrix):  # needed for `tangential_component`
         val = val.toarray()
@@ -517,7 +517,7 @@ def test_ad_operator_methods_single_phase_flow(
     ],
 )
 def test_mobility_single_phase_flow(
-    model_setup: pp.PorePyModel,
+    model: pp.PorePyModel,
     method_name: str,
     p_or_c: Literal["phase", "component"],
     expected_value: float,
@@ -530,21 +530,21 @@ def test_mobility_single_phase_flow(
 
     """
     # mobilities are only defined on subdomains
-    domains = model_setup.mdg.subdomains()
+    domains = model.mdg.subdomains()
 
-    assert model_setup.fluid.num_components == 1
-    assert model_setup.fluid.num_phases == 1
+    assert model.fluid.num_components == 1
+    assert model.fluid.num_phases == 1
 
     if p_or_c == "phase":
-        instance = model_setup.fluid.reference_phase
+        instance = model.fluid.reference_phase
     elif p_or_c == "component":
-        instance = model_setup.fluid.reference_component
+        instance = model.fluid.reference_component
     else:
         assert False, "Unclear test input"
 
     # Fetching method and calling it with the right instance
-    op: pp.ad.Operator = getattr(model_setup, method_name)(instance, domains)
-    val = op.value(model_setup.equation_system)
+    op: pp.ad.Operator = getattr(model, method_name)(instance, domains)
+    val = op.value(model.equation_system)
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
 
@@ -555,24 +555,30 @@ def test_mobility_single_phase_flow(
         {"m": 2, "kg": 3, "s": 1, "K": 1},
     ],
 )
-def test_unit_conversion(units):
+@pytest.mark.parametrize(
+    "grid_class",
+    [
+        SquareDomainOrthogonalFractures,
+        NonMatchingSquareDomainOrthogonalFractures,
+    ],
+)
+def test_unit_conversion(units, grid_class):
     """Test that solution is independent of units.
 
     Parameters:
         units (dict): Dictionary with keys as those in
             :class:`~pp.compositional.materials.Constants`.
+        grid_class: Mixin class providing the model geometry.
 
     """
 
-    class Model(SquareDomainOrthogonalFractures, SinglePhaseFlow):
+    class LocalModel(grid_class, SinglePhaseFlow):
         """Single phase flow model in a domain with two intersecting fractures."""
 
-        def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
             """Ensure nontrivial solution."""
-            vals = self.reference_variable_values.pressure * np.ones(
-                boundary_grid.num_cells
-            )
-            faces = self.domain_boundary_sides(boundary_grid).east
+            vals = self.reference_variable_values.pressure * np.ones(bg.num_cells)
+            faces = self.domain_boundary_sides(bg).east
             vals[faces] += self.units.convert_units(1e5, "Pa")
             return vals
 
@@ -587,6 +593,8 @@ def test_unit_conversion(units):
     params = {
         "times_to_export": [],  # Suppress output for tests
         "fracture_indices": [0, 1],
+        "fracture_refinement_ratio": 2,
+        "interface_refinement_ratio": 3,
         "cartesian": True,
         "material_constants": {"solid": solid, "fluid": fluid, "numerical": numerical},
         "reference_variable_values": reference_values,
@@ -600,22 +608,24 @@ def test_unit_conversion(units):
     reference_solver_params = copy.deepcopy(solver_params)
 
     # Create model and run simulation
-    setup_0 = Model(reference_params)
-    pp.run_time_dependent_model(setup_0, reference_solver_params)
+    reference_model = LocalModel(reference_params)
+    pp.run_time_dependent_model(reference_model, reference_solver_params)
 
     params["units"] = pp.Units(**units)
-    setup_1 = Model(params)
+    model = LocalModel(params)
 
-    pp.run_time_dependent_model(setup_1, solver_params)
-    variables = [setup_1.pressure_variable, setup_1.interface_darcy_flux_variable]
+    pp.run_time_dependent_model(model, solver_params)
+    variables = [model.pressure_variable, model.interface_darcy_flux_variable]
     variable_units = ["Pa", "Pa * m^2 * s^-1"]
-    models.compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    models.compare_scaled_primary_variables(
+        reference_model, model, variables, variable_units
+    )
     flux_names = ["darcy_flux", "fluid_flux"]
     flux_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1"]
     # No domain restrictions.
     domain_dimensions = [None, None]
     models.compare_scaled_model_quantities(
-        setup_0, setup_1, flux_names, flux_units, domain_dimensions
+        reference_model, model, flux_names, flux_units, domain_dimensions
     )
 
 
@@ -646,12 +656,12 @@ def test_well_incompressible_pressure_values():
         "times_to_export": [],
     }
 
-    setup = WellModel(params)
-    pp.run_time_dependent_model(setup)
+    model = WellModel(params)
+    pp.run_time_dependent_model(model)
     # Check that the matrix pressure is close to linear in z
-    matrix = setup.mdg.subdomains(dim=3)[0]
-    matrix_pressure = setup.equation_system.evaluate(setup.pressure([matrix]))
-    dist = np.absolute(matrix.cell_centers[2, :] - 0.5)
+    matrix_subdomain = model.mdg.subdomains(dim=3)[0]
+    matrix_pressure = model.equation_system.evaluate(model.pressure([matrix_subdomain]))
+    dist = np.absolute(matrix_subdomain.cell_centers[2, :] - 0.5)
     p_range = np.max(matrix_pressure) - np.min(matrix_pressure)
     expected_p = p_range * (0.5 - dist) / 0.5
     diff = expected_p - matrix_pressure
@@ -663,9 +673,11 @@ def test_well_incompressible_pressure_values():
     # bottom), and 1/2 for the distance from the fracture to the boundary.
     assert np.isclose(np.max(matrix_pressure), 1e6, rtol=1e-1)
     # In the fracture, check that the pressure is log distributed
-    fracs = setup.mdg.subdomains(dim=2)
-    fracture_pressure = setup.equation_system.evaluate(setup.pressure(fracs))
-    sd = fracs[0]
+    fracture_subdomains = model.mdg.subdomains(dim=2)
+    fracture_pressure = model.equation_system.evaluate(
+        model.pressure(fracture_subdomains)
+    )
+    sd = fracture_subdomains[0]
     injection_cell = sd.closest_cell(np.atleast_2d([0.5, 0.5, 0.5]).T)
     # Check that the injection cell is the one with the highest pressure
     assert np.argmax(fracture_pressure) == injection_cell
@@ -676,8 +688,8 @@ def test_well_incompressible_pressure_values():
     perm = 1e-3
     expected_p = min_p + 1 / (4 * np.pi * perm) * np.log(dist / scale_dist)
     assert np.isclose(np.min(fracture_pressure), min_p, rtol=1e-2)
-    wells = setup.mdg.subdomains(dim=0)
-    well_pressure = setup.equation_system.evaluate(setup.pressure(wells))
+    wells = model.mdg.subdomains(dim=0)
+    well_pressure = model.equation_system.evaluate(model.pressure(wells))
 
     # Check that the pressure drop from the well to the fracture is as expected The
     # Peacmann well model is: u = 2 * pi * k * h * (p_fracture - p_well) / ( ln(r_e /
@@ -849,13 +861,13 @@ def model_setup_gravity(
                 to the top boundary.
 
             """
-            sides = self.domain_boundary_sides(grid)
+            domain_sides = self.domain_boundary_sides(grid)
             if self.nd == 2:
-                return sides.south, sides.north
+                return domain_sides.south, domain_sides.north
             else:
-                return sides.bottom, sides.top
+                return domain_sides.bottom, domain_sides.top
 
-        def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
             """Boundary pressure values.
 
             Parameters:
@@ -866,27 +878,27 @@ def model_setup_gravity(
                 Cell-wise nd-vector source term operator.
 
             """
-            b_val = np.zeros(boundary_grid.num_cells)
-            if boundary_grid.dim == (self.nd - 1) and dir_val_top is not None:
-                b_val[self._bound_sides(boundary_grid)[1]] = dir_val_top
+            b_val = np.zeros(bg.num_cells)
+            if bg.dim == (self.nd - 1) and dir_val_top is not None:
+                b_val[self._bound_sides(bg)[1]] = dir_val_top
             return b_val
 
-        def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+        def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
             """Darcy flux values for the Neumann boundary condition.
 
             Parameters:
-                boundary_grid: Boundary grid to provide values for.
+                bg: Boundary grid to provide values for.
 
             Returns:
-                An array with ``shape=(boundary_grid.num_cells,)`` containing the
+                An array with ``shape=(bg.num_cells,)`` containing the
                 volumetric Darcy flux values on the provided boundary grid. Zero unless
                 ``neu_val_top`` is not None.
 
             """
-            vals = np.zeros(boundary_grid.num_cells)
-            if boundary_grid.parent.dim == self.nd and neu_val_top is not None:
-                cells = self._bound_sides(boundary_grid)[1]
-                vals[cells] = neu_val_top * boundary_grid.cell_volumes[cells]
+            vals = np.zeros(bg.num_cells)
+            if bg.parent.dim == self.nd and neu_val_top is not None:
+                cells = self._bound_sides(bg)[1]
+                vals[cells] = neu_val_top * bg.cell_volumes[cells]
             return vals
 
         def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -901,11 +913,11 @@ def model_setup_gravity(
 
             """
             # Define boundary faces.
-            sides = self._bound_sides(sd)[0]
+            domain_sides = self._bound_sides(sd)[0]
             if neu_val_top is None:
-                sides += self._bound_sides(sd)[1]
+                domain_sides += self._bound_sides(sd)[1]
             # Define boundary condition on all boundary faces.
-            return pp.BoundaryCondition(sd, sides, "dir")
+            return pp.BoundaryCondition(sd, domain_sides, "dir")
 
     return Model(params)
 

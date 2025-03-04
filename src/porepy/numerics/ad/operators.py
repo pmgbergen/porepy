@@ -511,7 +511,7 @@ class Operator:
     ### Operator parsing ---------------------------------------------------------------
 
     def value(
-        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+        self, equation_system: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> pp.number | np.ndarray | sps.spmatrix:
         """Evaluate the residual for a given solution.
 
@@ -519,7 +519,7 @@ class Operator:
         EquationSystem.
 
         Parameters:
-            system_manager: Used to represent the problem. Will be used to parse the
+            equation_system: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
             state (optional): Solution vector for which the residual and its derivatives
                 should be formed. If not provided, the solution will be pulled from the
@@ -534,10 +534,10 @@ class Operator:
         msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
         warn(msg, DeprecationWarning)
 
-        return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
+        return self._evaluate(equation_system, state=state, evaluate_jacobian=False)
 
     def value_and_jacobian(
-        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+        self, equation_system: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
@@ -545,7 +545,7 @@ class Operator:
         EquationSystem.
 
         Parameters:
-            system_manager: Used to represent the problem. Will be used to parse the
+            equation_system: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
             state: Solution vector for which the residual and its derivatives should be
                 formed. If not provided, the solution will be pulled from the previous
@@ -560,7 +560,7 @@ class Operator:
         """
         msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
         warn(msg, DeprecationWarning)
-        ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
+        ad = self._evaluate(equation_system, state=state, evaluate_jacobian=True)
 
         # Casting the result to AdArray or raising an error.
         # It's better to set pp.number here, but isinstance requires a tuple, not Union.
@@ -570,7 +570,9 @@ class Operator:
             ad = np.array([ad])
 
         if isinstance(ad, np.ndarray) and len(ad.shape) == 1:
-            return AdArray(ad, sps.csr_matrix((ad.shape[0], system_manager.num_dofs())))
+            return AdArray(
+                ad, sps.csr_matrix((ad.shape[0], equation_system.num_dofs()))
+            )
         elif isinstance(ad, (sps.spmatrix, np.ndarray)):
             # this case coverse both, dense and sparse matrices returned from
             # discretizations f.e.
@@ -583,7 +585,7 @@ class Operator:
 
     def evaluate(
         self,
-        system_manager: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
     ):
         raise ValueError(
@@ -592,14 +594,14 @@ class Operator:
 
     def _evaluate(
         self,
-        system_manager: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
         evaluate_jacobian: bool = True,
     ) -> pp.number | np.ndarray | sps.spmatrix | AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
-            system_manager: Used to represent the problem. Will be used to parse the
+            equation_system: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
             state (optional): Solution vector for which the residual and its derivatives
                 should be formed. If not provided, the solution will be pulled from the
@@ -618,14 +620,14 @@ class Operator:
 
         # If state is not specified, use values at current time, current iterate
         if state is None:
-            state = system_manager.get_variable_values(iterate_index=0)
+            state = equation_system.get_variable_values(iterate_index=0)
 
         # Use methods in the EquationSystem to evaluate the operator. This inversion of
         # roles (self.value) reflects a gradual shift
         if evaluate_jacobian:
-            return system_manager.evaluate(self, derivative=True, state=state)
+            return equation_system.evaluate(self, derivative=True, state=state)
         else:
-            return system_manager.evaluate(self, derivative=False, state=state)
+            return equation_system.evaluate(self, derivative=False, state=state)
 
     ### Special methods ----------------------------------------------------------------
 
@@ -1401,16 +1403,16 @@ class TimeDependentDenseArray(TimeDependentOperator):
         else:
             index_kwarg = {"iterate_index": 0}
 
-        for g in self._domains:
+        for grid in self._domains:
             if self._domain_type == "subdomains":
-                assert isinstance(g, pp.Grid)
-                data = mdg.subdomain_data(g)
+                assert isinstance(grid, pp.Grid)
+                data = mdg.subdomain_data(grid)
             elif self._domain_type == "interfaces":
-                assert isinstance(g, pp.MortarGrid)
-                data = mdg.interface_data(g)
+                assert isinstance(grid, pp.MortarGrid)
+                data = mdg.interface_data(grid)
             elif self._domain_type == "boundary grids":
-                assert isinstance(g, pp.BoundaryGrid)
-                data = mdg.boundary_grid_data(g)
+                assert isinstance(grid, pp.BoundaryGrid)
+                data = mdg.boundary_grid_data(grid)
             else:
                 raise ValueError(f"Unknown grid type: {self._domain_type}.")
 
@@ -1565,7 +1567,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
 
         self._id: int = next(Variable._ids)
         """See :meth:`id`."""
-        self._g: GridLike = domain
+        self._grid: GridLike = domain
         """See :meth:`domain`"""
 
         # Block a mypy warning here: Domain is known to be GridLike (grid, mortar grid,
@@ -1620,7 +1622,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
 
 
         """
-        return self._g
+        return self._grid
 
     @property
     def tags(self) -> dict[str, Any]:
@@ -1655,10 +1657,10 @@ class Variable(TimeDependentOperator, IterativeOperator):
         index."""
 
         # By logic in the constructor, it can only be a subdomain or interface
-        if isinstance(self._g, pp.Grid):
-            data = mdg.subdomain_data(self._g)
-        elif isinstance(self._g, pp.MortarGrid):
-            data = mdg.interface_data(self._g)
+        if isinstance(self._grid, pp.Grid):
+            data = mdg.subdomain_data(self._grid)
+        elif isinstance(self._grid, pp.MortarGrid):
+            data = mdg.interface_data(self._grid)
 
         # We can safely use both indices as arguments, without checking prev time,
         # because iterate index is None if prev time, and vice versa

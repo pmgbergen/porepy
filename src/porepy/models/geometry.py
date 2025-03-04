@@ -1,4 +1,4 @@
-"""Geometry definition for simulation setup."""
+"""Geometry definition for simulation model."""
 
 from __future__ import annotations
 
@@ -31,15 +31,10 @@ class ModelGeometry(pp.PorePyModel):
         # Create the geometry through domain amd fracture set.
         self.set_domain()
         self.set_fractures()
-        # Create a fracture network.
-        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
-        # Create a mixed-dimensional grid.
-        self.mdg = pp.create_mdg(
-            self.grid_type(),
-            self.meshing_arguments(),
-            self.fracture_network,
-            **self.meshing_kwargs(),
-        )
+        # Create a fracture network and a mixed-dimensional grid.
+        self.create_fracture_network()
+        self.create_mdg()
+
         self.nd: int = self.mdg.dim_max()
 
         # Create projections between local and global coordinates for fracture grids.
@@ -82,6 +77,21 @@ class ModelGeometry(pp.PorePyModel):
 
         """
         self._fractures = []
+
+    def create_fracture_network(self) -> None:
+        """Set the fracture network from the fractures and domain."""
+        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
+
+    def create_mdg(self) -> None:
+        """Set the mixed-dimensional grid from the domain, fracture network and meshing
+        arguments.
+        """
+        self.mdg = pp.create_mdg(
+            self.grid_type(),
+            self.meshing_arguments(),
+            self.fracture_network,
+            **self.meshing_kwargs(),
+        )
 
     def set_well_network(self) -> None:
         """Assign well network class."""
@@ -524,10 +534,10 @@ class ModelGeometry(pp.PorePyModel):
                 model = pp.SinglePhaseFlow({})
                 model.prepare_simulation()
                 sd = model.mdg.subdomains()[0]
-                sides = model.domain_boundary_sides(sd)
+                domain_sides = model.domain_boundary_sides(sd)
                 # Access north faces using index or name is equivalent:
-                north_by_index = sides[3]
-                north_by_name = sides.north
+                north_by_index = domain_sides[3]
+                north_by_name = domain_sides.north
                 assert all(north_by_index == north_by_name)
 
         """

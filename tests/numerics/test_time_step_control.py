@@ -21,9 +21,6 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.applications.md_grids.model_geometries import (
-    SquareDomainOrthogonalFractures,
-)
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
@@ -160,15 +157,15 @@ class TestParameterInputs:
     def test_initial_time_step_larger_than_minimum_time_step(self):
         """An error should be raised if initial time step is less than minimum time step."""
         msg_dtmin = "Initial time step cannot be smaller than minimum time step. "
-        msg_unset = (
-            "This error was raised since `dt_min_max` was not set on "
-            "initialization. Thus, values of dt_min and dt_max were assigned "
-            "based on the final simulation time. If you still want to use this "
-            "initial time step, consider passing `dt_min_max` explicitly."
-        )
         with pytest.raises(ValueError) as excinfo:
-            pp.TimeManager(schedule=[0, 1], dt_init=0.0009)
-        assert (msg_dtmin + msg_unset) in str(excinfo.value)
+            pp.TimeManager(schedule=[0, 1], dt_min_max=[0.001, 0.1], dt_init=0.0009)
+        assert msg_dtmin in str(excinfo.value)
+
+    def test_initial_time_step_smaller_than_default_minimum_time_step(self):
+        """The default minimum time step should be adjusted if the user passed a smaller
+        value."""
+        time_manager = pp.TimeManager(schedule=[0, 1], dt_init=1e-6)
+        assert time_manager.dt_min_max[0] == 1e-6
 
     def test_initial_time_step_smaller_than_maximum_time_step(self):
         """An error should be raised if initial time step is larger than the maximum time

@@ -134,7 +134,9 @@ def test_constrain_to_domain(
     known_points = np.array([[0, 1.5, 1, 1], [0, 0, 0, 1]])
     assert compare_arrays(known_points, small_network._pts)
 
+
 # Below are tests with polytopal domains
+
 
 @pytest.mark.parametrize(
     "arg",
