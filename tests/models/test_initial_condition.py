@@ -353,7 +353,7 @@ def test_initial_values_are_set(
 
         # First, check we get an array as expected.
         assert isinstance(current_value, np.ndarray)
-        assert len(current_value.shape) == 1
+        assert current_value.ndim == 1
 
         # Check the values at the current iterate.
         np.testing.assert_allclose(current_value, expected_value, rtol=0.0, atol=1e-16)
