@@ -47,8 +47,8 @@ from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.manu_flow_comp_2d_frac import (
     ManuCompFlowModel2d,
     manu_comp_fluid,
-    manu_comp_solid,
     manu_comp_ref_vals,
+    manu_comp_solid,
 )
 from tests.functional.setups.manu_flow_comp_3d_frac import ManuCompFlowModel3d
 

@@ -8,9 +8,8 @@ add, sub, etc., which are also covered in other tests.
 
 from __future__ import annotations
 
-import pytest
-
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
 from porepy.numerics.ad import functions as af
@@ -290,7 +289,6 @@ def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | Ad
     jac = sps.csr_matrix(np.eye(N))
     # Ignore ad not being accessed, it is used in the exec statement.
     ad = AdArray(val, jac)  # noqa: F841
-
 
     global result_numpy, result_ad
     result_numpy = np.empty(N)

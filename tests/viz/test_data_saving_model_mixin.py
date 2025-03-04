@@ -6,14 +6,13 @@ The following is covered:
 """
 
 import numpy as np
+import pytest
 
 import porepy as pp
-from porepy.models.momentum_balance import MomentumBalance
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
-
-import pytest
+from porepy.models.momentum_balance import MomentumBalance
 
 
 class DataSavingModelMixinModel(SquareDomainOrthogonalFractures, MomentumBalance):
