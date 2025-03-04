@@ -495,7 +495,7 @@ def test_ad_operator_methods_single_phase_flow(
     if isinstance(val, pp.matrix_operations.ArraySlicer):
         # An ArraySlicer cannot be directly compared to a numpy array. Recover the
         # equivalent projection matrix.
-        val = projection_matrix_from_array_slicers(val, model_setup.nd).toarray()
+        val = projection_matrix_from_array_slicers(val, model.nd).toarray()
 
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)

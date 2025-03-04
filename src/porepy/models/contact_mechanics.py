@@ -181,14 +181,12 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
-        # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
-        # the total number of cells in the subdomain. The sum will have the same shape,
-        # but the row corresponding to each cell will be non-zero in all rows
-        # corresponding to the tangential basis vectors of this cell. EK: mypy insists
-        # that the argument to sum should be a list of booleans. Ignore this error.
-        scalar_to_tangential = pp.ad.sum_operator_list(
-            [e_i for e_i in tangential_basis]
-        )
+        # individual basis vectors can be represented as projection matrices of shape
+        # (Nc * (self.nd - 1), Nc), where Nc is the total number of cells in the
+        # subdomain. The matrix representation of the sum has the same shape, but the
+        # row corresponding to each cell will be non-zero in all rows corresponding to
+        # the tangential basis vectors of this cell.
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
 
         # Variables: The tangential component of the contact traction and the plastic
         # displacement jump.
@@ -534,13 +532,12 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
-        # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
-        # the total number of cells in the subdomain. The sum will have the same shape,
-        # but the row corresponding to each cell will be non-zero in all rows
-        # corresponding to the tangential basis vectors of this cell.
-        scalar_to_tangential = pp.ad.sum_projection_list(
-            [e_i for e_i in tangential_basis]
-        )
+        # individual basis functions can be represented as projection matrices of size
+        # (Nc * (self.nd - 1), Nc), where Nc is # the total number of cells in the
+        # subdomain. The sum of basis vectors can likewise be represented as a matrix of
+        # the same shape, but the row corresponding to each cell will be non-zero in all
+        # rows corresponding to the tangential basis vectors of this cell.
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
 
         # With the active set method, the performance of the Newton solver is sensitive
         # to changes in state between sticking and sliding. To reduce the sensitivity to
