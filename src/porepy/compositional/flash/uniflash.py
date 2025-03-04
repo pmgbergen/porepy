@@ -26,6 +26,7 @@ import time
 from typing import Callable, Literal, Optional, Sequence, cast
 
 import numba
+import numba.typed
 import numpy as np
 
 import porepy as pp
@@ -671,10 +672,11 @@ class CompiledUnifiedFlash(Flash):
             # NOTE: numba.typed has a spurious py.typed file which confuses mypy and makes it
             # render an endless amount of errors related to attributes of the numba package.
             # As a temporary fix, this import is put here in a scope.
-            from numba.core import types as nbtypes
-            from numba.typed import Dict
+            # from numba.typed import Dict
 
-            d = Dict.empty(key_type=nbtypes.unicode_type, value_type=nbtypes.float64)
+            d = numba.typed.Dict.empty(
+                key_type=numba.types.unicode_type, value_type=numba.types.float64
+            )
             self._converted_solver_params = cast(dict[str, float], d)
 
         for k, v in self.solver_params.items():

@@ -10,9 +10,6 @@ import numpy as np
 
 import porepy as pp
 
-from ..states import FluidProperties
-from ..utils import safe_sum
-
 __all__ = ["Flash"]
 
 logger = logging.getLogger(__name__)
@@ -71,9 +68,9 @@ class Flash(abc.ABC):
         T: Optional[np.ndarray | pp.number] = None,
         h: Optional[np.ndarray | pp.number] = None,
         v: Optional[np.ndarray | pp.number] = None,
-        initial_state: Optional[FluidProperties] = None,
+        initial_state: Optional[pp.compositional.FluidProperties] = None,
     ) -> tuple[
-        FluidProperties,
+        pp.compositional.FluidProperties,
         Literal["p-T", "p-h", "v-T", "v-h"],
         int,
         int,
@@ -121,11 +118,11 @@ class Flash(abc.ABC):
                     f"Violation of bound [0, 1] for feed fraction {i + 1}."
                 )
 
-        z_sum = safe_sum(z)
+        z_sum = pp.compositional.safe_sum(z)
         assert np.all(z_sum == 1.0), "Feed fractions violate unity."
 
         # Declaring output
-        fluid_state: FluidProperties
+        fluid_state: pp.compositional.FluidProperties
         flash_type: Literal["p-T", "p-h", "v-T", "v-h"]
         f_dim: int  # Dimension of flash system (unknowns & equations including NPIPM)
         NF: int  # number of vectorized target states
@@ -167,7 +164,7 @@ class Flash(abc.ABC):
                 + f"state_2={type(state_2)} "
             )
 
-        if isinstance(initial_state, FluidProperties):
+        if isinstance(initial_state, pp.compositional.FluidProperties):
             n = len(initial_state.y)
             assert n == nphase, f"Expecting {nphase} phase fractions, {n} provided."
             assert np.allclose(initial_state.y.sum(axis=0), 1.0), (
@@ -194,7 +191,7 @@ class Flash(abc.ABC):
                 )
             fluid_state = initial_state
         else:
-            fluid_state = FluidProperties()
+            fluid_state = pp.compositional.FluidProperties()
 
         # Uniformization of state values
         s_1 = np.zeros(NF)
@@ -228,7 +225,7 @@ class Flash(abc.ABC):
             assert False, "Missing parsing of fluid input state"
 
         # uniformization of initial values if provided
-        if isinstance(initial_state, FluidProperties):
+        if isinstance(initial_state, pp.compositional.FluidProperties):
             try:
                 # molar fractions
                 Y = list()
@@ -278,9 +275,9 @@ class Flash(abc.ABC):
         T: Optional[np.ndarray] = None,
         h: Optional[np.ndarray] = None,
         v: Optional[np.ndarray] = None,
-        initial_state: Optional[FluidProperties] = None,
+        initial_state: Optional[pp.compositional.FluidProperties] = None,
         params: Optional[dict] = None,
-    ) -> tuple[FluidProperties, np.ndarray, np.ndarray]:
+    ) -> tuple[pp.compositional.FluidProperties, np.ndarray, np.ndarray]:
         """Abstract method for performing a flash procedure.
 
         Exactly 2 thermodynamic states must be defined in terms of ``p, T, h`` or ``v``
