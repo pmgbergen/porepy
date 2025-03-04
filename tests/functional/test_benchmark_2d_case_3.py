@@ -13,19 +13,18 @@ Reference:
 
 """
 
+from typing import Literal
+
 import numpy as np
 import pytest
 
 import porepy as pp
-
-
+from porepy.applications.test_utils.benchmarks import EffectivePermeability
 from porepy.examples.flow_benchmark_2d_case_3 import (
     FlowBenchmark2dCase3aModel,
     FlowBenchmark2dCase3bModel,
     solid_constants,
 )
-from porepy.applications.test_utils.benchmarks import EffectivePermeability
-from typing import Literal
 
 
 class Model3aWithEffectivePermeability(

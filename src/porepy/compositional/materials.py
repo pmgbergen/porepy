@@ -4,7 +4,7 @@ Material contants are values representing either constant physical properties (e
 critical pressure) or parameters for constitutive laws (e.g. constant compressibility
 for exponential-type density law). A material is instantiated with a
 :class:`~porepy.models.units.Units` object, which defines the units of the physical
-properties for a simulation setup. While the constants must be given in base SI units
+properties for a simulation model. While the constants must be given in base SI units
 when instantiating a material class, its constants are converted and stored in the
 target units, to be used subsequently.
 

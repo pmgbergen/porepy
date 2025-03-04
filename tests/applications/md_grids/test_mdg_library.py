@@ -3,8 +3,8 @@ Some of these tests are sensitive to meshing or node ordering. If this turns out
 cause problems, we deactivate the corresponding asserts.
 """
 
-import pytest
 import numpy as np
+import pytest
 
 import porepy as pp
 

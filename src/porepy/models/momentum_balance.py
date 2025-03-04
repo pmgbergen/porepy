@@ -419,31 +419,31 @@ class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
         bc.internal_to_dirichlet(sd)
         return bc
 
-    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Displacement values for the Dirichlet boundary condition.
 
         Parameters:
-            boundary_grid: Boundary grid to evaluate values on.
+            bg: Boundary grid to evaluate values on.
 
         Returns:
-            An array with shape (boundary_grid.num_cells,) containing the displacement
+            An array with shape (bg.num_cells,) containing the displacement
             values on the provided boundary grid.
 
         """
-        return np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
+        return np.zeros((self.nd, bg.num_cells)).ravel("F")
 
-    def bc_values_stress(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Stress values for the Nirichlet boundary condition.
 
         Parameters:
-            boundary_grid: Boundary grid to evaluate values on.
+            bg: Boundary grid to evaluate values on.
 
         Returns:
-            An array with shape (boundary_grid.num_cells,) containing the stress values
+            An array with shape (bg.num_cells,) containing the stress values
             on the provided boundary grid.
 
         """
-        return np.zeros((self.nd, boundary_grid.num_cells)).ravel("F")
+        return np.zeros((self.nd, bg.num_cells)).ravel("F")
 
     def update_all_boundary_conditions(self) -> None:
         """Set values for the displacement and the stress on boundaries."""

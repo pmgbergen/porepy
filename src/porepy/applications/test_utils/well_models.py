@@ -57,10 +57,10 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.top + domain_sides.bottom, cond)
 
-    def _bc_values(self, boundary_grid: pp.BoundaryGrid, value: float) -> np.ndarray:
+    def _bc_values(self, bg: pp.BoundaryGrid, value: float) -> np.ndarray:
         """
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
             value: Value to assign.
 
         Returns:
@@ -68,9 +68,9 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
 
         """
 
-        vals_loc = np.zeros(boundary_grid.num_cells)
-        if boundary_grid.dim == 0:
-            domain_sides = self.domain_boundary_sides(boundary_grid)
+        vals_loc = np.zeros(bg.num_cells)
+        if bg.dim == 0:
+            domain_sides = self.domain_boundary_sides(bg)
             # Inflow for the top boundary of the well.
             vals_loc[domain_sides.top] = value
         return vals_loc
@@ -89,14 +89,14 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
         """
         return self._bc_type(sd, "neu")
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,
         with a constant value of 0 unless fluid's reference pressure is changed.
 
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
 
         Returns:
             Boundary condition values array.
@@ -105,7 +105,7 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
         value = self.units.convert_units(
             self.params.get("well_flux", -1), "kg * m ^ 3 * s ^ -1"
         )
-        return self._bc_values(boundary_grid, value)
+        return self._bc_values(bg, value)
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self._bc_type(sd, "dir")
@@ -124,17 +124,17 @@ class BoundaryConditionsWellSetup(pp.PorePyModel):
         """
         return self._bc_type(sd, "dir")
 
-    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """
         Parameters:
-            boundary_grids: A boundary grid in the domain.
+            bg: A boundary grid in the domain.
 
         Returns:
             Numeric enthalpy flux values for a Neumann-type BC.
 
         """
         val = self.units.convert_units(self.params.get("well_enthalpy", 1e7), "K")
-        return self._bc_values(boundary_grid, val)
+        return self._bc_values(bg, val)
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Fourier flux.

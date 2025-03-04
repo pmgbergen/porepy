@@ -21,8 +21,8 @@ import pytest
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.mdg_library import (
-    square_with_orthogonal_fractures,
     cube_with_orthogonal_fractures,
+    square_with_orthogonal_fractures,
 )
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.utils.txt_io import read_data_from_txt
@@ -1028,13 +1028,13 @@ def test_l2_error_not_implemented_error(grids: list[pp.Grid, pp.MortarGrid]) -> 
     assert msg in str(excinfo.value)
 
 
-@pytest.mark.parametrize('weight_is_scalar', [True, False])
-@pytest.mark.parametrize('p', [np.inf, 1, 2, 3, 4, 1.5])
+@pytest.mark.parametrize("weight_is_scalar", [True, False])
+@pytest.mark.parametrize("p", [np.inf, 1, 2, 3, 4, 1.5])
 def test_lp_norm(p: pp.number, weight_is_scalar: bool) -> None:
     """Test the Lp norm with various values for p, and either scalar or vectorial weight."""
 
-    # Simple test with 1 value for weights, 
-    weight_ = 3.
+    # Simple test with 1 value for weights,
+    weight_ = 3.0
 
     if p == np.inf:
         v = np.linspace(-2, 1, 10, endpoint=True)
@@ -1045,14 +1045,14 @@ def test_lp_norm(p: pp.number, weight_is_scalar: bool) -> None:
         # The sum of p**p ones is p**p, which makes the norm easy to check
         v = np.ones(p**p)
         weight = np.ones_like(v) * weight_ if not weight_is_scalar else weight_
-        norm  = ConvergenceAnalysis.lp_norm(v, weight, p)
+        norm = ConvergenceAnalysis.lp_norm(v, weight, p)
         # choosing 1,2,3,4 because only 4 is actually implemented using **, others
         # use identity, sqrt, cbrt
-        np.testing.assert_allclose(norm, weight_**(1/p) * p)
+        np.testing.assert_allclose(norm, weight_ ** (1 / p) * p)
     else:
         N = 100
         v = np.ones(N)
         weight = np.ones_like(v) * weight_ if not weight_is_scalar else weight_
         norm = ConvergenceAnalysis.lp_norm(v, weight, p)
 
-        np.testing.assert_allclose(norm, (np.sum(weight_ * v **p))**(1/p))
+        np.testing.assert_allclose(norm, (np.sum(weight_ * v**p)) ** (1 / p))

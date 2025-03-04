@@ -25,7 +25,7 @@ import json
 import os
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import pytest
@@ -34,7 +34,7 @@ import porepy as pp
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.vtk import compare_pvd_files, compare_vtu_files
 
-from .test_poromechanics import TailoredPoromechanics, create_fractured_setup
+from .test_poromechanics import TailoredPoromechanics, create_model_with_fracture
 
 # Store current directory, directory containing reference files, and temporary
 # visualization folder.
@@ -45,17 +45,17 @@ visualization_dir = Path("visualization")
 
 def create_restart_model(
     solid_vals: dict, fluid_vals: dict, uy_north: float, restart: bool
-):
-    # Create fractured setup
-    fractured_setup = create_fractured_setup(solid_vals, fluid_vals, {}, uy_north)
+) -> TailoredPoromechanics:
+    # Create model with a fractured geometry
+    model = create_model_with_fracture(solid_vals, fluid_vals, {}, uy_north)
 
     # Fetch parameters for enhancing them
-    params = fractured_setup.params
+    params = model.params
 
     # Enable exporting
     params["times_to_export"] = None
 
-    # Add time stepping to the setup
+    # Add time stepping to the model
     params["time_manager"] = pp.TimeManager(
         schedule=[0, 1], dt_init=0.5, constant_dt=True
     )
@@ -67,9 +67,9 @@ def create_restart_model(
         "times_file": reference_dir / Path("previous_times.json"),
     }
 
-    # Redefine setup
-    setup = TailoredPoromechanics(params)
-    return setup
+    # Redefine model
+    model = TailoredPoromechanics(params)
+    return model
 
 
 @pytest.mark.parametrize(
@@ -94,11 +94,11 @@ def test_restart(solid_vals: dict, north_displacement: float):
         north_displacement: Value of displacement on the north boundary.
 
     """
-    # Setup and run model for full time interval. With this generate reference files
+    # Set up and run model for full time interval. With this generate reference files
     # for comparison with a restarted simulation. At the same time, this generates the
     # restart files.
-    setup = create_restart_model(solid_vals, {}, north_displacement, restart=False)
-    pp.run_time_dependent_model(setup)
+    model = create_restart_model(solid_vals, {}, north_displacement, restart=False)
+    pp.run_time_dependent_model(model)
 
     # The run generates data for initial and the first two time steps. In order to use
     # the data as restart and reference data, move it to a reference folder.
@@ -115,8 +115,8 @@ def test_restart(solid_vals: dict, north_displacement: float):
     # step. Thus, the simulation is restarted from the first time step. Recompute the
     # second time step which will serve as foundation for the comparison to the above
     # computed reference files.
-    setup = create_restart_model(solid_vals, {}, north_displacement, restart=True)
-    pp.run_time_dependent_model(setup)
+    model = create_restart_model(solid_vals, {}, north_displacement, restart=True)
+    pp.run_time_dependent_model(model)
 
     # To verify the restart capabilities, perform five tests.
 
@@ -177,7 +177,7 @@ def test_restart(solid_vals: dict, north_displacement: float):
         src.unlink()
 
 
-class RediscretizationTest:
+class RediscretizationTest(pp.PorePyModel):
     """Class to short-circuit the solution strategy to a single iteration.
 
     The class is used as a mixin which partially replaces the SolutionStrategy class.
@@ -223,7 +223,7 @@ class RandomPressureBCs(
     pp.model_boundary_conditions.BoundaryConditionsMassDirNorthSouth,
     pp.model_boundary_conditions.BoundaryConditionsEnergyDirNorthSouth,
 ):
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries. We
@@ -231,14 +231,14 @@ class RandomPressureBCs(
         boundary.
 
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
 
         Returns:
             Boundary condition values array.
 
         """
-        domain_sides = self.domain_boundary_sides(boundary_grid)
-        vals_loc = np.zeros(boundary_grid.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
+        vals_loc = np.zeros(bg.num_cells)
         # Fix the random seed to make it possible to debug in the future.
         np.random.seed(0)
         vals_loc[domain_sides.north] = np.random.rand(domain_sides.north.sum())
@@ -247,7 +247,7 @@ class RandomPressureBCs(
 
 # No need to test momentum balance, as it contains no discretizations that need
 # rediscretization.
-model_classes = [
+model_classes: list[type[pp.PorePyModel]] = [
     models._add_mixin(RandomPressureBCs, models.MassBalance),
     models._add_mixin(RandomPressureBCs, models.MassAndEnergyBalance),
     models._add_mixin(RandomPressureBCs, models.Poromechanics),
@@ -269,22 +269,22 @@ def test_targeted_rediscretization(model_class):
     # Finalize the model class by adding the rediscretization mixin.
     rediscretization_model_class = models._add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.
-    model_full = rediscretization_model_class(model_params)
-    pp.run_time_dependent_model(model_full)
+    full_model: pp.PorePyModel = rediscretization_model_class(model_params)
+    pp.run_time_dependent_model(full_model)
 
     # A model object with targeted rediscretization.
-    model_params_targeted = model_params.copy()
-    model_params_targeted["full_rediscretization"] = False
+    targeted_model_params = model_params.copy()
+    targeted_model_params["full_rediscretization"] = False
     # Set up the model.
-    model_targeted = rediscretization_model_class(model_params_targeted)
-    pp.run_time_dependent_model(model_targeted)
+    targeted_model = rediscretization_model_class(targeted_model_params)
+    pp.run_time_dependent_model(targeted_model)
 
     # Check that the linear systems are the same.
-    assert len(model_full.stored_linear_system) == 2
-    assert len(model_targeted.stored_linear_system) == 2
-    for i in range(len(model_full.stored_linear_system)):
-        A_full, b_full = model_full.stored_linear_system[i]
-        A_targeted, b_targeted = model_targeted.stored_linear_system[i]
+    assert len(full_model.stored_linear_system) == 2
+    assert len(targeted_model.stored_linear_system) == 2
+    for i in range(len(full_model.stored_linear_system)):
+        A_full, b_full = full_model.stored_linear_system[i]
+        A_targeted, b_targeted = targeted_model.stored_linear_system[i]
 
         # Convert to dense array to ensure the matrices are identical.
         assert np.allclose(A_full.toarray(), A_targeted.toarray())
@@ -293,7 +293,7 @@ def test_targeted_rediscretization(model_class):
     # Check that the discretization matrix changes between iterations. Without this
     # check, missing rediscretization may go unnoticed.
     tol = 1e-2
-    diff = model_full.stored_linear_system[0][0] - model_full.stored_linear_system[1][0]
+    diff = full_model.stored_linear_system[0][0] - full_model.stored_linear_system[1][0]
     assert np.linalg.norm(diff.todense()) > tol
 
 
@@ -320,7 +320,7 @@ def test_targeted_rediscretization(model_class):
 )
 # Run the test for models with and without fractures. We skip the case of more than one
 # fracture, since it seems unlikely this will uncover any errors that will not be found
-# with the simpler setups. Activate more fractures if needed in debugging.
+# with the simpler models. Activate more fractures if needed in debugging.
 @pytest.mark.parametrize(
     "num_fracs",
     [  # Number of fractures
@@ -332,7 +332,11 @@ def test_targeted_rediscretization(model_class):
 )
 @pytest.mark.parametrize("domain_dim", [2, 3])
 def test_parse_equations(
-    model_type, equation_name, only_codimension, num_fracs, domain_dim
+    model_type: str,
+    equation_name: str,
+    only_codimension: Optional[int],
+    num_fracs: int,
+    domain_dim: int,
 ):
     """Test that equation parsing works as expected.
 
@@ -370,22 +374,22 @@ def test_parse_equations(
         return
 
     # Set up an object of the prescribed model
-    setup = models.model(model_type, domain_dim, num_fracs=num_fracs)
+    model = models.model(model_type, domain_dim, num_fracs=num_fracs)
     # Fetch the relevant method of this model and extract the domains for which it is
     # defined.
-    method = getattr(setup, equation_name)
+    method = getattr(model, equation_name)
     domains = models.subdomains_or_interfaces_from_method_name(
-        setup.mdg, method, dimensions_to_assemble
+        model.mdg, method, dimensions_to_assemble
     )
 
     # Call the discretization method.
-    setup.equation_system.discretize()
+    model.equation_system.discretize()
 
     # Assemble the matrix and right hand side for the given equation. An error here will
     # indicate that something is wrong with the way the conservation law combines
     # terms and factors (e.g., grids, parameters, variables, other methods etc.) to form
     # an Ad operator object.
-    setup.equation_system.assemble({equation_name: domains})
+    model.equation_system.assemble({equation_name: domains})
 
 
 class CheckConvergenceTest(pp.SolutionStrategy):
@@ -397,7 +401,7 @@ class CheckConvergenceTest(pp.SolutionStrategy):
 
 
 @pytest.fixture
-def solution_strategy_with_statistics() -> CheckConvergenceTest:
+def check_convergence_test_model() -> CheckConvergenceTest:
     return CheckConvergenceTest({})
 
 
@@ -418,7 +422,7 @@ def test_check_convergence(
     nonlinear_increment: np.ndarray,
     residual: np.ndarray,
     expected: tuple[bool, bool],
-    solution_strategy_with_statistics: CheckConvergenceTest,
+    check_convergence_test_model: CheckConvergenceTest,
 ):
     """Test that ``SolutionStrategy.check_convergence`` returns the right
     diverged/converged values.
@@ -430,7 +434,7 @@ def test_check_convergence(
         "nl_convergence_tol": 1e-5,
         "nl_convergence_tol_res": 1e-5,
     }
-    converged, diverged = solution_strategy_with_statistics.check_convergence(
+    converged, diverged = check_convergence_test_model.check_convergence(
         nonlinear_increment, residual, np.zeros(1), nl_params
     )
     assert (converged, diverged) == expected

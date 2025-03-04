@@ -1,4 +1,4 @@
-"""Geometry definition for simulation setup."""
+"""Geometry definition for simulation model."""
 
 from __future__ import annotations
 
@@ -534,10 +534,10 @@ class ModelGeometry(pp.PorePyModel):
                 model = pp.SinglePhaseFlow({})
                 model.prepare_simulation()
                 sd = model.mdg.subdomains()[0]
-                sides = model.domain_boundary_sides(sd)
+                domain_sides = model.domain_boundary_sides(sd)
                 # Access north faces using index or name is equivalent:
-                north_by_index = sides[3]
-                north_by_name = sides.north
+                north_by_index = domain_sides[3]
+                north_by_name = domain_sides.north
                 assert all(north_by_index == north_by_name)
 
         """
