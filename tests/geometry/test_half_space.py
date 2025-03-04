@@ -1,5 +1,5 @@
-"""Tests of functions in pp.geometry.half_space.
-"""
+"""Tests of functions in pp.geometry.half_space."""
+
 import numpy as np
 import pytest
 

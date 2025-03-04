@@ -10,6 +10,7 @@ evaluation points (linear functions should be exactly interpolated, all function
 should be exactly interpolated in data points).
 
 """
+
 import numpy as np
 import pytest
 

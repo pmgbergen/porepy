@@ -1,8 +1,7 @@
-""" Module contains two sets of unit tests for mixed Virtual Element Method (MVEM).
-    - The first is dedicated for discrete operators;
-    - The second is dedicated for the right-hand side (Gravitational forces).
+"""Module contains two sets of unit tests for mixed Virtual Element Method (MVEM).
+- The first is dedicated for discrete operators;
+- The second is dedicated for the right-hand side (Gravitational forces).
 """
-
 
 import numpy as np
 import pytest
@@ -1169,9 +1168,7 @@ class TestVEMConvergence:
                     + 16.0 * np.pi * y * np.cos(np.pi * y)
                 )
                 * (x**2 / 2.0 + y**2 / 2.0 + 1.0 / 2.0)
-                - 4.0
-                * y**2
-                * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
+                - 4.0 * y**2 * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
             )
         else:
             return 8.0 * z * (125.0 * x**2 + 200.0 * y**2 + 425.0 * z**2 + 2.0)

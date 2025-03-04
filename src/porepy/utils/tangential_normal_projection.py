@@ -365,3 +365,79 @@ def set_local_coordinate_projections(
         d_l = mdg.subdomain_data(sd_secondary)
         # Store the projection operator in the lower-dimensional data.
         d_l["tangential_normal_projection"] = projection
+
+
+def sides_of_fracture(
+    intf: pp.MortarGrid, sd_primary: pp.Grid, direction: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, bool]:
+    """Identify the two sides of the interface as positive and negative relative to a
+    direction vector.
+
+    The positive side is defined as the one where the outwards normal vectors of the
+    matrix point in the direction of the direction vector. The negative side is defined
+    as the one having outwards normal vectors pointing in the opposite direction as the
+    direction vector.
+
+    Usage note: The third return value is used to identify whether the positive side is
+    the first side of the mortar grid. This is important e.g. when considering the jump
+    across the interface, which is defined as the second side minus the first side.
+    Thus, if the negative side is the first side, the jump is the bottom side (relative
+    to the direction vector) minus the top side, implying that a negative jump (in
+    global coordinates) is a tensile opening.
+
+    The current implementation assumes that the interface represents a planar surface.
+
+    Parameters:
+        intf: Interface where the sides are to be identified. sd_primary: Subdomain of
+        the primary grid. direction: Vector used to identify the top side. Shape is
+        ``(3,)``,  ``(3,1)`` or
+            ``(3, intf.num_cells)``. The former two will be broadcasted. The latter in
+            theory allows for different direction vectors for each cell, but this is not
+            tested.
+
+    Returns:
+        Tuple of two arrays and a bool. The first containing the indices of the positive
+        side, and the second containing the indices of the negative side. The third
+        element is a boolean indicating if the positive side is the first side of the
+        mortar grid.
+
+    """
+    # PorePy grid coordinates are 3d regardless of the dimension of the grid.
+    coord_dim = 3
+
+    # Compute outwards normals in the matrix and project to the interface.
+    faces_on_fracture_surface = np.where(sd_primary.tags["fracture_faces"])[0]
+    switcher_int = pp.grid_utils.switch_sign_if_inwards_normal(
+        sd_primary, coord_dim, faces_on_fracture_surface
+    )
+    normal_primary = switcher_int @ sd_primary.face_normals.ravel(order="F")
+    normal_intf = (intf.primary_to_mortar_avg(coord_dim) @ normal_primary).reshape(
+        (coord_dim, -1), order="F"
+    )
+    # Identify the top side of the interface using the inner product with the direction
+    # vector.
+    inner = np.sum(normal_intf * direction.reshape(coord_dim, -1), axis=0)
+    if np.allclose(inner, 0):
+        raise ValueError("The direction vector is orthogonal to the normal vectors.")
+    negative_side = np.where(inner < 0)[0]
+    positive_side = np.where(inner >= 0)[0]
+    positive_side_first = None
+    # Compare with sides of the mortar grid.
+
+    for i, (proj, _) in enumerate(intf.project_to_side_grids()):
+        # The projection matrix is a block diagonal matrix, where each block projects
+        # from the mortar grid cells of the side grid in question. Thus, the nonzero
+        # column indices identify the mortar cells on this side.
+        proj_inds = proj.nonzero()[1]
+        if np.allclose(positive_side, proj_inds):
+            positive_side_first = i == 0
+        else:
+            # If this assertion is broken, the side grid (in the mortar grid) has cells
+            # on both sides of the fracture. This would signify that something is very
+            # wrong.
+            assert np.allclose(negative_side, proj_inds)
+    if positive_side_first is None:
+        # This should not happen for planar surfaces (and possibly other underlying
+        # assumptions).
+        raise ValueError("Could not identify the top side as the first or second side.")
+    return positive_side, negative_side, positive_side_first
