@@ -32,7 +32,7 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-        # Initial pressure equals reference pressure (defaults to zero).
+        # Initial pressure equals reference pressure.
         return self.reference_variable_values.pressure * np.ones(sd.num_cells)
 
     def ic_values_displacement(self, sd: pp.Grid) -> np.ndarray:
@@ -47,8 +47,7 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
 
     def ic_values_interface_displacement(self, intf: pp.MortarGrid) -> np.ndarray:
         # Set initial displacement compatible with fracture gap for matrix-fracture
-        # interface. Also initialize boundary conditions to fracture gap value on top
-        # half of the matrix.
+        # interface.
         if len(self.mdg.subdomains()) > 1:
             sd, _ = self.mdg.subdomains(return_data=True)[0]
             faces_primary = intf.primary_to_mortar_int().tocsr().indices

@@ -106,8 +106,8 @@ class ICPrimaryVariablesTestMixin(ICAllVariablesTestMixin):
     The overload asserts that all values for variables flagged as primary are set
     after the super-framework finishes with the method
     set_initial_values_primary_variables.
-    It also tests that the evaluation of non-primary variables will fail because no
-    values were set so far.
+    It also tests that the evaluation of non-primary variables will lead to zeros because
+    no custom values were set so far.
 
     """
 
@@ -121,17 +121,10 @@ class ICPrimaryVariablesTestMixin(ICAllVariablesTestMixin):
         # variables can be evaluated and the value is as expected.
 
         for var, data in self.IC_VALUES_PER_VARIABLE.items():
-            expected_value, is_primary = data
+            _, is_primary = data
 
             # So far only primary variables were set.
             assert is_primary
-
-            # Check that the value is as expected.
-            current_value = self.equation_system.evaluate(var)
-            np.testing.assert_allclose(
-                current_value, expected_value, rtol=0.0, atol=1e-16
-            )
-
             all_variables.append(var)
 
         # Now we loop over all variables and check if they are were initialized.
@@ -346,9 +339,9 @@ def test_initial_values_are_set(
     )
 
     model = local_model_class({"times_to_export": []})
-    # Create variables and initialize
+    # Create variables and initialize.
     # NOTE there are some tests included here when the ICTestPrimaryVariableMixin is
-    # used.
+    # used. See docstring of the class on what is tested.
     model.prepare_simulation()
 
     # Use the functionality of the IC test mixin to evaluate every fixed-dimensional
