@@ -1,7 +1,8 @@
-import porepy as pp
-import numpy as np
 from typing import Any
 
+import numpy as np
+
+import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
