@@ -35,10 +35,10 @@ class TailoredThermoporomechanics(
     pass
 
 
-def create_fractured_setup(
+def create_fractured_model(
     solid_vals: dict, fluid_vals: dict, params: dict
 ) -> TailoredThermoporomechanics:
-    """Create a setup for a 2d problem with a single fracture.
+    """Create a model for a 2d problem with a single fracture.
 
     Parameters:
         solid_vals: Dictionary with keys as those in :class:`pp.SolidConstants`
@@ -49,7 +49,7 @@ def create_fractured_setup(
             :class:`TailoredThermoporomechanics`.
 
     Returns:
-        setup: Model object for the problem.
+        model: Model object for the problem.
 
     """
     # Instantiate constants and store in params.
@@ -68,22 +68,22 @@ def create_fractured_setup(
         "max_iterations": 20,
     }
     default.update(params)
-    setup = TailoredThermoporomechanics(default)
-    return setup
+    model = TailoredThermoporomechanics(default)
+    return model
 
 
-def get_variables(setup):
-    u_vals, p_vals, p_frac, jump, traction = get_variables_poromechanics(setup)
-    t_var = setup.equation_system.get_variables(
-        [setup.temperature_variable], setup.mdg.subdomains()
+def get_variables(model: TailoredThermoporomechanics) -> tuple[np.ndarray, ...]:
+    u_vals, p_vals, p_frac, jump, traction = get_variables_poromechanics(model)
+    t_var = model.equation_system.get_variables(
+        [model.temperature_variable], model.mdg.subdomains()
     )
-    t_vals = setup.equation_system.get_variable_values(
+    t_vals = model.equation_system.get_variable_values(
         variables=t_var, time_step_index=0
     )
-    t_var = setup.equation_system.get_variables(
-        [setup.temperature_variable], setup.mdg.subdomains(dim=setup.nd - 1)
+    t_var = model.equation_system.get_variables(
+        [model.temperature_variable], model.mdg.subdomains(dim=model.nd - 1)
     )
-    t_frac = setup.equation_system.get_variable_values(
+    t_frac = model.equation_system.get_variable_values(
         variables=t_var, time_step_index=0
     )
     return u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac
@@ -108,12 +108,12 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float):
     """
 
     # Create model and run simulation
-    setup = create_fractured_setup(solid_vals, {}, {"u_north": [0.0, uy_north]})
-    pp.run_time_dependent_model(setup)
+    model = create_fractured_model(solid_vals, {}, {"u_north": [0.0, uy_north]})
+    pp.run_time_dependent_model(model)
 
     # Check that the pressure is linear
-    sd = setup.mdg.subdomains(dim=setup.nd)[0]
-    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
+    sd = model.mdg.subdomains(dim=model.nd)[0]
+    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
 
     top = sd.cell_centers[1] > 0.5
     bottom = sd.cell_centers[1] < 0.5
@@ -122,7 +122,7 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float):
         assert np.allclose(u_vals[:, bottom], 0)
         # Zero x and nonzero y displacement in top
         assert np.allclose(u_vals[0, top], 0)
-        assert np.allclose(u_vals[1, top], setup.solid.fracture_gap)
+        assert np.allclose(u_vals[1, top], model.solid.fracture_gap)
         # Zero displacement relative to initial value implies zero pressure and
         # temperature
         assert np.allclose(p_vals, 0)
@@ -135,9 +135,9 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float):
         # Check that x displacement is negative for left half and positive for right
         # half. Tolerance excludes cells at the centerline, where the displacement is
         # zero.
-        left = sd.cell_centers[0] < setup.domain.bounding_box["xmax"] / 2 - tol
+        left = sd.cell_centers[0] < model.domain.bounding_box["xmax"] / 2 - tol
         assert np.all(u_vals[0, left] < 0)
-        right = sd.cell_centers[0] > setup.domain.bounding_box["xmax"] / 2 + tol
+        right = sd.cell_centers[0] > model.domain.bounding_box["xmax"] / 2 + tol
         assert np.all(u_vals[0, right] > 0)
         # Compression implies pressure and temperature increase
         assert np.all(p_vals > 0 - tol)
@@ -162,11 +162,11 @@ def test_2d_single_fracture(solid_vals: dict, uy_north: float):
     else:
         # Displacement jump should be equal to initial displacement.
         assert np.allclose(jump[0], 0.0)
-        assert np.allclose(jump[1], setup.solid.fracture_gap)
+        assert np.allclose(jump[1], model.solid.fracture_gap)
         # Normal traction should be non-positive. Zero if uy_north equals
         # initial gap, negative otherwise.
         if uy_north < 0:
-            assert np.all(traction[setup.nd - 1 :: setup.nd] <= tol)
+            assert np.all(traction[model.nd - 1 :: model.nd] <= tol)
         else:
             assert np.allclose(traction, 0)
 
@@ -178,15 +178,14 @@ def test_thermoporomechanics_model_no_modification():
     Failure of this test would signify rather fundamental problems in the model.
 
     """
-    mod = pp.Thermoporomechanics({})
-    pp.run_stationary_model(mod, {})
+    model = pp.Thermoporomechanics({"times_to_export": []})
+    pp.run_stationary_model(model, {})
 
 
 def test_pull_north_positive_opening():
-
-    setup = create_fractured_setup({}, {}, {"u_north": [0.0, 0.001]})
-    pp.run_time_dependent_model(setup)
-    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
+    model = create_fractured_model({}, {}, {"u_north": [0.0, 0.001]})
+    pp.run_time_dependent_model(model)
+    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
 
     # All components should be open in the normal direction
     assert np.all(jump[1] > 0)
@@ -206,10 +205,9 @@ def test_pull_north_positive_opening():
 
 
 def test_pull_south_positive_opening():
-
-    setup = create_fractured_setup({}, {}, {"u_south": [0.0, -0.001]})
-    pp.run_time_dependent_model(setup)
-    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
+    model = create_fractured_model({}, {}, {"u_south": [0.0, -0.001]})
+    pp.run_time_dependent_model(model)
+    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
 
     # All components should be open in the normal direction
     assert np.all(jump[1] > 0)
@@ -229,13 +227,12 @@ def test_pull_south_positive_opening():
 
 
 def test_push_north_zero_opening():
-
-    setup = create_fractured_setup({}, {}, {"u_north": [0.0, -0.001]})
-    pp.run_time_dependent_model(setup)
-    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(setup)
+    model = create_fractured_model({}, {}, {"u_north": [0.0, -0.001]})
+    pp.run_time_dependent_model(model)
+    u_vals, p_vals, p_frac, jump, traction, t_vals, t_frac = get_variables(model)
 
     # All components should be closed in the normal direction
-    assert np.allclose(jump[1], setup.solid.fracture_gap)
+    assert np.allclose(jump[1], model.solid.fracture_gap)
 
     # Contact force in normal direction should be negative
     assert np.all(traction[1] < 0)
@@ -246,12 +243,12 @@ def test_push_north_zero_opening():
 
 
 def test_positive_p_frac_positive_opening():
-    setup = create_fractured_setup({}, {}, {"fracture_source_value": 0.001})
-    pp.run_time_dependent_model(setup)
-    _, _, p_frac, jump, traction, _, t_frac = get_variables(setup)
+    model = create_fractured_model({}, {}, {"fracture_source_value": 0.001})
+    pp.run_time_dependent_model(model)
+    _, _, p_frac, jump, traction, _, t_frac = get_variables(model)
 
     # All components should be open in the normal direction.
-    assert np.all(jump[1] > setup.solid.fracture_gap)
+    assert np.all(jump[1] > model.solid.fracture_gap)
 
     # By symmetry (reasonable to expect from this grid), the jump in tangential
     # deformation should be zero.
@@ -268,7 +265,7 @@ def test_positive_p_frac_positive_opening():
 
 
 def test_robin_boundary_flux():
-    """Tests model setup with Robin boundary conditions.
+    """Tests model with Robin boundary conditions.
 
     Neumann and Robin boundary values are set by the same method
     (bc_values_"flux_name"). This test ensures that the correct values are assigned to
@@ -304,12 +301,13 @@ def test_robin_boundary_flux():
         "fourier_flux_east": -2e-2,
         "mechanical_stress_west": 3e-2,
         "mechanical_stress_east": -3e-2,
+        "times_to_export": [],
     }
 
     model = TailoredPoromechanicsRobin(model_params)
     pp.run_time_dependent_model(model)
 
-    subdomain = model.mdg.subdomains(dim=model.nd, return_data=True)[0][0]
+    sd = model.mdg.subdomains(dim=model.nd, return_data=True)[0][0]
 
     bc_operators = {
         "darcy_flux": model.combine_boundary_operators_darcy_flux,
@@ -319,38 +317,38 @@ def test_robin_boundary_flux():
 
     # Create dictionary of evaluated boundary operators in bc_operators
     values = {
-        key: operator([subdomain]).value(model.equation_system)
+        key: model.equation_system.evaluate(operator([sd]))
         for key, operator in bc_operators.items()
     }
 
     # Reshape mechanical stress values
     values["mechanical_stress"] = values["mechanical_stress"].reshape(
-        (model.nd, subdomain.num_faces), order="F"
+        (model.nd, sd.num_faces), order="F"
     )
 
     # Get boundary sides and assert boundary condition values
-    bounds = model.domain_boundary_sides(subdomain)
+    domain_sides = model.domain_boundary_sides(sd)
 
     assert np.allclose(
-        values["darcy_flux"][bounds.west], model_params["darcy_flux_west"]
+        values["darcy_flux"][domain_sides.west], model_params["darcy_flux_west"]
     )
     assert np.allclose(
-        values["darcy_flux"][bounds.east], model_params["darcy_flux_east"]
-    )
-
-    assert np.allclose(
-        values["fourier_flux"][bounds.west], model_params["fourier_flux_west"]
-    )
-    assert np.allclose(
-        values["fourier_flux"][bounds.east], model_params["fourier_flux_east"]
+        values["darcy_flux"][domain_sides.east], model_params["darcy_flux_east"]
     )
 
     assert np.allclose(
-        values["mechanical_stress"][0][bounds.west],
+        values["fourier_flux"][domain_sides.west], model_params["fourier_flux_west"]
+    )
+    assert np.allclose(
+        values["fourier_flux"][domain_sides.east], model_params["fourier_flux_east"]
+    )
+
+    assert np.allclose(
+        values["mechanical_stress"][0][domain_sides.west],
         model_params["mechanical_stress_west"],
     )
     assert np.allclose(
-        values["mechanical_stress"][0][bounds.east],
+        values["mechanical_stress"][0][domain_sides.east],
         model_params["mechanical_stress_east"],
     )
 
@@ -361,12 +359,15 @@ def test_robin_boundary_flux():
     # First constructing the pressure operator and evaluating it, then finding the
     # indices of the north and south boundaries in the pressure_values array, before
     # finally asserting that the values are correct.
-    bg = model.mdg.subdomain_to_boundary_grid(subdomain)
-    pressure_operator = model.pressure([bg])
-    pressure_values = pressure_operator.value(model.equation_system)
+    bg = model.mdg.subdomain_to_boundary_grid(sd)
+    pressure_values = model.equation_system.evaluate(model.pressure([bg]))
 
-    ind_north = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.north)[0]))[0]
-    ind_south = np.nonzero(np.isin(bounds.all_bf, np.where(bounds.south)[0]))[0]
+    ind_north = np.nonzero(
+        np.isin(domain_sides.all_bf, np.where(domain_sides.north)[0])
+    )[0]
+    ind_south = np.nonzero(
+        np.isin(domain_sides.all_bf, np.where(domain_sides.south)[0])
+    )[0]
 
     assert np.allclose(pressure_values[ind_north], model_params["pressure_north"])
     assert np.allclose(pressure_values[ind_south], model_params["pressure_south"])
@@ -407,21 +408,21 @@ def test_unit_conversion(units):
     model_params_ref = copy.deepcopy(model_params)
 
     # Create model and run simulation
-    setup_0 = TailoredThermoporomechanics(model_params_ref)
-    pp.run_time_dependent_model(setup_0)
+    reference_model = TailoredThermoporomechanics(model_params_ref)
+    pp.run_time_dependent_model(reference_model)
 
     model_params["units"] = pp.Units(**units)
-    setup_1 = TailoredThermoporomechanics(model_params)
+    model = TailoredThermoporomechanics(model_params)
 
-    pp.run_time_dependent_model(setup_1)
+    pp.run_time_dependent_model(model)
     variables = [
-        setup_1.pressure_variable,
-        setup_1.interface_darcy_flux_variable,
-        setup_1.displacement_variable,
-        setup_1.interface_displacement_variable,
-        setup_1.temperature_variable,
-        setup_1.interface_fourier_flux_variable,
-        setup_1.interface_enthalpy_flux_variable,
+        model.pressure_variable,
+        model.interface_darcy_flux_variable,
+        model.displacement_variable,
+        model.interface_displacement_variable,
+        model.temperature_variable,
+        model.interface_fourier_flux_variable,
+        model.interface_enthalpy_flux_variable,
     ]
     variable_units = [
         "Pa",
@@ -432,12 +433,12 @@ def test_unit_conversion(units):
         "m^-1 * s^-1 * J",
         "m^-1 * s^-1 * J",
     ]
-    compare_scaled_primary_variables(setup_0, setup_1, variables, variable_units)
+    compare_scaled_primary_variables(reference_model, model, variables, variable_units)
     secondary_variables = ["darcy_flux", "fluid_flux", "stress", "porosity"]
     secondary_units = ["Pa * m^2 * s^-1", "kg * m^-1 * s^-1", "Pa * m", "-"]
     domain_dimensions = [None, None, 2, None]
     compare_scaled_model_quantities(
-        setup_0, setup_1, secondary_variables, secondary_units, domain_dimensions
+        reference_model, model, secondary_variables, secondary_units, domain_dimensions
     )
 
 
@@ -445,7 +446,7 @@ class ThermoporomechanicsWell(
     well_models.OneVerticalWell,
     model_geometries.OrthogonalFractures3d,
     well_models.BoundaryConditionsWellSetup,
-    pp.Poromechanics,
+    pp.Thermoporomechanics,
 ):
     def meshing_arguments(self) -> dict:
         # Length scale:
@@ -463,6 +464,7 @@ def test_thermoporomechanics_well():
     model_params = {
         "fracture_indices": [2],
         "well_flux": -1e-2,
+        "times_to_export": [],
     }
-    setup = ThermoporomechanicsWell(model_params)
-    pp.run_time_dependent_model(setup)
+    model = ThermoporomechanicsWell(model_params)
+    pp.run_time_dependent_model(model)

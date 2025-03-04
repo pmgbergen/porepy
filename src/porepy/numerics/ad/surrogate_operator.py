@@ -130,7 +130,7 @@ import porepy as pp
 from porepy.numerics.ad.forward_mode import AdArray
 
 from .functions import FloatType
-from .operators import IterativeOperator, TimeDependentOperator
+from .operators import IterativeOperator, Operations, TimeDependentOperator
 
 __all__ = [
     "SurrogateOperator",
@@ -171,11 +171,10 @@ class SurrogateOperator(
         domains: Sequence[pp.Grid] | Sequence[pp.MortarGrid],
         children: Sequence[pp.ad.Variable],
     ) -> None:
-
         super().__init__(
             name=name,
             domains=domains,
-            operation=pp.ad.Operator.Operations.evaluate,
+            operation=Operations.evaluate,
             children=children,
         )
 
@@ -445,7 +444,6 @@ class SurrogateFactory:
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
         dof_info: Optional[dict[pp.ad.equation_system.GridEntity, int]] = None,
     ) -> None:
-
         if len(dependencies) == 0:
             raise ValueError("Surrogate operators must have dependencies.")
 
@@ -494,11 +492,11 @@ class SurrogateFactory:
         if len(domains) == 0:
             return pp.wrap_as_dense_ad_array(np.zeros((0,)), name=self.name)
         # On the boundary, this is a Time-Dependent dense array
-        elif all(isinstance(g, pp.BoundaryGrid) for g in domains):
+        elif all(isinstance(grid, pp.BoundaryGrid) for grid in domains):
             return pp.ad.TimeDependentDenseArray(self.name, domains)
         # On subdomains or interfaces, create the surrogate operators
-        elif all(isinstance(g, pp.Grid) for g in domains) or all(
-            isinstance(g, pp.MortarGrid) for g in domains
+        elif all(isinstance(grid, pp.Grid) for grid in domains) or all(
+            isinstance(grid, pp.MortarGrid) for grid in domains
         ):
             # for mypy
             domains_ = cast(Sequence[pp.Grid] | Sequence[pp.MortarGrid], domains)
@@ -822,7 +820,7 @@ class SurrogateFactory:
     # Methods to progress values in time and iterate sense
 
     def update_boundary_values(
-        self, values: np.ndarray, boundary_grid: pp.BoundaryGrid, depth: int = 1
+        self, values: np.ndarray, bg: pp.BoundaryGrid, depth: int = 1
     ) -> None:
         """Function to update the value of the surrogate operator on the boundary.
 
@@ -841,8 +839,8 @@ class SurrogateFactory:
 
                 A new value to be set for the boundary. ``N`` is computed from the
                 information passed in ``dof_info`` at instantiation and the number of
-                cells in ``boundary_grid``.
-            boundary_grid: A boundary grid in the mixed-dimensional domain.
+                cells in ``bg``.
+            bg: A boundary grid in the mixed-dimensional domain.
             depth: ``default=1``
 
                 Maximal number of time steps stored. The default value 1 leads to
@@ -856,11 +854,11 @@ class SurrogateFactory:
 
         _check_expected_values(
             values,
-            (self.num_dofs_on_grid(boundary_grid),),
-            boundary_grid,
+            (self.num_dofs_on_grid(bg),),
+            bg,
             iterate_index=0,
         )
-        data = self._data_of(boundary_grid)
+        data = self._data_of(bg)
 
         # If boundary values stored in time, shift them and store the current time step
         # (iterate idx 0) as the most recent previous time step

@@ -15,6 +15,7 @@ Testing covers:
         local_coordinates
 
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -25,10 +26,13 @@ import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models
 
-
 # List of geometry classes to test.
-geometry_list: list[pp.ModelGeometry] = [
-    porepy.applications.md_grids.model_geometries.RectangularDomainThreeFractures,
+# Turn mixins of specific grids into proper model geometries.
+geometry_list: list[type[pp.ModelGeometry]] = [
+    models._add_mixin(
+        porepy.applications.md_grids.model_geometries.RectangularDomainThreeFractures,
+        pp.ModelGeometry,
+    ),
     models._add_mixin(
         porepy.applications.md_grids.model_geometries.OrthogonalFractures3d,
         pp.ModelGeometry,
@@ -39,7 +43,6 @@ geometry_list: list[pp.ModelGeometry] = [
 # Parametrization of the goemetry class is common for all tests.
 @pytest.mark.parametrize("geometry_class", geometry_list)
 class TestGeometry:
-
     @classmethod
     def setup_class(self):
         """Classmethod for setting up parameters for the test.
@@ -64,14 +67,16 @@ class TestGeometry:
         for geometry_class in geometry_list:
             for num_fracs in num_fracs_list:
                 # Create an instance of the geometry class.
-                geometry = geometry_class()
-                geometry.params = {"fracture_indices": [i for i in range(num_fracs)]}
+                geometry_model = geometry_class()
+                geometry_model.params = {
+                    "fracture_indices": [i for i in range(num_fracs)]
+                }
                 # Assign units to the geometry.
-                geometry.units = pp.Units()
+                geometry_model.units = pp.Units()
                 # Set the geometry configuration.
-                geometry.set_geometry()
+                geometry_model.set_geometry()
 
-                self.geometries[(geometry_class, num_fracs)] = geometry
+                self.geometries[(geometry_class, num_fracs)] = geometry_model
 
     def test_set_geometry(
         self,
@@ -109,14 +114,14 @@ class TestGeometry:
             num_fracs: Number of fractures to include in the test.
 
         """
-        geometry = self.geometries[geometry_class, num_fracs]
+        geometry_model = self.geometries[geometry_class, num_fracs]
 
         # Fetch the bounding box for the domain.
-        box_min, box_max = pp.domain.mdg_minmax_coordinates(geometry.mdg)
+        box_min, box_max = pp.domain.mdg_minmax_coordinates(geometry_model.mdg)
 
-        for sd in geometry.mdg.subdomains():
+        for sd in geometry_model.mdg.subdomains():
             all_bf, east, west, north, south, top, bottom = (
-                geometry.domain_boundary_sides(sd)
+                geometry_model.domain_boundary_sides(sd)
             )
             all_bool = np.zeros(sd.num_faces, dtype=bool)
             all_bool[all_bf] = 1
@@ -136,9 +141,9 @@ class TestGeometry:
 
         # The same for boundary grids.
         bg: pp.BoundaryGrid
-        for bg in geometry.mdg.boundaries():
+        for bg in geometry_model.mdg.boundaries():
             all_bf, east, west, north, south, top, bottom = (
-                geometry.domain_boundary_sides(bg)
+                geometry_model.domain_boundary_sides(bg)
             )
             all_bool = np.ones(bg.num_cells, dtype=bool)
 
@@ -167,20 +172,24 @@ class TestGeometry:
             num_fracs: Number of fractures to include in the test.
 
         """
-        geometry = self.geometries[geometry_class, num_fracs]
-        nd: int = geometry.nd
+        geometry_model = self.geometries[geometry_class, num_fracs]
+        nd: int = geometry_model.nd
 
         # Various combinations of single and many subdomains.
-        all_subdomains = geometry.mdg.subdomains()
-        top_subdomain = geometry.mdg.subdomains(dim=geometry.nd)
-        some_subdomains = top_subdomain + geometry.mdg.subdomains(dim=geometry.nd - 1)
+        all_subdomains = geometry_model.mdg.subdomains()
+        top_subdomain = geometry_model.mdg.subdomains(dim=geometry_model.nd)
+        some_subdomains = top_subdomain + geometry_model.mdg.subdomains(
+            dim=geometry_model.nd - 1
+        )
         # An empty list
         empty_subdomains: list[pp.Grid] = []
 
         # Various combinations of single and many interfaces.
-        all_interfaces = geometry.mdg.interfaces()
-        top_interfaces = geometry.mdg.interfaces(dim=geometry.nd - 1)
-        some_interfaces = top_interfaces + geometry.mdg.interfaces(dim=geometry.nd - 2)
+        all_interfaces = geometry_model.mdg.interfaces()
+        top_interfaces = geometry_model.mdg.interfaces(dim=geometry_model.nd - 1)
+        some_interfaces = top_interfaces + geometry_model.mdg.interfaces(
+            dim=geometry_model.nd - 2
+        )
 
         # Gather all lists of subdomains and all lists of interfaces.
         test_subdomains = [
@@ -192,17 +201,19 @@ class TestGeometry:
         test_interfaces = [all_interfaces, top_interfaces, some_interfaces]
 
         # Equation system, needed for evaluation.
-        eq_system = pp.ad.EquationSystem(geometry.mdg)
+        equation_system = pp.ad.EquationSystem(geometry_model.mdg)
 
         # Test that an error is raised if the grid does not have such an attribute.
         with pytest.raises(ValueError):
-            geometry.wrap_grid_attribute(top_subdomain, "no_such_attribute", dim=1)
+            geometry_model.wrap_grid_attribute(
+                top_subdomain, "no_such_attribute", dim=1
+            )
 
         # Test that the an error is raised if we try to wrap a field which is not an
         # ndarray.
         with pytest.raises(ValueError):
             # This will return a string.
-            geometry.wrap_grid_attribute(top_subdomain, "name", dim=1)
+            geometry_model.wrap_grid_attribute(top_subdomain, "name", dim=1)
 
         # One loop for both subdomains and interfaces.
         for grids in test_subdomains + test_interfaces:
@@ -228,9 +239,9 @@ class TestGeometry:
             # Loop over attributes and corresponding dimensions.
             for attr, dim in zip(attr_list, dim_list):
                 # Get hold of the wrapped attribute and the wrapping.
-                wrapped_value = geometry.wrap_grid_attribute(
-                    grids, attr, dim=dim
-                ).value(eq_system)
+                wrapped_value = equation_system.evaluate(
+                    geometry_model.wrap_grid_attribute(grids, attr, dim=dim)
+                )
 
                 # Check that the wrapped attribute is a matrix.
                 assert isinstance(wrapped_value, np.ndarray)
@@ -273,13 +284,15 @@ class TestGeometry:
         """
         # Use two fractures, that should be enough to test the methods.
         num_fracs = 2
-        geometry = self.geometries[geometry_class, num_fracs]
+        geometry_model = self.geometries[geometry_class, num_fracs]
 
-        all_subdomains = geometry.mdg.subdomains()
-        all_interfaces = geometry.mdg.interfaces()
+        all_subdomains = geometry_model.mdg.subdomains()
+        all_interfaces = geometry_model.mdg.interfaces()
 
-        returned_subdomains = geometry.interfaces_to_subdomains(all_interfaces)
-        returned_interfaces = geometry.subdomains_to_interfaces(all_subdomains, [1])
+        returned_subdomains = geometry_model.interfaces_to_subdomains(all_interfaces)
+        returned_interfaces = geometry_model.subdomains_to_interfaces(
+            all_subdomains, [1]
+        )
         if all_interfaces == []:
             assert returned_subdomains == []
             assert returned_interfaces == []
@@ -288,20 +301,20 @@ class TestGeometry:
             assert all_interfaces == returned_interfaces
 
         # Empty list passed should return empty list for both methods.
-        no_subdomains = geometry.interfaces_to_subdomains([])
-        no_interfaces = geometry.subdomains_to_interfaces([], [1])
+        no_subdomains = geometry_model.interfaces_to_subdomains([])
+        no_interfaces = geometry_model.subdomains_to_interfaces([], [1])
         assert no_subdomains == []
         assert no_interfaces == []
-        if getattr(geometry, "num_fracs", 0) > 1:
+        if getattr(geometry_model, "num_fracs", 0) > 1:
             # Matrix and two fractures.
-            two_fractures = all_subdomains[1:3]
+            two_fracture_subdomains = all_subdomains[1:3]
             # Only those interfaces involving one of the two fractures are expected.
             interfaces = []
-            for sd in two_fractures:
-                interfaces += geometry.mdg.subdomain_to_interfaces(sd, [1])
-            sorted_interfaces = geometry.mdg.sort_interfaces(interfaces)
-            assert sorted_interfaces == geometry.subdomains_to_interfaces(
-                two_fractures, [1]
+            for sd in two_fracture_subdomains:
+                interfaces += geometry_model.mdg.subdomain_to_interfaces(sd, [1])
+            sorted_interfaces = geometry_model.mdg.sort_interfaces(interfaces)
+            assert sorted_interfaces == geometry_model.subdomains_to_interfaces(
+                two_fracture_subdomains, [1]
             )
 
     @pytest.mark.parametrize("num_fracs", [0, 1, 2, 3])
@@ -319,12 +332,12 @@ class TestGeometry:
         """
 
         # Get the geometry.
-        geometry = self.geometries[geometry_class, num_fracs]
-        dim = geometry.nd
+        geometry_model = self.geometries[geometry_class, num_fracs]
+        dim = geometry_model.nd
 
         # Make an equation system, which is needed for parsing of the Ad operator
         # representations of the geometry.
-        eq_sys = pp.EquationSystem(geometry.mdg)
+        equation_system = pp.EquationSystem(geometry_model.mdg)
 
         # The function to be tested only accepts the top level subdomain(s).
         # NOTE: This test does not cover the case of multiple subdomains on the top
@@ -333,15 +346,15 @@ class TestGeometry:
         # functionality, but this has not been prioritized. Passing in the same
         # subdomain twice will not work, since the function will uniquify the input.
         subdomains = [
-            geometry.mdg.interface_to_subdomain_pair(intf)[0]
-            for intf in geometry.mdg.interfaces()
+            geometry_model.mdg.interface_to_subdomain_pair(intf)[0]
+            for intf in geometry_model.mdg.interfaces()
         ]
 
         # Get hold of the matrix to be tested, parse it to numerical format.
-        sign_switcher = geometry.internal_boundary_normal_to_outwards(
+        sign_switcher = geometry_model.internal_boundary_normal_to_outwards(
             subdomains, dim=dim
         )
-        mat = sign_switcher.value(eq_sys)
+        mat = equation_system.evaluate(sign_switcher)
 
         # Check that the wrapped attribute is a matrix.
         assert isinstance(mat, sps.spmatrix)
@@ -399,18 +412,18 @@ class TestGeometry:
 
         """
         # Define the geometry.
-        geometry = self.geometries[geometry_class, num_fracs]
-        dim = geometry.nd
+        geometry_model = self.geometries[geometry_class, num_fracs]
+        dim = geometry_model.nd
         # Make an equation system, which is needed for parsing of the Ad operator
         # representations of the geometry.
-        eq_sys = pp.EquationSystem(geometry.mdg)
+        equation_system = pp.EquationSystem(geometry_model.mdg)
 
         # First check the method to compute.
-        interfaces = geometry.mdg.interfaces()
-        normal_op = geometry.outwards_internal_boundary_normals(
+        interfaces = geometry_model.mdg.interfaces()
+        normal_op = geometry_model.outwards_internal_boundary_normals(
             interfaces, unitary=True
         )
-        normals = normal_op.value(eq_sys)
+        normals = equation_system.evaluate(normal_op)
 
         # The result should be a dense array.
         assert isinstance(normals, np.ndarray)
@@ -429,10 +442,10 @@ class TestGeometry:
 
         # Also construct the normal vectors without normalization, and check that their
         # norms are equal to the volumes of the interface cells.
-        normal_op_not_unitary = geometry.outwards_internal_boundary_normals(
+        normal_op_not_unitary = geometry_model.outwards_internal_boundary_normals(
             interfaces, unitary=False
         )
-        normals_not_unitary = normal_op_not_unitary.value(eq_sys)
+        normals_not_unitary = equation_system.evaluate(normal_op_not_unitary)
         normals_reshaped_not_unitary = np.reshape(
             normals_not_unitary, (dim, -1), order="F"
         )
@@ -447,7 +460,7 @@ class TestGeometry:
         # center of the neighboring subdomain cell is positive.
         offset = 0
         for intf in interfaces:
-            sd = geometry.mdg.interface_to_subdomain_pair(intf)[0]
+            sd = geometry_model.mdg.interface_to_subdomain_pair(intf)[0]
 
             loc_normals = normals_reshaped[:, offset : offset + intf.num_cells]
 
@@ -477,7 +490,7 @@ class TestGeometry:
 
         # Left multiply with the normal operator; in essense this extracts the normal
         # vector (in the geometric sense) as a vector (in the algebraic sense).
-        product = (normal_op * dim_vec).value(eq_sys)
+        product = equation_system.evaluate(normal_op * dim_vec)
         assert product.shape == (size,)
 
         # Each vector should have unit length, as is checked by by the lines below.
@@ -492,12 +505,12 @@ class TestGeometry:
         # the basis vectors. A similar operation (actually the transpose, scalar-to-nd)
         # is used in the model classes to expand scalars to vectors (e.g., pressure as a
         # potential to pressure as a force).
-        basis = geometry.basis(interfaces, dim)
+        basis = geometry_model.basis(interfaces, dim)
         nd_to_scalar_sum = pp.ad.sum_operator_list([e.T for e in basis])
         inner_op = nd_to_scalar_sum * (normal_op * dim_vec)
 
         # The two operations should give the same result
-        assert np.allclose(inner_op.value(eq_sys), dot_product)
+        assert np.allclose(equation_system.evaluate(inner_op), dot_product)
 
     def test_basis_normal_tangential_components(
         self,
@@ -511,12 +524,12 @@ class TestGeometry:
 
         """
         num_fracs = 2
-        geometry = self.geometries[geometry_class, num_fracs]
-        dim = geometry.nd
+        geometry_model = self.geometries[geometry_class, num_fracs]
+        dim = geometry_model.nd
 
         # List of subdomains and interfaces. The latter are only needed for one test.
-        subdomains = geometry.mdg.subdomains()
-        interfaces = geometry.mdg.interfaces()
+        subdomains = geometry_model.mdg.subdomains()
+        interfaces = geometry_model.mdg.interfaces()
 
         # Count the number of cells
         num_subdomain_cells = sum([sd.num_cells for sd in subdomains])
@@ -526,7 +539,7 @@ class TestGeometry:
 
         # Make an equation system, which is needed for parsing of the Ad operator
         # representations of the geometry.
-        eq_sys = pp.EquationSystem(geometry.mdg)
+        equation_system = pp.EquationSystem(geometry_model.mdg)
 
         # First test the method e_i (and thereby also the method basis, since the latter
         # is just a shallow wrapper around the former). Loop over dimension of the basis
@@ -536,8 +549,8 @@ class TestGeometry:
             for i in range(basis_dim):
                 # Consider both subdomains and interfaces here, since the method allows
                 # it.
-                e_i = geometry.e_i(subdomains + interfaces, i=i, dim=basis_dim).value(
-                    eq_sys
+                e_i = equation_system.evaluate(
+                    geometry_model.e_i(subdomains + interfaces, i=i, dim=basis_dim)
                 )
                 # Expected values
                 rows = np.arange(i, num_cells_total * basis_dim, basis_dim)
@@ -552,15 +565,17 @@ class TestGeometry:
                 if basis_dim == dim:
                     # the dimension of the basis vector space is not specified, the
                     # value should be the same as for basis_dim = dim.
-                    e_None = geometry.e_i(subdomains + interfaces, i=i, dim=dim).value(
-                        eq_sys
+                    e_None = equation_system.evaluate(
+                        geometry_model.e_i(subdomains + interfaces, i=i, dim=dim)
                     )
                     assert np.allclose((e_None - e_i).data, 0)
 
         # Next, test the methods to extract normal and tangential components. The normal
         # component is straightforward, the tangential component requires a bit of work
         # to deal with the difference between 2d and 3d.
-        normal_component = geometry.normal_component(subdomains).value(eq_sys)
+        normal_component = equation_system.evaluate(
+            geometry_model.normal_component(subdomains)
+        )
 
         # The normal component should, for each row, have 1 in the column corresponding
         # to the normal component, so [(0, dim - 1), (1, 2 * dim - 1), ...)] should be
@@ -578,7 +593,9 @@ class TestGeometry:
         assert np.allclose((known_normal_component - normal_component).data, 0)
 
         # For the tangential component, the expected value depends on dimension.
-        tangential_component = geometry.tangential_component(subdomains).value(eq_sys)
+        tangential_component = equation_system.evaluate(
+            geometry_model.tangential_component(subdomains)
+        )
         if dim == 2:
             # Here we need [(0, 0), (1, 2), (2, 4), ...] to be non-zero.
             rows_tangential_component = np.arange(num_subdomain_cells)
@@ -618,12 +635,12 @@ class TestGeometry:
 
         """
         num_fracs = 2
-        geometry = self.geometries[geometry_class, num_fracs]
-        global_to_local = geometry.local_coordinates(
-            geometry.mdg.subdomains(dim=geometry.nd - 1)
+        geometry_model = self.geometries[geometry_class, num_fracs]
+        global_to_local = geometry_model.local_coordinates(
+            geometry_model.mdg.subdomains(dim=geometry_model.nd - 1)
         )
         # The global to local operator should be a rotation matrix, and the inverse
         # should be the transpose. This is checked by multiplying the matrix with its
         # transpose, which should give the identity matrix.
-        val = global_to_local.value(pp.EquationSystem(geometry.mdg)).todense()
+        val = pp.EquationSystem(geometry_model.mdg).evaluate(global_to_local).todense()
         assert np.allclose(val @ val.T, np.eye(val.shape[0]))

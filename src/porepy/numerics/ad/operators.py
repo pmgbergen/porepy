@@ -1,15 +1,17 @@
-""" Implementation of wrappers for Ad representations of several operators.
-"""
+"""Implementation of wrappers for Ad representations of several operators."""
 
 from __future__ import annotations
 
 import copy
+from collections import deque
 from enum import Enum
 from functools import reduce
 from hashlib import sha256
 from itertools import count
 from typing import Any, Callable, Literal, Optional, Sequence, TypeVar, Union, overload
+from warnings import warn
 
+import networkx as nx
 import numpy as np
 import scipy.sparse as sps
 
@@ -17,7 +19,7 @@ import porepy as pp
 from porepy.utils.porepy_types import GridLike, GridLikeSequence
 
 from . import _ad_utils
-from .forward_mode import AdArray, initAdArrays
+from .forward_mode import AdArray
 
 __all__ = [
     "Operator",
@@ -31,14 +33,6 @@ __all__ = [
     "MixedDimensionalVariable",
     "sum_operator_list",
 ]
-
-
-def _get_shape(mat):
-    """Get shape of a numpy.ndarray or the Jacobian of AdArray"""
-    if isinstance(mat, AdArray):
-        return mat.jac.shape
-    else:
-        return mat.shape
 
 
 def _get_previous_time_or_iterate(
@@ -84,7 +78,6 @@ def _get_previous_time_or_iterate(
     # Else we are in the middle of the operator tree and need to go deeper, creating
     # copies along.
     else:
-
         # Create new operator from the tree, with the only difference being the new
         # children, for which the recursion is invoked
         # NOTE copy takes care of references to original_operator and func
@@ -93,8 +86,71 @@ def _get_previous_time_or_iterate(
             _get_previous_time_or_iterate(child, prev_time=prev_time, steps=steps)
             for child in op.children
         ]
-
         return new_op
+
+
+class Operations(Enum):
+    """Object representing all supported operations by the operator class.
+
+    Used to construct the operator tree and identify Operations.
+
+    """
+
+    # NOTE: The string values of the operations are used in the construction of hash
+    # keys for compound operators. If adding new operations, these must be assigned
+    # unique string values.
+
+    void = "void"
+    add = "add"
+    sub = "sub"
+    mul = "mul"
+    rmul = "rmul"
+    matmul = "matmul"
+    rmatmul = "rmatmul"
+    div = "div"
+    rdiv = "rdiv"
+    evaluate = "evaluate"
+    approximate = "approximate"
+    pow = "pow"
+    rpow = "rpow"
+
+    @classmethod
+    def to_symbol(cls, value):
+        symbols = {
+            cls.add: "+",
+            cls.sub: "-",
+            cls.mul: "*",
+            cls.rmul: "*",
+            cls.matmul: "@",
+            cls.rmatmul: "@",
+            cls.div: "/",
+            cls.rdiv: "/",
+            cls.pow: "**",
+            cls.rpow: "**",
+            cls.evaluate: "evaluate",
+            cls.approximate: "approximate",
+            cls.void: "void",
+        }
+        return symbols.get(value, "unknown")
+
+    @classmethod
+    def to_str(cls, value):
+        strings = {
+            cls.add: "adding",
+            cls.sub: "subtracting",
+            cls.mul: "multiplying",
+            cls.rmul: "multiplying",
+            cls.matmul: "matrix multiplying",
+            cls.rmatmul: "matrix multiplying",
+            cls.div: "dividing",
+            cls.rdiv: "dividing",
+            cls.pow: "raising to the power of",
+            cls.rpow: "raising to the power of",
+            cls.evaluate: "evaluating",
+            cls.approximate: "approximating",
+            cls.void: "void",
+        }
+        return strings.get(value, "unknown")
 
 
 class Operator:
@@ -102,7 +158,7 @@ class Operator:
 
     Objects of this class are not meant to be initiated directly, rather the various
     subclasses should be used. Instances of this class will still be created when
-    subclasses are combined by Operator.Operations.
+    subclasses are combined by Operations.
 
     Contains a tree structure of child operators for the recursive forward evaluation.
 
@@ -123,32 +179,11 @@ class Operator:
 
     """
 
-    class Operations(Enum):
-        """Object representing all supported operations by the operator class.
-
-        Used to construct the operator tree and identify Operator.Operations.
-
-        """
-
-        void = "void"
-        add = "add"
-        sub = "sub"
-        mul = "mul"
-        rmul = "rmul"
-        matmul = "matmul"
-        rmatmul = "rmatmul"
-        div = "div"
-        rdiv = "rdiv"
-        evaluate = "evaluate"
-        approximate = "approximate"
-        pow = "pow"
-        rpow = "rpow"
-
     def __init__(
         self,
         name: Optional[str] = None,
         domains: Optional[GridLikeSequence] = None,
-        operation: Optional[Operator.Operations] = None,
+        operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
         if domains is None:
@@ -195,16 +230,16 @@ class Operator:
         Will be empty if the operator is a leaf.
         """
 
-        self.operation: Operator.Operations
+        self.operation: Operations
         """Arithmetic or other operation represented by this operator.
 
         Will be void if the operator is a leaf.
         """
-
-        self._initialize_children(operation=operation, children=children)
-
         ### PRIVATE
         self._name = name if name is not None else ""
+
+        self._initialize_children(operation=operation, children=children)
+        self._cached_key: Optional[str] = None
 
     @property
     def interfaces(self):
@@ -241,7 +276,7 @@ class Operator:
 
     def _initialize_children(
         self,
-        operation: Optional[Operator.Operations] = None,
+        operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ):
         """This is a part of initialization which can be called separately since some
@@ -249,12 +284,82 @@ class Operator:
 
         """
         self.children = [] if children is None else children
-        self.operation = Operator.Operations.void if operation is None else operation
+        self.operation = Operations.void if operation is None else operation
+
+    def as_graph(
+        self, depth_first: bool = True
+    ) -> tuple[nx.DiGraph, dict[Operator, int]]:
+        """Return the operator tree as a directed graph using networkx.
+
+        Since networkx uses the object hash as the node id, and operators can share the
+        same hash, we cannot use the operator themselves as nodes. Instead, the nodes in
+        the graph are integers. To map the nodes back to the operators, a dictionary is
+        returned. For a given node, the actual operator is stored as an attribute, with
+        key "obj".
+
+        The graph will actually be that of a tree with self as root. The parameter
+        depth_first determines if the graph is constructed, and node ids assigned, by
+        depth-first or breadth-first traversal.
+        EK comment: At the moment, it is not clear whether this has any practical impact
+        on the graph properties, e.g. for traversal.
+
+        The edges of the graph are directed from parent to child. The attribute
+        "operand_id" is used to store the index of the child in the parent's children
+        list. This identifies the left and right operand, e.g. in a multiplication
+        operation.
+
+        Parameters:
+            depth_first: If True, the graph is traversed depth-first, otherwise
+                breadth-first.
+
+        Returns:
+            A tuple with the graph and a dictionary mapping the nodes to the operators.
+
+        """
+        # EK note: We will probably take this method into use in the near future, right
+        # now it is not used, but kept for future applications.
+
+        # Counter for node ids.
+        idx = count(0)
+
+        graph = nx.DiGraph()
+        # We will loop over all successors of this node and add them to the graph. Use
+        # a deque to keep track of the nodes discovered but not yet added to the graph.
+        queue = deque([self])
+        # Add the root node.
+        id = next(idx)
+        graph.add_node(id, obj=self)
+
+        # Mapping from operator to node id. Needed to go from an operator to a node in
+        # the graph.
+        node_map: dict[Operator, int] = {}
+        node_map[self] = id
+
+        while queue:
+            # Depth-first traversal is implemented by popping from the right (last in,
+            # first out).
+            if depth_first:
+                parent = queue.pop()
+            else:
+                parent = queue.popleft()
+
+            for counter, child in enumerate(parent.children):
+                id = next(idx)
+                # Add the child to the graph, store the mapping between the node id
+                # and the operator, and make the edge between the parent and the child.
+                graph.add_node(id, obj=child)
+                node_map[child] = id
+                graph.add_edge(node_map[parent], node_map[child], operand_id=counter)
+                # Always append to the right.
+                queue.append(child)
+
+        return graph, node_map
 
     def is_leaf(self) -> bool:
         """Check if this operator is a leaf in the tree-representation of an expression.
 
-        Note that this implies that the method ``parse()`` is expected to be implemented.
+        Note that this implies that the method ``parse()`` is expected to be
+        implemented.
 
         Returns:
             True if the operator has no children.
@@ -326,339 +431,6 @@ class Operator:
         """
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
-    def _parse_operator(
-        self,
-        op: Operator,
-        eqs: pp.ad.EquationSystem,
-        ad_base: AdArray | np.ndarray,
-    ):
-        """Recursive parsing of operator tree to return numerical representation.
-
-        TODO: Currently, there is no prioritization between the operations; for
-        some reason, things just work. We may need to make an ordering in which the
-        operations should be carried out. It seems that the strategy of putting on
-        hold until all children are processed works, but there likely are cases where
-        this is not the case.
-
-        Parameters:
-            op: The operator to be parsed (for recursion in tree of ``self``).
-            eqs: Equation system and its grid on which to perform the parsing.
-            ad_base: Starting point for forward mode, containing values
-                (and possibly derivatives as identities) of the global vector at current
-                time and iterate.
-
-        Returns:
-            The numerical representation of this operator.
-
-        """
-
-        # The parsing strategy depends on the operator at hand:
-        # 1) If it is numeric, then it is already some sort of leaf. Return it.
-        # 2) If it is a leaf:
-        #    a) A md-variable with dofs per atomic variable.
-        #    b) An atomic variable with its dofs.
-        #    c) Some wrapper for discretizations or other data.
-        # 3) If it is an operator with children, invoke recursion and
-        #    proceed to the non-void operation.
-
-        # Case 1), Some numeric data, or already evaluated operator.
-        if isinstance(op, AdArray | np.ndarray | pp.number):
-            return op
-
-        # to continue, we must assert it is an actual, unparsed operator
-        assert isinstance(
-            op, Operator
-        ), f"Failure in parsing: Unsupported type in operor tree {type(op)}."
-
-        # Case 2) Leaf operators or variables
-        # NOTE Should MD variables really be leaves?
-        if op.is_leaf():
-            # Case 2.a) Md-variable
-            if isinstance(op, MixedDimensionalVariable):
-                if op.is_previous_iterate or op.is_previous_time:
-                    # Empty vector like the global vector of unknowns for prev time/iter
-                    # insert the values at the right dofs and slice
-                    vals = np.empty_like(
-                        ad_base.val if isinstance(ad_base, AdArray) else ad_base
-                    )
-                    # list of indices for sub variables
-                    dofs = []
-                    for sub_var in op.sub_vars:
-                        sub_dofs = eqs.dofs_of([sub_var])
-                        vals[sub_dofs] = sub_var.parse(eqs.mdg)
-                        dofs.append(sub_dofs)
-
-                    return vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
-                # Like for atomic variables, ad_base contains current time and iter
-                else:
-                    return ad_base[eqs.dofs_of([op])]
-            # Case 2.b) atomic variables
-            elif isinstance(op, Variable):
-                # If a variable represents a previous iteration or time, parse values.
-                if op.is_previous_iterate or op.is_previous_time:
-                    return op.parse(eqs.mdg)
-                # Otherwise use the current time and iteration values.
-                else:
-                    return ad_base[eqs.dofs_of([op])]
-            # Case 2.c) All other leafs like discretizations or some wrapped data
-            else:
-                # Mypy complains because the return type of parse is Any.
-                return op.parse(eqs.mdg)  # type:ignore
-
-        # Case 3) This is a non-atomic operator with an assigned operation
-        # Invoke recursion
-        results = [self._parse_operator(child, eqs, ad_base) for child in op.children]
-
-        # Finally, do the operation
-        operation = op.operation
-        if operation == Operator.Operations.add:
-            # To add we need two objects
-            assert len(results) == 2
-
-            if isinstance(results[0], np.ndarray):
-                # We should not do numpy_array + Ad_array, since numpy will interpret
-                # this in a strange way. Instead switch the order of the operands and
-                # everything will be fine.
-                results = results[::-1]
-            try:
-                # An error here would typically be a dimension mismatch between the
-                # involved operators.
-                return results[0] + results[1]
-            except ValueError as exc:
-                msg = self._get_error_message("adding", op.children, results)
-                raise ValueError(msg) from exc
-
-        elif operation == Operator.Operations.sub:
-            # To subtract we need two objects
-            assert len(results) == 2
-
-            # We need a minor trick to take care of numpy arrays.
-            factor = 1.0
-            if isinstance(results[0], np.ndarray):
-                # We should not do numpy_array - Ad_array, since numpy will interpret
-                # this in a strange way. Instead switch the order of the operands, and
-                # switch the sign of factor to compensate.
-                results = results[::-1]
-                factor = -1.0
-            try:
-                # An error here would typically be a dimension mismatch between the
-                # involved operators.
-                return factor * (results[0] - results[1])
-            except ValueError as exc:
-                msg = self._get_error_message("subtracting", op.children, results)
-                raise ValueError(msg) from exc
-
-        elif operation == Operator.Operations.mul:
-            # To multiply we need two objects
-            assert len(results) == 2
-
-            if isinstance(results[0], np.ndarray) and isinstance(
-                results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
-            ):
-                # In the implementation of multiplication between an AdArray and a
-                # numpy array (in the forward mode Ad), a * b and b * a do not
-                # commute. Flip the order of the results to get the expected behavior.
-                # This is permissible, since the elementwise product commutes.
-                results = results[::-1]
-            try:
-                # An error here would typically be a dimension mismatch between the
-                # involved operators.
-                return results[0] * results[1]
-            except ValueError as exc:
-                msg = self._get_error_message("multiplying", op.children, results)
-                raise ValueError(msg) from exc
-
-        elif operation == Operator.Operations.div:
-            # Some care is needed here, to account for cases where item in the results
-            # array is a numpy array
-            try:
-                if isinstance(results[0], np.ndarray) and isinstance(
-                    results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
-                ):
-                    # If numpy's __truediv__ method is called here, the result will be
-                    # strange because of how numpy works. Instead we directly invoke the
-                    # right-truedivide method in the AdArary.
-                    return results[1].__rtruediv__(results[0])
-                else:
-                    return results[0] / results[1]
-            except ValueError as exc:
-                msg = self._get_error_message("dividing", op.children, results)
-                raise ValueError(msg) from exc
-
-        elif operation == Operator.Operations.pow:
-            try:
-                if isinstance(results[0], np.ndarray) and isinstance(
-                    results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
-                ):
-                    # If numpy's __pow__ method is called here, the result will be
-                    # strange because of how numpy works. Instead we directly invoke the
-                    # right-power method in the AdArary.
-                    return results[1].__rpow__(results[0])
-                else:
-                    return results[0] ** results[1]
-            except ValueError as exc:
-                msg = self._get_error_message(
-                    "raising to a power", op.children, results
-                )
-                raise ValueError(msg) from exc
-
-        elif operation == Operator.Operations.matmul:
-            try:
-                if isinstance(results[0], np.ndarray) and isinstance(
-                    results[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
-                ):
-                    # Again, we do not want to call numpy's matmul method, but instead
-                    # directly invoke AdArarray's right matmul.
-                    return results[1].__rmatmul__(results[0])
-                # elif isinstance(results[1], np.ndarray) and isinstance(
-                #     results[0], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
-                # ):
-                #     # Again, we do not want to call numpy's matmul method, but instead
-                #     # directly invoke AdArarray's right matmul.
-                #     return results[0].__rmatmul__(results[1])
-                else:
-                    return results[0] @ results[1]
-            except ValueError as exc:
-                msg = self._get_error_message(
-                    "matrix multiplying", op.children, results
-                )
-                raise ValueError(msg) from exc
-
-        elif operation == Operator.Operations.evaluate:
-            # Operator functions should have at least 1 child (themselves)
-            assert len(results) >= 1, "Operator functions must have at least 1 child."
-            assert hasattr(op, "func"), (
-                f"Operators with operation {operation} must have a functional"
-                + f" representation `func` implemented as a callable member."
-            )
-
-            try:
-                return op.func(*results)
-            except Exception as exc:
-                # TODO specify what can go wrong here (Exception type)
-                msg = "Error while parsing operator function:\n"
-                msg += op._parse_readable()
-                raise ValueError(msg) from exc
-
-        else:
-            raise ValueError(f"Encountered unknown operation {operation}")
-
-    def _get_error_message(
-        self, operation: str, children: Sequence[Operator], results: list
-    ) -> str:
-        # Helper function to format error message
-        msg_0 = children[0]._parse_readable()
-        msg_1 = children[1]._parse_readable()
-
-        nl = "\n"
-        msg = f"Ad parsing: Error when {operation}\n\n"
-        # First give name information. If the expression under evaluation is c = a + b,
-        # the below code refers to c as the intended result, and a and b as the first
-        # and second argument, respectively.
-        msg += "Information on names given to the operators involved: \n"
-        if len(self.name) > 0:
-            msg += f"Name of the intended result: {self.name}\n"
-        else:
-            msg += "The intended result is not named\n"
-        if len(children[0].name) > 0:
-            msg += f"Name of the first argument: {children[0].name}\n"
-        else:
-            msg += "The first argument is not named\n"
-        if len(children[1].name) > 0:
-            msg += f"Name of the second argument: {children[1].name}\n"
-        else:
-            msg += "The second argument is not named\n"
-        msg += nl
-
-        # Information on how the terms a and b are defined
-        msg += "The first argument represents the expression:\n " + msg_0 + nl + nl
-        msg += "The second argument represents the expression:\n " + msg_1 + nl
-
-        # Finally some information on sizes
-        if isinstance(results[0], sps.spmatrix):
-            msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
-        elif isinstance(results[0], pp.ad.AdArray):
-            msg += (
-                f"First argument is an AdArray of size {results[0].val.size} "
-                f" and Jacobian of shape  {results[0].jac.shape} \n"
-            )
-        elif isinstance(results[0], np.ndarray):
-            msg += f"First argument is a numpy array of size {results[0].size}\n"
-
-        if isinstance(results[1], sps.spmatrix):
-            msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
-        elif isinstance(results[1], pp.ad.AdArray):
-            msg += (
-                f"Second argument is an AdArray of size {results[1].val.size} "
-                f" and Jacobian of shape  {results[1].jac.shape} \n"
-            )
-        elif isinstance(results[1], np.ndarray):
-            msg += f"Second argument is a numpy array of size {results[1].size}\n"
-
-        msg += nl
-        msg += "Note that a size mismatch may be caused by an error in the definition\n"
-        msg += "of the intended result, or in the definition of one of the arguments."
-        return msg
-
-    def _parse_readable(self) -> str:
-        """
-        Make a human-readable error message related to a parsing error.
-        NOTE: The exact formatting should be considered work in progress,
-        in particular when it comes to function evaluation.
-        """
-
-        # There are three cases to consider: Either the operator is a leaf,
-        # it is a composite operator with a name, or it is a general composite
-        # operator.
-        if self.is_leaf():
-            # Leafs are represented by their strings.
-            return str(self)
-        elif self._name is not None:
-            # Composite operators that have been given a name (possibly
-            # with a goal of simple identification of an error)
-            return self._name
-
-        # General operator. Split into its parts by recursion.
-        child_str = [child._parse_readable() for child in self.children]
-
-        is_func = False
-        operator_str = None
-
-        # readable representations of known operations
-        op = self.operation
-        if op == Operator.Operations.add:
-            operator_str = "+"
-        elif op == Operator.Operations.sub:
-            operator_str = "-"
-        elif op == Operator.Operations.mul:
-            operator_str = "*"
-        elif op == Operator.Operations.matmul:
-            operator_str = "@"
-        elif op == Operator.Operations.div:
-            operator_str = "/"
-        elif op == Operator.Operations.pow:
-            operator_str = "**"
-
-        # function evaluations have their own readable representation
-        elif op == Operator.Operations.evaluate:
-            is_func = True
-        # for unknown operations, 'operator_str' remains None
-
-        # error message for function evaluations
-        if is_func:
-            msg = f"{child_str[0]}("
-            msg += ", ".join([f"{child}" for child in child_str[1:]])
-            msg += ")"
-            return msg
-        # if operation is unknown, a new error will be raised to raise awareness
-        elif operator_str is None:
-            msg = "UNKNOWN parsing of operation on: "
-            msg += ", ".join([f"{child}" for child in child_str])
-            raise NotImplementedError(msg)
-        # error message for known Operations
-        else:
-            return f"({child_str[0]} {operator_str} {child_str[1]})"
-
     def viz(self):
         """Draws a visualization of the operator tree that has this operator as its root."""
         import matplotlib.pyplot as plt
@@ -726,12 +498,15 @@ class Operator:
     ### Operator parsing ---------------------------------------------------------------
 
     def value(
-        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+        self, equation_system: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> pp.number | np.ndarray | sps.spmatrix:
         """Evaluate the residual for a given solution.
 
+        DEPRECATED: This method is deprecated. Use the `evaluate` method of
+        EquationSystem.
+
         Parameters:
-            system_manager: Used to represent the problem. Will be used to parse the
+            equation_system: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
             state (optional): Solution vector for which the residual and its derivatives
                 should be formed. If not provided, the solution will be pulled from the
@@ -743,28 +518,36 @@ class Operator:
             matrix.
 
         """
-        return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
+        msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
+        warn(msg, DeprecationWarning)
+
+        return self._evaluate(equation_system, state=state, evaluate_jacobian=False)
 
     def value_and_jacobian(
-        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+        self, equation_system: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
+        DEPRECATED: This method is deprecated. Use the `evaluate` method of
+        EquationSystem.
+
         Parameters:
-            system_manager: Used to represent the problem. Will be used to parse the
+            equation_system: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
-            state (optional): Solution vector for which the residual and its derivatives
-                should be formed. If not provided, the solution will be pulled from the
-                previous iterate (if this exists), or alternatively from the solution at
-                the previous time step.
+            state: Solution vector for which the residual and its derivatives should be
+                formed. If not provided, the solution will be pulled from the previous
+                iterate (if this exists), or alternatively from the solution at the
+                previous time step.
 
         Returns:
-            A representation of the residual and Jacobian in form of an AD Array.
-            Note that the Jacobian matrix need not be invertible, or even square;
-            this depends on the operator.
+            A representation of the residual and Jacobian in form of an AD Array. Note
+                that the Jacobian matrix need not be invertible, or even square; this
+                depends on the operator.
 
         """
-        ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
+        msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
+        warn(msg, DeprecationWarning)
+        ad = self._evaluate(equation_system, state=state, evaluate_jacobian=True)
 
         # Casting the result to AdArray or raising an error.
         # It's better to set pp.number here, but isinstance requires a tuple, not Union.
@@ -774,7 +557,9 @@ class Operator:
             ad = np.array([ad])
 
         if isinstance(ad, np.ndarray) and len(ad.shape) == 1:
-            return AdArray(ad, sps.csr_matrix((ad.shape[0], system_manager.num_dofs())))
+            return AdArray(
+                ad, sps.csr_matrix((ad.shape[0], equation_system.num_dofs()))
+            )
         elif isinstance(ad, (sps.spmatrix, np.ndarray)):
             # this case coverse both, dense and sparse matrices returned from
             # discretizations f.e.
@@ -787,7 +572,7 @@ class Operator:
 
     def evaluate(
         self,
-        system_manager: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
     ):
         raise ValueError(
@@ -796,14 +581,14 @@ class Operator:
 
     def _evaluate(
         self,
-        system_manager: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
         evaluate_jacobian: bool = True,
     ) -> pp.number | np.ndarray | sps.spmatrix | AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
-            system_manager: Used to represent the problem. Will be used to parse the
+            equation_system: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
             state (optional): Solution vector for which the residual and its derivatives
                 should be formed. If not provided, the solution will be pulled from the
@@ -815,64 +600,21 @@ class Operator:
             Note that the Jacobian matrix need not be invertible, or even square; this
             depends on the operator.
 
+        See also:
+            EquationSystem, method evaluate.
+
         """
 
         # If state is not specified, use values at current time, current iterate
         if state is None:
-            state = system_manager.get_variable_values(iterate_index=0)
+            state = equation_system.get_variable_values(iterate_index=0)
 
-        # 1. Generate the basis for forward AD
-        # If with derivatives, we use Ad arrays, without we use the current state array
-        # NOTE as of now, we have a global approach: Construct a global identity
-        # as derivative, and then slice the DOFs present in this operator.
-        # This implies that to derive a subsystem from the Jacobian
-        # matrix of this Operator will require restricting the columns of
-        # this matrix.
-        ad_base: AdArray | np.ndarray
+        # Use methods in the EquationSystem to evaluate the operator. This inversion of
+        # roles (self.value) reflects a gradual shift
         if evaluate_jacobian:
-            ad_base = initAdArrays([state])[0]
+            return equation_system.evaluate(self, derivative=True, state=state)
         else:
-            ad_base = state
-
-        # 2. Parse operators. This is left to a separate function to facilitate the
-        # necessary recursion for complex operators.
-        eq = self._parse_operator(self, system_manager, ad_base)
-
-        return eq
-
-    def find_variables_in_tree(self) -> Sequence[Variable | MixedDimensionalVariable]:
-        """Method to recursively look for Variables (or MixedDimensionalVariables) in an
-        operator tree.
-        """
-        # The variables should be located at leaves in the tree. Traverse the tree
-        # recursively, look for variables, and then gather the results.
-
-        if isinstance(self, Variable):
-            # We are at the bottom of a branch of the tree, return the operator
-            return [self]
-        else:
-            # We need to look deeper in the tree.
-            # Look for variables among the children
-            sub_variables: list[Variable] = []
-            # When using nested pp.ad.Functions, some of the children may be AdArrays
-            # (forward mode), rather than Operators. For the former, don't look for
-            # children - they have none.
-            for child in self.children:
-                if isinstance(child, Operator):
-                    sub_variables += child.find_variables_in_tree()
-
-            # Some work is needed to parse the information
-            var_list: list[Variable] = []
-            for var in sub_variables:
-                if isinstance(var, Variable):
-                    # Effectively, this node is one step from the leaf
-                    var_list.append(var)
-                elif isinstance(var, list):
-                    # We are further up in the tree.
-                    for sub_var in var:
-                        if isinstance(sub_var, Variable):
-                            var_list.append(sub_var)
-            return var_list
+            return equation_system.evaluate(self, derivative=False, state=state)
 
     ### Special methods ----------------------------------------------------------------
 
@@ -907,9 +649,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(
-            children=children, operation=Operator.Operations.add, name="+ operator"
-        )
+        return Operator(children=children, operation=Operations.add, name="+ operator")
 
     def __radd__(self, other: Operator) -> Operator:
         """Add two operators.
@@ -937,9 +677,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(
-            children=children, operation=Operator.Operations.sub, name="- operator"
-        )
+        return Operator(children=children, operation=Operations.sub, name="- operator")
 
     def __rsub__(self, other: Operator) -> Operator:
         """Subtract two operators.
@@ -955,9 +693,7 @@ class Operator:
         children = self._parse_other(other)
         # we need to change the order here since a-b != b-a
         children = [children[1], children[0]]
-        return Operator(
-            children=children, operation=Operator.Operations.sub, name="- operator"
-        )
+        return Operator(children=children, operation=Operations.sub, name="- operator")
 
     def __mul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -970,9 +706,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(
-            children=children, operation=Operator.Operations.mul, name="* operator"
-        )
+        return Operator(children=children, operation=Operations.mul, name="* operator")
 
     def __rmul__(self, other: Operator) -> Operator:
         """Elementwise multiplication of two operators.
@@ -990,7 +724,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=Operator.Operations.rmul,
+            operation=Operations.rmul,
             name="right * operator",
         )
 
@@ -1005,9 +739,7 @@ class Operator:
 
         """
         children = self._parse_other(other)
-        return Operator(
-            children=children, operation=Operator.Operations.div, name="/ operator"
-        )
+        return Operator(children=children, operation=Operations.div, name="/ operator")
 
     def __rtruediv__(self, other: Operator) -> Operator:
         """Elementwise division of two operators.
@@ -1025,7 +757,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=Operator.Operations.rdiv,
+            operation=Operations.rdiv,
             name="right / operator",
         )
 
@@ -1066,9 +798,7 @@ class Operator:
             raise ValueError("Cannot take SparseArray to the power of an DenseArray.")
 
         children = self._parse_other(other)
-        return Operator(
-            children=children, operation=Operator.Operations.pow, name="** operator"
-        )
+        return Operator(children=children, operation=Operations.pow, name="** operator")
 
     def __rpow__(self, other: Operator) -> Operator:
         """Elementwise exponentiation of two operators.
@@ -1086,7 +816,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=Operator.Operations.rpow,
+            operation=Operations.rpow,
             name="reverse ** operator",
         )
 
@@ -1102,7 +832,7 @@ class Operator:
         """
         children = self._parse_other(other)
         return Operator(
-            children=children, operation=Operator.Operations.matmul, name="@ operator"
+            children=children, operation=Operations.matmul, name="@ operator"
         )
 
     def __rmatmul__(self, other):
@@ -1121,7 +851,7 @@ class Operator:
         children = self._parse_other(other)
         return Operator(
             children=children,
-            operation=Operator.Operations.rmatmul,
+            operation=Operations.rmatmul,
             name="reverse @ operator",
         )
 
@@ -1146,10 +876,12 @@ class Operator:
             ValueError: If this method is called from the leave AD object.
 
         """
-        if self.operation == Operator.Operations.void or len(self.children) == 0:
-            raise ValueError("Base class operator must represent an operation.")
-        tmp = [self.operation.value] + [child._key() for child in self.children]
-        return " ".join(tmp)
+        if self._cached_key is None:
+            if self.operation == Operations.void or len(self.children) == 0:
+                raise ValueError("Base class operator must represent an operation.")
+            tmp = [self.operation.value] + [child._key() for child in self.children]
+            self._cached_key = " ".join(tmp)
+        return self._cached_key
 
     def _parse_other(self, other):
         if isinstance(other, float) or isinstance(other, int):
@@ -1187,7 +919,7 @@ class TimeDependentOperator(Operator):
         self,
         name: str | None = None,
         domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operator.Operations] = None,
+        operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
         super().__init__(
@@ -1296,7 +1028,7 @@ class IterativeOperator(Operator):
         self,
         name: str | None = None,
         domains: Optional[pp.GridLikeSequence] = None,
-        operation: Optional[Operator.Operations] = None,
+        operation: Optional[Operations] = None,
         children: Optional[Sequence[Operator]] = None,
     ) -> None:
         super().__init__(
@@ -1407,7 +1139,6 @@ class SparseArray(Operator):
     """
 
     def __init__(self, mat: sps.spmatrix, name: Optional[str] = None) -> None:
-        super().__init__(name=name)
         self._mat = mat
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
@@ -1419,8 +1150,12 @@ class SparseArray(Operator):
         self._hash_value: str = self._compute_spmatrix_hash(mat)
         """String to uniquly identify the contents of the matrix."""
 
+        super().__init__(name=name)
+
     def _key(self) -> str:
-        return f"(sparse_array, hash={self._hash_value})"
+        if self._cached_key is None:
+            self._cached_key = f"(sparse_array, hash={self._hash_value})"
+        return self._cached_key
 
     def __repr__(self) -> str:
         return f"Matrix with shape {self._mat.shape} and {self._mat.data.size} elements"
@@ -1532,19 +1267,22 @@ class DenseArray(Operator):
             values: Numpy array to be represented.
 
         """
-        super().__init__(name=name)
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._values = values.astype(float, copy=False)
 
         # TODO: Make readonly, see https://github.com/pmgbergen/porepy/issues/1214
         self._hash_value: str = sha256(
-            self._values, usedforsecurity=False  # type: ignore[arg-type]
+            self._values,
+            usedforsecurity=False,  # type: ignore[arg-type]
         ).hexdigest()
         """String to uniquly identify the array."""
+        super().__init__(name=name)
 
     def _key(self) -> str:
-        return f"(dense_array, hash={self._hash_value})"
+        if self._cached_key is None:
+            self._cached_key = f"(dense_array, hash={self._hash_value})"
+        return self._cached_key
 
     def __repr__(self) -> str:
         return f"Wrapped numpy array of size {self._values.size}."
@@ -1623,8 +1361,12 @@ class TimeDependentDenseArray(TimeDependentOperator):
         super().__init__(name=name, domains=domains)
 
     def _key(self) -> str:
-        domain_ids = [domain.id for domain in self.domains]
-        return f"(time_dependent_dense_array, name={self.name}, domains={domain_ids})"
+        if self._cached_key is None:
+            domain_ids = [domain.id for domain in self.domains]
+            self._cached_key = (
+                f"(time_dependent_dense_array, name={self.name}, domains={domain_ids})"
+            )
+        return self._cached_key
 
     def parse(self, mdg: pp.MixedDimensionalGrid) -> np.ndarray:
         """Convert this array into numerical values.
@@ -1648,16 +1390,16 @@ class TimeDependentDenseArray(TimeDependentOperator):
         else:
             index_kwarg = {"iterate_index": 0}
 
-        for g in self._domains:
+        for grid in self._domains:
             if self._domain_type == "subdomains":
-                assert isinstance(g, pp.Grid)
-                data = mdg.subdomain_data(g)
+                assert isinstance(grid, pp.Grid)
+                data = mdg.subdomain_data(grid)
             elif self._domain_type == "interfaces":
-                assert isinstance(g, pp.MortarGrid)
-                data = mdg.interface_data(g)
+                assert isinstance(grid, pp.MortarGrid)
+                data = mdg.interface_data(grid)
             elif self._domain_type == "boundary grids":
-                assert isinstance(g, pp.BoundaryGrid)
-                data = mdg.boundary_grid_data(g)
+                assert isinstance(grid, pp.BoundaryGrid)
+                data = mdg.boundary_grid_data(grid)
             else:
                 raise ValueError(f"Unknown grid type: {self._domain_type}.")
 
@@ -1696,16 +1438,27 @@ class Scalar(Operator):
     """
 
     def __init__(self, value: float, name: Optional[str] = None) -> None:
-        super().__init__(name=name)
         # Force the data to be float, so that we limit the number of combinations of
         # data types that we need to consider in parsing.
         self._value = float(value)
+        # Call the super constructor after setting the value.
+        super().__init__(name=name)
 
     def _key(self) -> str:
-        return f"(scalar, {self._value})"
+        if self._cached_key is None:
+            self._cached_key = f"(scalar, {self._value})"
+        return self._cached_key
 
     def __repr__(self) -> str:
-        return f"Wrapped scalar with value {self._value}"
+        # Normally, we will return a string with the value. However, for debugging of
+        # initialization, where self._value is not yet defined, we need a reasonable
+        # fallback (we can do without, but that results in annoying error messages while
+        # debugging).
+        try:
+            value = f"{self._value}"
+            return f"Wrapped scalar with value {value}"
+        except AttributeError:
+            return "Wrapped scalar with no value"
 
     def __str__(self) -> str:
         s = "Scalar"
@@ -1793,12 +1546,16 @@ class Variable(TimeDependentOperator, IterativeOperator):
         domain: GridLike,
         tags: Optional[dict[str, Any]] = None,
     ) -> None:
-
         # Variables are not supported on the boundary.
         if not isinstance(domain, (pp.Grid, pp.MortarGrid)):
             raise NotImplementedError(
                 "Variables only supported on domains of type 'Grid' or 'MortarGrid'."
             )
+
+        self._id: int = next(Variable._ids)
+        """See :meth:`id`."""
+        self._grid: GridLike = domain
+        """See :meth:`domain`"""
 
         # Block a mypy warning here: Domain is known to be GridLike (grid, mortar grid,
         # or boundary grid), thus the below wrapping in a list gives a list of GridLike,
@@ -1807,10 +1564,6 @@ class Variable(TimeDependentOperator, IterativeOperator):
         # circumvent the warning is not worth it.
         super().__init__(name=name, domains=[domain])  # type: ignore [arg-type]
 
-        self._id: int = next(Variable._ids)
-        """See :meth:`id`."""
-        self._g: GridLike = domain
-        """See :meth:`domain`"""
         # dofs per
         self._cells: int = ndof.get("cells", 0)
         self._faces: int = ndof.get("faces", 0)
@@ -1820,8 +1573,9 @@ class Variable(TimeDependentOperator, IterativeOperator):
         self._tags: dict[str, Any] = tags if tags is not None else {}
 
     def _key(self):
-        # The names are unique for variables.
-        return f"(var, name={self.name}, domain={str(self.domain.id)})"
+        if self._cached_key is None:
+            self._cached_key = f"(var, name={self.name}, domain={str(self.domain.id)})"
+        return self._cached_key
 
     @property
     def id(self) -> int:
@@ -1855,7 +1609,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
 
 
         """
-        return self._g
+        return self._grid
 
     @property
     def tags(self) -> dict[str, Any]:
@@ -1890,10 +1644,10 @@ class Variable(TimeDependentOperator, IterativeOperator):
         index."""
 
         # By logic in the constructor, it can only be a subdomain or interface
-        if isinstance(self._g, pp.Grid):
-            data = mdg.subdomain_data(self._g)
-        elif isinstance(self._g, pp.MortarGrid):
-            data = mdg.interface_data(self._g)
+        if isinstance(self._grid, pp.Grid):
+            data = mdg.subdomain_data(self._grid)
+        elif isinstance(self._grid, pp.MortarGrid):
+            data = mdg.interface_data(self._grid)
 
         # We can safely use both indices as arguments, without checking prev time,
         # because iterate index is None if prev time, and vice versa
@@ -1947,8 +1701,10 @@ class MixedDimensionalVariable(Variable):
         # The MixedDimensionalVariable is not stored in the equation system but
         # constructed every time when needed. Thus, its id is updated and cannot be
         # relied on. Instead, we rely on the name, which is guaranteed to be unique.
-        domain_ids = [domain.id for domain in self.domains]
-        return f"(mdvar, name={self.name}, domains={domain_ids})"
+        if self._cached_key is None:
+            domain_ids = [domain.id for domain in self.domains]
+            self._cached_key = f"(mdvar, name={self.name}, domains={domain_ids})"
+        return self._cached_key
 
     def __init__(self, variables: list[Variable]) -> None:
         # IMPLEMENTATION NOTE VL
@@ -1982,22 +1738,22 @@ class MixedDimensionalVariable(Variable):
 
         # check assumptions
         if len(variables) > 0:
-            assert (
-                len(set(time_indices)) == 1
-            ), "Cannot create md-variable from variables at different time steps."
+            assert len(set(time_indices)) == 1, (
+                "Cannot create md-variable from variables at different time steps."
+            )
             # NOTE both must be unique for all sub-variables, to avoid md-variables
             # having sub-variables at different iterate states.
             # Both current value, and most recent previous iterate have iterate index 0,
             # hence the need to check the size of the current_iter set.
-            assert (
-                len(set(iter_indices)) == 1 and len(set(current_iter)) == 1
-            ), "Cannot create md-variable from variables at different iterates."
-            assert (
-                len(set(names)) == 1
-            ), "Cannot create md-variable from variables with different names."
-            assert len(set(domains)) == len(
-                domains
-            ), "Cannot create md-variable from variables with overlapping domains."
+            assert len(set(iter_indices)) == 1 and len(set(current_iter)) == 1, (
+                "Cannot create md-variable from variables at different iterates."
+            )
+            assert len(set(names)) == 1, (
+                "Cannot create md-variable from variables with different names."
+            )
+            assert len(set(domains)) == len(domains), (
+                "Cannot create md-variable from variables with overlapping domains."
+            )
         # Default values for empty md variable
         else:
             time_indices = [-1]
@@ -2054,6 +1810,7 @@ class MixedDimensionalVariable(Variable):
 
         self._initialize_children()
         self.copy_common_sub_tags()
+        self._cached_key: Optional[str] = None
 
     def __repr__(self) -> str:
         if len(self.sub_vars) == 0:

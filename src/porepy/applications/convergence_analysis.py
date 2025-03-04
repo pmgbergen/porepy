@@ -119,20 +119,20 @@ class ConvergenceAnalysis:
 
         """
 
-        # Initialize setup and retrieve spatial and temporal data
-        setup: pp.PorePyModel = model_class(
+        # Initialize model and retrieve spatial and temporal data
+        model: pp.PorePyModel = model_class(
             deepcopy(model_params)
         )  # make a deep copy of dictionary
         # The typing of PorePyModel was added to support linters as much as possible.
         # But the protocols do not contain all methods provided by SolutionStrategy.
-        setup.prepare_simulation()  # type: ignore[attr-defined]
+        model.prepare_simulation()  # type: ignore[attr-defined]
 
-        # Store initial setup
-        self._init_setup = setup
-        """Initial setup containing the 'base-line' information."""
+        # Store initial model
+        self._init_model = model
+        """Initial model containing the 'base-line' information."""
 
         # We need to know whether the model is time-dependent or not
-        self._is_time_dependent: bool = setup._is_time_dependent()
+        self._is_time_dependent: bool = model._is_time_dependent()
         """Whether the model is time-dependent."""
 
         if not self._is_time_dependent and self.temporal_refinement_rate > 1:
@@ -178,20 +178,20 @@ class ConvergenceAnalysis:
         """
         convergence_results: list = []
         for level in range(self.levels):
-            setup = self.model_class(deepcopy(self.model_params[level]))
-            if not setup._is_time_dependent():
+            model = self.model_class(deepcopy(self.model_params[level]))
+            if not model._is_time_dependent():
                 # Run stationary model
-                pp.run_stationary_model(setup, deepcopy(self.model_params[level]))
+                pp.run_stationary_model(model, deepcopy(self.model_params[level]))
                 # Complement information in results
-                setattr(setup.results[-1], "cell_diameter", setup.mdg.diameter())
+                setattr(model.results[-1], "cell_diameter", model.mdg.diameter())
             else:
                 # Run time-dependent model
-                pp.run_time_dependent_model(setup)
+                pp.run_time_dependent_model(model)
                 # Complement information in results
-                setattr(setup.results[-1], "cell_diameter", setup.mdg.diameter())
-                setattr(setup.results[-1], "dt", setup.time_manager.dt)
+                setattr(model.results[-1], "cell_diameter", model.mdg.diameter())
+                setattr(model.results[-1], "dt", model.time_manager.dt)
 
-            convergence_results.append(setup.results[-1])
+            convergence_results.append(model.results[-1])
         return convergence_results
 
     def export_errors_to_txt(
@@ -377,7 +377,7 @@ class ConvergenceAnalysis:
 
         """
         # Retrieve initial meshing arguments
-        init_mesh_args = deepcopy(self._init_setup.meshing_arguments())
+        init_mesh_args = deepcopy(self._init_model.meshing_arguments())
 
         # Prepare factors for the spatial analysis
         factors = 1 / (self.spatial_refinement_rate ** np.arange(self.levels))
@@ -405,7 +405,7 @@ class ConvergenceAnalysis:
             return None
 
         # Retrieve initial time manager
-        init_time_manager: pp.TimeManager = self._init_setup.time_manager
+        init_time_manager: pp.TimeManager = self._init_model.time_manager
 
         # Sanity check
         if not init_time_manager.is_constant:
@@ -477,22 +477,25 @@ class ConvergenceAnalysis:
         return "%2.2e"
 
     @staticmethod
-    def l2_error(
+    def lp_error(
         grid: pp.GridLike,
         true_array: np.ndarray,
         approx_array: np.ndarray,
         is_scalar: bool,
         is_cc: bool,
+        p: pp.number = 2,
         relative: bool = False,
         parameter_weight: Optional[np.ndarray] = None,
     ) -> pp.number:
-        """Compute discrete L2-error as given in [1].
+        """Computes the discrete :math:`L_p`-error as given in [1].
 
         It is possible to compute the absolute error (default) or the relative error.
 
-        Raises:
-            NotImplementedError if a mortar grid is given and ``is_cc=False``.
-            ZeroDivisionError if the denominator in the relative error is zero.
+        References:
+
+            - [1] Nordbotten and Keilegavlen, Two-point stress approximation: A simple
+              and robust finite volume method for linearized (poro-)elasticity and
+              Stokes flow.
 
         Parameters:
             grid: Either a subdomain grid or a mortar grid.
@@ -504,27 +507,24 @@ class ConvergenceAnalysis:
             is_cc: Whether the variable is associated to cell centers. Use ``False``
                 for variables associated to face centers. For example, ``is_cc=True``
                 for pressures, whereas ``is_cc=False`` for subdomain fluxes.
-            relative: Compute the relative error (if True) or the absolute error (if
-                False).
+            p: ``default=2``.
+
+                Order of the norm. Can take the value ``numpy.inf``.
+            relative: ``default=False``
+
+                If True, computes the relative error by dividing the error by the
+                respective norm of ``true_array``.
             parameter_weight: Array containing the parameter weight, producing a
                 weighted norm. If given, the array size must equal the number of faces
                 or cells in the grid.
-
-
-        Returns:
-            Discrete L2-error between the true and approximated arrays.
 
         Raises:
             NotImplementedError: If a mortar grid is given and is_cc is False.
             ZeroDivisionError: If the denominator in the relative error is zero.
             ValueError: If the parameter weight has an invalid size.
 
-        References:
-
-            - [1] Nordbotten and Keilegavlen, Two-point stress approximation: A simple
-              and robust finite volume method for linearized (poro-)elasticity and
-              Stokes flow.
-
+        Returns:
+            (Discrete) :math:`L_p`-error between the true and approximated arrays.
 
         """
         # Sanity check.
@@ -566,9 +566,15 @@ class ConvergenceAnalysis:
             meas = meas.repeat(grid.dim)
 
         # Obtain numerator and denominator to determine the error.
-        numerator = np.sqrt(np.sum(meas * np.abs(true_array - approx_array) ** 2))
+        numerator = ConvergenceAnalysis.lp_norm(
+            true_array - approx_array,
+            integration_weights=meas,
+            p=p,
+        )
         denominator = (
-            np.sqrt(np.sum(meas * np.abs(true_array) ** 2)) if relative else 1.0
+            ConvergenceAnalysis.lp_norm(true_array, integration_weights=meas, p=p)
+            if relative
+            else 1.0
         )
 
         # Deal with the case when the denominator is zero when computing the relative
@@ -577,3 +583,90 @@ class ConvergenceAnalysis:
             raise ZeroDivisionError("Attempted division by zero.")
 
         return numerator / denominator
+
+    @staticmethod
+    def lp_norm(
+        vec: np.ndarray,
+        integration_weights: Optional[pp.number | np.ndarray] = None,
+        p: pp.number = 2,
+    ) -> float:
+        r"""The discrete :math:`L_p`-norm of a vector or function, with a given set of weights.
+
+        The respective norm of a function in the space :math:`L_p` can be obtained by
+        approximating the integration with
+
+        .. math::
+
+            \lVert f \rVert_{L_p(|Omega)}
+            = \left( \int_{\Omega} \lvert f(x)\rvert^p dx \right)^(\frac{1}{p})
+            \approx \left(\sum w_i \lvert f_i \rvert^p \right)^(\frac{1}{p}),
+
+        with :math:`w_i` being the respective ``integration_weights``, and
+        :math:`f_i` the discretely evaluated function given by ``vec``.
+
+        For the :math:`L_{\infty}` norm it holds
+
+        .. math::
+
+            \lVert f \rVert_{L_{\infty}(|Omega)}
+            \approx max\left(w_i \lvert f_i \rvert \right).
+
+        Note:
+            If weights are given, a custom implementation is used which checks for
+            strict positivity of ``p``.
+
+            If no weights are given, or they are (all) 1, this function is a shallow
+            wrapper for the vector and matrix norms in :obj:`numpy.linalg.norm`.
+            Note however, that their ``p`` can take more options (including negative
+            values).
+
+        Parameters:
+            vec: The discrete function values for which the norm is to be computed.
+            integration_weights: ``default=None``
+
+                A scalar or vectorial weight for each component in
+                ``vec``. Defaults to None, which is treated as weight 1 leading to the
+                Euclidean-like :math:`L_p`-norm.
+            p: ``default=2``
+
+                Order of the norm. Allows ``p==numpy.inf``.
+
+        Raises:
+            ValueError: If ``p < 1`` when ``integration_weights`` are given.
+
+        Returns:
+            The norm value.
+
+        """
+
+        # No weights, or weight equal 1 (for some reason), is analogous to the discrete
+        # norm, which enables us to use numpy.
+        if integration_weights is None or np.all(integration_weights == 1):
+            # ignoring return value because numpy would allow matrices.
+            return np.linalg.norm(vec, ord=p)  # type:ignore[return-value]
+        # Weights (either integration or other) lead to the custom implementation.
+        else:
+            x = np.abs(vec)
+            if p == np.inf:
+                return np.max(integration_weights * x)
+            else:
+                if not (isinstance(p, (int, float)) and p >= 1):
+                    raise ValueError(
+                        "Order p must be a positive int, float,  or numpy.inf,"
+                        + f" not {p, type(p)}."
+                    )
+                # NOTE: The weights are the reason we cannot use numpy here. It would
+                # lead to the sum of (weights * x) ** p.
+                norm_inner = np.sum(integration_weights * x**p)
+                # Treating special cases 1,2,3, for which there are more efficient and
+                # precise implementations than Python's power.
+                if p == 1:
+                    norm = norm_inner
+                elif p == 2:
+                    norm = np.sqrt(norm_inner)
+                elif p == 3:
+                    norm = np.cbrt(norm_inner)
+                else:
+                    norm = norm_inner ** (1 / p)
+
+                return norm

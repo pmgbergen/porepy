@@ -206,7 +206,7 @@ class Grid:
 
         # Add tag for the boundary faces
         self.tags: dict[str, Any]
-        """Tags allow to mark subdomains of interest.
+        """Tags allow to mark grid entities of interest.
 
         The default tags are used to mark faces or nodes as fracture, tips and domain
         boundaries.

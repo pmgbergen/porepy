@@ -21,10 +21,9 @@ import numpy as np
 import pytest
 
 import porepy as pp
-
 from porepy.examples.mandel_biot import (
+    MandelModel,
     MandelSaveData,
-    MandelSetup,
     mandel_fluid_constants,
     mandel_solid_constants,
 )
@@ -32,7 +31,7 @@ from porepy.examples.mandel_biot import (
 
 @pytest.fixture(scope="module")
 def results() -> list[MandelSaveData]:
-    # Run verification setup and retrieve results for three different times
+    # Run verification model and retrieve results for three different times
     material_constants = {
         "fluid": pp.FluidComponent(**mandel_fluid_constants),
         "solid": pp.SolidConstants(**mandel_solid_constants),
@@ -41,10 +40,11 @@ def results() -> list[MandelSaveData]:
     model_params = {
         "material_constants": material_constants,
         "time_manager": time_manager,
+        "times_to_export": [],  # Suppress output for tests
     }
-    setup = MandelSetup(model_params)
-    pp.run_time_dependent_model(setup)
-    return setup.results
+    model = MandelModel(model_params)
+    pp.run_time_dependent_model(model)
+    return model.results
 
 
 # Desired errors
@@ -78,7 +78,9 @@ desired_errors: list[DesiredError] = [
 
 
 @pytest.mark.parametrize("time_index", [0, 1])
-def test_error_primary_and_secondary_variables(time_index: int, results):
+def test_error_primary_and_secondary_variables(
+    time_index: int, results: list[MandelSaveData]
+):
     """Checks error for pressure, displacement, flux, force, and consolidation degree.
 
     Physical parameters used in this test have been adapted from [1].
@@ -153,8 +155,9 @@ def test_scaled_vs_unscaled_systems():
     model_params_unscaled = {
         "material_constants": material_constants_unscaled,
         "time_manager": time_manager_unscaled,
+        "times_to_export": [],  # Suppress output for tests
     }
-    model_unscaled = MandelSetup(params=model_params_unscaled)
+    model_unscaled = MandelModel(params=model_params_unscaled)
     pp.run_time_dependent_model(model_unscaled)
 
     # The scaled problem
@@ -169,8 +172,9 @@ def test_scaled_vs_unscaled_systems():
         "material_constants": material_constants_scaled,
         "time_manager": time_manager_scaled,
         "units": units,
+        "times_to_export": [],  # Suppress output for tests
     }
-    scaled_model = MandelSetup(params=model_params_scaled)
+    scaled_model = MandelModel(params=model_params_scaled)
     pp.run_time_dependent_model(model=scaled_model)
 
     # Compare results

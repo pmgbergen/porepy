@@ -361,34 +361,33 @@ class DifferentiableTpfa:
 
     def _block_diagonal_grid_property_matrix(
         self,
-        domains: list[pp.Grid],
+        subdomains: list[pp.Grid],
         grid_property_getter: Callable[[pp.Grid], Any],
-    ) -> sps.spmatrix:
+    ) -> sps.csr_matrix:
         """Construct mapping matrix for the connectivity between two grids entities.
 
         The mapping matrix is a block diagonal matrix where each block contains 1 where
         the two entities are connected and 0 otherwise.
 
         Parameters:
-            domains: List of grids.
+            subdomains: List of grids.
             grid_property_getter: Function that returns the property of the grid that
                 should be used for the mapping.
 
         Returns:
             Mapping matrix.
         """
-        if len(domains) == 0:
+        if len(subdomains) == 0:
             return sps.csr_matrix((0, 0))
 
         blocks = []
-        for g in domains:
-            mat_loc = grid_property_getter(g)
+        for sd in subdomains:
+            mat_loc = grid_property_getter(sd)
             blocks.append(mat_loc)
 
-        block_matrix = pp.matrix_operations.optimized_compressed_storage(
-            sps.block_diag(blocks)
-        )
-        return block_matrix
+        # All of the calling methods have grid_property_getter return a csr_matrix, so
+        # we use csr_matrix_from_sparse_blocks to construct the block diagonal matrix.
+        return pp.matrix_operations.csr_matrix_from_sparse_blocks(blocks)
 
     def half_face_map(
         self,
@@ -397,7 +396,7 @@ class DifferentiableTpfa:
         to_entity: Literal["cells", "faces", "half_faces"] = "half_faces",
         dimensions: tuple[int, int] = (1, 1),
         with_sign: bool = False,
-    ) -> sps.spmatrix:
+    ) -> sps.csr_matrix:
         """Mapping between half-faces and cells or faces.
 
         Parameters:
@@ -414,18 +413,18 @@ class DifferentiableTpfa:
 
         """
 
-        def get_matrix(g: pp.Grid) -> sps.csr_matrix:
-            fi, ci, sgn = sps.find(g.cell_faces)
+        def get_matrix(sd: pp.Grid) -> sps.csr_matrix:
+            fi, ci, sgn = sps.find(sd.cell_faces)
 
             indices = []
             sizes = []
             for name in [to_entity, from_entity]:
                 if name == "cells":
                     indices.append(ci)
-                    sizes.append(g.num_cells)
+                    sizes.append(sd.num_cells)
                 elif name == "faces":
                     indices.append(fi)
-                    sizes.append(g.num_faces)
+                    sizes.append(sd.num_faces)
                 elif name == "half_faces":
                     indices.append(np.arange(fi.size))
                     sizes.append(fi.size)
@@ -473,10 +472,7 @@ class DifferentiableTpfa:
             )
             return mat
 
-        return self._block_diagonal_grid_property_matrix(
-            subdomains,
-            get_matrix,
-        )
+        return self._block_diagonal_grid_property_matrix(subdomains, get_matrix)
 
     def _cell_face_vectors(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
         """Distance between face centers and cell centers.
@@ -492,11 +488,11 @@ class DifferentiableTpfa:
 
         vec_dim = 3
 
-        def get_c_f_vec_matrix(g: pp.Grid) -> sps.csr_matrix:
+        def get_c_f_vec_matrix(sd: pp.Grid) -> sps.csr_matrix:
             """Construct matrix of vectors connecting cell centers and face centers.
 
             Parameters:
-                g: Grid.
+                sd: Grid.
 
             Returns:
                 spmatrix ``(num_half_faces, num_half_faces * vec_dim)``:
@@ -506,11 +502,11 @@ class DifferentiableTpfa:
 
             # Find the cell and face indices for each half-face, identified by the
             # elements in the cell_faces, that is, the divergence matrix.
-            fi, ci, _ = sps.find(g.cell_faces)
+            fi, ci, _ = sps.find(sd.cell_faces)
             num_hf = fi.size
 
             # Construct vectors from cell centers to face centers.
-            fc_cc = g.face_centers[:, fi] - g.cell_centers[:, ci]
+            fc_cc = sd.face_centers[:, fi] - sd.cell_centers[:, ci]
 
             # Each row contains vec_dim entries and corresponds to one half-face.
             row_inds = np.repeat(np.arange(num_hf), vec_dim)
@@ -526,13 +522,12 @@ class DifferentiableTpfa:
             return mat
 
         dist_vec = self._block_diagonal_grid_property_matrix(
-            subdomains,
-            get_c_f_vec_matrix,
+            subdomains, get_c_f_vec_matrix
         )
 
         return dist_vec
 
-    def _normal_vectors(self, subdomains: list[pp.Grid]) -> sps.spmatrix:
+    def _normal_vectors(self, subdomains: list[pp.Grid]) -> sps.csr_matrix:
         """Normal vectors on half-faces, repeated for each dimension.
 
         Parameters:
@@ -545,7 +540,7 @@ class DifferentiableTpfa:
         """
         vector_dim = 3
 
-        def get_matrix(g: pp.Grid) -> sps.csr_matrix:
+        def get_matrix(sd: pp.Grid) -> sps.csr_matrix:
             """Construct normal vector matrix. Each vector is repeated vector_dim times.
 
             Half-face i corresponds to rows
@@ -556,7 +551,7 @@ class DifferentiableTpfa:
             vector, we expand the cell indices to tensor_dim indices.
 
             Parameters:
-                g: Grid.
+                sd: Grid.
 
             Returns:
                 spmatrix ``(num_half_faces * vector_dim, num_cells * tensor_dim)``:
@@ -565,9 +560,9 @@ class DifferentiableTpfa:
             """
             # Bookkeeping
             tensor_dim = vector_dim**2
-            fi, ci, sgn = sps.find(g.cell_faces)
+            fi, ci, sgn = sps.find(sd.cell_faces)
             num_hf = fi.size
-            n = g.face_normals
+            n = sd.face_normals
             # There are vector_dim * num_hf rows (each half-face has vector_dim rows
             # associated with it, to accommodate one vector per half face). Each row
             # again has vector_dim entries to fit one normal vector (this is achieved by
@@ -585,14 +580,11 @@ class DifferentiableTpfa:
             # Construct the matrix.
             mat = sps.csr_matrix(
                 (vals, (row_inds, col_inds)),
-                shape=(num_hf * vector_dim, g.num_cells * tensor_dim),
+                shape=(num_hf * vector_dim, sd.num_cells * tensor_dim),
             )
             return mat
 
-        return self._block_diagonal_grid_property_matrix(
-            subdomains,
-            get_matrix,
-        )
+        return self._block_diagonal_grid_property_matrix(subdomains, get_matrix)
 
     def _cell_face_distances(self, subdomains: list[pp.Grid]) -> np.ndarray:
         """Scalar distance between face centers and cell centers for each half face.
@@ -748,7 +740,4 @@ class DifferentiableTpfa:
             )
             return mat
 
-        return self._block_diagonal_grid_property_matrix(
-            subdomains,
-            get_matrix,
-        )
+        return self._block_diagonal_grid_property_matrix(subdomains, get_matrix)

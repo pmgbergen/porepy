@@ -9,7 +9,7 @@ import numpy as np
 import porepy as pp
 
 
-class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
+class BoundaryConditionsMassDirWestEast(pp.PorePyModel):
     """Boundary conditions for the flow problem.
 
     Dirichlet boundary conditions are defined on the west and east boundaries. Some
@@ -22,7 +22,7 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary condition type for Darcy flux.
 
-        Dirichlet boundary conditions are defined on the north and south boundaries.
+        Dirichlet boundary conditions are defined on the west and east boundaries.
 
         Parameters:
             sd: Subdomain for which to define boundary conditions.
@@ -35,7 +35,7 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.west + domain_sides.east, "dir")
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the west and east boundaries,
@@ -43,14 +43,14 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
         by default).
 
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
 
         Returns:
             Boundary condition values array.
 
         """
-        domain_sides = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros(boundary_grid.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
+        values = np.zeros(bg.num_cells)
         values[domain_sides.west + domain_sides.east] = (
             self.reference_variable_values.pressure
         )
@@ -73,7 +73,7 @@ class BoundaryConditionsMassDirWestEast(pp.BoundaryConditionMixin):
         return pp.BoundaryCondition(sd, domain_sides.west + domain_sides.east, "dir")
 
 
-class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
+class BoundaryConditionsMassDirNorthSouth(pp.PorePyModel):
     """Boundary conditions for the flow problem.
 
     Dirichlet boundary conditions are defined on the north and south boundaries. Some
@@ -99,7 +99,7 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
         # Define boundary condition on faces
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,
@@ -107,14 +107,14 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
         by default).
 
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
 
         Returns:
             Boundary condition values array.
 
         """
-        domain_sides = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros(boundary_grid.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
+        values = np.zeros(bg.num_cells)
         values[domain_sides.north + domain_sides.south] = (
             self.reference_variable_values.pressure
         )
@@ -137,7 +137,7 @@ class BoundaryConditionsMassDirNorthSouth(pp.BoundaryConditionMixin):
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
 
-class BoundaryConditionsEnergyDirNorthSouth(pp.BoundaryConditionMixin):
+class BoundaryConditionsEnergyDirNorthSouth(pp.PorePyModel):
     """Boundary conditions for the thermal problem.
 
     Dirichlet boundary conditions are defined on the north and south boundaries. Some
@@ -183,7 +183,7 @@ class BoundaryConditionsEnergyDirNorthSouth(pp.BoundaryConditionMixin):
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
 
-class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
+class BoundaryConditionsMechanicsDirNorthSouth(pp.PorePyModel):
     """Boundary conditions for the mechanics with Dirichlet conditions on north and
     south boundaries.
 
@@ -208,7 +208,7 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
         bc.internal_to_dirichlet(sd)
         return bc
 
-    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for the mechanics problem as a numpy array.
 
         Values for north and south faces are set to zero unless otherwise specified
@@ -216,16 +216,16 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
         initialization.
 
         Parameters:
-            boundary_grid: Boundary grid for which boundary values are to be returned.
+            bg: Boundary grid for which boundary values are to be returned.
 
         Returns:
             Array of boundary values, with one value for each dimension of the
                 domain, for each face in the subdomain.
 
         """
-        sides = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros((self.nd, boundary_grid.num_cells))
-        if boundary_grid.dim < self.nd - 1:
+        domain_sides = self.domain_boundary_sides(bg)
+        values = np.zeros((self.nd, bg.num_cells))
+        if bg.dim < self.nd - 1:
             # No displacement is implemented on grids of co-dimension >= 2.
             return values.ravel("F")
 
@@ -236,13 +236,17 @@ class BoundaryConditionsMechanicsDirNorthSouth(pp.BoundaryConditionMixin):
         # Wrap as array for convert_units. Thus, the passed values can be scalar or
         # list. Then tile for correct broadcasting below.
         u_n = np.tile(
-            self.params.get("u_north", np.zeros(self.nd)), (boundary_grid.num_cells, 1)
+            self.params.get("u_north", np.zeros(self.nd)), (bg.num_cells, 1)
         ).T
         u_s = np.tile(
-            self.params.get("u_south", np.zeros(self.nd)), (boundary_grid.num_cells, 1)
+            self.params.get("u_south", np.zeros(self.nd)), (bg.num_cells, 1)
         ).T
-        values[:, sides.north] = self.units.convert_units(u_n, "m")[:, sides.north]
-        values[:, sides.south] = self.units.convert_units(u_s, "m")[:, sides.south]
+        values[:, domain_sides.north] = self.units.convert_units(u_n, "m")[
+            :, domain_sides.north
+        ]
+        values[:, domain_sides.south] = self.units.convert_units(u_s, "m")[
+            :, domain_sides.south
+        ]
         return values.ravel("F")
 
 
@@ -253,7 +257,7 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
 
     """
 
-    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Displacement values.
 
         Initial value is u_y = self.solid.fracture_gap +
@@ -265,15 +269,15 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
         defaulting to 0.
 
         Parameters:
-            boundary_grid: Boundary grid for which boundary values are to be returned.
+            bg: Boundary grid for which boundary values are to be returned.
 
         Returns:
             Array of boundary values, with one value for each dimension of the
                 problem, for each face in the subdomain.
 
         """
-        domain_sides = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros((self.nd, boundary_grid.num_cells))
+        domain_sides = self.domain_boundary_sides(bg)
+        values = np.zeros((self.nd, bg.num_cells))
         # Add fracture width on top if there is a fracture.
         if len(self.mdg.subdomains()) > 1:
             frac_val = (
@@ -283,6 +287,6 @@ class TimeDependentMechanicalBCsDirNorthSouth(BoundaryConditionsMechanicsDirNort
             frac_val = 0
         values[1, domain_sides.north] = frac_val
         if self.time_manager.time > 1e-5:
-            return values.ravel("F") + super().bc_values_displacement(boundary_grid)
+            return values.ravel("F") + super().bc_values_displacement(bg)
         else:
             return values.ravel("F")

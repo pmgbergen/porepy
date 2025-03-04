@@ -1,5 +1,5 @@
 """
-This module contains the implementation of a verification setup for a poromechanical
+This module contains the implementation of a verification model for a poromechanical
 system (without fractures) using two-dimensional manufactured solutions.
 
 The implementation considers a compressible fluid, resulting in a coupled non-linear
@@ -46,6 +46,7 @@ References:
       for Biot equations. SIAM Journal on Numerical Analysis, 54(2), 942-968.
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -55,12 +56,9 @@ import numpy as np
 import sympy as sym
 
 import porepy as pp
-
-import porepy.models.fluid_mass_balance as mass
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
@@ -70,7 +68,7 @@ grid = pp.GridLike
 # -----> Data-saving
 @dataclass
 class ManuPoroMechSaveData:
-    """Data class to save relevant results from the verification setup."""
+    """Data class to save relevant results from the verification model."""
 
     approx_displacement: np.ndarray
     """Numerical displacement."""
@@ -112,7 +110,7 @@ class ManuPoroMechSaveData:
     """Current simulation time."""
 
 
-class ManuPoroMechDataSaving(VerificationDataSaving):
+class ManuPoroMechDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -144,7 +142,7 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
     """
 
     def collect_data(self) -> ManuPoroMechSaveData:
-        """Collect data from the verification setup.
+        """Collect data from the verification model.
 
         Returns:
             ManuPoroMechSaveData object containing the results of the verification for
@@ -159,8 +157,8 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
         # Collect data
         exact_pressure = self.exact_sol.pressure(sd=sd, time=t)
         pressure_ad = self.pressure([sd])
-        approx_pressure = pressure_ad.value(self.equation_system)
-        error_pressure = ConvergenceAnalysis.l2_error(
+        approx_pressure = self.equation_system.evaluate(pressure_ad)
+        error_pressure = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_pressure,
             approx_array=approx_pressure,
@@ -171,8 +169,8 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
         exact_displacement = self.exact_sol.displacement(sd=sd, time=t)
         displacement_ad = self.displacement([sd])
-        approx_displacement = displacement_ad.value(self.equation_system)
-        error_displacement = ConvergenceAnalysis.l2_error(
+        approx_displacement = self.equation_system.evaluate(displacement_ad)
+        error_displacement = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_displacement,
             approx_array=approx_displacement,
@@ -183,8 +181,8 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
         exact_flux = self.exact_sol.darcy_flux(sd=sd, time=t)
         flux_ad = self.darcy_flux([sd])
-        approx_flux = flux_ad.value(self.equation_system)
-        error_flux = ConvergenceAnalysis.l2_error(
+        approx_flux = self.equation_system.evaluate(flux_ad)
+        error_flux = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_flux,
             approx_array=approx_flux,
@@ -195,8 +193,8 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
         exact_force = self.exact_sol.poroelastic_force(sd=sd, time=t)
         force_ad = self.stress([sd])
-        approx_force = force_ad.value(self.equation_system)
-        error_force = ConvergenceAnalysis.l2_error(
+        approx_force = self.equation_system.evaluate(force_ad)
+        error_force = ConvergenceAnalysis.lp_error(
             grid=sd,
             true_array=exact_force,
             approx_array=approx_force,
@@ -227,22 +225,22 @@ class ManuPoroMechDataSaving(VerificationDataSaving):
 
 # -----> Exact solution
 class ManuPoroMechExactSolution2d:
-    """Class containing the exact manufactured solution for the verification setup."""
+    """Class containing the exact manufactured solution for the verification model."""
 
-    def __init__(self, setup: pp.PorePyModel):
+    def __init__(self, model: pp.PorePyModel):
         """Constructor of the class."""
 
         # Physical parameters
-        lame_lmbda = setup.solid.lame_lambda  # [Pa] Lamé parameter
-        lame_mu = setup.solid.shear_modulus  # [Pa] Lamé parameter
-        alpha = setup.solid.biot_coefficient  # [-] Biot coefficient
-        rho_0 = setup.fluid.reference_component.density  # [kg / m^3] Reference density
-        phi_0 = setup.solid.porosity  # [-] Reference porosity
-        p_0 = setup.reference_variable_values.pressure  # [Pa] Reference pressure
+        lame_lmbda = model.solid.lame_lambda  # [Pa] Lamé parameter
+        lame_mu = model.solid.shear_modulus  # [Pa] Lamé parameter
+        alpha = model.solid.biot_coefficient  # [-] Biot coefficient
+        rho_0 = model.fluid.reference_component.density  # [kg / m^3] Reference density
+        phi_0 = model.solid.porosity  # [-] Reference porosity
+        p_0 = model.reference_variable_values.pressure  # [Pa] Reference pressure
         # [Pa^-1] Fluid compressibility
-        c_f = setup.fluid.reference_component.compressibility
-        k = setup.solid.permeability  # [m^2] Permeability
-        mu_f = setup.fluid.reference_component.viscosity  # [Pa * s] Fluid viscosity
+        c_f = model.fluid.reference_component.compressibility
+        k = model.solid.permeability  # [m^2] Permeability
+        mu_f = model.fluid.reference_component.viscosity  # [Pa * s] Fluid viscosity
         K_d = lame_lmbda + (2 / 3) * lame_mu  # [Pa] Bulk modulus
 
         # Symbolic variables
@@ -250,7 +248,7 @@ class ManuPoroMechExactSolution2d:
         pi = sym.pi
 
         # Exact pressure and displacement solutions
-        manufactured_sol = setup.params.get("manufactured_solution", "parabolic")
+        manufactured_sol = model.params.get("manufactured_solution", "parabolic")
         if manufactured_sol == "parabolic":
             p = t * x * (1 - x) * y * (1 - y)
             u = [p, p]
@@ -567,7 +565,7 @@ class ManuPoroMechExactSolution2d:
 
 # -----> Utilities
 class ManuPoroMechUtils(VerificationUtils):
-    """Mixin class containing useful utility methods for the setup."""
+    """Mixin class containing useful utility methods for the model."""
 
     results: list[ManuPoroMechSaveData]
     """List of ManuPoroMechSaveData objects."""
@@ -623,7 +621,7 @@ class UnitSquareGrid:
 
 
 # -----> Balance equations
-class ManuPoroMechMassBalance(mass.MassBalanceEquations):
+class ManuPoroMechMassBalance:
     """Modify balance equation to account for external sources."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -648,7 +646,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         """
         The following is a "hack" to include cross term missing from the dt operator.
         This reduces the discretization error significantly, but we don't include it
-        since the purpose of this verification setup is to be used in functional
+        since the purpose of this verification model is to be used in functional
         tests to check the correct *default* behaviour of the models.
 
         Add cross term missing from dt operator relative to proper application of
@@ -667,7 +665,7 @@ class ManuPoroMechMassBalance(mass.MassBalanceEquations):
         return fluid_sources  # - prod
 
 
-class ManuPoroMechMomentumBalance(pp.momentum_balance.MomentumBalanceEquations):
+class ManuPoroMechMomentumBalance:
     """Modify momentum balance to account for time-dependent body force."""
 
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
@@ -685,21 +683,12 @@ class ManuPoroMechEquations(
     ManuPoroMechMassBalance,
     ManuPoroMechMomentumBalance,
 ):
-    """Mixer class for modified poromoechanics equations."""
-
-    def set_equations(self):
-        """Set the equations for the modified poromechanics problem.
-
-        Call both parent classes' `set_equations` methods.
-
-        """
-        ManuPoroMechMassBalance.set_equations(self)
-        ManuPoroMechMomentumBalance.set_equations(self)
+    """Mixer class for modified poromechanics equations."""
 
 
 # -----> Solution strategy
 class ManuPoroMechSolutionStrategy2d(pp.poromechanics.SolutionStrategyPoromechanics):
-    """Solution strategy for the verification setup."""
+    """Solution strategy for the verification model."""
 
     exact_sol: ManuPoroMechExactSolution2d
     """Exact solution object."""
@@ -716,12 +705,6 @@ class ManuPoroMechSolutionStrategy2d(pp.poromechanics.SolutionStrategyPoromechan
     def __init__(self, params: dict):
         """Constructor for the class."""
         super().__init__(params)
-
-        self.exact_sol: ManuPoroMechExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuPoroMechSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
 
         self.flux_variable: str = "darcy_flux"
         """Keyword to access the Darcy fluxes."""
@@ -763,7 +746,7 @@ class ManuPoroMechSolutionStrategy2d(pp.poromechanics.SolutionStrategyPoromechan
 
 
 # -----> Mixer class
-class ManuPoroMechSetup2d(  # type: ignore[misc]
+class ManuPoroMechModel2d(  # type: ignore[misc]
     UnitSquareGrid,
     ManuPoroMechEquations,
     ManuPoroMechSolutionStrategy2d,
@@ -772,6 +755,6 @@ class ManuPoroMechSetup2d(  # type: ignore[misc]
     pp.Poromechanics,
 ):
     """
-    Mixer class for the two-dimensional non-linear poromechanics verification setup.
+    Mixer class for the two-dimensional non-linear poromechanics verification model.
 
     """

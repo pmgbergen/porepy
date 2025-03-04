@@ -17,11 +17,9 @@ Suggested references:
 
 from __future__ import annotations
 
-from typing import Callable, Optional, Union
+from typing import Callable, Union
 
 import porepy as pp
-import porepy.models.fluid_mass_balance as mass
-import porepy.models.momentum_balance as momentum
 
 
 class ConstitutiveLawsPoromechanics(
@@ -50,10 +48,7 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.CoulombFrictionBound,
     pp.constitutive_laws.DisplacementJump,
 ):
-    """Class for the coupling of mass and momentum balance to obtain poromechanics
-    equations.
-
-    """
+    """Class for combined constitutive laws for poromechanics."""
 
     def stress(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Stress operator.
@@ -70,40 +65,24 @@ class ConstitutiveLawsPoromechanics(
 
 
 class EquationsPoromechanics(
-    mass.MassBalanceEquations,
-    momentum.MomentumBalanceEquations,
+    pp.momentum_balance.MomentumBalanceEquations,
+    pp.fluid_mass_balance.FluidMassBalanceEquations,
+    pp.contact_mechanics.ContactMechanicsEquations,
 ):
-    """Combines mass and momentum balance equations."""
-
-    def set_equations(self):
-        """Set the equations for the poromechanics problem.
-
-        Call both parent classes' set_equations methods.
-
-        """
-        mass.MassBalanceEquations.set_equations(self)
-        momentum.MomentumBalanceEquations.set_equations(self)
+    """Combines mass and momentum balance and contact mechanics equations."""
 
 
 class VariablesPoromechanics(
-    mass.VariablesSinglePhaseFlow,
-    momentum.VariablesMomentumBalance,
+    pp.momentum_balance.VariablesMomentumBalance,
+    pp.fluid_mass_balance.VariablesSinglePhaseFlow,
+    pp.contact_mechanics.ContactTractionVariable,
 ):
-    """Combines mass and momentum balance variables."""
-
-    def create_variables(self):
-        """Set the variables for the poromechanics problem.
-
-        Call both parent classes' set_variables methods.
-
-        """
-        mass.VariablesSinglePhaseFlow.create_variables(self)
-        momentum.VariablesMomentumBalance.create_variables(self)
+    """Combines mass and momentum balance and contact mechanics variables."""
 
 
 class BoundaryConditionsPoromechanics(
-    mass.BoundaryConditionsSinglePhaseFlow,
-    momentum.BoundaryConditionsMomentumBalance,
+    pp.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow,
+    pp.momentum_balance.BoundaryConditionsMomentumBalance,
 ):
     """Combines mass and momentum balance boundary conditions.
 
@@ -122,11 +101,21 @@ class BoundaryConditionsPoromechanics(
     """
 
 
-class SolutionStrategyPoromechanics(
-    mass.SolutionStrategySinglePhaseFlow,
-    momentum.SolutionStrategyMomentumBalance,
+class InitialConditionsPoromechanics(
+    pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+    pp.momentum_balance.InitialConditionsMomentumBalance,
+    pp.contact_mechanics.InitialConditionsContactTraction,
 ):
-    """Combines mass and momentum balance solution strategies.
+    """Combines initial conditions for mass and momentum balance and contact mechanics,
+    and associated primary variables."""
+
+
+class SolutionStrategyPoromechanics(
+    pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow,
+    pp.momentum_balance.SolutionStrategyMomentumBalance,
+    pp.contact_mechanics.SolutionStrategyContactMechanics,
+):
+    """Combines mass and momentum balance and contact mechanics solution strategies.
 
     This class has a diamond structure inheritance. The user should be aware of this
     and take method resolution order into account when defining new methods.
@@ -146,18 +135,6 @@ class SolutionStrategyPoromechanics(
     :class:`~porepy.models.constitutive_laws.BiotCoefficient`.
     """
 
-    def __init__(self, params: Optional[dict] = None) -> None:
-        """Initialize the solution strategy.
-
-        Parameters:
-            params: Dictionary of parameters.
-
-        """
-        # Initialize the solution strategy for the fluid mass balance subproblem.
-        mass.SolutionStrategySinglePhaseFlow.__init__(self, params=params)
-        # Initialize the solution strategy for the momentum balance subproblem.
-        momentum.SolutionStrategyMomentumBalance.__init__(self, params=params)
-
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem."""
         # Set parameters for the subproblems.
@@ -169,9 +146,9 @@ class SolutionStrategyPoromechanics(
                 "scalar_vector_mappings", {}
             )
             scalar_vector_mappings[self.darcy_keyword] = self.biot_tensor([sd])
-            data[pp.PARAMETERS][self.stress_keyword][
-                "scalar_vector_mappings"
-            ] = scalar_vector_mappings
+            data[pp.PARAMETERS][self.stress_keyword]["scalar_vector_mappings"] = (
+                scalar_vector_mappings
+            )
 
     def _is_nonlinear_problem(self) -> bool:
         """The coupled problem is nonlinear."""
@@ -203,6 +180,7 @@ class Poromechanics(  # type: ignore[misc]
     VariablesPoromechanics,
     ConstitutiveLawsPoromechanics,
     BoundaryConditionsPoromechanics,
+    InitialConditionsPoromechanics,
     SolutionStrategyPoromechanics,
     pp.FluidMixin,
     pp.ModelGeometry,

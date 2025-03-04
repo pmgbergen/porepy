@@ -32,10 +32,10 @@ import pytest
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.manu_thermoporomech_nofrac_2d import (
-    ManuThermoPoroMechSetup2d,
+    ManuThermoPoroMechModel2d,
 )
 from tests.functional.setups.manu_thermoporomech_nofrac_3d import (
-    ManuThermoPoroMechSetup3d,
+    ManuThermoPoroMechModel3d,
 )
 
 
@@ -44,7 +44,7 @@ from tests.functional.setups.manu_thermoporomech_nofrac_3d import (
 def material_constants() -> dict:
     """Set material constants.
 
-    Use default values provided in the module where the setup class is included.
+    Use default values provided in the module where the model class is included.
 
     Returns:
         Dictionary containing the material constants with the `solid` and `fluid`
@@ -62,7 +62,7 @@ def material_constants() -> dict:
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
 def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
-    """Run verification setups and retrieve results for the scheduled times.
+    """Run verification models and retrieve results for the scheduled times.
 
     Parameters:
         material_constants: Dictionary containing the material constant classes.
@@ -82,18 +82,19 @@ def actual_l2_errors(material_constants) -> list[list[dict[str, float]]]:
         "meshing_arguments": {"cell_size": 0.25},
         "time_manager": pp.TimeManager([0, 0.5, 1.0], 0.5, True),
         "heterogeneity": 10.0,
+        "times_to_export": [],  # Suppress output for tests
     }
 
     # Retrieve actual L2-relative errors.
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
-    for model in [ManuThermoPoroMechSetup2d, ManuThermoPoroMechSetup3d]:
+    for model_class in [ManuThermoPoroMechModel2d, ManuThermoPoroMechModel3d]:
         # Make deep copy of params to avoid nasty bugs.
-        setup = model(deepcopy(model_params))
-        pp.run_time_dependent_model(setup, {})
+        model: pp.PorePyModel = model_class(deepcopy(model_params))
+        pp.run_time_dependent_model(model, {})
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
-        for result in setup.results:
+        for result in model.results:
             errors_setup.append(
                 {
                     "error_pressure": getattr(result, "error_pressure"),
@@ -237,7 +238,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models.
     for model_idx, model in enumerate(
-        [ManuThermoPoroMechSetup2d, ManuThermoPoroMechSetup3d]
+        [ManuThermoPoroMechModel2d, ManuThermoPoroMechModel3d]
     ):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type.
@@ -253,6 +254,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                     "meshing_arguments": {"cell_size": 0.25},
                     "perturbation": 0.3,
                     "heterogeneity": 10.0,
+                    "times_to_export": [],  # Suppress output for tests
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d.
                 if model_idx == 0:

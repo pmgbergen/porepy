@@ -132,7 +132,7 @@ def benchmark_2d_case_3(size: pp.number = 1) -> list[pp.LineFracture]:
 def benchmark_2d_case_4() -> list[pp.LineFracture]:
     """Returns a fracture set that corresponds to Case 4 from the 2D flow benchmark [1].
 
-    The setup is composed of 64 fractures grouped in 13 different connected networks,
+    The geometry is composed of 64 fractures grouped in 13 different connected networks,
     ranging from isolated fractures up to tens of fractures each.
 
     References:

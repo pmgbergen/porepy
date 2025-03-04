@@ -794,7 +794,7 @@ class Exporter:
                 self._exported_timesteps_constants[i] for i in indices
             ]
 
-        # Setup file name and check whether it already exists in storage
+        # Set up file name and check whether it already exists in storage.
         pvd_file: Path = Path(
             self._append_folder_name(self._folder_name, self._file_name) + ".pvd"
         )
@@ -968,7 +968,7 @@ class Exporter:
             if not value.size == num_dofs and not (
                 len(value.shape) > 1 and value.shape[1] == num_dofs
             ):
-                value = np.reshape(value, (-1, num_dofs), "F")
+                value = np.reshape(value, (-1, num_dofs), order="F")
 
             return value
 

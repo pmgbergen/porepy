@@ -37,10 +37,10 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs.fracture_network_2d import FractureNetwork2d
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.applications.test_utils.arrays import compare_arrays
 
 FractureNetwork = Union[FractureNetwork2d, FractureNetwork3d]
 
@@ -166,7 +166,7 @@ def test_pick_propagation_face_conforming_propagation(case):
     data_primary[pp.TIME_STEP_SOLUTIONS] = {}
 
     # Propagation model; assign this some necessary fields.
-    model = pp.ConformingFracturePropagation({})
+    model = pp.ConformingFracturePropagation({"times_to_export": []})
     model.mechanics_parameter_key = mech_key
     model.nd = mdg.dim_max()
 

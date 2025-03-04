@@ -12,33 +12,31 @@ Reference:
       media. Advances in Water Resources, 111, 239-258.
 
 """
+
+from typing import Literal
+
 import numpy as np
 import pytest
 
 import porepy as pp
-
-
+from porepy.applications.test_utils.benchmarks import EffectivePermeability
 from porepy.examples.flow_benchmark_2d_case_3 import (
     FlowBenchmark2dCase3aModel,
     FlowBenchmark2dCase3bModel,
     solid_constants,
 )
-from porepy.applications.test_utils.benchmarks import EffectivePermeability
-from typing import Literal
 
 
 class Model3aWithEffectivePermeability(
     EffectivePermeability,
     FlowBenchmark2dCase3aModel,
-):
-    ...
+): ...
 
 
 class Model3bWithEffectivePermeability(
     EffectivePermeability,
     FlowBenchmark2dCase3bModel,
-):
-    ...
+): ...
 
 
 @pytest.fixture(scope="module", params=["tpfa", "mpfa"])
@@ -71,6 +69,7 @@ def model(
         "grid_type": "simplex",
         "meshing_arguments": {"cell_size": 0.1},
         "flux_discretization": flux_discretization,
+        "times_to_export": [],  # Suppress output for tests
     }
     if case == "a":
         model = Model3aWithEffectivePermeability(model_params)
@@ -100,7 +99,9 @@ def test_effective_tangential_permeability(model) -> None:
 
     """
     for sd in model.mdg.subdomains():
-        val = model.effective_tangential_permeability([sd]).value(model.equation_system)
+        val = model.equation_system.evaluate(
+            model.effective_tangential_permeability([sd])
+        )
         if sd.dim == 2:
             np.testing.assert_array_almost_equal(val, 1.0)
         elif sd.dim == 1:
@@ -134,7 +135,9 @@ def test_effective_normal_permeability(model) -> None:
 
     """
     for intf in model.mdg.interfaces():
-        val = model.effective_normal_permeability([intf]).value(model.equation_system)
+        val = model.equation_system.evaluate(
+            model.effective_normal_permeability([intf])
+        )
         sd_high, sd_low = model.mdg.interface_to_subdomain_pair(intf)
         if intf.dim == 1:
             if sd_low.frac_num in [3, 4]:  # blocking 1d interface

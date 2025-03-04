@@ -1,10 +1,10 @@
 """Storage classes for solid constants and fluid components.
 
 Material contants are values representing either constant physical properties (e.g.
-critical pressurre) or parameters for constitutive laws (e.g. constant compressibility
+critical pressure) or parameters for constitutive laws (e.g. constant compressibility
 for exponential-type density law). A material is instantiated with a
 :class:`~porepy.models.units.Units` object, which defines the units of the physical
-properties for a simulation setup. While the constants must be given in base SI units
+properties for a simulation model. While the constants must be given in base SI units
 when instantiating a material class, its constants are converted and stored in the
 target units, to be used subsequently.
 
@@ -45,7 +45,7 @@ number = pp.number
 # do), since the class is intended for instances like solids and fluids, which *are*
 # distinct by design.
 # Note however, it inherits the default eq from object, which is a comparison of memory
-# adresses.
+# addresses.
 @dataclass(kw_only=True, eq=False)
 class Constants:
     """Material property container and conversion class.
@@ -64,7 +64,7 @@ class Constants:
     Pa).
 
     The base class provides a check that constants defined as dataclass fields
-    are not asignable, once the instance is created. This is motivated by the fact that
+    are not assignable, once the instance is created. This is motivated by the fact that
     material parameters are not supposed to change (or converted to another unit) once
     given in a simulation.
 
@@ -73,9 +73,9 @@ class Constants:
         ``@dataclass(kw_only=True, eq=False)`` to be consistent with the base class
         and to make the child hashable (important when storing it in dictionaries).
 
-        Having an overload of ``__equ__`` by comparing fields (as ``dataclass`` does)
+        Having an overload of ``__eq__`` by comparing fields (as ``dataclass`` does)
         makes little sense for this class, as it is designed to hold different constants
-        per instance. We loose only the hashability with the redundant ``__equ__``.
+        per instance. We loose only the hashability with the redundant ``__eq__``.
 
     Important:
         When instantiating a ``Constants`` data class, the constants must all be
@@ -92,9 +92,9 @@ class Constants:
 
     """
 
-    # NOTE Annotating it as a ClassVar leads to the dataclasss decorator ignoring this
+    # NOTE: Annotating it as a ClassVar leads to the dataclasses decorator ignoring this
     # in its machinery. The annotation must not be forgotten in derived classes.
-    SI_units: ClassVar[dict[str, str]] = dict()
+    SI_units: ClassVar[dict[str, str]] = {}
     """A dictionary containing the SI unit of every material constant defined by a
     derived class.
 
@@ -139,7 +139,7 @@ class Constants:
     """Flag marking the end of the initialization and post-initialization procedure.
 
     Set to be ``True``, once :meth:`__post_init__` is done. Used to disallow the
-    assignement of material parameters after construction.
+    assignment of material parameters after construction.
 
     Once True, constants cannot be set anymore.
 
@@ -185,7 +185,7 @@ class Constants:
             v_in_custom_units = self.units.convert_units(v, si_unit)
             object.__setattr__(self, k, v_in_custom_units)
 
-        # Flag the initialization procdure as done.
+        # Flag the initialization procedure as done.
         object.__setattr__(self, "_initialized", True)
 
     def __init_subclass__(cls) -> None:
@@ -196,7 +196,7 @@ class Constants:
         Also, the blockage of rewriting the material parameters must be inherited as
         well.
 
-        Both is achieved by asigning the base class ``__post_init__`` and
+        Both is achieved by assigning the base class ``__post_init__`` and
         ``__setattr__`` of this base class to any child class which is a data class.
 
         """
@@ -245,7 +245,7 @@ class Constants:
         )
         if name in frozen and self._initialized:
             raise FrozenInstanceError(
-                f"Cannot asign to field {name}. Names, units and material parameters"
+                f"Cannot assign to field {name}. Names, units and material parameters"
                 + " are frozen once set."
             )
         else:
@@ -333,7 +333,7 @@ class FluidComponent(Constants, Component):
 # Strictly speaking, it is not necessary to have eq=False for SolidConstants. The issues
 # with hashability noted for Constants (see above), do not apply here, since the class
 # could have been made frozen (this is in contrast to the FluidComponent, which
-# continherits from the non-constant Component class). However, for consistency, we keep
+# inherits from the non-constant Component class). However, for consistency, we keep
 # eq=False; although this means objects of type SolidConstants cannot be compared by
 # fields, this is also not an expected use case.
 @dataclass(kw_only=True, eq=False)
@@ -344,7 +344,7 @@ class SolidConstants(Constants):
     framework, especially poro- & fracture-mechanics.
 
     This class is meant for 1 solid species only. Different domains in the mD-setting
-    require each their own material constants instance in the case of heterogenity.
+    require each their own material constants instance in the case of heterogeneity.
 
     """
 

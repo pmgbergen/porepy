@@ -1,12 +1,13 @@
-import porepy as pp
-import numpy as np
 from typing import Any
 
+import numpy as np
+
+import porepy as pp
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
 class NonlinearSinglePhaseFlow(SinglePhaseFlow):
-    """Class setup which forces a set number of nonlinear iterations to be run for
+    """Model class which forces a set number of nonlinear iterations to be run for
     testing."""
 
     def check_convergence(
@@ -40,7 +41,7 @@ def test_nonlinear_iteration_count():
     iteration count matches the pre set value after convergence is obtained.
 
     """
-    model = NonlinearSinglePhaseFlow()
+    model = NonlinearSinglePhaseFlow({"times_to_export": []})
     model.expected_number_of_iterations = 3
     pp.run_time_dependent_model(model, {})
 

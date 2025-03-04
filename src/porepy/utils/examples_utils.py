@@ -14,7 +14,7 @@ class VerificationUtils(pp.PorePyModel):
     """Mixin class storing useful utility methods.
 
     The intended use is to mix this class with a utlilty class, specific to a
-    verification/complete setup.
+    verification/complete model.
 
     """
 
@@ -92,6 +92,6 @@ class VerificationUtils(pp.PorePyModel):
         )
 
         # Parse numerical value and return the minimum and maximum value
-        u_faces = u_faces_ad.value(self.equation_system)
+        u_faces = self.equation_system.evaluate(u_faces_ad)
         assert isinstance(u_faces, np.ndarray)
         return u_faces

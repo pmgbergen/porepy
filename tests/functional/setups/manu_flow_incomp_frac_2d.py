@@ -12,6 +12,7 @@ References:
       elliptic equations. Journal of Numerical Mathematics.
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,13 +26,12 @@ import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.utils.examples_utils import VerificationUtils
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 
 # PorePy typings
 number = pp.number
 grid = pp.GridLike
 
-# Material constants for the verification setup. Constants with (**) cannot be
+# Material constants for the verification model. Constants with (**) cannot be
 # changed since the manufactured solution implicitly assume such values.
 manu_incomp_fluid: dict[str, number] = {
     "compressibility": 0,  # (**)
@@ -49,7 +49,7 @@ manu_incomp_solid: dict[str, number] = {
 # -----> Data-saving
 @dataclass
 class ManuIncompSaveData:
-    """Data class to save relevant results from the verification setup."""
+    """Data class to save relevant results from the verification model."""
 
     approx_frac_flux: np.ndarray
     """Numerical flux in the fracture."""
@@ -97,7 +97,7 @@ class ManuIncompSaveData:
     """Exact pressure in the matrix."""
 
 
-class ManuIncompDataSaving(VerificationDataSaving):
+class ManuIncompDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -124,7 +124,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
     """
 
     def collect_data(self) -> ManuIncompSaveData:
-        """Collect data from the verification setup.
+        """Collect data from the verification model.
 
         Returns:
             ManuIncompSaveData object containing the results of the verification.
@@ -139,8 +139,8 @@ class ManuIncompDataSaving(VerificationDataSaving):
         # Collect data
         exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix)
         matrix_pressure_ad = self.pressure([sd_matrix])
-        approx_matrix_pressure = matrix_pressure_ad.value(self.equation_system)
-        error_matrix_pressure = ConvergenceAnalysis.l2_error(
+        approx_matrix_pressure = self.equation_system.evaluate(matrix_pressure_ad)
+        error_matrix_pressure = ConvergenceAnalysis.lp_error(
             grid=sd_matrix,
             true_array=exact_matrix_pressure,
             approx_array=approx_matrix_pressure,
@@ -151,8 +151,8 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_matrix_flux = exact_sol.matrix_flux(sd_matrix)
         matrix_flux_ad = self.darcy_flux([sd_matrix])
-        approx_matrix_flux = matrix_flux_ad.value(self.equation_system)
-        error_matrix_flux = ConvergenceAnalysis.l2_error(
+        approx_matrix_flux = self.equation_system.evaluate(matrix_flux_ad)
+        error_matrix_flux = ConvergenceAnalysis.lp_error(
             grid=sd_matrix,
             true_array=exact_matrix_flux,
             approx_array=approx_matrix_flux,
@@ -163,8 +163,8 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_frac_pressure = exact_sol.fracture_pressure(sd_frac)
         frac_pressure_ad = self.pressure([sd_frac])
-        approx_frac_pressure = frac_pressure_ad.value(self.equation_system)
-        error_frac_pressure = ConvergenceAnalysis.l2_error(
+        approx_frac_pressure = self.equation_system.evaluate(frac_pressure_ad)
+        error_frac_pressure = ConvergenceAnalysis.lp_error(
             grid=sd_frac,
             true_array=exact_frac_pressure,
             approx_array=approx_frac_pressure,
@@ -175,8 +175,8 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_frac_flux = exact_sol.fracture_flux(sd_frac)
         frac_flux_ad = self.darcy_flux([sd_frac])
-        approx_frac_flux = frac_flux_ad.value(self.equation_system)
-        error_frac_flux = ConvergenceAnalysis.l2_error(
+        approx_frac_flux = self.equation_system.evaluate(frac_flux_ad)
+        error_frac_flux = ConvergenceAnalysis.lp_error(
             grid=sd_frac,
             true_array=exact_frac_flux,
             approx_array=approx_frac_flux,
@@ -187,8 +187,8 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
         exact_intf_flux = exact_sol.interface_flux(intf)
         int_flux_ad = self.interface_darcy_flux([intf])
-        approx_intf_flux = int_flux_ad.value(self.equation_system)
-        error_intf_flux = ConvergenceAnalysis.l2_error(
+        approx_intf_flux = self.equation_system.evaluate(int_flux_ad)
+        error_intf_flux = ConvergenceAnalysis.lp_error(
             grid=intf,
             true_array=exact_intf_flux,
             approx_array=approx_intf_flux,
@@ -221,7 +221,7 @@ class ManuIncompDataSaving(VerificationDataSaving):
 
 # -----> Exact solution
 class ManuIncompExactSolution2d:
-    """Class containing the exact manufactured solution for the verification setup."""
+    """Class containing the exact manufactured solution for the verification model."""
 
     def __init__(self):
         """Constructor of the class."""
@@ -518,14 +518,14 @@ class ManuIncompExactSolution2d:
 
         return lmbda_cc
 
-    def boundary_values(self, boundary_grid_matrix: pp.BoundaryGrid) -> np.ndarray:
+    def boundary_values(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            boundary_grid_matrix: Matrix boundary grid.
+            bg: Matrix boundary grid.
 
         Returns:
-            Array of ``shape=(boundary_grid_matrix.num_cells, )`` with the exact
+            Array of ``shape=(bg.num_cells, )`` with the exact
             pressure values at the exterior boundary faces.
 
         """
@@ -533,7 +533,7 @@ class ManuIncompExactSolution2d:
         x, y = sym.symbols("x y")
 
         # Get list of face indices
-        fc = boundary_grid_matrix.cell_centers
+        fc = bg.cell_centers
         bot = fc[1] < 0.25
         mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
         top = fc[1] > 0.75
@@ -543,7 +543,7 @@ class ManuIncompExactSolution2d:
         p_fun = [sym.lambdify((x, y), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(boundary_grid_matrix.num_cells)
+        p_bf = np.zeros(bg.num_cells)
         for p, idx in zip(p_fun, face_idx):
             p_bf += p(fc[0], fc[1]) * idx
 
@@ -552,7 +552,7 @@ class ManuIncompExactSolution2d:
 
 # -----> Utilities
 class ManuIncompUtils(VerificationUtils):
-    """Mixin class containing useful utility methods for the setup."""
+    """Mixin class containing useful utility methods for the model."""
 
     results: list[ManuIncompSaveData]
     """List of ManuIncompSaveData objects."""
@@ -681,25 +681,25 @@ class ManuIncompBoundaryConditions(
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Analytical boundary condition values for Darcy flux.
 
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
 
         Returns:
             Boundary condition values array.
 
         """
-        vals = np.zeros(boundary_grid.num_cells)
-        if boundary_grid.dim == (self.mdg.dim_max() - 1):
+        vals = np.zeros(bg.num_cells)
+        if bg.dim == (self.mdg.dim_max() - 1):
             # Dirichlet for matrix
-            vals[:] = self.exact_sol.boundary_values(boundary_grid_matrix=boundary_grid)
+            vals[:] = self.exact_sol.boundary_values(bg=bg)
         return vals
 
 
 # -----> Balance equations
-class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+class ManuIncompBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     exact_sol: ManuIncompExactSolution2d
@@ -738,7 +738,7 @@ class ManuIncompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
 class ManuIncompSolutionStrategy2d(
     pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow
 ):
-    """Modified solution strategy for the verification setup."""
+    """Modified solution strategy for the verification model."""
 
     mdg: pp.MixedDimensionalGrid
     """Mixed-dimensional grid."""
@@ -747,7 +747,7 @@ class ManuIncompSolutionStrategy2d(
     """Exact solution object."""
 
     plot_results: Callable
-    """Method to plot results of the verification setup. Usually provided by the
+    """Method to plot results of the verification model. Usually provided by the
     mixin class :class:`SetupUtilities`.
 
     """
@@ -755,19 +755,8 @@ class ManuIncompSolutionStrategy2d(
     results: list[ManuIncompSaveData]
     """List of SaveData objects."""
 
-    def __init__(self, params: dict):
-        """Constructor for the class."""
-
-        super().__init__(params)
-
-        self.exact_sol: ManuIncompExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuIncompSaveData] = []
-        """Results object that stores exact and approximated solutions and errors."""
-
     def set_materials(self):
-        """Set material constants for the verification setup."""
+        """Set material constants for the verification model."""
         super().set_materials()
 
         # Sanity checks to guarantee the validity of the manufactured solution
@@ -796,7 +785,7 @@ class ManuIncompSolutionStrategy2d(
 
 
 # -----> Mixer
-class ManuIncompFlowSetup2d(  # type: ignore[misc]
+class ManuIncompFlowModel2d(  # type: ignore[misc]
     SingleEmbeddedVerticalLineFracture,
     ManuIncompBalanceEquation,
     ManuIncompBoundaryConditions,
@@ -806,5 +795,5 @@ class ManuIncompFlowSetup2d(  # type: ignore[misc]
     pp.SinglePhaseFlow,
 ):
     """
-    Mixer class for the 2d incompressible flow setup with a single fracture.
+    Mixer class for the 2d incompressible flow model with a single fracture.
     """
