@@ -329,6 +329,9 @@ class EnthalpyBasedEnergyBalanceEquations(
 
     """
 
+    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
+
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`EnthalpyVariable`."""
 
@@ -396,14 +399,25 @@ class EnthalpyBasedEnergyBalanceEquations(
                     for phase in self.fluid.phases
                 ],
             )  # / self.total_mobility(domains)
+            op.set_name("advected_enthalpy")
         else:
             # If the fractional-flow framework is not used, the weight corresponds to
             # the advected enthalpy and a super call is performed (where the respective
             # term is implemented).
             op = super().advection_weight_energy_balance(domains)
 
-        op.set_name("advected_enthalpy")
         return op
+
+    def enthalpy_flux(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        if (
+            len(subdomains) == 0
+            or all(isinstance(d, pp.BoundaryGrid) for d in subdomains)
+        ) and is_fractional_flow(self):
+            return self.advection_weight_energy_balance(subdomains) * self.darcy_flux(
+                subdomains
+            )
+        else:
+            return super().enthalpy_flux(subdomains)
 
 
 class ComponentMassBalanceEquations(pp.BalanceEquation):
