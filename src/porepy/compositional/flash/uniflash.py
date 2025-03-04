@@ -565,7 +565,7 @@ class CompiledUnifiedFlash(Flash):
             "N1": 3,
             "N2": 1,
             "N3": 5,
-            "eps": self.solver_params["tolerance"],
+            "tolerance": self.solver_params["tolerance"],
         }
         """Numbers of iterations for initialization procedures and other configurations
 
@@ -1731,6 +1731,8 @@ class CompiledUnifiedFlash(Flash):
         assert mode in ["linear", "parallel"], f"Unsupported mode {mode}."
         solver = params.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}"
+        # Updating solver params if provided.
+        self.solver_params.update(params.get("solver_params", {}))
 
         nphase = self.params["num_phases"]
         ncomp = self.params["num_components"]
@@ -1768,7 +1770,7 @@ class CompiledUnifiedFlash(Flash):
                 self.initialization_parameters["N1"],
                 self.initialization_parameters["N2"],
                 self.initialization_parameters["N3"],
-                self.initialization_parameters["eps"],
+                self.initialization_parameters["tolerance"],
             )
         elif flash_type == "v-h":
             X0[ncomp - 1] = fluid_state.v
@@ -1777,7 +1779,7 @@ class CompiledUnifiedFlash(Flash):
                 self.initialization_parameters["N1"],
                 self.initialization_parameters["N2"],
                 self.initialization_parameters["N3"],
-                self.initialization_parameters["eps"],
+                self.initialization_parameters["tolerance"],
             )
         else:
             assert False, "Missing logic"

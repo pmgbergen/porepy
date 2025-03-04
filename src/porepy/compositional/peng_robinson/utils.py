@@ -13,7 +13,7 @@ Note:
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Callable, Protocol
+from typing import TYPE_CHECKING, Callable, Protocol, Sequence
 
 import numpy as np
 
@@ -68,10 +68,6 @@ else:
         def __truediv__(self, other): ...
 
         def __rtruediv__(self, other): ...
-
-        def __matmul__(self, other): ...
-
-        def __rmatmul__(self, other): ...
 
 
 thd_function_type = Callable[[ArithmeticType], ArithmeticType]
@@ -167,7 +163,9 @@ def h_ideal_N2(T: ArithmeticType) -> ArithmeticType:
     )
 
 
-def get_bip_matrix(components: list[Component], package: str = "thermo") -> np.ndarray:
+def get_bip_matrix(
+    components: Sequence[Component], package: str = "thermo"
+) -> np.ndarray:
     """Loads the Peng-Robinson binary interaction parameters from a
     third-party database.
 

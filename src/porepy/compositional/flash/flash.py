@@ -59,6 +59,11 @@ class Flash(abc.ABC):
 
         """
 
+        if "solver_params" in self.params:
+            solver_params = self.params.get("solver_params")
+            assert isinstance(solver_params, dict)
+            self.solver_params.update(solver_params)
+
     def parse_flash_input(
         self,
         z: Sequence[np.ndarray | pp.number],
