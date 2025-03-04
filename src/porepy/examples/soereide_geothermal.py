@@ -24,11 +24,11 @@ import logging
 import os
 import time
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 compile_time = 0.0
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("porepy").setLevel(logging.INFO)
+logging.getLogger("porepy").setLevel(logging.DEBUG)
 
 from typing import Any, Callable, Literal, Optional, Sequence, no_type_check
 
@@ -51,6 +51,9 @@ class SoereideMixture:
     """Model fluid using the Soereide mixture, a Peng-Robinson based EoS for
     NaCl brine with CO2, H2S and N2."""
 
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
     def get_components(self) -> Sequence[pp.FluidComponent]:
         return pp.compositional.load_fluid_constants(["H2O", "CO2"], "chemicals")
 
@@ -67,11 +70,18 @@ class SoereideMixture:
             (eos, pp.compositional.PhysicalState.gas, "G"),
         ]
 
+    def dependencies_of_phase_properties(
+        self, phase: pp.Phase
+    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+        return [self.pressure, self.temperature] + [  # type:ignore[return-value]
+            phase.partial_fraction_of[comp] for comp in phase
+        ]
+
 
 class SolutionStrategy(pp.PorePyModel):
     """Provides some pre- and post-processing for flash methods."""
 
-    flash: pp.compositional.flash.Flash
+    flash: pp.compositional.Flash
 
     pressure_variable: str
     temperature_variable: str
@@ -550,16 +560,6 @@ fractional_flow: bool = False
 if fractional_flow:
 
     class GeothermalFlow(  # type:ignore[misc]
-        Geometry,
-        SoereideMixture,
-        SolutionStrategy,
-        InitialConditions,
-        BoundaryConditions,
-        cfle.EnthalpyBasedCFLETemplate,
-    ): ...
-else:
-
-    class GeothermalFlow(  # type:ignore[misc,no-redef]
         pp.constitutive_laws.DarcysLawAd,
         pp.constitutive_laws.FouriersLawAd,
         Geometry,
@@ -568,6 +568,16 @@ else:
         InitialConditions,
         BoundaryConditions,
         cfle.EnthalpyBasedCFFLETemplate,
+    ): ...
+else:
+
+    class GeothermalFlow(  # type:ignore[misc,no-redef]
+        Geometry,
+        SoereideMixture,
+        SolutionStrategy,
+        InitialConditions,
+        BoundaryConditions,
+        cfle.EnthalpyBasedCFLETemplate,
     ): ...
 
 

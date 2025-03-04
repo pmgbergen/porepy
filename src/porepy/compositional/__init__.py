@@ -39,12 +39,11 @@ References:
 
 __all__ = []
 
-from . import (
+from . import (  # flash,
     _core,
     base,
     compositional_mixins,
     eos_compiler,
-    flash,
     materials,
     states,
     utils,
@@ -53,6 +52,9 @@ from ._core import *
 from .base import *
 from .compositional_mixins import *
 from .eos_compiler import *
+
+# Avoid importing Compiled flash for runtime reasons
+from .flash.flash import Flash
 from .materials import *
 from .states import *
 from .utils import *
@@ -64,3 +66,4 @@ __all__.extend(compositional_mixins.__all__)
 __all__.extend(eos_compiler.__all__)
 __all__.extend(states.__all__)
 __all__.extend(materials.__all__)
+__all__.extend(["Flash"])
