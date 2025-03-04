@@ -236,7 +236,7 @@ class AdParser:
             # Special case for lists of projections. These are parsed into lists of the
             # underlying ArraySlicer. See also the handling of the resulting lists
             # below.
-            res = [c.parse(eq_sys.mdg) for c in op.children]
+            res = [c.parse(equation_system.mdg) for c in op.children]
             return res
 
         # This is not a leaf, but a composite operator. Parse the children and combine
@@ -307,7 +307,9 @@ class AdParser:
                         res = sum([c @ (child_values[1]) for c in child_values[0]])
                         return res
                     else:
-                        raise ValueError("Matrix multiplication not supported for this input type.")
+                        raise ValueError(
+                            "Matrix multiplication not supported for this input type."
+                        )
 
                 if isinstance(child_values[0], np.ndarray) and isinstance(
                     child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)

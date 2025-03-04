@@ -281,9 +281,10 @@ class ModelGeometry(pp.PorePyModel):
     def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.Projection]:
         """Return a cell-wise basis for all subdomains.
 
-        The basis is represented as a list of matrices, each of which represents a
-        basis function. The individual matrices have shape ``Nc * dim, Nc`` where
-        ``Nc`` is the total number of cells in the subdomains.
+        The basis is represented as a list of projections, each of which represents a
+        basis function. The individiual basis functions can be represented as a
+        projection matrix, of shape ``Nc * dim, Nc`` where ``Nc`` is the total number of
+        cells in the subdomains.
 
         Examples:
             To extend a cell-wise scalar to a vector field, use
@@ -307,11 +308,11 @@ class ModelGeometry(pp.PorePyModel):
             function.
 
         """
-        # Collect the basis functions for each dimension
+        # Collect the basis functions for each dimension.
         basis: list[pp.ad.Projection] = []
         for i in range(dim):
             basis.append(self.e_i(grids, i=i, dim=dim))
-        # Stack the basis functions horizontally
+        # Stack the basis functions horizontally.
         return basis
 
     def e_i(

@@ -3104,9 +3104,7 @@ class PressureStress(LinearElasticMechanicalStress):
 
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
-        scalar_to_nd = pp.ad.sum_projection_list(
-            [e_i for e_i in self.basis(interfaces, dim=self.nd)]
-        )
+        scalar_to_nd = pp.ad.sum_projection_list(self.basis(interfaces, dim=self.nd))
         # Spelled out, from the right: Project the pressure from the fracture to the
         # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
         stress = outwards_normal * (
