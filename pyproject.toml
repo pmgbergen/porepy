@@ -78,5 +78,6 @@ ignore = [
 exclude = [
     "src/porepy/__init__.py",
     "src/porepy/numerics/ad/__init__.py",
-    "src/porepy/compositional/__init__.py"
+    "src/porepy/compositional/__init__.py",
+    "src/porepy/compositional/peng_robinson/__init__.py",
 ]
