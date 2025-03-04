@@ -49,7 +49,7 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
         # Set initial displacement compatible with fracture gap for matrix-fracture
         # interface.
         if len(self.mdg.subdomains()) > 1:
-            sd, _ = self.mdg.subdomains(return_data=True)[0]
+            sd = self.mdg.subdomains()[0]
             faces_primary = intf.primary_to_mortar_int().tocsr().indices
             switcher = pp.grid_utils.switch_sign_if_inwards_normal(
                 sd,
