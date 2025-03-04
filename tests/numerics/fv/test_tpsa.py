@@ -7,12 +7,14 @@
 
 """
 
-from typing import Optional, Literal
-import pytest
-import porepy as pp
-import numpy as np
-import scipy.sparse as sps
 from copy import deepcopy
+from typing import Literal, Optional
+
+import numpy as np
+import pytest
+import scipy.sparse as sps
+
+import porepy as pp
 
 KEYWORD = "mechanics"
 """Module level keyword which identifies the placement of parameters and discretization

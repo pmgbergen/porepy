@@ -6,21 +6,16 @@ The tests fall into two categories:
 
 """
 
-import pytest
-
-import scipy.sparse as sps
 import numpy as np
+import pytest
+import scipy.sparse as sps
+
 import porepy as pp
-
-from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
-
-from porepy.applications.md_grids.model_geometries import (
-    CubeDomainOrthogonalFractures,
-)
 from porepy.applications.md_grids import model_geometries
+from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
+from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils import well_models
-
 
 """Local utility functions."""
 

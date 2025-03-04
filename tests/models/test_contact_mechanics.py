@@ -10,10 +10,7 @@ from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
-from porepy.applications.test_utils.models import (
-    ContactMechanicsTester,
-    _add_mixin,
-)
+from porepy.applications.test_utils.models import ContactMechanicsTester, _add_mixin
 
 grid_classes = {2: SquareDomainOrthogonalFractures, 3: CubeDomainOrthogonalFractures}
 
