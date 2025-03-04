@@ -68,7 +68,7 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
             vals[1, top_cells] = (
                 self.solid.fracture_gap + self.solid.maximum_elastic_fracture_opening
             )
-            return vals.ravel('F')
+            return vals.ravel("F")
         else:
             return super().ic_values_interface_displacement(intf)
 
