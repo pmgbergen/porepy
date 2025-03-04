@@ -1348,7 +1348,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return phi_mix_c
 
-    def get_dpTX_fugacity_function(self) -> VectorFunction:
+    def get_fugacity_derivative_function(self) -> VectorFunction:
         d_phi_c = self._cfuncs["d_phi"]
         # number of derivatives
         d = 2 + self._nc
@@ -1391,7 +1391,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return h_c
 
-    def get_dpTX_enthalpy_function(self) -> VectorFunction:
+    def get_enthalpy_derivative_function(self) -> VectorFunction:
         d = 2 + self._nc
         d_h_dep_c = self._cfuncs["d_h_dep"]
         d_h_ideal_c = self._cfuncs["d_h_ideal"]
@@ -1427,7 +1427,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return rho_c
 
-    def get_dpTX_density_function(self) -> VectorFunction:
+    def get_density_derivative_function(self) -> VectorFunction:
         d = 2 + self._nc
         d_rho_c_ = self._cfuncs["d_rho"]
 
@@ -1457,7 +1457,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return mu_c
 
-    def get_dpTX_viscosity_function(self) -> VectorFunction:
+    def get_viscosity_derivative_function(self) -> VectorFunction:
         @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def dmu_c(
             prearg_val: np.ndarray,
@@ -1477,7 +1477,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         return kappa_c
 
-    def get_dpTX_conductivity_function(self) -> VectorFunction:
+    def get_conductivity_derivative_function(self) -> VectorFunction:
         @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def d_kappa_c(
             prearg_val: np.ndarray,
