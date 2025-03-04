@@ -23,6 +23,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import warnings
 
 os.environ["NUMBA_DISABLE_JIT"] = "1"
 
@@ -30,7 +31,7 @@ compile_time = 0.0
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.DEBUG)
 
-from typing import Any, Callable, Literal, Optional, Sequence, no_type_check
+from typing import Any, Callable, Optional, Sequence, no_type_check
 
 import numpy as np
 
@@ -42,9 +43,10 @@ import porepy.compositional.peng_robinson as pr
 compile_time += time.time() - t_0
 
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.applications.md_grids.domains import nd_cube_domain
 
 logger = logging.getLogger(__name__)
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 class SoereideMixture:
@@ -104,16 +106,16 @@ class SolutionStrategy(pp.PorePyModel):
         )
 
         # sanity checks
-        p = self.equation_system.get_variable_values(
-            [self.pressure_variable], iterate_index=0
-        )
-        T = self.equation_system.get_variable_values(
-            [self.temperature_variable], iterate_index=0
-        )
-        if np.any(p <= 0.0):
-            raise ValueError("Pressure diverged to negative values.")
-        if np.any(T <= 0):
-            raise ValueError("Temperature diverged to negative values.")
+        # p = self.equation_system.get_variable_values(
+        #     [self.pressure_variable], iterate_index=0
+        # )
+        # T = self.equation_system.get_variable_values(
+        #     [self.temperature_variable], iterate_index=0
+        # )
+        # if np.any(p <= 0.0):
+        #     raise ValueError("Pressure diverged to negative values.")
+        # if np.any(T <= 0):
+        #     raise ValueError("Temperature diverged to negative values.")
 
         unity_tolerance = 0.05
 
@@ -341,28 +343,22 @@ class SolutionStrategy(pp.PorePyModel):
 
 class Geometry(pp.PorePyModel):
     def set_domain(self) -> None:
-        size = self.units.convert_units(1, "m")
-        self._domain = nd_cube_domain(2, size)
+        self._domain = pp.Domain(
+            {
+                "xmin": 0.0,
+                "xmax": self.units.convert_units(10.0, "m"),
+                "ymin": 0.0,
+                "ymax": self.units.convert_units(5.0, "m"),
+            }
+        )
 
     # def set_fractures(self) -> None:
     #     """Setting a diagonal fracture"""
     #     frac_1_points = self.solid.convert_units(
-    #         np.array([[0.2, 1.8], [0.2, 1.8]]), "m"
+    #         np.array([[1., 9.], [1., 4.]]), "m"
     #     )
     #     frac_1 = pp.LineFracture(frac_1_points)
     #     self._fractures = [frac_1]
-
-    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
-        return self.params.get("grid_type", "simplex")
-
-    def meshing_arguments(self) -> dict:
-        cell_size = self.units.convert_units(0.05, "m")
-        cell_size_fracture = self.units.convert_units(0.05, "m")
-        mesh_args: dict[str, float] = {
-            "cell_size": cell_size,
-            "cell_size_fracture": cell_size_fracture,
-        }
-        return mesh_args
 
 
 class InitialConditions(pp.PorePyModel):
@@ -376,7 +372,7 @@ class InitialConditions(pp.PorePyModel):
     _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
-        # f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
+        # f = lambda x: self._p_IN + x /10 * (self._p_OUT - self._p_IN)
         # vals = np.array(list(map(f, sd.cell_centers[0])))
         # return vals
         return np.ones(sd.num_cells) * self._p_INIT
@@ -407,8 +403,6 @@ class BoundaryConditions(pp.PorePyModel):
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-
     _p_INIT: float
     _T_INIT: float
     _z_INIT: dict[str, float]
@@ -421,8 +415,8 @@ class BoundaryConditions(pp.PorePyModel):
     _T_HEATED: float = InitialConditions._T_INIT
 
     _z_IN: dict[str, float] = {
-        "H2O": InitialConditions._z_INIT["H2O"] - 0.105,
-        "CO2": InitialConditions._z_INIT["CO2"] + 0.105,
+        "H2O": InitialConditions._z_INIT["H2O"] - 0.095,
+        "CO2": InitialConditions._z_INIT["CO2"] + 0.095,
     }
     _z_OUT: dict[str, float] = {
         "H2O": InitialConditions._z_INIT["H2O"],
@@ -435,8 +429,8 @@ class BoundaryConditions(pp.PorePyModel):
 
         inlet = np.zeros(sd.num_faces, dtype=bool)
         inlet[sides.west] = True
-        inlet &= sd.face_centers[1] > 0.2
-        inlet &= sd.face_centers[1] < 0.5
+        inlet &= sd.face_centers[1] > 1
+        inlet &= sd.face_centers[1] < 4
 
         return inlet
 
@@ -447,8 +441,8 @@ class BoundaryConditions(pp.PorePyModel):
 
         outlet = np.zeros(sd.num_faces, dtype=bool)
         outlet[sides.east] = True
-        outlet &= sd.face_centers[1] > 0.75
-        outlet &= sd.face_centers[1] < 0.99
+        outlet &= sd.face_centers[1] > 1
+        outlet &= sd.face_centers[1] < 4
 
         return outlet
 
@@ -458,8 +452,8 @@ class BoundaryConditions(pp.PorePyModel):
 
         heated = np.zeros(sd.num_faces, dtype=bool)
         heated[sides.south] = True
-        heated &= sd.face_centers[0] > 0.2
-        heated &= sd.face_centers[0] < 0.8
+        heated &= sd.face_centers[0] > 3.5
+        heated &= sd.face_centers[0] < 6.5
 
         return heated
 
@@ -483,6 +477,7 @@ class BoundaryConditions(pp.PorePyModel):
             return pp.BoundaryCondition(sd)
 
     def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        # return self.bc_type_darcy_flux(sd)
         if sd.dim == 2:
             return pp.BoundaryCondition(sd, self._inlet_faces(sd), "dir")
         else:
@@ -501,7 +496,6 @@ class BoundaryConditions(pp.PorePyModel):
             inlet = self._inlet_faces(sd)
             outlet = self._outlet_faces(sd)
 
-            # vals[sides.west] = 10e6
             vals[inlet] = self._p_IN
             vals[outlet] = self._p_OUT
 
@@ -582,13 +576,11 @@ else:
 
 
 # Model parametrization
-days = 365
-t_scale = 1e-5
-T_end = 40 * days * t_scale
-dt_init = 1 * days * t_scale
-max_iterations = 80
-newton_tol = 1e-6
-newton_tol_increment = newton_tol
+t_scale = 1e-2
+
+max_iterations = 25
+newton_tol = 1e-5
+newton_tol_increment = 1e-1
 
 
 equilibrium_type: str = "unified-p-h"
@@ -614,13 +606,13 @@ flash_params = {
 }
 
 time_manager = pp.TimeManager(
-    schedule=[0, T_end],
-    dt_init=dt_init,
-    dt_min_max=(0.1 * dt_init, 2 * dt_init),
+    schedule=[0, 1 * pp.DAY * t_scale],
+    dt_init=pp.HOUR * t_scale,
+    dt_min_max=(pp.MINUTE * t_scale, 3 * pp.HOUR),
     iter_max=max_iterations,
-    iter_optimal_range=(2, 10),
-    iter_relax_factors=(0.8, 1.1),
-    recomp_factor=0.1,
+    iter_optimal_range=(4, 7),
+    iter_relax_factors=(0.9, 1.3),
+    recomp_factor=0.5,
     recomp_max=5,
     print_info=True,
 )
@@ -644,12 +636,17 @@ params = {
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
-    "reduce_linear_system": True,
+    "reduce_linear_system": False,
     "flash_params": flash_params,
     "fractional_flow": fractional_flow,
     "rediscretize_fourier_flux": fractional_flow,
     "rediscretize_darcy_flux": fractional_flow,
     "material_constants": material_constants,
+    "grid_type": "simplex",
+    "meshing_arguments": {
+        "cell_size": 1.0,
+        "cell_size_fracture": 0.5,
+    },
     "time_manager": time_manager,
     "max_iterations": max_iterations,
     "nl_convergence_tol": newton_tol_increment,

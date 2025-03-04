@@ -372,7 +372,12 @@ class BoundaryConditionsCFFLE(
 
     # TODO this needs a better solution, depending on how relative_permeability is finally
     # implemented.
-    relative_permeability: Callable[..., np.ndarray]
+    def _bc_value_phase_mobility(
+        self, phase_index: int, fluid_properties: pp.compositional.FluidProperties
+    ) -> np.ndarray:
+        return (
+            fluid_properties.sat[phase_index] / fluid_properties.phases[phase_index].mu
+        )
 
     def _bc_value_component_mass_mobility(
         self, component: pp.FluidComponent, bg: pp.BoundaryGrid
@@ -398,12 +403,7 @@ class BoundaryConditionsCFFLE(
                 x_ij = cast(
                     np.ndarray, props.x_normalized[phase.components.index(component)]
                 )
-                vals += (
-                    x_ij
-                    * props.rho
-                    * self.relative_permeability(fluid_props.sat[j])
-                    / props.mu
-                )
+                vals += x_ij * props.rho * self._bc_value_phase_mobility(j, fluid_props)
 
         return vals
 
@@ -420,12 +420,9 @@ class BoundaryConditionsCFFLE(
         fluid_props = self.boundary_flash_results[bg]
         vals = np.zeros(bg.num_cells)
 
-        for j, phase_props in enumerate(fluid_props.phases):
-            vals += (
-                phase_props.rho
-                * self.relative_permeability(fluid_props.sat[j])
-                / phase_props.mu
-            )
+        for j, phase_props in enumerate(zip(self.fluid.phases, fluid_props.phases)):
+            phase, props = phase_props
+            vals += props.rho * self._bc_value_phase_mobility(j, fluid_props)
 
         return vals
 
@@ -442,13 +439,9 @@ class BoundaryConditionsCFFLE(
         fluid_props = self.boundary_flash_results[bg]
         vals = np.zeros(bg.num_cells)
 
-        for j, phase_props in enumerate(fluid_props.phases):
-            vals += (
-                phase_props.h
-                * phase_props.rho
-                * self.relative_permeability(fluid_props.sat[j])
-                / phase_props.mu
-            )
+        for j, phase_props in enumerate(zip(self.fluid.phases, fluid_props.phases)):
+            phase, props = phase_props
+            vals += props.h * props.rho * self._bc_value_phase_mobility(j, fluid_props)
 
         return vals
 
