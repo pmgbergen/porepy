@@ -386,18 +386,32 @@ class ArraySlicer:
             in range_indices is 4 (and it is 0-offset).
         3. Do the same operation as in 2., but leave out the mapping of element 1:
             >>> S = ArraySlicer(domain_indices=np.array([0, 2, 3]),
-                                 range_indices=np.array([0, 4, 1])
+                                range_indices=np.array([0, 4, 1])
                                 )
             >>> y_mapped = S @ y
         4. Set the size of the range space explicitly (it must be at least as large as
-            the size implied by range_indices): >>> S =
-            ArraySlicer(domain_indices=np.array([0, 2, 3]),
-                                 range_indices=np.array([0, 4, 1]), range_size=7
+            the size implied by range_indices):
+            >>> S = ArraySlicer(domain_indices=np.array([0, 2, 3]),
+                                range_indices=np.array([0, 4, 1]),
+                                range_size=7
                                 )
             >>> y_mapped = S @ y
             This is a mapping from R^4 to R^7.
             The range_size parameter can also be used in the case where only the domain
             indices are given.
+
+        The ArraySlicer can also be used to broadcast scalars to vectors. If y is a
+        float or int, the following operations are valid:
+
+        5. Broadcast a scalar to a vector:
+            >>> S = ArraySlicer(range_indices=np.array([0, 1, 3]))
+            >>> y_broadcasted = S @ y
+            y_broadcasted will be in R^4, with non-zero elements at indices 0, 1, and 3.
+        6. Broadcast a scalar to a vector with the size of the range space explicitly
+            set:
+            >>> S = ArraySlicer(range_indices=np.array([0, 1, 3]), range_size=7)
+            >>> y_broadcasted = S @ y
+            y_broadcasted will be in R^7, with non-zero elements at indices 0, 1, and 3.
 
     Warning:
         Since this class is not constructed to be used as an operand in general
