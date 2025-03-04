@@ -8,14 +8,14 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.md_grids.model_geometries import (
+    CubeDomainOrthogonalFractures,
+    SquareDomainOrthogonalFractures,
+)
 from porepy.applications.test_utils.models import (
     MomentumBalance,
     compare_scaled_model_quantities,
     compare_scaled_primary_variables,
-)
-from porepy.applications.md_grids.model_geometries import (
-    SquareDomainOrthogonalFractures,
-    CubeDomainOrthogonalFractures,
 )
 
 

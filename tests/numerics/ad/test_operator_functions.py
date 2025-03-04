@@ -6,9 +6,9 @@ Testing involves their creation, arithmetic overloads and parsing.
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
-import numpy as np
 import porepy as pp
 
 

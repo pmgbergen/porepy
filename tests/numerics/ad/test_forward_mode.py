@@ -8,9 +8,8 @@ add, sub, etc., which are also covered in other tests.
 
 from __future__ import annotations
 
-import pytest
-
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
 from porepy.numerics.ad import functions as af
