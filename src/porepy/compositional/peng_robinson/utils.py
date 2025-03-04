@@ -37,7 +37,7 @@ __all__ = [
 if not TYPE_CHECKING:
 
     class ArithmeticType:
-        """Preliminarty protocol for tpyes supporting all arithmetic operations in Python.
+        """Preliminary protocol for types supporting all arithmetic operations in Python.
 
         See Also:
             https://stackoverflow.com/questions/76821158/
