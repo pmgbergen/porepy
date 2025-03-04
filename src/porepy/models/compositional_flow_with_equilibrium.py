@@ -649,7 +649,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                     phase.specific_enthalpy.progress_values_in_time([grid], depth=nt)
 
 
-class SolutionStrategyFlash(cf.SolutionStrategyCFF):
+class SolutionStrategyFlash(pp.PorePyModel):
     """A solution strategy for compositional flow with local equilibrium conditions in
     the unified setting.
 
@@ -706,7 +706,12 @@ class SolutionStrategyFlash(cf.SolutionStrategyCFF):
         If ``params['compile']`` is True (default), both flash and EoS are compiled.
 
         """
-        super().set_materials()
+
+        assert isinstance(self, pp.SolutionStrategy), (
+            "This is a mixin. Require SolutionStrategy as base."
+        )
+        super().set_materials()  # type:ignore[safe-super]
+
         assert pp.compositional.get_equilibrium_type(self) is not None, (
             "Equilibrium type not defined in model parameters."
         )
@@ -719,7 +724,6 @@ class SolutionStrategyFlash(cf.SolutionStrategyCFF):
             assert isinstance(
                 self.fluid.reference_phase.eos, pp.compositional.EoSCompiler
             ), "EoS of phases must be instance of EoSCompiler."
-            self.fluid.reference_phase.eos.compile()
             self.flash.compile()
 
     def update_thermodynamic_properties_of_phases(self) -> None:
@@ -751,7 +755,7 @@ class SolutionStrategyFlash(cf.SolutionStrategyCFF):
             start = time.time()
             fluid = self.postprocess_flash(
                 sd,
-                *self.equilibriate_fluid([sd], None, self.get_fluid_state([sd], None)),
+                *self.equilibrate_fluid([sd], None, self.get_fluid_state([sd], None)),
             )
             logger.info(
                 f"Fluid equilibriated on grid {sd.id}"
@@ -837,7 +841,7 @@ class SolutionStrategyFlash(cf.SolutionStrategyCFF):
         self, subdomains: Sequence[pp.Grid], state: Optional[np.ndarray] = None
     ) -> pp.compositional.FluidProperties:
         """Method to assemble a fluid state in the iterative procedure, which
-        should be passed to :meth:`equilibriate_fluid`.
+        should be passed to :meth:`equilibrate_fluid`.
 
         This method provides room to pre-process data before the flash is called with
         the returned fluid state as the initial guess.
@@ -878,7 +882,7 @@ class SolutionStrategyFlash(cf.SolutionStrategyCFF):
 
         return fluid_state
 
-    def equilibriate_fluid(
+    def equilibrate_fluid(
         self,
         subdomains: Sequence[pp.Grid],
         state: Optional[np.ndarray] = None,
@@ -976,14 +980,14 @@ class SolutionStrategyFlash(cf.SolutionStrategyCFF):
         fluid_state: pp.compositional.FluidProperties,
         success: np.ndarray,
     ) -> pp.compositional.FluidProperties:
-        """A method called after :meth:`equilibriate_fluid` to post-process failures if
+        """A method called after :meth:`equilibrate_fluid` to post-process failures if
         any.
 
         The base method asserts that ``success`` is zero everywhere.
 
         Parameters:
             subdomain: A grid for which ``fluid_state`` contains the values.
-            fluid_state: Fluid state returned from :meth:`equilibriate_fluid`.
+            fluid_state: Fluid state returned from :meth:`equilibrate_fluid`.
             success: Success flags returned along the fluid state.
 
         Returns:
@@ -1080,13 +1084,28 @@ class SolutionStrategyFlash(cf.SolutionStrategyCFF):
         )
 
 
+class SolutionStrategyCFLE(
+    SolutionStrategyFlash,
+    cf.SolutionStrategyCF,
+):
+    """CFLE solution strategy which uses the flash to solve the local equilibrium to
+    update phase properties and secondary variables."""
+
+
+class SolutionStrategyCFFLE(
+    SolutionStrategyFlash,
+    cf.SolutionStrategyCFF,
+):
+    """Analogous to :class:`SolutionstrategyCFLE`, but for fractional flow formulations."""
+
+
 class EnthalpyBasedCFLETemplate(  # type: ignore[misc]
     EnthalpyBasedEquationsCFLE,
     cf.VariablesCF,
     cf.ConstitutiveLawsCF,
     InitialConditionsCFLE,
     BoundaryConditionsCFLE,
-    SolutionStrategyFlash,
+    SolutionStrategyCFLE,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
@@ -1100,7 +1119,7 @@ class EnthalpyBasedCFFLETemplate(  # type: ignore[misc]
     cf.ConstitutiveLawsCF,
     InitialConditionsCFLE,
     BoundaryConditionsCFFLE,
-    SolutionStrategyFlash,
+    SolutionStrategyCFFLE,
     pp.ModelGeometry,
     pp.DataSavingMixin,
 ):
