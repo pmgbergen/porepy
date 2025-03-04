@@ -349,7 +349,12 @@ def test_array_slicer(
         ),  # Broadcasting of the target float, followed by scaling.
     ],
 )
-def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
+def test_matrix_slicer_delayed_evaluation(
+    A: sps.spmatrix,
+    other_mode: Literal["dense", "sparse", "ad", "float"],
+    target_mode: Literal["dense", "sparse", "ad", "float"],
+    operator: Literal["*", "/", "@"],
+):
     """Test the delayed evaluation of the matrix slicer.
 
     When the matrix slicer is involved in a three-term operation on the form
@@ -365,10 +370,8 @@ def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
 
     Parameters:
         A: The matrix to be sliced.
-        other_mode: The mode of the other operand. Can be 'dense', 'sparse', 'ad' or
-            'float'.
-        target_mode: The mode of the target matrix. Can be 'dense', 'sparse', 'ad' or
-            'float'.
+        other_mode: The mode of the other operand.
+        target_mode: The mode of the target matrix.
         operator: The operator to be applied.
 
 
@@ -385,9 +388,9 @@ def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
         domain_indices = np.array([0, 1, 2, 3])
 
     if other_mode == "float":
-        other_operand_sliced = other_operand
+        other_operand_sliced = other_operand  # noqa:F841
     else:
-        # Silence ruff errors here, we will use the varibale in the below eval
+        # Silence ruff errors here, we will use the variable in the below eval
         # statement.
         other_operand_sliced = other_operand[other_indices]  # noqa:F841
 
