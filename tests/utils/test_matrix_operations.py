@@ -386,9 +386,11 @@ def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
     if other_mode == "float":
         other_operand_sliced = other_operand
     else:
-        other_operand_sliced = other_operand[other_indices]
+        # Silence ruff errors here, we will use the varibale in the below eval
+        # statement.
+        other_operand_sliced = other_operand[other_indices]  # noqa:F841
 
-    slicer = matrix_operations.ArraySlicer(domain_indices=domain_indices)
+    slicer = matrix_operations.ArraySlicer(domain_indices=domain_indices)  # noqa:F841
 
     temp_result = eval(f"other_operand_sliced {operator} slicer")
 
@@ -397,7 +399,7 @@ def test_matrix_slicer_delayed_evaluation(A, other_mode, target_mode, operator):
     if target_mode == "float":
         slicer_target = np.full(domain_indices.max() + 1, slicer_target)
 
-    sliced_target = slicer_target[domain_indices]
+    sliced_target = slicer_target[domain_indices]  # noqa:F841
 
     known_result = eval(f"other_operand_sliced {operator} sliced_target")
     if target_mode == "ad" or other_mode == "ad":

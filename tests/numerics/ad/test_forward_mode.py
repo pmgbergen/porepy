@@ -291,7 +291,6 @@ def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | Ad
     # Ignore ad not being accessed, it is used in the exec statement.
     ad = AdArray(val, jac)  # noqa: F841
 
-
     global result_numpy, result_ad
     result_numpy = np.empty(N)
     result_ad = np.empty(N)
