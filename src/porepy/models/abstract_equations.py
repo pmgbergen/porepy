@@ -443,43 +443,6 @@ class LocalElimination(EquationMixin):
 
             self.update_boundary_condition(eliminatedvar.name, bc_values_prim)
 
-    def initial_condition(self):
-        """Attaches to the initialization routine via super call and provides initial
-        values for the eliminated variable and the surrogate operators as local
-        representations, after all other initial values are set.
-
-        This functionality is here to help with IC values for eliminated variables, s.t.
-        they are consistent with the local elimination.
-
-        """
-
-        # Same remark as in override of update_all_boundary_conditions.
-        if isinstance(self, pp.InitialConditionMixin):
-            super().initial_condition()  # type:ignore[safe-super]
-        else:
-            raise TypeError(
-                f"Model class {type(self)} does not have a InitialConditionMixin included."
-            )
-
-        for elimination in self.__local_eliminations.values():
-            eliminatedvar, expr, func, domains, _ = elimination
-
-            for grid in domains:
-                X = [
-                    d(cast(list[pp.Grid] | list[pp.MortarGrid], [grid])).value(
-                        self.equation_system
-                    )
-                    for d in expr._dependencies
-                ]
-
-                vals, diffs = func(*X)
-
-                expr.set_values_on_grid(vals, grid)
-                expr.set_derivatives_on_grid(diffs, grid)
-
-                var = [v for v in eliminatedvar.sub_vars if v.domain == grid]
-                self.equation_system.set_variable_values(vals, var, iterate_index=0)
-
     def before_nonlinear_iteration(self) -> None:
         """Attaches to the non-linear iteration routines and performes an update of the
         surrogate operators before an iteration of the non-linear solver is performed.

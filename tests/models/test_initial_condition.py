@@ -22,8 +22,8 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils.models import _add_mixin
-from porepy.examples.mandel_biot import MandelSetup
-from porepy.examples.tracer_flow import TracerFlowSetup
+from porepy.examples.mandel_biot import MandelModel
+from porepy.examples.tracer_flow import TracerFlowModel
 from porepy.models.derived_models.biot import BiotPoromechanics
 
 
@@ -268,7 +268,7 @@ model_configurations: list[tuple[type[pp.PorePyModel], list[type[pp.PorePyModel]
         ],
     ),
     (
-        MandelSetup,
+        MandelModel,
         [
             ICSinglePhaseFlow,
             ICMomentumBalance,
@@ -276,7 +276,7 @@ model_configurations: list[tuple[type[pp.PorePyModel], list[type[pp.PorePyModel]
         ],
     ),
     (
-        TracerFlowSetup,
+        TracerFlowModel,
         [
             ICSinglePhaseFlow,
             ICTracerFlow,
