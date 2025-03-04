@@ -3,12 +3,13 @@ Tests for matrix operations for zeroing rows/columns, efficient slicing, stackin
 merging and construction from arrays.
 """
 
+from typing import Literal
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
-from typing import Literal
-import porepy as pp
 
+import porepy as pp
 from porepy import matrix_operations
 from porepy.applications.test_utils.arrays import compare_matrices
 
