@@ -605,8 +605,8 @@ class PengRobinsonSymbolic:
 
     def __init__(
         self,
-        components: list[FluidComponent],
-        ideal_enthalpies: list[thd_function_type],
+        components: Sequence[FluidComponent],
+        ideal_enthalpies: Sequence[thd_function_type],
         bip_matrix: np.ndarray,
     ) -> None:
         self.p_s: sp.Symbol = sp.Symbol(str(SYMBOLS["pressure"]))

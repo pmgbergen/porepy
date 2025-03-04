@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import numba
 import numpy as np
@@ -1198,8 +1198,8 @@ class PengRobinsonCompiler(EoSCompiler):
 
     def __init__(
         self,
-        components: list[FluidComponent],
-        ideal_enthalpies: list[thd_function_type],
+        components: Sequence[FluidComponent],
+        ideal_enthalpies: Sequence[thd_function_type],
         bip_matrix: np.ndarray,
     ) -> None:
         super().__init__(components)

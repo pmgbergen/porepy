@@ -120,8 +120,6 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
 
     flash: pp.compositional.flash.Flash
     """See :class:`SolutionStrategyFlash`."""
-    flash_params: dict
-    """See :class:`SolutionStrategyFlash`."""
 
     bc_values_pressure: Callable[[pp.BoundaryGrid], np.ndarray]
     """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`."""
@@ -213,10 +211,10 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
         # Performing flash, asserting everything is successful, and storing results.
         logger.debug(f"Computing equilibrium on boundary {bg.id}")
         boundary_state, success, _ = self.flash.flash(
-            z=[z for z in feed],
+            z=feed,
             p=p,
             T=T,
-            params=self.flash_params,
+            params=self.params.get("flash_params", None),
         )
 
         if not np.all(success == 0):
@@ -502,8 +500,6 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
 
     flash: pp.compositional.flash.Flash
     """See :class:`SolutionStrategyFlash`."""
-    flash_params: dict
-    """See :class:`SolutionStrategyFlash`."""
 
     # Provided by CompositionalVariablesMixin
     has_independent_saturation: Callable[[pp.Phase], bool]
@@ -549,7 +545,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
 
             # computing initial equilibrium
             state, success, _ = self.flash.flash(
-                feed, p=p, T=T, params=self.flash_params
+                feed, p=p, T=T, params=self.params.get("flash_params", None)
             )
 
             if not np.all(success == 0):
@@ -675,6 +671,8 @@ class SolutionStrategyFlash(pp.PorePyModel):
       equilibrium problem e.g., ``'p-T'``,``'p-h'``. The string can also contain other
       qualifiers providing information about the equilibrium model, for example
       ``'unified-p-h'``.
+    - ``'flash_params'``: Defaults to None. Parameter dictionary used for flash initialization
+      and calling the flash method.
 
     """
 
@@ -929,7 +927,7 @@ class SolutionStrategyFlash(pp.PorePyModel):
         flash_kwargs: dict[str, Any] = {
             "z": z,
             "initial_state": initial_fluid_state,
-            "parameters": self.params.get("flash_params", None),
+            "params": self.params.get("flash_params", None),
         }
 
         equilibrium_type = str(pp.compositional.get_equilibrium_type(self))
