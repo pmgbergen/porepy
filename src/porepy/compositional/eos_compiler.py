@@ -44,27 +44,27 @@ class PropertyFunctionDict(TypedDict):
     h: ScalarFunction
     """Provided by :meth:`EoSCompiler.get_enthalpy_function`."""
     d_h: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_dpTX_enthalpy_function`."""
+    """Provided by :meth:`EoSCompiler.get_enthalpy_derivative_function`."""
     rho: ScalarFunction
     """Provided by :meth:`EoSCompiler.get_density_function`."""
     d_rho: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_dpTX_density_function`."""
+    """Provided by :meth:`EoSCompiler.get_density_derivative_function`."""
     v: ScalarFunction
     """Provided by :meth:`EoSCompiler.get_volume_function`."""
     d_v: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_dpTX_volume_function`."""
+    """Provided by :meth:`EoSCompiler.get_volume_derivative_function`."""
     mu: ScalarFunction
     """Provided by :meth:`EoSCompiler.get_viscosity_function`."""
     d_mu: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_dpTX_viscosity_function`."""
+    """Provided by :meth:`EoSCompiler.get_viscosity_derivative_function`."""
     kappa: ScalarFunction
     """Provided by :meth:`EoSCompiler.get_conductivity_function`."""
     d_kappa: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_dpTX_conductivity_function`."""
+    """Provided by :meth:`EoSCompiler.get_conductivity_derivative_function`."""
     phi: VectorFunction
     """Provided by :meth:`EoSCompiler.get_fugacity_function`."""
     d_phi: VectorFunction
-    """Provided by :meth:`EoSCompiler.get_dpTX_fugacity_function`."""
+    """Provided by :meth:`EoSCompiler.get_fugacity_derivative_function`."""
 
 
 def _compile_vectorized_prearg(
@@ -98,7 +98,7 @@ def _compile_vectorized_phi(
 
     The resulting 2D array will contain row-wise the fugacity coefficients per
     component, analogous to the scalar case given by
-    :meth:`EoSCompiler.get_dpTX_fugacity_function`.
+    :meth:`EoSCompiler.get_fugacity_derivative_function`.
 
     The second dimension will reflect the vectorized input.
 
@@ -215,9 +215,9 @@ def _compile_vectorized_derivatives(
 
 
 class EoSCompiler(EquationOfState):
-    """Abstract base class for EoS specific compilation using numba.
+    """Abstract base class for EoS compilation using numba.
 
-    The :class:`EoSCompiler` needs functions computing
+    This class needs functions computing
 
     - fugacity coefficients
     - enthalpies
@@ -227,53 +227,35 @@ class EoSCompiler(EquationOfState):
     Respective functions must be assembled and compiled by a child class with a specific
     EoS.
 
-    Important:
-        This class fixes the thermodynamic input for computing phase properties to
-        pressure, temperature and partial fractions.
-
     The compiled functions are expected to have a specific signature (see below).
 
     1. One or two pre-arguments (vectors)
-    2. ``p``: The pressure value.
-    3. ``T``: The temperature value.
-    4. ``xn``: An array with ``shape=(num_comp,)`` containing the normalized fractions
-       per component of a phase.
+    2. An arbitrary number of scalar arguments (like pressure and temperature value)
+    3. A vector argument representing a family of fractions (like partial fractions in a phase)
 
     The purpose of the ``prearg`` is efficiency.
-    Many EoS have computions of some coterms or compressibility factors f.e.,
+    Many EoS have computions of some co-terms or compressibility factors f.e.,
     which must only be computed once for all remaining thermodynamic quantities.
 
     The function for the ``prearg`` computation must have the signature:
 
-    ``(phase_state: int, p: float, T: float, xn: np.ndarray)``
-
-    where ``xn`` contains normalized fractions,
+    1. an integer representing a phase :attr:`~porepy.compositional.base.Phase.state`
+    2. An arbitrary number of scalar arguments (like pressure and temperature value)
+    3. A vector argument representing a family of fractions (like partial fractions in a phase)
 
     There are two ``prearg`` computations: One for property values, one for the
     derivatives.
 
     The ``prearg`` for the derivatives will be fed to the functions representing
-    derivatives of thermodynamic quantities
-    (e.g. derivative fugacity coefficients w.r.t. p, T, X),
-    **additionally** to the ``prearg`` for residuals.
+    derivatives of thermodynamic quantities **additionally** to the ``prearg`` for residuals.
 
     I.e., the signature of functions representing derivatives is expected to be
 
-    ``(prearg_res: np.ndarray, prearg_jac: np.ndarray,
-    p: float, T: float, xn: np.ndarray)``,
+    ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, ..., x: np.ndarray)``,
 
     whereas the signature of functions representing values only is expected to be
 
-    ``(prearg: np.ndarray, p: float, T: float, xn: np.ndarray)``
-
-    Important:
-        Functions compiled in the abstract methods can be stored in :attr:`funcs`
-        to be re-used in the compilation of generalized ufuncs for fast evaluation of
-        properties. See :meth:`compile` and :attr:`gufuncs`.
-
-        If stored, the functions will be accessed to compile efficient, vectorized
-        computations of thermodynamic quantities, otherwise the respective
-        ``get_*``-method will be called again.
+    ``(prearg_val: np.ndarray, ..., x: np.ndarray)``
 
     Parameters:
         components: Sequence of components for which the EoS should be compiled.
@@ -317,26 +299,10 @@ class EoSCompiler(EquationOfState):
             ],
             VectorFunction,
         ] = {}
-        """Storage of generalized functions for computing thermodynamic properties.
+        """Storage of generalized and vectorized versions of the functions found in
+        :attr:`funcs`.
 
-        The functions are created when calling :meth:`compile`.
-
-        The purpose of these functions is a fast evaluation of properties which
-
-        1. are secondary in the flash (evaluated after convergence)
-        2. which need to be evaluated for multiple values states for example on a grid
-           in flow and transport.
-
-        Important:
-            Every generalized function has the following signature:
-
-            1. pre-argument for values
-            2. (for derivatives only) pre-argument for derivatives
-            3. 1D-array for pressure values
-            4. 1D-array for temperature values
-            5. 2D- array containing **row-wise** fractions per component
-
-            The number of rows in each argument must be the same.
+        To be used for efficient evaluation of properties after the flash converged.
 
         """
 
@@ -363,7 +329,7 @@ class EoSCompiler(EquationOfState):
 
         Returns:
             A NJIT-ed function with signature
-            ``(phasetype: int, p: float, T: float, xn: np.ndarray)``
+            ``(phasetype: int, *args: float, x: np.ndarray)``
             returning a 1D array.
 
         """
@@ -376,7 +342,7 @@ class EoSCompiler(EquationOfState):
 
         Returns:
             A NJIT-ed function with signature
-            ``(phasetype: int, p: float, T: float, xn: np.ndarray)``
+            ``(phasetype: int, *args: float, x: np.ndarray)``
             returning a 1D array.
 
         """
@@ -387,41 +353,29 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the fugacity coefficients.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components in a phase,
-
+            A NJIT-ed function with signature
+            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
             and returning an array of fugacity coefficients with ``shape=(num_comp,)``.
 
         """
         pass
 
     @abc.abstractmethod
-    def get_dpTX_fugacity_function(self) -> VectorFunction:
+    def get_fugacity_derivative_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of fugacity
         coefficients.
 
         The functions should return the derivative fugacities for each component
         row-wise in a matrix.
-        It must contain the derivatives w.r.t. pressure, temperature and each fraction
-        in a specified phase.
-        I.e. the return value must be an array with ``shape=(num_comp, 2 + num_comp)``.
+        It must contain the derivatives w.r.t. to the arguments and each fraction.
+        I.e. the return value must be an array with ``shape=(num_comp, m + num_comp)``.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pre-argument for derivatives (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed function with signature
+            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
             and returning an array of derivatives of fugacity coefficients with
-            ``shape=(num_comp, 2 + num_comp)``., where containing the derivatives w.r.t.
-            pressure, temperature and fractions (columns), for each component (row).
+            ``shape=(num_comp, 2 + num_comp)``., where containing the derivatives w.r.t. the
+            arguments and fractions.
 
         """
         pass
@@ -431,35 +385,24 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the specific molar enthalpy.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed function with signature
+            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
             and returning an enthalpy value.
 
         """
         pass
 
     @abc.abstractmethod
-    def get_dpTX_enthalpy_function(self) -> VectorFunction:
+    def get_enthalpy_derivative_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of the
         enthalpy function for a phase.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pre-argument for derivatives (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed function with signature
+            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
             and returning an array of derivatives of the enthalpy with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
-            pressure, temperature and fractions.
+            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
+            fractions.
 
         """
         pass
@@ -469,35 +412,24 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the density.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed function with signature
+            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
             and returning a density value.
 
         """
         pass
 
     @abc.abstractmethod
-    def get_dpTX_density_function(self) -> VectorFunction:
+    def get_density_derivative_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of the
         density function for a phase.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pre-argument for derivatives (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed function with signature
+            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
             and returning an array of derivatives of the density with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
-            pressure, temperature and fractions.
+            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
+            fractions.
 
         """
         pass
@@ -507,35 +439,24 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the dynamic molar viscosity.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed function with signature
+            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
             and returning a viscosity value.
 
         """
         pass
 
     @abc.abstractmethod
-    def get_dpTX_viscosity_function(self) -> VectorFunction:
+    def get_viscosity_derivative_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of the
         viscosity function for a phase.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pre-argument for derivatives (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed function with signature
+            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
             and returning an array of derivatives of the viscosity with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
-            pressure, temperature and fractions.
+            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
+            fractions.
 
         """
         pass
@@ -545,35 +466,24 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the thermal conductivity.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed with signature
+            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
             and returning a conductivity value.
 
         """
         pass
 
     @abc.abstractmethod
-    def get_dpTX_conductivity_function(self) -> VectorFunction:
+    def get_conductivity_derivative_function(self) -> VectorFunction:
         """Abstract assembler for compiled computations of the derivative of the
         conductivity function for a phase.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pre-argument for derivatives (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed function taking with signature
+            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
             and returning an array of derivatives of the conductivity with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
-            pressure, temperature and fractions.
+            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
+            fractions.
 
         """
         pass
@@ -589,13 +499,8 @@ class EoSCompiler(EquationOfState):
             compiled and stored in :attr:`funcs`.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed function with signature
+            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
             and returning a density value.
 
         """
@@ -615,30 +520,24 @@ class EoSCompiler(EquationOfState):
 
         return v_c
 
-    def get_dpTX_volume_function(self) -> VectorFunction:
+    def get_volume_derivative_function(self) -> VectorFunction:
         """Assembler for compiled computations of the derivative of the
         volume function for a phase.
 
         Volume is expressed as the reciprocal of density.
         Hence the computations utilize :meth:`get_density_function`,
-        :meth:`get_dpTX_density_function` and the chain-rule to compute the derivatives.
+        :meth:`get_density_derivative_function` and the chain-rule to compute the derivatives.
 
         Note:
             This function is compiled faster, if the density function and its
             deritvative have already been compiled and stored in :attr:`funcs`.
 
         Returns:
-            A NJIT-ed function taking
-
-            - pre-argument for values (1D-array),
-            - pre-argument for derivatives (1D-array),
-            - pressure value,
-            - temperature value,
-            - an 1D-array of normalized fractions of components of a phase,
-
+            A NJIT-ed function with signature
+            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
             and returning an array of derivatives of the volume with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t.
-            pressure, temperature and fractions.
+            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
+            fractions.
 
         """
         rho_c = self.funcs.get("rho", None)
@@ -647,7 +546,7 @@ class EoSCompiler(EquationOfState):
 
         drho_c = self.funcs.get("d_rho", None)
         if drho_c is None:
-            drho_c = self.get_dpTX_density_function()
+            drho_c = self.get_density_derivative_function()
 
         rho_c = cast(ScalarFunction, rho_c)
         drho_c = cast(VectorFunction, drho_c)
@@ -679,8 +578,8 @@ class EoSCompiler(EquationOfState):
         in :attr:`funcs`.
 
         Important:
-            This function takes long to complete. It compiles all scalar, and vectorized
-            computations of properties.
+            This function takes possibly long to complete. It compiles all scalar, and
+            vectorized computations of properties.
 
             Hence it checks whether it has already been run or not.
 
@@ -698,27 +597,27 @@ class EoSCompiler(EquationOfState):
         logger.debug("Compiling property functions 2/14")
         self.funcs["phi"] = self.get_fugacity_function()
         logger.debug("Compiling property functions 3/14")
-        self.funcs["d_phi"] = self.get_dpTX_fugacity_function()
+        self.funcs["d_phi"] = self.get_fugacity_derivative_function()
         logger.debug("Compiling property functions 4/14")
         self.funcs["h"] = self.get_enthalpy_function()
         logger.debug("Compiling property functions 5/14")
-        self.funcs["d_h"] = self.get_dpTX_enthalpy_function()
+        self.funcs["d_h"] = self.get_enthalpy_derivative_function()
         logger.debug("Compiling property functions 6/14")
         self.funcs["rho"] = self.get_density_function()
         logger.debug("Compiling property functions 7/14")
-        self.funcs["d_rho"] = self.get_dpTX_density_function()
+        self.funcs["d_rho"] = self.get_density_derivative_function()
         logger.debug("Compiling property functions 8/14")
         self.funcs["v"] = self.get_volume_function()
         logger.debug("Compiling property functions 9/14")
-        self.funcs["d_v"] = self.get_dpTX_volume_function()
+        self.funcs["d_v"] = self.get_volume_derivative_function()
         logger.debug("Compiling property functions 10/14")
         self.funcs["mu"] = self.get_viscosity_function()
         logger.debug("Compiling property functions 11/14")
-        self.funcs["d_mu"] = self.get_dpTX_viscosity_function()
+        self.funcs["d_mu"] = self.get_viscosity_derivative_function()
         logger.debug("Compiling property functions 12/14")
         self.funcs["kappa"] = self.get_conductivity_function()
         logger.debug("Compiling property functions 13/14")
-        self.funcs["d_kappa"] = self.get_dpTX_conductivity_function()
+        self.funcs["d_kappa"] = self.get_conductivity_derivative_function()
         logger.debug("Compiling property functions 14/14")
         # endregion
 
