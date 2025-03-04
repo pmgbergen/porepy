@@ -118,7 +118,7 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
 
     """
 
-    flash: pp.compositional.flash.Flash
+    flash: pp.compositional.Flash
     """See :class:`SolutionStrategyFlash`."""
 
     bc_values_pressure: Callable[[pp.BoundaryGrid], np.ndarray]
@@ -498,7 +498,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
 
     """
 
-    flash: pp.compositional.flash.Flash
+    flash: pp.compositional.Flash
     """See :class:`SolutionStrategyFlash`."""
 
     # Provided by CompositionalVariablesMixin
@@ -676,7 +676,7 @@ class SolutionStrategyFlash(pp.PorePyModel):
 
     """
 
-    flash: pp.compositional.flash.Flash
+    flash: pp.compositional.Flash
     """The flash class set by this solution strategy."""
 
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -714,7 +714,10 @@ class SolutionStrategyFlash(pp.PorePyModel):
             "Equilibrium type not defined in model parameters."
         )
 
-        self.flash = pp.compositional.flash.CompiledUnifiedFlash(
+        # Import here for runtime reasons of global import
+        from porepy.compositional.flash.uniflash import CompiledUnifiedFlash
+
+        self.flash = CompiledUnifiedFlash(
             self.fluid, self.params.get("flash_params", None)
         )
 

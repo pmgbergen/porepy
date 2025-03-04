@@ -705,7 +705,9 @@ class CompiledUnifiedFlash(Flash):
         nphase = self.params["num_phases"]
         ncomp = self.params["num_components"]
         npnc = (nphase, ncomp)
-        phasestates = np.array([state for state in self._phasestates], dtype=np.int32)
+        phasestates = np.array(
+            [state.value for state in self._phasestates], dtype=np.int32
+        )
 
         # NOTE the functions here still use a hard-coded gas phase index -1.
         # Consider changing to use the mixture's gas index property.
