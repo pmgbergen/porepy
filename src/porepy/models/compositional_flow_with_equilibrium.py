@@ -281,7 +281,7 @@ class BoundaryConditionsCFLE(
                         partial(self.bc_values_partial_fraction, component, phase),
                     )
                     self.update_boundary_condition(
-                        self._partial_fraction_variable(phase),
+                        self._partial_fraction_variable(component, phase),
                         bc_values_partial_fraction,
                     )
 
@@ -507,7 +507,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
     has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
     has_independent_extended_fraction: Callable[[pp.Component, pp.Phase], bool]
 
-    def set_intial_values_phase_properties(self) -> None:
+    def set_initial_values_phase_properties(self) -> None:
         """Instead of computing the initial values using the underlying EoS, it performs
         the initial flash.
 
@@ -535,6 +535,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
             feed = [
                 self.ic_values_overall_fraction(comp, grid)
                 for comp in self.fluid.components
+                if self.has_independent_fraction(comp)
             ]
             z_r = 1.0 - pp.compositional.safe_sum(feed)
             feed = (

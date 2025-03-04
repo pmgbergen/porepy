@@ -1894,8 +1894,13 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
         t_0 = time.time()
 
         if self.params.get("reduce_linear_system", False):
+            import scipy.sparse as sps
+            from pypardiso import spsolve
+
             self.linear_system = self.equation_system.assemble_schur_complement_system(
-                self.primary_equations, self.primary_variables
+                self.primary_equations,
+                self.primary_variables,
+                inverter=lambda x: sps.csr_matrix(spsolve(x, np.eye(x.shape[0]))),
             )
         else:
             self.linear_system = self.equation_system.assemble()

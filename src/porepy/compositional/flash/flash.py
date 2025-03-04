@@ -113,7 +113,7 @@ class Flash(abc.ABC):
         assert len(z) == ncomp, f"Expecting {ncomp} feed fractions, {len(z)} provided."
 
         for i, z_ in enumerate(z):
-            if np.any(z_ <= 0) or np.any(z_ >= 1):
+            if np.any(z_ < 0) or np.any(z_ > 1):
                 raise ValueError(
                     f"Violation of bound [0, 1] for feed fraction {i + 1}."
                 )

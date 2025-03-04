@@ -74,7 +74,7 @@ class SoereideMixture:
         self, phase: pp.Phase
     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         return [self.pressure, self.temperature] + [  # type:ignore[return-value]
-            phase.partial_fraction_of[comp] for comp in phase
+            phase.extended_fraction_of[comp] for comp in phase
         ]
 
 
@@ -375,16 +375,16 @@ class InitialConditions(pp.PorePyModel):
     _T_INIT: float = 540.0
     _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
-    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         # f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
         # vals = np.array(list(map(f, sd.cell_centers[0])))
         # return vals
         return np.ones(sd.num_cells) * self._p_INIT
 
-    def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
         return np.ones(sd.num_cells) * self._T_INIT
 
-    def initial_overall_fraction(
+    def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         return np.ones(sd.num_cells) * self._z_INIT[component.name]
@@ -644,7 +644,7 @@ params = {
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
-    "reduce_linear_system_q": False,
+    "reduce_linear_system": True,
     "flash_params": flash_params,
     "fractional_flow": fractional_flow,
     "rediscretize_fourier_flux": fractional_flow,
@@ -663,6 +663,8 @@ t_0 = time.time()
 model.prepare_simulation()
 prep_sim_time = time.time() - t_0
 compile_time += prep_sim_time
+model.primary_equations = model.get_primary_equations_cf()
+model.primary_variables = model.get_primary_variables_cf()
 t_0 = time.time()
 pp.run_time_dependent_model(model, params)
 sim_time = time.time() - t_0
