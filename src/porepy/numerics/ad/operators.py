@@ -2168,7 +2168,7 @@ def sum_operator_list(
 def sum_projection_list(
     # Implementation note: This cannot be list[Projection], since list items can be
     # multiplications.
-    operators: list[Operator],
+    operators: Sequence[Operator],
     name: Optional[str] = None,
 ) -> Operator:
     """Sum a list of projection operators.
