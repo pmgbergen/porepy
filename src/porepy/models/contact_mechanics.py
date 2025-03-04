@@ -210,15 +210,13 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         # Arrays need right multiplication as well.
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
 
-        # The numerical parameter is a cell-wise scalar which must be extended to a
-        # vector quantity to be used in the equation (multiplied from the right).
-        # Spelled out, from the right: Restrict the vector quantity to one dimension in
-        # the tangential plane (e_i.T), multiply with the numerical parameter, prolong
-        # to the full vector quantity (e_i), and sum over all directions in the
-        # tangential plane.
+        # The numerical parameter is a cell-wise scalar, or a single scalar common for
+        # all cells. In both cases, it must be extended to a vector quantity to be used
+        # in the equation (multiplied from the right). Do this by multiplying with the
+        # sum of the tangential basis vectors. Then take a Hadamard product with the
+        # tangential displacement jump and add to the tangential component of the
+        # contact traction to arrive at the expression that enters the equation.
         basis_sum = pp.ad.sum_projection_list(tangential_basis)
-
-        # Combine the above into expressions that enter the equation.
         tangential_sum = t_t + (basis_sum @ c_num_as_scalar) * u_t_increment
 
         norm_tangential_sum = f_norm(tangential_sum)
