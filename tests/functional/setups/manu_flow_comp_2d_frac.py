@@ -567,9 +567,7 @@ class ManuCompExactSolution2d:
 
         return lmbda_cc
 
-    def matrix_boundary_pressure(
-        self, bg: pp.BoundaryGrid, time: number
-    ) -> np.ndarray:
+    def matrix_boundary_pressure(self, bg: pp.BoundaryGrid, time: number) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
