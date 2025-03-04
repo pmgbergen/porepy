@@ -36,8 +36,8 @@ from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
 from porepy.applications.test_utils import models, well_models
-from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
+from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
 @pytest.fixture(scope="function")
