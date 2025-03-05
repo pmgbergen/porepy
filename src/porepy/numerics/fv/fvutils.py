@@ -76,7 +76,7 @@ class SubcellTopology:
             (np.ones(face_ind.size), (face_ind, np.arange(face_ind.size))),
             shape=(face_ind.max() + 1, face_ind.size),
         )
-        nodes_duplicated = sd.face_nodes * M
+        nodes_duplicated = sd.face_nodes @ M
         nodes_duplicated = nodes_duplicated.indices
 
         face_nodes_indptr = sd.face_nodes.indptr
@@ -85,7 +85,7 @@ class SubcellTopology:
         sub_face_mat = sps.csc_matrix(
             (face_nodes_data, face_nodes_indices, face_nodes_indptr)
         )
-        sub_faces = sub_face_mat * M
+        sub_faces = sub_face_mat @ M
         sub_faces = (sub_faces.data - 1).astype(int)
 
         # If the grid has periodic faces the topology of the subcells are changed.
@@ -197,9 +197,9 @@ class SubcellTopology:
             sps.matrix, size (self.subfno_unique.size x something)
         """
 
-        sgn = self.sd.cell_faces[self.fno, self.cno].A
-        pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
-        return pair_over_subfaces * other
+        sgn = np.asarray(self.sd.cell_faces[self.fno, self.cno]).ravel()
+        pair_over_subfaces = sps.coo_matrix((sgn, (self.subfno, self.subhfno)))
+        return pair_over_subfaces @ other
 
     def pair_over_subfaces_nd(self, other):
         """nd-version of pair_over_subfaces, see above."""

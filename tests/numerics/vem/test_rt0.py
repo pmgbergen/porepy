@@ -1,6 +1,6 @@
-""" Module contains two sets of unit tests for lowest-order Raviart-Thomas (RT0).
-    - The first is dedicated for discrete operators;
-    - The second is dedicated for the right-hand side (Gravitational forces).
+"""Module contains two sets of unit tests for lowest-order Raviart-Thomas (RT0).
+- The first is dedicated for discrete operators;
+- The second is dedicated for the right-hand side (Gravitational forces).
 """
 
 import numpy as np

@@ -523,7 +523,7 @@ def _extract_submatrix(
             Mapping from global to local row number.
 
     """
-    if mat.getformat() != "csc":
+    if mat.format != "csc":
         raise ValueError("To extract columns from a matrix, it must be csc")
     sub_mat = pp.matrix_operations.slice_mat(mat, ind)
     cols = sub_mat.indptr

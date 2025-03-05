@@ -5,11 +5,11 @@ multiple dependent variables) and the arithmetic operations implemented in AdArr
 add, sub, etc., which are also covered in other tests.
 
 """
+
 from __future__ import annotations
 
-import pytest
-
 import numpy as np
+import pytest
 import scipy.sparse as sps
 
 from porepy.numerics.ad import functions as af
@@ -198,16 +198,19 @@ def test_exp_scalar_times_ad_var():
     zero = sps.csc_matrix((3, 3))
     jac = sps.hstack([c * sps.diags(np.exp(c * val)) * J, zero, zero])
     jac_a = sps.hstack([J, zero, zero])
-    assert np.allclose(b.val, np.exp(c * val)) and np.allclose(b.jac.toarray(), jac.toarray())
+    assert np.allclose(b.val, np.exp(c * val)) and np.allclose(
+        b.jac.toarray(), jac.toarray()
+    )
     assert np.all(a.val == [1, 2, 3]) and np.all(a.jac.toarray() == jac_a.toarray())
 
 
 @pytest.mark.parametrize(
-    'index,index_c', [  # indices and their complement for tested array
+    "index,index_c",
+    [  # indices and their complement for tested array
         (1, [0, 2, 3, 4, 5, 6, 7, 8, 9]),
         (slice(0, 10, 2), slice(1, 10, 2)),
         (np.array([0, 2, 4, 6, 8], dtype=int), np.array([1, 3, 5, 7, 9], dtype=int)),
-    ]
+    ],
 )
 def test_get_set_slice_ad_var(index, index_c):
     a = initAdArrays([np.arange(10)])[0]
@@ -234,9 +237,9 @@ def test_get_set_slice_ad_var(index, index_c):
 
     # testing setting values with slicing
 
-    b = a[index] * 10.
-    assert np.all(b.val == val[index] * 10.)
-    assert np.all(b.jac.toarray() == jac[index] * 10.)
+    b = a[index] * 10.0
+    assert np.all(b.val == val[index] * 10.0)
+    assert np.all(b.jac.toarray() == jac[index] * 10.0)
 
     # setting an AD array should set val and jacobian row-wise
     a_copy = a.copy()
@@ -248,7 +251,7 @@ def test_get_set_slice_ad_var(index, index_c):
     assert np.all(a[index_c].jac.toarray() == a_copy[index_c].jac.toarray())
 
     # setting a numpy array should only modify the values of the ad array
-    b = target_val * 10.
+    b = target_val * 10.0
     a = a_copy.copy()
     a[index] = b
     assert np.all(a[index].val == b)
@@ -256,14 +259,11 @@ def test_get_set_slice_ad_var(index, index_c):
     assert np.all(a.jac.toarray() == a_copy.jac.toarray())
 
 
+@pytest.mark.parametrize("N", [1, 3])
+@pytest.mark.parametrize("logical_op", [">", ">=", "<", "<=", "==", "!="])
 @pytest.mark.parametrize(
-    'N', [1, 3]
-)
-@pytest.mark.parametrize(
-    'logical_op', ['>', '>=', '<', '<=', '==', '!=']
-)
-@pytest.mark.parametrize(
-    'other', [
+    "other",
+    [
         1,
         np.ones(1),
         np.ones(2),
@@ -272,7 +272,7 @@ def test_get_set_slice_ad_var(index, index_c):
         AdArray(np.ones(1), sps.csr_matrix(np.eye(1))),
         AdArray(np.ones(2), sps.csr_matrix(np.eye(2))),
         AdArray(np.ones(3), sps.csr_matrix(np.eye(3))),
-    ]
+    ],
 )
 def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | AdArray):
     """Logical operations on Ad arrays are implemented such that they operate only on
@@ -287,7 +287,8 @@ def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | Ad
 
     val = np.arange(N)
     jac = sps.csr_matrix(np.eye(N))
-    ad = AdArray(val, jac)
+    # Ignore ad not being accessed, it is used in the exec statement.
+    ad = AdArray(val, jac)  # noqa: F841
 
     global result_numpy, result_ad
     result_numpy = np.empty(N)
@@ -308,7 +309,7 @@ def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | Ad
             exec(f"result_ad = ad {logical_op} other")
 
         # Comparison of exceptions by type and message content
-        assert ad_error.type == type(numpy_err)
+        assert ad_error.type is type(numpy_err)
         assert str(ad_error.value) == str(numpy_err)
     # If numpy does not fail, the logical operation on AD should have same result,
     # dtype and shape
