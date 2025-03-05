@@ -679,12 +679,56 @@ class ArraySlicer:
         slicer._pending_operation = "/"
         return slicer
 
-    def __mul__(self, other):
-        """There are of course other operations that also are not supported, but we
-        explicitly raise a ValueError for this case, since the user is likely to try
-        slicing by multiplication.
+    def __rpow__(self, other):
+        """Handle the right exponentiation of the ArraySlicer by another operand.
+
+        See class documentation for details.
         """
+        slicer = self.copy()
+        slicer._pending_operand = other
+        slicer._pending_operation = "**"
+        return slicer
+
+    def __radd__(self, other):
+        """Handle the right addition of the ArraySlicer by another operand.
+
+        See class documentation for details.
+        """
+        slicer = self.copy()
+        slicer._pending_operand = other
+        slicer._pending_operation = "+"
+        return slicer
+
+    def __rsub__(self, other):
+        """Handle the right subtraction of the ArraySlicer by another operand.
+
+        See class documentation for details.
+        """
+        slicer = self.copy()
+        slicer._pending_operand = other
+        slicer._pending_operation = "-"
+        return slicer
+
+    # The remaining methods are not supported. Raise an error if called.
+    def __mul__(self, other):
         raise ValueError("ArraySlicer does not support multiplication. Use @ instead.")
+
+    def __truediv__(self, other):
+        raise ValueError("ArraySlicer does not support division.")
+
+    def __add__(self, other):
+        raise ValueError("ArraySlicer does not support addition.")
+
+    def __sub__(self, other):
+        raise ValueError("ArraySlicer does not support subtraction.")
+
+    def __pow__(self, other):
+        raise ValueError("ArraySlicer does not support exponentiation.")
+
+    def __neg__(self):
+        raise ValueError("ArraySlicer does not support negation.")
+
+    # --- Implementation of the slicing operations ---
 
     def _slice_vector(self, x: np.ndarray) -> np.ndarray:
         """Slice a vector.
