@@ -225,13 +225,8 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
         b_p.set_name("bp")
 
-        # Remove parentheses to make the equation more readable if possible. The product
-        # between (the SparseArray) scalar_to_tangential and b_p is of matrix-vector
-        # type (thus @), and the result is then multiplied elementwise with
-        # tangential_sum.
         bp_tang = (scalar_to_tangential @ b_p) * tangential_sum
 
-        # For the use of @, see previous comment.
         maxbp_abs = scalar_to_tangential @ f_max(b_p, norm_tangential_sum)
 
         # The characteristic function below reads "1 if (abs(b_p) < tol) else 0".
