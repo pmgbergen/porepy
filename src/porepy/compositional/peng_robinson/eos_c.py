@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Optional, Sequence
 
 import numba
 import numpy as np
@@ -88,7 +88,7 @@ _STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
 _import_msg: str = "(import peng_robinson/eos_c.py)"
 _import_start = time.time()
 
-logger.warning(f"{_import_msg} Compiling Peng-Robinson EoS from symbolic source ..")
+logger.info(f"{_import_msg} Compiling Peng-Robinson EoS from symbolic source ..")
 
 
 # region Functions related to the characteristic polynomial and its roots
@@ -1201,15 +1201,41 @@ class PengRobinsonCompiler(EoSCompiler):
         components: Sequence[FluidComponent],
         ideal_enthalpies: Sequence[thd_function_type],
         bip_matrix: np.ndarray,
+        params: Optional[dict[str, float]] = None,
     ) -> None:
         super().__init__(components)
 
         self._cfuncs: dict[str, Callable] = dict()
         """A collection of internally required, compiled callables"""
 
+        default_params: dict[str, float] = {
+            "smoothing_multiphase": 1e-4,
+            "smoothing_extension": 1e-2,
+            "eps": 1e-14,
+        }
+        if params is None:
+            params = {}
+        default_params.update(params)
+
+        self.params: dict[str, float] = default_params
+        """Parameters for the equation of state.
+
+        Once set, the parameters are not changable after compilation.
+
+        List of parameters:
+
+        - ``'eps'``: Numerical tolerance for zero. Applied in search for roots of the
+          cubic polynomial.
+        - ``'smoothing_factor'``: smoothing factor for compressibility factors when
+          approaching phase transition. If zero, no smoothing is performed.
+
+        """
+
         self.symbolic: PengRobinsonSymbolic = PengRobinsonSymbolic(
             components, ideal_enthalpies, bip_matrix
         )
+        """Symbolic representation of the EoS, providing expressions and derivatives
+        for properties, which are turned into functions and compiled."""
 
     def compile(self) -> None:
         """Child method compiles essential functions from symbolic part before calling
@@ -1289,6 +1315,10 @@ class PengRobinsonCompiler(EoSCompiler):
         A_c = self._cfuncs["A"]
         B_c = self._cfuncs["B"]
 
+        eps = self.params["eps"]
+        s_m = self.params["smoothing_multiphase"]
+        s_e = self.params["smoothing_extension"]
+
         @numba.njit("float64[:](int32, float64, float64, float64[:])")
         def prearg_val_c(
             phasetype: int, p: float, T: float, xn: np.ndarray
@@ -1299,7 +1329,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
             prearg[0] = A_c(p, T, xn)
             prearg[1] = B_c(p, T, xn)
-            prearg[2] = _Z_generic(A, B, phasetype, 1e-14, 0.0, 0.0)
+            prearg[2] = _Z_generic(A, B, phasetype, eps, s_e, s_m)
 
             return prearg
 
@@ -1312,6 +1342,10 @@ class PengRobinsonCompiler(EoSCompiler):
         dB_c = self._cfuncs["d_B"]
         # number of derivatives for A, B, Z (p, T, and per component fraction)
         d = 2 + self._nc
+
+        eps = self.params["eps"]
+        s_m = self.params["smoothing_multiphase"]
+        s_e = self.params["smoothing_extension"]
 
         @numba.njit("float64[:](int32, float64, float64, float64[:])")
         def prearg_jac_c(
@@ -1326,7 +1360,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
             dA = dA_c(p, T, xn)
             dB = dB_c(p, T, xn)
-            dZ_ = _d_Z_generic(A, B, phasetype, 1e-14, 0.0, 0.0)
+            dZ_ = _d_Z_generic(A, B, phasetype, eps, s_e, s_m)
             dZ = dZ_[0] * dA + dZ_[1] * dB
 
             prearg[0:d] = dA
