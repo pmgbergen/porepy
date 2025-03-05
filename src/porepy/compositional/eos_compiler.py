@@ -13,6 +13,7 @@ import numpy as np
 from ._core import NUMBA_PARALLEL, PhysicalState
 from .base import Component, EquationOfState
 from .states import PhaseProperties
+from .utils import normalize_rows
 
 __all__ = [
     "EoSCompiler",
@@ -672,6 +673,11 @@ class EoSCompiler(EquationOfState):
             The returned derivatives include derivatives w.r.t. (physical) partial
             fractions, not extended fractions.
 
+        Important:
+            The last element of ``thermodynamic_input`` is expected to be a family of
+            (extended) partial fractions belonging to a phase, i.e. a 2D array.
+            They will be normalized before calling the compiled property functions
+
         Parameters:
             phasetype: Type of phase (passed to pre-arg computation).
             p: ``shape=(N,)``
@@ -697,15 +703,17 @@ class EoSCompiler(EquationOfState):
         prearg_val = self.gufuncs["prearg_val"](phase_state.value, *thermodynamic_input)
         prearg_jac = self.gufuncs["prearg_jac"](phase_state.value, *thermodynamic_input)
 
-        # TODO this is super-vague. Find better solution to typing input args.
-        x = [v for v in thermodynamic_input if v.ndim == 2]
-        assert len(x) == 1, (
-            "Multiple families of fraction values found in thermodynamic input. Must be 1."
+        x = thermodynamic_input[-1]
+        assert x.ndim == 2, (
+            "Last thermodynamic input expected to be a 2D array (fractions)"
         )
+        x_norm = normalize_rows(x.T).T
+
+        thermodynamic_input = tuple([_ for _ in thermodynamic_input[:-1]] + [x_norm])
 
         state = PhaseProperties(
             state=phase_state,
-            x=x[0],
+            x=x,
             h=self.gufuncs["h"](prearg_val, *thermodynamic_input),
             rho=self.gufuncs["rho"](prearg_val, *thermodynamic_input),
             # shape = (num_comp, num_vals), sequence per component

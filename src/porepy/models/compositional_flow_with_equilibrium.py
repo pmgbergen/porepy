@@ -496,7 +496,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
 
     # Provided by CompositionalVariablesMixin
     has_independent_saturation: Callable[[pp.Phase], bool]
-    has_independent_fraction: Callable[[pp.Phase], bool]
+    has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
     has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
     has_independent_extended_fraction: Callable[[pp.Component, pp.Phase], bool]
 
