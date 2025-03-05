@@ -69,7 +69,7 @@ class FractureDamageContactMechanics(  # type: ignore[misc]
 
     """
 
-    def variables_stored_all_time_steps(self) -> list[str]:
+    def variables_stored_all_time_steps(self) -> list[pp.ad.Variable]:
         """Return the variables stored at all time steps.
 
         Override default implementation, since the interface displacement is not
@@ -276,7 +276,7 @@ class ExactSolutionAnisotropic(ExactSolution):
         return var
 
 
-class DamageDataSaving:
+class DamageDataSaving(pp.PorePyModel):
     """Model mixin responsible for saving data for verification purposes."""
 
     damage_history: Callable[[list[pp.Grid]], pp.ad.Variable]
@@ -293,7 +293,7 @@ class DamageDataSaving:
         Add exact solution object to the simulation model after materials have been set.
 
         """
-        super().initialize_data_saving()
+        super().initialize_data_saving()  # type: ignore[safe-super]
         self.exact_sol: ExactSolution = self.params["exact_solution"](self)
 
     def collect_data(self) -> DamageSaveData:

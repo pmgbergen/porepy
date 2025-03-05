@@ -37,7 +37,7 @@ class DamageHistoryVariable(pp.PorePyModel):
 
     def create_variables(self) -> None:
         """Create variables for the model."""
-        super().create_variables()
+        super().create_variables()  # type: ignore[safe-super]
         self.equation_system.create_variables(
             dof_info={"cells": 1},
             name=self.damage_history_variable,
@@ -96,7 +96,7 @@ class DamageHistoryVariable(pp.PorePyModel):
             values=solution, time_step_index=0, additive=False
         )
 
-    def variables_stored_all_time_steps(self) -> list[str]:
+    def variables_stored_all_time_steps(self) -> list[pp.ad.Variable]:
         """Return the variables stored at all time steps.
 
         This method defines which variables to store at all time steps for computation
