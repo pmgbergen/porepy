@@ -316,6 +316,10 @@ class InterfaceDisplacementArray(pp.PorePyModel):
     def update_time_dependent_ad_arrays(self) -> None:
         """Update values of external sources and boundary conditions."""
         super().update_time_dependent_ad_arrays()  # type: ignore[misc]
+        self.update_time_dependent_interface_displacement()
+
+    def update_time_dependent_interface_displacement(self) -> None:
+        """Update the interface displacement parameter."""
 
         name = self.interface_displacement_parameter_key
         for intf, data in self.mdg.interfaces(return_data=True):
