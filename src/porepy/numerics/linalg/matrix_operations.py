@@ -328,7 +328,7 @@ def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
             If A is a csr_matrix A_sliced = A[ind, :]
 
     """
-    if A.getformat() != "csc" and A.getformat() != "csr":
+    if A.format != "csc" and A.format != "csr":
         raise ValueError("Need a csc or csr matrix")
 
     # The slicing will be done based on a numpy array of indices (row and column for csr
@@ -353,9 +353,9 @@ def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
     # Data can be extracted directly from the data array of A.
     data = A.data[ind_slice]
 
-    if A.getformat() == "csc":
+    if A.format == "csc":
         return sps.csc_matrix((data, indices, indptr), shape=(A.shape[0], N))
-    elif A.getformat() == "csr":
+    elif A.format == "csr":
         return sps.csr_matrix((data, indices, indptr), shape=(N, A.shape[1]))
 
 
