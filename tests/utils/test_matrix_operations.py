@@ -309,71 +309,71 @@ def test_array_slicer(
 @pytest.mark.parametrize(
     "other_mode, target_mode, operator",
     [
-        # The following tuples are in the form (A, B, operator), where A and B are the
-        # types of the operands and operator is the operator to be applied. The cases
-        # considered span all permissible combinations of operands and operators. Note
-        # that the 'other' operator never is dense (numpy array), since delayed
-        # evaluation is not supported in this case.
-        ("sparse", "dense", "@"),  # Matrix-vector product
-        (
-            "ad",
-            "dense",
-            "*",
-        ),  # Hadamar product between numpy array and AdArray, with Ad array as the left operand.
-        ("sparse", "sparse", "@"),  # Matrix multiplication between sparse matrices.
-        ("sparse", "ad", "@"),  # Matrix-AdArray product.
-        (
-            "sparse",
-            "float",
-            "@",
-        ),  # Broadcasting of a float, followed by matrix-vector product.
-        ("ad", "ad", "*"),  # Hadamar product between AdArrays.
-        ("ad", "ad", "/"),  # Division between AdArrays.
-        ("ad", "dense", "*"),  # Product between AdArray and numpy array.
-        ("ad", "dense", "/"),  # Division between AdArray and numpy array.
-        ("ad", "float", "*"),  # Broadcasting of a float, followed by Hadamar product.
-        ("ad", "float", "/"),  # Broadcasting of a float, followed by division.
-        ("float", "ad", "/"),  # Division between float and AdArray.
-        ("float", "ad", "*"),  # Product between float and AdArray.
-        ("float", "dense", "/"),  # Division between float and numpy array.
-        ("float", "dense", "*"),  # Product between float and numpy array.
-        (
-            "float",
-            "float",
-            "*",
-        ),  # Broadcasting of the target float, followed by scaling.
-        (
-            "float",
-            "float",
-            "/",
-        ),  # Broadcasting of the target float, followed by scaling.
+        ("sparse", "dense", "@"),
+        ("sparse", "sparse", "@"),
+        ("sparse", "ad", "@"),
+        ("sparse", "float", "@"),
     ],
 )
-def test_matrix_slicer_delayed_evaluation(
+def test_matrix_slicer_delayed_evaluation_sparse(
+    A: sps.spmatrix,
+    other_mode: Literal["sparse"],
+    target_mode: Literal["dense", "sparse", "ad", "float"],
+    operator: Literal["@"],
+):
+    """Test the application of the ArraySlicer to a sparse matrix, with delayed
+    evaluation. This test is split from the other data types (see just below), since the
+    sparse matrix can only be combined with the '@' operator (and the others should
+    not), hence the parametrization is different.
+    """
+    # The actual test is left to a backend function, to avoid code duplication.
+    _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)
+
+
+@pytest.mark.parametrize("other_mode", ["ad", "float"])
+@pytest.mark.parametrize("target_mode", ["ad", "dense", "float"])
+@pytest.mark.parametrize("operator", ["*", "/", "+", "-", "**"])
+def test_matrix_slicer_delayed_evaluation_ad_dense_float(
+    A: sps.spmatrix,
+    other_mode: Literal["ad", "float"],
+    target_mode: Literal["ad", "dense", "float"],
+    operator: Literal["*", "/", "+", "-", "**"],
+):
+    """Test the application of the ArraySlicer to numpy and AdArrays, as well as scalars
+    (floats), with delayed evaluation.
+
+    Note that the parametrization of 'other_mode' does not include 'dense' (i.e. a numpy
+    array), since this does not make sense in the context of the ArraySlicer. See the
+    docstring of that class for more information.
+    """
+    # The actual test is left to a backend function, to avoid code duplication.
+    _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)
+
+
+def _matrix_slicer_delayed_evaluation_backend(
     A: sps.spmatrix,
     other_mode: Literal["dense", "sparse", "ad", "float"],
     target_mode: Literal["dense", "sparse", "ad", "float"],
-    operator: Literal["*", "/", "@"],
+    operator: Literal["*", "/", "@", "+", "-", "**"],
 ):
     """Test the delayed evaluation of the matrix slicer.
 
     When the matrix slicer is involved in a three-term operation on the form
 
-        other_operand operator matrix_slicer @ target
+        (1) other_operand operator matrix_slicer @ target
 
-    the matrix slicer will in some cases delay the evaluation of the operation, so that
-    the expression is evaluated as
+    the matrix slicer delay the evaluation of the operation, so that the expression is
+    evaluated as
 
-        other_operand operator (matrix_slicer @ target)
+        (2) other_operand operator (matrix_slicer @ target)
 
-    This test checks that the delayed evaluation works as expected.
+    This test checks that the delayed evaluation works as expected, that is, that the
+    result of (1) is the same as the form (2), with explicitly enforced paratheses.
 
     Parameters:
-        A: The matrix to be sliced.
-        other_mode: The mode of the other operand.
-        target_mode: The mode of the target matrix.
-        operator: The operator to be applied.
-
+        A: The matrix to be sliced. other_mode: The mode of the other operand.
+        target_mode: The mode of the target matrix. operator: The operator to be
+        applied.
 
     """
     other_operand = _get_arrayslicer_target(A, other_mode)
@@ -387,25 +387,54 @@ def test_matrix_slicer_delayed_evaluation(
     else:
         domain_indices = np.array([0, 1, 2, 3])
 
+    # The ArraySlicer will leave a target with a reduced size, as specified by the
+    # domain indices. To avoid a size mismatch in the evaluation of the delayed
+    # expression, we need to slice the other operand to the same size as the domain
+    # indices. The exception is if the other operand is a float, which cannot be sliced.
     if other_mode == "float":
-        other_operand_sliced = other_operand  # noqa:F841
-    else:
         # Silence ruff errors here, we will use the variable in the below eval
         # statement.
+        other_operand_sliced = other_operand  # noqa:F841
+    else:
         other_operand_sliced = other_operand[other_indices]  # noqa:F841
 
+    # Silence ruff error about the variable not being used.
     slicer = matrix_operations.ArraySlicer(domain_indices=domain_indices)  # noqa:F841
 
-    temp_result = eval(f"other_operand_sliced {operator} slicer")
+    # Evaluate the expression without explicit parentheses. This is the form (1)
+    # described in the docstring. Under the hood, this forces python to interpret the
+    # expression 'other_operand {operator} matrix_slicer' (ex: float + ArraySlicer).
+    # This will invoke the respective __radd__, __rsub__, etc. methods of the
+    # ArraySlicer, and the delayed evaluation will be triggered.
+    result = eval(f"other_operand_sliced {operator} slicer @ slicer_target")
 
-    result = temp_result @ slicer_target
-
+    # Next we construct a benchmark result by effectively imposing parentheses around the
+    # slicing operation. This is the form (2) described in the docstring.
     if target_mode == "float":
+        # If the target is a float, we expand it to a vector of the same size as the
+        # domain indices. This mimics the behavior of the ArraySlicer, which is expected
+        # to broadcast the float.
         slicer_target = np.full(domain_indices.max() + 1, slicer_target)
 
+    # Mimic the effect of the array slicer to the target, by slicing it. This tests only
+    # a subset of the functionality of the ArraySlicer, as it only considers the case
+    # where the range is [0, 1, .., domain_indices.max()]. However, this is sufficient
+    # to test the delayed evaluation; the full functionality of the ArraySlicer is
+    # tested elsewhere.
+    #
+    # Silence ruff error about the variable not being used.
     sliced_target = slicer_target[domain_indices]  # noqa:F841
 
+    # Combine the other operand with the sliced target, using the 'operator'.
+    #
+    # Implementation note: It is tempting to convert the slicer to a projection matrix,
+    # and use that for constructing a known result. However, perhaps due to EK's lack of
+    # imagination, this ran into various issues with sizes etc. The explicit slicing
+    # above is equivalent, and as good a representation of what the slicer should do.
     known_result = eval(f"other_operand_sliced {operator} sliced_target")
+
+    # Thanks to the delayed evaluation, the result of the two expressions should be the
+    # same.
     if target_mode == "ad" or other_mode == "ad":
         assert np.allclose(result.val, known_result.val)
         assert np.allclose(result.jac.toarray(), known_result.jac.toarray())
