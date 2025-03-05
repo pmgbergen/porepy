@@ -771,6 +771,9 @@ class PengRobinsonSymbolic:
         self.d_A_f = sp.lambdify(self.thd_arg, d_A_e)
         # endregion
 
+        modules_lambdify = [{"select": _select}, "numpy"]
+        ZB_term = (Z_s + (1 + np.sqrt(2)) * B_s) / (Z_s + (1 - np.sqrt(2)) * B_s)
+
         # region Fugacity coefficients
         phi_i_e: list[sp.Expr] = []
 
@@ -779,15 +782,30 @@ class PengRobinsonSymbolic:
             dXi_A_e = A_e.diff(self.x_in_j[i])
             log_phi_i = (
                 B_i_e / B_s * (Z_s - 1)
+                # TODO fix translation issue between numba and sympy
+                # (involves translation ufunc.reduce for numba, which us used by sympy)
+                # See https://numba.pydata.org/numba-doc/dev/reference/pysupported.html
+                # initial argument required for reduce
+                # - sp.ln(PengRobinsonSymbolic._truncate(Z_s - B_s))
                 - sp.ln(Z_s - B_s)
-                - A_s
+                + A_s
                 / (B_s * np.sqrt(8))
-                * sp.ln((Z_s + (1 + np.sqrt(2)) * B_s) / (Z_s + (1 - np.sqrt(2)) * B_s))
-                * (dXi_A_e / A_s - B_i_e / B_s)
+                * (B_i_e / B_s - dXi_A_e / A_s)
+                # * sp.ln(PengRobinsonSymbolic._truncate(ZB_term))
+                * sp.ln(ZB_term)
+                # Additional term in extended setting
+                # + (d_xi_Z /Z_s - B_i_e / B_s)
+                # + (Z_s - B_s)
+                # / (Z_s - B_s)
+                # * Z_s
+                # * (
+                #     Z_s**3
+                #     + (B_s - 1) * Z_s**2
+                #     + (A_s - 2 * B_s - 3 * B_s**2) * Z_s
+                #     + (B_s**2 + B_s**3 - A_s * B_s)
+                # ) / (Z_s**2 + 2*B_s*Z_s - B_s**2)
             )
-            # TODO this is numerically disadvantages
-            # no truncation and usage of exp
-            phi_i_e.append(sp.exp(log_phi_i))
+            phi_i_e.append(sp.exp(PengRobinsonSymbolic._cap(log_phi_i)))
 
         phi_e: sp.Matrix = sp.Matrix(phi_i_e)
         """A vector-valued symbolic expression containing fugacity coefficients per
@@ -804,19 +822,19 @@ class PengRobinsonSymbolic:
         """The symbolic Jacobian of ``phi_e`` w.r.t. to thermodynamic arguments and
         :data:`A_s`, :data:`B_s`, :data:`Z_s`"""
 
-        self.phi_f = sp.lambdify(self.ext_thd_arg, phi_e)
-        self.d_phi_f = sp.lambdify(self.ext_thd_arg, d_phi_e)
+        self.phi_f = sp.lambdify(self.ext_thd_arg, phi_e, modules=modules_lambdify)
+        self.d_phi_f = sp.lambdify(self.ext_thd_arg, d_phi_e, modules=modules_lambdify)
         # endregion
 
         # region Enthalpy
 
         dT_A_e: sp.Expr = A_e.diff(self.T_s)
 
-        h_dep_e: sp.Expr = (R_IDEAL_MOL / np.sqrt(8)) * (
-            dT_A_e * self.T_s**2 + A_s * self.T_s
-        ) / B_s * sp.ln(
-            (Z_s + (1 + np.sqrt(2)) * B_s) / (Z_s + (1 - np.sqrt(2)) * B_s)
-        ) + R_IDEAL_MOL * self.T_s * (Z_s - 1)
+        h_dep_e: sp.Expr = R_IDEAL_MOL * self.T_s * (Z_s - 1) + (
+            R_IDEAL_MOL / np.sqrt(8)
+        ) * (dT_A_e * self.T_s**2 + A_s * self.T_s) / B_s * sp.ln(
+            PengRobinsonSymbolic._truncate(ZB_term)
+        )
         """Symbolic expression for departure enthalpy."""
 
         d_h_dep_e: list[sp.Expr] = [
@@ -836,8 +854,10 @@ class PengRobinsonSymbolic:
         ]
         """Symbolic gradient of :attr:`h_ideal_e` w.r.t. to thermodynamic arguments."""
 
-        self.h_dep_f = sp.lambdify(self.ext_thd_arg, h_dep_e)
-        self.d_h_dep_f = sp.lambdify(self.ext_thd_arg, d_h_dep_e)
+        self.h_dep_f = sp.lambdify(self.ext_thd_arg, h_dep_e, modules=modules_lambdify)
+        self.d_h_dep_f = sp.lambdify(
+            self.ext_thd_arg, d_h_dep_e, modules=modules_lambdify
+        )
         self.h_ideal_f = sp.lambdify(self.thd_arg, h_ideal_e)
         self.d_h_ideal_f = sp.lambdify(self.thd_arg, d_h_ideal_e)
         # endregion
@@ -855,6 +875,16 @@ class PengRobinsonSymbolic:
         self.rho_f = sp.lambdify([self.p_s, self.T_s, Z_s], rho_e)
         self.d_rho_f = sp.lambdify([self.p_s, self.T_s, Z_s], d_rho_e)
         # endregion
+
+    def _truncate(x: sp.Expr, eps: float = 1e-6) -> sp.Expr:
+        """Truncated expression where the value of ``eps`` is chosen if the argument
+        ``x`` becomes smaller than ``eps``."""
+        return sp.Piecewise((x, x > eps), (eps, True))
+
+    def _cap(x: sp.Expr, cap: float = 650) -> sp.Expr:
+        """Capped expression where the value ``cap`` is chosen if the argument
+        ``x`` becomes bigger than ``cap``."""
+        return sp.Piecewise((x, x < cap), (cap, True))
 
     @staticmethod
     def a_correction_weight(omega: float) -> float:
