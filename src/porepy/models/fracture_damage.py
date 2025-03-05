@@ -10,10 +10,10 @@ class DamageHistoryVariable(pp.PorePyModel):
     damage_history_variable = "damage_history"
 
     interface_displacement_variable: str
-    """Interface displacement variable.
-    TODO: This is needed for mypy. However, perhaps the better solution is to use a
-    MomentumBalanceProtocol to define the interface displacement variable and pacify
-    the complaint about safe-super when calling update_solution."""
+    """Interface displacement variable."""
+
+    contact_traction_variable: str
+    """Contact traction variable."""
 
     def damage_history(self, subdomains: list[pp.Grid]) -> pp.ad.Variable:
         """Fracture damage history [-].
@@ -37,11 +37,6 @@ class DamageHistoryVariable(pp.PorePyModel):
 
     def create_variables(self) -> None:
         """Create variables for the model."""
-        if not isinstance(self, pp.MomentumBalance):
-            raise TypeError(
-                "DamageHistoryVariable must be used in combination with a "
-                "MomentumBalance model."
-            )
         super().create_variables()
         self.equation_system.create_variables(
             dof_info={"cells": 1},
@@ -57,15 +52,40 @@ class DamageHistoryVariable(pp.PorePyModel):
             solution: Solution to update.
 
         """
-        history_var = self.equation_system.get_variables(
-            variables=[self.interface_displacement_variable]
+        assert isinstance(self, pp.SolutionStrategy), (
+            "The DamageHistoryVariable class should be combined with the "
+            "SolutionStrategy class."
         )
+        # Check that the only other class in the model implementing this method is
+        # pp.SolutionStrategy. This is done since the below method is implemented under
+        # that assumption. A more sophisticated approach to updating the solution is
+        # needed if this is not the case. Specifically, some variables may need to be
+        # stored at, say, two time steps for other purposes than computing the damage
+        # history.
+        # import inspect
+        for cls in self.__class__.__mro__:
+            if cls is DamageHistoryVariable:
+                continue
+            if cls is pp.SolutionStrategy:
+                continue
+            # Check if the class has its own implementation of update_solution
+            update_solution_method = cls.__dict__.get("update_solution", None)
+            if update_solution_method is not None:
+                raise AssertionError(
+                    f"The class {cls.__name__} implements update_solution, but the "
+                    "DamageHistoryVariable class assumes only pp.SolutionStrategy "
+                    "implements this method."
+                )
+
+        history_variables = self.variables_stored_all_time_steps()
         other_vars = [
-            var for var in self.equation_system.variables if var not in history_var
+            var
+            for var in self.equation_system.variables
+            if var not in history_variables
         ]
         # Need to store all time steps to compute the damage history.
         self.equation_system.shift_time_step_values(
-            max_index=None, variables=history_var
+            max_index=None, variables=history_variables
         )
         # Then proceed as usual with the other variables.
         self.equation_system.shift_time_step_values(
@@ -74,6 +94,27 @@ class DamageHistoryVariable(pp.PorePyModel):
 
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
+        )
+
+    def variables_stored_all_time_steps(self) -> list[str]:
+        """Return the variables stored at all time steps.
+
+        This method defines which variables to store at all time steps for computation
+        of the damage history. The default implementation includes the contact traction
+        and interface displacement variables. Note that if used with a pure contact
+        mechanics model, the contact traction variable is the only variable stored at
+        all time steps, since the interface displacement is not included in the model.
+        In that case, the method should be overridden.
+
+        Returns:
+            List of variables.
+
+        """
+        return self.equation_system.get_variables(
+            variables=[
+                self.interface_displacement_variable,
+                self.contact_traction_variable,
+            ]
         )
 
 
