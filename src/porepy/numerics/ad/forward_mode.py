@@ -373,6 +373,9 @@ class AdArray:
         elif isinstance(other, sps.spmatrix):
             raise ValueError("Cannot raise AdArrays to power of sparse matrices.")
 
+        elif isinstance(other, pp.matrix_operations.ArraySlicer):
+            return other.__rpow__(self)
+
         elif isinstance(other, pp.ad.AdArray):
             if self.val.size != other.val.size or self.jac.shape != other.jac.shape:
                 raise ValueError("Incompatible sizes for AdArray power.")
