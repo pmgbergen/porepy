@@ -733,7 +733,7 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_temperature(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Temperature values for the Dirichlet boundary condition.
 
         These values are used for quantities relying on Dirichlet data for temperature
@@ -744,18 +744,16 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
             temperature, per boundary grid as a numpy array with numerical values.
 
         Parameters:
-            boundary_grid: Boundary grid to provide values for.
+            bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(boundary_grid.num_cells,)`` containing temperature
+            An array with ``shape=(bg.num_cells,)`` containing temperature
             values on the provided boundary grid.
 
         """
-        return self.reference_variable_values.temperature * np.ones(
-            boundary_grid.num_cells
-        )
+        return self.reference_variable_values.temperature * np.ones(bg.num_cells)
 
-    def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """**Heat** flux values on the Neumann boundary to be used with Fourier's law.
 
         The values are used on the boundary for :math:`c \\nabla T` where Neumann data
@@ -767,15 +765,15 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
             the flux, per boundary grid as a numpy array with numerical values.
 
         Parameters:
-            boundary_grids: Boundary grid to provide values for.
+            bg: Boundary grid to provide values for.
 
         Returns:
             Numeric Fourier flux values for a Neumann-type BC.
 
         """
-        return np.zeros(boundary_grid.num_cells)
+        return np.zeros(bg.num_cells)
 
-    def bc_values_enthalpy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_enthalpy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         r"""**Energy** flux values on the Neumann boundary.
 
         These values are used on the boundary for
@@ -787,14 +785,14 @@ class BoundaryConditionsEnergyBalance(pp.BoundaryConditionMixin):
             the flux, per boundary grid as a numpy array with numerical values.
 
         Parameters:
-            boundary_grids: Boundary grid to provide values for.
+            bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(boundary_grid.num_cells,)`` containing values for the
+            An array with ``shape=(bg.num_cells,)`` containing values for the
             flux on the provided boundary grid.
 
         """
-        return np.zeros(boundary_grid.num_cells)
+        return np.zeros(bg.num_cells)
 
     def update_all_boundary_conditions(self) -> None:
         """Set values for the enthalpy and the Fourier flux on boundaries."""
@@ -846,18 +844,18 @@ class BoundaryConditionsEnthalpy(pp.BoundaryConditionMixin):
             name=self.enthalpy_variable, function=self.bc_values_enthalpy
         )
 
-    def bc_values_enthalpy(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_enthalpy(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """BC values for fluid enthalpy on the Dirichlet boundary.
 
         Parameters:
-            boundary_grid: Boundary grid to provide values for.
+            bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(boundary_grid.num_cells,)`` containing the value of
+            An array with ``shape=(bg.num_cells,)`` containing the value of
             the fluid enthalpy on the Dirichlet boundary.
 
         """
-        return np.zeros(boundary_grid.num_cells)
+        return np.zeros(bg.num_cells)
 
 
 class InitialConditionsEnergy(pp.InitialConditionMixin):

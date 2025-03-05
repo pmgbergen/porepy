@@ -15,24 +15,24 @@ class PoromechanicsWithDiagnostics(DiagnosticsMixin, Poromechanics):
 
 
 @pytest.fixture
-def setup() -> PoromechanicsWithDiagnostics:
-    """Assembles test PorePy model setup."""
-    setup = PoromechanicsWithDiagnostics()
+def model() -> PoromechanicsWithDiagnostics:
+    """Assembles test PorePy model."""
+    model = PoromechanicsWithDiagnostics()
     # Common preprocessing is done to assemble the linear system.
-    setup.prepare_simulation()
-    setup.before_nonlinear_loop()
-    setup.before_nonlinear_iteration()
-    setup.assemble_linear_system()
-    return setup
+    model.prepare_simulation()
+    model.before_nonlinear_loop()
+    model.before_nonlinear_iteration()
+    model.assemble_linear_system()
+    return model
 
 
 @patch("matplotlib.pyplot.show")
 # It changes plt.show to a mockup that does nothing.
 # Thus, we prevent blocking of plt.show.
 # This provides first argument to the function, which we don't use.
-def test_diagnostics_mixin_basic(_, setup: PoromechanicsWithDiagnostics) -> None:
+def test_diagnostics_mixin_basic(_, model: PoromechanicsWithDiagnostics) -> None:
     """Tests basic functionality."""
-    diagnostics_data = setup.run_diagnostics(
+    diagnostics_data = model.run_diagnostics(
         default_handlers=("max", "cond"),
         grouping=None,
     )
@@ -46,21 +46,21 @@ def test_diagnostics_mixin_basic(_, setup: PoromechanicsWithDiagnostics) -> None
 
 @patch("matplotlib.pyplot.show")
 def test_diagnostics_mixin_custom_handler(
-    _, setup: PoromechanicsWithDiagnostics
+    _, model: PoromechanicsWithDiagnostics
 ) -> None:
     """Making a custom handler and testing grouping="dense"."""
-    tracked_variable = setup.contact_traction_variable
+    tracked_variable = model.contact_traction_variable
     tracked_equation = "normal_fracture_deformation_equation"
 
     # Safeguard in case if the equation name is once changed.
-    assert tracked_equation in setup.equation_system.equations
+    assert tracked_equation in model.equation_system.equations
 
     def custom_handler(mat, equation_name, variable_name) -> float:
         if equation_name == tracked_equation and variable_name == tracked_variable:
             return mat.shape[0]
         return 0
 
-    diagnostics_data = setup.run_diagnostics(
+    diagnostics_data = model.run_diagnostics(
         grouping="dense",
         additional_handlers={"custom_handler": custom_handler},
     )
@@ -81,11 +81,11 @@ def test_diagnostics_mixin_custom_handler(
 
 
 @patch("matplotlib.pyplot.show")
-def test_diagnostics_mixin_grouping(_, setup: PoromechanicsWithDiagnostics) -> None:
+def test_diagnostics_mixin_grouping(_, model: PoromechanicsWithDiagnostics) -> None:
     """Testing custom grouping. We want to investigate only the interface."""
     # Collecting only the interface variable names.
     interface_variable_names = [
-        var.name for var in setup.equation_system.variables if len(var.interfaces) > 0
+        var.name for var in model.equation_system.variables if len(var.interfaces) > 0
     ]
 
     def is_interface_block(mat, equation_name, variable_name) -> float:
@@ -93,8 +93,8 @@ def test_diagnostics_mixin_grouping(_, setup: PoromechanicsWithDiagnostics) -> N
             return 1
         return 0
 
-    grouping = [setup.mdg.interfaces()]
-    diagnostics_data = setup.run_diagnostics(
+    grouping = [model.mdg.interfaces()]
+    diagnostics_data = model.run_diagnostics(
         grouping=grouping,
         additional_handlers={"is_interface_block": is_interface_block},
     )
@@ -103,7 +103,7 @@ def test_diagnostics_mixin_grouping(_, setup: PoromechanicsWithDiagnostics) -> N
             assert subdomain_data["is_interface_block"] == 1
 
     # And checking that keyword "interfaces" will prodice the same result.
-    diagnostics_data_new = setup.run_diagnostics(
+    diagnostics_data_new = model.run_diagnostics(
         grouping="interfaces",
         additional_handlers={"is_interface_block": is_interface_block},
     )

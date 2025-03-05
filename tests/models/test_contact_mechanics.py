@@ -10,10 +10,7 @@ from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
-from porepy.applications.test_utils.models import (
-    ContactMechanicsTester,
-    _add_mixin,
-)
+from porepy.applications.test_utils.models import ContactMechanicsTester, _add_mixin
 
 grid_classes = {2: SquareDomainOrthogonalFractures, 3: CubeDomainOrthogonalFractures}
 
@@ -38,7 +35,7 @@ def test_contact_mechanics(nd):
         "interface_displacement_parameter_values": displacement_vals,
     }
     model_class = _add_mixin(grid_classes[nd], ContactMechanicsTester)
-    model = model_class(params)
+    model: pp.PorePyModel = model_class(params)
     pp.run_time_dependent_model(model)
     fractures = model.mdg.subdomains(dim=nd - 1)
     # Get displacement jump in global coordinates.
