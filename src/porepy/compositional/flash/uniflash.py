@@ -21,6 +21,7 @@ References:
 
 from __future__ import annotations
 
+import copy
 import logging
 import time
 from typing import Callable, Literal, Optional, Sequence, cast
@@ -646,10 +647,9 @@ class CompiledUnifiedFlash(Flash):
         # Computing states for each phase after filling p, T and x
         fluid_state.phases = list()
         for j in range(nphase):
-            x_j_norm = normalize_rows(x[j].T).T
             fluid_state.phases.append(
                 self._eos.compute_phase_properties(
-                    self._phasestates[j], fluid_state.p, fluid_state.T, x_j_norm
+                    self._phasestates[j], fluid_state.p, fluid_state.T, x[j]
                 )
             )
 
@@ -664,7 +664,7 @@ class CompiledUnifiedFlash(Flash):
 
         return fluid_state
 
-    def _convert_solver_params(self) -> None:
+    def _convert_solver_params(self, solver_params: dict[str, float]) -> None:
         """Helper method to convert the solver parameters dictionary into a numba-conformal
         type."""
 
@@ -679,7 +679,7 @@ class CompiledUnifiedFlash(Flash):
             )
             self._converted_solver_params = cast(dict[str, float], d)
 
-        for k, v in self.solver_params.items():
+        for k, v in solver_params.items():
             self._converted_solver_params[k] = float(v)
 
     def compile(self) -> None:
@@ -1735,8 +1735,9 @@ class CompiledUnifiedFlash(Flash):
         assert mode in ["linear", "parallel"], f"Unsupported mode {mode}."
         solver = params.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}"
-        # Updating solver params if provided.
-        self.solver_params.update(params.get("solver_params", {}))
+        # Updating solver params for local run, if provided
+        solver_params = copy.deepcopy(self.solver_params)
+        solver_params.update(params.get("solver_params", {}))
 
         nphase = self.params["num_phases"]
         ncomp = self.params["num_components"]
@@ -1829,9 +1830,9 @@ class CompiledUnifiedFlash(Flash):
             logger.debug("Provided initial state parsed.")
         F = self.residuals[flash_type]
         DF = self.jacobians[flash_type]
-        self.solver_params["f_dim"] = f_dim
+        solver_params["f_dim"] = f_dim
 
-        self._convert_solver_params()
+        self._convert_solver_params(solver_params)
 
         logger.debug(f"Starting {solver} ({mode}) solver ..")
         start = time.time()

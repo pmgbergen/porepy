@@ -1361,7 +1361,7 @@ class InitialConditionsFractions(pp.InitialConditionMixin):
         [pp.Component, compositional.Compound], bool
     ]
     """Provided by mixin for compositional variables."""
-    has_independent_fraction: Callable[[pp.Component], bool]
+    has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
     """Provided by mixin for compositional variables."""
 
     def set_initial_values_primary_variables(self) -> None:
@@ -1909,7 +1909,7 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
 
         if self.params.get("reduce_linear_system", False):
             import scipy.sparse as sps
-            from pypardiso import spsolve
+            from pypardiso import spsolve  # type:ignore
 
             self.linear_system = self.equation_system.assemble_schur_complement_system(
                 self.primary_equations,
