@@ -8,9 +8,9 @@ from porepy.applications.boundary_conditions.model_boundary_conditions import (
     BoundaryConditionsMechanicsDirNorthSouth,
 )
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
+from porepy.applications.test_utils.models import ContactMechanicsTester
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.models import fracture_damage as damage
-from porepy.applications.test_utils.models import ContactMechanicsTester
 
 
 class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
