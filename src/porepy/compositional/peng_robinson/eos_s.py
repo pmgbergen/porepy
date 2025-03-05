@@ -793,11 +793,11 @@ class PengRobinsonSymbolic:
                 * (B_i_e / B_s - dXi_A_e / A_s)
                 # * sp.ln(PengRobinsonSymbolic._truncate(ZB_term))
                 * sp.ln(ZB_term)
-                # Additional term in extended setting
+                # Additional term in extended setting (Gharbia)
+                # NOTE We use the original expression of phi as an approximation.
                 # + (d_xi_Z /Z_s - B_i_e / B_s)
-                # + (Z_s - B_s)
                 # / (Z_s - B_s)
-                # * Z_s
+                # + Z_s
                 # * (
                 #     Z_s**3
                 #     + (B_s - 1) * Z_s**2
