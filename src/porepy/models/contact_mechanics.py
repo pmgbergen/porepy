@@ -181,14 +181,12 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
-        # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
-        # the total number of cells in the subdomain. The sum will have the same shape,
-        # but the row corresponding to each cell will be non-zero in all rows
-        # corresponding to the tangential basis vectors of this cell. EK: mypy insists
-        # that the argument to sum should be a list of booleans. Ignore this error.
-        scalar_to_tangential = pp.ad.sum_operator_list(
-            [e_i for e_i in tangential_basis]
-        )
+        # individual basis vectors can be represented as projection matrices of shape
+        # (Nc * (self.nd - 1), Nc), where Nc is the total number of cells in the
+        # subdomain. The matrix representation of the sum has the same shape, but the
+        # row corresponding to each cell will be non-zero in all rows corresponding to
+        # the tangential basis vectors of this cell.
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
 
         # Variables: The tangential component of the contact traction and the plastic
         # displacement jump.
@@ -207,25 +205,19 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
 
         # The numerical constant is used to loosen the sensitivity in the transition
-        # between sticking and sliding.
-        # Expanding using only left multiplication to with scalar_to_tangential does not
-        # work for an array, unlike the operators below. Arrays need right
-        # multiplication as well.
+        # between sticking and sliding. Expanding using only left multiplication to with
+        # scalar_to_tangential does not work for an array, unlike the operators below.
+        # Arrays need right multiplication as well.
         c_num_as_scalar = self.contact_mechanics_numerical_constant(subdomains)
 
-        # The numerical parameter is a cell-wise scalar which must be extended to a
-        # vector quantity to be used in the equation (multiplied from the right).
-        # Spelled out, from the right: Restrict the vector quantity to one dimension in
-        # the tangential plane (e_i.T), multiply with the numerical parameter, prolong
-        # to the full vector quantity (e_i), and sum over all all directions in the
-        # tangential plane.
-        c_num = pp.ad.sum_operator_list(
-            [e_i * c_num_as_scalar * e_i.T for e_i in tangential_basis]
-        )
-
-        # Combine the above into expressions that enter the equation. c_num will
-        # effectively be a sum of SparseArrays, thus we use a matrix-vector product @
-        tangential_sum = t_t + c_num @ u_t_increment
+        # The numerical parameter is a cell-wise scalar, or a single scalar common for
+        # all cells. In both cases, it must be extended to a vector quantity to be used
+        # in the equation (multiplied from the right). Do this by multiplying with the
+        # sum of the tangential basis vectors. Then take a Hadamard product with the
+        # tangential displacement jump and add to the tangential component of the
+        # contact traction to arrive at the expression that enters the equation.
+        basis_sum = pp.ad.sum_projection_list(tangential_basis)
+        tangential_sum = t_t + (basis_sum @ c_num_as_scalar) * u_t_increment
 
         norm_tangential_sum = f_norm(tangential_sum)
         norm_tangential_sum.set_name("norm_tangential")
@@ -233,13 +225,8 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         b_p = f_max(self.friction_bound(subdomains), zeros_frac)
         b_p.set_name("bp")
 
-        # Remove parentheses to make the equation more readable if possible. The product
-        # between (the SparseArray) scalar_to_tangential and b_p is of matrix-vector
-        # type (thus @), and the result is then multiplied elementwise with
-        # tangential_sum.
         bp_tang = (scalar_to_tangential @ b_p) * tangential_sum
 
-        # For the use of @, see previous comment.
         maxbp_abs = scalar_to_tangential @ f_max(b_p, norm_tangential_sum)
 
         # The characteristic function below reads "1 if (abs(b_p) < tol) else 0".
@@ -538,13 +525,12 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
 
         # To map a scalar to the tangential plane, we need to sum the basis vectors. The
-        # individual basis functions have shape (Nc * (self.nd - 1), Nc), where Nc is
-        # the total number of cells in the subdomain. The sum will have the same shape,
-        # but the row corresponding to each cell will be non-zero in all rows
-        # corresponding to the tangential basis vectors of this cell.
-        scalar_to_tangential = pp.ad.sum_operator_list(
-            [e_i for e_i in tangential_basis]
-        )
+        # individual basis functions can be represented as projection matrices of size
+        # (Nc * (self.nd - 1), Nc), where Nc is # the total number of cells in the
+        # subdomain. The sum of basis vectors can likewise be represented as a matrix of
+        # the same shape, but the row corresponding to each cell will be non-zero in all
+        # rows corresponding to the tangential basis vectors of this cell.
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
 
         # With the active set method, the performance of the Newton solver is sensitive
         # to changes in state between sticking and sliding. To reduce the sensitivity to
