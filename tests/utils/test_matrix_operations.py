@@ -403,7 +403,7 @@ def _matrix_slicer_delayed_evaluation_backend(
 
     # Evaluate the expression without explicit parentheses. This is the form (1)
     # described in the docstring. Under the hood, this forces python to interpret the
-    # expression 'other_operand {operator} matrix_slicer' (ex: float + ArraySlicer).
+    # expression 'other_operand {operator} array_slicer' (ex: float + ArraySlicer).
     # This will invoke the respective __radd__, __rsub__, etc. methods of the
     # ArraySlicer, and the delayed evaluation will be triggered.
     result = eval(f"other_operand_sliced {operator} slicer @ slicer_target")
