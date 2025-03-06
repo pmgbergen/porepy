@@ -573,7 +573,7 @@ class Operator:
             return AdArray(
                 ad, sps.csr_matrix((ad.shape[0], equation_system.num_dofs()))
             )
-        elif isinstance(ad, (sps.spmatrix, np.ndarray)):
+        elif isinstance(ad, ((sps.spmatrix, sps.sparray), np.ndarray)):
             # this case coverse both, dense and sparse matrices returned from
             # discretizations f.e.
             raise NotImplementedError(
@@ -901,7 +901,7 @@ class Operator:
             return [self, Scalar(other)]
         elif isinstance(other, np.ndarray):
             return [self, DenseArray(other)]
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             return [self, SparseArray(other)]
         elif isinstance(other, AdArray):
             # This may happen when using nested pp.ad.Function.
