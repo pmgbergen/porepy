@@ -162,7 +162,7 @@ class PhaseProperties(ExtensiveProperties):
         """
         # Treatment to avoid division by zero errors
         idx = self.rho > 0.0
-        outer = np.zeros_like(self.v)
+        outer = np.zeros_like(self.rho)
         outer[idx] = -1 / self.rho[idx] ** 2
         return np.array([outer * d for d in self.drho])
 

@@ -29,7 +29,7 @@ os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 compile_time = 0.0
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("porepy").setLevel(logging.DEBUG)
+logging.getLogger("porepy").setLevel(logging.INFO)
 
 from typing import Any, Callable, Optional, Sequence, no_type_check
 
