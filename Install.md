@@ -10,17 +10,13 @@ The default branch is `develop`. To get the stable version:
 
     git checkout main
 
-Install requirements
+Install PorePy and the needed requirements
 
-    pip install -r requirements.txt
-
-Finally to install PorePy
-
-    pip install .
+    pip install .[development,testing]
 
 or for editable installs into the user directory:
 
-    pip install --user -e .
+    pip install --user -e .[development,testing]
 
 ## Installation on Windows
 Installation on Windows is currently (Spring 2021) rather easy, following the above instructions. The dependencies should be installed using either `conda` or the Intel python distribution and then `pip install porepy` from source. 
