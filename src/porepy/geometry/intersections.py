@@ -35,9 +35,6 @@ def segments_2d(
 
     a line segment is returned instead of an intersection point.
 
-    Todo:
-        This function can be replaced by a call to :meth:`segments_3d`.
-
     Example:
         >>> segments_2d([0, 0], [1, 1], [0, 1], [1, 0])
         array([[ 0.5],
