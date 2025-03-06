@@ -371,9 +371,12 @@ def _matrix_slicer_delayed_evaluation_backend(
     result of (1) is the same as the form (2), with explicitly enforced paratheses.
 
     Parameters:
-        A: The matrix to be sliced. other_mode: The mode of the other operand.
-        target_mode: The mode of the target matrix. operator: The operator to be
-        applied.
+        A: The matrix to be sliced.
+        other_mode: The data type for the 'other' (leftmost) operand, as described
+            above.
+        target_mode: The data type for the operand to be sliced (the target of the
+            slicing).
+        operator: The operator to be applied.
 
     """
     other_operand = _get_arrayslicer_target(A, other_mode)
