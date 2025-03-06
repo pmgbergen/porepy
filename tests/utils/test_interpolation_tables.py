@@ -79,7 +79,6 @@ def _generate_interpolation_tables(dim, factory, adaptive_has_function, random_s
     # We have occationally had issues with these tests failing on random data, however,
     # subsequent testing (on huge arrays) failed to uncover any issues. Fix the random
     # seed so that if errors arise, they should be reproducible.
-    # TODO: We should rather use hypothesis for this part.
     np.random.seed(random_seed)
 
     # Set the bounds for the part of the parameter space to be covered by the tables.

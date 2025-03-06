@@ -130,14 +130,12 @@ def is_ccw_polyline(
         p3 = p3.reshape((-1, 1))
     num_points = p3.shape[1]
 
-    # TODO: Compute cross product between p1-p2 and p1-p3. Right-hand rule gives that p3
+    # Compute cross product between p1-p2 and p1-p3. The right-hand rule implies that p3
     # is to the left if the cross product is positive.
     cross_product = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (
         p3[0] - p1[0]
     )
 
-    # TODO: Should there be a scaling of the tolerance relative to the distance between
-    # the points?
     is_ccw = np.ones(num_points, dtype=bool)
     is_ccw[np.abs(cross_product) <= tol] = default
 
