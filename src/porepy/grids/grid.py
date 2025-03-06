@@ -689,8 +689,10 @@ class Grid:
         )
 
         # Get sign of normal vectors, seen from all faces. Make sure we get a numpy
-        # ndarray, and not a matrix (.A), and that the array is 1D (squeeze)
-        orientation = np.squeeze(self.cell_faces[face_numbers, cell_numbers].A)
+        # ndarray, and not a matrix (np.asarray), and that the array is 1D (squeeze)
+        orientation = np.squeeze(
+            np.asarray(self.cell_faces[face_numbers, cell_numbers])
+        )
 
         # Get outwards pointing sub-normals for all sub-faces: We need to account for
         # both the orientation of the face, and the orientation of sub-faces relative to
@@ -734,7 +736,7 @@ class Grid:
             The value 1 indicates a connection between a cell and node column-wise.
 
         """
-        mat = (self.face_nodes * np.abs(self.cell_faces)) > 0
+        mat = (self.face_nodes @ np.abs(self.cell_faces)) > 0
         return mat
 
     def num_cell_nodes(self) -> np.ndarray:
@@ -744,7 +746,7 @@ class Grid:
             cell.
 
         """
-        return self.cell_nodes().sum(axis=0).A.ravel("F")
+        return np.asarray(self.cell_nodes().sum(axis=0)).ravel("F")
 
     def get_internal_nodes(self) -> np.ndarray:
         """

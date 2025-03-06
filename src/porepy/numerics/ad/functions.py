@@ -420,7 +420,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
         # Enforce csr format, unless the matrix is csc, in which case we keep it.
         if not max_jac.getformat() == "csc":
             max_jac = max_jac.tocsr()
-        lines = pp.matrix_operations.slice_mat(jacs[1].tocsr(), inds)
+        lines = pp.matrix_operations.slice_sparse_matrix(jacs[1].tocsr(), inds)
         pp.matrix_operations.merge_matrices(max_jac, lines, inds, max_jac.getformat())
     else:
         max_jac[inds] = jacs[1][inds]

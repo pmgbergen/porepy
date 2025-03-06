@@ -24,19 +24,20 @@ import scipy.sparse as sps
 
 import porepy as pp
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
-from porepy.applications.md_grids.model_geometries import (
-    CubeDomainOrthogonalFractures,
-    SquareDomainOrthogonalFractures,
-    NonMatchingSquareDomainOrthogonalFractures,
-)
-from porepy.applications.test_utils import models, well_models
-from porepy.models.fluid_mass_balance import SinglePhaseFlow
-from porepy.applications.material_values.solid_values import (
-    extended_granite_values_for_testing as granite_values,
-)
 from porepy.applications.material_values.fluid_values import (
     extended_water_values_for_testing as water_values,
 )
+from porepy.applications.material_values.solid_values import (
+    extended_granite_values_for_testing as granite_values,
+)
+from porepy.applications.md_grids.model_geometries import (
+    CubeDomainOrthogonalFractures,
+    NonMatchingSquareDomainOrthogonalFractures,
+    SquareDomainOrthogonalFractures,
+)
+from porepy.applications.test_utils import models, well_models
+from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
+from porepy.models.fluid_mass_balance import SinglePhaseFlow
 
 
 @pytest.fixture(scope="function")
@@ -122,7 +123,7 @@ def all_tested_methods(request) -> list[str]:
     # Filter the name of the first parameter from the pytest.mark.parametrize
     tested_methods = [test[test.find("[") + 1 : test.find("-")] for test in tests]
 
-    return tested_methods
+    return sorted(tested_methods)
 
 
 @pytest.fixture(scope="function")
@@ -136,7 +137,7 @@ def all_testable_methods(model) -> list[str]:
         List of all possible testable methods for the model.
 
     """
-    return models.get_model_methods_returning_ad_operator(model)
+    return sorted(models.get_model_methods_returning_ad_operator(model))
 
 
 def test_tested_vs_testable_methods_single_phase_flow(
@@ -491,6 +492,10 @@ def test_ad_operator_methods_single_phase_flow(
 
     if isinstance(val, sps.bsr_matrix):  # needed for `tangential_component`
         val = val.toarray()
+    if isinstance(val, pp.matrix_operations.ArraySlicer):
+        # An ArraySlicer cannot be directly compared to a numpy array. Recover the
+        # equivalent projection matrix.
+        val = projection_matrix_from_array_slicers(val, model.nd).toarray()
 
     # Compare the actual and expected values.
     assert np.allclose(val, expected_value, rtol=1e-8, atol=1e-15)
