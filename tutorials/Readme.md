@@ -33,3 +33,4 @@ For the more experienced user, some more specific tutorials are also available:
 15. [Flux discretizations](./flux_discretizations.ipynb) shows different discretization methods available for diffusive fluxes. These are used for Darcy's law for fluid fluxes in a mass balance equation.
 16. [Stress discretization](./stress_discretization.ipynb) describes the discretization method used for the vector version of tutorial #15, which arises in the linear elastisity equations.
 17. [Linear Tracer Flow](./tracer_flow.ipynb) describes the setup of a linear single-phase, 2-component model based on tutorial #6, and showcases a simulation of tracer transport through a fractured domain.
+19 [Fluid modelling](./fluid_modeling.ipynb) explains how to set up multi-component, multi-phase fluids in a model with, and the approach to representing fluid properties.
