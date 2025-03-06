@@ -12,14 +12,14 @@ from __future__ import division
 
 import numpy as np
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
+from porepy.applications.test_utils.arrays import compare_arrays
 from porepy.fracs import meshing
 from porepy.grids import refinement
 from porepy.grids.simplex import TriangleGrid
 from porepy.grids.structured import TensorGrid
-from porepy.applications.test_utils.arrays import compare_arrays
-import scipy.sparse as sps
 
 
 class TestGridPerturbation:

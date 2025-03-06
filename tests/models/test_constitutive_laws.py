@@ -17,23 +17,22 @@ constitutive laws, the first test might be removed.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Type, Optional
+from typing import Any, Literal, Optional, Type
 
 import numpy as np
-import scipy.sparse as sps
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
 import porepy.models.constitutive_laws as c_l
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.reference_dense_arrays import (
     test_constitutive_laws as reference_dense_arrays,
 )
-from porepy.applications.md_grids.model_geometries import (
-    SquareDomainOrthogonalFractures,
-)
-from porepy.applications.discretizations.flux_discretization import FluxDiscretization
-
 
 solid_values = pp.solid_values.granite
 solid_values.update(

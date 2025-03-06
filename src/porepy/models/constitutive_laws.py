@@ -96,7 +96,7 @@ class DisplacementJump(pp.PorePyModel):
         # respectively, to nd dimensions.
         basis = self.basis(subdomains, dim=self.nd)
         local_basis = self.basis(subdomains, dim=self.nd - 1)
-        tangential_to_nd = pp.ad.sum_operator_list(
+        tangential_to_nd = pp.ad.sum_projection_list(
             [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
         )
         normal_to_nd = basis[-1]
@@ -1117,7 +1117,7 @@ class DarcysLaw(pp.PorePyModel):
         # composed by summation).
         normals_times_source = normals * vector_source
         # Then sum over the nd dimensions. The result will in effect be a matrix.
-        nd_to_scalar_sum = pp.ad.sum_operator_list(
+        nd_to_scalar_sum = pp.ad.sum_projection_list(
             [e.T for e in self.basis(interfaces, dim=self.nd)]
         )
         # Finally, the dot product between normal vectors and the vector source. This
@@ -3104,9 +3104,7 @@ class PressureStress(LinearElasticMechanicalStress):
 
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
-        scalar_to_nd = pp.ad.sum_operator_list(
-            [e_i for e_i in self.basis(interfaces, dim=self.nd)]
-        )
+        scalar_to_nd = pp.ad.sum_projection_list(self.basis(interfaces, dim=self.nd))
         # Spelled out, from the right: Project the pressure from the fracture to the
         # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
         stress = outwards_normal * (
