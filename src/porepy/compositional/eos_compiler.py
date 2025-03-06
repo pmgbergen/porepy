@@ -563,7 +563,7 @@ class EoSCompiler(EquationOfState):
             rho = rho_c(prearg_res, p, T, xn)
             drho = drho_c(prearg_res, prearg_jac, p, T, xn)
             if rho > 0.0:
-                # chain rule: drho = d(1 / v) = - 1 / v**2 * dv
+                # chain rule: dv = d(1 / rho) = - 1 / rho**2 * drho
                 return -drho / rho**2
             else:
                 return np.zeros_like(drho)
