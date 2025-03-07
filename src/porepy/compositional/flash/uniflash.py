@@ -32,7 +32,7 @@ import numpy as np
 
 import porepy as pp
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, R_IDEAL_MOL
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, R_IDEAL_MOL
 from ..eos_compiler import EoSCompiler
 from ..states import FluidProperties, PhysicalState
 from ..utils import (
@@ -42,7 +42,7 @@ from ..utils import (
     safe_sum,
 )
 from .flash import Flash
-from .solvers.npipm import npipm_solver
+from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVER, SOLVERS
 from .utils import (
     insert_pT,
     insert_sat,
@@ -57,172 +57,6 @@ __all__ = ["CompiledUnifiedFlash"]
 
 
 logger = logging.getLogger(__name__)
-
-
-SOLVER_PARAMETERS = dict[
-    Literal[
-        "f_dim",
-        "num_phase",
-        "num_comp",
-        "tol",
-        "max_iter",
-        "rho",
-        "kappa",
-        "max_iter_armijo",
-        "u1",
-        "u2",
-        "eta",
-    ],
-    float,
-]
-"""Type alias describing a parameter dictionary containing parameters which are required
-for the solution strategy in this module.
-
-- ``'f_dim'``: Int. Dimension of the flash system, including the NPIPM slack equation.
-- ``'num_phases'``: Int. Number of phases in fluid mixture.
-- ``'num_comps'``: Int. Number of components in fluid mixture.
-- ``'tol'``: Float. Tolerance for 2-norm of residual to be used as convergence criterion.
-- ``'max_iter'``: Int. Maximal number of Newton iterations.
-- ``'rho'``: ``(0, 1)``. First step size in Armijo line search.
-- ``'kappa'``: ``(0, 0.5)``. Slope of line for line search.
-- ``'max_iter_armijo'``: Int. Maximal number of line search iterations.
-- ``'u1'``: Float. Penalty parameter for violation of complementarity in NPIPM.
-- ``'u2'``: Float. Penalty parameter for violation of non-negativity in NPIPM.
-- ``'eta'``: Float. Linear decline of NPIPM slack variable.
-
-"""
-
-
-SOLVERS: dict[str, Callable] = {"npipm": npipm_solver}
-"""Map of available solvers.
-
-Currently available:
-
-- ``'npipm'``: A NPIPM with Newton solver, Armijo line search and heavy ball momentum.
-
-A solver must have the signature
-``(X0, F, DF, solver_parameters) -> (array(1D), int, int)``,
-where ``X0`` is the generic flash argument containing the initial guess,
-``F`` is a callable representing the residual of the flash system,
-``DF`` is a callable assembling the Jacobian of the flash system,
-and ``solver_parameters`` of type ``nbdict[str, float64]``
-(see :data:`SOLVER_PARAMETERS`)
-
-Note:
-    ``X0`` must be the generic flash argument for ``F``.
-    Therefore the dimension of the image of ``F`` must be defined by passing
-    ``'f_dim'`` in ``solver_params``.
-    I.e., ``len(F(X0)) == f_dim`` and ``DF(X0).shape == (f_dim, f_dim)``.
-
-    The generic argument contains feed fractions and 2 state definitions in the first
-    ``num_comp + 1`` entries, especially ``X0.shape = (f_dim + num_comp + 1,)``.
-
-It should return the solution of the flash in generic flash argument format,
-a success flag and the number of iterations.
-
-The success flag should be one of the following values:
-
-- 0: success
-- 1: max iter reached
-- 2: NAN or infty detected in update (aborted)
-- 3: failure in the evaluation of the residual
-- 4: failure in the evaluation of the Jacobian
-- 5: Any other failure (raised by parallel mode solver)
-
-The returned result should contain the value of the last iterate
-(independent of success).
-
-"""
-
-
-@numba.njit(
-    parallel=NUMBA_PARALLEL,
-)
-def parallel_solver(
-    X0: np.ndarray,
-    F: Callable[[np.ndarray], np.ndarray],
-    DF: Callable[[np.ndarray], np.ndarray],
-    solver: Callable,
-    solver_params: dict,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Parallel application of the ``solver`` to vectorized input, assuming each row
-    in ``X0`` is a starting point to find a root of ``F``.
-
-    Note:
-        For more information on the requirements for the arguments and the return values
-        see :data:`SOLVERS`.
-
-    Parameters:
-        X_0: Initial guess.
-        F: Callable representing the residual. Must be callable with ``X0[i]``.
-        DF: Callable representing the Jacobian. Must be callable with ``X0[i]``.
-        solver: See :data:`SOLVERS`.
-        solver_paramers: See :data:`SOLVER_PARAMETERS`.
-
-    Returns:
-        The results, the success flag and the number of iterations, vectorized per row
-        in ``X0``.
-
-    """
-
-    # alocating return values
-    n = X0.shape[0]
-    result = np.zeros_like(X0)
-    num_iter = np.zeros(n, dtype=np.int32)
-    converged = np.ones(n, dtype=np.int32) * 4
-
-    for i in numba.prange(n):
-        # NOTE Numba cannot parallelize if there is a try-except clause
-        # try:
-        res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
-        # except Exception:
-        #     converged[i] = 5
-        #     num_iter[i] = np.nan
-        #     result[i, :] = np.nan
-        # else:
-        converged[i] = conv_i
-        num_iter[i] = n_i
-        result[i] = res_i
-
-    return result, converged, num_iter
-
-
-@numba.njit
-def linear_solver(
-    X0: np.ndarray,
-    F: Callable[[np.ndarray], np.ndarray],
-    DF: Callable[[np.ndarray], np.ndarray],
-    solver: Callable,
-    solver_params: dict,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Does the same as :func:`parallel_solver`, only the loop over the rows of ``X0``
-    is not parallelized, but executed in a sequential manner.
-
-    Intended use is for smaller amount of flash problems, where the parallelization
-    would produce a certain overhead in the initialization.
-
-    """
-
-    # alocating return values
-    n = X0.shape[0]
-    result = np.zeros_like(X0)
-    num_iter = np.zeros(n, dtype=np.int32)
-    converged = np.ones(n, dtype=np.int32) * 5
-
-    for i in range(n):
-        try:
-            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
-        except Exception:
-            converged[i] = 5
-            num_iter[i] = np.nan
-            result[i, :] = np.nan
-        else:
-            converged[i] = conv_i
-            num_iter[i] = n_i
-            result[i] = res_i
-
-    return result, converged, num_iter
-
 
 # region Helper methods
 
@@ -544,9 +378,6 @@ class CompiledUnifiedFlash(Flash):
         assert isinstance(eos, EoSCompiler)
         self._eos: EoSCompiler = eos
         """Compiled EoS of the reference phase, assuming all phases have the same EoS."""
-
-        # TODO find better place for this parameter.
-        self.solver_params["heavy_ball_momentum"] = 0.0
 
         self.residuals: dict[
             Literal["p-T", "p-h", "v-h"], Callable[[np.ndarray], np.ndarray]
@@ -1702,8 +1533,6 @@ class CompiledUnifiedFlash(Flash):
     ) -> tuple[FluidProperties, np.ndarray, np.ndarray]:
         """Performes the flash for given feed fractions and state definition.
 
-        Assumes the first fraction
-
         Supported equilibrium definitions:
 
         - p-T
@@ -1715,12 +1544,15 @@ class CompiledUnifiedFlash(Flash):
         - ``'mode'``: Mode of solving the equilibrium problems for multiple state
           definitions given by vectorized input.
 
-          - ``'linear'``: A classical loop over state defintions (row-wise).
+          - ``'serial'``: A classical loop over state defintions (row-wise).
           - ``'parallel'``: A parallelized loop, intended for larger amounts of
             problems.
 
-            Defaults to ``'linear'``.
-        - ``'solver'``: See :data:`SOLVERS`. Defaults to ``'npipm'``.
+            Defaults to ``'serial'``.
+        - ``'solver'``: selected solver (see
+          :data:`~porepy.compositional.flash.solvers.SOLVERS`)
+        - ``'solver_params'``: Custom solver parameters for single run. Otherwise the
+          instance- :attr:`solver_params` are used.
 
         Raises:
             NotImplementedError: If an unsupported combination or insufficient number of
@@ -1729,14 +1561,18 @@ class CompiledUnifiedFlash(Flash):
         """
 
         if params is None:
-            params = {"mode": "linear", "solver": "npipm"}
+            params = {"mode": "serial", "solver": "npipm"}
 
-        mode = params.get("mode", "linear")
-        assert mode in ["linear", "parallel"], f"Unsupported mode {mode}."
+        mode = params.get("mode", "serial")
+        assert mode in MULTI_SOLVER, f"Unsupported mode {mode}."
         solver = params.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}"
-        # Updating solver params for local run, if provided
-        solver_params = copy.deepcopy(self.solver_params)
+
+        # Get default solver params.
+        solver_params = copy.deepcopy(DEFAULT_SOLVER_PARAMS[solver])
+        # Update params with params from instance.
+        solver_params.update(self.solver_params)
+        # Updating solver params for local run, if provided.
         solver_params.update(params.get("solver_params", {}))
 
         nphase = self.params["num_phases"]
@@ -1828,24 +1664,23 @@ class CompiledUnifiedFlash(Flash):
                     X0[idx_p - (nphase - 1) + j] = fluid_state.sat[j + 1]
 
             logger.debug("Provided initial state parsed.")
-        F = self.residuals[flash_type]
-        DF = self.jacobians[flash_type]
-        solver_params["f_dim"] = f_dim
 
+        # Convert local solver params to numba-conform type
+        solver_params["f_dim"] = f_dim
         self._convert_solver_params(solver_params)
 
-        logger.debug(f"Starting {solver} ({mode}) solver ..")
+        logger.debug(f"Starting ({mode}) {solver} solver ..")
+
         start = time.time()
-        if mode == "linear":
-            results, success, num_iter = linear_solver(
-                X0.T, F, DF, SOLVERS[solver], self._converted_solver_params
-            )
-        elif mode == "parallel":
-            results, success, num_iter = parallel_solver(
-                X0.T, F, DF, SOLVERS[solver], self._converted_solver_params
-            )
-        end = time.time()
-        minim_time = end - start
+        results, success, num_iter = MULTI_SOLVER[mode](
+            X0.T,
+            self.residuals[flash_type],
+            self.jacobians[flash_type],
+            SOLVERS[solver],
+            self._converted_solver_params,
+        )
+        minim_time = time.time() - start
+
         logger.info(
             f"{NF} {flash_type} flash solved"
             + " (elapsed time: %.5f (s))." % (minim_time)

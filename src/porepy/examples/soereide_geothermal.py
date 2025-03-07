@@ -25,11 +25,11 @@ import os
 import time
 import warnings
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 compile_time = 0.0
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("porepy").setLevel(logging.INFO)
+logging.getLogger("porepy").setLevel(logging.DEBUG)
 
 from typing import Any, Callable, Optional, Sequence, no_type_check
 
@@ -582,8 +582,8 @@ max_iterations = 25
 newton_tol = 1e-5
 newton_tol_increment = 1e-1
 
-
 equilibrium_type: str = "unified-p-h"
+
 flash_params = {
     "mode": "parallel",
     "solver": "npipm",
@@ -617,7 +617,6 @@ time_manager = pp.TimeManager(
     print_info=True,
 )
 
-
 material_constants = {
     "solid": pp.SolidConstants(
         permeability=1e-16,
@@ -627,8 +626,6 @@ material_constants = {
     )
 }
 
-# Model setup:
-# eliminate reference phase fractions  and reference component.
 params = {
     "equilibrium_type": equilibrium_type,
     "has_time_dependent_boundary_equilibrium": False,
@@ -654,16 +651,20 @@ params = {
     "prepare_simulation": False,
     "progressbars": True,
 }
+
 model = GeothermalFlow(params)
 
 t_0 = time.time()
 model.prepare_simulation()
 prep_sim_time = time.time() - t_0
 compile_time += prep_sim_time
+
 model.primary_equations = model.get_primary_equations_cf()
 model.primary_variables = model.get_primary_variables_cf()
+
 t_0 = time.time()
 pp.run_time_dependent_model(model, params)
 sim_time = time.time() - t_0
+
 print(f"Finished prepare_simulation in {prep_sim_time} seconds.")
 print(f"Finished simulation in {sim_time} seconds.")

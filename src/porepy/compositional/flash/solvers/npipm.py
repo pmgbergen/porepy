@@ -8,38 +8,44 @@ from __future__ import annotations
 from typing import Callable, Literal
 
 import numba
+import numba.typed
 import numpy as np
 
 from ..._core import NUMBA_CACHE, NUMBA_FAST_MATH
 from ..utils import parse_xyz
+from ._core import SOLVER_FUNCTION_SIGNATURE
 
 DEFAULT_NPIPM_SOLVER_PARAMS: dict[
-    Literal["npipm_u1", "npipm_u2", "npipm_eta"], float
+    Literal[
+        "npipm_u1",
+        "npipm_u2",
+        "npipm_eta",
+        "heavy_ball_momentum",
+        "armijo_rho",
+        "armijo_kappa",
+        "armijo_max_iterations",
+    ],
+    float,
 ] = {
     "npipm_u1": 1.0,
     "npipm_u2": 1.0,
     "npipm_eta": 0.5,
+    "heavy_ball_momentum": 0.0,
+    "armijo_rho": 0.99,
+    "armijo_kappa": 0.4,
+    "armijo_max_iterations": 50.0,
 }
 """Default solver parameters required by the NPIPM solver.
 
 - ``'npipm_u1': 1.`` penalty for violating complementarity
 - ``'npipm_u2': 1.`` penalty for violating negativity of fractions
 - ``'npipm_eta': 0.5`` linear decline in slack variable
-
-"""
-
-DEFAULT_ARMIJO_PARAMS: dict[
-    Literal["armijo_rho", "armijo_kappa", "armijo_max_iterations"], float
-] = {
-    "armijo_rho": 0.99,
-    "armijo_kappa": 0.4,
-    "armijo_max_iterations": 50.0,
-}
-"""Default parameters for the Armijo line search.
-
-- ``'armijo_rho': 0.99`` initial step size factor
-- ``'armijo_kappa': 0.5`` steepness of line for line search
-- ``'armijo_max_iterations': 50.`` maximal number of line search iterations
+- ``'heavy_ball_momentum': 0.`` if True (non-zero), a heavy-ball momentum technique is
+  applied to the line-search, adding the update from the previous iteration with some
+  down-scaling to the current update.
+- ``'armijo_rho': 0.99`` initial step size factor for Armijo line search.
+- ``'armijo_kappa': 0.5`` steepness of line for line search.
+- ``'armijo_max_iterations': 50.`` maximal number of line search iterations.
 
 """
 
@@ -301,33 +307,7 @@ def _npipm_extend_and_regularize_jac(
     return df_npipm
 
 
-# TODO The solver method need a static signature, once typing for functions as
-# arguments is available in numba
-
-# @numba.njit("float64[:](float64[:])")
-# def _dummy_res(x: np.ndarray):
-#     return x.copy()
-
-
-# @numba.njit("float64[:,:](float64[:])")
-# def _dummy_jac(x: np.ndarray):
-#     return np.diag(x)
-
-
-# _dummy_dict = nbdict.empty(key_type=nbtypes.unicode_type, value_type=nbtypes.float64)
-# _dummy_dict["dummy"] = 0.0
-
-
-# @numba.njit(
-#     # numba.types.Tuple((numba.float64[:],numba.int32,numba.int32))(
-#     #     numba.float64[:],
-#     #     numba.typeof(_dummy_res),
-#     #     numba.typeof(_dummy_jac),
-#     #     numba.typeof(_dummy_dict),
-#     # ),
-#     # cache=True,
-# )
-@numba.njit
+@numba.njit(SOLVER_FUNCTION_SIGNATURE, cache=True)
 def npipm_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
@@ -336,26 +316,13 @@ def npipm_solver(
 ) -> tuple[np.ndarray, int, int]:
     """Compiled Newton with Armijo line search and NPIPM regularization.
 
-    Intended use is for the unified flash problem.
-    See :data:`~porepy.compositional.uniflash_c.SOLVERS` for more information.
+    For more information on the signature, see
+    :data:`~porepy.compositional.flash.solvers._core.SOLVER_FUNCTION_SIGNATURE` and
+    :data:`~porepy.compositional.flash.solvers._core.SOLVER_FUNCTION_TYPE`.
 
-    The required solver parameters are:
-
-     - ``'f_dim'``: Dimension of system (number of equations and unknowns).
-        The last ``f_dim`` entries of the generic argument ``X0`` are assumed to
-        be the unknowns.
-    - ``'tol'``: Residual tolerance as stopping criterion.
-    - ``'max_iter'``: Maximal number of iterations.
-    - ``'num_phases'``: Number of phases.
-    - ``'num_comp'``: Number of components.
-    - ``'npnc'``: 2-tuple containing the number of phases and components.
-    - ``'u1'``: See :func:`slack_equation_res`. Required for regularization.
-    - ``'u2'``: See :func:`slack_equation_res`. Required for regularization.
-    - ``'eta'``: See :func:`slack_equation_res`. Required for regularization.
-    - ``'rho'``: Initial step size for (Armijo) line search.
-    - ``'kappa'``: Slope for line search.
-    - ``'max_iter_armijo'``: Maximal number of iterations for line search.
-    - ``'hbm'``: Flag (1/0) to use the heavy ball momentum descend.
+    For a list of required solver parameters, see
+    :data:`DEFAULT_NPIPM_SOLVER_PARAMS` and
+    :data:`~porepy.compositional.flash.solvers._core.GENERAL_SOLVER_PARAMS`.
 
     """
     # default return values
