@@ -25,6 +25,7 @@ import scipy.sparse as sps
 import porepy as pp
 import porepy.applications.md_grids.model_geometries
 from porepy.applications.test_utils import models
+from porepy.applications.test_utils.arrays import projection_matrix_from_array_slicers
 
 # List of geometry classes to test.
 # Turn mixins of specific grids into proper model geometries.
@@ -506,8 +507,8 @@ class TestGeometry:
         # is used in the model classes to expand scalars to vectors (e.g., pressure as a
         # potential to pressure as a force).
         basis = geometry_model.basis(interfaces, dim)
-        nd_to_scalar_sum = pp.ad.sum_operator_list([e.T for e in basis])
-        inner_op = nd_to_scalar_sum * (normal_op * dim_vec)
+        nd_to_scalar_sum = pp.ad.sum_projection_list([e.T for e in basis])
+        inner_op = nd_to_scalar_sum @ (normal_op * dim_vec)
 
         # The two operations should give the same result
         assert np.allclose(equation_system.evaluate(inner_op), dot_product)
@@ -549,8 +550,12 @@ class TestGeometry:
             for i in range(basis_dim):
                 # Consider both subdomains and interfaces here, since the method allows
                 # it.
-                e_i = equation_system.evaluate(
-                    geometry_model.e_i(subdomains + interfaces, i=i, dim=basis_dim)
+                num_cells = sum([sd.num_cells for sd in subdomains + interfaces])
+                e_i = projection_matrix_from_array_slicers(
+                    equation_system.evaluate(
+                        geometry_model.e_i(subdomains + interfaces, i=i, dim=basis_dim)
+                    ),
+                    num_cells,
                 )
                 # Expected values
                 rows = np.arange(i, num_cells_total * basis_dim, basis_dim)
@@ -565,8 +570,11 @@ class TestGeometry:
                 if basis_dim == dim:
                     # the dimension of the basis vector space is not specified, the
                     # value should be the same as for basis_dim = dim.
-                    e_None = equation_system.evaluate(
-                        geometry_model.e_i(subdomains + interfaces, i=i, dim=dim)
+                    e_None = projection_matrix_from_array_slicers(
+                        equation_system.evaluate(
+                            geometry_model.e_i(subdomains + interfaces, i=i, dim=dim)
+                        ),
+                        num_cells,
                     )
                     assert np.allclose((e_None - e_i).data, 0)
 
@@ -589,8 +597,10 @@ class TestGeometry:
             (data_normal_component, (rows_normal_component, cols_normal_component)),
             shape=(num_subdomain_cells, dim * num_subdomain_cells),
         )
-
-        assert np.allclose((known_normal_component - normal_component).data, 0)
+        normal_component_matrix = projection_matrix_from_array_slicers(
+            normal_component, sum([sd.num_cells * dim for sd in subdomains])
+        )
+        assert np.allclose((known_normal_component - normal_component_matrix).data, 0)
 
         # For the tangential component, the expected value depends on dimension.
         tangential_component = equation_system.evaluate(
@@ -618,8 +628,13 @@ class TestGeometry:
             ),
             shape=((dim - 1) * num_subdomain_cells, dim * num_subdomain_cells),
         )
+        tangential_component_matrix = projection_matrix_from_array_slicers(
+            tangential_component, sum([sd.num_cells * dim for sd in subdomains])
+        )
 
-        assert np.allclose((known_tangential_component - tangential_component).data, 0)
+        assert np.allclose(
+            (known_tangential_component - tangential_component_matrix).data, 0
+        )
 
     def test_local_coordinates(
         self,
