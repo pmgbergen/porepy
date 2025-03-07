@@ -16,10 +16,7 @@ import pytest
 import porepy as pp
 from porepy.compositional import flash as FL
 from porepy.compositional import peng_robinson as PR
-from porepy.compositional.flash.solvers.npipm import (
-    DEFAULT_ARMIJO_PARAMS,
-    DEFAULT_NPIPM_SOLVER_PARAMS,
-)
+from porepy.compositional.flash.solvers.npipm import DEFAULT_NPIPM_SOLVER_PARAMS
 from porepy.compositional.materials import load_fluid_constants
 from porepy.compositional.peng_robinson.utils import (
     get_bip_matrix,
@@ -75,7 +72,6 @@ def flash(mixture) -> FL.CompiledUnifiedFlash:
     mixture"""
 
     flash_ = FL.CompiledUnifiedFlash(mixture)
-    flash_.solver_params.update(DEFAULT_ARMIJO_PARAMS)
     flash_.solver_params.update(DEFAULT_NPIPM_SOLVER_PARAMS)
     flash_.compile()
 
