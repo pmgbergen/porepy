@@ -1036,7 +1036,7 @@ def _sort_sub_list(
         # Find the sorting indices of the current row/column. This will be 0-offset.
         loc_ix = np.argsort(indices[sub_ind])
         # Update the global index array. Adding indptr[i] ensures that the indices have
-        # the right offset (e.g., they start at the right place in the global index
+        # the right offset (i.e., they start at the right place in the global index
         # array, and not on 0).
         ix[sub_ind] = loc_ix + indptr[i]
     # Rearrange the indices to be sorted in each row (column).
