@@ -139,7 +139,7 @@ class AdParser:
                     result_list[index] = pp.ad.AdArray(
                         res, sps.csr_matrix((res.shape[0], equation_system.num_dofs()))
                     )
-                elif isinstance(res, ((sps.spmatrix, sps.sparray), np.ndarray)):
+                elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
                     # This will cover numpy arrays of higher dimensions (> 1) and sparse
                     # matrices.
                     #

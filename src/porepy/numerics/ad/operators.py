@@ -573,7 +573,7 @@ class Operator:
             return AdArray(
                 ad, sps.csr_matrix((ad.shape[0], equation_system.num_dofs()))
             )
-        elif isinstance(ad, ((sps.spmatrix, sps.sparray), np.ndarray)):
+        elif isinstance(ad, (sps.spmatrix, sps.sparray, np.ndarray)):
             # this case coverse both, dense and sparse matrices returned from
             # discretizations f.e.
             raise NotImplementedError(

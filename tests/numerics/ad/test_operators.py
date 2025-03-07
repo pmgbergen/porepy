@@ -1070,7 +1070,7 @@ def _get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
 
 def _get_sparse_array(
     wrapped: bool, use_csr_matrix: bool
-) -> sps.spmatrix | pp.ad.SparseArray:
+) -> sps.spmatrix | sps.sparray | pp.ad.SparseArray:
     """Helper to set a sparse array (scipy sparse array). Expected values in the test
     are hardcoded with respect to this value. The array is either returned as-is, or
     wrapped as an Ad SparseArray."""
@@ -1448,7 +1448,7 @@ def _expected_value(
         var_2, (sps.spmatrix, sps.sparray)
     ):
         return False
-    elif isinstance(var_1, (sps.spmatrix)) and isinstance(var_2, pp.ad.AdArray):
+    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, pp.ad.AdArray):
         # This combination is only allowed for matrix-vector products (op = "@")
         if op == "@":
             val = var_1 * var_2.val
@@ -1456,7 +1456,7 @@ def _expected_value(
             return pp.ad.AdArray(val, jac)
         else:
             return False
-    elif isinstance(var_1, (sps.sparray)) and isinstance(var_2, pp.ad.AdArray):
+    elif isinstance(var_1, sps.sparray) and isinstance(var_2, pp.ad.AdArray):
         # This combination is only allowed for matrix-vector products (op = "@")
         if op == "@":
             val = var_1 @ var_2.val

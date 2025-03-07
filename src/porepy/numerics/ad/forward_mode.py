@@ -315,7 +315,7 @@ class AdArray:
 
         """
 
-        if isinstance(other, (float, (sps.spmatrix, sps.sparray), np.ndarray, int)):
+        if isinstance(other, (float, sps.spmatrix, sps.sparray, np.ndarray, int)):
             # In these cases, there is no difference between left and right
             # multiplication, so we simply invoke the standard __mul__ function.
             return self.__mul__(other)
@@ -510,7 +510,7 @@ class AdArray:
 
         """
 
-        if isinstance(other, (float, int, np.ndarray, (sps.spmatrix, sps.sparray))):
+        if isinstance(other, (float, int, np.ndarray, sps.spmatrix, sps.sparray)):
             # Divide a float or a numpy array by self is the same as raising self to
             # the power of -1 and multiplying by the float. The multiplication will
             # end upcalling self.__mul__, which will do the right checks for numpy
