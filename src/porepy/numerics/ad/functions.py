@@ -416,7 +416,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     # Start from var_0, then change entries corresponding to inds.
     max_jac = jacs[0].copy()
 
-    if isinstance(max_jac, sps.spmatrix):
+    if isinstance(max_jac, (sps.spmatrix, sps.sparray)):
         # Enforce csr format, unless the matrix is csc, in which case we keep it.
         if not max_jac.getformat() == "csc":
             max_jac = max_jac.tocsr()
