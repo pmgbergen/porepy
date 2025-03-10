@@ -130,8 +130,9 @@ def is_ccw_polyline(
         p3 = p3.reshape((-1, 1))
     num_points = p3.shape[1]
 
-    # Compute cross product between p1-p2 and p1-p3. The right-hand rule implies that p3
-    # is to the left if the cross product is positive.
+    # Compute cross product between the vectors running from p1 to, respectively, p2 and
+    # p3. The right-hand rule implies that if the cross product is positive, p3 is to
+    # the left of the line p1-p2.
     cross_product = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (
         p3[0] - p1[0]
     )
