@@ -2,30 +2,13 @@
 and related functions.
 
 The functions provided here are building on lambdified expressions in
-:mod:`~porepy.compositional.peng_robinson.eos_s`.
-
-The naming convention introduced there is extended here:
-
-- ``*_c``: NJIT compiled callable with a specific signature.
-
-To extend the example based on the compressibility factor ``Z``:
-
-- ``Z_c`` denotes a scalar callable, compiled from ``Z_f``, with a signature reflexting
-  the dependency of ``Z_e``.
+:mod:`~porepy.compositional.peng_robinson.eos_symbolic`.
 
 Important:
-    Importing this module for the first time triggers numba NJIT compilation with
-    static signatures for a multitude of functions.
+    Importing this module for the first time triggers numba compilation with static
+    signatures for a multitude of functions.
 
     This takes a considerable amount of time.
-
-    Several functions are also implemented as only Python Callables, and then NJIT-ed.
-
-Note:
-    ``*_c``-functions are in general scalar. Vectorized versions using numpy-universal
-    vectorization and parallelization have in general no suffix. They are also only
-    meant to be called from the Python interpreter (not inside other compiled
-    functions).
 
 """
 
@@ -41,16 +24,18 @@ import numpy as np
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
 from ..eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
 from ..materials import FluidComponent
-from . import eos_s
+from . import eos_symbolic
 
 # Import explicitely to avoid some issues in numba (referencing vars internally).
-from .eos_s import A_CRIT, B_CRIT
+from .eos_symbolic import A_CRIT, B_CRIT
 from .utils import thd_function_type
 
 __all__ = [
     "characteristic_residual",
     "get_root_case",
     "is_extended_root",
+    "critical_line",
+    "widom_line",
     "compressibility_factor",
     "PengRobinsonCompiler",
 ]
@@ -71,7 +56,7 @@ _T = TypeVar("_T", float, np.ndarray)
 """
 
 
-_import_msg: str = "(import peng_robinson/eos_c.py)"
+_import_msg: str = "(import peng_robinson/eos.py)"
 _import_start = time.time()
 
 logger.info(f"{_import_msg} Compiling Peng-Robinson EoS from symbolic source ..")
@@ -89,8 +74,8 @@ coeff_0: Callable[[_T, _T], _T] = nb.njit(
         nb.f8[:](nb.f8[:], nb.f8[:]),
     ],
     **_NUMBA_STATIC_COMPILE_KWARGS,
-)(eos_s.coeff_0)
-"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.coeff_0`.
+)(eos_symbolic.coeff_0)
+"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.coeff_0`.
 
 Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
@@ -103,8 +88,8 @@ coeff_1: Callable[[_T, _T], _T] = nb.njit(
         nb.f8[:](nb.f8[:], nb.f8[:]),
     ],
     **_NUMBA_STATIC_COMPILE_KWARGS,
-)(eos_s.coeff_1)
-"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.coeff_1`.
+)(eos_symbolic.coeff_1)
+"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.coeff_1`.
 
 Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
@@ -117,8 +102,8 @@ coeff_2: Callable[[_T, _T], _T] = nb.njit(
         nb.f8[:](nb.f8[:], nb.f8[:]),
     ],
     **_NUMBA_STATIC_COMPILE_KWARGS,
-)(eos_s.coeff_2)
-"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.coeff_2`.
+)(eos_symbolic.coeff_2)
+"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.coeff_2`.
 
 Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
@@ -136,7 +121,7 @@ Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
     **_NUMBA_STATIC_COMPILE_KWARGS,
 )
 def reduced_coeff_0(A: _T, B: _T) -> _T:
-    """NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.
+    """NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.
     reduced_coeff_0`.
 
     Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
@@ -154,7 +139,7 @@ def reduced_coeff_0(A: _T, B: _T) -> _T:
     **_NUMBA_STATIC_COMPILE_KWARGS,
 )
 def reduced_coeff_1(A: _T, B: _T) -> _T:
-    """NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.
+    """NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.
     reduced_coeff_1`.
 
     Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
@@ -169,8 +154,8 @@ discriminant: Callable[[_T, _T], _T] = nb.njit(
         nb.f8[:](nb.f8[:], nb.f8[:]),
     ],
     **_NUMBA_STATIC_COMPILE_KWARGS,
-)(eos_s.discriminant)
-"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.discriminant`.
+)(eos_symbolic.discriminant)
+"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.discriminant`.
 
 Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
@@ -430,7 +415,7 @@ See :data:`~porepy.compositional.peng_robinson.eos.A_CRIT`.
 # find solution for this
 # see https://github.com/sympy/sympy/issues/18432
 # https://github.com/numba/numba/issues/5128
-def _compile_dZ(d_Z_: eos_s.dZ_TYPE) -> Callable[[float, float], np.ndarray]:
+def _compile_dZ(d_Z_: eos_symbolic.dZ_TYPE) -> Callable[[float, float], np.ndarray]:
     """Helper function to wrap derivatives of compressibility factors into arrays.
 
     Parameters:
@@ -451,7 +436,7 @@ def _compile_dZ(d_Z_: eos_s.dZ_TYPE) -> Callable[[float, float], np.ndarray]:
     return inner
 
 
-def _compile_Z(Z_: eos_s.Z_TYPE) -> eos_s.Z_TYPE:
+def _compile_Z(Z_: eos_symbolic.Z_TYPE) -> eos_symbolic.Z_TYPE:
     """Helper function to compile expressions representing compressibility factors as
     roots.
 
@@ -471,23 +456,23 @@ logger.debug(f"{_import_msg} Compiling compressibility factors ..")
 
 # Standard compressibility factors and their derivatives
 
-Z_triple = _compile_Z(eos_s.Z_triple)
-dZ_triple = _compile_dZ(eos_s.dZ_triple)
+Z_triple = _compile_Z(eos_symbolic.Z_triple_f)
+dZ_triple = _compile_dZ(eos_symbolic.dZ_triple_f)
 
-Z_one = _compile_Z(eos_s.Z_one)
-dZ_one = _compile_dZ(eos_s.dZ_one)
+Z_one = _compile_Z(eos_symbolic.Z_one_f)
+dZ_one = _compile_dZ(eos_symbolic.dZ_one_f)
 
-Z_double_g = _compile_Z(eos_s.Z_double_g)
-dZ_double_g = _compile_dZ(eos_s.dZ_double_g)
-Z_double_l = _compile_Z(eos_s.Z_double_l)
-dZ_double_l = _compile_dZ(eos_s.dZ_double_l)
+Z_double_g = _compile_Z(eos_symbolic.Z_double_g_f)
+dZ_double_g = _compile_dZ(eos_symbolic.dZ_double_g_f)
+Z_double_l = _compile_Z(eos_symbolic.Z_double_l_f)
+dZ_double_l = _compile_dZ(eos_symbolic.dZ_double_l_f)
 
-Z_three_g = _compile_Z(eos_s.Z_three_g)
-dZ_three_g = _compile_dZ(eos_s.dZ_three_g)
-Z_three_l = _compile_Z(eos_s.Z_three_l)
-dZ_three_l = _compile_dZ(eos_s.dZ_three_l)
-Z_three_i = _compile_Z(eos_s.Z_three_i)
-dZ_three_i = _compile_dZ(eos_s.dZ_three_i)
+Z_three_g = _compile_Z(eos_symbolic.Z_three_g_f)
+dZ_three_g = _compile_dZ(eos_symbolic.dZ_three_g_f)
+Z_three_l = _compile_Z(eos_symbolic.Z_three_l_f)
+dZ_three_l = _compile_dZ(eos_symbolic.dZ_three_l_f)
+Z_three_i = _compile_Z(eos_symbolic.Z_three_i_f)
+dZ_three_i = _compile_dZ(eos_symbolic.dZ_three_i_f)
 
 # extended compressibility factors and their derivatives
 
@@ -1127,6 +1112,8 @@ def _compile_volume_derivative(
     return inner
 
 
+# NOTE notation: The suffix *_c is used for dynamically compiled function variables to
+# avoid confusion.
 class PengRobinsonCompiler(EoSCompiler):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS.
@@ -1175,7 +1162,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         """
 
-        self.symbolic: eos_s.PengRobinsonSymbolic = eos_s.PengRobinsonSymbolic(
+        self.symbolic = eos_symbolic.PengRobinsonSymbolic(
             components, ideal_enthalpies, bip_matrix
         )
         """Symbolic representation of the EoS, providing expressions and derivatives
@@ -1193,21 +1180,21 @@ class PengRobinsonCompiler(EoSCompiler):
             fastmath=NUMBA_FAST_MATH,
         )(self.symbolic.B_f)
         logger.debug("Compiling symbolic functions 1/12")
-        d_B_c = _compile_thd_function_derivatives(self.symbolic.d_B_f)
+        dB_c = _compile_thd_function_derivatives(self.symbolic.dB_f)
         logger.debug("Compiling symbolic functions 2/12")
 
         A_c = nb.njit(
             "float64(float64, float64, float64[:])",
         )(self.symbolic.A_f)
         logger.debug("Compiling symbolic functions 3/12")
-        d_A_c = _compile_thd_function_derivatives(self.symbolic.d_A_f)
+        dA_c = _compile_thd_function_derivatives(self.symbolic.dA_f)
         logger.debug("Compiling symbolic functions 4/12")
 
         phi_c = _compile_fugacities(self.symbolic.phi_f)
         logger.debug("Compiling symbolic functions 5/12")
-        d_phi_c = nb.njit(
+        dphi_c = nb.njit(
             "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
-        )(self.symbolic.d_phi_f)
+        )(self.symbolic.dphi_f)
         logger.debug("Compiling symbolic functions 6/12")
 
         h_dep_c = nb.njit(
@@ -1218,9 +1205,9 @@ class PengRobinsonCompiler(EoSCompiler):
             self.symbolic.h_ideal_f
         )
         logger.debug("Compiling symbolic functions 8/12")
-        d_h_dep_c = _compile_extended_thd_function_derivatives(self.symbolic.d_h_dep_f)
+        dh_dep_c = _compile_extended_thd_function_derivatives(self.symbolic.dh_dep_f)
         logger.debug("Compiling symbolic functions 9/12")
-        d_h_ideal_c = _compile_thd_function_derivatives(self.symbolic.d_h_ideal_f)
+        dh_ideal_c = _compile_thd_function_derivatives(self.symbolic.dh_ideal_f)
         logger.debug("Compiling symbolic functions 10/12")
 
         rho_c = nb.njit(
@@ -1228,23 +1215,23 @@ class PengRobinsonCompiler(EoSCompiler):
             fastmath=NUMBA_FAST_MATH,
         )(self.symbolic.rho_f)
         logger.debug("Compiling symbolic functions 11/12")
-        d_rho_c = _compile_volume_derivative(self.symbolic.d_rho_f)
+        drho_c = _compile_volume_derivative(self.symbolic.drho_f)
         logger.debug("Compiling symbolic functions 12/12")
 
         self._cfuncs.update(
             {
                 "A": A_c,
                 "B": B_c,
-                "d_A": d_A_c,
-                "d_B": d_B_c,
+                "dA": dA_c,
+                "dB": dB_c,
                 "phi": phi_c,
-                "d_phi": d_phi_c,
+                "dphi": dphi_c,
                 "h_dep": h_dep_c,
                 "h_ideal": h_ideal_c,
-                "d_h_dep": d_h_dep_c,
-                "d_h_ideal": d_h_ideal_c,
+                "dh_dep": dh_dep_c,
+                "dh_ideal": dh_ideal_c,
                 "rho": rho_c,
-                "d_rho": d_rho_c,
+                "drho": drho_c,
             }
         )
 
@@ -1282,8 +1269,8 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_prearg_for_derivatives(self) -> VectorFunction:
         A_c = self._cfuncs["A"]
         B_c = self._cfuncs["B"]
-        dA_c = self._cfuncs["d_A"]
-        dB_c = self._cfuncs["d_B"]
+        dA_c = self._cfuncs["dA"]
+        dB_c = self._cfuncs["dB"]
         # number of derivatives for A, B, Z (p, T, and per component fraction)
         d = 2 + self._nc
 
@@ -1327,12 +1314,12 @@ class PengRobinsonCompiler(EoSCompiler):
         return phi_mix_c
 
     def get_fugacity_derivative_function(self) -> VectorFunction:
-        d_phi_c = self._cfuncs["d_phi"]
+        dphi_c = self._cfuncs["dphi"]
         # number of derivatives
         d = 2 + self._nc
 
         @nb.njit("float64[:,:](float64[:], float64[:], float64, float64, float64[:])")
-        def d_phi_mix_c(
+        def dphi_mix_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
             p: float,
@@ -1340,7 +1327,7 @@ class PengRobinsonCompiler(EoSCompiler):
             xn: np.ndarray,
         ) -> np.ndarray:
             # computation of phis dependent on A_j, B_j, Z_j
-            d_phis = d_phi_c(p, T, xn, prearg_val[0], prearg_val[1], prearg_val[2])
+            d_phis = dphi_c(p, T, xn, prearg_val[0], prearg_val[1], prearg_val[2])
             # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
             dA = prearg_jac[0:d]
             dB = prearg_jac[d : 2 * d]
@@ -1353,7 +1340,7 @@ class PengRobinsonCompiler(EoSCompiler):
                 + np.outer(d_phis[:, -1], dZ)
             )
 
-        return d_phi_mix_c
+        return dphi_mix_c
 
     def get_enthalpy_function(self) -> ScalarFunction:
         h_dep_c = self._cfuncs["h_dep"]
@@ -1369,19 +1356,19 @@ class PengRobinsonCompiler(EoSCompiler):
 
     def get_enthalpy_derivative_function(self) -> VectorFunction:
         d = 2 + self._nc
-        d_h_dep_c = self._cfuncs["d_h_dep"]
-        d_h_ideal_c = self._cfuncs["d_h_ideal"]
+        dh_dep_c = self._cfuncs["dh_dep"]
+        dh_ideal_c = self._cfuncs["dh_ideal"]
 
         @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
-        def d_h_c(
+        def dh_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
             p: float,
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            d_h_ideal = d_h_ideal_c(p, T, xn)
-            d_h_dep = d_h_dep_c(p, T, xn, prearg_val[0], prearg_val[1], prearg_val[2])
+            d_h_ideal = dh_ideal_c(p, T, xn)
+            d_h_dep = dh_dep_c(p, T, xn, prearg_val[0], prearg_val[1], prearg_val[2])
             # derivatives of A_j, B_j, Z_j w.r.t. p, T, and X_j
             dA = prearg_jac[0:d]
             dB = prearg_jac[d : 2 * d]
@@ -1392,7 +1379,7 @@ class PengRobinsonCompiler(EoSCompiler):
             )
             return d_h_ideal + d_h_dep
 
-        return d_h_c
+        return dh_c
 
     def get_density_function(self) -> ScalarFunction:
         rho_c_ = self._cfuncs["rho"]
@@ -1405,17 +1392,17 @@ class PengRobinsonCompiler(EoSCompiler):
 
     def get_density_derivative_function(self) -> VectorFunction:
         d = 2 + self._nc
-        d_rho_c_ = self._cfuncs["d_rho"]
+        drho_c_ = self._cfuncs["drho"]
 
         @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
-        def d_rho_c(
+        def drho_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
             p: float,
             T: float,
             xn: np.ndarray,
         ) -> np.ndarray:
-            d_rho_ = d_rho_c_(p, T, prearg_val[2])
+            d_rho_ = drho_c_(p, T, prearg_val[2])
             # derivatives of Z_j w.r.t. p, T, and X_j
             dZ = prearg_jac[2 * d : 3 * d]
             # expansion of derivatives (chain rule)
@@ -1423,7 +1410,7 @@ class PengRobinsonCompiler(EoSCompiler):
             d_rho[:2] += d_rho_[:2]  # contribution of p, T derivatives
             return d_rho
 
-        return d_rho_c
+        return drho_c
 
     # TODO need models for below functions
     def get_viscosity_function(self) -> ScalarFunction:
@@ -1455,7 +1442,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
     def get_conductivity_derivative_function(self) -> VectorFunction:
         @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
-        def d_kappa_c(
+        def dkappa_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
             p: float,
@@ -1464,7 +1451,7 @@ class PengRobinsonCompiler(EoSCompiler):
         ) -> np.ndarray:
             return np.zeros(2 + xn.shape[0], dtype=np.float64)
 
-        return d_kappa_c
+        return dkappa_c
 
 
 logger.info(

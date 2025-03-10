@@ -44,27 +44,27 @@ class PropertyFunctionDict(TypedDict):
     """Provided by :meth:`EoSCompiler.get_prearg_for_derivatives`."""
     h: ScalarFunction
     """Provided by :meth:`EoSCompiler.get_enthalpy_function`."""
-    d_h: VectorFunction
+    dh: VectorFunction
     """Provided by :meth:`EoSCompiler.get_enthalpy_derivative_function`."""
     rho: ScalarFunction
     """Provided by :meth:`EoSCompiler.get_density_function`."""
-    d_rho: VectorFunction
+    drho: VectorFunction
     """Provided by :meth:`EoSCompiler.get_density_derivative_function`."""
     v: ScalarFunction
     """Provided by :meth:`EoSCompiler.get_volume_function`."""
-    d_v: VectorFunction
+    dv: VectorFunction
     """Provided by :meth:`EoSCompiler.get_volume_derivative_function`."""
     mu: ScalarFunction
     """Provided by :meth:`EoSCompiler.get_viscosity_function`."""
-    d_mu: VectorFunction
+    dmu: VectorFunction
     """Provided by :meth:`EoSCompiler.get_viscosity_derivative_function`."""
     kappa: ScalarFunction
     """Provided by :meth:`EoSCompiler.get_conductivity_function`."""
-    d_kappa: VectorFunction
+    dkappa: VectorFunction
     """Provided by :meth:`EoSCompiler.get_conductivity_derivative_function`."""
     phi: VectorFunction
     """Provided by :meth:`EoSCompiler.get_fugacity_function`."""
-    d_phi: VectorFunction
+    dphi: VectorFunction
     """Provided by :meth:`EoSCompiler.get_fugacity_derivative_function`."""
 
 
@@ -286,17 +286,17 @@ class EoSCompiler(EquationOfState):
                 "prearg_val",
                 "prearg_jac",
                 "phi",
-                "d_phi",
+                "dphi",
                 "h",
-                "d_h",
+                "dh",
                 "v",
-                "d_v",
+                "dv",
                 "rho",
-                "d_rho",
+                "drho",
                 "mu",
-                "d_mu",
+                "dmu",
                 "kappa",
-                "d_kappa",
+                "dkappa",
             ],
             VectorFunction,
         ] = {}
@@ -308,9 +308,8 @@ class EoSCompiler(EquationOfState):
         """
 
         self._is_compiled: bool = False
-        """"Boolean to keep track of whether (costly) compilation process has been performed.
-
-        Should be required only once.
+        """"Boolean to keep track of whether (costly) compilation process has been
+        performed. Should be required only once.
 
         """
 
@@ -545,7 +544,7 @@ class EoSCompiler(EquationOfState):
         if rho_c is None:
             rho_c = self.get_density_function()
 
-        drho_c = self.funcs.get("d_rho", None)
+        drho_c = self.funcs.get("drho", None)
         if drho_c is None:
             drho_c = self.get_density_derivative_function()
 
@@ -598,27 +597,27 @@ class EoSCompiler(EquationOfState):
         logger.debug("Compiling property functions 2/14")
         self.funcs["phi"] = self.get_fugacity_function()
         logger.debug("Compiling property functions 3/14")
-        self.funcs["d_phi"] = self.get_fugacity_derivative_function()
+        self.funcs["dphi"] = self.get_fugacity_derivative_function()
         logger.debug("Compiling property functions 4/14")
         self.funcs["h"] = self.get_enthalpy_function()
         logger.debug("Compiling property functions 5/14")
-        self.funcs["d_h"] = self.get_enthalpy_derivative_function()
+        self.funcs["dh"] = self.get_enthalpy_derivative_function()
         logger.debug("Compiling property functions 6/14")
         self.funcs["rho"] = self.get_density_function()
         logger.debug("Compiling property functions 7/14")
-        self.funcs["d_rho"] = self.get_density_derivative_function()
+        self.funcs["drho"] = self.get_density_derivative_function()
         logger.debug("Compiling property functions 8/14")
         self.funcs["v"] = self.get_volume_function()
         logger.debug("Compiling property functions 9/14")
-        self.funcs["d_v"] = self.get_volume_derivative_function()
+        self.funcs["dv"] = self.get_volume_derivative_function()
         logger.debug("Compiling property functions 10/14")
         self.funcs["mu"] = self.get_viscosity_function()
         logger.debug("Compiling property functions 11/14")
-        self.funcs["d_mu"] = self.get_viscosity_derivative_function()
+        self.funcs["dmu"] = self.get_viscosity_derivative_function()
         logger.debug("Compiling property functions 12/14")
         self.funcs["kappa"] = self.get_conductivity_function()
         logger.debug("Compiling property functions 13/14")
-        self.funcs["d_kappa"] = self.get_conductivity_derivative_function()
+        self.funcs["dkappa"] = self.get_conductivity_derivative_function()
         logger.debug("Compiling property functions 14/14")
         # endregion
 
@@ -635,27 +634,27 @@ class EoSCompiler(EquationOfState):
         logger.debug("Compiling vectorized functions 2/14")
         self.gufuncs["phi"] = _compile_vectorized_phi(self.funcs["phi"])
         logger.debug("Compiling vectorized functions 3/14")
-        self.gufuncs["d_phi"] = _compile_vectorized_d_phi(self.funcs["d_phi"])
+        self.gufuncs["dphi"] = _compile_vectorized_d_phi(self.funcs["dphi"])
         logger.debug("Compiling vectorized functions 4/14")
         self.gufuncs["h"] = _compile_vectorized_property(self.funcs["h"])
         logger.debug("Compiling vectorized functions 5/14")
-        self.gufuncs["d_h"] = _compile_vectorized_derivatives(self.funcs["d_h"])
+        self.gufuncs["dh"] = _compile_vectorized_derivatives(self.funcs["dh"])
         logger.debug("Compiling vectorized functions 6/14")
         self.gufuncs["rho"] = _compile_vectorized_property(self.funcs["rho"])
         logger.debug("Compiling vectorized functions 7/14")
-        self.gufuncs["d_rho"] = _compile_vectorized_derivatives(self.funcs["d_rho"])
+        self.gufuncs["drho"] = _compile_vectorized_derivatives(self.funcs["drho"])
         logger.debug("Compiling vectorized functions 8/14")
         self.gufuncs["v"] = _compile_vectorized_property(self.funcs["v"])
         logger.debug("Compiling vectorized functions 9/14")
-        self.gufuncs["d_v"] = _compile_vectorized_derivatives(self.funcs["d_v"])
+        self.gufuncs["dv"] = _compile_vectorized_derivatives(self.funcs["dv"])
         logger.debug("Compiling vectorized functions 10/14")
         self.gufuncs["mu"] = _compile_vectorized_property(self.funcs["mu"])
         logger.debug("Compiling vectorized functions 11/14")
-        self.gufuncs["d_mu"] = _compile_vectorized_derivatives(self.funcs["d_mu"])
+        self.gufuncs["dmu"] = _compile_vectorized_derivatives(self.funcs["dmu"])
         logger.debug("Compiling vectorized functions 12/14")
         self.gufuncs["kappa"] = _compile_vectorized_property(self.funcs["kappa"])
         logger.debug("Compiling vectorized functions 13/14")
-        self.gufuncs["d_kappa"] = _compile_vectorized_derivatives(self.funcs["d_kappa"])
+        self.gufuncs["dkappa"] = _compile_vectorized_derivatives(self.funcs["dkappa"])
         logger.debug("Compiling vectorized functions 14/14")
         # endregion
 
@@ -719,17 +718,15 @@ class EoSCompiler(EquationOfState):
             # shape = (num_comp, num_vals), sequence per component
             phis=self.gufuncs["phi"](prearg_val, *thermodynamic_input),
             # shape = (num_diffs, num_vals), sequence per derivative
-            dh=self.gufuncs["d_h"](prearg_val, prearg_jac, *thermodynamic_input),
+            dh=self.gufuncs["dh"](prearg_val, prearg_jac, *thermodynamic_input),
             # shape = (num_diffs, num_vals), sequence per derivative
-            drho=self.gufuncs["d_rho"](prearg_val, prearg_jac, *thermodynamic_input),
+            drho=self.gufuncs["drho"](prearg_val, prearg_jac, *thermodynamic_input),
             # shape = (num_comp, num_diffs, num_vals)
-            dphis=self.gufuncs["d_phi"](prearg_val, prearg_jac, *thermodynamic_input),
+            dphis=self.gufuncs["dphi"](prearg_val, prearg_jac, *thermodynamic_input),
             mu=self.gufuncs["mu"](prearg_val, *thermodynamic_input),
-            dmu=self.gufuncs["d_mu"](prearg_val, prearg_jac, *thermodynamic_input),
+            dmu=self.gufuncs["dmu"](prearg_val, prearg_jac, *thermodynamic_input),
             kappa=self.gufuncs["kappa"](prearg_val, *thermodynamic_input),
-            dkappa=self.gufuncs["d_kappa"](
-                prearg_val, prearg_jac, *thermodynamic_input
-            ),
+            dkappa=self.gufuncs["dkappa"](prearg_val, prearg_jac, *thermodynamic_input),
         )
 
         return state
