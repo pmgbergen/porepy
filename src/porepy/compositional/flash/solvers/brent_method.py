@@ -3,30 +3,54 @@ scalar function."""
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Literal, TypeAlias
 
 import numba
 import numpy as np
 
+from ._core import SOLVER_PARAMETERS_TYPE
 
-@numba.njit(
-    [
-        numba.typeof((1.0, 1, 1))(
-            numba.typeof(numba.cfunc("f8(f8)")(lambda x: x)),
-            numba.f8,
-            numba.f8,
-            numba.int32,
-            numba.f8,
-        )
-    ],
-    cache=True,
+__all__ = [
+    "DEFAULT_BRENT_PARAMS",
+    "brent",
+]
+
+
+_BRENT_PARAMS_KEYS: TypeAlias = Literal["brent_max_iterations", "brent_tolerance"]
+"""Keys (names) for brent method parameters."""
+
+
+DEFAULT_BRENT_PARAMS: dict[_BRENT_PARAMS_KEYS, float] = {
+    "brent_max_iterations": 100,
+    "brent_tolerance": 1e-16,
+}
+"""Default parameters for :func:`brent`.
+
+- ``'brent_max_iterations': 100.`` maximal number of iterations.
+- ``'brent_tolerance': 1e-16``: Convergence criterion for root finding.
+
+"""
+
+
+BRENT_METHOD_SIGNATURE = numba.types.Tuple((numba.f8, numba.i4, numba.i4))(
+    numba.typeof(numba.cfunc("f8(f8)")(lambda x: x)),
+    numba.f8,
+    numba.f8,
+    SOLVER_PARAMETERS_TYPE,
 )
-def brent_method_c(
-    f: Callable[[float], float], a: float, b: float, maxiter: int, tol: float
+"""Numba signature for the brent method for compilation."""
+
+
+@numba.njit(BRENT_METHOD_SIGNATURE, cache=True)
+def brent(
+    f: Callable[[float], float], a: float, b: float, params: dict[str, float]
 ) -> tuple[float, int, int]:
     """Classical Brent method to find a root of ``f``, bracketed by ``a`` and ``b``.
 
     Implementation is taken from reference below.
+
+    For more information on the numba types of the signature, see
+    :data:`BRENT_METHOD_SIGNATURE`.
 
     References:
         Press, William H. 2007. Numerical Recipes : The Art of Scientific Computing.
@@ -36,8 +60,7 @@ def brent_method_c(
         f: Scalar function with ``f(a)`` and ``f(b)`` having opposite signs.
         a: Left bracket to the supposed root.
         b: Right bracket to the supposed root.
-        maxiter: Maximum number of iterations.
-        tol: Tolerance for convergence check.
+        params: A dictionary containing ``'max_iterations'`` and ``'tolerance'``.
 
     Raises:
         ValueError: If ``f(a)`` and ``f(b)`` have the same sign.
@@ -50,6 +73,9 @@ def brent_method_c(
         - an integer, the number of iterations.
 
     """
+
+    max_iter = int(params["brent_max_iterations"])
+    tol = float(params["brent_tolerance"])
 
     fa = f(a)
     fb = f(b)
@@ -76,7 +102,7 @@ def brent_method_c(
     iter_num = 0
     failure = 1
 
-    for i in range(maxiter):
+    for i in range(max_iter):
         iter_num = i
         # Adjusting bounding intervals
         if fb * fc > 0.0:
@@ -140,26 +166,3 @@ def brent_method_c(
 
     # for loop finished
     return b, failure, iter_num
-
-
-def brent_method(
-    f: Callable[[float], float],
-    a: float,
-    b: float,
-    maxiter: int = 100,
-    tol: float = 1e-16,
-) -> tuple[float, int, int]:
-    """Utility wrapper for :func:`brent_method_c` which allows ``f`` to be a regular
-    Python function.
-
-    It attempts to :obj:`~numba.njit`-decorate ``f`` with the expected signature
-    ``(float64,) -> float64``, and feeds it to the underlying method.
-
-    Numba errors are returned unmodified if not successful.
-
-    Provides also default values for maximum number of iterations (100) and tolerance
-    (``1e-16``).
-
-    """
-    f_c = numba.njit("f8(f8)", cache=True)(f)
-    return brent_method_c(f_c, a, b, maxiter, tol)

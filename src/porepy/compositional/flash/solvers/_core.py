@@ -27,6 +27,17 @@ from ..._core import NUMBA_PARALLEL
 # TODO numba.cfunc crashes when jit is disabled. implement workaround from
 # https://github.com/numba/numba/issues/8002
 
+__all__ = [
+    "GENERAL_SOLVER_PARAMS",
+    "SOLVER_PARAMETERS_TYPE",
+    "FLASH_RESIDUAL_FUNCTION_TYPE",
+    "FLASH_JACOBIAN_FUNCTION_TYPE",
+    "SOLVER_FUNCTION_SIGNATURE",
+    "serial_solver",
+    "parallel_solver",
+    "MULTI_SOLVERS",
+]
+
 
 GENERAL_SOLVER_PARAMS: dict[
     Literal["num_components", "num_phases", "max_iterations", "tolerance", "f_dim"],
@@ -108,6 +119,23 @@ Used to type cached, numba-compiled solvers.
 """
 
 
+SOLVER_FUNCTION_SIGNATURE = numba.types.Tuple(
+    (numba.float64[:], numba.int32, numba.int32)
+)(
+    numba.float64[:],
+    FLASH_RESIDUAL_FUNCTION_TYPE,
+    FLASH_JACOBIAN_FUNCTION_TYPE,
+    SOLVER_PARAMETERS_TYPE,
+)
+"""Numba signature for flash solvers.
+
+To be used as the signature argument for :obj:`numba.njit` when compiling a solver.
+
+See :data:`SOLVER_FUNCTION_TYPE` for more information on the signature.
+
+"""
+
+
 @numba.cfunc(
     numba.types.Tuple((numba.float64[:], numba.int32, numba.int32))(
         numba.float64[:],
@@ -162,23 +190,6 @@ The convergence codes must be as follows:
 - 3: failure in the evaluation of the residual
 - 4: failure in the evaluation of the Jacobian
 - 5: Any other failure
-
-"""
-
-
-SOLVER_FUNCTION_SIGNATURE = numba.types.Tuple(
-    (numba.float64[:], numba.int32, numba.int32)
-)(
-    numba.float64[:],
-    FLASH_RESIDUAL_FUNCTION_TYPE,
-    FLASH_JACOBIAN_FUNCTION_TYPE,
-    SOLVER_PARAMETERS_TYPE,
-)
-"""Numba signature for flash solvers.
-
-To be used as the signature argument for :obj:`numba.njit` when compiling a solver.
-
-See :data:`SOLVER_FUNCTION_TYPE` for more information on the signature.
 
 """
 
@@ -306,7 +317,7 @@ def parallel_solver(
     return result, converged, num_iter
 
 
-MULTI_SOLVER: dict[
+MULTI_SOLVERS: dict[
     Literal["serial", "parallel"],
     Callable[..., tuple[np.ndarray, np.ndarray, np.ndarray]],
 ] = {

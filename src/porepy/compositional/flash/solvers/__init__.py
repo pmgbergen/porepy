@@ -7,32 +7,25 @@ from typing import Any, Callable, Literal
 
 import numpy as np
 
-from ._core import (
-    FLASH_JACOBIAN_FUNCTION_TYPE,
-    FLASH_RESIDUAL_FUNCTION_TYPE,
-    MULTI_SOLVER,
-    SOLVER_FUNCTION_TYPE,
-    SOLVER_PARAMETERS_TYPE,
-    parallel_solver,
-    serial_solver,
-)
-from .brent import brent_method, brent_method_c
-from .npipm import DEFAULT_NPIPM_SOLVER_PARAMS, npipm_solver
+__all__ = []
+
+from . import _core
+from ._armijo_line_search import DEFAULT_ARMIJO_LINE_SEARCH_PARAMS, armijo_line_search
+from ._core import *
+from .brent_method import DEFAULT_BRENT_PARAMS, brent
+from .npipm_solver import DEFAULT_NPIPM_SOLVER_PARAMS, npipm
 
 __all__ = [
-    "brent_method",
-    "brent_method_c",
-    "npipm_solver",
-    "serial_solver",
-    "parallel_solver",
-    "MULTI_SOLVER",
+    "armijo_line_search",
+    "brent",
+    "npipm",
+    "DEFAULT_ARMIJO_LINE_SEARCH_PARAMS",
+    "DEFAULT_BRENT_PARAMS",
+    "DEFAULT_NPIPM_SOLVER_PARAMS",
     "SOLVERS",
     "DEFAULT_SOLVER_PARAMS",
-    "SOLVER_PARAMETERS_TYPE",
-    "SOLVER_FUNCTION_TYPE",
-    "FLASH_JACOBIAN_FUNCTION_TYPE",
-    "FLASH_RESIDUAL_FUNCTION_TYPE",
 ]
+__all__.extend(_core.__all__)
 
 
 SOLVERS: dict[
@@ -46,7 +39,7 @@ SOLVERS: dict[
         ],
         tuple[np.ndarray, int, int],
     ],
-] = {"npipm": npipm_solver}
+] = {"npipm": npipm}
 """Collection of available solvers.
 
 For a more detailed description of the signature of a solver, see

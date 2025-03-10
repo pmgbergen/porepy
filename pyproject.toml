@@ -80,4 +80,5 @@ exclude = [
     "src/porepy/numerics/ad/__init__.py",
     "src/porepy/compositional/__init__.py",
     "src/porepy/compositional/peng_robinson/__init__.py",
+    "src/porepy/compositional/flash/solvers/__init__.py",
 ]

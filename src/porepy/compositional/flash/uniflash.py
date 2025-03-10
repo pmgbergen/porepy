@@ -42,7 +42,7 @@ from ..utils import (
     safe_sum,
 )
 from .flash import Flash
-from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVER, SOLVERS
+from .solvers import DEFAULT_SOLVER_PARAMS, MULTI_SOLVERS, SOLVERS
 from .utils import (
     insert_pT,
     insert_sat,
@@ -1564,7 +1564,7 @@ class CompiledUnifiedFlash(Flash):
             params = {"mode": "serial", "solver": "npipm"}
 
         mode = params.get("mode", "serial")
-        assert mode in MULTI_SOLVER, f"Unsupported mode {mode}."
+        assert mode in MULTI_SOLVERS, f"Unsupported mode {mode}."
         solver = params.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}"
 
@@ -1672,7 +1672,7 @@ class CompiledUnifiedFlash(Flash):
         logger.debug(f"Starting ({mode}) {solver} solver ..")
 
         start = time.time()
-        results, success, num_iter = MULTI_SOLVER[mode](
+        results, success, num_iter = MULTI_SOLVERS[mode](
             X0.T,
             self.residuals[flash_type],
             self.jacobians[flash_type],
