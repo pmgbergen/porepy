@@ -63,8 +63,11 @@ def cell_info(num_phys_names: int, simplex_grid: pp.Grid) -> dict[str, np.ndarra
                 num_elements = simplex_grid.num_cells
             else:
                 num_elements = simplex_grid.num_faces
-        elif geo_element == "tetrahedron" and simplex_grid.dim == 3:
-            num_elements = simplex_grid.num_cells
+        elif geo_element == "tetrahedron" 
+            if simplex_grid.dim == 3:
+                num_elements = simplex_grid.num_cells
+            else:
+                continue
 
         # Add random tags for the elements.
         dic[geo_element] = rng.integers(0, num_phys_names, num_elements)
