@@ -17,6 +17,8 @@ from __future__ import annotations
 import os
 from typing import Callable, Literal, TypeAlias
 
+# NOTE import numba.typed like this to avoid importing the spurious py.typed file in the
+# typed sub-package, which confuses mypy.
 import numba
 import numba.typed
 import numpy as np
@@ -58,11 +60,6 @@ else:
     _typeof = numba.typeof
     _cfunc = numba.cfunc
 
-
-# import ctypes
-# a = ctypes.CFUNCTYPE
-# TODO numba.cfunc crashes when jit is disabled. implement workaround from
-# https://github.com/numba/numba/issues/8002
 
 __all__ = [
     "GENERAL_SOLVER_PARAMS",
@@ -112,7 +109,7 @@ Note:
 """
 
 
-@_cfunc("f8[:](f8[:])", cache=True)
+@_cfunc(numba.f8[:](numba.f8[:]), cache=True)
 def _flash_residual_function(x: np.ndarray) -> np.ndarray:
     """Internal dummy for a flash residual function ``(f8[:]) -> f8[:]``.
 
@@ -131,7 +128,7 @@ Used to type cached, numba-compiled solvers.
 """
 
 
-@_cfunc("f8[:,:](f8[:])", cache=True)
+@_cfunc(numba.f8[:, :](numba.f8[:]), cache=True)
 def _flash_jacobian_function(x: np.ndarray) -> np.ndarray:
     """Internal dummy for a flash Jacobian function ``(f8[:]) -> f8[:,:]``.
 
@@ -150,10 +147,8 @@ Used to type cached, numba-compiled solvers.
 """
 
 
-SOLVER_FUNCTION_SIGNATURE = numba.types.Tuple(
-    (numba.float64[:], numba.int32, numba.int32)
-)(
-    numba.float64[:],
+SOLVER_FUNCTION_SIGNATURE = numba.types.Tuple((numba.f8[:], numba.i4, numba.i4))(
+    numba.f8[:],
     FLASH_RESIDUAL_FUNCTION_TYPE,
     FLASH_JACOBIAN_FUNCTION_TYPE,
     SOLVER_PARAMETERS_TYPE,
@@ -168,8 +163,8 @@ See :data:`SOLVER_FUNCTION_TYPE` for more information on the signature.
 
 
 @_cfunc(
-    numba.types.Tuple((numba.float64[:], numba.int32, numba.int32))(
-        numba.float64[:],
+    numba.types.Tuple((numba.f8[:], numba.i4, numba.i4))(
+        numba.f8[:],
         FLASH_RESIDUAL_FUNCTION_TYPE,
         FLASH_JACOBIAN_FUNCTION_TYPE,
         SOLVER_PARAMETERS_TYPE,
@@ -230,9 +225,9 @@ _multi_solver_signature = numba.types.Tuple(
     # Numba requires that information explicitly by using ::1 in the last dimension.
     # Also, for some unknown reasons the convergence codes are cast into int64 because
     # they have a default value of 5... casting it back did not help.
-    (numba.float64[:, ::1], numba.int64[::1], numba.int32[::1])
+    (numba.f8[:, ::1], numba.i8[::1], numba.i4[::1])
 )(
-    numba.float64[:, :],
+    numba.f8[:, :],
     FLASH_RESIDUAL_FUNCTION_TYPE,
     FLASH_JACOBIAN_FUNCTION_TYPE,
     SOLVER_FUNCTION_TYPE,

@@ -7,7 +7,7 @@ import abc
 import logging
 from typing import Callable, Literal, Sequence, TypeAlias, TypedDict, cast
 
-import numba
+import numba as nb
 import numpy as np
 
 from ._core import NUMBA_PARALLEL, PhysicalState
@@ -74,8 +74,8 @@ def _compile_vectorized_prearg(
     """Helper function implementing the parallelized, compiled computation of
     pre-argument functions ``func_c``, which is called element-wise."""
 
-    @numba.njit(
-        "float64[:,:](int32,float64[:],float64[:],float64[:,:])",
+    @nb.njit(
+        nb.f8[:, :](nb.i1, nb.f8[:], nb.f8[:], nb.f8[:, :]),
         parallel=NUMBA_PARALLEL,
     )
     def inner(phasetype: int, p: np.ndarray, T: np.ndarray, xn: np.ndarray):
@@ -84,7 +84,7 @@ def _compile_vectorized_prearg(
         pre_arg_0 = func_c(phasetype, p[0], T[0], xn[:, 0])
         pre_arg_all = np.empty((N, pre_arg_0.shape[0]))
         pre_arg_all[0] = pre_arg_0
-        for i in numba.prange(1, N):
+        for i in nb.prange(1, N):
             pre_arg_all[i] = func_c(phasetype, p[i], T[i], xn[:, i])
         return pre_arg_all
 
@@ -105,14 +105,14 @@ def _compile_vectorized_phi(
 
     """
 
-    @numba.njit(
-        "float64[:,:](float64[:,:],float64[:],float64[:],float64[:,:])",
+    @nb.njit(
+        nb.f8[:, :](nb.f8[:, :], nb.f8[:], nb.f8[:], nb.f8[:, :]),
         parallel=NUMBA_PARALLEL,
     )
     def inner(prearg: np.ndarray, p: np.ndarray, T: np.ndarray, xn: np.ndarray):
         ncomp, N = xn.shape
         phis = np.empty((N, ncomp))
-        for i in numba.prange(N):
+        for i in nb.prange(N):
             phis[i] = phi_c(prearg[i], p[i], T[i], xn[:, i])
         # phis per component row-wise
         return phis.T
@@ -136,8 +136,8 @@ def _compile_vectorized_d_phi(
 
     """
 
-    @numba.njit(
-        "float64[:,:,:](float64[:,:],float64[:,:],float64[:],float64[:],float64[:,:])",
+    @nb.njit(
+        nb.f8[:, :, :](nb.f8[:, :], nb.f8[:, :], nb.f8[:], nb.f8[:], nb.f8[:, :]),
         parallel=NUMBA_PARALLEL,
     )
     def inner(
@@ -150,7 +150,7 @@ def _compile_vectorized_d_phi(
         ncomp, N = xn.shape
         ndiffs = ncomp + 2
         d_phis = np.empty((ncomp, ndiffs, N))
-        for i in numba.prange(N):
+        for i in nb.prange(N):
             d_phis[:, :, i] = d_phi_c(
                 prearg_res[i], prearg_jac[i], p[i], T[i], xn[:, i]
             )
@@ -165,14 +165,14 @@ def _compile_vectorized_property(
     """Helper function implementing the parallelized, compiled computation of
     properties given by ``func_c`` element-wise."""
 
-    @numba.njit(
-        "float64[:](float64[:,:],float64[:],float64[:],float64[:,:])",
+    @nb.njit(
+        nb.f8[:](nb.f8[:, :], nb.f8[:], nb.f8[:], nb.f8[:, :]),
         parallel=NUMBA_PARALLEL,
     )
     def inner(prearg: np.ndarray, p: np.ndarray, T: np.ndarray, xn: np.ndarray):
         _, N = xn.shape
         vals = np.empty(N)
-        for i in numba.prange(N):
+        for i in nb.prange(N):
             vals[i] = func_c(prearg[i], p[i], T[i], xn[:, i])
         return vals
 
@@ -192,8 +192,8 @@ def _compile_vectorized_derivatives(
 
     """
 
-    @numba.njit(
-        "float64[:,:](float64[:,:],float64[:,:],float64[:],float64[:],float64[:,:])",
+    @nb.njit(
+        nb.f8[:, :](nb.f8[:, :], nb.f8[:, :], nb.f8[:], nb.f8[:], nb.f8[:, :]),
         parallel=NUMBA_PARALLEL,
     )
     def inner(
@@ -208,7 +208,7 @@ def _compile_vectorized_derivatives(
 
         # derivatives are stored row-wise
         vals = np.empty((ndiffs, N))
-        for i in numba.prange(N):
+        for i in nb.prange(N):
             vals[:, i] = func_c(prearg_val[i], prearg_jac[i], p[i], T[i], xn[:, i])
         return vals
 
@@ -300,8 +300,7 @@ class EoSCompiler(EquationOfState):
             ],
             VectorFunction,
         ] = {}
-        """Storage of generalized and vectorized versions of the functions found in
-        :attr:`funcs`.
+        """Storage of vectorized versions of the functions found in :attr:`funcs`.
 
         To be used for efficient evaluation of properties after the flash converged.
 
@@ -510,7 +509,7 @@ class EoSCompiler(EquationOfState):
 
         rho_c = cast(ScalarFunction, rho_c)
 
-        @numba.njit("float64(float64[:],float64,float64,float64[:])")
+        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def v_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             rho = rho_c(prearg, p, T, xn)
             if rho > 0.0:
@@ -551,7 +550,7 @@ class EoSCompiler(EquationOfState):
         rho_c = cast(ScalarFunction, rho_c)
         drho_c = cast(VectorFunction, drho_c)
 
-        @numba.njit("float64[:](float64[:],float64[:],float64,float64,float64[:])")
+        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dv_c(
             prearg_res: np.ndarray,
             prearg_jac: np.ndarray,

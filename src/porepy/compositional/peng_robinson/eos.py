@@ -1176,34 +1176,30 @@ class PengRobinsonCompiler(EoSCompiler):
         start = time.time()
 
         B_c = nb.njit(
-            "float64(float64, float64, float64[:])",
+            nb.f8(nb.f8, nb.f8, nb.f8[:]),
             fastmath=NUMBA_FAST_MATH,
         )(self.symbolic.B_f)
         logger.debug("Compiling symbolic functions 1/12")
         dB_c = _compile_thd_function_derivatives(self.symbolic.dB_f)
         logger.debug("Compiling symbolic functions 2/12")
 
-        A_c = nb.njit(
-            "float64(float64, float64, float64[:])",
-        )(self.symbolic.A_f)
+        A_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.A_f)
         logger.debug("Compiling symbolic functions 3/12")
         dA_c = _compile_thd_function_derivatives(self.symbolic.dA_f)
         logger.debug("Compiling symbolic functions 4/12")
 
         phi_c = _compile_fugacities(self.symbolic.phi_f)
         logger.debug("Compiling symbolic functions 5/12")
-        dphi_c = nb.njit(
-            "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
-        )(self.symbolic.dphi_f)
+        dphi_c = nb.njit(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
+            self.symbolic.dphi_f
+        )
         logger.debug("Compiling symbolic functions 6/12")
 
-        h_dep_c = nb.njit(
-            "float64(float64, float64, float64[:], float64, float64, float64)"
-        )(self.symbolic.h_dep_f)
-        logger.debug("Compiling symbolic functions 7/12")
-        h_ideal_c = nb.njit("float64(float64, float64, float64[:])")(
-            self.symbolic.h_ideal_f
+        h_dep_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
+            self.symbolic.h_dep_f
         )
+        logger.debug("Compiling symbolic functions 7/12")
+        h_ideal_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.h_ideal_f)
         logger.debug("Compiling symbolic functions 8/12")
         dh_dep_c = _compile_extended_thd_function_derivatives(self.symbolic.dh_dep_f)
         logger.debug("Compiling symbolic functions 9/12")
@@ -1211,7 +1207,7 @@ class PengRobinsonCompiler(EoSCompiler):
         logger.debug("Compiling symbolic functions 10/12")
 
         rho_c = nb.njit(
-            "float64(float64,float64,float64)",
+            nb.f8(nb.f8, nb.f8, nb.f8),
             fastmath=NUMBA_FAST_MATH,
         )(self.symbolic.rho_f)
         logger.debug("Compiling symbolic functions 11/12")
@@ -1250,7 +1246,7 @@ class PengRobinsonCompiler(EoSCompiler):
         s_m = self.params["smoothing_multiphase"]
         s_e = self.params["smoothing_extension"]
 
-        @nb.njit("float64[:](int32, float64, float64, float64[:])")
+        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:]))
         def prearg_val_c(
             phasetype: int, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
@@ -1278,7 +1274,7 @@ class PengRobinsonCompiler(EoSCompiler):
         s_m = self.params["smoothing_multiphase"]
         s_e = self.params["smoothing_extension"]
 
-        @nb.njit("float64[:](int32, float64, float64, float64[:])")
+        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:]))
         def prearg_jac_c(
             phasetype: int, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
@@ -1305,7 +1301,7 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_fugacity_function(self) -> VectorFunction:
         phi_c = self._cfuncs["phi"]
 
-        @nb.njit("float64[:](float64[:], float64, float64, float64[:])")
+        @nb.njit(nb.f8[:](nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def phi_mix_c(
             prearg: np.ndarray, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
@@ -1318,7 +1314,7 @@ class PengRobinsonCompiler(EoSCompiler):
         # number of derivatives
         d = 2 + self._nc
 
-        @nb.njit("float64[:,:](float64[:], float64[:], float64, float64, float64[:])")
+        @nb.njit(nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dphi_mix_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1346,7 +1342,7 @@ class PengRobinsonCompiler(EoSCompiler):
         h_dep_c = self._cfuncs["h_dep"]
         h_ideal_c = self._cfuncs["h_ideal"]
 
-        @nb.njit("float64(float64[:], float64, float64, float64[:])")
+        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
             return h_ideal_c(p, T, xn) + h_dep_c(
                 p, T, xn, prearg[0], prearg[1], prearg[2]
@@ -1359,7 +1355,7 @@ class PengRobinsonCompiler(EoSCompiler):
         dh_dep_c = self._cfuncs["dh_dep"]
         dh_ideal_c = self._cfuncs["dh_ideal"]
 
-        @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dh_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1384,7 +1380,7 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_density_function(self) -> ScalarFunction:
         rho_c_ = self._cfuncs["rho"]
 
-        @nb.njit("float64(float64[:], float64, float64, float64[:])")
+        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
             return rho_c_(p, T, prearg[2])
 
@@ -1394,7 +1390,7 @@ class PengRobinsonCompiler(EoSCompiler):
         d = 2 + self._nc
         drho_c_ = self._cfuncs["drho"]
 
-        @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def drho_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1414,14 +1410,14 @@ class PengRobinsonCompiler(EoSCompiler):
 
     # TODO need models for below functions
     def get_viscosity_function(self) -> ScalarFunction:
-        @nb.njit("float64(float64[:], float64, float64, float64[:])")
+        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return mu_c
 
     def get_viscosity_derivative_function(self) -> VectorFunction:
-        @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dmu_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1434,14 +1430,14 @@ class PengRobinsonCompiler(EoSCompiler):
         return dmu_c
 
     def get_conductivity_function(self) -> ScalarFunction:
-        @nb.njit("float64(float64[:], float64, float64, float64[:])")
+        @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return kappa_c
 
     def get_conductivity_derivative_function(self) -> VectorFunction:
-        @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        @nb.njit(nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def dkappa_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
