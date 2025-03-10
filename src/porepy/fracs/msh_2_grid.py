@@ -461,3 +461,41 @@ def create_embedded_line_grid(
     # Add mapping to global point numbers.
     g.global_point_ind = glob_id[sort_ind]
     return g
+
+
+def tag_grid(
+    sd: pp.Grid,
+    phys_names: dict[int, str],
+    cell_info: dict[str, np.ndarray],
+) -> pp.Grid:
+    """Translate gmsh tags to PorePy tags.
+
+    This functions loops through all geometric elements of a gmsh grid and translates
+    gmsh tags, describing which physical entity each element belongs to, to tags in the
+    PorePy grid.
+
+    Namely, for each geometric element type present in the grid, out of the possible
+    types
+        - "point"
+        - "line",
+        - "triangle"
+        - "tetrahedron"
+    , and each physical entity name, the function creates a key
+    ``f"{element type}_{physical name}"`` in ``sd.tags`` with a boolean array of the
+    same length as the number of elements of the given type in the grid. The array is
+    ``True`` where the element belongs to the physical entity and ``False`` otherwise.
+
+    Parameters:
+        sd: Grid to be tagged. Created from ``pts``, ``cells``, ``phys_names``, and
+            ``cell_info`` read from a gmsh file.
+        phys_names: Mapping from the gmsh tags (``int``) assigned to physical entities
+            to the physical name (``str``) of that tag.
+        cell_info: Contains keys for the geometric elements present in the grid. Values
+            are :obj:`~numpy.ndarray` denoting the gmsh tags for all geometric entities
+            of the given type.
+
+    Returns:
+        Grid with updated ``.tags`` attribute.
+
+    """
+    raise NotImplementedError
