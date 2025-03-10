@@ -14,13 +14,50 @@ Important:
 
 from __future__ import annotations
 
-from typing import Callable, Literal
+import os
+from typing import Callable, Literal, TypeAlias
 
 import numba
 import numba.typed
 import numpy as np
 
 from ..._core import NUMBA_PARALLEL
+
+_IS_JIT_DISABLED: bool = False
+"""Environment flag checking whether numba JIT is enabled or not.
+
+Used for typing alternatives in case it is not, such that the code remains functional.
+
+"""
+
+if "NUMBA_DISABLE_JIT" in os.environ:
+    if os.environ["NUMBA_DISABLE_JIT"].lower() in ["1", "true"]:
+        _IS_JIT_DISABLED = True
+
+
+_typeof: Callable[..., TypeAlias]
+"""Type inference function depending on whether numba is enabled or not.
+
+If enabled, uses :obj:`numba.typeof`, otherwise the regular Python type.
+
+"""
+
+_cfunc: Callable[..., Callable[[Callable], Callable]]
+"""C-type compiler for Callables, depending on whether numba is enabler or not.
+
+If enabled, uses :obj:`numba.cfunc`, otherwise the identity.
+
+"""
+
+if _IS_JIT_DISABLED:
+    _typeof = lambda x: type(x)
+
+    def _cfunc(*args, **kwargs):
+        return lambda x: x
+else:
+    _typeof = numba.typeof
+    _cfunc = numba.cfunc
+
 
 # import ctypes
 # a = ctypes.CFUNCTYPE
@@ -55,20 +92,14 @@ a solver.
 """
 
 
+# Internal dummy for numba type inference.
 _solver_parameters: dict[str, float] = numba.typed.Dict.empty(
     key_type=numba.types.unicode_type, value_type=numba.types.float64
 )
-"""Internal dummy for type inferring of numba solver parameters.
-
-Note:
-    We must create a dictionary explicitly and set some values. Numba is otherwise not
-    able to infer the type in ``NUMBA_DISABLE_JIT``-mode.
-
-"""
+# Due to unknown reasons, we have to set some key-value pair in some cases.
 _solver_parameters["a"] = 0.0
 
-
-SOLVER_PARAMETERS_TYPE = numba.typeof(_solver_parameters)
+SOLVER_PARAMETERS_TYPE = _typeof(_solver_parameters)
 """Numba-type definition of the solver parameter dictionary.
 
 A solver parameter dictionary has strings as keys and ``float64`` as values.
@@ -81,7 +112,7 @@ Note:
 """
 
 
-@numba.cfunc("f8[:](f8[:])", cache=True)
+@_cfunc("f8[:](f8[:])", cache=True)
 def _flash_residual_function(x: np.ndarray) -> np.ndarray:
     """Internal dummy for a flash residual function ``(f8[:]) -> f8[:]``.
 
@@ -91,7 +122,7 @@ def _flash_residual_function(x: np.ndarray) -> np.ndarray:
     return x.copy()
 
 
-FLASH_RESIDUAL_FUNCTION_TYPE = numba.typeof(_flash_residual_function)
+FLASH_RESIDUAL_FUNCTION_TYPE = _typeof(_flash_residual_function)
 """Numba type for a flash residual function, which takes a 1D array and returns a 1D
 array (both of ``float64`` values).
 
@@ -100,7 +131,7 @@ Used to type cached, numba-compiled solvers.
 """
 
 
-@numba.cfunc("f8[:,:](f8[:])", cache=True)
+@_cfunc("f8[:,:](f8[:])", cache=True)
 def _flash_jacobian_function(x: np.ndarray) -> np.ndarray:
     """Internal dummy for a flash Jacobian function ``(f8[:]) -> f8[:,:]``.
 
@@ -110,7 +141,7 @@ def _flash_jacobian_function(x: np.ndarray) -> np.ndarray:
     return np.diag(x)
 
 
-FLASH_JACOBIAN_FUNCTION_TYPE = numba.typeof(_flash_jacobian_function)
+FLASH_JACOBIAN_FUNCTION_TYPE = _typeof(_flash_jacobian_function)
 """Numba type for a flash Jacobian function, which takes a 1D array and returns a 2D
 array (both of ``float64`` values).
 
@@ -136,7 +167,7 @@ See :data:`SOLVER_FUNCTION_TYPE` for more information on the signature.
 """
 
 
-@numba.cfunc(
+@_cfunc(
     numba.types.Tuple((numba.float64[:], numba.int32, numba.int32))(
         numba.float64[:],
         FLASH_RESIDUAL_FUNCTION_TYPE,
@@ -168,7 +199,7 @@ def _solver_function(
     return F(x) + DF(x) @ x, 1, 1
 
 
-SOLVER_FUNCTION_TYPE = numba.typeof(_solver_function)
+SOLVER_FUNCTION_TYPE = _typeof(_solver_function)
 """Numba type for a flash solver, which takes
 
 1. an initial guess (1D array),
@@ -254,7 +285,7 @@ def serial_solver(
             res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
         except Exception:
             converged[i] = 5
-            num_iter[i] = np.nan
+            num_iter[i] = -1
             result[i, :] = np.nan
         else:
             converged[i] = conv_i
@@ -307,7 +338,7 @@ def parallel_solver(
         res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
         # except Exception:
         #     converged[i] = 5
-        #     num_iter[i] = np.nan
+        #     num_iter[i] = -1
         #     result[i, :] = np.nan
         # else:
         converged[i] = conv_i
