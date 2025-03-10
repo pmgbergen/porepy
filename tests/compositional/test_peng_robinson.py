@@ -93,30 +93,27 @@ def test_compressibility_factor_double_root():
     B = 0.0
 
     # If A and B are zero, this should give the double root case
-    root_case = PR.eos_c._get_root_case(A, B, tol)
+    root_case = PR.eos._get_root_case(A, B, tol)
     assert root_case == 2
 
     # liquid-like and gas-like root in the double root case should both solve the
     # polynomial exactly
-    z_liq = PR.eos_c.Z_double_l(A, B)
-    z_gas = PR.eos_c.Z_double_g(A, B)
-    d_z_liq = PR.eos_c.dZ_double_l(A, B)
-    d_z_gas = PR.eos_c.dZ_double_g(A, B)
-    assert np.abs(PR.eos_c.characteristic_residual(z_gas, A, B)) < tol
-    assert np.abs(PR.eos_c.characteristic_residual(z_liq, A, B)) < tol
+    z_liq = PR.eos.Z_double_l(A, B)
+    z_gas = PR.eos.Z_double_g(A, B)
+    d_z_liq = PR.eos.dZ_double_l(A, B)
+    d_z_gas = PR.eos.dZ_double_g(A, B)
+    assert np.abs(PR.characteristic_residual(z_gas, A, B)) < tol
+    assert np.abs(PR.characteristic_residual(z_liq, A, B)) < tol
 
     # The general calculation of the compressibility factor should give the
     # same result as the formulas
     gastype = pp.compositional.PhysicalState.gas.value
     liquidtype = pp.compositional.PhysicalState.liquid.value
-    assert np.abs(PR.eos_c._Z_from_AB(A, B, gastype, tol, 0.0, 0.0) - z_gas) < tol
-    assert np.abs(PR.eos_c._Z_from_AB(A, B, liquidtype, tol, 0.0, 0.0) - z_liq) < tol
+    assert np.abs(PR.eos._Z_from_AB(A, B, gastype, tol, 0.0, 0.0) - z_gas) < tol
+    assert np.abs(PR.eos._Z_from_AB(A, B, liquidtype, tol, 0.0, 0.0) - z_liq) < tol
+    assert np.linalg.norm(PR.eos._dZ_dAB(A, B, gastype, tol, 0.0, 0.0) - d_z_gas) < tol
     assert (
-        np.linalg.norm(PR.eos_c._dZ_dAB(A, B, gastype, tol, 0.0, 0.0) - d_z_gas) < tol
-    )
-    assert (
-        np.linalg.norm(PR.eos_c._dZ_dAB(A, B, liquidtype, tol, 0.0, 0.0) - d_z_liq)
-        < tol
+        np.linalg.norm(PR.eos._dZ_dAB(A, B, liquidtype, tol, 0.0, 0.0) - d_z_liq) < tol
     )
 
 
@@ -135,11 +132,11 @@ def test_compressibility_factor_triple_root():
     B = PR.B_CRIT
 
     # triple root in this case
-    z = PR.eos_c.Z_triple(A, B)
-    d_z = PR.eos_c.dZ_triple(A, B)
-    assert np.abs(PR.eos_c.characteristic_residual(z, A, B)) < tol
+    z = PR.eos.Z_triple(A, B)
+    d_z = PR.eos.dZ_triple(A, B)
+    assert np.abs(PR.characteristic_residual(z, A, B)) < tol
 
-    nroot = PR.eos_c._get_root_case(A, B, tol)
+    nroot = PR.eos._get_root_case(A, B, tol)
     # 0 is the code for triple root
     assert nroot == 0
 
@@ -149,7 +146,7 @@ def test_compressibility_factor_triple_root():
     # Assert general compuations also give the same result, for liquid and gas-like
     assert (
         np.abs(
-            PR.eos_c._Z_from_AB(
+            PR.eos._Z_from_AB(
                 A,
                 B,
                 gastype,
@@ -163,7 +160,7 @@ def test_compressibility_factor_triple_root():
     )
     assert (
         np.abs(
-            PR.eos_c._Z_from_AB(
+            PR.eos._Z_from_AB(
                 A,
                 B,
                 liquidtype,
@@ -175,8 +172,8 @@ def test_compressibility_factor_triple_root():
         )
         < tol
     )
-    assert np.linalg.norm(PR.eos_c._dZ_dAB(A, B, True, tol, 0.0, 0.0) - d_z) < tol
-    assert np.linalg.norm(PR.eos_c._dZ_dAB(A, B, False, tol, 0.0, 0.0) - d_z) < tol
+    assert np.linalg.norm(PR.eos._dZ_dAB(A, B, True, tol, 0.0, 0.0) - d_z) < tol
+    assert np.linalg.norm(PR.eos._dZ_dAB(A, B, False, tol, 0.0, 0.0) - d_z) < tol
 
 
 def test_compressibility_factors_are_roots():
@@ -197,16 +194,16 @@ def test_compressibility_factors_are_roots():
     A, B = np.meshgrid(np.arange(0, 1, steps), np.arange(0, 1, steps))
     A = A.flatten()
     B = B.flatten()
-    Z_liq = PR.eos_c.compressibility_factor(A, B, liquidtype, tol, 0.0, 0.0)
-    not_extended_liq = PR.eos_c.is_extended_root(A, B, liquidtype, tol)
-    residual = PR.eos_c.characteristic_residual(
+    Z_liq = PR.compressibility_factor(A, B, liquidtype, tol, 0.0, 0.0)
+    not_extended_liq = PR.is_extended_root(A, B, liquidtype, tol)
+    residual = PR.characteristic_residual(
         Z_liq[not_extended_liq], A[not_extended_liq], B[not_extended_liq]
     )
     assert np.all(np.abs(residual) < tol)
 
-    Z_gas = PR.eos_c.compressibility_factor(A, B, gastype, tol, 0.0, 0.0)
-    not_extended_gas = PR.eos_c.is_extended_root(A, B, gastype, tol)
-    residual = PR.eos_c.characteristic_residual(
+    Z_gas = PR.compressibility_factor(A, B, gastype, tol, 0.0, 0.0)
+    not_extended_gas = PR.is_extended_root(A, B, gastype, tol)
+    residual = PR.characteristic_residual(
         Z_gas[not_extended_gas], A[not_extended_gas], B[not_extended_gas]
     )
     assert np.all(np.abs(residual) < tol)

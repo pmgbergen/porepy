@@ -9,7 +9,7 @@ subsequently turned into numeric functions using :func:`sympy.lambdify`.
 
 Due to the magnitude of expressions and functions (and different versions),
 naming conflicts are hard to avoid.
-We introcued the naming convention ``<derivative>_<name>_<type>``,
+We introcued the naming convention ``<derivative><name>_<type>``,
 where the name represents the quantity, and type how the quantity is represented.
 
 The convention for types of a quantity include:
@@ -18,7 +18,7 @@ The convention for types of a quantity include:
   quantity serving as an argument. Created using :class:`sympy.Symbol`.
 - ``_e``: A symbolic expression created using some algebraic combination of symbols.
   It depends on usually several symbols.
-- ``_f``: A lambdy-generated function, based on an expression. The arguments of the
+- ``_f``: A lambdify-generated function, based on an expression. The arguments of the
   function reflect the dependency on symbols.
 
 For example, the compressibility factor has the standard symbol ``Z`` in literature:
@@ -27,15 +27,12 @@ Example:
     The compressibility factor has the standard symbol ``Z`` as found in the literature.
 
     - ``Z_s`` denotes the symbolic representation using ``sympy``. It is used as an
-    intermediate dependency for e.g., departure functions.
+      intermediate dependency for e.g., departure functions.
     - ``Z_e`` denotes a symbolic **expression** dependent on some other symbols.
-    In this case it is ``A_s`` and ``B_s``.
-    - ``dp_Z_e`` denotes the derivative of the symbolic expression w.r.t. to its
-      dependency on ``p`` for example.
-      In this case ``p_s`` should be a symbols somewhere defined.
-    - ``d_Z_e`` denotes the complete gradient w.r.t. all its dependencies.
+      In this case it is ``A_s`` and ``B_s``.
+    - ``dZ_e`` denotes the complete gradient w.r.t. all its dependencies.
     - ``Z_f`` would be a function with signature ``(float, float) -> float``.
-    - ``d_Z_f`` would be a function with signature ``(float, float) -> array(2)``
+    - ``dZ_f`` would be a function with signature ``(float, float) -> array(2)``
       because it depends on two variables.
 
 The following standard names are used for thermodynamic quantities:
@@ -49,7 +46,7 @@ The following standard names are used for thermodynamic quantities:
 - ``p`` pressure
 - ``x`` (extended) fractions of components in a phases
 - ``y`` molar phase fractions
-- ``z`` overal component fractions / feed fractions
+- ``z`` overall component fractions / feed fractions
 - ``sat`` volumetric phase fractions (saturations)
 - ``_i`` index related to a component i
 - ``_j`` index related to a phase j
@@ -266,7 +263,7 @@ class _cbrt(sp.Function):
 
 
 def triple_root(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
-    r"""Formula for tripple root of characteristic polynomial.
+    r"""Formula for triple root of characteristic polynomial.
 
     Only valid it indeed has a triple root.
 
@@ -294,7 +291,7 @@ def double_root(A: sp.Symbol, B: sp.Symbol, gaslike: bool) -> sp.Expr:
         This returns a piece-wise expression, selecting the bigger root for the gas-like
         case. Lambdification only with module ``'math'``.
 
-        The lambdified expression usind module ``'numpy'`` cannot be compiled by
+        The lambdified expression using module ``'numpy'`` cannot be compiled by
         numba.
 
     Parameters:
@@ -395,7 +392,7 @@ def one_root(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
         computation for numerical reasons.
 
         Lambdification only with module ``'math'``.
-        The lambdified expression usind module ``'numpy'`` cannot be compiled by
+        The lambdified expression using module ``'numpy'`` cannot be compiled by
         numba.
 
         Furthermore, a custom implementation of the cubic root is used, which
@@ -482,29 +479,29 @@ def _select(condlist: list, choicelist: list, default=np.nan):
         return choicelist[1]
 
 
-Z_triple: Z_TYPE = sp.lambdify([A_s, B_s], Z_triple_e)
-dZ_triple: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_triple_e)
+Z_triple_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_triple_e)
+dZ_triple_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_triple_e)
 
-Z_three_g: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_g_e)
-dZ_three_g: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_g_e)
-Z_three_l: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_l_e)
-dZ_three_l: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_l_e)
-Z_three_i: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_i_e)
-dZ_three_i: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_i_e)
+Z_three_g_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_g_e)
+dZ_three_g_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_g_e)
+Z_three_l_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_l_e)
+dZ_three_l_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_l_e)
+Z_three_i_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_i_e)
+dZ_three_i_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_i_e)
 
 # because piecewise and to provide numeric evaluation of custom cubic root
 _modules_one = [{"_cbrt": np.cbrt, "select": _select}, "numpy"]
 
-Z_one: Z_TYPE = sp.lambdify([A_s, B_s], Z_one_e, modules=_modules_one)
-dZ_one: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_one_e, modules=_modules_one)
+Z_one_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_one_e, modules=_modules_one)
+dZ_one_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_one_e, modules=_modules_one)
 
 # because piece-wise
 _modules_double = [{"select": _select}, "numpy"]
 
-Z_double_g: Z_TYPE = sp.lambdify([A_s, B_s], Z_double_g_e, modules=_modules_double)
-dZ_double_g: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_double_g_e, modules=_modules_double)
-Z_double_l: Z_TYPE = sp.lambdify([A_s, B_s], Z_double_l_e, modules=_modules_double)
-dZ_double_l: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_double_l_e, modules=_modules_double)
+Z_double_g_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_double_g_e, modules=_modules_double)
+dZ_double_g_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_double_g_e, modules=_modules_double)
+Z_double_l_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_double_l_e, modules=_modules_double)
+dZ_double_l_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_double_l_e, modules=_modules_double)
 
 # endregion
 
@@ -542,7 +539,7 @@ class PengRobinsonSymbolic:
             for comp in components
         ]
         """List of phase composition fractions associated with a phase.
-        Length is equal to number of components, because every component is asssumed
+        Length is equal to number of components, because every component is assumed
         present in every phase in the unified setting."""
 
         self.thd_arg: tuple[sp.Symbol, sp.Symbol, list[sp.Symbol]] = (
@@ -576,7 +573,7 @@ class PengRobinsonSymbolic:
         """Function evaluating the non-dimensional cohesion depending on
         :attr:`thd_arg`."""
 
-        self.d_A_f: Callable[[float, float, np.ndarray], list[float]]
+        self.dA_f: Callable[[float, float, np.ndarray], list[float]]
         """Gradient of :attr:`A_f` returning a list of floats of length
         ``2 + num_comp``."""
 
@@ -584,7 +581,7 @@ class PengRobinsonSymbolic:
         """Function evaluating the non-dimensional covolume depending on
         :attr:`thd_arg`t."""
 
-        self.d_B_f: Callable[[float, float, np.ndarray], list[float]]
+        self.dB_f: Callable[[float, float, np.ndarray], list[float]]
         """Gradient of :attr:`B_f` returning a list of floats of length
         ``2 + num_comp``."""
 
@@ -595,7 +592,7 @@ class PengRobinsonSymbolic:
 
         It depends on :attr:`ext_thd_arg` because of its complexity."""
 
-        self.d_phi_f: Callable[
+        self.dphi_f: Callable[
             [float, float, np.ndarray, float, float, float], np.ndarray
         ]
         """Jacobian of :attr:`phi_f`, w.r.t. all dependencies.
@@ -606,7 +603,7 @@ class PengRobinsonSymbolic:
         """Function evaluating the departure enthalpy depending on
         :attr:`ext_thd_arg`."""
 
-        self.d_h_dep_f: Callable[
+        self.dh_dep_f: Callable[
             [float, float, np.ndarray, float, float, float], list[float]
         ]
         """Gradient of :attr:`h_dep_f` returning a list of floats of length
@@ -615,7 +612,7 @@ class PengRobinsonSymbolic:
         self.h_ideal_f: Callable[[float, float, np.ndarray], float]
         """Function evaluating the ideal enthalpy depending on :attr:`thd_arg`."""
 
-        self.d_h_ideal_f: Callable[[float, float, np.ndarray], list[float]]
+        self.dh_ideal_f: Callable[[float, float, np.ndarray], list[float]]
         """Gradient of attr:`h_ideal_f` returning a list of floats of length
         ``2 + num_comp``."""
 
@@ -628,7 +625,7 @@ class PengRobinsonSymbolic:
 
         """
 
-        self.d_rho_f: Callable[[float, float, float], list[float]]
+        self.drho_f: Callable[[float, float, float], list[float]]
         """Gradient of :attr:`rho_f` returning a list of floats of length ``3``."""
 
         # region coterms
@@ -644,7 +641,7 @@ class PengRobinsonSymbolic:
         """Mixed covolume according to the Van der Waals mixing rule."""
         B_e: sp.Expr = b_e * self.p_s / (R_IDEAL_MOL * self.T_s)
         """Non-dimensional, mixed covolume created using :attr:`b_e`"""
-        d_B_e: list[sp.Expr] = [
+        dB_e: list[sp.Expr] = [
             B_e.diff(self.thd_arg[0]),
             B_e.diff(self.thd_arg[1]),
         ] + [B_e.diff(x) for x in self.x_in_j]
@@ -652,7 +649,7 @@ class PengRobinsonSymbolic:
         compositions."""
 
         self.B_f = sp.lambdify(self.thd_arg, B_e)
-        self.d_B_f = sp.lambdify(self.thd_arg, d_B_e)
+        self.dB_f = sp.lambdify(self.thd_arg, dB_e)
 
         a_i_crit: list[float] = [
             A_CRIT
@@ -684,7 +681,7 @@ class PengRobinsonSymbolic:
         """Mixed cohesion according to the Van der Waals mixing rule."""
         A_e: sp.Expr = a_e * self.p_s / (R_IDEAL_MOL**2 * self.T_s**2)
         """Non-dimensional, mixed cohesion created using :attr:`b_e`"""
-        d_A_e: list[sp.Expr] = [
+        dA_e: list[sp.Expr] = [
             A_e.diff(self.thd_arg[0]),
             A_e.diff(self.thd_arg[1]),
         ] + [A_e.diff(x) for x in self.x_in_j]
@@ -692,7 +689,7 @@ class PengRobinsonSymbolic:
         compositions."""
 
         self.A_f = sp.lambdify(self.thd_arg, A_e)
-        self.d_A_f = sp.lambdify(self.thd_arg, d_A_e)
+        self.dA_f = sp.lambdify(self.thd_arg, dA_e)
         # endregion
 
         modules_lambdify = [{"select": _select}, "numpy"]
@@ -703,7 +700,7 @@ class PengRobinsonSymbolic:
 
         for i in range(len(components)):
             B_i_e = b_i_crit[i] * self.p_s / (R_IDEAL_MOL * self.T_s)
-            dXi_A_e = A_e.diff(self.x_in_j[i])
+            dA_dXi_e = A_e.diff(self.x_in_j[i])
             log_phi_i = (
                 B_i_e / B_s * (Z_s - 1)
                 # TODO fix translation issue between numba and sympy
@@ -714,7 +711,7 @@ class PengRobinsonSymbolic:
                 - sp.ln(Z_s - B_s)
                 + A_s
                 / (B_s * np.sqrt(8))
-                * (B_i_e / B_s - dXi_A_e / A_s)
+                * (B_i_e / B_s - dA_dXi_e / A_s)
                 # * sp.ln(PengRobinsonSymbolic._truncate(ZB_term))
                 * sp.ln(ZB_term)
                 # Additional term in extended setting (Gharbia)
@@ -740,28 +737,28 @@ class PengRobinsonSymbolic:
             This is not parallelizable with numba.
 
         """
-        d_phi_e: sp.Matrix = phi_e.jacobian(
+        dphi_e: sp.Matrix = phi_e.jacobian(
             [self.p_s, self.T_s] + self.x_in_j + [A_s, B_s, Z_s]
         )
         """The symbolic Jacobian of ``phi_e`` w.r.t. to thermodynamic arguments and
         :data:`A_s`, :data:`B_s`, :data:`Z_s`"""
 
         self.phi_f = sp.lambdify(self.ext_thd_arg, phi_e, modules=modules_lambdify)
-        self.d_phi_f = sp.lambdify(self.ext_thd_arg, d_phi_e, modules=modules_lambdify)
+        self.dphi_f = sp.lambdify(self.ext_thd_arg, dphi_e, modules=modules_lambdify)
         # endregion
 
         # region Enthalpy
 
-        dT_A_e: sp.Expr = A_e.diff(self.T_s)
+        dA_dT_e: sp.Expr = A_e.diff(self.T_s)
 
         h_dep_e: sp.Expr = R_IDEAL_MOL * self.T_s * (Z_s - 1) + (
             R_IDEAL_MOL / np.sqrt(8)
-        ) * (dT_A_e * self.T_s**2 + A_s * self.T_s) / B_s * sp.ln(
+        ) * (dA_dT_e * self.T_s**2 + A_s * self.T_s) / B_s * sp.ln(
             PengRobinsonSymbolic._truncate(ZB_term)
         )
         """Symbolic expression for departure enthalpy."""
 
-        d_h_dep_e: list[sp.Expr] = [
+        dh_dep_e: list[sp.Expr] = [
             h_dep_e.diff(_)
             for _ in [self.p_s, self.T_s] + self.x_in_j + [A_s, B_s, Z_s]
         ]
@@ -773,17 +770,17 @@ class PengRobinsonSymbolic:
         )
         """Symbolic expression for the ideal enthalpy."""
 
-        d_h_ideal_e: list[sp.Expr] = [
+        dh_ideal_e: list[sp.Expr] = [
             h_ideal_e.diff(_) for _ in [self.p_s, self.T_s] + self.x_in_j
         ]
         """Symbolic gradient of :attr:`h_ideal_e` w.r.t. to thermodynamic arguments."""
 
         self.h_dep_f = sp.lambdify(self.ext_thd_arg, h_dep_e, modules=modules_lambdify)
-        self.d_h_dep_f = sp.lambdify(
-            self.ext_thd_arg, d_h_dep_e, modules=modules_lambdify
+        self.dh_dep_f = sp.lambdify(
+            self.ext_thd_arg, dh_dep_e, modules=modules_lambdify
         )
         self.h_ideal_f = sp.lambdify(self.thd_arg, h_ideal_e)
-        self.d_h_ideal_f = sp.lambdify(self.thd_arg, d_h_ideal_e)
+        self.dh_ideal_f = sp.lambdify(self.thd_arg, dh_ideal_e)
         # endregion
 
         # region Density
@@ -792,12 +789,12 @@ class PengRobinsonSymbolic:
         """Symbolic expression for density, depending on pressure, temperature
         and compressibility factor."""
 
-        d_rho_e: list[sp.Expr] = [rho_e.diff(_) for _ in [self.p_s, self.T_s, Z_s]]
+        drho_e: list[sp.Expr] = [rho_e.diff(_) for _ in [self.p_s, self.T_s, Z_s]]
         """Symbolic gradient of specific volume, depending on pressure, temperature
         and compressibility factor."""
 
         self.rho_f = sp.lambdify([self.p_s, self.T_s, Z_s], rho_e)
-        self.d_rho_f = sp.lambdify([self.p_s, self.T_s, Z_s], d_rho_e)
+        self.drho_f = sp.lambdify([self.p_s, self.T_s, Z_s], drho_e)
         # endregion
 
     def _truncate(x: sp.Expr, eps: float = 1e-6) -> sp.Expr:

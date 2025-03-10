@@ -537,7 +537,13 @@ class CompiledUnifiedFlash(Flash):
         ncomp = self.params["num_components"]
         npnc = (nphase, ncomp)
         phasestates = np.array(
-            [state.value for state in self._phasestates], dtype=np.int32
+            [
+                # Depending on the environment, the enum value is sometimes already
+                # evaluated, sometimes not... (pytest)
+                state if isinstance(state, int) else state.value
+                for state in self._phasestates
+            ],
+            dtype=np.int8,
         )
 
         # NOTE the functions here still use a hard-coded gas phase index -1.
@@ -567,11 +573,11 @@ class CompiledUnifiedFlash(Flash):
         prearg_val_c = self._eos.funcs["prearg_val"]
         prearg_jac_c = self._eos.funcs["prearg_jac"]
         phi_c = self._eos.funcs["phi"]
-        d_phi_c = self._eos.funcs["d_phi"]
+        d_phi_c = self._eos.funcs["dphi"]
         h_c = self._eos.funcs["h"]
-        d_h_c = self._eos.funcs["d_h"]
+        d_h_c = self._eos.funcs["dh"]
         rho_c = self._eos.funcs["rho"]
-        d_rho_c = self._eos.funcs["d_rho"]
+        d_rho_c = self._eos.funcs["drho"]
 
         @numba.njit("float64[:,:](float64,float64,float64[:,:])")
         def get_prearg_res(p: float, T: float, xn: np.ndarray) -> np.ndarray:
