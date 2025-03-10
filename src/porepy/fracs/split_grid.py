@@ -1029,17 +1029,20 @@ def _sort_sub_list(
 
     """
     ix = np.zeros(indices.size, dtype=int)
-    # Loop over all rows (if the matrix is CSR) or columns (if the matrix is CSC).
+    # NOTE: Comments below are given for a CSR matrix. If the matrix is CSC, the roles
+    # of rows and columns are reversed.
+    # Loop over all rows.
     for i in range(indptr.size - 1):
-        # Indices of the current row/column (will be respectively colunms/rows).
+        # Indices in the sparse storage associated with the current row.
         sub_ind = slice(indptr[i], indptr[i + 1])
-        # Find the sorting indices of the current row/column. This will be 0-offset.
+        # Find the sorting indices of the columns that are non-zero for this row. This
+        # will be a 0-offset array.
         loc_ix = np.argsort(indices[sub_ind])
         # Update the global index array. Adding indptr[i] ensures that the indices have
         # the right offset (i.e., they start at the right place in the global index
         # array, and not on 0).
         ix[sub_ind] = loc_ix + indptr[i]
-    # Rearrange the indices to be sorted in each row (column).
+    # Rearrange the indices to be sorted in each row.
     indices = indices[ix]
     # Create a mapping from the sorted indices to the original indices.
     iv = np.zeros(indices.size, dtype=int)
