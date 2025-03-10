@@ -6,13 +6,13 @@ from __future__ import annotations
 from typing import Callable
 
 import numba
+import numba.typed
 import numpy as np
 import pytest
 
-from porepy.compositional.flash.solvers.brent import brent_method, brent_method_c
+from porepy.compositional.flash.solvers import brent, DEFAULT_BRENT_PARAMS
 
 
-@pytest.mark.parametrize("compile_flag", [False, True])
 @pytest.mark.parametrize(
     # Parametrization using a function, the root, and left and right interval points
     "test_case",
@@ -23,24 +23,20 @@ from porepy.compositional.flash.solvers.brent import brent_method, brent_method_
         (lambda x: np.e ** (-x) * np.log(x), 1.0, 0.05, 1.7),
     ],
 )
-def test_brent(
-    compile_flag: bool, test_case: tuple[Callable[[float], float], float, float, float]
-) -> None:
-    """Tests the Brent method, with and without pre-compilation of the tested function.
+def test_brent(test_case: tuple[Callable[[float], float], float, float, float]) -> None:
+    """Tests the Brent method with compiled test functions and its default parameters."""
 
-    The"""
-
-    tol = 1e-16
-    maxiter = 100
+    params = numba.typed.Dict.empty(
+        key_type=numba.types.unicode_type, value_type=numba.types.float64
+    )
+    for k, v in DEFAULT_BRENT_PARAMS.items():
+        params[str(k)] = float(v)
 
     func, root_target, a, b = test_case
 
-    if compile_flag:
-        func_c = numba.njit("f8(f8)")(func)
-        root, converged, iter = brent_method_c(func_c, a, b, maxiter, tol)
-    else:
-        root, converged, iter = brent_method(func, a, b, maxiter, tol)
+    func_c = numba.njit("f8(f8)")(func)
+    root, converged, iter = brent(func_c, a, b, params)
 
     assert converged == 0
-    assert np.abs(root - root_target) < tol
-    assert iter < maxiter
+    assert np.abs(root - root_target) < DEFAULT_BRENT_PARAMS['brent_tolerance']
+    assert iter < DEFAULT_BRENT_PARAMS['brent_max_iterations']

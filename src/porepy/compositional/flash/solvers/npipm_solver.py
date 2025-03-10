@@ -5,7 +5,7 @@ To be used by the compiled flash for parallelized computations."""
 
 from __future__ import annotations
 
-from typing import Callable, Literal
+from typing import Callable, Literal, TypeAlias
 
 import numba
 import numba.typed
@@ -13,29 +13,37 @@ import numpy as np
 
 from ..._core import NUMBA_CACHE, NUMBA_FAST_MATH
 from ..utils import parse_xyz
+from ._armijo_line_search import (  # armijo_line_search,
+    _ARMIJO_LINE_SEARCH_PARAMS_KEYS,
+    DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,
+)
 from ._core import SOLVER_FUNCTION_SIGNATURE
 
+__all__ = [
+    "DEFAULT_NPIPM_SOLVER_PARAMS",
+    "npipm",
+]
+
+
+_NPIPM_SOLVER_PARAMS_KEYS: TypeAlias = Literal[
+    "npipm_u1", "npipm_u2", "npipm_eta", "heavy_ball_momentum"
+]
+"""Keys (names) for NPIPM solver parameters."""
+
+
 DEFAULT_NPIPM_SOLVER_PARAMS: dict[
-    Literal[
-        "npipm_u1",
-        "npipm_u2",
-        "npipm_eta",
-        "heavy_ball_momentum",
-        "armijo_rho",
-        "armijo_kappa",
-        "armijo_max_iterations",
-    ],
+    Literal[_NPIPM_SOLVER_PARAMS_KEYS, _ARMIJO_LINE_SEARCH_PARAMS_KEYS],
     float,
-] = {
-    "npipm_u1": 1.0,
-    "npipm_u2": 1.0,
-    "npipm_eta": 0.5,
-    "heavy_ball_momentum": 0.0,
-    "armijo_rho": 0.99,
-    "armijo_kappa": 0.4,
-    "armijo_max_iterations": 50.0,
-}
-"""Default solver parameters required by the NPIPM solver.
+] = dict(
+    **{
+        "npipm_u1": 1.0,
+        "npipm_u2": 1.0,
+        "npipm_eta": 0.5,
+        "heavy_ball_momentum": 0.0,
+    },
+    **DEFAULT_ARMIJO_LINE_SEARCH_PARAMS,  # type:ignore[arg-type,dict-item]
+)
+"""Default solver parameters required by the :func:`npipm_solver`.
 
 - ``'npipm_u1': 1.`` penalty for violating complementarity
 - ``'npipm_u2': 1.`` penalty for violating negativity of fractions
@@ -43,9 +51,9 @@ DEFAULT_NPIPM_SOLVER_PARAMS: dict[
 - ``'heavy_ball_momentum': 0.`` if True (non-zero), a heavy-ball momentum technique is
   applied to the line-search, adding the update from the previous iteration with some
   down-scaling to the current update.
-- ``'armijo_rho': 0.99`` initial step size factor for Armijo line search.
-- ``'armijo_kappa': 0.5`` steepness of line for line search.
-- ``'armijo_max_iterations': 50.`` maximal number of line search iterations.
+
+This solver uses also the :func:`armijo_line_search`, and respective
+:data:`DEFAULT_ARMIJO_LINE_SEARCH_PARAMS`.
 
 """
 
@@ -308,11 +316,11 @@ def _npipm_extend_and_regularize_jac(
 
 
 @numba.njit(SOLVER_FUNCTION_SIGNATURE, cache=True)
-def npipm_solver(
+def npipm(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
     DF: Callable[[np.ndarray], np.ndarray],
-    solver_params: dict,
+    params: dict,
 ) -> tuple[np.ndarray, int, int]:
     """Compiled Newton with Armijo line search and NPIPM regularization.
 
@@ -330,17 +338,17 @@ def npipm_solver(
     success = 1
 
     # extracting solver parameters
-    f_dim = int(solver_params["f_dim"])
-    npnc = (int(solver_params["num_phases"]), int(solver_params["num_components"]))
-    tol = float(solver_params["tolerance"])
-    max_iter = int(solver_params["max_iterations"])
-    rho = float(solver_params["armijo_rho"])
-    kappa = float(solver_params["armijo_kappa"])
-    max_iter_armijo = int(solver_params["armijo_max_iterations"])
-    u1 = float(solver_params["npipm_u1"])
-    u2 = float(solver_params["npipm_u2"])
-    eta = float(solver_params["npipm_eta"])
-    heavy_ball = int(solver_params["heavy_ball_momentum"])
+    f_dim = int(params["f_dim"])
+    npnc = (int(params["num_phases"]), int(params["num_components"]))
+    tol = float(params["tolerance"])
+    max_iter = int(params["max_iterations"])
+    rho = float(params["armijo_rho"])
+    kappa = float(params["armijo_kappa"])
+    max_iter_armijo = int(params["armijo_max_iterations"])
+    u1 = float(params["npipm_u1"])
+    u2 = float(params["npipm_u2"])
+    eta = float(params["npipm_eta"])
+    heavy_ball = int(params["heavy_ball_momentum"])
 
     nu = _initial_nu_for_npipm(X0, npnc)
 
@@ -395,14 +403,15 @@ def npipm_solver(
                 break
 
             # Armijo line search
+            # rho_i = armijo_line_search(X[:-1], DX[:-1], F, params)
             pot_i = np.sum(f_i * f_i) / 2.0
-            rho_j = rho
+            rho_i = rho
 
             for j in range(1, max_iter_armijo + 1):
-                rho_j = rho**j
+                rho_i = rho**j
 
                 try:
-                    X_i_j = X + rho_j * DX
+                    X_i_j = X + rho_i * DX
                     f_i_j = _npipm_extend_and_regularize_res(
                         F(X_i_j[:-1]), X_i_j, npnc, u1, u2, eta
                     )
@@ -417,15 +426,15 @@ def npipm_solver(
 
                 pot_i_j = np.sum(f_i_j * f_i_j) / 2.0
 
-                if pot_i_j <= (1 - 2 * kappa * rho_j) * pot_i:
+                if pot_i_j <= (1 - 2 * kappa * rho_i) * pot_i:
                     break
 
-            X = X + rho_j * DX
+            X = X + rho_i * DX
 
             if heavy_ball > 0:
                 # heavy ball momentum descend (for cases where Armijo is small)
                 # weight -> 1, DX -> 0 as solution is approached
-                if rho_j < rho ** (max_iter_armijo / 2):
+                if rho_i < rho ** (max_iter_armijo / 2):
                     # scale with previous update to avoid large over-shooting
                     delta_heavy = 1 / (1 + np.linalg.norm(DX_prev))
                 else:
