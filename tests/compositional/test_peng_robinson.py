@@ -16,7 +16,7 @@ import pytest
 import porepy as pp
 from porepy.compositional import flash as FL
 from porepy.compositional import peng_robinson as PR
-from porepy.compositional.flash.solvers.npipm import DEFAULT_NPIPM_SOLVER_PARAMS
+from porepy.compositional.flash.solvers import DEFAULT_NPIPM_SOLVER_PARAMS
 from porepy.compositional.materials import load_fluid_constants
 from porepy.compositional.peng_robinson.utils import (
     get_bip_matrix,
@@ -98,22 +98,24 @@ def test_compressibility_factor_double_root():
 
     # liquid-like and gas-like root in the double root case should both solve the
     # polynomial exactly
-    z_liq = PR.eos_c.Z_double_l_c(A, B)
-    z_gas = PR.eos_c.Z_double_g_c(A, B)
-    d_z_liq = PR.eos_c.d_Z_double_l_c(A, B)
-    d_z_gas = PR.eos_c.d_Z_double_g_c(A, B)
-    assert np.abs(PR.eos_c._characteristic_residual(z_gas, A, B)) < tol
-    assert np.abs(PR.eos_c._characteristic_residual(z_liq, A, B)) < tol
+    z_liq = PR.eos_c.Z_double_l(A, B)
+    z_gas = PR.eos_c.Z_double_g(A, B)
+    d_z_liq = PR.eos_c.dZ_double_l(A, B)
+    d_z_gas = PR.eos_c.dZ_double_g(A, B)
+    assert np.abs(PR.eos_c.characteristic_residual(z_gas, A, B)) < tol
+    assert np.abs(PR.eos_c.characteristic_residual(z_liq, A, B)) < tol
 
     # The general calculation of the compressibility factor should give the
     # same result as the formulas
-    assert np.abs(PR.eos_c._Z_generic(A, B, True, tol, 0.0, 0.0) - z_gas) < tol
-    assert np.abs(PR.eos_c._Z_generic(A, B, False, tol, 0.0, 0.0) - z_liq) < tol
+    gastype = pp.compositional.PhysicalState.gas.value
+    liquidtype = pp.compositional.PhysicalState.liquid.value
+    assert np.abs(PR.eos_c._Z_from_AB(A, B, gastype, tol, 0.0, 0.0) - z_gas) < tol
+    assert np.abs(PR.eos_c._Z_from_AB(A, B, liquidtype, tol, 0.0, 0.0) - z_liq) < tol
     assert (
-        np.linalg.norm(PR.eos_c._d_Z_generic(A, B, True, tol, 0.0, 0.0) - d_z_gas) < tol
+        np.linalg.norm(PR.eos_c._dZ_dAB(A, B, gastype, tol, 0.0, 0.0) - d_z_gas) < tol
     )
     assert (
-        np.linalg.norm(PR.eos_c._d_Z_generic(A, B, False, tol, 0.0, 0.0) - d_z_liq)
+        np.linalg.norm(PR.eos_c._dZ_dAB(A, B, liquidtype, tol, 0.0, 0.0) - d_z_liq)
         < tol
     )
 
@@ -133,21 +135,24 @@ def test_compressibility_factor_triple_root():
     B = PR.B_CRIT
 
     # triple root in this case
-    z = PR.eos_c.Z_triple_c(A, B)
-    d_z = PR.eos_c.d_Z_triple_c(A, B)
-    assert np.abs(PR.eos_c._characteristic_residual(z, A, B)) < tol
+    z = PR.eos_c.Z_triple(A, B)
+    d_z = PR.eos_c.dZ_triple(A, B)
+    assert np.abs(PR.eos_c.characteristic_residual(z, A, B)) < tol
 
     nroot = PR.eos_c._get_root_case(A, B, tol)
     # 0 is the code for triple root
     assert nroot == 0
 
+    gastype = pp.compositional.PhysicalState.gas.value
+    liquidtype = pp.compositional.PhysicalState.liquid.value
+
     # Assert general compuations also give the same result, for liquid and gas-like
     assert (
         np.abs(
-            PR.eos_c._Z_generic(
+            PR.eos_c._Z_from_AB(
                 A,
                 B,
-                True,
+                gastype,
                 tol,
                 0.0,
                 0.0,
@@ -158,10 +163,10 @@ def test_compressibility_factor_triple_root():
     )
     assert (
         np.abs(
-            PR.eos_c._Z_generic(
+            PR.eos_c._Z_from_AB(
                 A,
                 B,
-                False,
+                liquidtype,
                 tol,
                 0.0,
                 0.0,
@@ -170,8 +175,8 @@ def test_compressibility_factor_triple_root():
         )
         < tol
     )
-    assert np.linalg.norm(PR.eos_c._d_Z_generic(A, B, True, tol, 0.0, 0.0) - d_z) < tol
-    assert np.linalg.norm(PR.eos_c._d_Z_generic(A, B, False, tol, 0.0, 0.0) - d_z) < tol
+    assert np.linalg.norm(PR.eos_c._dZ_dAB(A, B, True, tol, 0.0, 0.0) - d_z) < tol
+    assert np.linalg.norm(PR.eos_c._dZ_dAB(A, B, False, tol, 0.0, 0.0) - d_z) < tol
 
 
 def test_compressibility_factors_are_roots():
@@ -184,20 +189,23 @@ def test_compressibility_factors_are_roots():
     tol = 1e-14
     steps = 0.001
 
+    gastype = pp.compositional.PhysicalState.gas.value
+    liquidtype = pp.compositional.PhysicalState.liquid.value
+
     # testing the vectorized computation with arbitrary A, B pairs
     # If the root is not extended, it should be an actual root of the polynomial
     A, B = np.meshgrid(np.arange(0, 1, steps), np.arange(0, 1, steps))
     A = A.flatten()
     B = B.flatten()
-    Z_liq = PR.eos_c.compressibility_factor(A, B, False, tol, 0.0, 0.0)
-    not_extended_liq = PR.eos_c.is_extended_root(A, B, False, tol)
+    Z_liq = PR.eos_c.compressibility_factor(A, B, liquidtype, tol, 0.0, 0.0)
+    not_extended_liq = PR.eos_c.is_extended_root(A, B, liquidtype, tol)
     residual = PR.eos_c.characteristic_residual(
         Z_liq[not_extended_liq], A[not_extended_liq], B[not_extended_liq]
     )
     assert np.all(np.abs(residual) < tol)
 
-    Z_gas = PR.eos_c.compressibility_factor(A, B, True, tol, 0.0, 0.0)
-    not_extended_gas = PR.eos_c.is_extended_root(A, B, True, tol)
+    Z_gas = PR.eos_c.compressibility_factor(A, B, gastype, tol, 0.0, 0.0)
+    not_extended_gas = PR.eos_c.is_extended_root(A, B, gastype, tol)
     residual = PR.eos_c.characteristic_residual(
         Z_gas[not_extended_gas], A[not_extended_gas], B[not_extended_gas]
     )

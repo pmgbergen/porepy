@@ -22,6 +22,7 @@ import porepy as pp
 from .._core import R_IDEAL_MOL, T_REF
 from ..base import Component, Compound
 from ..materials import load_fluid_constants
+from ..utils import safe_sum
 
 __all__ = [
     "thd_function_type",
@@ -30,6 +31,8 @@ __all__ = [
     "h_ideal_H2S",
     "h_ideal_N2",
     "get_bip_matrix",
+    "VanDerWaals_cohesion",
+    "VanDerWaals_covolume",
     "NaClBrine",
 ]
 
@@ -45,7 +48,6 @@ if not TYPE_CHECKING:
 
         """
 
-        ...
 else:
 
     class ArithmeticType(Protocol):
@@ -243,6 +245,69 @@ def get_bip_matrix(
             bip_mat[i, j] = bip_ij
 
     return bip_mat + bip_mat.T
+
+
+def VanDerWaals_covolume(
+    X: Sequence[ArithmeticType], b: Sequence[ArithmeticType]
+) -> ArithmeticType:
+    r"""Van Der Waals - mixing rule for co-volume term.
+
+    Parameters:
+        x: A sequence of fractions.
+        b: A sequence of component covolume values, with the same length and order as
+            ``X``.
+
+    Returns:
+        :math:`\sum_i x_i b_i`.
+
+    """
+    return safe_sum([x_i * b_i for x_i, b_i in zip(X, b)])
+
+
+def VanDerWaals_cohesion(
+    x: Sequence[ArithmeticType],
+    a: Sequence[ArithmeticType],
+    bip: np.ndarray,
+    sqrt_of_any: Callable[[ArithmeticType], ArithmeticType],
+) -> ArithmeticType:
+    r"""Van Der Waals - mixing term for cohesion.
+
+    Parameters:
+        x: A sequence of fractions.
+        a: A sequence of component cohesion values, with the same length and order as
+            ``X``.
+        bip: A 2D array of binary interaction parameters where ``bip[i][j]`` is
+            the parameter between components ``i`` and ``j``.
+            Symmetric, but the upper triangle of this 2D matrix is sufficient.
+        sqrt_func: ``default=``:func:`sympy.sqrt`
+
+            A function representing the square root applicable to the input type.
+
+    Returns:
+        :math:`\sum_i\sum_k x_i x_k \sqrt{a_i a_k} (1 - \delta_{ik})`,
+        where :math:`\delta` denotes the binary interaction parameter.
+
+    """
+
+    nc = len(x)  # number of components
+
+    a_parts = []
+
+    # mixture matrix is symmetric, sum over all entries in upper triangle
+    # multiply off-diagonal elements with 2
+    for i in range(nc):
+        a_parts.append(x[i] ** 2 * a[i])
+        for j in range(i + 1, nc):
+            x_ij = x[i] * x[j]
+            a_ij_ = sqrt_of_any(a[i] * a[j])
+            delta_ij = 1 - bip[i][j]
+
+            a_ij = a_ij_ * delta_ij
+
+            # off-diagonal elements appear always twice due to symmetry
+            a_parts.append(2.0 * x_ij * a_ij)
+
+    return safe_sum(a_parts)
 
 
 class NaClBrine(Compound, pp.FluidComponent):

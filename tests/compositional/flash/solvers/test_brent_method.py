@@ -10,7 +10,7 @@ import numba.typed
 import numpy as np
 import pytest
 
-from porepy.compositional.flash.solvers import brent, DEFAULT_BRENT_PARAMS
+from porepy.compositional.flash.solvers import DEFAULT_BRENT_PARAMS, brent
 
 
 @pytest.mark.parametrize(
@@ -38,5 +38,5 @@ def test_brent(test_case: tuple[Callable[[float], float], float, float, float]) 
     root, converged, iter = brent(func_c, a, b, params)
 
     assert converged == 0
-    assert np.abs(root - root_target) < DEFAULT_BRENT_PARAMS['brent_tolerance']
-    assert iter < DEFAULT_BRENT_PARAMS['brent_max_iterations']
+    assert np.abs(root - root_target) < DEFAULT_BRENT_PARAMS["brent_tolerance"]
+    assert iter < DEFAULT_BRENT_PARAMS["brent_max_iterations"]
