@@ -60,7 +60,7 @@ The following standard names are used for thermodynamic quantities:
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, TypeAlias
 
 import numba
 import numpy as np
@@ -70,14 +70,12 @@ from .._core import COMPOSITIONAL_VARIABLE_SYMBOLS as SYMBOLS
 from .._core import R_IDEAL_MOL
 from ..materials import FluidComponent
 from ..utils import safe_sum
-from .utils import thd_function_type
+from .utils import VanDerWaals_cohesion, VanDerWaals_covolume, thd_function_type
 
 __all__ = [
     "A_CRIT",
     "B_CRIT",
     "Z_CRIT",
-    "VanDerWaals_cohesion",
-    "VanDerWaals_covolume",
     "PengRobinsonSymbolic",
 ]
 
@@ -193,7 +191,7 @@ def coeff_2(A: Any, B: Any) -> Any:
     return B - 1
 
 
-def red_coeff_0(A: Any, B: Any) -> Any:
+def reduced_coeff_0(A: Any, B: Any) -> Any:
     r"""Zeroth coefficient of the reduced characteristic equation
 
     :math:`Z^3 + c_{r1} Z + c_{r0} = 0`.
@@ -210,7 +208,7 @@ def red_coeff_0(A: Any, B: Any) -> Any:
     return c2**3 * (2.0 / 27.0) - c2 * coeff_1(A, B) * (1.0 / 3.0) + coeff_0(A, B)
 
 
-def red_coeff_1(A: Any, B: Any) -> Any:
+def reduced_coeff_1(A: Any, B: Any) -> Any:
     r"""First coefficient of the reduced characteristic equation
 
     :math:`Z^3 + c_{r1} Z + c_{r0} = 0`.
@@ -310,8 +308,8 @@ def double_root(A: sp.Symbol, B: sp.Symbol, gaslike: bool) -> sp.Expr:
 
     """
     c2 = coeff_2(A, B)
-    q = red_coeff_0(A, B)
-    r = red_coeff_1(A, B)
+    q = reduced_coeff_0(A, B)
+    r = reduced_coeff_1(A, B)
 
     u = 3 / 2 * q / r
 
@@ -345,8 +343,8 @@ def three_root(A: sp.Symbol, B: sp.Symbol, gaslike: bool) -> sp.Expr:
 
     """
     c2 = coeff_2(A, B)
-    q = red_coeff_0(A, B)
-    r = red_coeff_1(A, B)
+    q = reduced_coeff_0(A, B)
+    r = reduced_coeff_1(A, B)
 
     # trigonometric formula for Casus Irreducibilis
     t_2 = sp.acos(-q / 2 * sp.sqrt(-27 * r ** (-3))) / 3
@@ -378,8 +376,8 @@ def three_root_intermediate(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
 
     """
     c2 = coeff_2(A, B)
-    q = red_coeff_0(A, B)
-    r = red_coeff_1(A, B)
+    q = reduced_coeff_0(A, B)
+    r = reduced_coeff_1(A, B)
 
     t_2 = sp.acos(-q / 2 * sp.sqrt(-27 * r ** (-3))) / 3
     t_1 = sp.sqrt(-4 / 3 * r)
@@ -416,8 +414,8 @@ def one_root(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
 
     """
     c2 = coeff_2(A, B)
-    q = red_coeff_0(A, B)
-    r = red_coeff_1(A, B)
+    q = reduced_coeff_0(A, B)
+    r = reduced_coeff_1(A, B)
     d = discriminant(q, r)
 
     t1 = sp.sqrt(d) - q * 0.5
@@ -435,33 +433,36 @@ def one_root(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
 
 # region Symbolic expressions for all root cases
 
-
 Z_triple_e: sp.Expr = triple_root(A_s, B_s)
-d_Z_triple_e: list[sp.Expr] = [Z_triple_e.diff(A_s), Z_triple_e.diff(B_s)]
+dZ_triple_e: list[sp.Expr] = [Z_triple_e.diff(A_s), Z_triple_e.diff(B_s)]
 
 Z_one_e: sp.Expr = one_root(A_s, B_s)
-d_Z_one_e: list[sp.Expr] = [Z_one_e.diff(A_s), Z_one_e.diff(B_s)]
+dZ_one_e: list[sp.Expr] = [Z_one_e.diff(A_s), Z_one_e.diff(B_s)]
 
 Z_double_g_e: sp.Expr = double_root(A_s, B_s, True)
-d_Z_double_g_e: list[sp.Expr] = [Z_double_g_e.diff(A_s), Z_double_g_e.diff(B_s)]
-
+dZ_double_g_e: list[sp.Expr] = [Z_double_g_e.diff(A_s), Z_double_g_e.diff(B_s)]
 Z_double_l_e: sp.Expr = double_root(A_s, B_s, False)
-d_Z_double_l_e: list[sp.Expr] = [Z_double_l_e.diff(A_s), Z_double_l_e.diff(B_s)]
+dZ_double_l_e: list[sp.Expr] = [Z_double_l_e.diff(A_s), Z_double_l_e.diff(B_s)]
 
 Z_three_g_e: sp.Expr = three_root(A_s, B_s, True)
-d_Z_three_g_e: list[sp.Expr] = [Z_three_g_e.diff(A_s), Z_three_g_e.diff(B_s)]
-
+dZ_three_g_e: list[sp.Expr] = [Z_three_g_e.diff(A_s), Z_three_g_e.diff(B_s)]
 Z_three_l_e: sp.Expr = three_root(A_s, B_s, False)
-d_Z_three_l_e: list[sp.Expr] = [Z_three_l_e.diff(A_s), Z_three_l_e.diff(B_s)]
-
+dZ_three_l_e: list[sp.Expr] = [Z_three_l_e.diff(A_s), Z_three_l_e.diff(B_s)]
 Z_three_i_e: sp.Expr = three_root_intermediate(A_s, B_s)
-d_Z_three_i_e: list[sp.Expr] = [Z_three_i_e.diff(A_s), Z_three_i_e.diff(B_s)]
+dZ_three_i_e: list[sp.Expr] = [Z_three_i_e.diff(A_s), Z_three_i_e.diff(B_s)]
 
 
 # endregion
 
 
 # region Lambdified functions for roots depending on A and B
+
+
+Z_TYPE: TypeAlias = Callable[[float, float], float]
+"""Type alias for functions representing the compressibility factor."""
+dZ_TYPE: TypeAlias = Callable[[float, float], list[float] | np.ndarray]
+"""Type alias for functions representing the derivatives of the compressibility factor.
+"""
 
 
 @numba.njit(cache=True)
@@ -481,110 +482,31 @@ def _select(condlist: list, choicelist: list, default=np.nan):
         return choicelist[1]
 
 
-Z_triple_f: Callable[[float, float], float] = sp.lambdify([A_s, B_s], Z_triple_e)
-d_Z_triple_f: Callable[[float, float], list[float]] = sp.lambdify(
-    [A_s, B_s], d_Z_triple_e
-)
+Z_triple: Z_TYPE = sp.lambdify([A_s, B_s], Z_triple_e)
+dZ_triple: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_triple_e)
 
-Z_three_g_f: Callable[[float, float], float] = sp.lambdify([A_s, B_s], Z_three_g_e)
-d_Z_three_g_f: Callable[[float, float], list[float]] = sp.lambdify(
-    [A_s, B_s], d_Z_three_g_e
-)
-Z_three_l_f: Callable[[float, float], float] = sp.lambdify([A_s, B_s], Z_three_l_e)
-d_Z_three_l_f: Callable[[float, float], list[float]] = sp.lambdify(
-    [A_s, B_s], d_Z_three_l_e
-)
-Z_three_i_f: Callable[[float, float], float] = sp.lambdify([A_s, B_s], Z_three_i_e)
-d_Z_three_i_f: Callable[[float, float], list[float]] = sp.lambdify(
-    [A_s, B_s], d_Z_three_i_e
-)
+Z_three_g: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_g_e)
+dZ_three_g: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_g_e)
+Z_three_l: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_l_e)
+dZ_three_l: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_l_e)
+Z_three_i: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_i_e)
+dZ_three_i: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_i_e)
 
 # because piecewise and to provide numeric evaluation of custom cubic root
-_module_one_root = [{"_cbrt": np.cbrt, "select": _select}, "numpy"]
+_modules_one = [{"_cbrt": np.cbrt, "select": _select}, "numpy"]
 
-Z_one_f: Callable[[float, float], float] = sp.lambdify(
-    [A_s, B_s], Z_one_e, modules=_module_one_root
-)
-d_Z_one_f: Callable[[float, float], list[float]] = sp.lambdify(
-    [A_s, B_s], d_Z_one_e, modules=_module_one_root
-)
+Z_one: Z_TYPE = sp.lambdify([A_s, B_s], Z_one_e, modules=_modules_one)
+dZ_one: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_one_e, modules=_modules_one)
 
 # because piece-wise
-_module_double_root = [{"select": _select}, "numpy"]
+_modules_double = [{"select": _select}, "numpy"]
 
-Z_double_g_f: Callable[[float, float], float] = sp.lambdify(
-    [A_s, B_s], Z_double_g_e, modules=_module_double_root
-)
-d_Z_double_g_f: Callable[[float, float], list[float]] = sp.lambdify(
-    [A_s, B_s], d_Z_double_g_e, modules=_module_double_root
-)
-Z_double_l_f: Callable[[float, float], float] = sp.lambdify(
-    [A_s, B_s], Z_double_l_e, modules=_module_double_root
-)
-d_Z_double_l_f: Callable[[float, float], list[float]] = sp.lambdify(
-    [A_s, B_s], d_Z_double_l_e, modules=_module_double_root
-)
+Z_double_g: Z_TYPE = sp.lambdify([A_s, B_s], Z_double_g_e, modules=_modules_double)
+dZ_double_g: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_double_g_e, modules=_modules_double)
+Z_double_l: Z_TYPE = sp.lambdify([A_s, B_s], Z_double_l_e, modules=_modules_double)
+dZ_double_l: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_double_l_e, modules=_modules_double)
 
 # endregion
-
-
-def VanDerWaals_covolume(X: Sequence[Any], b: Sequence[Any]) -> Any:
-    r"""
-    Parameters:
-        x: A sequence of fractions.
-        b: A sequence of component covolume values, with the same length and order as
-            ``X``.
-
-    Returns:
-        :math:`\sum_i x_i b_i`.
-
-    """
-    return safe_sum([x_i * b_i for x_i, b_i in zip(X, b)])
-
-
-def VanDerWaals_cohesion(
-    x: Sequence[Any],
-    a: Sequence[Any],
-    bip: np.ndarray,
-    sqrt_of_any: Callable[[Any], Any] = sp.sqrt,
-) -> Any:
-    r"""
-    Parameters:
-        x: A sequence of fractions.
-        a: A sequence of component cohesion values, with the same length and order as
-            ``X``.
-        bip: A 2D array of binary interaction parameters where ``bip[i][j]`` is
-            the parameter between components ``i`` and ``j``.
-            Symmetric, but the upper triangle of this 2D matrix is sufficient.
-        sqrt_func: ``default=``:func:`sympy.sqrt`
-
-            A function representing the square root applicable to the input type.
-
-    Returns:
-        :math:`\sum_i\sum_k x_i x_k \sqrt{a_i a_k} (1 - \delta_{ik})`,
-        where :math:`\delta` denotes the binary interaction parameter.
-
-    """
-
-    nc = len(x)  # number of components
-
-    a_parts = []
-
-    # mixture matrix is symmetric, sum over all entries in upper triangle
-    # multiply off-diagonal elements with 2
-    for i in range(nc):
-        a_parts.append(x[i] ** 2 * a[i])
-        for j in range(i + 1, nc):
-            x_ij = x[i] * x[j]
-            a_ij_ = sqrt_of_any(a[i] * a[j])
-            delta_ij = 1 - bip[i][j]
-
-            a_ij = a_ij_ * delta_ij
-
-            # off-diagonal elements appear always twice due to symmetry
-            a_parts.append(2.0 * x_ij * a_ij)
-
-    return safe_sum(a_parts)
 
 
 class PengRobinsonSymbolic:
@@ -756,7 +678,9 @@ class PengRobinsonSymbolic:
         """List of cohesion values per component, including a correction involving
         the critical temperature and acentric factor."""
 
-        a_e: sp.Expr = VanDerWaals_cohesion(self.x_in_j, ai_e, bip_matrix)
+        a_e: sp.Expr = VanDerWaals_cohesion(
+            self.x_in_j, ai_e, bip_matrix, sqrt_of_any=sp.sqrt
+        )
         """Mixed cohesion according to the Van der Waals mixing rule."""
         A_e: sp.Expr = a_e * self.p_s / (R_IDEAL_MOL**2 * self.T_s**2)
         """Non-dimensional, mixed cohesion created using :attr:`b_e`"""
@@ -888,7 +812,8 @@ class PengRobinsonSymbolic:
 
     @staticmethod
     def a_correction_weight(omega: float) -> float:
-        """
+        """Computes the cohesion correction weight based on the acentric factor.
+
         References:
             `Zhu et al. (2014), Appendix A
             <https://doi.org/10.1016/j.fluid.2014.07.003>`_

@@ -33,37 +33,18 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence, TypeVar
 
-import numba
+import numba as nb
 import numpy as np
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
 from ..eos_compiler import EoSCompiler, ScalarFunction, VectorFunction
 from ..materials import FluidComponent
-from .eos_s import (
-    A_CRIT,
-    B_CRIT,
-    PengRobinsonSymbolic,
-    Z_double_g_f,
-    Z_double_l_f,
-    Z_one_f,
-    Z_three_g_f,
-    Z_three_i_f,
-    Z_three_l_f,
-    Z_triple_f,
-    coeff_0,
-    coeff_1,
-    coeff_2,
-    d_Z_double_g_f,
-    d_Z_double_l_f,
-    d_Z_one_f,
-    d_Z_three_g_f,
-    d_Z_three_i_f,
-    d_Z_three_l_f,
-    d_Z_triple_f,
-    discriminant,
-)
+from . import eos_s
+
+# Import explicitely to avoid some issues in numba (referencing vars internally).
+from .eos_s import A_CRIT, B_CRIT
 from .utils import thd_function_type
 
 __all__ = [
@@ -71,7 +52,6 @@ __all__ = [
     "get_root_case",
     "is_extended_root",
     "compressibility_factor",
-    "compressibility_factor_dAB",
     "PengRobinsonCompiler",
 ]
 
@@ -79,10 +59,16 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-_STATIC_FAST_COMPILE_ARGS: dict[str, Any] = {
+_NUMBA_STATIC_COMPILE_KWARGS: dict[str, Any] = {
     "fastmath": NUMBA_FAST_MATH,
     "cache": NUMBA_CACHE,
 }
+"""Shortcut to frequently used numba-compiler flags."""
+
+
+_T = TypeVar("_T", float, np.ndarray)
+"""Type variable for functions where the operations are analogous for floats and arrays.
+"""
 
 
 _import_msg: str = "(import peng_robinson/eos_c.py)"
@@ -97,73 +83,112 @@ logger.info(f"{_import_msg} Compiling Peng-Robinson EoS from symbolic source .."
 logger.debug(f"{_import_msg} Compiling cubic polynomial ..")
 
 
-coeff_0_c: Callable[[float, float], float] = numba.njit(
-    "float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS
-)(coeff_0)
-"""NJIT-ed version of :func:`coeff_0`.
+coeff_0: Callable[[_T, _T], _T] = nb.njit(
+    [
+        nb.f8(nb.f8, nb.f8),
+        nb.f8[:](nb.f8[:], nb.f8[:]),
+    ],
+    **_NUMBA_STATIC_COMPILE_KWARGS,
+)(eos_s.coeff_0)
+"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.coeff_0`.
 
-Signature: ``(float64, float64) -> float64``
-
-"""
-
-
-coeff_1_c: Callable[[float, float], float] = numba.njit(
-    "float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS
-)(coeff_1)
-"""NJIT-ed version of :func:`coeff_1`.
-
-Signature: ``(float64, float64) -> float64``
+Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
 """
 
 
-coeff_2_c: Callable[[float, float], float] = numba.njit(
-    "float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS
-)(coeff_2)
-"""NJIT-ed version of :func:`coeff_2`.
+coeff_1: Callable[[_T, _T], _T] = nb.njit(
+    [
+        nb.f8(nb.f8, nb.f8),
+        nb.f8[:](nb.f8[:], nb.f8[:]),
+    ],
+    **_NUMBA_STATIC_COMPILE_KWARGS,
+)(eos_s.coeff_1)
+"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.coeff_1`.
 
-Signature: ``(float64, float64) -> float64``
+Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
 """
 
 
-@numba.njit("float64(float64,float64)", **_STATIC_FAST_COMPILE_ARGS)
-def red_coeff_0_c(A: float, B: float) -> float:
-    """NJIT-ed version of :func:`red_coeff_0`.
+coeff_2: Callable[[_T, _T], _T] = nb.njit(
+    [
+        nb.f8(nb.f8, nb.f8),
+        nb.f8[:](nb.f8[:], nb.f8[:]),
+    ],
+    **_NUMBA_STATIC_COMPILE_KWARGS,
+)(eos_s.coeff_2)
+"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.coeff_2`.
 
-    Signature: ``(float64, float64) -> float64``
+Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
+
+"""
+
+
+# NOTE: Due to internal usage of already compiled function for non-reduced coefficients
+# the formulas for the reduced coefficients must be re-implemented and we cannot
+# directly compile the respective functions.
+@nb.njit(
+    [
+        nb.f8(nb.f8, nb.f8),
+        nb.f8[:](nb.f8[:], nb.f8[:]),
+    ],
+    **_NUMBA_STATIC_COMPILE_KWARGS,
+)
+def reduced_coeff_0(A: _T, B: _T) -> _T:
+    """NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.
+    reduced_coeff_0`.
+
+    Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
     """
-    c2 = coeff_2_c(A, B)
-    return c2**3 * (2.0 / 27.0) - c2 * coeff_1_c(A, B) * (1.0 / 3.0) + coeff_0_c(A, B)
+    c2 = coeff_2(A, B)
+    return c2**3 * (2.0 / 27.0) - c2 * coeff_1(A, B) * (1.0 / 3.0) + coeff_0(A, B)
 
 
-@numba.njit("float64(float64,float64)", **_STATIC_FAST_COMPILE_ARGS)
-def red_coeff_1_c(A: float, B: float) -> float:
-    """NJIT-ed version of :func:`red_coeff_1`.
+@nb.njit(
+    [
+        nb.f8(nb.f8, nb.f8),
+        nb.f8[:](nb.f8[:], nb.f8[:]),
+    ],
+    **_NUMBA_STATIC_COMPILE_KWARGS,
+)
+def reduced_coeff_1(A: _T, B: _T) -> _T:
+    """NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.
+    reduced_coeff_1`.
 
-    Signature: ``(float64, float64) -> float64``
+    Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
     """
-    return coeff_1_c(A, B) - coeff_2_c(A, B) ** 2 * (1.0 / 3.0)
+    return coeff_1(A, B) - coeff_2(A, B) ** 2 * (1.0 / 3.0)
 
 
-discriminant_c: Callable[[float, float], float] = numba.njit(
-    "float64(float64, float64)", **_STATIC_FAST_COMPILE_ARGS
-)(discriminant)
+discriminant: Callable[[_T, _T], _T] = nb.njit(
+    [
+        nb.f8(nb.f8, nb.f8),
+        nb.f8[:](nb.f8[:], nb.f8[:]),
+    ],
+    **_NUMBA_STATIC_COMPILE_KWARGS,
+)(eos_s.discriminant)
 """NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_s.discriminant`.
 
-Signature: ``(float64, float64) -> float64``
+Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
 """
 
 
-@numba.njit("int8(float64,float64,float64)", **_STATIC_FAST_COMPILE_ARGS)
+@nb.njit(nb.i1(nb.f8, nb.f8, nb.f8), **_NUMBA_STATIC_COMPILE_KWARGS)
 def _get_root_case(A: float, B: float, eps: float) -> int:
-    """Internal, scalar function for :data:`get_root_case`"""
-    q = red_coeff_0_c(A, B)
-    r = red_coeff_1_c(A, B)
-    d = discriminant_c(q, r)
+    """Internal, scalar function for :data:`get_root_case`.
+
+    Note:
+        Due to logical operations performed, it is easier (for numba) to split the
+        scalar and vector functions into two entities.
+
+    """
+    q = reduced_coeff_0(A, B)
+    r = reduced_coeff_1(A, B)
+    d = discriminant(q, r)
 
     # if discriminant is positive, the polynomial has one real root
     if d > eps:
@@ -184,65 +209,55 @@ def _get_root_case(A: float, B: float, eps: float) -> int:
             return 2
 
 
-get_root_case = numba.vectorize(
-    [numba.int8(numba.float64, numba.float64, numba.float64)],
-    nopython=True,
-    target="parallel",
-    **_STATIC_FAST_COMPILE_ARGS,
-)(_get_root_case)
-"""A piece-wise cosntant function dependent on non-dimensional cohesion and covolume,
-representing the number of roots of the characteristic polynomial in terms of cohesion
-and covolume.
+@nb.njit(
+    nb.i1[:](nb.f8[:], nb.f8[:], nb.f8),
+    parallel=NUMBA_PARALLEL,
+    **_NUMBA_STATIC_COMPILE_KWARGS,
+)
+def get_root_case(A: np.ndarray, B: np.ndarray, eps: float) -> np.ndarray:
+    """A piece-wise constant function dependent on non-dimensional cohesion and covolume,
+    representing the number of roots of the characteristic polynomial in terms of
+    cohesion and covolume.
 
-Numpy-universal function with signature ``(float64, float64, float64) -> int8``.
-Can be called with vectorized input.
+    Function with signature ``(float64, float64, float64) -> int8``.
+    Can be called with vectorized input for ``A,B``.
 
-:data:`red_coeff_0_c`, :data:`red_coeff_1_c` and :data:`discriminant_c` are used to
-compute and determine the root case.
+    See also:
 
-See also:
+        `Cardano formula <https://de.wikipedia.org/wiki/Cardanische_Formeln>`_ .
 
-    `Cardano formula <https://de.wikipedia.org/wiki/Cardanische_Formeln>`_ .
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+        eps: Numerical zero to detect degenerate polynomials (zero discriminant), e.g.
+            ``1e-14``.
 
-Parameters:
-    A: Non-dimensional cohesion.
-    B: Non-dimensional covolume.
-    eps: Numerical zero to detect degenerate polynomials (zero discriminant), e.g.
-        ``1e-14``.
+    Returns:
+        An integer indicating the root case
 
-        Note that as of now numba does not support default arguments for vectorization
-        and ``eps`` must be provided by the user.
+        - 0 : triple root
+        - 1 : 1 real root, 2 complex-conjugated roots
+        - 2 : 2 real roots, one with multiplicity 2
+        - 3 : 3 distinct real roots
 
-Returns:
-    An integer indicating the root case
-
-    - 0 : triple root
-    - 1 : 1 real root, 2 complex-conjugated roots
-    - 2 : 2 real roots, one with multiplicity 2
-    - 3 : 3 distinct real roots
-
-"""
-
-
-@numba.njit("float64(float64,float64,float64)", **_STATIC_FAST_COMPILE_ARGS)
-def _characteristic_residual(Z: float, A: float, B: float) -> float:
-    r"""Internal, scalar function for :data:`characteristic_residual`"""
-    c2 = coeff_2_c(A, B)
-    c1 = coeff_1_c(A, B)
-    c0 = coeff_0_c(A, B)
-
-    return Z**3 + c2 * Z**2 + c1 * Z + c0
+    """
+    assert A.shape == B.shape
+    root_cases = np.empty(A.shape, dtype=np.int8)
+    for i in nb.prange(A.shape[0]):
+        root_cases[i] = _get_root_case(A[i], B[i], eps)
+    return root_cases
 
 
-characteristic_residual = numba.vectorize(
-    [numba.float64(numba.float64, numba.float64, numba.float64)],
-    nopython=True,
-    target="parallel",
-    **_STATIC_FAST_COMPILE_ARGS,
-)(_characteristic_residual)
-"""Numpy-universal function with signature ``(float64, float64, float64) -> float64``.
-
-Can be called with vectorized input.
+@nb.njit(
+    [
+        nb.f8(nb.f8, nb.f8, nb.f8),
+        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:]),
+    ],
+    **_NUMBA_STATIC_COMPILE_KWARGS,
+)
+def characteristic_residual(Z: _T, A: _T, B: _T) -> _T:
+    r"""Computes the residual of the PR cubic polynomial, for a given root ``Z`` and
+    the parametrization in terms of cohesion and co-volume.
 
     Parameters:
         Z: A supposed root.
@@ -256,6 +271,11 @@ Can be called with vectorized input.
         If ``Z`` is an actual root, the residual is 0.
 
     """
+    c2 = coeff_2(A, B)
+    c1 = coeff_1(A, B)
+    c0 = coeff_0(A, B)
+
+    return Z**3 + c2 * Z**2 + c1 * Z + c0
 
 
 # endregion
@@ -267,71 +287,65 @@ Can be called with vectorized input.
 logger.debug(f"{_import_msg} Compiling A-B space functions ..")
 
 
-@numba.njit("float64(float64)", **_STATIC_FAST_COMPILE_ARGS)
-def _critical_line(A: float) -> float:
-    r"""Internal, scalar function for :data:`critical_line`."""
+@nb.njit(
+    [
+        nb.f8(nb.f8),
+        nb.f8[:](nb.f8[:]),
+    ],
+    **_NUMBA_STATIC_COMPILE_KWARGS,
+)
+def critical_line(A: _T) -> _T:
+    r"""Parametrization of the critical line for the PR EoS in the A-B space.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+
+    Returns:
+        The critical line parametrized as ``B(A)``
+
+        .. math::
+
+            \\frac{B_{crit}}{A_{crit}} A
+
+    """
     return (B_CRIT / A_CRIT) * A
 
 
-critical_line = numba.vectorize(
-    [numba.float64(numba.float64)],
-    nopython=True,
-    **_STATIC_FAST_COMPILE_ARGS,
-)(_critical_line)
-"""Numpy-universal function with signature ``(float64) -> float64``.
-Can be called with vectorized input
+@nb.njit(
+    [
+        nb.f8(nb.f8),
+        nb.f8[:](nb.f8[:]),
+    ],
+    **_NUMBA_STATIC_COMPILE_KWARGS,
+)
+def widom_line(A: _T) -> _T:
+    r"""Parametrization of the Widom-line for the PR EoS in the A-B space.
 
-Parameters:
-    A: Non-dimensional cohesion.
+    Parameters:
+        A: Non-dimensional cohesion.
 
-Returns:
-    The critical line parametrized as ``B(A)``
+    Returns:
+        The Widom-line parametrized as ``B(A)`` in the A-B space
 
-    .. math::
+        .. math::
 
-        \\frac{B_{crit}}{A_{crit}} A
+            B_{crit} + 0.8 \cdot 0.3381965009398633 \cdot \left(A - A_{crit}\right)
 
-"""
-
-
-@numba.njit("float64(float64)", cache=True, fastmath=NUMBA_FAST_MATH)
-def _widom_line(A: float) -> float:
-    """Internal, scalar function for :func:`widom_line`."""
+    """
     return B_CRIT + 0.8 * 0.3381965009398633 * (A - A_CRIT)
 
 
-widom_line = numba.vectorize(
-    [numba.float64(numba.float64)],
-    nopython=True,
-    **_STATIC_FAST_COMPILE_ARGS,
-)(_widom_line)
-r"""Numpy-universal function with signature ``(float64) -> float64``.
-Can be called with vectorized input
-
-Parameters:
-    A: Non-dimensional cohesion.
-
-Returns:
-    The Widom-line parametrized as ``B(A)`` in the A-B space
-
-    .. math::
-
-        B_{crit} + 0.8 \cdot 0.3381965009398633 \cdot \left(A - A_{crit}\right)
-
-"""
-
-
-@numba.njit(
+@nb.njit(
     [
-        numba.float64(
-            numba.types.Array(numba.float64, 1, "C", readonly=False),
-            numba.types.Array(numba.float64, 1, "C", readonly=True),
-            numba.types.Array(numba.float64, 1, "C", readonly=True),
+        nb.f8(
+            nb.types.Array(nb.f8, 1, "C", readonly=False),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
+            nb.types.Array(nb.f8, 1, "C", readonly=True),
         ),
-        numba.float64(
-            numba.types.Array(numba.float64, 1, "C", readonly=False),
-            numba.types.Array(numba.float64, 1, "C", readonly=False),
-            numba.types.Array(numba.float64, 1, "C", readonly=False),
+        nb.f8(
+            nb.types.Array(nb.f8, 1, "C", readonly=False),
+            nb.types.Array(nb.f8, 1, "C", readonly=False),
+            nb.types.Array(nb.f8, 1, "C", readonly=False),
         ),
     ],
     cache=True,
@@ -395,8 +409,8 @@ See :data:`B_CRIT`, data:`A_CRIT`.
 
 
 W_LINE_POINTS: tuple[np.ndarray, np.ndarray] = (
-    np.array([0.0, _widom_line(0)], dtype=np.float64),
-    np.array([A_CRIT, _widom_line(A_CRIT)], dtype=np.float64),
+    np.array([0.0, widom_line(0)], dtype=np.float64),
+    np.array([A_CRIT, widom_line(A_CRIT)], dtype=np.float64),
 )
 r"""Two 2D points characterizing the Widom-line for water.
 
@@ -416,9 +430,7 @@ See :data:`~porepy.compositional.peng_robinson.eos.A_CRIT`.
 # find solution for this
 # see https://github.com/sympy/sympy/issues/18432
 # https://github.com/numba/numba/issues/5128
-def _compile_d_Z(
-    d_Z_: Callable[[float, float], list[float]],
-) -> Callable[[float, float], np.ndarray]:
+def _compile_dZ(d_Z_: eos_s.dZ_TYPE) -> Callable[[float, float], np.ndarray]:
     """Helper function to wrap derivatives of compressibility factors into arrays.
 
     Parameters:
@@ -430,16 +442,16 @@ def _compile_d_Z(
 
     """
     # make internal function, and external which wraps list into array
-    f = numba.njit(d_Z_, cache=False, fastmath=NUMBA_FAST_MATH)
+    f = nb.njit(d_Z_, cache=False, fastmath=NUMBA_FAST_MATH)
 
-    @numba.njit("float64[:](float64, float64)", cache=False, fastmath=NUMBA_FAST_MATH)
+    @nb.njit(nb.f8[:](nb.f8, nb.f8), cache=False, fastmath=NUMBA_FAST_MATH)
     def inner(a, b):
         return np.array(f(a, b), dtype=np.float64)
 
     return inner
 
 
-def _compile_Z(Z_: Callable[[float, float], float]) -> Callable[[float, float], float]:
+def _compile_Z(Z_: eos_s.Z_TYPE) -> eos_s.Z_TYPE:
     """Helper function to compile expressions representing compressibility factors as
     roots.
 
@@ -451,9 +463,7 @@ def _compile_Z(Z_: Callable[[float, float], float]) -> Callable[[float, float], 
         NJIT-compiled function with signature ``(float64, float64) -> float64``.
 
     """
-    return numba.njit(
-        "float64(float64, float64)", cache=False, fastmath=NUMBA_FAST_MATH
-    )(Z_)
+    return nb.njit(nb.f8(nb.f8, nb.f8), cache=False, fastmath=NUMBA_FAST_MATH)(Z_)
 
 
 logger.debug(f"{_import_msg} Compiling compressibility factors ..")
@@ -461,29 +471,29 @@ logger.debug(f"{_import_msg} Compiling compressibility factors ..")
 
 # Standard compressibility factors and their derivatives
 
-Z_triple_c: Callable[[float, float], float] = _compile_Z(Z_triple_f)
-d_Z_triple_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_triple_f)
+Z_triple = _compile_Z(eos_s.Z_triple)
+dZ_triple = _compile_dZ(eos_s.dZ_triple)
 
-Z_one_c: Callable[[float, float], float] = _compile_Z(Z_one_f)
-d_Z_one_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_one_f)
+Z_one = _compile_Z(eos_s.Z_one)
+dZ_one = _compile_dZ(eos_s.dZ_one)
 
-Z_double_g_c: Callable[[float, float], float] = _compile_Z(Z_double_g_f)
-d_Z_double_g_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_double_g_f)
-Z_double_l_c: Callable[[float, float], float] = _compile_Z(Z_double_l_f)
-d_Z_double_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_double_l_f)
+Z_double_g = _compile_Z(eos_s.Z_double_g)
+dZ_double_g = _compile_dZ(eos_s.dZ_double_g)
+Z_double_l = _compile_Z(eos_s.Z_double_l)
+dZ_double_l = _compile_dZ(eos_s.dZ_double_l)
 
-Z_three_g_c: Callable[[float, float], float] = _compile_Z(Z_three_g_f)
-d_Z_three_g_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_g_f)
-Z_three_l_c: Callable[[float, float], float] = _compile_Z(Z_three_l_f)
-d_Z_three_l_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_l_f)
-Z_three_i_c: Callable[[float, float], float] = _compile_Z(Z_three_i_f)
-d_Z_three_i_c: Callable[[float, float], np.ndarray] = _compile_d_Z(d_Z_three_i_f)
+Z_three_g = _compile_Z(eos_s.Z_three_g)
+dZ_three_g = _compile_dZ(eos_s.dZ_three_g)
+Z_three_l = _compile_Z(eos_s.Z_three_l)
+dZ_three_l = _compile_dZ(eos_s.dZ_three_l)
+Z_three_i = _compile_Z(eos_s.Z_three_i)
+dZ_three_i = _compile_dZ(eos_s.dZ_three_i)
 
 # extended compressibility factors and their derivatives
 
 
-@numba.njit("float64(float64,float64)", cache=True, fastmath=NUMBA_FAST_MATH)
-def W_sub_c(Z: float, B: float) -> float:
+@nb.njit(nb.f8(nb.f8, nb.f8), **_NUMBA_STATIC_COMPILE_KWARGS)
+def W_subcrit(Z: float, B: float) -> float:
     """Extended compressibility factor in the sub-critical area (Ben Gharbia 2021).
 
     Parameters:
@@ -497,8 +507,8 @@ def W_sub_c(Z: float, B: float) -> float:
     return (1 - B - Z) * 0.5
 
 
-@numba.njit("float64[:](float64[:])", cache=True, fastmath=NUMBA_FAST_MATH)
-def d_W_sub_c(d_Z: np.ndarray) -> np.ndarray:
+@nb.njit(nb.f8[:](nb.f8[:]), **_NUMBA_STATIC_COMPILE_KWARGS)
+def dW_subcrit(d_Z: np.ndarray) -> np.ndarray:
     """
     Parameters:
         d_Z: ``shape=(2,)``
@@ -506,14 +516,14 @@ def d_W_sub_c(d_Z: np.ndarray) -> np.ndarray:
             The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
 
     Returns:
-        The derivative of :meth:`W_sub_c` w.r.t. the cohesion and covolume.
+        The derivative of :meth:`W_subcrit` w.r.t. the cohesion and covolume.
 
     """
     return -0.5 * np.array([d_Z[0], 1 + d_Z[1]])
 
 
-@numba.njit("float64(float64,float64)", cache=True, fastmath=NUMBA_FAST_MATH)
-def W_scl_c(Z: float, B: float) -> float:
+@nb.njit(nb.f8(nb.f8, nb.f8), **_NUMBA_STATIC_COMPILE_KWARGS)
+def W_supercrit_l(Z: float, B: float) -> float:
     """Extended liquid-like compressibility factor in the super-critical region, where
     the gas-like phase is flagged as present.
 
@@ -529,8 +539,8 @@ def W_scl_c(Z: float, B: float) -> float:
     return Z + (B - Z) * 0.5
 
 
-@numba.njit("float64[:](float64[:])", cache=True, fastmath=NUMBA_FAST_MATH)
-def d_W_scl_c(d_Z: np.ndarray) -> np.ndarray:
+@nb.njit(nb.f8[:](nb.f8[:]), **_NUMBA_STATIC_COMPILE_KWARGS)
+def dW_supercrit_l(d_Z: np.ndarray) -> np.ndarray:
     """
     Parameters:
         d_Z: ``shape=(2,)``
@@ -538,14 +548,14 @@ def d_W_scl_c(d_Z: np.ndarray) -> np.ndarray:
             The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
 
     Returns:
-        The derivative of :meth:`W_scl_c` w.r.t. the cohesion and covolume.
+        The derivative of :meth:`W_supercrit_l` w.r.t. the cohesion and covolume.
 
     """
     return 0.5 * np.array([d_Z[0], 1 + d_Z[1]])
 
 
-@numba.njit("float64(float64,float64)", cache=True, fastmath=NUMBA_FAST_MATH)
-def W_scg_c(Z: float, B: float) -> float:
+@nb.njit(nb.f8(nb.f8, nb.f8), **_NUMBA_STATIC_COMPILE_KWARGS)
+def W_supercrit_g(Z: float, B: float) -> float:
     """Extended gas-like compressibility factor in the super-critical region, where
     the liquid-like phase is flagged as present.
 
@@ -561,8 +571,8 @@ def W_scg_c(Z: float, B: float) -> float:
     return B + (1 - B - Z) * 0.5
 
 
-@numba.njit("float64[:](float64[:])", cache=True, fastmath=NUMBA_FAST_MATH)
-def d_W_scg_c(d_Z: np.ndarray) -> np.ndarray:
+@nb.njit(nb.f8[:](nb.f8[:]), **_NUMBA_STATIC_COMPILE_KWARGS)
+def dW_supercrit_g(d_Z: np.ndarray) -> np.ndarray:
     """
     Parameters:
         d_Z: ``shape=(2,)``
@@ -570,7 +580,7 @@ def d_W_scg_c(d_Z: np.ndarray) -> np.ndarray:
             The derivatives of ``Z`` w.r.t. to cohesion and co-volume.
 
     Returns:
-        The derivative of :meth:`W_scg_c` w.r.t. the cohesion and covolume.
+        The derivative of :meth:`W_supercrit_g` w.r.t. the cohesion and covolume.
 
     """
     return -0.5 * np.array([d_Z[0], d_Z[1] - 1])
@@ -579,17 +589,14 @@ def d_W_scg_c(d_Z: np.ndarray) -> np.ndarray:
 logger.debug(f"{_import_msg} Compiling general compressibility factor ..")
 
 
-@numba.njit(
-    "int8(float64,float64,int8,float64)",
-    **_STATIC_FAST_COMPILE_ARGS,
-)
+@nb.njit(nb.i1(nb.f8, nb.f8, nb.i1, nb.f8), **_NUMBA_STATIC_COMPILE_KWARGS)
 def _is_extended_root(A: float, B: float, gaslike: int, eps: float) -> int:
     """Internal, scalar function for :data:`is_extended_root`."""
     nroot = _get_root_case(A, B, eps)
     # super critical check
-    is_supercritical = B >= _critical_line(A) or B >= B_CRIT
+    is_supercritical = B >= critical_line(A) or B >= B_CRIT
     # below widom -> gas-like root is extended
-    is_below_widom = B < _widom_line(A)
+    is_below_widom = B < widom_line(A)
 
     is_extended = 0  # default return value is 0, actual root.
 
@@ -606,8 +613,8 @@ def _is_extended_root(A: float, B: float, gaslike: int, eps: float) -> int:
         # in the sub-critical area, the approach by Ben Gharbia is used
         # smaller root is liquid-like
         else:
-            z = Z_one_c(A, B)
-            w = W_sub_c(z, B)
+            z = Z_one(A, B)
+            w = W_subcrit(z, B)
             if w < z and not gaslike:
                 is_extended = 1
             elif w >= z and gaslike:
@@ -621,42 +628,46 @@ def _is_extended_root(A: float, B: float, gaslike: int, eps: float) -> int:
     return is_extended
 
 
-is_extended_root = numba.vectorize(
-    [numba.int8(numba.float64, numba.float64, numba.int8, numba.float64)],
-    nopython=True,
-    target="parallel",
-    **_STATIC_FAST_COMPILE_ARGS,
-)(_is_extended_root)
-"""Checks if a configuration of gas-like flag, cohesion and covolume would lead to an
-extended root.
-
-If True, an extension procedure was applied, i.e. the compressibility factor
-is not an actual root of the characteristic polynomial.
-
-Numpy-universal function with signature ``(float64, float64, int8, float64) -> int8``.
-Can be called with vectorized input.
-
-Note:
-    Argument ``gaslike`` must be also vectorized, if ``A`` and ``B`` are vectorized.
-    This is due to some numba-related peculiarities.
-    ``eps`` doesn't have to be vectorized.
-
-Parameters:
-    A: Non-dimensional cohesion.
-    B: Non-dimensional covolume.
-    gaslike: 1 if a gas-like root is assumed, 0 otherwise.
-    eps: Numerical zero, used to determine the root case (see :data:`get_root_case`).
-
-Returns:
-    1, if the root is an extended root of the polynomial, 0 if it is an actual root.
-
-"""
-
-
-@numba.njit(
-    "float64(float64,float64,float64,float64)",
-    cache=True,
+@nb.njit(
+    nb.i1[:](nb.f8[:], nb.f8[:], nb.i1, nb.f8),
+    parallel=NUMBA_PARALLEL,
+    **_NUMBA_STATIC_COMPILE_KWARGS,
 )
+def is_extended_root(
+    A: np.ndarray, B: np.ndarray, gaslike: int, eps: float
+) -> np.ndarray:
+    """Checks if a configuration of gas-like flag, cohesion and covolume would lead to
+    an extended root.
+
+    If True, an extension procedure was applied, i.e. the compressibility factor
+    is not an actual root of the characteristic polynomial.
+
+    Numpy-universal function with signature ``(float64, float64, int8, float64) -> int8``.
+    Can be called with vectorized input for ``A,B``.
+
+    Note:
+        Argument ``gaslike`` must be also vectorized, if ``A`` and ``B`` are vectorized.
+        This is due to some numba-related peculiarities.
+        ``eps`` doesn't have to be vectorized.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+        gaslike: 1 if a gas-like root is assumed, 0 otherwise.
+        eps: Numerical zero, used to determine the root case (see :data:`get_root_case`).
+
+    Returns:
+        1, if the root is an extended root of the polynomial, 0 if it is an actual root.
+
+    """
+    assert A.shape == B.shape
+    Z = np.empty(A.shape, dtype=np.int8)
+    for i in nb.prange(A.shape[0]):
+        Z[i] = _is_extended_root(A[i], B[i], gaslike, eps)
+    return Z
+
+
+@nb.njit(nb.f8(nb.f8, nb.f8, nb.f8, nb.f8), cache=True)
 def _gas_smoother(Z_L: float, Z_i: float, Z_G: float, s: float) -> float:
     """Auxiliary function to compute the weight for convex-combination of gas root
     and the average of gas and intermediate root in the physical 2-phase region."""
@@ -677,10 +688,7 @@ def _gas_smoother(Z_L: float, Z_i: float, Z_G: float, s: float) -> float:
     return w
 
 
-@numba.njit(
-    "float64(float64,float64,float64,float64)",
-    cache=True,
-)
+@nb.njit(nb.f8(nb.f8, nb.f8, nb.f8, nb.f8), cache=True)
 def _liq_smoother(Z_L: float, Z_i: float, Z_G: float, s: float) -> float:
     """Auxiliary function to compute the weight for convex-combination of liquid root
     and the average of liquid and intermediate root in the physical 2-phase region."""
@@ -697,10 +705,10 @@ def _liq_smoother(Z_L: float, Z_i: float, Z_G: float, s: float) -> float:
     return w
 
 
-@numba.njit(
+@nb.njit(
     [
-        "float64(float64,float64,float64,float64,float64,float64)",
-        "float64[:](float64[:],float64[:],float64[:],float64,float64,float64)",
+        nb.f8(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
+        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8),
     ],
     cache=True,
 )
@@ -744,10 +752,10 @@ def _smooth_asymmetric_liq_extension(
     return W
 
 
-@numba.njit(
+@nb.njit(
     [
-        "float64(float64,float64,float64,float64,float64)",
-        "float64[:](float64[:],float64[:],float64,float64,float64)",
+        nb.f8(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
+        nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8),
     ],
     cache=True,
 )
@@ -776,11 +784,8 @@ def _smooth_asymmetric_gas_extension(
     return W
 
 
-@numba.njit(
-    "float64(float64,float64,int8,float64,float64,float64)",
-    cache=NUMBA_CACHE,
-)
-def _Z_generic(
+@nb.njit(nb.f8(nb.f8, nb.f8, nb.i1, nb.f8, nb.f8, nb.f8), cache=True)
+def _Z_from_AB(
     A: float,
     B: float,
     gaslike: int,
@@ -793,13 +798,13 @@ def _Z_generic(
     # determine number of roots
     nroot = _get_root_case(A, B, eps)
     # sub critical area as defined by Ben Gharbia et al. (2021)
-    is_subcritical = (B < B_CRIT) and (B < _critical_line(A))
+    is_subcritical = (B < B_CRIT) and (B < critical_line(A))
 
     if nroot == 1:
-        Z_1_real = Z_one_c(A, B)
+        Z_1_real = Z_one(A, B)
         # Extension procedure according Ben Gharbia et al.
         if is_subcritical:
-            W = W_sub_c(Z_1_real, B)
+            W = W_subcrit(Z_1_real, B)
             # gas like roots are always given by the bigger one
             if gaslike:
                 return W if W >= Z_1_real else Z_1_real
@@ -810,12 +815,12 @@ def _Z_generic(
             # For asymetric extension in supercritical area:
             # below widom -> gas-like root is extended
             # NOTE TODO This holds only for water-like mixtures
-            if B < _widom_line(A):
+            if B < widom_line(A):
                 if gaslike:
-                    W = W_scg_c(Z_1_real, B)
+                    W = W_supercrit_g(Z_1_real, B)
 
                     if smooth_e > 0.0:
-                        W_sub = W_sub_c(Z_1_real, B)
+                        W_sub = W_subcrit(Z_1_real, B)
                         W = _smooth_asymmetric_gas_extension(W, W_sub, A, B, smooth_e)
 
                     return W
@@ -825,26 +830,26 @@ def _Z_generic(
                 if gaslike:
                     return Z_1_real
                 else:
-                    W = W_scl_c(Z_1_real, B)
+                    W = W_supercrit_l(Z_1_real, B)
 
                     if smooth_e > 0.0:
-                        W_scg = W_scg_c(Z_1_real, B)
-                        W_sub = W_sub_c(Z_1_real, B)
+                        W_scg = W_supercrit_g(Z_1_real, B)
+                        W_sub = W_subcrit(Z_1_real, B)
                         W = _smooth_asymmetric_liq_extension(
                             W, W_scg, W_sub, A, B, smooth_e
                         )
 
                 return W
     elif nroot == 2:
-        return Z_double_g_c(A, B) if gaslike else Z_double_l_c(A, B)
+        return Z_double_g(A, B) if gaslike else Z_double_l(A, B)
     elif nroot == 3:
         # Physical 2-phase region with 3 roots fulfilling lower bound by B
         if is_subcritical:
             # smoothing according Ben Gharbia et al., in physical 2-phase region
             if smooth_3 > 0.0:
-                Z_l = Z_three_l_c(A, B)
-                Z_i = Z_three_i_c(A, B)
-                Z_g = Z_three_g_c(A, B)
+                Z_l = Z_three_l(A, B)
+                Z_i = Z_three_i(A, B)
+                Z_g = Z_three_g(A, B)
 
                 # gas root smoothing
                 if gaslike:
@@ -855,80 +860,80 @@ def _Z_generic(
                     v_l = _liq_smoother(Z_l, Z_i, Z_g, smooth_3)
                     return Z_l * (1 - v_l) + (Z_i + Z_l) * 0.5 * v_l
             else:
-                return Z_three_g_c(A, B) if gaslike else Z_three_l_c(A, B)
+                return Z_three_g(A, B) if gaslike else Z_three_l(A, B)
         # There is a super-critical region with 3 roots, where the liquid-like root
         # violates the lower bound by B -> asymetric extension of liquid-like root
         else:
-            Z_gas = Z_three_g_c(A, B)
+            Z_gas = Z_three_g(A, B)
             if gaslike:
                 return Z_gas
             else:
-                W = W_scl_c(Z_gas, B)
+                W = W_supercrit_l(Z_gas, B)
 
                 if smooth_e > 0.0:
-                    W_scg = W_scg_c(Z_gas, B)
-                    W_sub = W_sub_c(Z_gas, B)
+                    W_scg = W_supercrit_g(Z_gas, B)
+                    W_sub = W_subcrit(Z_gas, B)
                     W = _smooth_asymmetric_liq_extension(
                         W, W_scg, W_sub, A, B, smooth_e
                     )
 
                 return W
     else:
-        return Z_triple_c(A, B)
+        return Z_triple(A, B)
 
 
-compressibility_factor = numba.vectorize(
-    [
-        numba.float64(
-            numba.float64,
-            numba.float64,
-            numba.int8,
-            numba.float64,
-            numba.float64,
-            numba.float64,
-        )
-    ],
-    nopython=True,
+@nb.njit(
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.i1, nb.f8, nb.f8, nb.f8),
+    parallel=NUMBA_PARALLEL,
     cache=True,
-    target="parallel",
-)(_Z_generic)
-"""Root-case insensitive computation of the (extended) compressibility factor depending
-on A and B.
-
-It determins the root case, depending on A and B, and applies the correct formula to
-obtain the root. It also computes the extended root, if it turns out to be required.
-
-To check if a root is extended, see :func:`is_extended`.
-
-Numpy-universal function with signature
-``(float64, float64, int8, float64, float64, float64) -> float64``.
-Can be called with vectorized input.
-
-Parameters:
-    A: Non-dimensional cohesion.
-    B: Non-dimensional covolume.
-    gaslike: 0 if the computation should return the liquid-like root, 1 for the
-        gas-like root.
-    eps: Numerical zero, used to determine the root case
-        (see :func:`get_root_case`).
-    smooth_e: Width of smoothing area around borders between areas of different
-        extension procedures, e.g. ``1e-2``.
-        Set to 0. to turn of this moothing.
-    smooth_3: Width of area in the subcritical 2-phase/ 3-root region for smoothing
-        according Ben Gharbia et al. (2021) (e.g. ``1e-4``).
-        Set to 0. to turn it of.
-
-Returns:
-    The (extended) compressibility factor.
-
-"""
-
-
-@numba.njit(
-    "float64[:](float64,float64,int8,float64,float64,float64)",
-    cache=NUMBA_CACHE,
 )
-def _d_Z_generic(
+def compressibility_factor(
+    A: np.ndarray,
+    B: np.ndarray,
+    phasetype: int,
+    eps: float,
+    smooth_e: float,
+    smooth_3: float,
+) -> np.ndarray:
+    """Root-case insensitive computation of the (extended) compressibility factor
+    depending on A and B.
+
+    It determins the root case, depending on A and B, and applies the correct formula to
+    obtain the root. It also computes the extended root, if it turns out to be required.
+
+    To check if a root is extended, see :func:`is_extended`.
+
+    Numpy-universal function with signature
+    ``(float64, float64, int8, float64, float64, float64) -> float64``.
+    Can be called with vectorized input for ``A,B``.
+
+    Parameters:
+        A: Non-dimensional cohesion.
+        B: Non-dimensional covolume.
+        gaslike: 0 if the computation should return the liquid-like root, 1 for the
+            gas-like root.
+        eps: Numerical zero, used to determine the root case
+            (see :func:`get_root_case`).
+        smooth_e: Width of smoothing area around borders between areas of different
+            extension procedures, e.g. ``1e-2``.
+            Set to 0. to turn of this moothing.
+        smooth_3: Width of area in the subcritical 2-phase/ 3-root region for smoothing
+            according Ben Gharbia et al. (2021) (e.g. ``1e-4``).
+            Set to 0. to turn it of.
+
+    Returns:
+        The (extended) compressibility factor.
+
+    """
+    assert A.shape == B.shape
+    Z = np.empty_like(A)
+    for i in nb.prange(A.shape[0]):
+        Z[i] = _Z_from_AB(A[i], B[i], phasetype, eps, smooth_e, smooth_3)
+    return Z
+
+
+@nb.njit(nb.f8[:](nb.f8, nb.f8, nb.i1, nb.f8, nb.f8, nb.f8), cache=True)
+def _dZ_dAB(
     A: float,
     B: float,
     gaslike: int,
@@ -936,21 +941,21 @@ def _d_Z_generic(
     smooth_e: float,
     smooth_3: float,
 ) -> np.ndarray:
-    """Analogoues to :func:`_Z_gen`, only returns the derivatives of the compressibility
-    factor w.r.t. ``A`` and ``B`` in an array."""
+    """Analogoues to :func:`_Z_from_AB`, only returns the derivatives of the
+    compressibility factor w.r.t. ``A`` and ``B`` in an array."""
 
     # determine number of roots
     nroot = _get_root_case(A, B, eps)
     # sub critical area as defined by Ben Gharbia et al. (2021)
-    is_subcritical = (B < B_CRIT) and (B < _critical_line(A))
+    is_subcritical = (B < B_CRIT) and (B < critical_line(A))
 
     if nroot == 1:
-        d_Z_1_real = d_Z_one_c(A, B)
-        Z_1_real = Z_one_c(A, B)
+        d_Z_1_real = dZ_one(A, B)
+        Z_1_real = Z_one(A, B)
         # Extension procedure according Ben Gharbia et al.
         if is_subcritical:
-            d_W = d_W_sub_c(d_Z_1_real)
-            W = W_sub_c(Z_1_real, B)
+            d_W = dW_subcrit(d_Z_1_real)
+            W = W_subcrit(Z_1_real, B)
             # gas like roots are always given by the bigger one
             if gaslike:
                 return d_W if W >= Z_1_real else d_Z_1_real
@@ -961,12 +966,12 @@ def _d_Z_generic(
             # For asymetric extension in supercritical area:
             # below widom -> gas-like root is extended
             # NOTE TODO This holds only for water-like mixtures
-            if B < _widom_line(A):
+            if B < widom_line(A):
                 if gaslike:
-                    d_W = d_W_scg_c(d_Z_1_real)
+                    d_W = dW_supercrit_g(d_Z_1_real)
 
                     if smooth_e > 0.0:
-                        d_W_sub = d_W_sub_c(d_Z_1_real)
+                        d_W_sub = dW_subcrit(d_Z_1_real)
                         d_W = _smooth_asymmetric_gas_extension(
                             d_W, d_W_sub, A, B, smooth_e
                         )
@@ -978,30 +983,30 @@ def _d_Z_generic(
                 if gaslike:
                     return d_Z_1_real
                 else:
-                    d_W = d_W_scl_c(d_Z_1_real)
+                    d_W = dW_supercrit_l(d_Z_1_real)
 
                     if smooth_e > 0.0:
-                        d_W_scg = d_W_scg_c(d_Z_1_real)
-                        d_W_sub = d_W_sub_c(d_Z_1_real)
+                        d_W_scg = dW_supercrit_g(d_Z_1_real)
+                        d_W_sub = dW_subcrit(d_Z_1_real)
                         d_W = _smooth_asymmetric_liq_extension(
                             d_W, d_W_scg, d_W_sub, A, B, smooth_e
                         )
 
                     return d_W
     elif nroot == 2:
-        return d_Z_double_g_c(A, B) if gaslike else d_Z_double_l_c(A, B)
+        return dZ_double_g(A, B) if gaslike else dZ_double_l(A, B)
     elif nroot == 3:
         # Physical 2-phase region with 3 roots fulfilling lower bound by B
         if is_subcritical:
             # smoothing according Ben Gharbia et al., in physical 2-phase region
             if smooth_3 > 0.0:
-                Z_l = Z_three_l_c(A, B)
-                Z_i = Z_three_i_c(A, B)
-                Z_g = Z_three_g_c(A, B)
+                Z_l = Z_three_l(A, B)
+                Z_i = Z_three_i(A, B)
+                Z_g = Z_three_g(A, B)
 
-                d_Z_l = d_Z_three_l_c(A, B)
-                d_Z_i = d_Z_three_i_c(A, B)
-                d_Z_g = d_Z_three_g_c(A, B)
+                d_Z_l = dZ_three_l(A, B)
+                d_Z_i = dZ_three_i(A, B)
+                d_Z_g = dZ_three_g(A, B)
 
                 # gas root smoothing
                 if gaslike:
@@ -1012,78 +1017,26 @@ def _d_Z_generic(
                     v_l = _liq_smoother(Z_l, Z_i, Z_g, smooth_3)
                     return d_Z_l * (1 - v_l) + (d_Z_i + d_Z_l) * 0.5 * v_l
             else:
-                return d_Z_three_g_c(A, B) if gaslike else d_Z_three_l_c(A, B)
+                return dZ_three_g(A, B) if gaslike else dZ_three_l(A, B)
         # There is a super-critical region with 3 roots, where the liquid-like root
         # violates the lower bound by B -> asymetric extension of liquid-like root
         else:
-            d_Z_gas = d_Z_three_g_c(A, B)
+            d_Z_gas = dZ_three_g(A, B)
             if gaslike:
                 return d_Z_gas
             else:
-                d_W = d_W_scl_c(d_Z_gas)
+                d_W = dW_supercrit_l(d_Z_gas)
 
                 if smooth_e > 0.0:
-                    d_W_scg = d_W_scg_c(d_Z_gas)
-                    d_W_sub = d_W_sub_c(d_Z_gas)
+                    d_W_scg = dW_supercrit_g(d_Z_gas)
+                    d_W_sub = dW_subcrit(d_Z_gas)
                     d_W = _smooth_asymmetric_liq_extension(
                         d_W, d_W_scg, d_W_sub, A, B, smooth_e
                     )
 
                 return d_W
     else:
-        return d_Z_triple_c(A, B)
-
-
-@numba.guvectorize(
-    ["void(float64,float64,int8,float64,float64,float64,float64[:],float64[:])"],
-    "(),(),(),(),(),(),(m)->(m)",
-    nopython=True,
-    target="parallel",
-    cache=True,
-)
-def _d_Z_gen_gu(
-    A,
-    B,
-    gaslike,
-    eps,
-    smooth_e,
-    smooth_3,
-    out,
-    dummy,
-):
-    """Internal ufunc because it cannot have default arguments"""
-    # dummy is required to get the dimension of of the derivative
-    # per row in vectorized computations (m in layout arg to guvectorize)
-    # https://stackoverflow.com/questions/66052723/bad-token-in-signature-with-numba-guvectorize
-    out[:] = _d_Z_generic(A, B, gaslike, eps, smooth_e, smooth_3)
-
-
-def compressibility_factor_dAB(
-    A: float | np.ndarray,
-    B: float | np.ndarray,
-    gaslike: bool | int,
-    eps: float = 1e-14,
-    smooth_e: float = 1e-2,
-    smooth_3: float = 1e-3,
-) -> float | np.ndarray:
-    """Analogoues to :func:`compressibility_factor`, only returns the derivatives of the
-    factor w.r.t. ``A`` and ``B`` in an array.
-
-    Note:
-        Due to the output being in general a 2D array, ``numba.guvectorized`` due to
-        limited capabilities of ``numba.vectorize``.
-
-    """
-    # get correct shape independent of format of input
-    out_ = np.empty_like(A + B)
-    if out_.shape:
-        out = np.empty((out_.shape[0], 2))
-    else:
-        out = np.empty((1, 2), dtype=np.float64)
-    _d_Z_gen_gu(A, B, gaslike, eps, smooth_e, smooth_3, out)
-    if out.shape[0] == 1:
-        out = out.reshape((2,))
-    return out
+        return dZ_triple(A, B)
 
 
 # endregion
@@ -1096,11 +1049,9 @@ def _compile_fugacities(
 
     It needs an additional reduction of shape from ``(num_comp, 1)`` to ``(num_comp,)``
     because of the usage of a symbolic, vector-valued function."""
-    f = numba.njit(phis)
+    f = nb.njit(phis)
 
-    @numba.njit(
-        "float64[:](float64, float64, float64[:], float64, float64, float64)",
-    )
+    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))
     def inner(p_, T_, X_, A_, B_, Z_):
         phi_ = f(p_, T_, X_, A_, B_, Z_)
         return phi_[:, 0]
@@ -1122,12 +1073,9 @@ def _compile_thd_function_derivatives(
     It also enforces a signature ``(float64, float64, float64[:]) -> float64[:]``
 
     """
-    df = numba.njit(thd_df, fastmath=NUMBA_FAST_MATH)
+    df = nb.njit(thd_df, fastmath=NUMBA_FAST_MATH)
 
-    @numba.njit(
-        "float64[:](float64, float64, float64[:])",
-        fastmath=NUMBA_FAST_MATH,
-    )
+    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:]), fastmath=NUMBA_FAST_MATH)
     def inner(p_, T_, X_):
         return np.array(df(p_, T_, X_), dtype=np.float64)
 
@@ -1150,11 +1098,9 @@ def _compile_extended_thd_function_derivatives(
     ``(float64, float64, float64[:], float64, float64, float64) -> float64[:]``
 
     """
-    df = numba.njit(ext_thd_df)
+    df = nb.njit(ext_thd_df)
 
-    @numba.njit(
-        "float64[:](float64, float64, float64[:], float64, float64, float64)",
-    )
+    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))
     def inner(p_, T_, X_, A_, B_, Z_):
         return np.array(df(p_, T_, X_, A_, B_, Z_), dtype=np.float64)
 
@@ -1172,11 +1118,9 @@ def _compile_volume_derivative(
 
     """
 
-    dv_ = numba.njit(
-        fastmath=NUMBA_FAST_MATH,
-    )(dv)
+    dv_ = nb.njit(fastmath=NUMBA_FAST_MATH)(dv)
 
-    @numba.njit("float64[:](float64,float64,float64)")
+    @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8))
     def inner(p_, T_, Z_):
         return np.array(dv_(p_, T_, Z_), dtype=np.float64)
 
@@ -1231,7 +1175,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
         """
 
-        self.symbolic: PengRobinsonSymbolic = PengRobinsonSymbolic(
+        self.symbolic: eos_s.PengRobinsonSymbolic = eos_s.PengRobinsonSymbolic(
             components, ideal_enthalpies, bip_matrix
         )
         """Symbolic representation of the EoS, providing expressions and derivatives
@@ -1244,7 +1188,7 @@ class PengRobinsonCompiler(EoSCompiler):
         logger.info("Compiling symbolic functions ..")
         start = time.time()
 
-        B_c = numba.njit(
+        B_c = nb.njit(
             "float64(float64, float64, float64[:])",
             fastmath=NUMBA_FAST_MATH,
         )(self.symbolic.B_f)
@@ -1252,7 +1196,7 @@ class PengRobinsonCompiler(EoSCompiler):
         d_B_c = _compile_thd_function_derivatives(self.symbolic.d_B_f)
         logger.debug("Compiling symbolic functions 2/12")
 
-        A_c = numba.njit(
+        A_c = nb.njit(
             "float64(float64, float64, float64[:])",
         )(self.symbolic.A_f)
         logger.debug("Compiling symbolic functions 3/12")
@@ -1261,16 +1205,16 @@ class PengRobinsonCompiler(EoSCompiler):
 
         phi_c = _compile_fugacities(self.symbolic.phi_f)
         logger.debug("Compiling symbolic functions 5/12")
-        d_phi_c = numba.njit(
+        d_phi_c = nb.njit(
             "float64[:,:](float64, float64, float64[:], float64, float64, float64)"
         )(self.symbolic.d_phi_f)
         logger.debug("Compiling symbolic functions 6/12")
 
-        h_dep_c = numba.njit(
+        h_dep_c = nb.njit(
             "float64(float64, float64, float64[:], float64, float64, float64)"
         )(self.symbolic.h_dep_f)
         logger.debug("Compiling symbolic functions 7/12")
-        h_ideal_c = numba.njit("float64(float64, float64, float64[:])")(
+        h_ideal_c = nb.njit("float64(float64, float64, float64[:])")(
             self.symbolic.h_ideal_f
         )
         logger.debug("Compiling symbolic functions 8/12")
@@ -1279,7 +1223,7 @@ class PengRobinsonCompiler(EoSCompiler):
         d_h_ideal_c = _compile_thd_function_derivatives(self.symbolic.d_h_ideal_f)
         logger.debug("Compiling symbolic functions 10/12")
 
-        rho_c = numba.njit(
+        rho_c = nb.njit(
             "float64(float64,float64,float64)",
             fastmath=NUMBA_FAST_MATH,
         )(self.symbolic.rho_f)
@@ -1319,7 +1263,7 @@ class PengRobinsonCompiler(EoSCompiler):
         s_m = self.params["smoothing_multiphase"]
         s_e = self.params["smoothing_extension"]
 
-        @numba.njit("float64[:](int32, float64, float64, float64[:])")
+        @nb.njit("float64[:](int32, float64, float64, float64[:])")
         def prearg_val_c(
             phasetype: int, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
@@ -1329,7 +1273,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
             prearg[0] = A_c(p, T, xn)
             prearg[1] = B_c(p, T, xn)
-            prearg[2] = _Z_generic(A, B, phasetype, eps, s_e, s_m)
+            prearg[2] = _Z_from_AB(A, B, phasetype, eps, s_e, s_m)
 
             return prearg
 
@@ -1347,7 +1291,7 @@ class PengRobinsonCompiler(EoSCompiler):
         s_m = self.params["smoothing_multiphase"]
         s_e = self.params["smoothing_extension"]
 
-        @numba.njit("float64[:](int32, float64, float64, float64[:])")
+        @nb.njit("float64[:](int32, float64, float64, float64[:])")
         def prearg_jac_c(
             phasetype: int, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
@@ -1360,7 +1304,7 @@ class PengRobinsonCompiler(EoSCompiler):
 
             dA = dA_c(p, T, xn)
             dB = dB_c(p, T, xn)
-            dZ_ = _d_Z_generic(A, B, phasetype, eps, s_e, s_m)
+            dZ_ = _dZ_dAB(A, B, phasetype, eps, s_e, s_m)
             dZ = dZ_[0] * dA + dZ_[1] * dB
 
             prearg[0:d] = dA
@@ -1374,7 +1318,7 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_fugacity_function(self) -> VectorFunction:
         phi_c = self._cfuncs["phi"]
 
-        @numba.njit("float64[:](float64[:], float64, float64, float64[:])")
+        @nb.njit("float64[:](float64[:], float64, float64, float64[:])")
         def phi_mix_c(
             prearg: np.ndarray, p: float, T: float, xn: np.ndarray
         ) -> np.ndarray:
@@ -1387,9 +1331,7 @@ class PengRobinsonCompiler(EoSCompiler):
         # number of derivatives
         d = 2 + self._nc
 
-        @numba.njit(
-            "float64[:,:](float64[:], float64[:], float64, float64, float64[:])"
-        )
+        @nb.njit("float64[:,:](float64[:], float64[:], float64, float64, float64[:])")
         def d_phi_mix_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1417,7 +1359,7 @@ class PengRobinsonCompiler(EoSCompiler):
         h_dep_c = self._cfuncs["h_dep"]
         h_ideal_c = self._cfuncs["h_ideal"]
 
-        @numba.njit("float64(float64[:], float64, float64, float64[:])")
+        @nb.njit("float64(float64[:], float64, float64, float64[:])")
         def h_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
             return h_ideal_c(p, T, xn) + h_dep_c(
                 p, T, xn, prearg[0], prearg[1], prearg[2]
@@ -1430,7 +1372,7 @@ class PengRobinsonCompiler(EoSCompiler):
         d_h_dep_c = self._cfuncs["d_h_dep"]
         d_h_ideal_c = self._cfuncs["d_h_ideal"]
 
-        @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def d_h_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1455,7 +1397,7 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_density_function(self) -> ScalarFunction:
         rho_c_ = self._cfuncs["rho"]
 
-        @numba.njit("float64(float64[:], float64, float64, float64[:])")
+        @nb.njit("float64(float64[:], float64, float64, float64[:])")
         def rho_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> np.ndarray:
             return rho_c_(p, T, prearg[2])
 
@@ -1465,7 +1407,7 @@ class PengRobinsonCompiler(EoSCompiler):
         d = 2 + self._nc
         d_rho_c_ = self._cfuncs["d_rho"]
 
-        @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def d_rho_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1485,14 +1427,14 @@ class PengRobinsonCompiler(EoSCompiler):
 
     # TODO need models for below functions
     def get_viscosity_function(self) -> ScalarFunction:
-        @numba.njit("float64(float64[:], float64, float64, float64[:])")
+        @nb.njit("float64(float64[:], float64, float64, float64[:])")
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return mu_c
 
     def get_viscosity_derivative_function(self) -> VectorFunction:
-        @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def dmu_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
@@ -1505,14 +1447,14 @@ class PengRobinsonCompiler(EoSCompiler):
         return dmu_c
 
     def get_conductivity_function(self) -> ScalarFunction:
-        @numba.njit("float64(float64[:], float64, float64, float64[:])")
+        @nb.njit("float64(float64[:], float64, float64, float64[:])")
         def kappa_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
             return 1.0
 
         return kappa_c
 
     def get_conductivity_derivative_function(self) -> VectorFunction:
-        @numba.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
+        @nb.njit("float64[:](float64[:], float64[:], float64, float64, float64[:])")
         def d_kappa_c(
             prearg_val: np.ndarray,
             prearg_jac: np.ndarray,
