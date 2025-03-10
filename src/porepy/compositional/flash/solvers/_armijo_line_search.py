@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Callable, Literal, TypeAlias
 
-import numba
+import numba as nb
 import numpy as np
 
 from ._core import FLASH_RESIDUAL_FUNCTION_TYPE, SOLVER_PARAMETERS_TYPE
@@ -42,28 +42,16 @@ DEFAULT_ARMIJO_LINE_SEARCH_PARAMS: dict[_ARMIJO_LINE_SEARCH_PARAMS_KEYS, float] 
 """
 
 
-ARMIJO_LINE_SEARCH_SIGNATURE = numba.float64(
-    numba.float64[:],
-    numba.float64[:],
+ARMIJO_LINE_SEARCH_SIGNATURE = nb.f8(
+    nb.f8[:],
+    nb.f8[:],
     FLASH_RESIDUAL_FUNCTION_TYPE,
     SOLVER_PARAMETERS_TYPE,
 )
-"""Numba-signature for the armijo line-search.
-
-The line search function takes
-
-1. An 1D array representing the current iterate ``x``,
-2. An 1D array representing the current update ``dx``,
-3. A residual function which is being minimized ``F(x) -> min``, and
-4. A solver parameter dictionary (str, float).
-
-It returns a float, which is to be used as the step-size for the next iterate
-``x + a * dx``.
-
-"""
+"""Numba-signature for the armijo line-search."""
 
 
-@numba.njit(ARMIJO_LINE_SEARCH_SIGNATURE, cache=True)
+@nb.njit(ARMIJO_LINE_SEARCH_SIGNATURE, cache=True)
 def armijo_line_search(
     X0: np.ndarray,
     DX: np.ndarray,

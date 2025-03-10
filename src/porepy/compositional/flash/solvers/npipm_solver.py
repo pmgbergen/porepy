@@ -7,8 +7,7 @@ from __future__ import annotations
 
 from typing import Callable, Literal, TypeAlias
 
-import numba
-import numba.typed
+import numba as nb
 import numpy as np
 
 from ..._core import NUMBA_CACHE, NUMBA_FAST_MATH
@@ -58,8 +57,8 @@ This solver uses also the :func:`armijo_line_search`, and respective
 """
 
 
-@numba.njit(
-    "float64(float64[:],float64[:],float64,float64,float64,float64)",
+@nb.njit(
+    nb.f8(nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -115,8 +114,8 @@ def _slack_equation_res(
     return res
 
 
-@numba.njit(
-    "float64[:](float64[:],float64[:],float64,float64,float64,float64)",
+@nb.njit(
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -167,8 +166,8 @@ def _slack_equation_jac(
     return jac
 
 
-@numba.njit(
-    "float64(float64[:],UniTuple(int32, 2))",
+@nb.njit(
+    nb.f8(nb.f8[:], nb.types.UniTuple(nb.i4, 2)),
     fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
@@ -190,8 +189,8 @@ def _initial_nu_for_npipm(X: np.ndarray, npnc: tuple[int, int]) -> float:
     return nu
 
 
-@numba.njit(
-    "float64[:](float64[:],float64[:],UniTuple(int32, 2),float64,float64,float64)",
+@nb.njit(
+    nb.f8[:](nb.f8[:], nb.f8[:], nb.types.UniTuple(nb.i4, 2), nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,  # NOTE The cache is dependent on another function
 )
@@ -242,8 +241,10 @@ def _npipm_extend_and_regularize_res(
     return f_npipm
 
 
-@numba.njit(
-    "float64[:,:](float64[:,:],float64[:],UniTuple(int32, 2),float64,float64,float64)",
+@nb.njit(
+    nb.f8[:, :](
+        nb.f8[:, :], nb.f8[:], nb.types.UniTuple(nb.i4, 2), nb.f8, nb.f8, nb.f8
+    ),
     fastmath=NUMBA_FAST_MATH,
     cache=NUMBA_CACHE,  # NOTE The cache is dependent on another function
 )
@@ -315,7 +316,7 @@ def _npipm_extend_and_regularize_jac(
     return df_npipm
 
 
-@numba.njit(SOLVER_FUNCTION_SIGNATURE, cache=True)
+@nb.njit(SOLVER_FUNCTION_SIGNATURE, cache=True)
 def npipm(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],

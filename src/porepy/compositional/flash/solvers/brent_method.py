@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Callable, Literal, TypeAlias
 
-import numba
+import numba as nb
 import numpy as np
 
 from ._core import SOLVER_PARAMETERS_TYPE
@@ -32,16 +32,16 @@ DEFAULT_BRENT_PARAMS: dict[_BRENT_PARAMS_KEYS, float] = {
 """
 
 
-BRENT_METHOD_SIGNATURE = numba.types.Tuple((numba.f8, numba.i4, numba.i4))(
-    numba.typeof(numba.cfunc("f8(f8)")(lambda x: x)),
-    numba.f8,
-    numba.f8,
+BRENT_METHOD_SIGNATURE = nb.types.Tuple((nb.f8, nb.i4, nb.i4))(
+    nb.typeof(nb.cfunc("f8(f8)")(lambda x: x)),
+    nb.f8,
+    nb.f8,
     SOLVER_PARAMETERS_TYPE,
 )
-"""Numba signature for the brent method for compilation."""
+"""Numba-signature for the brent method for compilation."""
 
 
-@numba.njit(BRENT_METHOD_SIGNATURE, cache=True)
+@nb.njit(BRENT_METHOD_SIGNATURE, cache=True)
 def brent(
     f: Callable[[float], float], a: float, b: float, params: dict[str, float]
 ) -> tuple[float, int, int]:
