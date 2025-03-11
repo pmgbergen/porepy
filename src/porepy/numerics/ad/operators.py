@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import inspect
 from collections import deque
 from enum import Enum
 from functools import reduce
@@ -2282,5 +2283,11 @@ def cached_method(func: Callable) -> Callable:
         if key not in self._operator_cache:
             self._operator_cache[key] = func(self, *args, **kwargs)
         return self._operator_cache[key]
+
+    # For testing purposes, we need to be able to access the signature of the original
+    # function. Calling inspect.signature on the wrapper would return the signature of
+    # the wrapper (*args, **kwargs, see above), which is not very useful. Therefore, we
+    # copy the signature from the original function to the wrapper.
+    wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
 
     return wrapper
