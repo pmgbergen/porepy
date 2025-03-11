@@ -1,8 +1,7 @@
-""" Module contains two sets of unit tests for mixed Virtual Element Method (MVEM).
-    - The first is dedicated for discrete operators;
-    - The second is dedicated for the right-hand side (Gravitational forces).
+"""Module contains two sets of unit tests for mixed Virtual Element Method (MVEM).
+- The first is dedicated for discrete operators;
+- The second is dedicated for the right-hand side (Gravitational forces).
 """
-
 
 import numpy as np
 import pytest
@@ -901,7 +900,6 @@ class TestMVEMRHS:
 
         assert np.allclose(b, b_known)
 
-    # TODO: It checks for a functionality is already tested. This should be deleted.
     def test_convergence_mvem_2d_iso_simplex_exact(self):
         p_ex = lambda pt: 2 * pt[0, :] - 3 * pt[1, :] - 9
         u_ex = np.array([-1, 4, 0])
@@ -946,7 +944,6 @@ class TestMVEMRHS:
             )
             assert np.isclose(err, 0)
 
-    # TODO: It checks for a functionality is already tested. This should be deleted.
     def test_convergence_mvem_2d_iso_simplex(self):
         a = 8 * np.pi**2
         rhs_ex = lambda pt: np.multiply(
@@ -1052,7 +1049,6 @@ class TestMVEMRHS:
             )
             assert np.isclose(err, u_err_known)
 
-    # TODO: It checks for a functionality is already tested. This should be deleted.
     def test_convergence_mvem_2d_ani_simplex(self):
         rhs_ex = lambda pt: 14
         p_ex = (
@@ -1169,9 +1165,7 @@ class TestVEMConvergence:
                     + 16.0 * np.pi * y * np.cos(np.pi * y)
                 )
                 * (x**2 / 2.0 + y**2 / 2.0 + 1.0 / 2.0)
-                - 4.0
-                * y**2
-                * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
+                - 4.0 * y**2 * (2.0 * np.sin(np.pi * y) + np.pi * y * np.cos(np.pi * y))
             )
         else:
             return 8.0 * z * (125.0 * x**2 + 200.0 * y**2 + 425.0 * z**2 + 2.0)

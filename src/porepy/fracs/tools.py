@@ -335,13 +335,13 @@ def determine_mesh_size(
 
 
 def obtain_interdim_mappings(
-    lg: pp.Grid, fn: sps.spmatrix, n_per_face: int
+    g: pp.Grid, fn: sps.spmatrix, n_per_face: int
 ) -> tuple[np.ndarray, np.ndarray]:
     """Finds mappings between faces in higher dimension and cells in the lower
     dimension.
 
     Parameters:
-        lg: Lower dimensional grid.
+        g: Lower dimensional grid.
         fn: Face-node map of the higher-dimensional grid
             (see :data:`~porepy.grids.grid.Grid.face_nodes`).
         n_per_face: Number of nodes per face in the higher-dimensional grid.
@@ -357,12 +357,12 @@ def obtain_interdim_mappings(
             Indices of the corresponding cells in the lower-dimensional grid.
 
     """
-    if lg.dim > 0:
-        cn_loc = lg.cell_nodes().indices.reshape((n_per_face, lg.num_cells), order="F")
-        cn = lg.global_point_ind[cn_loc]
+    if g.dim > 0:
+        cn_loc = g.cell_nodes().indices.reshape((n_per_face, g.num_cells), order="F")
+        cn = g.global_point_ind[cn_loc]
         cn = np.sort(cn, axis=0)
     else:
-        cn = np.array([lg.global_point_ind])
+        cn = np.array([g.global_point_ind])
         # We also know that the higher-dimensional grid has faces of a single node.
         # This sometimes fails, so enforce it.
         if cn.ndim == 1:

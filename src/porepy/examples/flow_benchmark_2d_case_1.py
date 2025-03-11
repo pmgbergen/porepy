@@ -84,20 +84,20 @@ class BoundaryConditions:
     units: pp.Units
     """Simulation units provided by the solution strategy mixin."""
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure value of 1 Pa on east side."""
-        bounds = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros(boundary_grid.num_cells)
-        values[bounds.east] = self.units.convert_units(1, "Pa")
+        domain_sides = self.domain_boundary_sides(bg)
+        values = np.zeros(bg.num_cells)
+        values[domain_sides.east] = self.units.convert_units(1, "Pa")
         return values
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign Dirichlet to the east boundary. The rest are Neumann by default."""
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.east, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, domain_sides.east, "dir")
         return bc
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Inflow on the west boundary.
 
         Per PorePy convention, the sign is negative for inflow and the value is
@@ -105,23 +105,23 @@ class BoundaryConditions:
         a fracture, the latter includes the fracture specific volume.
 
         Parameters:
-            boundary_grid: Boundary grid.
+            bg: Boundary grid.
 
         Returns:
             Boundary values.
 
         """
-        bounds = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros(boundary_grid.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
+        values = np.zeros(bg.num_cells)
         # Inflow on the west boundary. Sign as per PorePy convention.
         val = self.units.convert_units(-1, "m * s^-1")
         # Integrate over the boundary cell volumes.
-        values[bounds.west] = val * boundary_grid.cell_volumes[bounds.west]
+        values[domain_sides.west] = val * bg.cell_volumes[domain_sides.west]
         # Scale with specific volume.
-        sd = boundary_grid.parent
+        sd = bg.parent
         trace = sd.trace()
         specific_volumes = self.equation_system.evaluate(self.specific_volume([sd]))
-        values *= boundary_grid.projection() @ trace @ specific_volumes
+        values *= bg.projection() @ trace @ specific_volumes
         return values
 
 

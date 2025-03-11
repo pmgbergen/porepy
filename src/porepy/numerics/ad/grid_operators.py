@@ -74,8 +74,8 @@ class SubdomainProjections:
 
         # Store total number of faces and cells in the list of subdomains. This will be
         # needed to handle projections to and from empty lists (see usage below).
-        self._tot_num_cells: int = sum([g.num_cells for g in subdomains])
-        self._tot_num_faces: int = sum([g.num_faces for g in subdomains])
+        self._tot_num_cells: int = sum([sd.num_cells for sd in subdomains])
+        self._tot_num_faces: int = sum([sd.num_faces for sd in subdomains])
 
         # Initialize storage for the projection matrices. These will be constructed
         # lazily, when the projection is requested, and then stored for later use.
@@ -107,7 +107,9 @@ class SubdomainProjections:
             # A key error will be raised if a grid in g is not known to
             # self._cell_projection. Use csr format, since the number of rows can be
             # much smaller than the number of columns.
-            mat = sps.bmat([[self._cell_projections[g].T] for g in subdomains]).tocsr()
+            mat = sps.bmat(
+                [[self._cell_projections[sd].T] for sd in subdomains]
+            ).tocsr()
         else:
             # If the grid list is empty, we project from the full set of cells to
             # nothing.
@@ -140,7 +142,7 @@ class SubdomainProjections:
             # A key error will be raised if a grid in g is not known to
             # self._cell_projection.  Use csc format, since the number of columns can be
             # much smaller than the number of rows.
-            mat = sps.bmat([[self._cell_projections[g] for g in subdomains]]).tocsc()
+            mat = sps.bmat([[self._cell_projections[sd] for sd in subdomains]]).tocsc()
         else:
             # If the grid list is empty, we project from nothing to the full set of
             # cells.
@@ -173,7 +175,9 @@ class SubdomainProjections:
             # A key error will be raised if a grid in subdomains is not known to
             # self._face_projection. Use csr format, since the number of rows can be
             # much smaller than the number of columns.
-            mat = sps.bmat([[self._face_projections[g].T] for g in subdomains]).tocsr()
+            mat = sps.bmat(
+                [[self._face_projections[sd].T] for sd in subdomains]
+            ).tocsr()
         else:
             # If the grid list is empty, we project from the full set of faces to
             # nothing.
@@ -205,7 +209,7 @@ class SubdomainProjections:
             # A key error will be raised if a grid in subdomains is not known to
             # self._face_projection. Use csc format, since the number of columns can be
             # far smaller than the number of rows.
-            mat = sps.bmat([[self._face_projections[g] for g in subdomains]]).tocsc()
+            mat = sps.bmat([[self._face_projections[sd] for sd in subdomains]]).tocsc()
         else:
             # If the grid list is empty, we project from nothing to the full set of
             # faces.
@@ -351,7 +355,10 @@ class MortarProjections:
                 assert isinstance(intf, pp.MortarGrid)  # Appease mypy
                 mats.append(intf.sign_of_mortar_sides(self.dim))
 
-            block_mat = SparseArray(sps.block_diag(mats), name="SignOfMortarSides")
+            block_mat = SparseArray(
+                pp.matrix_operations.sparse_dia_from_sparse_blocks(mats),
+                name="SignOfMortarSides",
+            )
 
         # Store the matrix for later use and return.A
         self._sign_of_mortar_sides = block_mat
@@ -917,9 +924,9 @@ class Divergence(Operator):
 
         num_faces = 0
         num_cells = 0
-        for g in self.subdomains:
-            num_faces += g.num_faces * self.dim
-            num_cells += g.num_cells * self.dim
+        for sd in self.subdomains:
+            num_faces += sd.num_faces * self.dim
+            num_cells += sd.num_cells * self.dim
         s += f"The total size of the matrix is ({num_cells}, {num_faces}).\n"
 
         return s
@@ -944,7 +951,7 @@ class Divergence(Operator):
 
         """
         mat = [sd.divergence(dim=self.dim) for sd in self.subdomains]
-        matrix = sps.block_diag(mat)
+        matrix = pp.matrix_operations.csr_matrix_from_sparse_blocks(mat)
         return matrix
 
 
@@ -970,7 +977,7 @@ def _cell_projections(
     if len(subdomains) == 0:
         return cell_projection
 
-    tot_num_cells = np.sum([g.num_cells for g in subdomains]) * dim
+    tot_num_cells = np.sum([sd.num_cells for sd in subdomains]) * dim
     cell_offset = 0
 
     for sd in subdomains:
@@ -1010,7 +1017,7 @@ def _face_projections(
     if len(subdomains) == 0:
         return face_projection
 
-    tot_num_faces = np.sum([g.num_faces for g in subdomains]) * dim
+    tot_num_faces = np.sum([sd.num_faces for sd in subdomains]) * dim
     face_offset = 0
 
     for sd in subdomains:

@@ -1,5 +1,6 @@
-"""Unit tests for class pp.TangentialNormalProjection
-"""
+"""Unit tests for class pp.TangentialNormalProjection and function
+pp.sides_of_fracture."""
+
 import numpy as np
 import pytest
 
@@ -197,3 +198,72 @@ def test_tangential_normal_projection(normal: np.ndarray, tangent: np.ndarray):
         proj.project_normal() @ raveled_normal,
         rtol=1e-12,
     )
+
+
+@pytest.fixture(scope="module")
+def mdgs():
+    return [
+        pp.mdg_library.cube_with_orthogonal_fractures(
+            "cartesian", {"cell_size": 0.5}, [1]
+        )[0],  # 2 x 2 x 2 grid with one fracture of constant y coordinate
+        pp.mdg_library.square_with_orthogonal_fractures(
+            "cartesian", {"cell_size": 0.5}, [1]
+        )[0],  # 2 x 2 grid with one fracture of constant y coordinate
+    ]
+
+
+@pytest.mark.parametrize(
+    "direction",
+    [
+        np.ones((3, 1)),
+        -np.ones((3, 1)),
+        np.array([[0.1, 0, 0]]).T,
+    ],
+)
+@pytest.mark.parametrize("mdg_ind", [0, 1])
+def test_sides_of_fracture(direction: np.ndarray, mdgs, mdg_ind):
+    """Test the function sides_of_fracture."""
+    mdg = mdgs[mdg_ind]
+    intf = mdg.interfaces()[0]
+    sd_primary = mdg.subdomains()[0]
+
+    if np.isclose(direction[1], 0):
+        # In the case of a zero y-component, the direction vector is parallel to the
+        # fracture. The function should raise a ValueError.
+        with pytest.raises(ValueError):
+            pp.sides_of_fracture(intf, sd_primary, direction)
+        # No other meaningful tests can be performed, so return.
+        return
+
+    # Call the function. Positive and negative sides refer to the direction vector.
+    # The positive side is the side that the direction vector points towards (i.e., the
+    # inner product between the direction vector and the normal vector of the side is
+    # positive).
+    positive_side, negative_side, positive_side_first = pp.sides_of_fracture(
+        intf, sd_primary, direction
+    )
+
+    # Expected output (replace with actual expected values)
+    num_cells = int(intf.num_cells / 2)
+    # For Cartesian grids, the top side (in the y-direction) is the first side of the
+    # mortar grid. The bottom side is the second side.
+    expected_top_side = np.arange(0, num_cells)
+    expected_bottom_side = np.arange(num_cells, 2 * num_cells)
+
+    # Translate from top bottom to positive negative side, depending on the prescribed
+    # direction vector.
+    if direction[1] > 0:
+        expected_positive_side = expected_bottom_side
+        expected_negative_side = expected_top_side
+    else:
+        expected_positive_side = expected_top_side
+        expected_negative_side = expected_bottom_side
+
+    # Since the top side is always the first side, the positive side should be the first
+    # side if the direction vector has negative y-component.
+    expected_positive_side_first = direction[1] < 0
+
+    # Assertions
+    assert np.all(positive_side == expected_positive_side)
+    assert np.all(negative_side == expected_negative_side)
+    assert positive_side_first == expected_positive_side_first

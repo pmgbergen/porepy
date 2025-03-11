@@ -96,7 +96,7 @@ class DisplacementJump(pp.PorePyModel):
         # respectively, to nd dimensions.
         basis = self.basis(subdomains, dim=self.nd)
         local_basis = self.basis(subdomains, dim=self.nd - 1)
-        tangential_to_nd = pp.ad.sum_operator_list(
+        tangential_to_nd = pp.ad.sum_projection_list(
             [e_nd @ e_f.T for e_nd, e_f in zip(basis[:-1], local_basis)]
         )
         normal_to_nd = basis[-1]
@@ -221,16 +221,18 @@ class DimensionReduction(pp.PorePyModel):
             interfaces: list[pp.MortarGrid] = [
                 g for g in grids if isinstance(g, pp.MortarGrid)
             ]  # appease mypy.
-            neighbor_sds = self.interfaces_to_subdomains(interfaces)
-            projection = pp.ad.MortarProjections(self.mdg, neighbor_sds, interfaces)
+            neighbor_subdomains = self.interfaces_to_subdomains(interfaces)
+            projection = pp.ad.MortarProjections(
+                self.mdg, neighbor_subdomains, interfaces
+            )
             # Check that all interfaces are of the same co-dimension
             codim = interfaces[0].codim
             assert all(intf.codim == codim for intf in interfaces)
             if codim == 1:
-                trace = pp.ad.Trace(neighbor_sds)
-                v_h = trace.trace @ self.specific_volume(neighbor_sds)
+                trace = pp.ad.Trace(neighbor_subdomains)
+                v_h = trace.trace @ self.specific_volume(neighbor_subdomains)
             else:
-                v_h = self.specific_volume(neighbor_sds)
+                v_h = self.specific_volume(neighbor_subdomains)
             v = projection.primary_to_mortar_avg() @ v_h
             v.set_name("specific_volume")
             return v
@@ -428,7 +430,7 @@ class DisplacementJumpAperture(DimensionReduction):
                     parent_cells_to_intersection_cells
                 )
 
-                assert isinstance(weight_value, sps.spmatrix)  # for mypy
+                assert isinstance(weight_value, (sps.spmatrix, sps.sparray))  # for mypy
                 average_weights = np.ravel(weight_value.sum(axis=1))
                 nonzero = average_weights > 0
                 average_weights[nonzero] = 1 / average_weights[nonzero]
@@ -518,16 +520,16 @@ class SecondOrderTensorUtils(pp.PorePyModel):
             # fall back on reference value.
             permeability = fallback_value * np.ones(sd.num_cells) * volume
             return pp.SecondOrderTensor(permeability)
-        evaluated_value = self.equation_system.evaluate(operator)
-        if not isinstance(evaluated_value, np.ndarray):
+
+        if not isinstance(permeability, np.ndarray):
             # Raise error rather than cast for verbosity of function which is not
             # directly exposed to the user, but depends on a frequently user-defined
             # quantity (the tensor being converted).
             raise ValueError(
-                f"Operator {operator.name} has type {type(evaluated_value)}, "
+                f"Operator {operator.name} has type {type(permeability)}, "
                 f"expected numpy array for conversion to SecondOrderTensor."
             )
-        val = evaluated_value.reshape(9, -1, order="F")
+        val = permeability.reshape(9, -1, order="F")
         # SecondOrderTensor's constructor expects up to six entries: kxx, kyy, kzz,
         # kxy, kxz, kyz. These correspond to entries 0, 4, 8, 1, 2, 5 in the 9 x
         # num_cells array.
@@ -986,7 +988,7 @@ class DarcysLaw(pp.PorePyModel):
         this method to define and assign another boundary operator of your choice. The
         new operator should then be passed as an argument to the
         _combine_boundary_operators method, just like self.darcy_flux is passed to
-        robin_operator in the default setup.
+        robin_operator in the default model.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
@@ -1115,7 +1117,7 @@ class DarcysLaw(pp.PorePyModel):
         # composed by summation).
         normals_times_source = normals * vector_source
         # Then sum over the nd dimensions. The result will in effect be a matrix.
-        nd_to_scalar_sum = pp.ad.sum_operator_list(
+        nd_to_scalar_sum = pp.ad.sum_projection_list(
             [e.T for e in self.basis(interfaces, dim=self.nd)]
         )
         # Finally, the dot product between normal vectors and the vector source. This
@@ -2296,7 +2298,7 @@ class FouriersLaw(pp.PorePyModel):
         this method to define and assign another boundary operator of your choice. The
         new operator should then be passed as an argument to the
         _combine_boundary_operators method, just like self.fourier_flux is passed to
-        robin_operator in the default setup.
+        robin_operator in the default model.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
@@ -2810,7 +2812,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
     """
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -2901,7 +2903,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         this method to define and assign another boundary operator of your choice. The
         new operator should then be passed as an argument to the
         _combine_boundary_operators method, just like self.mechanical_stress is passed
-        to robin_operator in the default setup.
+        to robin_operator in the default model.
 
         Parameters:
             subdomains: List of the subdomains whose boundary operators are to be
@@ -3102,9 +3104,7 @@ class PressureStress(LinearElasticMechanicalStress):
 
         # Expands from cell-wise scalar to vector. Equivalent to the :math:`\mathbf{I}p`
         # operation.
-        scalar_to_nd = pp.ad.sum_operator_list(
-            [e_i for e_i in self.basis(interfaces, dim=self.nd)]
-        )
+        scalar_to_nd = pp.ad.sum_projection_list(self.basis(interfaces, dim=self.nd))
         # Spelled out, from the right: Project the pressure from the fracture to the
         # mortar, expand to an nd-vector, and multiply with the outwards normal vector.
         stress = outwards_normal * (
@@ -3341,7 +3341,7 @@ class CoulombFrictionBound(pp.PorePyModel):
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
 
@@ -3462,7 +3462,7 @@ class BartonBandis(pp.PorePyModel):
 
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
-    :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
+    :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]

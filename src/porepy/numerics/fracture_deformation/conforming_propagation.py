@@ -404,7 +404,7 @@ class ConformingFracturePropagation(FracturePropagation):
 
         Parameters
         ----------
-        g : pp.Grid
+        sd : pp.Grid
             Fracture grid.
         d : dict
             The grid's data dictionary.

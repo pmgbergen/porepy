@@ -2,8 +2,9 @@
 Some of these tests are sensitive to meshing or node ordering. If this turns out to
 cause problems, we deactivate the corresponding asserts.
 """
-import pytest
+
 import numpy as np
+import pytest
 
 import porepy as pp
 
@@ -45,6 +46,7 @@ class TestMixedDimensionalGrids:
             assert np.all(np.isclose(g.face_centers, face_centers[i]))
 
     def check_intersections(self, n_intersections):
+        """Check that the number of intersections is as expected."""
         assert len(self.mdg.subdomains(dim=0)) == n_intersections
 
     def check_domain(self, x_length, y_length, z_length=None):
@@ -112,6 +114,88 @@ class TestMixedDimensionalGrids:
         fc1 = np.vstack((np.vstack((x, 0.5 * np.ones(6))), np.zeros(6)))
 
         self.check_fracture_coordinates([cc0, cc1], [fc0, fc1])
+
+    @pytest.mark.parametrize("mesh_type", ["simplex", "cartesian"])
+    @pytest.mark.parametrize("num_fractures", [1, 2])
+    def test_two_intersecting_nonmatching(self, mesh_type, num_fractures):
+        """Test meshing of a 2d square domain to generate a non-matching grid.
+
+        This is not a very powerful test, but it does verify that the generated grids
+        have  different numbers of cells in the fractures and along the mortars, and
+        that the mortar grids have a different number of grids than the matrix faces
+        tagged as on a fracture.
+
+        Parameters:
+            mesh_type: The type of mesh to generate, either 'simplex' or 'cartesian'.
+            num_fractures: The number of fractures to include in the domain.
+
+        """
+        meshing_arguments = {"cell_size": 1 / 4}
+
+        # Define the fracture endpoints and indices according to the input.
+        fracture_endpoints = []
+        fracture_indices = []
+        if num_fractures > 0:
+            fracture_endpoints.append(np.array([1 / 4, 3 / 4]))
+            fracture_indices.append(0)
+        if num_fractures > 1:
+            fracture_endpoints.append(np.array([0, 1]))
+            fracture_indices.append(1)
+
+        # Refinement ratios.
+        interface_refinement_ratio = 2
+        fracture_refinement_ratio = 4
+
+        # Generate the grid.
+        self.mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            mesh_type,
+            meshing_arguments,
+            fracture_indices=fracture_indices,
+            fracture_endpoints=fracture_endpoints,
+            non_matching=True,
+            **{
+                "interface_refinement_ratio": interface_refinement_ratio,
+                "fracture_refinement_ratio": fracture_refinement_ratio,
+            },
+        )
+
+        # Number of faces in the 2d grid that are tagged as fracture faces.
+        num_fracture_faces_from_matrix = (
+            self.mdg.subdomains(dim=2)[0].tags["fracture_faces"].sum()
+        )
+
+        # Loop over the interfaces between fractures and matrix, fetch the projections to the 2d grid, and count the
+        # number of non-zero entries in the projection matrix.
+        non_zero_projection_primary = 0
+        for mg in self.mdg.interfaces(dim=1):
+            proj_primary = mg.mortar_to_primary_avg()
+            non_zero_projection_primary += proj_primary.nnz
+        # A matching grid would have equality here. We have refined the mortar grid,
+        # hence there should be more items in the projection matrix than there are
+        # fracture faces in the matrix grid.
+        assert non_zero_projection_primary > num_fracture_faces_from_matrix
+        if mesh_type == "cartesian":
+            # On a Cartesian grid, the refinement level is known.
+            assert (
+                non_zero_projection_primary
+                == interface_refinement_ratio * num_fracture_faces_from_matrix
+            )
+
+        # To compare the grid resolution on the 1d mortar grids and the fracture grids,
+        # we can do a cell count. We do not know precisely how many cells there will be
+        # in each, but with the given refinement settings (above), they should at least
+        # not be equal.
+        for mg in self.mdg.interfaces(dim=1):
+            _, sd_secondary = self.mdg.interface_to_subdomain_pair(mg)
+            # Multiply by two since there are two sides of the mortar.
+            assert 2 * sd_secondary.num_cells != mg.num_cells
+            if mesh_type == "cartesian":
+                # On a Cartesian grid, the refinement level is known, and we can do a
+                # stricter check to make sure the original logic remains correct.
+                assert (
+                    2 * interface_refinement_ratio * sd_secondary.num_cells
+                    == fracture_refinement_ratio * mg.num_cells
+                )
 
     def test_benchmark_regular(self):
         """Test the mdg generator for the regular case of the benchmark study.

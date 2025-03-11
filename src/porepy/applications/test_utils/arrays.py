@@ -3,6 +3,8 @@
 import numpy as np
 import scipy.sparse as sps
 
+import porepy as pp
+
 
 def compare_arrays(
     a: np.ndarray, b: np.ndarray, tol: float = 1e-4, sort: bool = True
@@ -68,3 +70,37 @@ def compare_matrices(m1: sps.spmatrix, m2: sps.spmatrix, tol: float = 1e-10) -> 
         if np.max(np.abs(d.data)) > tol:
             return False
     return True
+
+
+def projection_matrix_from_array_slicers(
+    slicers: pp.matrix_operations.ArraySlicer | list[pp.matrix_operations.ArraySlicer],
+    dim: int,
+) -> sps.coo_matrix:
+    """Recover a projection matrix from a one or multiple matrix slicers.
+
+    For a set of slicers {P_1, P_2, ..., P_n}, obtain the matrix P that corresponds to
+
+        P = P_1 + P_2 + ... + P_n.
+
+    Parameters:
+        slicers: One or more ArraySlicers.
+        dim: Dimension of the domain space of the slicer.
+
+    Returns:
+        Matrix representation of the basis vector.
+
+    """
+    # Always deal with a list of slicers.
+    if isinstance(slicers, pp.matrix_operations.ArraySlicer):
+        slicers = [slicers]
+
+    # Initialize result.
+    result = None
+
+    for slicer in slicers:
+        if result is None:
+            result = slicer @ np.eye(dim)
+        else:
+            result += slicer @ np.eye(dim)
+
+    return sps.coo_matrix(result)

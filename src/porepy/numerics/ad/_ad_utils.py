@@ -275,19 +275,19 @@ def discretize_from_list(
         # discr is a discretization (on node or interface in the MixedDimensionalGrid sense)
 
         # Loop over all subdomains (or MixedDimensionalGrid edges), do discretization.
-        for g in discretizations[discr]:
-            if isinstance(g, pp.MortarGrid):
-                data = mdg.interface_data(g)  # type:ignore
-                g_primary, g_secondary = mdg.interface_to_subdomain_pair(g)
+        for grid in discretizations[discr]:
+            if isinstance(grid, pp.MortarGrid):
+                data = mdg.interface_data(grid)  # type:ignore
+                g_primary, g_secondary = mdg.interface_to_subdomain_pair(grid)
                 d_primary = mdg.subdomain_data(g_primary)
                 d_secondary = mdg.subdomain_data(g_secondary)
                 discr.discretize(
-                    g_primary, g_secondary, g, d_primary, d_secondary, data
+                    g_primary, g_secondary, grid, d_primary, d_secondary, data
                 )
             else:
-                data = mdg.subdomain_data(g)
+                data = mdg.subdomain_data(grid)
                 try:
-                    discr.discretize(g, data)
+                    discr.discretize(grid, data)
                 except NotImplementedError:
                     # This will likely be GradP and other Biot discretizations
                     pass
@@ -602,12 +602,12 @@ class MergedOperator(operators.Operator):
 
         # Loop over all grid-discretization combinations, get hold of the discretization
         # matrix for this grid quantity.
-        for g in self.domains:
+        for grid in self.domains:
             # Get data dictionary for either grid or interface
-            if isinstance(g, pp.MortarGrid):
-                data = mdg.interface_data(g)
-            elif isinstance(g, pp.Grid):
-                data = mdg.subdomain_data(g)
+            if isinstance(grid, pp.MortarGrid):
+                data = mdg.interface_data(grid)
+            elif isinstance(grid, pp.Grid):
+                data = mdg.subdomain_data(grid)
             else:
                 s = "Did not expect a discretization defined on a BoundaryGrid."
                 raise ValueError(s)
@@ -626,9 +626,24 @@ class MergedOperator(operators.Operator):
             mat.append(local_mat)
 
         if all([isinstance(m, np.ndarray) for m in mat]):
-            # TODO: EK is almost sure this never happens, but leave this check for now.
+            # EK is almost sure this never happens, but leave this check for now.
             raise NotImplementedError("")
 
         else:
             # This is a standard discretization; wrap it in a diagonal sparse matrix.
-            return sps.block_diag(mat, format="csr")
+
+            if all([m.format == "dia" for m in mat]):
+                # If all matrices are of dia-format, we can try to use a special method
+                # for forming a sparse dia matrix from the blocks. This is more
+                # efficient than the below csr-based method. However, the matrices can
+                # only be nonzero along their main diagonal. This condition does not
+                # hold true for all dia-matrices, so there is a chance a ValueError may
+                # be raised. If so, we let it pass and fall back to the csr-based
+                # method.
+                try:
+                    return pp.matrix_operations.sparse_dia_from_sparse_blocks(mat)
+                except ValueError:
+                    # Use the csr-based method below.
+                    pass
+
+            return pp.matrix_operations.csr_matrix_from_sparse_blocks(mat)

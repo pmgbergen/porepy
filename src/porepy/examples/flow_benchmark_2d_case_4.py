@@ -1,11 +1,11 @@
 """
 This module contains the implementation of Case 4 from the 2D flow benchmark [1].
 
-The setup is composed of 64 fractures grouped in 13 different connected networks,
+The geometry is composed of 64 fractures grouped in 13 different connected networks,
 ranging from isolated fractures up to tens of fractures each.
 
 Note:
-    At the current stage, the setup is meant only for performance profiling and does not
+    At the current stage, the model is meant only for performance profiling and does not
     fully match the paper.
 
 References:
@@ -14,6 +14,8 @@ References:
       media. Advances in Water Resources, 111, 239-258.
 
 """
+
+from typing import Literal
 
 import numpy as np
 
@@ -36,10 +38,47 @@ class Geometry(pp.PorePyModel):
         """Setting a fracture list from the fracture set library."""
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_4()
 
-    @property
-    def domain(self) -> pp.Domain:
+    def set_domain(self) -> None:
         """Domain of the problem."""
-        return pp.Domain({"xmax": 700, "ymax": 600})
+        x_extent = self.units.convert_units(700, "m")
+        y_extent = self.units.convert_units(600, "m")
+        self._domain = pp.Domain(
+            {"xmin": 0, "xmax": x_extent, "ymin": 0, "ymax": y_extent}
+        )
+
+    def grid_type(self) -> Literal["simplex"]:
+        """Set a simplex grid, which is the only grid type that can represent this
+        fracture geometry.
+
+        Returns:
+            str: Grid type.
+
+        """
+        return "simplex"
+
+    def meshing_arguments(self) -> dict[str, float]:
+        """Meshing arguments for mixed-dimensional grid generation.
+
+        Set a default cell size of 10 m. This will give a grid of about 23K cells in the
+        2d domain.
+
+        Note that due to complexities of this fracture network, it is not possible to
+        get Gmsh to create a grid with less than about 12K cells in the 2d domain. This
+        can be achieved by setting the cell size to 30 m (possibly also lower). Coarser
+        grids may be possible, but this will require interaction with Gmsh on a more
+        detailed lever than what is available through PorePy.
+
+        Returns:
+            Meshing arguments compatible with
+            :meth:`~porepy.grids.mdg_generation.create_mdg`.
+
+        """
+        # Default value of 10, scaled by the length unit.
+        cell_size = self.units.convert_units(10, "m")
+        default_meshing_args: dict[str, float] = {"cell_size": cell_size}
+        # If meshing arguments are provided in the params, they should already be scaled
+        # by the length unit.
+        return self.params.get("meshing_arguments", default_meshing_args)
 
 
 class BoundaryConditions(pp.PorePyModel):
@@ -49,21 +88,21 @@ class BoundaryConditions(pp.PorePyModel):
 
     """
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure value of one atmosphere (101325 Pa) on west side."""
-        bounds = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros(boundary_grid.num_cells)
-        values[bounds.west] = self.units.convert_units(101325, "Pa")
+        domain_sides = self.domain_boundary_sides(bg)
+        values = np.zeros(bg.num_cells)
+        values[domain_sides.west] = self.units.convert_units(101325, "Pa")
         return values
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign Dirichlet to the east and west boundary. The rest are Neumann by
         default."""
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.east + bounds.west, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, domain_sides.east + domain_sides.west, "dir")
         return bc
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Inflow on the west boundary.
 
         Per PorePy convention, the sign is negative for inflow and the value is
@@ -71,13 +110,13 @@ class BoundaryConditions(pp.PorePyModel):
         fracture, the latter includes the fracture specific volume.
 
         Parameters:
-            boundary_grid: Boundary grid.
+            bg: Boundary grid.
 
         Returns:
             Boundary values.
 
         """
-        values = np.zeros(boundary_grid.num_cells)
+        values = np.zeros(bg.num_cells)
         return values
 
 

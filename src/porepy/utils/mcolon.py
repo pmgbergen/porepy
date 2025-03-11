@@ -37,28 +37,56 @@ def mcolon(lo, hi):
         array([0, 1, 2, 1, 2, 1, 2])
 
     """
+    # IMPLEMENTATION NOTE: The below code uses clever tricks to arrive at the correct
+    # result (credit for the cleverness goes to SINTEF). The provided comments should
+    # explain the logic behind the code to some extent, but if you really want to
+    # understand what is going on, it is probably wise to go through the logic by hand
+    # for a few examples.
+
     if lo.size == 1:
-        lo = lo * np.ones(hi.size, dtype=np.int64)
+        lo = lo * np.ones(hi.size, dtype=np.int32)
     if hi.size == 1:
-        hi = hi * np.ones(lo.size, dtype=np.int64)
+        hi = hi * np.ones(lo.size, dtype=np.int32)
     if lo.size != hi.size:
         raise ValueError(
             "Low and high should have same number of elements, or a single item "
         )
 
-    i = hi >= lo + 1
-    if not any(i):
+    # Find the positive differences. If there are none, return an empty array.
+    pos_diff = hi >= lo + 1
+    if not any(pos_diff):
         return np.array([], dtype=np.int32)
 
-    lo = lo[i].astype(int)
-    hi = (hi[i] - 1).astype(int)
-    d = hi - lo + 1
-    n = np.sum(d)
+    # We only need the lows and highs where there is a positive difference.
+    lo = lo[pos_diff].astype(int)
+    # This changes hi from a non-inclusive to an inclusive upper bound of the range.
+    hi = (hi[pos_diff] - 1).astype(int)
+    # The number of elements to be generated for each interval (each pair of lo and hi).
+    # We have to add 1 to include the upper bound.
+    num_elements_in_interval = hi - lo + 1
+    # Create an array with size equal to the total number of elements to be generated.
+    # Initialize the array with ones, so that, if we do a cumulative sum, the indices
+    # will be increasing by one. This will work, provided we can also set the elements
+    # corresponding to the start of an interval (a lo value in a lo-hi pair) to its
+    # correct value.
+    tot_num_elements = np.sum(num_elements_in_interval)
+    x = np.ones(tot_num_elements, dtype=int)
 
-    x = np.ones(n, dtype=int)
+    # Set the first element to the first lo value.
     x[0] = lo[0]
-    x[np.cumsum(d[0:-1])] = lo[1:] - hi[0:-1]
-    return np.cumsum(x)
+    # For the elements corresponding to the start of interval 1, 2, ..., we cannot just
+    # set the value to lo[1:], since this will be overriden by the cumulative sum.
+    # Instead, set the value to lo[1:] - hi[0:-1], that is, to the difference between
+    # the end of the previous interval and the start of the current interval. Under a
+    # cumulative sum, this will give the correct value for the start of interval i,
+    # provided that interval i-1 ends at the correct value, and, since we set the first
+    # element to lo[0], with ones up to lo[1], this all works out by induction. Kudos to
+    # whomever came up with this!
+    x[np.cumsum(num_elements_in_interval[0:-1])] = lo[1:] - hi[0:-1]
+    # Finally, a cumulative sum will give the correct values for all elements. Use x to
+    # store the result to avoid allocating a new array (this can give substantial
+    # savings for large arrays).
+    return np.cumsum(x, out=x)
 
 
 if __name__ == "__main__":

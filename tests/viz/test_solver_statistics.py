@@ -1,4 +1,4 @@
-""" Tests of functionality of :class:`~porepy.viz.solver_statistics.SolverStatistics`."""
+"""Tests of functionality of :class:`~porepy.viz.solver_statistics.SolverStatistics`."""
 
 import porepy as pp
 from porepy.applications.test_utils.models import Poromechanics

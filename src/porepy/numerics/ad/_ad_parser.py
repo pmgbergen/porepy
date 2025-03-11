@@ -46,7 +46,7 @@ class AdParser:
     def evaluate(
         self,
         op: pp.ad.Operator,
-        eq_sys: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         derivative: Literal[False],
         state: np.ndarray | None,
     ) -> float | np.ndarray | sps.spmatrix: ...
@@ -55,7 +55,7 @@ class AdParser:
     def evaluate(
         self,
         op: pp.ad.Operator,
-        eq_sys: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         derivative: Literal[True],
         state: np.ndarray | None,
     ) -> pp.ad.AdArray: ...
@@ -64,7 +64,7 @@ class AdParser:
     def evaluate(
         self,
         op: list[pp.ad.Operator],
-        eq_sys: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         derivative: Literal[True],
         state: np.ndarray | None,
     ) -> list[pp.ad.AdArray]: ...
@@ -73,7 +73,7 @@ class AdParser:
     def evaluate(
         self,
         op: list[pp.ad.Operator],
-        eq_sys: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         derivative: Literal[False],
         state: np.ndarray | None,
     ) -> list[float | np.ndarray | sps.spmatrix]: ...
@@ -81,7 +81,7 @@ class AdParser:
     def evaluate(
         self,
         op: pp.ad.Operator | list[pp.ad.Operator],
-        eq_sys: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         derivative: bool,
         state: np.ndarray | None,
     ) -> (
@@ -100,9 +100,9 @@ class AdParser:
             op: The operator, or list of operators, to evaluate.
             derivative: If True, the value and the derivative of the operator is
                 returned. If False, only the value of the operator is returned.
-            eq_sys: The EquationSystem wherein the system state is defined.
+            equation_system: The EquationSystem wherein the system state is defined.
             state: The state of the system. If not provided, the state is taken from the
-                variable values provided by eq_sys.
+                variable values provided by equation_system.
 
         Returns:
             The value, or value and Jacobian combined in an AdArray, of the operator op,
@@ -112,7 +112,7 @@ class AdParser:
 
         # Get the state of the system, if not provided.
         if state is None:
-            state = eq_sys.get_variable_values(iterate_index=0)
+            state = equation_system.get_variable_values(iterate_index=0)
 
         # Create an AdArray representation of the state, if the derivative is requested.
         # If not, the state is used as is (as a numpy array).
@@ -121,9 +121,11 @@ class AdParser:
         # Evaluate the operators. A single operator is treated as a list to simplify the
         # post-processing below.
         if isinstance(op, list):
-            result_list = [self._evaluate_single(o, ad_base, eq_sys) for o in op]
+            result_list = [
+                self._evaluate_single(o, ad_base, equation_system) for o in op
+            ]
         else:
-            result_list = [self._evaluate_single(op, ad_base, eq_sys)]
+            result_list = [self._evaluate_single(op, ad_base, equation_system)]
 
         # If the derivative is requested, the results should be AdArrays. Enforce this.
         if derivative:
@@ -135,9 +137,9 @@ class AdParser:
                 if isinstance(res, np.ndarray) and len(res.shape) == 1:
                     # Convert numpy arrays to AdArrays and update result_list.
                     result_list[index] = pp.ad.AdArray(
-                        res, sps.csr_matrix((res.shape[0], eq_sys.num_dofs()))
+                        res, sps.csr_matrix((res.shape[0], equation_system.num_dofs()))
                     )
-                elif isinstance(res, (sps.spmatrix, np.ndarray)):
+                elif isinstance(res, (sps.spmatrix, sps.sparray, np.ndarray)):
                     # This will cover numpy arrays of higher dimensions (> 1) and sparse
                     # matrices.
                     #
@@ -169,7 +171,7 @@ class AdParser:
         self,
         op: pp.ad.Operator,
         ad_base: np.ndarray | pp.ad.AdArray,
-        eq_sys: pp.EquationSystem,
+        equation_system: pp.EquationSystem,
     ) -> float | np.ndarray | sps.spmatrix | pp.ad.AdArray:
         """Evaluate a single operator.
 
@@ -177,7 +179,7 @@ class AdParser:
             op: The operator to evaluate.
             ad_base: The base for the automatic differentiation. This should be an
                 AdArray if the derivative is requested, and a numpy array if not.
-            eq_sys: The EquationSystem wherein the system state is defined.
+            equation_system: The EquationSystem wherein the system state is defined.
 
         Returns:
             A numpy array or an AdArray representation of the operator op, depending on
@@ -204,36 +206,44 @@ class AdParser:
                     # List of indices for sub variables.
                     dofs = []
                     for sub_var in op.sub_vars:
-                        sub_dofs = eq_sys.dofs_of([sub_var])
-                        vals[sub_dofs] = sub_var.parse(eq_sys.mdg)
+                        sub_dofs = equation_system.dofs_of([sub_var])
+                        vals[sub_dofs] = sub_var.parse(equation_system.mdg)
                         dofs.append(sub_dofs)
 
                     return vals[np.hstack(dofs, dtype=int)] if dofs else np.array([])
                 else:
                     # Fetch the values from the state vector.
-                    return ad_base[eq_sys.dofs_of([op])]
+                    return ad_base[equation_system.dofs_of([op])]
 
             # Atomic variables.
             elif isinstance(op, pp.ad.Variable):
                 # If a variable represents a previous iteration or time, parse values.
                 if op.is_previous_iterate or op.is_previous_time:
-                    return op.parse(eq_sys.mdg)
+                    return op.parse(equation_system.mdg)
                 # Otherwise use the current time and iteration values.
                 else:
-                    return ad_base[eq_sys.dofs_of([op])]
+                    return ad_base[equation_system.dofs_of([op])]
             # All other leafs like discretizations or some wrapped data.
             else:
                 # Mypy complains because the return type of parse is Any.
-                res = op.parse(eq_sys.mdg)  # type:ignore
+                res = op.parse(equation_system.mdg)  # type:ignore
                 # Profiling indicated that in this case, caching actually pays off, so
                 # we keep it.
                 self._cache[op] = res
                 return res
 
+        if isinstance(op, pp.ad.ProjectionList):
+            # Special case for lists of projections. These are parsed into lists of the
+            # underlying ArraySlicer. See also the handling of the resulting lists
+            # below.
+            res = [c.parse(equation_system.mdg) for c in op.children]
+            return res
+
         # This is not a leaf, but a composite operator. Parse the children and combine
         # them according to the operator.
         child_values = [
-            self._evaluate_single(child, ad_base, eq_sys) for child in op.children
+            self._evaluate_single(child, ad_base, equation_system)
+            for child in op.children
         ]
 
         # Get the operation represented by op.
@@ -279,6 +289,27 @@ class AdParser:
 
                 # Division, power, and matrix multiplication are binary operations
                 assert len(child_values) == 2
+
+                if operation == Operations.matmul and isinstance(child_values[0], list):
+                    # This is a special case for dealing with pp.ad.PorjectionList.
+                    if all(
+                        [
+                            isinstance(c, pp.matrix_operations.ArraySlicer)
+                            for c in child_values[0]
+                        ]
+                    ):
+                        # If the first operand is a list of sliced matrices, the
+                        # operation should be performed on each of the matrices in the
+                        # list. The sum is hardcoded here, corresponding to the
+                        # assumptions underlying the use of the ProjectionList.
+                        # Generalizations are possible, but not desirable at the moment
+                        # (it risks complicating the code without clear benefits).
+                        res = sum([c @ (child_values[1]) for c in child_values[0]])
+                        return res
+                    else:
+                        raise ValueError(
+                            "Matrix multiplication not supported for this input type."
+                        )
 
                 if isinstance(child_values[0], np.ndarray) and isinstance(
                     child_values[1], (pp.ad.AdArray, pp.ad.forward_mode.AdArray)
@@ -389,7 +420,7 @@ class AdParser:
         msg += "The second argument represents the expression:\n " + msg_1 + nl
 
         # Finally some information on sizes
-        if isinstance(results[0], sps.spmatrix):
+        if isinstance(results[0], (sps.spmatrix, sps.sparray)):
             msg += f"First argument is a sparse matrix of size {results[0].shape}\n"
         elif isinstance(results[0], pp.ad.AdArray):
             msg += (
@@ -399,7 +430,7 @@ class AdParser:
         elif isinstance(results[0], np.ndarray):
             msg += f"First argument is a numpy array of size {results[0].size}\n"
 
-        if isinstance(results[1], sps.spmatrix):
+        if isinstance(results[1], (sps.spmatrix, sps.sparray)):
             msg += f"Second argument is a sparse matrix of size {results[1].shape}\n"
         elif isinstance(results[1], pp.ad.AdArray):
             msg += (
