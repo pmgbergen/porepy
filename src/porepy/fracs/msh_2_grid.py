@@ -16,6 +16,22 @@ import porepy as pp
 
 from .gmsh_interface import PhysicalNames
 
+gmsh_element_types: list[str] = [
+    # "point",
+    # TODO Not sure whether point is a valid element type that can occur in PorePy. See
+    # test_gmsh_elements. It is possible, that the mesh used in the test is too
+    # "simple".
+    "line",
+    "triangle",
+    "tetra",
+]
+"""Different geometric elements in gmsh.
+
+Additionally, gmsh supports quadrangles, hexahedra, and prisms. However, these cannot
+occur in a simplex grid.
+
+"""
+
 
 def create_3d_grids(pts: np.ndarray, cells: dict[str, np.ndarray]) -> list[pp.Grid]:
     """Create a tetrahedral grid from a gmsh tesselation.
@@ -498,4 +514,10 @@ def tag_grid(
         Grid with updated ``.tags`` attribute.
 
     """
-    raise NotImplementedError
+    for grid_element_type in cell_info:
+        for tag in np.unique(cell_info[grid_element_type]):
+            tag_name = (
+                f"{phys_names[tag].lower()}_{grid_element_type}s"  # s for plural.
+            )
+            sd.tags[tag_name] = cell_info[grid_element_type] == tag
+    return sd
