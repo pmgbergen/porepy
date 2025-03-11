@@ -15,7 +15,7 @@ class Tensor:
 
     values: np.ndarray
 
-    @staticmethod
+    @property
     def constitutive_parameters(self) -> list[str]:
         """Strings for the constitutive parameters found in the tensor.
 
@@ -23,7 +23,6 @@ class Tensor:
             A list of the constitutive parameter names.
 
         """
-        # Each constitutive parameter is assumed to be an array of shape (nc,)
         return []
 
     def restrict_to_cells(self, cells: np.ndarray) -> None:
@@ -37,7 +36,7 @@ class Tensor:
 
         """
         # Restrict all constitutive parameters.
-        for field in self.constitutive_parameters(self):
+        for field in self.constitutive_parameters:
             vals = cast(np.ndarray, getattr(self, field))
             setattr(self, field, vals[cells])
 
@@ -195,7 +194,7 @@ class FourthOrderTensor(Tensor):
         self,
         mu: np.ndarray,
         lmbda: np.ndarray,
-        other_fields: dict[str, tuple[np.ndarray, np.ndarray]] | None = None,
+        other_fields: dict[str, tuple[np.ndarray, np.ndarray]] = {},
     ):
         """Constructor for fourth order tensor on Lame-parameter form.
 
