@@ -45,6 +45,7 @@ __all__ = [
     "ProjectionList",
     "sum_operator_list",
     "sum_projection_list",
+    "cached_method",
 ]
 
 
@@ -2253,3 +2254,36 @@ def sum_projection_list(
             result = ProjectionList(new_operators, name)
 
     return result
+
+
+def cached_method(func: Callable) -> Callable:
+    """Decorator for caching function results.
+
+    The decorator is used to cache the results of a function. The cache is stored in the
+    `_operator_cache` attribute of the class instance.
+
+    Parameters:
+        func: The function to be cached.
+
+    Returns:
+        The decorated function.
+
+    """
+
+    def wrapper(self, *args, **kwargs):
+        args_as_tuples = []
+        for arg in args:
+            if isinstance(arg, list):
+                args_as_tuples.append(tuple(arg))
+            else:
+                args_as_tuples.append(arg)
+
+        # Use qualname to get the full name of the function, including the class name if
+        # the function is a method. In this way, we should avoid collisions related to
+        # inheritance.
+        key = (func.__qualname__, tuple(args_as_tuples), frozenset(kwargs.items()))
+        if key not in self._operator_cache:
+            self._operator_cache[key] = func(self, *args, **kwargs)
+        return self._operator_cache[key]
+
+    return wrapper
