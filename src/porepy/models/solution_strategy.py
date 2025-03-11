@@ -117,6 +117,17 @@ class SolutionStrategy(pp.PorePyModel):
         """A list of results collected by the data saving mixin in
         :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
 
+        self._operator_cache: dict[Any, pp.ad.Operator] = {}
+        """Cache for storing the result of methods that return Ad operators. This is
+        used to avoid re-construction of the same operator multiple times, but does not
+        affect evaluation of the operator. 
+
+        An operator is added to the cache by adding the decorator @pp.ad.cache_operator
+        to the method that returns the operator. It is considered good practice to use
+        the cache sparingly, and only for operators that have been shown to be expensive
+        to construct.
+        """
+
         self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
