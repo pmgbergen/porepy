@@ -7,11 +7,29 @@ import numpy as np
 import pytest
 
 import porepy as pp
-from porepy.fracs.msh_2_grid import gmsh_element_types, tag_grid
+from porepy.fracs.msh_2_grid import (
+    gmsh_element_types,
+    tag_grid,
+    create_0d_grids,
+    create_1d_grids,
+)
 from porepy.fracs.simplex import _read_gmsh_file
 
 rng: np.random.Generator = np.random.default_rng(seed=42)
 dirname: pathlib.Path = pathlib.Path(__file__).parent
+
+filename: str = str(
+    dirname
+    / ".."
+    / ".."
+    / "src"
+    / "porepy"
+    / "applications"
+    / "md_grids"
+    / "gmsh_file_library"
+    / "benchmark_3d_case_3"
+    / "mesh30k.msh"
+)
 
 
 @pytest.fixture
@@ -40,20 +58,8 @@ def cell_info_from_gmsh() -> dict[str, np.ndarray]:
     """
     # TODO This is a temporary solution. The file should be in the test directory and
     # doesn't need to include 30k cells.
-    _, __, cell_info, ___ = _read_gmsh_file(
-        str(
-            dirname
-            / ".."
-            / ".."
-            / "src"
-            / "porepy"
-            / "applications"
-            / "md_grids"
-            / "gmsh_file_library"
-            / "benchmark_3d_case_3"
-            / "mesh30k.msh"
-        )
-    )
+    pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
+
     return cell_info
 
 
@@ -84,7 +90,7 @@ def cell_info(num_phys_names: int, simplex_grid: pp.Grid) -> dict[str, np.ndarra
                 num_elements = simplex_grid.num_cells
             else:
                 num_elements = simplex_grid.num_faces
-        elif gmsh_element_type == "tetrahedron":
+        elif gmsh_element_type == "tetra":
             if simplex_grid.dim == 3:
                 num_elements = simplex_grid.num_cells
             else:
@@ -111,7 +117,7 @@ def test_gmsh_elements(cell_info_from_gmsh: dict[str, np.ndarray]) -> None:
 
 
 @pytest.mark.parametrize("simplex_grid", [(2, 2), (2, 2, 2)], indirect=True)
-@pytest.mark.parametrize("num_phys_names", [0, 1, 10], indirect=True)
+@pytest.mark.parametrize("num_phys_names", [1, 5, 10], indirect=True)
 def test_tag_grids(
     simplex_grid: pp.Grid,
     phys_names: dict[int, str],
@@ -125,3 +131,20 @@ def test_tag_grids(
                 tagged_grid.tags[f"{phys_name}_{gmsh_element_type}s"]
                 == (cell_info[gmsh_element_type] == phys_ind)
             )
+
+
+@pytest.fixture
+def test_create_0d_grids() -> list[pp.PointGrid]:
+    pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
+
+    g_0d = create_0d_grids(pts, cells, phys_names, cell_info)
+
+    test_tag_grids(g_0d, phys_names, cell_info)
+
+
+@pytest.fixture
+def test_create_1d_grids() -> list[pp.Grid]:
+    pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
+
+    g_1d = create_1d_grids(pts, cells, phys_names, cell_info)
+    test_tag_grids(g_1d, phys_names, cell_info)
