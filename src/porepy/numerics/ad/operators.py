@@ -2263,6 +2263,11 @@ def cached_method(func: Callable) -> Callable:
     The decorator is used to cache the results of a function. The cache is stored in the
     `_operator_cache` attribute of the class instance.
 
+    It is assumed that any arguments (both positional and keyword) to the function to be
+    decorated is either hashable, or a list. This covers all known use cases within the
+    Ad module. If an unhashable argument is passed, a warning will be given, and the
+    function will be called every time.
+
     Parameters:
         func: The function to be cached.
 
@@ -2272,6 +2277,14 @@ def cached_method(func: Callable) -> Callable:
     """
 
     def wrapper(self, *args, **kwargs):
+        # We will build a key from the function name, the arguments, and the keyword
+        # arguments. To that end, we need to convert all arguments to hashable types.
+
+        # If any argument is given as a list, convert it to a tuple to make it hashable.
+        #
+        # IMPLEMENTATION NOTE: It is possible to extend the below if-else to handle more
+        # cases, but this should be done as needed. The same applies to the keyword
+        # arguments just below.
         args_as_tuples = []
         for arg in args:
             if isinstance(arg, list):
@@ -2279,10 +2292,26 @@ def cached_method(func: Callable) -> Callable:
             else:
                 args_as_tuples.append(arg)
 
+        # The keyword arguments can be made hashable by calling frozenset, but we first
+        # need to convert any list values to tuples.
+        kwargs_as_tuples = {
+            k: tuple(v) if isinstance(v, list) else v for k, v in kwargs.items()
+        }
+        kwargs_as_frozenset = frozenset(kwargs_as_tuples.items())
+
         # Use qualname to get the full name of the function, including the class name if
         # the function is a method. In this way, we should avoid collisions related to
         # inheritance.
-        key = (func.__qualname__, tuple(args_as_tuples), frozenset(kwargs.items()))
+        try:
+            key = (func.__qualname__, tuple(args_as_tuples), kwargs_as_frozenset)
+        except Exception as e:
+            s = "Error in caching function: {}\n".format(func.__qualname__)
+            s += "This is likely due to an unhashable argument in the function call.\n"
+            s += "Instead of caching, the function will be called every time.\n"
+            s += "The error message was: {}\n".format(str(e))
+            warn(s)
+            return func(self, *args, **kwargs)
+
         if key not in self._operator_cache:
             self._operator_cache[key] = func(self, *args, **kwargs)
         return self._operator_cache[key]
