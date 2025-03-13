@@ -612,8 +612,8 @@ class TimeDependentBCs(
             return values.ravel("F")
         if self.time_manager.time > 1e-5:
             # Create slip for second time step.
-            u_z = 50.0 if self.time_manager.time > 1.1 else 1.0
-            u_n = np.tile([1, -1, u_z], (bg.num_cells, 1)).T
+            u_z = 15.0 if self.time_manager.time > 1.1 else 1.0
+            u_n = np.tile([1, -.5, u_z], (bg.num_cells, 1)).T
             values[:, sides.north] += self.units.convert_units(u_n, "m")[:, sides.north]
         return values.ravel("F")
 
@@ -627,16 +627,19 @@ class ElastoplasticModelTimeDependentBCs(
 
 
 def test_time_dependent_bc():
+    # Note: The performance of the Newton solver is quite sensitive to the parameters of this test. 
     solid = pp.SolidConstants(
         fracture_tangential_stiffness=1e-1,
         shear_modulus=1e0,
         lame_lambda=1e0,
     )
+    numerical = pp.NumericalConstants(characteristic_displacement=15)
     params = {
         "times_to_export": [],  # Suppress output for tests
-        "material_constants": {"solid": solid},
+        "material_constants": {"solid": solid, "numerical": numerical},
         "fracture_indices": [1],
         "time_manager": pp.TimeManager([0.0, 1.0], 1.0, True),
+        "max_iterations": 30,
     }
 
     # Create model and run simulation. The north displacement is 1, -1, 1.
@@ -649,7 +652,7 @@ def test_time_dependent_bc():
         [0.86, 0, 0.86],
         [0, 0, 0],
         [np.nan, np.nan, np.nan],
-        [0.086, -2.54, 0.086],
+        [0.086, -1.269, 0.086],
         tols,
     )
     # Continue for one more time step. This time, the north displacement is 1, -1, 2.
@@ -658,12 +661,12 @@ def test_time_dependent_bc():
 
     # Fixed values from a previous run. Both normal value (u_y=0) and ratio of
     # tangential displacements (1/50, see BC class) are correct.
-    u_e = np.array([0.50754939, 0.0, 25.37756547])
-    u_p = [0.40916401, 0.0, 20.45818325]
+    u_e = np.array([0.84420422, 0.0, 12.66319939])
+    u_p = [0.01726451, 0.0, 0.25888975]
     traction = u_e * 1e-1
-    traction[1] = -2.54
+    traction[1] = -1.26913265
     # Same goes here. We expect -0.75, since the top coordinate is 0.75.
-    u_top = [0.97917835, -0.75, 48.95893718]
+    u_top = [0.96536718, -0.375, 14.48052228]
     pp.run_time_dependent_model(setup, params)
     verify_elastoplastic_deformation(
         setup,
