@@ -69,6 +69,11 @@ def num_phys_names(request: pytest.FixtureRequest) -> int:
 
 
 @pytest.fixture
+def file_name() -> str:
+    return filename
+
+
+@pytest.fixture
 def phys_names(num_phys_names: int) -> dict[int, str]:
     return {i: f"phys_name_{i}" for i in range(num_phys_names)}
 
@@ -133,18 +138,21 @@ def test_tag_grids(
             )
 
 
-@pytest.fixture
-def test_create_0d_grids() -> list[pp.PointGrid]:
-    pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
+def test_create_0d_grids(file_name: str) -> list[pp.PointGrid]:
+    pts, cells, cell_info, phys_names = _read_gmsh_file(file_name)
 
-    g_0d = create_0d_grids(pts, cells, phys_names, cell_info)
+    g_0d: list[pp.Grid] = create_0d_grids(pts, cells, phys_names, cell_info)
+    for g in g_0d:
+        test_tag_grids(g, phys_names, cell_info)
 
-    test_tag_grids(g_0d, phys_names, cell_info)
 
-
-@pytest.fixture
 def test_create_1d_grids() -> list[pp.Grid]:
     pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
 
-    g_1d = create_1d_grids(pts, cells, phys_names, cell_info)
-    test_tag_grids(g_1d, phys_names, cell_info)
+    if isinstance(create_1d_grids(pts, cells, phys_names, cell_info), tuple):
+        g_1d, _ = create_1d_grids(pts, cells, phys_names, cell_info)
+    else:
+        g_1d = create_1d_grids(pts, cells, phys_names, cell_info)
+
+    for g in g_1d:
+        test_tag_grids(g, phys_names, cell_info)
