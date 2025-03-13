@@ -747,9 +747,6 @@ class ContactIndicators(pp.PorePyModel):
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact mechanics numerical constant."""
 
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Displacement jump operator."""
-
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Fracture gap operator."""
 

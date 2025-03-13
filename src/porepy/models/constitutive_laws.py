@@ -275,12 +275,6 @@ class DimensionReduction(pp.PorePyModel):
 class DisplacementJumpAperture(DimensionReduction):
     """Fracture aperture from displacement jump."""
 
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.constitutive_laws.DisplacementJump`.
-
-    """
-
     def residual_aperture(self, subdomains: list[pp.Grid]) -> Scalar:
         """Residual aperture [m].
 
@@ -2498,10 +2492,6 @@ class FouriersLawAd(AdTpfaFlux):
 class AdvectiveFlux(pp.PorePyModel):
     """Mixin class for discretizing advective fluxes."""
 
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Darcy flux variables on subdomains. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
-    """
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
@@ -3401,13 +3391,6 @@ class ShearDilation(pp.PorePyModel):
     """Class for calculating fracture dilation due to tangential shearing.
 
     The main method of the class is :meth:`shear_dilation_gap`.
-
-    """
-
-    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """The plastic component of the displacement jump. Normally defined in a mixin
-    instance of
-    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
 
     """
 
