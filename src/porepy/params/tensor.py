@@ -135,6 +135,57 @@ class SecondOrderTensor(Tensor):
 
         self.values = perm
 
+    def is_diagonal(self, nd: int) -> bool:
+        """Checks if the tensor is diagonal.
+
+        Parameters:
+            nd: The dimension of the subdomain where the tensor is defined.
+
+        Returns:
+            True if the tensor is diagonal and False if it is not.
+
+        """
+        if nd == 1:
+            return True
+
+        values = self.values
+
+        # Extract off-diagonal terms.
+        kxy = np.array(values[1, 0, ::])
+        kxz = np.array(values[2, 0, ::]) if nd == 3 else np.array(0)
+        kyz = np.array(values[2, 1, ::]) if nd == 3 else np.array(0)
+
+        # Check if the off-diagonal terms are zero
+        return bool(np.all(kxy == 0) and np.all(kxz == 0) and np.all(kyz == 0))
+
+    def is_isotropic(self, nd: int) -> bool:
+        """Checks if the tensor represents an isotropic medium.
+
+        Parameters:
+            nd: The dimension of the subdomain where the tensor is defined.
+
+        Returns:
+            True if the tensor represents an isotropic medium, False if not.
+
+        """
+        values = self.values
+        kxx = np.array(values[0, 0, ::])
+
+        if nd == 1:
+            return bool(np.unique(kxx).size == 1)
+
+        # Extract relevant terms
+        kyy = np.array(values[1, 1, ::])
+        kzz = np.array(values[2, 2, ::]) if nd == 3 else np.array(0)
+
+        # Check if diagonal elements are equal
+        if not bool(np.all(kxx == kyy)):
+            return False
+        if nd == 3 and not bool(np.all(kxx == kzz)):
+            return False
+
+        return self.is_diagonal(nd)
+
     def copy(self) -> SecondOrderTensor:
         """Define a deep copy of the tensor.
 
