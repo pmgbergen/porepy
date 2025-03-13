@@ -6,7 +6,7 @@ import copy
 import inspect
 from collections import deque
 from enum import Enum
-from functools import reduce
+from functools import reduce, wraps
 from hashlib import sha256
 from itertools import count
 from typing import (
@@ -2273,7 +2273,8 @@ def cached_method(func: Callable) -> Callable:
 
     """
 
-    def wrapper(self, *args, **kwargs):
+    @wraps(func)
+    def wrapper(self, *args, **kwargs) -> Any:
         # We will build a key from the function name, the arguments, and the keyword
         # arguments. To that end, we need to convert all arguments to hashable types.
 

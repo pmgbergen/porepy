@@ -143,11 +143,7 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
     :class:`porepy.models.energy_balance.EnergyBalanceEquations`.
 
     """
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`porepy.models.constitutive_laws.DarcysLaw`.
 
-    """
     stress: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the (integrated) poroelastic stress in the form of an Ad
     operator. Usually provided by the mixin class

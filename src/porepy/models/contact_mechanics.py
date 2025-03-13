@@ -22,16 +22,7 @@ class ContactMechanicsEquations(pp.BalanceEquation):
 
     nd: int
     """Ambient dimension of the problem."""
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
-    """
-    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the plastic displacement jump on fracture grids. Normally defined
-    in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
-    """
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
