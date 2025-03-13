@@ -931,6 +931,89 @@ else:
 
             """
 
+    class CachedMethodProtocol(Protocol):
+        """This protocol provides the declarations of methods that have been decorated
+        with @pp.ad.cached_method, and that are not decleared in the other protocols.
+        """
+
+        # This is a workaround for a technical issue: While the decorated methods should
+        # keep their original signature, by use of functools.wraps, it was impossible to
+        # make mypy realize what is the signature of the decorated method. EK's
+        # suspicion is that this has to do with the combination of mixins and
+        # decorators, but this is just a hunch.
+
+        def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+            """Displacement jump on fracture-matrix interfaces.
+
+            Parameters:
+                subdomains: List of subdomains where the displacement jump is defined.
+                    Should be a fracture subdomain.
+
+            Returns:
+                Operator for the displacement jump.
+
+            Raises:
+                AssertionError: If the subdomains are not fractures, i.e. have dimension
+                    `nd - 1`.
+
+            """
+
+        def elastic_displacement_jump(
+            self, subdomains: list[pp.Grid]
+        ) -> pp.ad.Operator:
+            """The elastic component of the displacement jump [m].
+
+            The elastic displacement jump is composed of a tangential and normal component,
+            each implementing a relation between displacement jumps, contact tractions and
+            stiffness. The relation may or may not be linear.
+
+            Parameters:
+                subdomains: List of fracture subdomains.
+
+            Returns:
+                Operator representing the elastic displacement jump.
+
+            """
+            pass
+
+        def plastic_displacement_jump(
+            self, subdomains: list[pp.Grid]
+        ) -> pp.ad.Operator:
+            """The plastic component of the displacement jump.
+
+            The plastic displacement jump is the difference between the total displacement
+            jump and the elastic displacement jump.
+
+            Parameters:
+                subdomains: List of fracture subdomains.
+
+            Returns:
+                Operator representing the plastic displacement jump.
+
+            """
+            pass
+
+        def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            """Discretization of Darcy's law.
+
+            Note:
+                The fluid mobility is not included in the Darcy flux. This is because we
+                discretize it with an upstream scheme. This means that the fluid mobility
+                may have to be included when using the flux in a transport equation.
+                The units of the Darcy flux are [m^2 Pa / s].
+
+            Parameters:
+                domains: List of domains where the Darcy flux is defined.
+
+            Raises:
+                ValueError if the domains are a mixture of grids and boundary grids.
+
+            Returns:
+                Face-wise Darcy flux in cubic meters per second.
+
+            """
+            pass
+
     class PorePyModel(
         BoundaryConditionProtocol,
         InitialConditionProtocol,
@@ -940,6 +1023,7 @@ else:
         ModelGeometryProtocol,
         DataSavingProtocol,
         SolutionStrategyProtocol,
+        CachedMethodProtocol,
         Protocol,
     ):
         """This protocol declares the core, physics-agnostic functionality of
