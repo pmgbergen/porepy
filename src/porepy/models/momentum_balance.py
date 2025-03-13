@@ -428,6 +428,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
 class ConstitutiveLawsMomentumBalance(
     constitutive_laws.ZeroGravityForce,
     constitutive_laws.ElasticModuli,
+    constitutive_laws.CharacteristicTractionFromDisplacement,
     constitutive_laws.ElasticTangentialFractureDeformation,
     constitutive_laws.LinearElasticMechanicalStress,
     constitutive_laws.ConstantSolidDensity,
@@ -623,8 +624,9 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     """
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic displacement of the problem. Normally defined in a mixin
-    instance of :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    """Characteristic displacement of the problem. Normally defined in a mixin instance of
+    either :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
+    or :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
 

@@ -2815,7 +2815,8 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Characteristic contact traction. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    either :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
+    or :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
 
@@ -3010,7 +3011,8 @@ class PressureStress(LinearElasticMechanicalStress):
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Characteristic contact traction. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    either :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
+    or :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
     darcy_keyword: str
@@ -3290,16 +3292,23 @@ class ElasticModuli(pp.PorePyModel):
         mu = self.solid.shear_modulus * np.ones(subdomain.num_cells)
         return pp.FourthOrderTensor(mu, lmbda)
 
+
+class CharacteristicTractionFromDisplacement(pp.PorePyModel):
+    """Mixin that fetches the characteristic displacement from the solid constants and
+    computes the characteristic contact traction as a function of the characteristic
+    displacement. If the inverse relationship is wanted, i.e., u_char=u_char(t_char),
+    use the mixin CharacteristicDisplacementFromTraction instead."""
+
+    youngs_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Young's modulus. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+
+    """
+
     def characteristic_contact_traction(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Characteristic traction [Pa].
-
-        The value is computed from the solid constants and the characteristic
-        displacement. Inversion of this relationship, i.e., u_char=u_char(t_char), can
-        be done in a mixin overriding the characteristic sizes. This may be beneficial
-        if the characteristic traction is easier to estimate than the characteristic
-        displacement, e.g. if the driving force is a Neumann condition.
 
         Parameters:
             subdomains: List of subdomains where the characteristic traction is defined.
@@ -3317,9 +3326,6 @@ class ElasticModuli(pp.PorePyModel):
     def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Characteristic displacement [m].
 
-        The value is fetched from the solid constants. See also the method
-        :meth:`characteristic_contact_traction` and its documentation.
-
         Parameters:
             subdomains: List of subdomains where the characteristic displacement is
                 defined.
@@ -3329,6 +3335,54 @@ class ElasticModuli(pp.PorePyModel):
 
         """
         u_char = Scalar(self.numerical.characteristic_displacement)
+        u_char.set_name("characteristic_displacement")
+        return u_char
+
+
+class CharacteristicDisplacementFromTraction(pp.PorePyModel):
+    """Mixin that fetches the characteristic traction from the solid constants and
+    computes the characteristic displacement as a function of the characteristic contact
+    traction. If the inverse relationship is wanted, i.e., t_char=t_char(u_char),
+    use the mixin CharacteristicTractionFromDisplacement instead."""
+
+    youngs_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Young's modulus. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+
+    """
+
+    def characteristic_contact_traction(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Characteristic traction [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic traction is defined.
+
+        Returns:
+            Scalar operator representing the characteristic traction.
+
+        """
+        t_char = Scalar(self.numerical.characteristic_contact_traction)
+        t_char.set_name("characteristic_contact_traction")
+        return t_char
+
+    def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Characteristic displacement [m].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic displacement is
+                defined.
+
+        Returns:
+            Scalar operator representing the characteristic displacement.
+
+        """
+        size = Scalar(np.max(self.domain.side_lengths()))
+        strain = self.characteristic_contact_traction(subdomains) / self.youngs_modulus(
+            subdomains
+        )
+        u_char = size * strain
         u_char.set_name("characteristic_displacement")
         return u_char
 
@@ -3467,7 +3521,8 @@ class BartonBandis(pp.PorePyModel):
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Characteristic contact traction. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    either :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
+    or :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
 
