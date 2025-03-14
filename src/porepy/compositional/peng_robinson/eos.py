@@ -1172,7 +1172,7 @@ class PengRobinsonCompiler(EoSCompiler):
         """Child method compiles essential functions from symbolic part before calling
         the parent class compiler"""
 
-        logger.info("Compiling symbolic functions ..")
+        logger.info("Compiling Peng-Robinson EoS ..")
         start = time.time()
 
         B_c = nb.njit(
@@ -1234,7 +1234,7 @@ class PengRobinsonCompiler(EoSCompiler):
         super().compile()
 
         logger.info(
-            f"{self._nc}-component PR-EoS compiled"
+            f"{self._nc}-component Peng-Robinson EoS compiled"
             + " (elapsed time: %.5f (s))." % (time.time() - start)
         )
 
