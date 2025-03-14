@@ -110,16 +110,22 @@ Note:
 
 
 @_cfunc(numba.f8[:](numba.f8[:]), cache=True)
-def _flash_residual_function(x: np.ndarray) -> np.ndarray:
-    """Internal dummy for a flash residual function ``(f8[:]) -> f8[:]``.
+def flash_residual_template_func(x: np.ndarray) -> np.ndarray:
+    """Template c-function for a flash residual function ``(f8[:]) -> f8[:]``.
 
     Used for automatic type-inferring.
+
+    Parameters:
+        x: Generic flash argument.
+
+    Returns:
+        The residual of an equilibrium system.
 
     """
     return x.copy()
 
 
-FLASH_RESIDUAL_FUNCTION_TYPE = _typeof(_flash_residual_function)
+FLASH_RESIDUAL_FUNCTION_TYPE = _typeof(flash_residual_template_func)
 """Numba type for a flash residual function, which takes a 1D array and returns a 1D
 array (both of ``float64`` values).
 
@@ -129,16 +135,25 @@ Used to type cached, numba-compiled solvers.
 
 
 @_cfunc(numba.f8[:, :](numba.f8[:]), cache=True)
-def _flash_jacobian_function(x: np.ndarray) -> np.ndarray:
-    """Internal dummy for a flash Jacobian function ``(f8[:]) -> f8[:,:]``.
+def flash_jacobian_template_func(x: np.ndarray) -> np.ndarray:
+    """Template c-function for a flash Jacobian function ``(f8[:]) -> f8[:,:]``.
 
     Used for automatic type-inferring.
+
+    See also:
+        :func:`flash_residual_template_func`
+
+    Parameters:
+        x: Generic flash argument.
+
+    Returns:
+        The Jacobian of an equilibrium system.
 
     """
     return np.diag(x)
 
 
-FLASH_JACOBIAN_FUNCTION_TYPE = _typeof(_flash_jacobian_function)
+FLASH_JACOBIAN_FUNCTION_TYPE = _typeof(flash_jacobian_template_func)
 """Numba type for a flash Jacobian function, which takes a 1D array and returns a 2D
 array (both of ``float64`` values).
 
@@ -171,13 +186,13 @@ See :data:`SOLVER_FUNCTION_TYPE` for more information on the signature.
     ),
     cache=True,
 )
-def _solver_function(
+def solver_template_func(
     x: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
     DF: Callable[[np.ndarray], np.ndarray],
     solver_params: dict[str, float],
 ) -> tuple[np.ndarray, int, int]:
-    """Internal dummy for solver functions.
+    """Template c-function for solvers.
 
     Parameters:
         x: Initial guess for the flash system to be solved.
@@ -194,7 +209,7 @@ def _solver_function(
     return F(x) + DF(x) @ x, 1, 1
 
 
-SOLVER_FUNCTION_TYPE = _typeof(_solver_function)
+SOLVER_FUNCTION_TYPE = _typeof(solver_template_func)
 """Numba type for a flash solver, which takes
 
 1. an initial guess (1D array),

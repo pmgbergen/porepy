@@ -698,16 +698,16 @@ class EoSCompiler(EquationOfState):
 
         """
 
-        prearg_val = self.gufuncs["prearg_val"](phase_state.value, *thermodynamic_input)
-        prearg_jac = self.gufuncs["prearg_jac"](phase_state.value, *thermodynamic_input)
-
         x = thermodynamic_input[-1]
-        assert x.ndim == 2, (
-            "Last thermodynamic input expected to be a 2D array (fractions)"
+        assert x.ndim >= 2, (
+            "Last thermodynamic input expected to be at least a 2D array (fractions)"
         )
         x_norm = normalize_rows(x.T).T
 
         thermodynamic_input = tuple([_ for _ in thermodynamic_input[:-1]] + [x_norm])
+
+        prearg_val = self.gufuncs["prearg_val"](phase_state.value, *thermodynamic_input)
+        prearg_jac = self.gufuncs["prearg_jac"](phase_state.value, *thermodynamic_input)
 
         state = PhaseProperties(
             state=phase_state,
