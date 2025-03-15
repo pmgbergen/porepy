@@ -59,7 +59,7 @@ def normalize_rows(x: np.ndarray) -> np.ndarray:
 
     Each row vector is divided by the sum of row elements.
 
-    Inteded use is for families of fractional variables, which ought to be normalized
+    Intended use is for families of fractional variables, which ought to be normalized
     such that they fulfill the unity constraint.
 
     NJIT-ed function with signature ``(float64[:,:]) -> float64[:,:]``.

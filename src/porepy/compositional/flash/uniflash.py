@@ -267,7 +267,13 @@ class CompiledUnifiedFlash(Flash):
 
             @numba.njit(numba.f8[:](numba.f8[:]))
             def F_pT(X_gen: np.ndarray) -> np.ndarray:
-                _, x, y, z, p, T, *_ = parse_generic_arg(X_gen, npnc, "p-T")
+                gen_arg = parse_generic_arg(X_gen, npnc, "p-T")
+
+                x = gen_arg[1]
+                y = gen_arg[2]
+                z = gen_arg[3]
+                p = gen_arg[4]
+                T = gen_arg[5]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
@@ -284,7 +290,12 @@ class CompiledUnifiedFlash(Flash):
 
             @numba.njit(numba.f8[:, :](numba.f8[:]))
             def DF_pT(X_gen: np.ndarray) -> np.ndarray:
-                _, x, y, _, p, T, *_ = parse_generic_arg(X_gen, npnc, "p-T")
+                gen_arg = parse_generic_arg(X_gen, npnc, "p-T")
+
+                x = gen_arg[1]
+                y = gen_arg[2]
+                p = gen_arg[4]
+                T = gen_arg[5]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
@@ -307,7 +318,7 @@ class CompiledUnifiedFlash(Flash):
                 jac_3 = complementary_conditions_jac(x, y)
 
                 # Stack Jacobians and return only derivatives w.r.t. y and x
-                return np.vstack((jac_1, jac_2, jac_3))[2 + nphase - 1 :]
+                return np.vstack((jac_1, jac_2, jac_3))[:, 2 + nphase - 1 :]
 
             self.residuals["p-T"] = F_pT
             self.jacobians["p-T"] = DF_pT
@@ -317,9 +328,14 @@ class CompiledUnifiedFlash(Flash):
 
             @numba.njit(numba.f8[:](numba.f8[:]))
             def F_ph(X_gen: np.ndarray) -> np.ndarray:
-                _, x, y, z, p, T, _, h_target, *_ = parse_generic_arg(
-                    X_gen, npnc, "p-h"
-                )
+                gen_arg = parse_generic_arg(X_gen, npnc, "p-h")
+
+                x = gen_arg[1]
+                y = gen_arg[2]
+                z = gen_arg[3]
+                p = gen_arg[4]
+                T = gen_arg[5]
+                h_target = gen_arg[7]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
@@ -342,9 +358,13 @@ class CompiledUnifiedFlash(Flash):
 
             @numba.njit(numba.f8[:, :](numba.f8[:]))
             def DF_ph(X_gen: np.ndarray) -> np.ndarray:
-                _, x, y, _, p, T, _, h_target, *_ = parse_generic_arg(
-                    X_gen, npnc, "p-h"
-                )
+                gen_arg = parse_generic_arg(X_gen, npnc, "p-h")
+
+                x = gen_arg[1]
+                y = gen_arg[2]
+                p = gen_arg[4]
+                T = gen_arg[5]
+                h_target = gen_arg[7]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
@@ -372,14 +392,20 @@ class CompiledUnifiedFlash(Flash):
                 jac_2 = isofugacity_constraints_jac(x, phis, dphis)
                 # Product rule for extra term 1/T**2.
                 jac_3 = first_order_constraint_jac(y, hs, dhs, 1) / T**2
-                jac_3[0, 1] -= 2.0 / T**3 * first_order_constraint_res(h_target, y, hs)
+                h_res = first_order_constraint_res(h_target, y, hs)[0]
+                jac_3[0, 1] -= 2.0 / T**3 * h_res
                 # Scaling of constraint with target value.
                 jac_3 /= h_target
                 jac_4 = complementary_conditions_jac(x, y)
 
                 # No derivatives w.r.t. pressure and saturations.
                 jac = np.vstack((jac_1, jac_2, jac_3, jac_4))
-                return np.hstack((jac[:, 1], jac[:, 2 + nphase - 1]))
+                # NOTE, this is cumbersome, but Numba does not allow stacking of
+                # single column (1D array) with other columns (2D array). So we slice
+                # out only the columns belonging to saturations, and stack. Final slice
+                # which removes column belonging to p is done after stack.
+                # return np.hstack((jac[:, 1], jac[:, 2 + nphase - 1:]))
+                return np.hstack((jac[:, :2], jac[:, 2 + nphase - 1 :]))[:, 1:]
 
             self.residuals["p-h"] = F_ph
             self.jacobians["p-h"] = DF_ph
@@ -456,7 +482,8 @@ class CompiledUnifiedFlash(Flash):
                 jac_2 = isofugacity_constraints_jac(x, phis, dphis)
                 # Product rule for extra term 1/T**2.
                 jac_3 = first_order_constraint_jac(y, hs, dhs, 1) / T**2
-                jac_3[0, 1] -= 2.0 / T**3 * first_order_constraint_res(h_target, y, hs)
+                h_res = first_order_constraint_res(h_target, y, hs)[0]
+                jac_3[0, 1] -= 2.0 / T**3 * h_res
                 jac_4 = first_order_constraint_jac(s, rhos, drhos, 0)
                 # Non-dimensional scaling of constraints.
                 jac_3 /= h_target
@@ -563,7 +590,7 @@ class CompiledUnifiedFlash(Flash):
         # Compute initial guess if not provided.
         if initial_state is None:
             start = time.time()
-            # NOTE Same ignore note as above.
+            # NOTE Same ignore note as above on flash_type
             X0 = self.initializer[flash_type](X0)  # type:ignore[index]
             logger.debug(
                 "Initial values computed (elapsed time: %.5f (s))."
@@ -578,7 +605,7 @@ class CompiledUnifiedFlash(Flash):
 
         start = time.time()
         results, success, num_iter = MULTI_SOLVERS[mode](
-            X0.T,
+            X0,
             self.residuals[flash_type],
             self.jacobians[flash_type],
             SOLVERS[solver],

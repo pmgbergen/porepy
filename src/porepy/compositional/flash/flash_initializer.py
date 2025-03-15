@@ -16,7 +16,7 @@ import porepy as pp
 
 from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, R_IDEAL_MOL
 from ..utils import _compute_saturations, compute_saturations, normalize_rows
-from .solvers._core import SOLVER_PARAMETERS_TYPE, _cfunc
+from .solvers._core import SOLVER_PARAMETERS_TYPE, _cfunc, _typeof
 from .uniflash_equations import (
     assemble_generic_arg,
     assemble_vectorized_generic_arg,
@@ -161,7 +161,7 @@ def update_state_template_func(
 
 @numba.njit(
     numba.f8[:](
-        numba.typeof(get_K_values_template_func),
+        _typeof(get_K_values_template_func),
         numba.f8[:],
         SOLVER_PARAMETERS_TYPE,
         numba.types.unicode_type,
@@ -312,7 +312,7 @@ def fractions_from_rr(
 
 @numba.njit(
     numba.f8[:, :](
-        numba.typeof(get_K_values_template_func),
+        _typeof(get_K_values_template_func),
         numba.f8[:, :],
         SOLVER_PARAMETERS_TYPE,
     ),
@@ -347,8 +347,8 @@ def rachford_rice_initializer(
 
 @numba.njit(
     numba.f8[:, :](
-        numba.typeof(get_K_values_template_func),
-        numba.typeof(update_state_template_func),
+        _typeof(get_K_values_template_func),
+        _typeof(update_state_template_func),
         numba.types.unicode_type,
         numba.f8[:, :],
         SOLVER_PARAMETERS_TYPE,
@@ -587,7 +587,7 @@ class FlashInitializer:
             K = np.empty((nphase - 1, ncomp), dtype=np.float64)
             xn = normalize_rows(x)
             pre_0 = prearg_val_c(phasestates[0], p, T, xn[0])
-            phi_0 = phi_c(pre_0, p, T, xn)
+            phi_0 = phi_c(pre_0, p, T, xn[0])
             for j in range(1, nphase):
                 pre_j = prearg_val_c(phasestates[j], p, T, xn[j])
                 phi_j = phi_c(pre_j, p, T, xn[j])
@@ -774,11 +774,13 @@ class FlashInitializer:
                     v_mix = 1.0 / (sat * rhos).sum()
                     h_mix = (y * hs).sum()
 
-                    res[0] = first_order_constraint_res(s2, y, hs)[0] / s2
-                    res[1] = volume_constraint_res(s1, sat, rhos)
+                    res[0] = first_order_constraint_res(s2, y, hs)[0] / s2  # / T**2
+                    res[1] = volume_constraint_res(s1, sat, rhos)[0]
                     res[2:] = phase_mass_constraints_res(sat, y, rhos)
 
-                    jac[0] = first_order_constraint_jac(y, hs, dhs, 1)[0, :M] / s2
+                    jac[0] = first_order_constraint_jac(y, hs, dhs, 1)[0, :M]
+                    # jac[0, 1] -= 2 / T * res[0]
+                    jac[0] /= s2
                     jac[1] = first_order_constraint_jac(sat, rhos, drhos, 0)[0, :M] * s1
                     jac[2:] = phase_mass_constraints_jac(sat, y, rhos, drhos)[:, :M]
 
