@@ -397,7 +397,7 @@ def nested_initializer(
             xf = fractions_from_rr(get_K_values, xf, params, flash_type, 0)
 
             # abort if residual already small enough
-            # if np.linalg.norm(F_ph(xf)) <= tol:
+            # if np.linalg.norm(F(xf)) <= tol:
             #     break
 
         X_gen[f] = xf
@@ -692,7 +692,7 @@ class FlashInitializer:
                 # Local system size.
                 M = 2 + nphase - 1
 
-                res = np.empty(M)
+                res = np.zeros(M)
                 jac = np.zeros((M, M))
 
                 # s1 and s2 are target volume and enthalpy respectively
@@ -737,9 +737,7 @@ class FlashInitializer:
                     # Make first fraction guess based on pseudo-critical values.
                     xf = assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "v-h")
                     xf = fractions_from_rr(get_K_values, xf, params, "v-h", 1)
-                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                        X_gen, npnc, "v-h"
-                    )
+                    s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(xf, npnc, "v-h")
 
                     # Correct pressure if no gas phase
                     if gas_phase_idx >= 0:
@@ -752,7 +750,7 @@ class FlashInitializer:
                         xf = assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, "v-h")
                         xf = fractions_from_rr(get_K_values, xf, params, "v-h", 0)
                         s, x, y, z, p, T, s1, s2, x_p = parse_generic_arg(
-                            X_gen, npnc, "v-h"
+                            xf, npnc, "v-h"
                         )
 
                 xn = normalize_rows(x)
