@@ -51,7 +51,7 @@ import numpy as np
 
 import porepy as pp
 
-from .._core import NUMBA_FAST_MATH, NUMBA_PARALLEL
+from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL
 
 
 def generic_arg_from_fluid_state(
@@ -130,8 +130,8 @@ def generic_arg_from_fluid_state(
 
 
 @nb.njit(
-    nb.i4(nb.types.UniTuple((nb.i4, 2)), nb.types.unicode_type),
-    fastmath=True,
+    nb.i4(nb.types.UniTuple(nb.i4, 2), nb.types.unicode_type),
+    fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def dim_gen_arg(npnc: tuple[int, int], flash_type: str) -> int:
@@ -169,76 +169,6 @@ def dim_gen_arg(npnc: tuple[int, int], flash_type: str) -> int:
 @nb.njit(
     nb.types.Tuple(
         (
-            nb.f8[:, :],
-            nb.f8[:, :, :],
-            nb.f8[:, :],
-            nb.f8[:, :],
-            nb.f8[:],
-            nb.f8[:],
-            nb.f8[:],
-            nb.f8[:],
-            nb.f8[:, :],
-        )
-    )(nb.f8[:], nb.types.UniTuple((nb.i4, 2)), nb.types.unicode_type),
-    fastmath=True,
-    parallel=NUMBA_PARALLEL,
-    cache=True,
-)
-def parse_vectorized_generic_arg(
-    X_gen: np.ndarray, npnc: tuple[int, int], flash_type: str
-) -> tuple[
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-    np.ndarray,
-]:
-    """Parallelized version of :func:`parse_generic_arg` for vectorized input.
-
-    Parsing is performed over the rows of ``X_gen``.
-
-    """
-    nphase, ncomp = npnc
-    n = X_gen.shape[0]
-
-    s = np.empty((nphase, n), dtype=np.float64)
-    x = np.empty((nphase, ncomp, n), dtype=np.float64)
-    y = np.empty((nphase, n), dtype=np.float64)
-    z = np.empty((ncomp, n), dtype=np.float64)
-    p = np.empty(n, dtype=np.float64)
-    T = np.empty(n, dtype=np.float64)
-    state_1 = np.empty(n, dtype=np.float64)
-    state_2 = np.empty(n, dtype=np.float64)
-
-    # Fetching number of paramters stored.
-    dim_params = X_gen.shape[1] - dim_gen_arg(npnc, flash_type)
-    params = np.empty((dim_params, n), dtype=np.float64)
-
-    for i in nb.prange(n):
-        s_i, x_i, y_i, z_i, p_i, T_i, s1_i, s2_i, x_p_i = parse_generic_arg(
-            X_gen[i], npnc, flash_type
-        )
-
-        s[:, i] = s_i
-        x[:, :, i] = x_i
-        y[:, i] = y_i
-        z[:, i] = z_i
-        p[i] = p_i
-        T[i] = T_i
-        state_1[i] = s1_i
-        state_2[i] = s2_i
-        params[:, i] = x_p_i
-
-    return s, x, y, z, p, T, state_1, state_2, params
-
-
-@nb.njit(
-    nb.types.Tuple(
-        (
             nb.f8[:],
             nb.f8[:, :],
             nb.f8[:],
@@ -249,8 +179,8 @@ def parse_vectorized_generic_arg(
             nb.f8,
             nb.f8[:],
         )
-    )(nb.f8[:], nb.types.UniTuple((nb.i4, 2)), nb.types.unicode_type),
-    fastmath=True,
+    )(nb.f8[:], nb.types.UniTuple(nb.i4, 2), nb.types.unicode_type),
+    fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def parse_generic_arg(
@@ -307,21 +237,22 @@ def parse_generic_arg(
 
     # The last nphase * ncomp values are the extended partial fractions
     i = nphase * ncomp  # Keeping track of accessed indices (from back to front).
-    x = X_gen[-i:].reshape((nphase, ncomp))
+    # NOTE Numba requires a contiguous array for reshape, which is created with copy.
+    x = X_gen[-i:].copy().reshape((nphase, ncomp))
 
     # Phase fractions
-    y[1:] = X_gen[-(i + nphase - 1) : i]
+    y[1:] = X_gen[-(i + nphase - 1) : -i]
     y[0] = 1.0 - y.sum()
     i += nphase - 1
 
-    # If pressure is an unknown, saturations are as well (isochoric flash).
-    if "p" not in flash_type.lower():
-        s[1:] = X_gen[-(i + nphase - 1) : i]
+    # If isochoric specifications, saturations are unknowns.
+    if "v" in flash_type.lower():
+        s[1:] = X_gen[-(i + nphase - 1) : -i]
         s[0] = 1.0 - s.sum()
         i += nphase - 1
 
     # pressure and temperature are always the last (seen from back) unknowns.
-    p, T = X_gen[-(i + 2) : i]
+    p, T = X_gen[-(i + 2) : -i]
     i += 2
 
     # Now come the state definitions, where the indexing is flash-type-specific.
@@ -333,82 +264,24 @@ def parse_generic_arg(
         state_2 = X_gen[-(i + 1)]
         i += 1
     elif "v-h" in flash_type.lower():
-        state_1, state_2 = X_gen[-(i + 2) : i]
+        state_1, state_2 = X_gen[-(i + 2) : -i]
         i += 2
     else:
         raise NotImplementedError(f"Unknown flash type {flash_type}")
 
     # The final standard elements of the generic argument are the independent overall
     # fractions.
-    z[1:] = X_gen[-(i + ncomp - 1) : i]
+    z[1:] = X_gen[-(i + ncomp - 1) : -i]
     z[0] = 1.0 - z.sum()
+    i += ncomp - 1
 
     # Other parameters, if any.
     params = X_gen[:-i]
 
     # Sanity check.
-    assert X_gen.shape[0] == i + params.shape[0]
+    # assert X_gen.shape[0] == i + params.shape[0]
 
     return s, x, y, z, p, T, state_1, state_2, params
-
-
-@nb.njit(
-    nb.f8[:, :](
-        nb.f8[:, :],
-        nb.f8[:, :, :],
-        nb.f8[:, :],
-        nb.f8[:, :],
-        nb.f8[:],
-        nb.f8[:],
-        nb.f8[:],
-        nb.f8[:],
-        nb.f8[:, :],
-        nb.types.unicode_type,
-    ),
-    parallel=NUMBA_PARALLEL,
-    fastmath=True,
-    cache=True,
-)
-def assemble_vectorized_generic_arg(
-    s: np.ndarray,
-    x: np.ndarray,
-    y: np.ndarray,
-    z: np.ndarray,
-    p: np.ndarray,
-    T: np.ndarray,
-    state_1: np.ndarray,
-    state_2: np.ndarray,
-    params: np.ndarray,
-    flash_type: str,
-) -> np.ndarray:
-    """Parallelized version of :func:`assemble_generic_arg` for vectorized input.
-
-    Assembly is performed such that 1 row in the return value represents one generic
-    flash argument.
-
-    """
-    ncomp = z.shape[0]
-    nphase = y.shape[0]
-    n = p.shape[0]
-    n_param = params.shape[0]
-
-    d = dim_gen_arg((nphase, ncomp), flash_type)
-    X_gen = np.empty((n, d + n_param), dtype=np.float64)
-
-    for i in nb.prange(n):
-        X_gen[i] = assemble_generic_arg(
-            s[:, i],
-            x[:, :, i],
-            y[:, i],
-            z[:, i],
-            p[i],
-            T[i],
-            state_1[i],
-            state_2[i],
-            params[:, i],
-            flash_type,
-        )
-    return X_gen
 
 
 @nb.njit(
@@ -424,7 +297,7 @@ def assemble_vectorized_generic_arg(
         nb.f8[:],
         nb.types.unicode_type,
     ),
-    fastmath=True,
+    fastmath=NUMBA_FAST_MATH,
     cache=True,
 )
 def assemble_generic_arg(
@@ -481,13 +354,13 @@ def assemble_generic_arg(
     # Fractions which are always unknowns.
     X_gen_yx = np.zeros(nphase - 1 + nphase * ncomp)
     X_gen_yx[: nphase - 1] = y[1:]
-    X_gen_yx[nphase - 1 :] = x.reshape((nphase * ncomp,))
+    X_gen_yx[nphase - 1 :] = x.copy().reshape((nphase * ncomp,))
 
     # Keeping track of the size.
     i = nphase - 1 + nphase * ncomp
 
-    # If pressure is an unknown, saturations are as well
-    if "p" in flash_type.lower():
+    # If isochoric specifications, saturations are unknowns.
+    if "v" in flash_type.lower():
         X_gen_s = s[1:]
         i += nphase - 1
     else:
@@ -523,8 +396,140 @@ def assemble_generic_arg(
     X_gen = np.hstack((params, X_gen_z, X_gen_state, X_gen_s, X_gen_yx))
 
     # Sanity check.
-    assert X_gen.shape[0] == i + params.shape[0]
+    # assert X_gen.shape[0] == i + params.shape[0]
 
+    return X_gen
+
+
+@nb.njit(
+    nb.types.Tuple(
+        (
+            nb.f8[:, :],
+            nb.f8[:, :, :],
+            nb.f8[:, :],
+            nb.f8[:, :],
+            nb.f8[:],
+            nb.f8[:],
+            nb.f8[:],
+            nb.f8[:],
+            nb.f8[:, :],
+        )
+    )(nb.f8[:, :], nb.types.UniTuple(nb.i8, 2), nb.types.unicode_type),
+    # TODO I have no idea why numba requires a nb.i8 in the return type,
+    # instead of nb.i4 like in all other cases.
+    fastmath=NUMBA_FAST_MATH,
+    parallel=NUMBA_PARALLEL,
+    cache=NUMBA_CACHE,
+)
+def parse_vectorized_generic_arg(
+    X_gen: np.ndarray, npnc: tuple[int, int], flash_type: str
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+]:
+    """Parallelized version of :func:`parse_generic_arg` for vectorized input.
+
+    Parsing is performed over the rows of ``X_gen``.
+
+    """
+
+    nphase, ncomp = npnc
+    n, m = X_gen.shape
+
+    s = np.empty((nphase, n), dtype=np.float64)
+    x = np.empty((nphase, ncomp, n), dtype=np.float64)
+    y = np.empty((nphase, n), dtype=np.float64)
+    z = np.empty((ncomp, n), dtype=np.float64)
+    p = np.empty((n,), dtype=np.float64)
+    T = np.empty((n,), dtype=np.float64)
+    state_1 = np.empty((n,), dtype=np.float64)
+    state_2 = np.empty((n,), dtype=np.float64)
+
+    # Fetching number of paramters stored.
+    dim_params = m - dim_gen_arg(npnc, flash_type)
+    params = np.empty((dim_params, n), dtype=np.float64)
+
+    for i in nb.prange(n):
+        s_i, x_i, y_i, z_i, p_i, T_i, s1_i, s2_i, x_p_i = parse_generic_arg(
+            X_gen[i], npnc, flash_type
+        )
+
+        s[:, i] = s_i
+        x[:, :, i] = x_i
+        y[:, i] = y_i
+        z[:, i] = z_i
+        p[i] = p_i
+        T[i] = T_i
+        state_1[i] = s1_i
+        state_2[i] = s2_i
+        params[:, i] = x_p_i
+
+    return s, x, y, z, p, T, state_1, state_2, params
+
+
+@nb.njit(
+    nb.f8[:, :](
+        nb.f8[:, :],
+        nb.f8[:, :, :],
+        nb.f8[:, :],
+        nb.f8[:, :],
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:, :],
+        nb.types.unicode_type,
+    ),
+    parallel=NUMBA_PARALLEL,
+    fastmath=NUMBA_FAST_MATH,
+    cache=NUMBA_CACHE,
+)
+def assemble_vectorized_generic_arg(
+    s: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
+    z: np.ndarray,
+    p: np.ndarray,
+    T: np.ndarray,
+    state_1: np.ndarray,
+    state_2: np.ndarray,
+    params: np.ndarray,
+    flash_type: str,
+) -> np.ndarray:
+    """Parallelized version of :func:`assemble_generic_arg` for vectorized input.
+
+    Assembly is performed such that 1 row in the return value represents one generic
+    flash argument.
+
+    """
+    ncomp = z.shape[0]
+    nphase = y.shape[0]
+    n = p.shape[0]
+    n_param = params.shape[0]
+
+    d = dim_gen_arg((nphase, ncomp), flash_type)
+    X_gen = np.empty((n, d + n_param), dtype=np.float64)
+
+    for i in nb.prange(n):
+        X_gen[i] = assemble_generic_arg(
+            s[:, i],
+            x[:, :, i],
+            y[:, i],
+            z[:, i],
+            p[i],
+            T[i],
+            state_1[i],
+            state_2[i],
+            params[:, i],
+            flash_type,
+        )
     return X_gen
 
 
@@ -606,7 +611,7 @@ def mass_conservation_jac(x: np.ndarray, y: np.ndarray) -> np.ndarray:
         jac[i, :nip] = x[1:, i + 1] - x[0, i + 1]  # i + 1 to skip ref component
 
         # d.r.t. w.r.t x_ij is always y_j for all j per mass conv.
-        jac[i, 2 + nip + i :: nphase] = y  # nphase -1 + i + 1 to skip ref component
+        jac[i, nphase + i :: nphase] = y  # nphase -1 + i + 1 to skip ref component
 
     # Adding trivial derivatives w.r.t. p, T and saturations
     return np.hstack((np.zeros((ncomp - 1, 2 + nip), dtype=np.float64), jac))

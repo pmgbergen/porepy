@@ -188,8 +188,9 @@ def _extend_and_regularize_res(
 
     """
 
-    # x, y, _ = parse_xyz(X[:-1], npnc)
-    _, x, y, *_ = parse_generic_arg(X[:-1], npnc, "p-T")
+    gen = parse_generic_arg(X[:-1], npnc, "p-T")
+    x = gen[1]
+    y = gen[2]
     nu = X[-1]
 
     nphase = x.shape[0]
@@ -241,8 +242,9 @@ def _extend_and_regularize_jac(
 
     """
 
-    # x, y, _ = parse_xyz(X[:-1], npnc)
-    _, x, y, *_ = parse_generic_arg(X[:-1], npnc, "p-T")
+    gen = parse_generic_arg(X[:-1], npnc, "p-T")
+    x = gen[1]
+    y = gen[2]
     nu = X[-1]
     nphase, ncomp = x.shape
 
@@ -331,7 +333,9 @@ def npipm(
     heavy_ball = int(params["heavy_ball_momentum"])
 
     # Computing initial value for slack variable.
-    _, x, y, *_ = parse_generic_arg(X0, npnc, "p-T")
+    gen = parse_generic_arg(X0, npnc, "p-T")
+    x = gen[1]
+    y = gen[2]
     nu = np.sum(y * (1 - np.sum(x, axis=1))) / npnc[0]
 
     # numba does not support stacking with inhomogenous sequence of array and float
