@@ -941,7 +941,7 @@ def phase_mass_constraints_res(
 @nb.njit(
     nb.f8[:, :](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8[:, :]),
     fastmath=NUMBA_FAST_MATH,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def phase_mass_constraints_jac(
     s: np.ndarray, y: np.ndarray, rhos: np.ndarray, drhos: np.ndarray

@@ -169,7 +169,7 @@ def _slack_equation_jac(
 @nb.njit(
     nb.f8[:](nb.f8[:], nb.f8[:], nb.types.UniTuple(nb.i4, 2), nb.f8, nb.f8, nb.f8),
     fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,  # NOTE The cache is dependent on another function
+    cache=NUMBA_CACHE,
 )
 def _extend_and_regularize_res(
     f_res: np.ndarray,
@@ -225,7 +225,7 @@ def _extend_and_regularize_res(
         nb.f8[:, :], nb.f8[:], nb.types.UniTuple(nb.i4, 2), nb.f8, nb.f8, nb.f8
     ),
     fastmath=NUMBA_FAST_MATH,
-    cache=NUMBA_CACHE,  # NOTE The cache is dependent on another function
+    cache=NUMBA_CACHE,
 )
 def _extend_and_regularize_jac(
     f_jac: np.ndarray,
@@ -297,7 +297,7 @@ def _extend_and_regularize_jac(
     return df_npipm
 
 
-@nb.njit(SOLVER_FUNCTION_SIGNATURE, cache=True)
+@nb.njit(SOLVER_FUNCTION_SIGNATURE, cache=NUMBA_CACHE)
 def npipm(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
