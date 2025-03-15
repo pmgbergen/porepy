@@ -1006,7 +1006,8 @@ def phase_mass_constraints_jac(
         d = outer * drhos[j1]
         # Contribution to p,T, and the partial fractions respectively.
         jac[j, :2] += d[:2]
-        jac[j, 2 + 2 * nip + j * ncomp : 2 + 2 * nip + j1 * ncomp] = d[2:]
+        # NOTE skip column block belonging to x_i0 (reference phase partial fractions).
+        jac[j, 2 + 2 * nip + j1 * ncomp : 2 + 2 * nip + (j1 + 1) * ncomp] = d[2:]
 
     # drho_dpT = (drhos[:, :2].T * s).T.sum(axis=0)
 
