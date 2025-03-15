@@ -252,12 +252,12 @@ class CompiledUnifiedFlash(Flash):
 
         prearg_val_c = self._eos.funcs["prearg_val"]
         prearg_jac_c = self._eos.funcs["prearg_jac"]
-        phi_c = self._eos.funcs["phi"]
-        d_phi_c = self._eos.funcs["dphi"]
+        phis_c = self._eos.funcs["phis"]
+        dphis_c = self._eos.funcs["dphis"]
         h_c = self._eos.funcs["h"]
-        d_h_c = self._eos.funcs["dh"]
+        dh_c = self._eos.funcs["dh"]
         rho_c = self._eos.funcs["rho"]
-        d_rho_c = self._eos.funcs["drho"]
+        drho_c = self._eos.funcs["drho"]
 
         logger.info(f"Compiling {args} flash systems ...")
         start = time.time()
@@ -280,7 +280,7 @@ class CompiledUnifiedFlash(Flash):
                 phis = np.empty(npnc, dtype=np.float64)
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
-                    phis[j] = phi_c(pre_res_j, p, T, xn[j])
+                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
 
                 res_1 = mass_conservation_res(x, y, z)
                 res_2 = isofugacity_constraints_res(x, phis)
@@ -304,8 +304,8 @@ class CompiledUnifiedFlash(Flash):
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
                     pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
-                    phis[j] = phi_c(pre_res_j, p, T, xn[j])
-                    d_phi_j = d_phi_c(pre_res_j, pre_jac_j, p, T, xn[j])
+                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
+                    d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     # NOTE phi depends on normalized fractions
                     # extending derivatives from normalized fractions to extended ones
                     for i in range(ncomp):
@@ -343,7 +343,7 @@ class CompiledUnifiedFlash(Flash):
                 h = np.empty(nphase, dtype=np.float64)
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
-                    phis[j] = phi_c(pre_res_j, p, T, xn[j])
+                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     h[j] = h_c(pre_res_j, p, T, xn[j])
 
                 res_1 = mass_conservation_res(x, y, z)
@@ -375,8 +375,8 @@ class CompiledUnifiedFlash(Flash):
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
                     pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
-                    phis[j] = phi_c(pre_res_j, p, T, xn[j])
-                    d_phi_j = d_phi_c(pre_res_j, pre_jac_j, p, T, xn[j])
+                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
+                    d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     # NOTE phi depends on normalized fractions
                     # extending derivatives from normalized fractions to extended ones
                     for i in range(ncomp):
@@ -385,7 +385,7 @@ class CompiledUnifiedFlash(Flash):
                         )
                     hs[j] = h_c(pre_res_j, p, T, xn[j])
                     dhs[j] = _chainrule_fractional_derivatives(
-                        d_h_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                        dh_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
                     )
 
                 jac_1 = mass_conservation_jac(x, y)
@@ -426,7 +426,7 @@ class CompiledUnifiedFlash(Flash):
                 rhos = np.empty(nphase, dtype=np.float64)
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
-                    phis[j] = phi_c(pre_res_j, p, T, xn[j])
+                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     hs[j] = h_c(pre_res_j, p, T, xn[j])
                     rhos[j] = rho_c(pre_res_j, p, T, xn[j])
 
@@ -461,8 +461,8 @@ class CompiledUnifiedFlash(Flash):
                 for j in range(nphase):
                     pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
                     pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
-                    phis[j] = phi_c(pre_res_j, p, T, xn[j])
-                    d_phi_j = d_phi_c(pre_res_j, pre_jac_j, p, T, xn[j])
+                    phis[j] = phis_c(pre_res_j, p, T, xn[j])
+                    d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     # NOTE phi depends on normalized fractions
                     # extending derivatives from normalized fractions to extended ones
                     for i in range(ncomp):
@@ -471,11 +471,11 @@ class CompiledUnifiedFlash(Flash):
                         )
                     hs[j] = h_c(pre_res_j, p, T, xn[j])
                     dhs[j] = _chainrule_fractional_derivatives(
-                        d_h_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                        dh_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
                     )
                     rhos[j] = rho_c(pre_res_j, p, T, xn[j])
                     drhos[j] = _chainrule_fractional_derivatives(
-                        d_rho_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
+                        drho_c(pre_res_j, pre_jac_j, p, T, xn[j]), x[j]
                     )
 
                 jac_1 = mass_conservation_jac(x, y)

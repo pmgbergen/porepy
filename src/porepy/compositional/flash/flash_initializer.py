@@ -14,9 +14,16 @@ import numpy as np
 
 import porepy as pp
 
-from .._core import NUMBA_CACHE, NUMBA_FAST_MATH, NUMBA_PARALLEL, R_IDEAL_MOL
+from .._core import (
+    NUMBA_CACHE,
+    NUMBA_FAST_MATH,
+    NUMBA_PARALLEL,
+    R_IDEAL_MOL,
+    cfunc,
+    typeof,
+)
 from ..utils import _compute_saturations, compute_saturations, normalize_rows
-from .solvers._core import SOLVER_PARAMETERS_TYPE, _cfunc, _typeof
+from .solvers._core import SOLVER_PARAMETERS_TYPE
 from .uniflash_equations import (
     assemble_generic_arg,
     assemble_vectorized_generic_arg,
@@ -88,7 +95,7 @@ def _rr_binary_vle_inversion(z: np.ndarray, K: np.ndarray) -> float:
 
 @numba.njit(
     numba.f8(numba.f8[:], numba.f8[:], numba.f8[:, :]),
-    cache=NUMBA_CACHE,  # NOTE cache is dependent on internal function
+    cache=NUMBA_CACHE,
 )
 def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
     r"""Calculates the potential according to [1] for the j-th Rachford-Rice equation.
@@ -125,7 +132,7 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
 # region General routines and helper methods
 
 
-@_cfunc(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :]), cache=True)
+@cfunc(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :]), cache=True)
 def get_K_values_template_func(p: float, T: float, x: np.ndarray) -> np.ndarray:
     """Template c-function for K-value computations.
 
@@ -141,7 +148,7 @@ def get_K_values_template_func(p: float, T: float, x: np.ndarray) -> np.ndarray:
     return x * p * T
 
 
-@_cfunc(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE), cache=True)
+@cfunc(numba.f8[:](numba.f8[:], SOLVER_PARAMETERS_TYPE), cache=True)
 def update_state_template_func(
     X_gen: np.ndarray, params: dict[str, float]
 ) -> np.ndarray:
@@ -161,13 +168,13 @@ def update_state_template_func(
 
 @numba.njit(
     numba.f8[:](
-        _typeof(get_K_values_template_func),
+        typeof(get_K_values_template_func),
         numba.f8[:],
         SOLVER_PARAMETERS_TYPE,
         numba.types.unicode_type,
         numba.i1,
     ),
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def fractions_from_rr(
     get_K_values: Callable[[float, float, np.ndarray], np.ndarray],
@@ -312,12 +319,12 @@ def fractions_from_rr(
 
 @numba.njit(
     numba.f8[:, :](
-        _typeof(get_K_values_template_func),
+        typeof(get_K_values_template_func),
         numba.f8[:, :],
         SOLVER_PARAMETERS_TYPE,
     ),
     parallel=NUMBA_PARALLEL,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def rachford_rice_initializer(
     get_K_values: Callable[[float, float, np.ndarray], np.ndarray],
@@ -347,14 +354,14 @@ def rachford_rice_initializer(
 
 @numba.njit(
     numba.f8[:, :](
-        _typeof(get_K_values_template_func),
-        _typeof(update_state_template_func),
+        typeof(get_K_values_template_func),
+        typeof(update_state_template_func),
         numba.types.unicode_type,
         numba.f8[:, :],
         SOLVER_PARAMETERS_TYPE,
     ),
     parallel=NUMBA_PARALLEL,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def nested_initializer(
     get_K_values: Callable[[float, float, np.ndarray], np.ndarray],
@@ -571,7 +578,7 @@ class FlashInitializer:
 
         prearg_val_c = self._eos.funcs["prearg_val"]
         prearg_jac_c = self._eos.funcs["prearg_jac"]
-        phi_c = self._eos.funcs["phi"]
+        phi_c = self._eos.funcs["phis"]
         h_c = self._eos.funcs["h"]
         d_h_c = self._eos.funcs["dh"]
         rho_c = self._eos.funcs["rho"]
@@ -839,7 +846,9 @@ class FlashInitializer:
                 rhos = np.empty(y.shape)
                 for j in range(nphase):
                     x_j = x[j, :, :]
-                    xn = normalize_rows(x_j.T).T
+                    # NOTE accessing the gufuncs directly require the fractions
+                    # column-wise.
+                    xn = normalize_rows(x_j.T)
                     pre = self._eos.gufuncs["prearg_val"](phasestates[j], p, T, xn)
                     rhos[j] = self._eos.gufuncs["rho"](pre, p, T, xn)
                 s = compute_saturations(y, rhos)

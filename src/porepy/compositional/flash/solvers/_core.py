@@ -14,8 +14,7 @@ Important:
 
 from __future__ import annotations
 
-import os
-from typing import Callable, Literal, TypeAlias
+from typing import Callable, Literal
 
 # NOTE import numba.typed like this to avoid importing the spurious py.typed file in the
 # typed sub-package, which confuses mypy.
@@ -23,43 +22,7 @@ import numba
 import numba.typed
 import numpy as np
 
-from ..._core import NUMBA_PARALLEL
-
-_IS_JIT_DISABLED: bool = False
-"""Environment flag checking whether numba JIT is enabled or not.
-
-Used for typing alternatives in case it is not, such that the code remains functional.
-
-"""
-
-if "NUMBA_DISABLE_JIT" in os.environ:
-    if os.environ["NUMBA_DISABLE_JIT"].lower() in ["1", "true"]:
-        _IS_JIT_DISABLED = True
-
-
-_typeof: Callable[..., TypeAlias]
-"""Type inference function depending on whether numba is enabled or not.
-
-If enabled, uses :obj:`numba.typeof`, otherwise the regular Python type.
-
-"""
-
-_cfunc: Callable[..., Callable[[Callable], Callable]]
-"""C-type compiler for Callables, depending on whether numba is enabler or not.
-
-If enabled, uses :obj:`numba.cfunc`, otherwise the identity.
-
-"""
-
-if _IS_JIT_DISABLED:
-    _typeof = lambda x: type(x)
-
-    def _cfunc(*args, **kwargs):
-        return lambda x: x
-else:
-    _typeof = numba.typeof
-    _cfunc = numba.cfunc
-
+from ..._core import NUMBA_PARALLEL, cfunc, typeof
 
 __all__ = [
     "GENERAL_SOLVER_PARAMS",
@@ -96,7 +59,7 @@ _solver_parameters: dict[str, float] = numba.typed.Dict.empty(
 # Due to unknown reasons, we have to set some key-value pair in some cases.
 _solver_parameters["a"] = 0.0
 
-SOLVER_PARAMETERS_TYPE = _typeof(_solver_parameters)
+SOLVER_PARAMETERS_TYPE = typeof(_solver_parameters)
 """Numba-type definition of the solver parameter dictionary.
 
 A solver parameter dictionary has strings as keys and ``float64`` as values.
@@ -109,7 +72,7 @@ Note:
 """
 
 
-@_cfunc(numba.f8[:](numba.f8[:]), cache=True)
+@cfunc(numba.f8[:](numba.f8[:]), cache=True)
 def flash_residual_template_func(x: np.ndarray) -> np.ndarray:
     """Template c-function for a flash residual function ``(f8[:]) -> f8[:]``.
 
@@ -125,7 +88,7 @@ def flash_residual_template_func(x: np.ndarray) -> np.ndarray:
     return x.copy()
 
 
-FLASH_RESIDUAL_FUNCTION_TYPE = _typeof(flash_residual_template_func)
+FLASH_RESIDUAL_FUNCTION_TYPE = typeof(flash_residual_template_func)
 """Numba type for a flash residual function, which takes a 1D array and returns a 1D
 array (both of ``float64`` values).
 
@@ -134,7 +97,7 @@ Used to type cached, numba-compiled solvers.
 """
 
 
-@_cfunc(numba.f8[:, :](numba.f8[:]), cache=True)
+@cfunc(numba.f8[:, :](numba.f8[:]), cache=True)
 def flash_jacobian_template_func(x: np.ndarray) -> np.ndarray:
     """Template c-function for a flash Jacobian function ``(f8[:]) -> f8[:,:]``.
 
@@ -153,7 +116,7 @@ def flash_jacobian_template_func(x: np.ndarray) -> np.ndarray:
     return np.diag(x)
 
 
-FLASH_JACOBIAN_FUNCTION_TYPE = _typeof(flash_jacobian_template_func)
+FLASH_JACOBIAN_FUNCTION_TYPE = typeof(flash_jacobian_template_func)
 """Numba type for a flash Jacobian function, which takes a 1D array and returns a 2D
 array (both of ``float64`` values).
 
@@ -177,7 +140,7 @@ See :data:`SOLVER_FUNCTION_TYPE` for more information on the signature.
 """
 
 
-@_cfunc(
+@cfunc(
     numba.types.Tuple((numba.f8[:], numba.i4, numba.i4))(
         numba.f8[:],
         FLASH_RESIDUAL_FUNCTION_TYPE,
@@ -209,7 +172,7 @@ def solver_template_func(
     return F(x) + DF(x) @ x, 1, 1
 
 
-SOLVER_FUNCTION_TYPE = _typeof(solver_template_func)
+SOLVER_FUNCTION_TYPE = typeof(solver_template_func)
 """Numba type for a flash solver, which takes
 
 1. an initial guess (1D array),

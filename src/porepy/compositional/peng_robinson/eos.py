@@ -695,7 +695,7 @@ def _liq_smoother(Z_L: float, Z_i: float, Z_G: float, s: float) -> float:
         nb.f8(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
         nb.f8[:](nb.f8[:], nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8),
     ],
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def _smooth_asymmetric_liq_extension(
     W_scl: float | np.ndarray,
@@ -742,7 +742,7 @@ def _smooth_asymmetric_liq_extension(
         nb.f8(nb.f8, nb.f8, nb.f8, nb.f8, nb.f8),
         nb.f8[:](nb.f8[:], nb.f8[:], nb.f8, nb.f8, nb.f8),
     ],
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def _smooth_asymmetric_gas_extension(
     W_scg: float | np.ndarray,
@@ -870,7 +870,7 @@ def _Z_from_AB(
 @nb.njit(
     nb.f8[:](nb.f8[:], nb.f8[:], nb.i1, nb.f8, nb.f8, nb.f8),
     parallel=NUMBA_PARALLEL,
-    cache=True,
+    cache=NUMBA_CACHE,
 )
 def compressibility_factor(
     A: np.ndarray,
