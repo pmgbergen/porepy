@@ -872,7 +872,10 @@ def first_order_constraint_jac(
     # Derivatives w.r.t weights. Keep in mind that w_0 = 1 - w_1 - w_2 ...
     jac[2 : 2 + nip] = phis[1:] - phis[0]
     # Derivatives w.r.t. partial fractions per phase.
-    jac[2 + nip :] = (dphis[:, 2:].T * w).T.reshape((nphase * ncomp,))
+    # NOTE ().T will introduce somewhere a Fortran-order which numba cannot process.
+    # This workaround using transpose().copy() will create a contiguous C-order array.
+    # See https://github.com/numba/numba/issues/5433
+    jac[2 + nip :] = np.transpose(dphis[:, 2:].T * w).copy().reshape((nphase * ncomp,))
 
     # Including zero columns for the other phase-related variables.
     u = np.zeros(nip, dtype=np.float64)

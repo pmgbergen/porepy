@@ -94,6 +94,9 @@ array (both of ``float64`` values).
 
 Used to type cached, numba-compiled solvers.
 
+See also:
+    :func:`flash_residual_template_func`
+
 """
 
 
@@ -121,6 +124,9 @@ FLASH_JACOBIAN_FUNCTION_TYPE = typeof(flash_jacobian_template_func)
 array (both of ``float64`` values).
 
 Used to type cached, numba-compiled solvers.
+
+See also:
+    :func:`flash_jacobian_template_func`
 
 """
 
@@ -194,6 +200,9 @@ The convergence codes must be as follows:
 - 3: failure in the evaluation of the residual
 - 4: failure in the evaluation of the Jacobian
 - 5: Any other failure
+
+See also:
+    :func:`solver_template_func`
 
 """
 
