@@ -720,8 +720,9 @@ def isofugacity_constraints_res(x: np.ndarray, phis: np.ndarray) -> np.ndarray:
             Fugacities per phase and component.
 
     Returns:
-        An array with ``shape=(num_phases - 1,)`` containing the residual of the
-        isofugacity constraints per independent phase.
+        An array with ``shape=((num_phases - 1) * num_components,)`` containing the
+        residual of the isofugacity constraints per independent phase and for each
+        component.
 
     """
     nphase, ncomp = x.shape
@@ -729,7 +730,7 @@ def isofugacity_constraints_res(x: np.ndarray, phis: np.ndarray) -> np.ndarray:
 
     for j in range(1, nphase):
         res[(j - 1) * ncomp : j * ncomp] = x[j] * phis[j] - x[0] * phis[0]
-        # isofug[(j - 1) * ncomp : j * ncomp] = x[j] * phis[j] / phis[0] - x[0]
+        # res[(j - 1) * ncomp : j * ncomp] = x[j] * phis[j] / phis[0] - x[0]
 
     return res
 
@@ -742,7 +743,25 @@ def isofugacity_constraints_res(x: np.ndarray, phis: np.ndarray) -> np.ndarray:
 def isofugacity_constraints_jac(
     x: np.ndarray, phis: np.ndarray, dphis: np.ndarray
 ) -> np.ndarray:
-    """"""
+    """Returns the Jacobian of the residual described in
+    :func:`isofugacity_constraints_res`.
+
+    Parameters:
+        x: ``shape=(num_phases, num_components)``
+
+            (Extended) partial fractions per phase.
+        phis: ``shape=(num_phases, num_components)``
+
+            Fugacity coefficients per phase and component.
+        dphis: ``shape=(num_phases, num_components, 2 + num_diffs)``
+
+            Derivatives of fugacity coefficients per phase and component.
+
+    Returns:
+        The Jacobian of shape ``((num_phases -1) * num_components, 2 + 2 *
+        (num_phases - 1) + num_phases * num_components)``.
+
+    """
     nphase, ncomp = x.shape
     nip = nphase - 1  # number of independent phases
     # Allocating for pTx derivatives

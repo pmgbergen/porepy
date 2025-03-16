@@ -306,8 +306,6 @@ class CompiledUnifiedFlash(Flash):
                     pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
-                    # NOTE phi depends on normalized fractions
-                    # extending derivatives from normalized fractions to extended ones
                     for i in range(ncomp):
                         dphis[j, i, :] = _chainrule_fractional_derivatives(
                             d_phi_j[i], x[j]
@@ -377,8 +375,6 @@ class CompiledUnifiedFlash(Flash):
                     pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
-                    # NOTE phi depends on normalized fractions
-                    # extending derivatives from normalized fractions to extended ones
                     for i in range(ncomp):
                         dphis[j, i, :] = _chainrule_fractional_derivatives(
                             d_phi_j[i], x[j]
@@ -463,8 +459,6 @@ class CompiledUnifiedFlash(Flash):
                     pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
-                    # NOTE phi depends on normalized fractions
-                    # extending derivatives from normalized fractions to extended ones
                     for i in range(ncomp):
                         dphis[j, i, :] = _chainrule_fractional_derivatives(
                             d_phi_j[i], x[j]
