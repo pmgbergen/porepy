@@ -156,7 +156,10 @@ class SecondOrderTensor(Tensor):
         kyz = np.array(values[2, 1, ::]) if nd == 3 else np.array(0)
 
         # Check if the off-diagonal terms are zero
-        return np.all(kxy == 0) and np.all(kxz == 0) and np.all(kyz == 0)
+        if np.all(kxy == 0) and np.all(kxz == 0) and np.all(kyz == 0):
+            return True
+        else:
+            return False
 
     def is_isotropic(self, nd: int) -> bool:
         """Checks if the tensor represents an isotropic medium.
