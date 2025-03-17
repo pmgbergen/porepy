@@ -898,28 +898,13 @@ def first_order_constraint_jac(
 
     # Including zero columns for the other phase-related variables.
     u = np.zeros(nip, dtype=np.float64)
-    if w_flag == 0:  # w represents saturations
-        jac = np.hstack((jac[: 2 + nip], u, jac[2 + nip :]))
-    elif w_flag == 1:  # w represents phase fractions
+    if w_flag > 0:  # w represents fractions
         jac = np.hstack((jac[:2], u, jac[2:]))
-    else:
-        raise ValueError(f"w_flag expected to be 0 or 1, got {w_flag}.")
+    else:  # w represents saturations
+        jac = np.hstack((jac[: 2 + nip], u, jac[2 + nip :]))
 
     # Reshaping because this is expected to be a row in a larger Jacobian.
     return jac.reshape((1, jac.shape[0]))
-
-
-@nb.njit(
-    nb.f8[:](nb.f8, nb.f8[:], nb.f8[:]),
-    fastmath=NUMBA_FAST_MATH,
-    cache=True,
-)
-def volume_constraint_res(
-    v_target: float, s: np.ndarray, rhos: np.ndarray
-) -> np.ndarray:
-    r"""Analogous to :func:`first_order_constraint_res`, but with a different scaling
-    based on the relation :math:`v\cdot\rho = 1`, to avoid some error."""
-    return np.ones((1,), dtype=np.float64) * (v_target * (s * rhos).sum() - 1.0)
 
 
 @nb.njit(
