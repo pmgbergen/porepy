@@ -4,8 +4,10 @@ import pytest
 import porepy as pp
 
 
-def construct_fourth_order_tensor(num_cells: np.array, return_tensor_and_matrix: bool):
-    """Construct a fourth order tensor with custom fields.
+def fourth_order_tensor_for_testing(
+    num_cells: np.array, return_tensor_and_matrix: bool
+):
+    """Construct a fourth order tensor with custom fields for testing.
 
     The tensor which is constructed here is for an anisotropic and homogeneous medium.
 
@@ -19,12 +21,11 @@ def construct_fourth_order_tensor(num_cells: np.array, return_tensor_and_matrix:
         representation of the tensor for one cell.
 
     """
-    # The different matrices are the basis for constructing a tensor for particular
-    # parameters, where the cell-wise parameter value for that particular basis is
-    # determined by the field, which is represented by a 1D array. The matrices defining
-    # the basis for different parameters as well as their corresponding fields are
-    # defined as tuples, which will later be fed into FourthOrderTensor when the tensor
-    # is to be constructed.
+    # The various matrices serve as the foundation for building a tensor for specific
+    # parameters. The cell-wise parameter value for each basis is determined by a 1D
+    # array, referred to as a "field". The matrices that form the basis for different
+    # parameters, along with their corresponding fields, are organized as tuples. These
+    # tuples are later provided to FourthOrderTensor when constructing the tensor.
     matrix_and_field_1 = (
         np.array(
             [
@@ -204,7 +205,7 @@ def test_restrict_to_cells(second_order):
 
         tensor = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy)
     else:
-        tensor = construct_fourth_order_tensor(
+        tensor = fourth_order_tensor_for_testing(
             num_cells=num_cells, return_tensor_and_matrix=False
         )
     # Define some cells which we want to restrict the tensor k to:
@@ -224,8 +225,17 @@ def test_restrict_to_cells(second_order):
 
 
 def test_custom_field_tensor_generation():
-    tensor, matrix = construct_fourth_order_tensor(
-        num_cells=16, return_tensor_and_matrix=True
+    """Test generation of tensors based on custom fields.
+
+    Utilizes the function fourth_order_tensor_for_testing() to generate a tensor with
+    custom fields. The tensor is assumed to be homogeneous, and the function returns
+    both the tensor and a hardcoded matrix representation of the tensor for one cell.
+    The matrix representation is used as a blueprint for checking if the tensor is
+    constructed correctly.
+
+    """
+    tensor, matrix = fourth_order_tensor_for_testing(
+        num_cells=5, return_tensor_and_matrix=True
     )
     num_cells = tensor.values.shape[2]
 
