@@ -399,7 +399,6 @@ class CompiledUnifiedFlash(Flash):
                 # single column (1D array) with other columns (2D array). So we slice
                 # out only the columns belonging to saturations, and stack. Final slice
                 # which removes column belonging to p is done after stack.
-                # return np.hstack((jac[:, 1], jac[:, 2 + nphase - 1:]))
                 return np.hstack((jac[:, :2], jac[:, 2 + nphase - 1 :]))[:, 1:]
 
             self.residuals["p-h"] = F_ph

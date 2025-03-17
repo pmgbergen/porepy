@@ -420,7 +420,7 @@ def one_root(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
 
     t = sp.Piecewise((t2, sp.Abs(t2) > sp.Abs(t1)), (t1, True))
 
-    u = _cbrt(t)  # TODO potential source of error
+    u = _cbrt(t)
 
     return u - r / (3 * u) - c2 / 3
 
