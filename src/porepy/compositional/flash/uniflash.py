@@ -53,7 +53,6 @@ from .uniflash_equations import (
     parse_vectorized_generic_arg,
     phase_mass_constraints_jac,
     phase_mass_constraints_res,
-    volume_constraint_res,
 )
 
 __all__ = ["CompiledUnifiedFlash"]
@@ -428,13 +427,13 @@ class CompiledUnifiedFlash(Flash):
 
                 res_1 = mass_conservation_res(x, y, z)
                 res_2 = isofugacity_constraints_res(x, phis)
-                # See comment in ph flash.
                 res_3 = first_order_constraint_res(h_target, y, hs) / T**2
-                res_4 = volume_constraint_res(v_target, s, rhos)
-                # res_4 = first_order_constraint_res(1. / v_target, s, rho) * v_target
                 # Non-dimensional scaling of first order constraints.
                 res_3 /= h_target
                 # res_4 *= v_target
+                # NOTE due to v * rho = 1, the scaling of the volume constraint is
+                # performed differently than for the enthalpy constraint.
+                res_4 = first_order_constraint_res(1.0, s, v_target * rhos)
                 res_5 = phase_mass_constraints_res(s, y, rhos)
                 res_6 = complementary_conditions_res(x, y)
 

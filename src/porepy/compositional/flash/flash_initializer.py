@@ -33,7 +33,6 @@ from .uniflash_equations import (
     parse_vectorized_generic_arg,
     phase_mass_constraints_jac,
     phase_mass_constraints_res,
-    volume_constraint_res,
 )
 
 logger = logging.getLogger(__name__)
@@ -780,7 +779,7 @@ class FlashInitializer:
                     h_mix = (y * hs).sum()
 
                     res[0] = first_order_constraint_res(s2, y, hs)[0] / s2  # / T**2
-                    res[1] = volume_constraint_res(s1, sat, rhos)[0]
+                    res[1] = first_order_constraint_res(1.0, sat, s1 * rhos)[0]
                     res[2:] = phase_mass_constraints_res(sat, y, rhos)
 
                     jac[0] = first_order_constraint_jac(y, hs, dhs, 1)[0, :M]
