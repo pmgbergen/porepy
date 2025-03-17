@@ -379,8 +379,14 @@ def npipm(
             if np.linalg.matrix_rank(df_i) == matrix_rank:
                 DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
             else:
-                DX[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i)[0]
-            # DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
+                # NOTE rcond is the limit to cutting of the smallest singular values.
+                # This has quite large effects on the robustness of the flash in the
+                # v-h case for example, which is not yet fully understood.
+                # NOTE also, the default value in numba is machine precision, while
+                # with no-jit (pure numpy) it is as below.
+                DX[-matrix_rank:] = np.linalg.lstsq(
+                    df_i, -f_i, rcond=np.finfo(np.float64).eps * df_i.shape[0]
+                )[0]
 
             if np.any(np.isnan(DX)) or np.any(np.isinf(DX)):
                 success = 2
@@ -424,7 +430,7 @@ def npipm(
                 else:
                     delta_heavy = 0.0  # type:ignore[assignment]
                 X = X + delta_heavy * DX_prev
-                DX_prev = DX
+                DX_prev = DX.copy()
 
             try:
                 f_i = _extend_and_regularize_res(F(X[:-1]), X, npnc, u1, u2, eta)
