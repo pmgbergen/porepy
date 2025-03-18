@@ -254,7 +254,7 @@ class FourthOrderTensor(Tensor):
         self,
         mu: np.ndarray,
         lmbda: np.ndarray,
-        other_fields: dict[str, tuple[np.ndarray, np.ndarray]] = {},
+        other_fields: dict[str, tuple[np.ndarray, np.ndarray]] | None = None,
     ):
         """Constructor for fourth order tensor on Lame-parameter form.
 
@@ -274,6 +274,9 @@ class FourthOrderTensor(Tensor):
             raise ValueError("Lmbda should be 1-D")
         if mu.size != lmbda.size:
             raise ValueError("Mu and lmbda should have the same length")
+
+        if other_fields is None:
+            other_fields = {}
 
         # Save lmbda and mu, can be useful to have in some cases
         self.lmbda = lmbda
