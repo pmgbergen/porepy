@@ -211,7 +211,7 @@ def test_restrict_to_cells(second_order):
     # Define some cells which we want to restrict the tensor k to:
     active_cells = np.array([2, 1, 14, 10, 15])
 
-    # First copy k, and then restrict the copied k to the cell we chose above.
+    # First copy k, and then restrict the copied k to the cells we chose above.
     tensor_copy = tensor.copy()
     tensor_copy.restrict_to_cells(active_cells)
 
