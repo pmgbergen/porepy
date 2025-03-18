@@ -215,7 +215,7 @@ def _extend_and_regularize_res(
     reg *= u1 / nphase**2
     # subtract complementarity conditions multiplied with regularization factor from
     # slack equation residual
-    f_npipm[-1] = f_npipm[-1] - reg * np.sum(f_npipm[-(nphase + 1) : -1])
+    f_npipm[-1] = f_npipm[-1] - reg * np.sum(f_res[-nphase:])
 
     return f_npipm
 
@@ -383,10 +383,11 @@ def npipm(
                 # This has quite large effects on the robustness of the flash in the
                 # v-h case for example, which is not yet fully understood.
                 # NOTE also, the default value in numba is machine precision, while
-                # with no-jit (pure numpy) it is as below.
-                DX[-matrix_rank:] = np.linalg.lstsq(
-                    df_i, -f_i, rcond=np.finfo(np.float64).eps * df_i.shape[0]
-                )[0]
+                # with no-jit (pure numpy) is shape[0] * eps.
+                # The latter is chosen and set to avoid differences between jit and
+                # no-jit computations.
+                rcond = df_i.shape[0] * np.finfo(np.float64).eps
+                DX[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i, rcond=rcond)[0]
 
             if np.any(np.isnan(DX)) or np.any(np.isinf(DX)):
                 success = 2

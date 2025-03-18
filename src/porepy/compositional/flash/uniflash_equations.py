@@ -101,7 +101,7 @@ def generic_arg_from_fluid_state(
         for j in range(num_phases):
             # Skip dependent phase fraction.
             if j > 0:
-                X_gen[idx_f + j] = target_state.y[j]
+                X_gen[idx_f + j - 1] = target_state.y[j]
             for i in range(num_components):
                 X_gen[-((num_phases - j) * num_components) + i] = target_state.phases[
                     j
