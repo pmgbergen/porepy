@@ -28,7 +28,13 @@ class Tensor:
     def restrict_to_cells(self, cells: np.ndarray) -> None:
         """Restrict constitutive parameters to cells.
 
-        Used in the case of problems being split into several sub-problems.
+        Simulation problems may be discretized either over the entire grid or over
+        sub-grids. The latter may be done e.g. for controlling maximum memory footprint,
+        meaning that the problem is divided into multiple sub-problems. In that case
+        we need to restrict the parameter tensors (pp.SecondOrderTensor and
+        pp.FourthOrderTensor) to the relevant sub-problem. This is done by passing the
+        indices of the cells within a sub-grid, such that the tensor can be restricted
+        to only those cells.
 
         Parameters:
             cells: Indices of the cells which the constitutive parameters should be
@@ -155,7 +161,7 @@ class SecondOrderTensor(Tensor):
         kxz = np.array(values[2, 0, ::]) if nd == 3 else np.array(0)
         kyz = np.array(values[2, 1, ::]) if nd == 3 else np.array(0)
 
-        # Check if the off-diagonal terms are zero
+        # Check if the off-diagonal terms are zero.
         if np.all(kxy == 0) and np.all(kxz == 0) and np.all(kyz == 0):
             return True
         else:
@@ -177,11 +183,11 @@ class SecondOrderTensor(Tensor):
         if nd == 1:
             return True
 
-        # Extract relevant terms
+        # Extract relevant terms.
         kyy = np.array(values[1, 1, ::])
         kzz = np.array(values[2, 2, ::]) if nd == 3 else np.array(0)
 
-        # Check if diagonal elements are equal
+        # Check if diagonal elements are equal.
         if not np.all(kxx == kyy):
             return False
         if nd == 3 and not np.all(kxx == kzz):
