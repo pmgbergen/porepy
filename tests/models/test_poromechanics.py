@@ -43,6 +43,8 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
             vals[1, top_cells] = self.solid.fracture_gap
             return vals.ravel("F")
         else:
+            # Call super to return expected trivial values, because this class is used
+            # in other test cases as well.
             return super().ic_values_displacement(sd)
 
     def ic_values_interface_displacement(self, intf: pp.MortarGrid) -> np.ndarray:
@@ -70,6 +72,8 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
             )
             return vals.ravel("F")
         else:
+            # Call super to return expected trivial values, because this class is used
+            # in other test cases as well.
             return super().ic_values_interface_displacement(intf)
 
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
