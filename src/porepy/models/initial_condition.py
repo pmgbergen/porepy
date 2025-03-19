@@ -101,7 +101,7 @@ class InitialConditionMixin(pp.PorePyModel):
         super-calls to model-specific initialization procedures.
 
         Important:
-            For orderering of initialization procedures to work as intended, this method
+            For ordering of initialization procedures to work as intended, this method
             **must not** be called anywhere, with two exceptions:
 
             1. It is only called directly in :meth:`initial_condition` in this base
