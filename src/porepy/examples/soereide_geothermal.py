@@ -98,7 +98,7 @@ class SolutionStrategy(pp.PorePyModel):
         if residual is None:
             return np.nan
         residual_norm = np.linalg.norm(residual)
-        return residual_norm
+        return float(residual_norm)
 
     def after_nonlinear_failure(self):
         self.exporter.write_pvd()
@@ -651,6 +651,7 @@ params = {
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
     "prepare_simulation": False,
+    "linear_solver": "scipy_sparse",
 }
 
 model = GeothermalFlow(params)
