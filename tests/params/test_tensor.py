@@ -1,22 +1,23 @@
+from typing import Tuple
 import numpy as np
 import pytest
 
 import porepy as pp
 
 
-def fourth_order_tensor_for_testing(num_cells: np.array):
+def fourth_order_tensor_for_testing(
+    num_cells: int,
+) -> Tuple[pp.FourthOrderTensor, np.ndarray]:
     """Construct a fourth order tensor with custom fields for testing.
 
     The tensor which is constructed here is for an anisotropic and homogeneous medium.
 
     Parameters:
-        return_tensor_and_matrix: Flag telling whether only the tensor should be
-            returned (False) or both the tensor and the matrix representation of the
-            tensor for one cell (True).
+        num_cells: The number of cells the tensor is constructed for.
 
     Returns:
-        The fourth order tensor with custom fields, or the tensor and the matrix
-        representation of the tensor for one cell.
+        The fourth order tensor with custom fields and the matrix representation of the
+        tensor for one cell.
 
     """
     # The various matrices serve as the foundation for building a tensor for specific
