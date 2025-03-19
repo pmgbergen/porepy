@@ -1012,10 +1012,6 @@ def _sort_sub_list(
 
     E.g., face-node maps in CSC format, which needs conversion to CSR.
 
-    Todo:
-        Check whether the **Returns** is properly documented. Currently, it should
-        only be consider a fair guess (at best).
-
     Parameters:
         indices: An array of indices in the CSC/CSR format of sparse matrices.
         indptr: CSC/CSR format index pointer array.
@@ -1033,11 +1029,22 @@ def _sort_sub_list(
 
     """
     ix = np.zeros(indices.size, dtype=int)
+    # NOTE: Comments below are given for a CSR matrix. If the matrix is CSC, the roles
+    # of rows and columns are reversed.
+    # Loop over all rows.
     for i in range(indptr.size - 1):
+        # Indices in the sparse storage associated with the current row.
         sub_ind = slice(indptr[i], indptr[i + 1])
+        # Find the sorting indices of the columns that are non-zero for this row. This
+        # will be a 0-offset array.
         loc_ix = np.argsort(indices[sub_ind])
+        # Update the global index array. Adding indptr[i] ensures that the indices have
+        # the right offset (i.e., they start at the right place in the global index
+        # array, and not on 0).
         ix[sub_ind] = loc_ix + indptr[i]
+    # Rearrange the indices to be sorted in each row.
     indices = indices[ix]
+    # Create a mapping from the sorted indices to the original indices.
     iv = np.zeros(indices.size, dtype=int)
     iv[ix] = np.arange(indices.size)
     return indices, iv

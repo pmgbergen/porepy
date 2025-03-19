@@ -430,7 +430,7 @@ class DisplacementJumpAperture(DimensionReduction):
                     parent_cells_to_intersection_cells
                 )
 
-                assert isinstance(weight_value, sps.spmatrix)  # for mypy
+                assert isinstance(weight_value, (sps.spmatrix, sps.sparray))  # for mypy
                 average_weights = np.ravel(weight_value.sum(axis=1))
                 nonzero = average_weights > 0
                 average_weights[nonzero] = 1 / average_weights[nonzero]
