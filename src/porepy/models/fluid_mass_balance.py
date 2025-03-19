@@ -573,9 +573,6 @@ class InitialConditionsSinglePhaseFlow(pp.InitialConditionMixin):
             - :meth:`ic_values_well_flux`
 
         """
-        # This super call will execute set_initial_values_primary_variables first and
-        # provide IC values for pressure, which can be accessed in ic_values_well_flux
-        # for example.
         # NOTE IMPORTANT: Super-call placed on top to ensure that variables considered
         # primary in the initialization (like pressure) are available before various
         # fluxes are initialized (see also set_initial_values_primary_variables, whose
