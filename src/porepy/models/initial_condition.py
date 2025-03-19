@@ -106,8 +106,11 @@ class InitialConditionMixin(pp.PorePyModel):
 
             1. It is only called directly in :meth:`initial_condition` in this base
                class.
-            2. Only in overrides of this method in the context of
-               ``super().set_initial_values_primary_variables()``
+            2. Only in overrides of this method in the context of a ``super``-call.
+               I.e. each initialization of primary variables in a single-physics model
+               should have a ``super().set_initial_values_primary_variables()``
+               somewhere in the body of the override to ensure that primary variables
+               of other physics models are also initialized.
 
             Calling this method anywhere else explicitely via
             ``self.set_initial_values_primary_variables()`` will invalidate the guarante
