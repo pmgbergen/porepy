@@ -4,9 +4,7 @@ import pytest
 import porepy as pp
 
 
-def fourth_order_tensor_for_testing(
-    num_cells: np.array, return_tensor_and_matrix: bool
-):
+def fourth_order_tensor_for_testing(num_cells: np.array):
     """Construct a fourth order tensor with custom fields for testing.
 
     The tensor which is constructed here is for an anisotropic and homogeneous medium.
@@ -124,18 +122,16 @@ def fourth_order_tensor_for_testing(
         lmbda=np.zeros(num_cells),
         other_fields=matrices_and_fields,
     )
-    if return_tensor_and_matrix:
-        # The 9x9 matrix representation of the tensor for one cell is the following:
-        c_one_cell = (
-            matrix_and_field_1[0]
-            + 2 * matrix_and_field_2[0]
-            + 3 * matrix_and_field_3[0]
-            + 4 * matrix_and_field_4[0]
-            + 5 * matrix_and_field_5[0]
-        )
-        return c, c_one_cell
-    else:
-        return c
+
+    # The 9x9 matrix representation of the tensor for one cell is the following:
+    c_one_cell = (
+        matrix_and_field_1[0]
+        + 2 * matrix_and_field_2[0]
+        + 3 * matrix_and_field_3[0]
+        + 4 * matrix_and_field_4[0]
+        + 5 * matrix_and_field_5[0]
+    )
+    return c, c_one_cell
 
 
 @pytest.mark.parametrize(
@@ -163,9 +159,11 @@ def test_is_diagonal_and_is_isotropic(
     Parameters:
         kxx: Array with cell-wise values of kxx permeability.
         kyy: Array of kyy.
-        kzz: Array of kzz.
         kxy: Array of kxy.
         kyz: Array of kyz.
+        expected_diagonal: True if the tensor is expected to be diagonal, False if not.
+        expected_isotropic: True if the tensor is expected to be isotropic, False if
+            not.
 
     """
     kwargs = {"kxx": kxx}
@@ -205,15 +203,13 @@ def test_restrict_to_cells(second_order):
 
         tensor = pp.SecondOrderTensor(kxx=kxx, kyy=kyy, kxy=kxy)
     else:
-        tensor = fourth_order_tensor_for_testing(
-            num_cells=num_cells, return_tensor_and_matrix=False
-        )
+        tensor, _ = fourth_order_tensor_for_testing(num_cells=num_cells)
+
     # Define some cells which we want to restrict the tensor k to:
     active_cells = np.array([2, 1, 14, 10, 15])
 
-    # First copy k, and then restrict the copied k to the cells we chose above.
-    tensor_copy = tensor.copy()
-    tensor_copy.restrict_to_cells(active_cells)
+    # Restrict the tensor k to the cells we chose above.
+    tensor_copy = tensor.restrict_to_cells(active_cells)
 
     # Looping through the permeability tensors to check that the restriction is done
     # correctly.
@@ -234,9 +230,7 @@ def test_custom_field_tensor_generation():
     constructed correctly.
 
     """
-    tensor, matrix = fourth_order_tensor_for_testing(
-        num_cells=5, return_tensor_and_matrix=True
-    )
+    tensor, matrix = fourth_order_tensor_for_testing(num_cells=5)
     num_cells = tensor.values.shape[2]
 
     for i in range(num_cells):
