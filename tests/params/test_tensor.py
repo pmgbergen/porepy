@@ -231,8 +231,11 @@ def test_custom_field_tensor_generation():
     constructed correctly.
 
     """
-    tensor, matrix = fourth_order_tensor_for_testing(num_cells=5)
-    num_cells = tensor.values.shape[2]
+    num_cells = 5
+    tensor, matrix = fourth_order_tensor_for_testing(num_cells=num_cells)
+
+    # Double checking that the tensor has the expected "length".
+    assert tensor.values.shape[2] == num_cells
 
     for i in range(num_cells):
         assert np.array_equal(tensor.values[:, :, i], matrix)
