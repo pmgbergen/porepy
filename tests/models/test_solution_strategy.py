@@ -248,10 +248,10 @@ class RandomPressureBCs(
 # No need to test momentum balance, as it contains no discretizations that need
 # rediscretization.
 model_classes: list[type[pp.PorePyModel]] = [
-    models._add_mixin(RandomPressureBCs, models.MassBalance),
-    models._add_mixin(RandomPressureBCs, models.MassAndEnergyBalance),
-    models._add_mixin(RandomPressureBCs, models.Poromechanics),
-    models._add_mixin(RandomPressureBCs, models.Thermoporomechanics),
+    models.add_mixin(RandomPressureBCs, models.MassBalance),
+    models.add_mixin(RandomPressureBCs, models.MassAndEnergyBalance),
+    models.add_mixin(RandomPressureBCs, models.Poromechanics),
+    models.add_mixin(RandomPressureBCs, models.Thermoporomechanics),
 ]
 
 
@@ -267,7 +267,7 @@ def test_targeted_rediscretization(model_class):
         "times_to_export": [],
     }
     # Finalize the model class by adding the rediscretization mixin.
-    rediscretization_model_class = models._add_mixin(RediscretizationTest, model_class)
+    rediscretization_model_class = models.add_mixin(RediscretizationTest, model_class)
     # A model object with full rediscretization.
     full_model: pp.PorePyModel = rediscretization_model_class(model_params)
     pp.run_time_dependent_model(full_model)

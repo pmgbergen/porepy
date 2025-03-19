@@ -21,27 +21,10 @@ from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
-from porepy.applications.test_utils.models import _add_mixin
+from porepy.applications.test_utils.models import create_local_model_class
 from porepy.examples.mandel_biot import MandelModel
 from porepy.examples.tracer_flow import TracerFlowModel
 from porepy.models.derived_models.biot import BiotPoromechanics
-
-
-def create_local_model_class(
-    model_class: type[pp.PorePyModel], mixin_models: list[type[pp.PorePyModel]]
-) -> type[pp.PorePyModel]:
-    """Helper method to add mixins to a model class for testing purpose.
-
-    Note that the order in ``mixin_models`` has an effect. First element will be mixed
-    in first, last element last.
-
-    """
-    local_model_class: type[pp.PorePyModel] = model_class
-
-    for mixin_model in mixin_models:
-        local_model_class = _add_mixin(mixin_model, local_model_class)
-
-    return local_model_class
 
 
 class ICAllVariablesTestMixin(pp.PorePyModel):

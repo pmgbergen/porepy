@@ -293,7 +293,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         (
             # Tets permeability for the matrix domain. Should give the matrix
             # permeability. 9 * (nc = 32) entries of isotropic permeability.
-            models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
+            models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
             5.0e-18 * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
             2,
@@ -303,7 +303,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             # the cubic law (i.e., aperture squared by 12, an aditional aperture scaling
             # to get the transmissivity is taken care of elsewhere). 9 * (nc = 6)
             # entries of isotropic permeability.
-            models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
+            models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
             0.01**2 / 12 * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
             1,
@@ -311,7 +311,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         (
             # Test the permeability for an intersection. The reasoning is the same as
             # for the 1-d domain. 9 entries of isotropic permeability.
-            models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
+            models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
             0.01**2 / 12 * np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
             0,
@@ -319,21 +319,21 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         # Tests for mass weighted permeability are analogous to CubicPermeability, only
         # with a different scalar.
         (
-            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            models.add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
             mass_weighted_perm
             * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
             2,
         ),
         (
-            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            models.add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
             mass_weighted_perm
             * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
             1,
         ),
         (
-            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            models.add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
             mass_weighted_perm * np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
             0,
