@@ -626,7 +626,7 @@ class ArraySlicer:
         # Slice matrix, vector, or AdArray by calling relevant helper methods.
         if isinstance(x, np.ndarray):
             sliced = self._slice_vector(x)
-        elif isinstance(x, sps.spmatrix):
+        elif isinstance(x, (sps.spmatrix, sps.sparray)):
             sliced = self._slice_matrix(x)
         elif isinstance(x, pp.ad.AdArray):
             val = self._slice_vector(x.val)

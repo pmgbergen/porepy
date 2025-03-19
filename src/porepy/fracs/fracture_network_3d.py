@@ -1523,8 +1523,6 @@ class FractureNetwork3d(object):
         domain: Optional[pp.Domain] = None,
         keep_box: bool = True,
         area_threshold: float = 1e-4,
-        clear_gmsh: bool = True,
-        finalize_gmsh: bool = True,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Set an external boundary for the contained plane fractures.
 
@@ -1538,9 +1536,6 @@ class FractureNetwork3d(object):
 
         Fractures that are completely outside the bounding box will be deleted from
         the fracture set.
-
-        Todo:
-            ``clear_gmsh`` and ``finalize_gmsh`` are currently not used.
 
         Parameters:
             domain: ``default=None``
