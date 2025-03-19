@@ -377,21 +377,29 @@ def test_initial_values_are_set(
             )
 
 
+tpm_ic_mixins_full_permutation = list(
+    permutations(
+        [
+            pp.energy_balance.InitialConditionsEnergy,
+            pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
+            pp.momentum_balance.InitialConditionsMomentumBalance,
+            pp.contact_mechanics.InitialConditionsContactTraction,
+        ]
+    )
+)
+
+
 @pytest.mark.parametrize(
     "ic_test_mixin", [ICAllVariablesTestMixin, ICPrimaryVariablesTestMixin]
 )
 @pytest.mark.parametrize(
     "permutations_ic_thermoporomechanics",
-    list(
-        permutations(
-            [
-                pp.energy_balance.InitialConditionsEnergy,
-                pp.fluid_mass_balance.InitialConditionsSinglePhaseFlow,
-                pp.momentum_balance.InitialConditionsMomentumBalance,
-                pp.contact_mechanics.InitialConditionsContactTraction,
-            ]
-        )
-    ),
+    # NOTE Test only a couple of permutations, the rest during the slow-test runs.
+    tpm_ic_mixins_full_permutation[:4]
+    + [
+        pytest.param(_, marks=pytest.mark.skipped)
+        for _ in tpm_ic_mixins_full_permutation[4:]
+    ],
 )
 def test_thermoporomechanics_initialization_is_mro_insensitive(
     permutations_ic_thermoporomechanics: tuple[type[pp.PorePyModel], ...],
