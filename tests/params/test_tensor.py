@@ -11,6 +11,8 @@ def fourth_order_tensor_for_testing(
     """Construct a fourth order tensor with custom fields for testing.
 
     The tensor which is constructed here is for an anisotropic and homogeneous medium.
+    Specifically, the medium is represented by five material parameters and represents a
+    transversely isotropic medium.
 
     Parameters:
         num_cells: The number of cells the tensor is constructed for.
@@ -24,7 +26,10 @@ def fourth_order_tensor_for_testing(
     # parameters. The cell-wise parameter value for each basis is determined by a 1D
     # array, referred to as a "field". The matrices that form the basis for different
     # parameters, along with their corresponding fields, are organized as tuples. These
-    # tuples are later provided to FourthOrderTensor when constructing the tensor.
+    # tuples are later provided to FourthOrderTensor when constructing the tensor. As
+    # the stiffness tensor for the transversely isotropic media we consider here is
+    # determined by five independent material parameters, we need five matrices and five
+    # fields:
     matrix_and_field_1 = (
         np.array(
             [
