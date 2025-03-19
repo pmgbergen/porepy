@@ -5,9 +5,10 @@ for representation of permeability and stiffness, respectively.
 
 from __future__ import annotations
 
-from typing import Optional, cast
+from typing import Optional, cast, Union
 
 import numpy as np
+import porepy as pp
 
 
 class Tensor:
@@ -25,7 +26,9 @@ class Tensor:
         """
         return []
 
-    def restrict_to_cells(self, cells: np.ndarray) -> None:
+    def restrict_to_cells(
+        self, cells: np.ndarray
+    ) -> Union[FourthOrderTensor, SecondOrderTensor]:
         """Restrict constitutive parameters to cells.
 
         Simulation problems may be discretized either over the entire grid or over
