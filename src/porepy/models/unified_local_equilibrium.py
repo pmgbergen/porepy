@@ -403,9 +403,9 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
 
         """
         if self._normalize_constraints:
-            equ = phase.fraction(subdomains) - phase.saturation(
+            equ = phase.fraction(subdomains) * self.fluid.density(
                 subdomains
-            ) * phase.density(subdomains) / self.fluid.density(subdomains)
+            ) / phase.density(subdomains) - phase.saturation(subdomains)
         else:
             equ = phase.fraction(subdomains) * self.fluid.density(
                 subdomains

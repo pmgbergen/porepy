@@ -879,9 +879,9 @@ class PrimaryEquationsCFF(
 
 
 class VariablesCF(
-    pp.mass_and_energy_balance.VariablesFluidMassAndEnergy,
-    pp.energy_balance.EnthalpyVariable,
     compositional.CompositionalVariables,
+    pp.energy_balance.EnthalpyVariable,
+    pp.mass_and_energy_balance.VariablesFluidMassAndEnergy,
 ):
     """Bundles standard variables for non-isothermal flow (pressure and temperature)
     with fractional variables and an independent enthalpy variable."""

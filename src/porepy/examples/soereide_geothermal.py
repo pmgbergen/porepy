@@ -25,7 +25,7 @@ import os
 import time
 import warnings
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 compile_time = 0.0
 logging.basicConfig(level=logging.INFO)
@@ -91,6 +91,14 @@ class SolutionStrategy(pp.PorePyModel):
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
+    def compute_residual_norm(
+        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
+    ) -> float:
+        if residual is None:
+            return np.nan
+        residual_norm = np.linalg.norm(residual)
+        return residual_norm
 
     def after_nonlinear_failure(self):
         self.exporter.write_pvd()
@@ -348,7 +356,7 @@ class Geometry(pp.PorePyModel):
                 "xmin": 0.0,
                 "xmax": self.units.convert_units(10.0, "m"),
                 "ymin": 0.0,
-                "ymax": self.units.convert_units(5.0, "m"),
+                "ymax": self.units.convert_units(2.0, "m"),
             }
         )
 
@@ -367,8 +375,8 @@ class InitialConditions(pp.PorePyModel):
     _p_IN: float
     _p_OUT: float
 
-    _p_INIT: float = 12e6
-    _T_INIT: float = 540.0
+    _p_INIT: float = 20e6
+    _T_INIT: float = 450.0
     _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
@@ -407,8 +415,8 @@ class BoundaryConditions(pp.PorePyModel):
     _T_INIT: float
     _z_INIT: dict[str, float]
 
-    _p_IN: float = 15e6
-    _p_OUT: float = InitialConditions._p_INIT
+    _p_IN: float = InitialConditions._p_INIT
+    _p_OUT: float = InitialConditions._p_INIT - 1e6
 
     _T_IN: float = InitialConditions._T_INIT
     _T_OUT: float = InitialConditions._T_INIT
@@ -429,8 +437,8 @@ class BoundaryConditions(pp.PorePyModel):
 
         inlet = np.zeros(sd.num_faces, dtype=bool)
         inlet[sides.west] = True
-        inlet &= sd.face_centers[1] > 1
-        inlet &= sd.face_centers[1] < 4
+        # inlet &= sd.face_centers[1] > 1
+        # inlet &= sd.face_centers[1] < 4
 
         return inlet
 
@@ -441,8 +449,8 @@ class BoundaryConditions(pp.PorePyModel):
 
         outlet = np.zeros(sd.num_faces, dtype=bool)
         outlet[sides.east] = True
-        outlet &= sd.face_centers[1] > 1
-        outlet &= sd.face_centers[1] < 4
+        # outlet &= sd.face_centers[1] > 1
+        # outlet &= sd.face_centers[1] < 4
 
         return outlet
 
@@ -477,11 +485,11 @@ class BoundaryConditions(pp.PorePyModel):
             return pp.BoundaryCondition(sd)
 
     def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        # return self.bc_type_darcy_flux(sd)
-        if sd.dim == 2:
-            return pp.BoundaryCondition(sd, self._inlet_faces(sd), "dir")
-        else:
-            return pp.BoundaryCondition(sd)
+        return self.bc_type_darcy_flux(sd)
+        # if sd.dim == 2:
+        #     return pp.BoundaryCondition(sd, self._inlet_faces(sd), "dir")
+        # else:
+        #     return pp.BoundaryCondition(sd)
 
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self.bc_type_enthalpy_flux(sd)
@@ -578,7 +586,7 @@ else:
 # Model parametrization
 t_scale = 1e-2
 
-max_iterations = 25
+max_iterations = 50
 newton_tol = 1e-5
 newton_tol_increment = 1e-1
 
@@ -597,12 +605,6 @@ flash_params = {
         "npipm_u2": 10,
         "npipm_eta": 0.5,
     },
-    "initial_guess_params": {
-        "N1": 3,
-        "N2": 1,
-        "N3": 5,
-        "tolerance": 1e-8,
-    },
 }
 
 time_manager = pp.TimeManager(
@@ -619,7 +621,7 @@ time_manager = pp.TimeManager(
 
 material_constants = {
     "solid": pp.SolidConstants(
-        permeability=1e-16,
+        permeability=1e-13,
         porosity=0.2,
         thermal_conductivity=1.6736,
         specific_heat_capacity=603.0,
@@ -639,7 +641,7 @@ params = {
     "rediscretize_fourier_flux": fractional_flow,
     "rediscretize_darcy_flux": fractional_flow,
     "material_constants": material_constants,
-    "grid_type": "simplex",
+    "grid_type": "cartesian",
     "meshing_arguments": {
         "cell_size": 1.0,
         "cell_size_fracture": 0.5,
@@ -649,7 +651,6 @@ params = {
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
     "prepare_simulation": False,
-    "progressbars": True,
 }
 
 model = GeothermalFlow(params)
