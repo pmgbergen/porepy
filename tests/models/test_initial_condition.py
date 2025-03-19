@@ -147,7 +147,7 @@ class ICPrimaryVariablesTestMixin(ICAllVariablesTestMixin):
 class ICSinglePhaseFlow(pp.PorePyModel):
     """Single phase flow class with non-trivial IC for every variable.
 
-    The only primary variable is pressure.
+    For the purpose of this test, the only variable defined as being primary is pressure.
 
     """
 
@@ -164,7 +164,7 @@ class ICSinglePhaseFlow(pp.PorePyModel):
 class ICEnergy(pp.PorePyModel):
     """Non-trivial IC for the energy-related variables.
 
-    The only primary variable is temperature.
+    For the ppuposes of this test, the only variable defined as being primary is temperature.
 
     """
 
