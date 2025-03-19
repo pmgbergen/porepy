@@ -341,13 +341,11 @@ class Biot(pp.Mpsa):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit = constit.copy()
-        active_constit.restrict_to_cells(active_cells)
+        active_constit = constit.restrict_to_cells(active_cells)
 
         active_alphas: dict[str, pp.SecondOrderTensor] = {}
         for key, val in alphas.items():
-            active_alphas[key] = alphas[key].copy()
-            active_alphas[key].restrict_to_cells(active_cells)
+            active_alphas[key] = alphas[key].restrict_to_cells(active_cells)
 
         # Extract the relevant part of the boundary condition
         active_bound: pp.BoundaryConditionVectorial = self._bc_for_subgrid(
@@ -430,15 +428,13 @@ class Biot(pp.Mpsa):
             faces_in_subgrid_accum.append(faces_in_subgrid)
 
             tic = time()
-            # Copy stiffness tensor, and restrict to local cells
-            loc_c = active_constit.copy()
-            loc_c.restrict_to_cells(l2g_cells)
+            # Restrict the stiffness tensor to local cells.
+            loc_c = active_constit.restrict_to_cells(l2g_cells)
 
-            # Copy Biot coefficient, and restrict to local cells
+            # Restrict the Biot coefficients to local cells
             loc_alphas = {}
             for key in active_alphas:
-                loc_alphas[key] = active_alphas[key].copy()
-                loc_alphas[key].restrict_to_cells(l2g_cells)
+                loc_alphas[key] = active_alphas[key].restrict_to_cells(l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces
             # that are on the global boundary.
