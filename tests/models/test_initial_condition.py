@@ -79,7 +79,7 @@ class ICAllVariablesTestMixin(pp.PorePyModel):
         self.create_variables()
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
-        self.initialize_time_and_iteration_indices()
+        self.initialize_previous_iterate_and_time_step_values()
 
 
 class ICPrimaryVariablesTestMixin(ICAllVariablesTestMixin):

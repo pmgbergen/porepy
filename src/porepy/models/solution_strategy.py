@@ -142,7 +142,7 @@ class SolutionStrategy(pp.PorePyModel):
         # opposed to e.g. pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
-        self.initialize_time_and_iteration_indices()
+        self.initialize_previous_iterate_and_time_step_values()
 
         # Initialize time dependent ad arrays, including those for boundary values.
         self.update_time_dependent_ad_arrays()
@@ -157,7 +157,7 @@ class SolutionStrategy(pp.PorePyModel):
         # Export initial condition
         self.save_data_time_step()
 
-    def initialize_time_and_iteration_indices(self) -> None:
+    def initialize_previous_iterate_and_time_step_values(self) -> None:
         """Method to be called after initial values are set at ``iterate_index=0`` in
         the mixins for initial conditions.
 
