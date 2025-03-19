@@ -208,8 +208,7 @@ class Mpsa(Discretization):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit = constit.copy()
-        active_constit.restrict_to_cells(active_cells)
+        active_constit = constit.restrict_to_cells(active_cells)
 
         # Extract the relevant part of the boundary condition
         active_bound: pp.BoundaryConditionVectorial = self._bc_for_subgrid(
@@ -270,9 +269,8 @@ class Mpsa(Discretization):
             # Start timer for subproblem
             tic = time()
 
-            # Copy stiffness tensor, and restrict to local cells.
-            loc_c = active_constit.copy()
-            loc_c.restrict_to_cells(l2g_cells)
+            # Restrict stiffness tensor to local cells.
+            loc_c = active_constit.restrict_to_cells(l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces that are
             # on the global boundary. Then transfer boundary condition on those faces.
