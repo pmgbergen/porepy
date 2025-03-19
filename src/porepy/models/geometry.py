@@ -351,7 +351,6 @@ class ModelGeometry(pp.PorePyModel):
             ValueError: If i is larger than dim - 1.
 
         """
-
         if dim is None:
             dim = self.nd
 

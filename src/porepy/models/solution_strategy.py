@@ -562,7 +562,7 @@ class SolutionStrategy(pp.PorePyModel):
         Parameters:
             residual: Residual of current iteration.
             reference_residual: Reference residual value (initial residual expected),
-                allowing for definiting relative criteria.
+                allowing for defining relative criteria.
 
         Returns:
             float: Residual norm; np.nan if the residual is None.
