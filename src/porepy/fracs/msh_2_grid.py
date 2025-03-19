@@ -1,8 +1,14 @@
 """Module with functionality for converting gmsh output file to PorePy's grid structure.
 
-Todo:
-    Elaborate more arguments ``cell_info`` and ``phys_names``
-    (admissible keywords etc.)
+General comment, or perhaps a disclaimer: Most of the functions herein take information
+from Gmsh, processed by meshio, and translate it to the format needed to create a grid
+in PorePy. Specifically, the fields 'cell_info' and 'phys_names' are used to identify
+geometric entities with grid entities (and possibly for other purposes). The specific
+requirements for these fields are poorly documented, and both Gmsh and meshio's
+processing of gmsh information is less than transparent. If you need to understand the
+inner workings of these functions, and the treatment of 'cell_info' and 'phys_names' in
+particular, you may need to go through the code in detail, or preferably, step through
+with a debugger.
 
 """
 

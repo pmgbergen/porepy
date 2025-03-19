@@ -463,7 +463,7 @@ class VariablesEnergyBalance(pp.VariableMixin):
         Wrapping in class methods and not calling equation_system directly allows for
         easier changes of primary variables. As long as all calls to enthalpy_flux()
         accept Operators as return values, we can in theory add it as a primary variable
-        and solved mixed form. Similarly for different formulations of enthalpy instead
+        and solve mixed form. Similarly for different formulations of enthalpy instead
         of temperature.
 
     """

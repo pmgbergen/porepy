@@ -1068,11 +1068,15 @@ def _get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
         return array
 
 
-def _get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.SparseArray:
+def _get_sparse_array(
+    wrapped: bool, use_csr_matrix: bool
+) -> sps.spmatrix | sps.sparray | pp.ad.SparseArray:
     """Helper to set a sparse array (scipy sparse array). Expected values in the test
     are hardcoded with respect to this value. The array is either returned as-is, or
     wrapped as an Ad SparseArray."""
-    mat = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).astype(float)
+    inner = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+    mat = sps.csr_matrix(inner) if use_csr_matrix else sps.csr_array(inner)
+    mat = mat.astype(float)
     if wrapped:
         return pp.ad.SparseArray(mat)
     else:
@@ -1172,7 +1176,7 @@ def _expected_value(
         except ValueError:
             assert op in ["@"]
             return False
-    elif isinstance(var_1, float) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, float) and isinstance(var_2, (sps.spmatrix, sps.sparray)):
         try:
             # This should fail for all operations expect from multiplication.
             val = eval(f"var_1 {op} var_2")
@@ -1188,13 +1192,15 @@ def _expected_value(
             return False
     elif isinstance(var_1, np.ndarray) and isinstance(var_2, np.ndarray):
         return eval(f"var_1 {op} var_2")
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, np.ndarray) and isinstance(
+        var_2, (sps.spmatrix, sps.sparray)
+    ):
         try:
             return eval(f"var_1 {op} var_2")
         except TypeError:
             assert op in ["/", "**"]
             return False
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, float):
+    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(var_2, float):
         if op == "**":
             # SciPy has implemented a limited version matrix powers to scalars, but not
             # with a satisfactory flexibility. If we try to evaluate the expression, it
@@ -1209,7 +1215,9 @@ def _expected_value(
             return val
         except (ValueError, NotImplementedError):
             return False
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, np.ndarray):
+    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
+        var_2, np.ndarray
+    ):
         if op == "**":
             # SciPy has implemented a limited version matrix powers to numpy arrays, but
             # not with a satisfactory flexibility. If we try to evaluate the expression,
@@ -1222,10 +1230,12 @@ def _expected_value(
             assert op in ["**"]
             return False
 
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
+        var_2, (sps.spmatrix, sps.sparray)
+    ):
         try:
             return eval(f"var_1 {op} var_2")
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, NotImplementedError):
             assert op in ["**"]
             return False
 
@@ -1434,13 +1444,23 @@ def _expected_value(
             )
             return pp.ad.AdArray(val, jac)
 
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, pp.ad.AdArray) and isinstance(
+        var_2, (sps.spmatrix, sps.sparray)
+    ):
         return False
     elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, pp.ad.AdArray):
         # This combination is only allowed for matrix-vector products (op = "@")
         if op == "@":
             val = var_1 * var_2.val
             jac = var_1 * var_2.jac
+            return pp.ad.AdArray(val, jac)
+        else:
+            return False
+    elif isinstance(var_1, sps.sparray) and isinstance(var_2, pp.ad.AdArray):
+        # This combination is only allowed for matrix-vector products (op = "@")
+        if op == "@":
+            val = var_1 @ var_2.val
+            jac = var_1 @ var_2.jac
             return pp.ad.AdArray(val, jac)
         else:
             return False
@@ -1525,10 +1545,16 @@ def _expected_value(
             return pp.ad.AdArray(val, jac)
         elif op == "@":
             return False
+    else:
+        raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
 
 
-@pytest.mark.parametrize("var_1", ["scalar", "dense", "sparse", "ad"])
-@pytest.mark.parametrize("var_2", ["scalar", "dense", "sparse", "ad"])
+@pytest.mark.parametrize(
+    "var_1", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
+)
+@pytest.mark.parametrize(
+    "var_2", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
+)
 @pytest.mark.parametrize("op", ["+", "-", "*", "/", "**", "@"])
 @pytest.mark.parametrize("wrapped", [True, False])
 def test_arithmetic_operations_on_ad_objects(
@@ -1572,8 +1598,10 @@ def test_arithmetic_operations_on_ad_objects(
             return _get_scalar(do_wrap)
         elif v == "dense":
             return _get_dense_array(do_wrap)
-        elif v == "sparse":
-            return _get_sparse_array(do_wrap)
+        elif v == "sparse_matrix":
+            return _get_sparse_array(do_wrap, use_csr_matrix=True)
+        elif v == "sparse_array":
+            return _get_sparse_array(do_wrap, use_csr_matrix=False)
         elif v == "ad":
             return _get_ad_array(do_wrap)
         else:
@@ -1624,7 +1652,7 @@ def test_arithmetic_operations_on_ad_objects(
             assert np.isclose(v1, v2)
         elif isinstance(v1, np.ndarray):
             assert np.allclose(v1, v2)
-        elif isinstance(v1, sps.spmatrix):
+        elif isinstance(v1, (sps.spmatrix, sps.sparray)):
             assert np.allclose(v1.toarray(), v2.toarray())
         elif isinstance(v1, pp.ad.AdArray):
             assert np.allclose(v1.val, v2.val)
