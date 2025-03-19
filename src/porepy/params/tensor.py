@@ -41,13 +41,17 @@ class Tensor:
                 restricted to.
 
         """
+        # Make a copy such that we do not adapt the original tensor.
+        tmp_tensor = self.copy()
+
         # Restrict all constitutive parameters.
-        for field in self.constitutive_parameters:
-            vals = cast(np.ndarray, getattr(self, field))
-            setattr(self, field, vals[cells])
+        for field in tmp_tensor.constitutive_parameters:
+            vals = cast(np.ndarray, getattr(tmp_tensor, field))
+            setattr(tmp_tensor, field, vals[cells])
 
         # Restrict the values representation of the tensor.
-        self.values = self.values[::, ::, cells]
+        tmp_tensor.values = tmp_tensor.values[::, ::, cells]
+        return tmp_tensor
 
 
 class SecondOrderTensor(Tensor):

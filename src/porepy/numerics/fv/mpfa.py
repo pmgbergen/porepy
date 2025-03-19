@@ -176,8 +176,7 @@ class Mpfa(pp.FVElliptic):
                 sd, active_cells
             )
             # Constitutive law and boundary condition for the active grid.
-            active_k = k.copy()
-            active_k.restrict_to_cells(active_cells)
+            active_k = k.restrict_to_cells(active_cells)
 
             # Extract the relevant part of the boundary condition.
             active_bound: pp.BoundaryCondition = self._bc_for_subgrid(
@@ -254,9 +253,8 @@ class Mpfa(pp.FVElliptic):
             # faces in the overlap.
             faces_in_subgrid_accum.append(faces_in_subgrid)
 
-            # Copy permeability tensor, and restrict to local cells
-            loc_k = active_k.copy()
-            loc_k.restrict_to_cells(l2g_cells)
+            # Restrict permeability tensor to local cells
+            loc_k = active_k.restrict_to_cells(l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces that are
             # on the global boundary. Then transfer boundary condition on those faces.
