@@ -1905,22 +1905,24 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
         Schur complement.
 
         """
-        t_0 = time.time()
 
         if self.params.get("reduce_linear_system", False):
+            t_0 = time.time()
             import scipy.sparse as sps
-            from pypardiso import spsolve  # type:ignore
+
+            # from pypardiso import spsolve  # type:ignore
 
             self.linear_system = self.equation_system.assemble_schur_complement_system(
                 self.primary_equations,
                 self.primary_variables,
-                inverter=lambda x: sps.csr_matrix(spsolve(x, np.eye(x.shape[0]))),
+                inverter=lambda x: sps.csr_matrix(
+                    sps.linalg.spsolve(x, np.eye(x.shape[0]))
+                ),
             )
+            logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
         else:
-            self.linear_system = self.equation_system.assemble()
-
-        t_1 = time.time()
-        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+            assert isinstance(self, pp.SolutionStrategy)
+            super().assemble_linear_system()  # type:ignore[safe-super]
 
     def solve_linear_system(self) -> np.ndarray:
         """After calling the parent method, the global solution is calculated by Schur
