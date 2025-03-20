@@ -458,7 +458,7 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, "dir")
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Pressure values for the Dirichlet boundary condition.
 
         These values are used for quantities relying on Dirichlet data for pressure on
@@ -469,18 +469,16 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             per boundary grid as a numpy array with numerical values.
 
         Parameters:
-            boundary_grid: Boundary grid to provide values for.
+            bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape(boundary_grid.num_cells,)`` containing the pressure
-            values on the provided boundary grid.
+            An array with ``shape(bg.num_cells,)`` containing the pressure values on the
+            provided boundary grid.
 
         """
-        return self.reference_variable_values.pressure * np.ones(
-            boundary_grid.num_cells
-        )
+        return self.reference_variable_values.pressure * np.ones(bg.num_cells)
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """**Volumetric** Darcy flux values for the Neumann boundary condition.
 
         These values are used on the boundaries where Neumann data for the
@@ -491,16 +489,16 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             per boundary grid as a numpy array with numerical values.
 
         Parameters:
-            boundary_grid: Boundary grid to provide values for.
+            bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(boundary_grid.num_cells,)`` containing the volumetric
-            Darcy flux values on the provided boundary grid.
+            An array with ``shape=(bg.num_cells,)`` containing the volumetric Darcy flux
+            values on the provided boundary grid.
 
         """
-        return np.zeros(boundary_grid.num_cells)
+        return np.zeros(bg.num_cells)
 
-    def bc_values_fluid_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_fluid_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         r"""**Mass** flux values on the Neumann boundary.
 
         These values are used on the boundaries where `self.bc_type_fluid_flux` is
@@ -515,14 +513,14 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
             per boundary grid as a numpy array with numerical values.
 
         Parameters:
-            boundary_grid: Boundary grid to provide values for.
+            bg: Boundary grid to provide values for.
 
         Returns:
-            An array with ``shape=(boundary_grid.num_cells,)`` containing the mass
-            fluid flux values on the provided boundary grid.
+            An array with ``shape=(bg.num_cells,)`` containing the mass fluid flux
+            values on the provided boundary grid.
 
         """
-        return np.zeros(boundary_grid.num_cells)
+        return np.zeros(bg.num_cells)
 
     def update_all_boundary_conditions(self) -> None:
         """Set values for the pressure and the darcy flux on boundaries."""
@@ -798,7 +796,7 @@ class VariablesSinglePhaseFlow(pp.VariableMixin):
 
 
 class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
-    """Setup and numerics-related methods for a single-phase flow problem.
+    """Solution strategy and numerics-related methods for a single-phase flow problem.
 
     At some point, this will be refined to be a more sophisticated (modularised)
     solution strategy class. More refactoring may be beneficial.

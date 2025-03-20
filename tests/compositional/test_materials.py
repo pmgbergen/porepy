@@ -8,16 +8,17 @@ Constitutive library tests.
         - Default values
         - Setting modified values TODO
 """
+
 from __future__ import annotations
+
+from dataclasses import FrozenInstanceError
 
 import numpy as np
 import pytest
 
 import porepy as pp
-
-from dataclasses import FrozenInstanceError
-
 from porepy.examples.flow_benchmark_2d_case_1 import FractureSolidConstants
+
 
 # TODO remove
 @pytest.fixture
@@ -51,11 +52,12 @@ def scaled_units() -> pp.Units:
     """Some scaled units used to test constatns."""
     return pp.Units(
         **{
-            'm': pp.KILO * pp.METER,
-            'kg': pp.KILO * pp.METER,
-            'K': pp.KILO * pp.KELVIN,
+            "m": pp.KILO * pp.METER,
+            "kg": pp.KILO * pp.METER,
+            "K": pp.KILO * pp.KELVIN,
         }
     )
+
 
 def test_default_units(base_units, derived_units):
     """Test that the default units are defined properly.
@@ -76,11 +78,9 @@ def test_default_units(base_units, derived_units):
             assert np.isclose(getattr(units, unit), 1)
 
     # Get list of all public attributes excluding methods
-    exclude = ['convert_units']
+    exclude = ["convert_units"]
     attributes = [
-        attr
-        for attr in dir(units)
-        if not (attr.startswith("_") or attr in exclude)
+        attr for attr in dir(units) if not (attr.startswith("_") or attr in exclude)
     ]
 
     # Check that all attributes are base or derived units.
@@ -195,14 +195,14 @@ def test_convert_units(modify_dict, base_units):
 
 
 @pytest.mark.parametrize(
-    'constants_type',
+    "constants_type",
     [
         pp.Constants,
         pp.FluidComponent,
         pp.SolidConstants,
         FractureSolidConstants,
         pp.ReferenceVariableValues,
-    ]
+    ],
 )
 def test_class_of_constants(constants_type: type[pp.Constants], scaled_units: pp.Units):
     """Tests the class Constants and its children.
@@ -259,7 +259,7 @@ def test_class_of_constants(constants_type: type[pp.Constants], scaled_units: pp
         )
         assert np.isclose(
             constants_default.constants_in_SI[name],
-            constants_scaled.constants_in_SI[name]
+            constants_scaled.constants_in_SI[name],
         )
 
         # check that the value is correctly converted by manually converting the units
@@ -268,5 +268,5 @@ def test_class_of_constants(constants_type: type[pp.Constants], scaled_units: pp
             eval(f"constants_scaled.{name}"),
             scaled_units.convert_units(
                 eval(f"constants.{name}"), constants.SI_units[name]
-            )
+            ),
         )

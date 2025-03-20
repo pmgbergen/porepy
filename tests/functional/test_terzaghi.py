@@ -14,7 +14,7 @@ We consider three functional tests:
       exact Terzaghi's solution.
 
     - The last test checks if we obtain the same results for an unscaled and a scaled
-      setup. The scaled setup employs units of length in millimeters and units of
+      model. The scaled model employs units of length in millimeters and units of
       mass in grams.
 
 """
@@ -22,13 +22,12 @@ We consider three functional tests:
 import numpy as np
 
 import porepy as pp
-
 from porepy.examples.terzaghi_biot import (
     PseudoOneDimensionalColumn,
     TerzaghiDataSaving,
-    TerzaghiPoromechanicsBoundaryConditions,
     TerzaghiInitialConditions,
-    TerzaghiSetup,
+    TerzaghiModel,
+    TerzaghiPoromechanicsBoundaryConditions,
     TerzaghiSolutionStrategy,
     TerzaghiUtils,
     terzaghi_fluid_constants,
@@ -36,7 +35,7 @@ from porepy.examples.terzaghi_biot import (
 )
 
 
-class TerzaghiSetupPoromechanics(
+class TerzaghiModelPoromechanics(
     PseudoOneDimensionalColumn,
     TerzaghiPoromechanicsBoundaryConditions,
     TerzaghiInitialConditions,
@@ -51,7 +50,7 @@ class TerzaghiSetupPoromechanics(
 def test_biot_equal_to_incompressible_poromechanics():
     """Checks equality between Biot and incompressible poromechanics results."""
 
-    # Run Terzaghi setup with full poromechanics model
+    # Run Terzaghi model with full poromechanics model
     model_params_poromech = {
         "material_constants": {
             "solid": pp.SolidConstants(**terzaghi_solid_constants),
@@ -60,12 +59,12 @@ def test_biot_equal_to_incompressible_poromechanics():
         "num_cells": 10,
         "times_to_export": [],  # Suppress output for tests
     }
-    setup_poromech = TerzaghiSetupPoromechanics(model_params_poromech)
-    pp.run_time_dependent_model(model=setup_poromech)
-    p_poromechanics = setup_poromech.results[0].approx_pressure
-    u_poromechanics = setup_poromech.results[0].approx_consolidation_degree
+    model_poromech = TerzaghiModelPoromechanics(model_params_poromech)
+    pp.run_time_dependent_model(model=model_poromech)
+    p_poromechanics = model_poromech.results[0].approx_pressure
+    u_poromechanics = model_poromech.results[0].approx_consolidation_degree
 
-    # Run Terzaghi setup with Biot model
+    # Run Terzaghi model with Biot model
     model_params_biot = {
         "material_constants": {
             "solid": pp.SolidConstants(**terzaghi_solid_constants),
@@ -74,10 +73,10 @@ def test_biot_equal_to_incompressible_poromechanics():
         "num_cells": 10,
         "times_to_export": [],  # Suppress output for tests
     }
-    setup_biot = TerzaghiSetup(model_params_biot)
-    pp.run_time_dependent_model(model=setup_biot)
-    p_biot = setup_biot.results[0].approx_pressure
-    u_biot = setup_biot.results[0].approx_consolidation_degree
+    model_biot = TerzaghiModel(model_params_biot)
+    pp.run_time_dependent_model(model=model_biot)
+    p_biot = model_biot.results[0].approx_pressure
+    u_biot = model_biot.results[0].approx_consolidation_degree
 
     np.testing.assert_almost_equal(p_poromechanics, p_biot)
     np.testing.assert_almost_equal(u_poromechanics, u_biot)
@@ -120,12 +119,12 @@ def test_pressure_and_consolidation_degree_errors():
         "num_cells": 10,
         "times_to_export": [],  # Suppress output for tests
     }
-    setup = TerzaghiSetup(model_params)
-    pp.run_time_dependent_model(setup)
+    model = TerzaghiModel(model_params)
+    pp.run_time_dependent_model(model)
 
     # Check pressure error
     desired_error_p = [0.09073522073879309, 0.0613512657231161]
-    actual_error_p = [result.error_pressure for result in setup.results]
+    actual_error_p = [result.error_pressure for result in model.results]
     np.testing.assert_allclose(actual_error_p, desired_error_p, rtol=1e-3, atol=1e-5)
 
     # Check consolidation degree error
@@ -134,7 +133,7 @@ def test_pressure_and_consolidation_degree_errors():
         0.028730080280409465,
     ]
     actual_error_consol = [
-        result.error_consolidation_degree for result in setup.results
+        result.error_consolidation_degree for result in model.results
     ]
     np.testing.assert_allclose(
         actual_error_consol, desired_error_consol, rtol=1e-3, atol=1e-5
@@ -153,7 +152,7 @@ def test_scaled_vs_unscaled_systems():
         "material_constants": material_constants_unscaled,
         "times_to_export": [],  # Suppress output for tests
     }
-    unscaled = TerzaghiSetup(params=model_params_unscaled)
+    unscaled = TerzaghiModel(params=model_params_unscaled)
     pp.run_time_dependent_model(model=unscaled)
 
     # The scaled problem
@@ -168,13 +167,13 @@ def test_scaled_vs_unscaled_systems():
         "units": units,
         "times_to_export": [],  # Suppress output for tests
     }
-    scaled = TerzaghiSetup(params=model_params_scaled)
-    pp.run_time_dependent_model(model=scaled)
+    scaled_model = TerzaghiModel(params=model_params_scaled)
+    pp.run_time_dependent_model(model=scaled_model)
 
     # Compare results
     np.testing.assert_almost_equal(
         unscaled.results[-1].error_pressure,
-        scaled.results[-1].error_pressure,
+        scaled_model.results[-1].error_pressure,
         decimal=5,
     )
     np.testing.assert_almost_equal(

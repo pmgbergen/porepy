@@ -119,20 +119,20 @@ class ConvergenceAnalysis:
 
         """
 
-        # Initialize setup and retrieve spatial and temporal data
-        setup: pp.PorePyModel = model_class(
+        # Initialize model and retrieve spatial and temporal data
+        model: pp.PorePyModel = model_class(
             deepcopy(model_params)
         )  # make a deep copy of dictionary
         # The typing of PorePyModel was added to support linters as much as possible.
         # But the protocols do not contain all methods provided by SolutionStrategy.
-        setup.prepare_simulation()  # type: ignore[attr-defined]
+        model.prepare_simulation()  # type: ignore[attr-defined]
 
-        # Store initial setup
-        self._init_setup = setup
-        """Initial setup containing the 'base-line' information."""
+        # Store initial model
+        self._init_model = model
+        """Initial model containing the 'base-line' information."""
 
         # We need to know whether the model is time-dependent or not
-        self._is_time_dependent: bool = setup._is_time_dependent()
+        self._is_time_dependent: bool = model._is_time_dependent()
         """Whether the model is time-dependent."""
 
         if not self._is_time_dependent and self.temporal_refinement_rate > 1:
@@ -178,20 +178,20 @@ class ConvergenceAnalysis:
         """
         convergence_results: list = []
         for level in range(self.levels):
-            setup = self.model_class(deepcopy(self.model_params[level]))
-            if not setup._is_time_dependent():
+            model = self.model_class(deepcopy(self.model_params[level]))
+            if not model._is_time_dependent():
                 # Run stationary model
-                pp.run_stationary_model(setup, deepcopy(self.model_params[level]))
+                pp.run_stationary_model(model, deepcopy(self.model_params[level]))
                 # Complement information in results
-                setattr(setup.results[-1], "cell_diameter", setup.mdg.diameter())
+                setattr(model.results[-1], "cell_diameter", model.mdg.diameter())
             else:
                 # Run time-dependent model
-                pp.run_time_dependent_model(setup)
+                pp.run_time_dependent_model(model)
                 # Complement information in results
-                setattr(setup.results[-1], "cell_diameter", setup.mdg.diameter())
-                setattr(setup.results[-1], "dt", setup.time_manager.dt)
+                setattr(model.results[-1], "cell_diameter", model.mdg.diameter())
+                setattr(model.results[-1], "dt", model.time_manager.dt)
 
-            convergence_results.append(setup.results[-1])
+            convergence_results.append(model.results[-1])
         return convergence_results
 
     def export_errors_to_txt(
@@ -377,7 +377,7 @@ class ConvergenceAnalysis:
 
         """
         # Retrieve initial meshing arguments
-        init_mesh_args = deepcopy(self._init_setup.meshing_arguments())
+        init_mesh_args = deepcopy(self._init_model.meshing_arguments())
 
         # Prepare factors for the spatial analysis
         factors = 1 / (self.spatial_refinement_rate ** np.arange(self.levels))
@@ -405,7 +405,7 @@ class ConvergenceAnalysis:
             return None
 
         # Retrieve initial time manager
-        init_time_manager: pp.TimeManager = self._init_setup.time_manager
+        init_time_manager: pp.TimeManager = self._init_model.time_manager
 
         # Sanity check
         if not init_time_manager.is_constant:

@@ -400,7 +400,7 @@ class FluidMobility(pp.PorePyModel):
         r"""Returns the :meth:`component_mass_mobility` divided by the
         :meth:`total_mass_mobility` for a component :math:`\eta`.
 
-        To be used in component mass balance equations in a fractional flow setup, where
+        To be used in component mass balance equations in a fractional flow model, where
         the total mobility is part of the non-linear diffusive tensor in the Darcy flux.
 
         .. math::
@@ -429,7 +429,7 @@ class FluidMobility(pp.PorePyModel):
         r"""Returns the product of the ``phase`` density and :meth:`phase_mobility`
         divided by the :meth:`total_mass_mobility`.
 
-        To be used in balance equations in a fractional flow setup, where the total
+        To be used in balance equations in a fractional flow model, where the total
         mobility is part of the non-linear diffusive tensor in the Darcy flux.
 
         I.e. for a phase :math:`\gamma`

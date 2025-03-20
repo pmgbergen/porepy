@@ -17,7 +17,7 @@ INTFVAR_NAME = "intfvar"
 
 
 @pytest.fixture
-def eqsys() -> pp.ad.EquationSystem:
+def equation_system() -> pp.ad.EquationSystem:
     """Fixture containing the equation system, variables and MDG for testing the
     secondary operator.
 
@@ -38,28 +38,30 @@ def eqsys() -> pp.ad.EquationSystem:
     mdg = pp.create_mdg("cartesian", mesh_args, network_2d)
     mdg.compute_geometry()
 
-    sds = mdg.subdomains()
-    intfs = mdg.interfaces()
+    subdomains = mdg.subdomains()
+    interfaces = mdg.interfaces()
 
-    eqsys_ = pp.ad.EquationSystem(mdg)
+    equation_system = pp.ad.EquationSystem(mdg)
 
-    eqsys_.create_variables(VAR1_NAME, {"cells": 1}, subdomains=sds)
-    eqsys_.create_variables(VAR2_NAME, {"cells": 1}, subdomains=sds)
-    eqsys_.create_variables(INTFVAR_NAME, {"cells": 1}, interfaces=intfs)
+    equation_system.create_variables(VAR1_NAME, {"cells": 1}, subdomains=subdomains)
+    equation_system.create_variables(VAR2_NAME, {"cells": 1}, subdomains=subdomains)
+    equation_system.create_variables(INTFVAR_NAME, {"cells": 1}, interfaces=interfaces)
 
     # set zero values at current iterate to kickstart AD
-    eqsys_.set_variable_values(np.zeros(eqsys_.num_dofs()), iterate_index=0)
-
-    # setting also variable values at prev time and iter for testing
-    eqsys_.set_variable_values(
-        np.zeros(eqsys_.num_dofs()), iterate_index=1, time_step_index=0
+    equation_system.set_variable_values(
+        np.zeros(equation_system.num_dofs()), iterate_index=0
     )
 
-    return eqsys_
+    # setting also variable values at prev time and iter for testing
+    equation_system.set_variable_values(
+        np.zeros(equation_system.num_dofs()), iterate_index=1, time_step_index=0
+    )
+
+    return equation_system
 
 
 @pytest.fixture
-def get_var(eqsys: pp.ad.EquationSystem):
+def get_var(equation_system: pp.ad.EquationSystem):
     """Returns callables which return callable representations of variables for a
     variable name."""
 
@@ -68,14 +70,14 @@ def get_var(eqsys: pp.ad.EquationSystem):
 
             def _var(subdomains):
                 if all(isinstance(d, pp.Grid) for d in subdomains):
-                    return eqsys.md_variable(name, subdomains)
+                    return equation_system.md_variable(name, subdomains)
                 elif all(isinstance(d, pp.BoundaryGrid) for d in subdomains):
                     return pp.ad.TimeDependentDenseArray(name, subdomains)
 
         elif name in [INTFVAR_NAME]:
 
             def _var(interfaces):
-                return eqsys.md_variable(name, interfaces)
+                return equation_system.md_variable(name, interfaces)
 
         else:
             raise NotImplementedError(f"get_var fixture not supporting var name {name}")
@@ -88,35 +90,35 @@ def get_var(eqsys: pp.ad.EquationSystem):
 @pytest.mark.parametrize("on_intf", [False, True])
 def test_secondary_operators(
     on_intf: bool,
-    eqsys: pp.ad.EquationSystem,
+    equation_system: pp.ad.EquationSystem,
     get_var: Callable[[str], Callable[[pp.GridLikeSequence], pp.ad.Operator]],
 ):
     """Test all aspects of the secondary operator at current time and iter."""
 
-    mdg = eqsys.mdg
-    sds = mdg.subdomains()
-    intfs = mdg.interfaces()
-    bgs = mdg.boundaries()
+    mdg = equation_system.mdg
+    subdomains = mdg.subdomains()
+    interfaces = mdg.interfaces()
+    boundary_grids = mdg.boundaries()
 
     if on_intf:
         nc = mdg.num_interface_cells()
-        domains = intfs
+        domains = interfaces
         vars = [get_var(INTFVAR_NAME)(domains)]
         diff_vals = [2 * np.ones(nc)]
         expr = pp.ad.SurrogateFactory(
             "interface_expression",
-            eqsys.mdg,
+            equation_system.mdg,
             [get_var(INTFVAR_NAME)],
         )
     else:
         nc = mdg.num_subdomain_cells()
-        domains = sds
+        domains = subdomains
         vars = [get_var(VAR1_NAME)(domains), get_var(VAR2_NAME)(domains)]
 
         diff_vals = [2 * np.ones(nc), 3 * np.ones(nc)]
         expr = pp.ad.SurrogateFactory(
             "subdomain_expression",
-            eqsys.mdg,
+            equation_system.mdg,
             [get_var(VAR1_NAME), get_var(VAR2_NAME)],
         )
 
@@ -131,7 +133,7 @@ def test_secondary_operators(
     assert isinstance(sop, pp.ad.SurrogateOperator)
     # Calling the secondary expression with no grids, gives a wrapped empty array
     assert isinstance(sop_empty, pp.ad.DenseArray)
-    assert eqsys.evaluate(sop_empty).shape == (0,)
+    assert equation_system.evaluate(sop_empty).shape == (0,)
 
     # secondary operator (SOP) starts at current iterate
     assert sop.time_step_index is None
@@ -147,22 +149,22 @@ def test_secondary_operators(
     assert all(v.time_step_index == 0 for v in sop_pt.children)
 
     # At this point, no data has been set, check correct return format for no data case
-    for g in sds + intfs + bgs:
+    for g in subdomains + interfaces + boundary_grids:
         with pytest.raises(KeyError):
             expr.fetch_data(sop, g, get_derivatives=True)
         with pytest.raises(KeyError):
             expr.fetch_data(sop, g, get_derivatives=False)
 
     with pytest.raises(ValueError):
-        _ = sop.value_and_jacobian(eqsys)
+        _ = sop.value_and_jacobian(equation_system)
     with pytest.raises(ValueError):
-        _ = sop_pi.value_and_jacobian(eqsys)
+        _ = sop_pi.value_and_jacobian(equation_system)
     with pytest.raises(ValueError):
-        _ = sop_pt.value_and_jacobian(eqsys)
+        _ = sop_pt.value_and_jacobian(equation_system)
 
     ## Testing that setting arbitrary data not using the framework will raise errors
     # if data does not fit
-    data = mdg.boundary_grid_data(bgs[0])
+    data = mdg.boundary_grid_data(boundary_grids[0])
     if pp.ITERATE_SOLUTIONS not in data:
         data[pp.ITERATE_SOLUTIONS] = {}
     if expr.name not in data[pp.ITERATE_SOLUTIONS]:
@@ -209,22 +211,22 @@ def test_secondary_operators(
     # and shifting the values iteratively on domains
     if on_intf:
         assert np.all(np.zeros(nc) == expr.interface_values)
-        assert np.all(np.zeros(nc) == eqsys.evaluate(sop))
+        assert np.all(np.zeros(nc) == equation_system.evaluate(sop))
         expr.interface_values = np.ones(nc)
     else:
         assert np.all(np.zeros(nc) == expr.subdomain_values)
-        assert np.all(np.zeros(nc) == eqsys.evaluate(sop))
+        assert np.all(np.zeros(nc) == equation_system.evaluate(sop))
         expr.subdomain_values = np.ones(nc)
 
     # Check parsing of previous iter and current op
     # Note that prev iter operator has the same values, but no Jacobian (tested later)
-    assert np.all(eqsys.evaluate(sop) == np.ones(nc))
-    assert np.all(eqsys.evaluate(sop_pi) == np.ones(nc))
+    assert np.all(equation_system.evaluate(sop) == np.ones(nc))
+    assert np.all(equation_system.evaluate(sop_pi) == np.ones(nc))
     with pytest.raises(ValueError):
-        _ = eqsys.evaluate(sop.previous_iteration(steps=2))
+        _ = equation_system.evaluate(sop.previous_iteration(steps=2))
     # Still no data at previous time step
     with pytest.raises(ValueError):
-        _ = eqsys.evaluate(sop_pt)
+        _ = equation_system.evaluate(sop_pt)
 
     # constructing diffs for current iter, with respective numbers of dependencies
     if on_intf:
@@ -233,8 +235,8 @@ def test_secondary_operators(
         expr.subdomain_derivatives = np.array(diff_vals)
 
     # everything is set, the derivative values must have a certain structure
-    var_vals = [var.value_and_jacobian(eqsys) for var in vars]
-    sop_val = sop.value_and_jacobian(eqsys)
+    var_vals = [var.value_and_jacobian(equation_system) for var in vars]
+    sop_val = sop.value_and_jacobian(equation_system)
 
     # Assert operator fetches the right values uppon evaluation
     if on_intf:
@@ -257,9 +259,9 @@ def test_secondary_operators(
     # they are correct, i.e. current iter is set as previous time
     expr.progress_values_in_time(domains)
     if on_intf:
-        assert np.all(eqsys.evaluate(sop_pt) == expr.interface_values)
+        assert np.all(equation_system.evaluate(sop_pt) == expr.interface_values)
     else:
-        assert np.all(eqsys.evaluate(sop_pt) == expr.subdomain_values)
+        assert np.all(equation_system.evaluate(sop_pt) == expr.subdomain_values)
     # No support for derivative values of operators at previous time and iterate
     for g in domains:
         with pytest.raises(ValueError):
@@ -272,14 +274,14 @@ def test_secondary_operators(
     # numpy arrays: The function of the SOP (AbstractFunction) should not call
     # get_jacobian of the SOP
 
-    sop_pt_val = sop_pt.value_and_jacobian(eqsys)
+    sop_pt_val = sop_pt.value_and_jacobian(equation_system)
     if on_intf:
         assert np.all(sop_pt_val.val == expr.interface_values)
     else:
         assert np.all(sop_pt_val.val == expr.subdomain_values)
     assert np.all(sop_pt_val.jac.toarray() == 0.0)
 
-    sop_pi_val = sop_pi.value_and_jacobian(eqsys)
+    sop_pi_val = sop_pi.value_and_jacobian(equation_system)
     assert np.all(sop_pi_val.val == np.ones(nc))
     assert np.all(sop_pi_val.jac.toarray() == 0.0)
 
@@ -305,24 +307,24 @@ def test_secondary_operators(
 
 
 def test_secondary_operators_on_boundaries(
-    eqsys: pp.ad.EquationSystem,
+    equation_system: pp.ad.EquationSystem,
     get_var: Callable[[str], Callable[[pp.GridLikeSequence], pp.ad.Operator]],
 ):
     """Testing the functionality to create operators on the boundary and to set
     and progress values on time on the boundaries."""
 
-    mdg = eqsys.mdg
-    bgs = mdg.boundaries()
+    mdg = equation_system.mdg
+    boundary_grids = mdg.boundaries()
 
-    nc = sum([g.num_cells for g in bgs])
+    nc = sum([bg.num_cells for bg in boundary_grids])
 
     subdomain_expression = pp.ad.SurrogateFactory(
         "subdomain_expression",
-        eqsys.mdg,
+        equation_system.mdg,
         [get_var(VAR1_NAME), get_var(VAR2_NAME)],
     )
 
-    sop = subdomain_expression(bgs)
+    sop = subdomain_expression(boundary_grids)
 
     # we force this behavior to avoid someone implementing duplicate functionality in
     # future
@@ -337,26 +339,28 @@ def test_secondary_operators_on_boundaries(
     subdomain_expression.boundary_values = np.ones(nc)
 
     # Parsing the operator should give respective values now
-    assert np.all(eqsys.evaluate(sop) == np.ones(nc))
+    assert np.all(equation_system.evaluate(sop) == np.ones(nc))
 
     # testing the local setter
-    for g in bgs:
-        subdomain_expression.update_boundary_values(np.ones(g.num_cells) * 2, g)
+    for bg in boundary_grids:
+        subdomain_expression.update_boundary_values(np.ones(bg.num_cells) * 2, bg)
 
     # parsing the operator should give new values
-    assert np.all(eqsys.evaluate(sop) == 2 * np.ones(nc))
+    assert np.all(equation_system.evaluate(sop) == 2 * np.ones(nc))
 
     # parsing the operator at the previous time step should give the old values
-    assert np.all(eqsys.evaluate(sop.previous_timestep()) == np.ones(nc))
+    assert np.all(equation_system.evaluate(sop.previous_timestep()) == np.ones(nc))
 
     # Testing shift in time
     # testing the local setter
-    for g in bgs:
+    for bg in boundary_grids:
         subdomain_expression.update_boundary_values(
-            np.ones(g.num_cells) * 3, g, depth=2
+            np.ones(bg.num_cells) * 3, bg, depth=2
         )
 
-    assert np.all(eqsys.evaluate(sop) == 3 * np.ones(nc))
+    assert np.all(equation_system.evaluate(sop) == 3 * np.ones(nc))
     # parsing the operator at the previous time step should give the old values
-    assert np.all(eqsys.evaluate(sop.previous_timestep()) == 2 * np.ones(nc))
-    assert np.all(eqsys.evaluate(sop.previous_timestep(steps=2)) == np.ones(nc))
+    assert np.all(equation_system.evaluate(sop.previous_timestep()) == 2 * np.ones(nc))
+    assert np.all(
+        equation_system.evaluate(sop.previous_timestep(steps=2)) == np.ones(nc)
+    )

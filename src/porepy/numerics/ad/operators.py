@@ -8,7 +8,17 @@ from enum import Enum
 from functools import reduce
 from hashlib import sha256
 from itertools import count
-from typing import Any, Callable, Literal, Optional, Sequence, TypeVar, Union, overload
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 from warnings import warn
 
 import networkx as nx
@@ -31,7 +41,10 @@ __all__ = [
     "Scalar",
     "Variable",
     "MixedDimensionalVariable",
+    "Projection",
+    "ProjectionList",
     "sum_operator_list",
+    "sum_projection_list",
 ]
 
 
@@ -498,7 +511,7 @@ class Operator:
     ### Operator parsing ---------------------------------------------------------------
 
     def value(
-        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+        self, equation_system: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> pp.number | np.ndarray | sps.spmatrix:
         """Evaluate the residual for a given solution.
 
@@ -506,7 +519,7 @@ class Operator:
         EquationSystem.
 
         Parameters:
-            system_manager: Used to represent the problem. Will be used to parse the
+            equation_system: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
             state (optional): Solution vector for which the residual and its derivatives
                 should be formed. If not provided, the solution will be pulled from the
@@ -521,10 +534,10 @@ class Operator:
         msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
         warn(msg, DeprecationWarning)
 
-        return self._evaluate(system_manager, state=state, evaluate_jacobian=False)
+        return self._evaluate(equation_system, state=state, evaluate_jacobian=False)
 
     def value_and_jacobian(
-        self, system_manager: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
+        self, equation_system: pp.ad.EquationSystem, state: Optional[np.ndarray] = None
     ) -> AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
@@ -532,7 +545,7 @@ class Operator:
         EquationSystem.
 
         Parameters:
-            system_manager: Used to represent the problem. Will be used to parse the
+            equation_system: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
             state: Solution vector for which the residual and its derivatives should be
                 formed. If not provided, the solution will be pulled from the previous
@@ -547,7 +560,7 @@ class Operator:
         """
         msg = "This method is deprecated. Use the `evaluate` method of EquationSystem."
         warn(msg, DeprecationWarning)
-        ad = self._evaluate(system_manager, state=state, evaluate_jacobian=True)
+        ad = self._evaluate(equation_system, state=state, evaluate_jacobian=True)
 
         # Casting the result to AdArray or raising an error.
         # It's better to set pp.number here, but isinstance requires a tuple, not Union.
@@ -557,8 +570,10 @@ class Operator:
             ad = np.array([ad])
 
         if isinstance(ad, np.ndarray) and len(ad.shape) == 1:
-            return AdArray(ad, sps.csr_matrix((ad.shape[0], system_manager.num_dofs())))
-        elif isinstance(ad, (sps.spmatrix, np.ndarray)):
+            return AdArray(
+                ad, sps.csr_matrix((ad.shape[0], equation_system.num_dofs()))
+            )
+        elif isinstance(ad, (sps.spmatrix, sps.sparray, np.ndarray)):
             # this case coverse both, dense and sparse matrices returned from
             # discretizations f.e.
             raise NotImplementedError(
@@ -570,7 +585,7 @@ class Operator:
 
     def evaluate(
         self,
-        system_manager: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
     ):
         raise ValueError(
@@ -579,14 +594,14 @@ class Operator:
 
     def _evaluate(
         self,
-        system_manager: pp.ad.EquationSystem,
+        equation_system: pp.ad.EquationSystem,
         state: Optional[np.ndarray] = None,
         evaluate_jacobian: bool = True,
     ) -> pp.number | np.ndarray | sps.spmatrix | AdArray:
         """Evaluate the residual and Jacobian matrix for a given solution.
 
         Parameters:
-            system_manager: Used to represent the problem. Will be used to parse the
+            equation_system: Used to represent the problem. Will be used to parse the
                 sub-operators that combine to form this operator.
             state (optional): Solution vector for which the residual and its derivatives
                 should be formed. If not provided, the solution will be pulled from the
@@ -605,14 +620,14 @@ class Operator:
 
         # If state is not specified, use values at current time, current iterate
         if state is None:
-            state = system_manager.get_variable_values(iterate_index=0)
+            state = equation_system.get_variable_values(iterate_index=0)
 
         # Use methods in the EquationSystem to evaluate the operator. This inversion of
         # roles (self.value) reflects a gradual shift
         if evaluate_jacobian:
-            return system_manager.evaluate(self, derivative=True, state=state)
+            return equation_system.evaluate(self, derivative=True, state=state)
         else:
-            return system_manager.evaluate(self, derivative=False, state=state)
+            return equation_system.evaluate(self, derivative=False, state=state)
 
     ### Special methods ----------------------------------------------------------------
 
@@ -886,7 +901,7 @@ class Operator:
             return [self, Scalar(other)]
         elif isinstance(other, np.ndarray):
             return [self, DenseArray(other)]
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             return [self, SparseArray(other)]
         elif isinstance(other, AdArray):
             # This may happen when using nested pp.ad.Function.
@@ -1388,16 +1403,16 @@ class TimeDependentDenseArray(TimeDependentOperator):
         else:
             index_kwarg = {"iterate_index": 0}
 
-        for g in self._domains:
+        for grid in self._domains:
             if self._domain_type == "subdomains":
-                assert isinstance(g, pp.Grid)
-                data = mdg.subdomain_data(g)
+                assert isinstance(grid, pp.Grid)
+                data = mdg.subdomain_data(grid)
             elif self._domain_type == "interfaces":
-                assert isinstance(g, pp.MortarGrid)
-                data = mdg.interface_data(g)
+                assert isinstance(grid, pp.MortarGrid)
+                data = mdg.interface_data(grid)
             elif self._domain_type == "boundary grids":
-                assert isinstance(g, pp.BoundaryGrid)
-                data = mdg.boundary_grid_data(g)
+                assert isinstance(grid, pp.BoundaryGrid)
+                data = mdg.boundary_grid_data(grid)
             else:
                 raise ValueError(f"Unknown grid type: {self._domain_type}.")
 
@@ -1552,7 +1567,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
 
         self._id: int = next(Variable._ids)
         """See :meth:`id`."""
-        self._g: GridLike = domain
+        self._grid: GridLike = domain
         """See :meth:`domain`"""
 
         # Block a mypy warning here: Domain is known to be GridLike (grid, mortar grid,
@@ -1607,7 +1622,7 @@ class Variable(TimeDependentOperator, IterativeOperator):
 
 
         """
-        return self._g
+        return self._grid
 
     @property
     def tags(self) -> dict[str, Any]:
@@ -1642,10 +1657,10 @@ class Variable(TimeDependentOperator, IterativeOperator):
         index."""
 
         # By logic in the constructor, it can only be a subdomain or interface
-        if isinstance(self._g, pp.Grid):
-            data = mdg.subdomain_data(self._g)
-        elif isinstance(self._g, pp.MortarGrid):
-            data = mdg.interface_data(self._g)
+        if isinstance(self._grid, pp.Grid):
+            data = mdg.subdomain_data(self._grid)
+        elif isinstance(self._grid, pp.MortarGrid):
+            data = mdg.interface_data(self._grid)
 
         # We can safely use both indices as arguments, without checking prev time,
         # because iterate index is None if prev time, and vice versa
@@ -1889,6 +1904,152 @@ class MixedDimensionalVariable(Variable):
         return op
 
 
+class Projection(Operator):
+    """Wrapper class for Ad representations of projection operators."""
+
+    def __init__(
+        self,
+        domain_indices: np.ndarray,
+        range_indices: np.ndarray,
+        domain_size: int,
+        range_size: int,
+        name: Optional[str] = None,
+    ):
+        """Construct a projection operator.
+
+        Parameters:
+            domain_indices: Indices of the domain space.
+            range_indices: Indices of the range space.
+            domain_size: Size of the domain space.
+            range_size: Size of the range space.
+            name: Name of the operator. Default is None.
+
+        """
+        self._slicer: pp.matrix_operations.ArraySlicer = (
+            pp.matrix_operations.ArraySlicer(
+                domain_indices=domain_indices,
+                range_indices=range_indices,
+                range_size=range_size,
+                domain_size=domain_size,
+            )
+        )
+        super().__init__(name=name)
+
+    def transpose(self) -> Projection:
+        """Return the transpose of the operator."""
+
+        return Projection(
+            domain_indices=self._slicer.range_indices,
+            range_indices=self._slicer.domain_indices,
+            range_size=self._slicer.domain_size,
+            domain_size=self._slicer.range_size,
+            name=self.name + "transpose",
+        )
+
+    def __repr__(self) -> str:
+        s = "Projection operator"
+        if self._name is not None and len(self._name) > 0:
+            s += f" named {self._name}"
+        s += ".\n"
+        s += f"The projection maps from {self._slicer.domain_size} to "
+        s += f"{self._slicer.range_indices.size} dimensions.\n"
+        s += f"The projection maps {self._slicer.domain_indices.size} elements.\n"
+        if self._slicer._is_transposed:
+            s += "The operator is transposed."
+        return s
+
+    def _key(self) -> str:
+        if self._cached_key is None:
+            s = f"(prolongation, range_indices={self._slicer.range_indices})"
+            s += f", domain_indices={self._slicer.domain_indices}"
+            s += f", domain_size={self._slicer.domain_indices}"
+            s += f", range_size={self._slicer.range_size}"
+            if self._slicer._is_transposed:
+                s += ", transposed"
+            self._cached_key = s
+        return self._cached_key
+
+    def __getattr__(self, name: str) -> Projection:
+        if name == "T":
+            return self.transpose()
+        else:
+            raise AttributeError(f"Prolongation has no attribute {name}")
+
+    def is_transposed(self) -> bool:
+        return self._slicer._is_transposed
+
+    def parse(self, mdg: pp.MixedDimensionalGrid) -> pp.matrix_operations.ArraySlicer:
+        """Convert the Ad expression into a projection operator.
+
+        Parameters:
+            mdg: Not used, but needed for compatibility with the general parsing method
+                for Operators.
+
+        Returns:
+            Projection operator.
+
+        """
+        return self._slicer
+
+
+class ProjectionList(Operator):
+    """Wrapper class for a list of projection operators that are to be summed.
+
+    This is a container for projection operators that are to be summed, see technical
+    note below. Objects of type ProjectionList can be used with matrix multiplication
+    from the left, i.e., ``P @ x``, where P is a ProjectionList and x is a vector, while
+    other operations are not supported.
+
+    Objects of this class will usually be created by invoking the method
+    `pp.ad.sum_projection_list`. Though it is possible to create ProjectionList objects
+    directly, *this is not recommended*. Should you choose to do so, be very careful
+    with the input, and verify that the AdParser treats the object correctly.
+
+    Technical note:
+        The ArraySlicer objects that underly the Projection objects cannot be combined
+        into a single object, the way one can combine projections represented as sparse
+        matrices. Thus, expressions of the type ``(P1 + P2) @ x``, where P1 and P2 are
+        projections are not directly permissible. Still, it is useful to be allowed to
+        combine projections this way.
+
+        The ProjectionList, together with its treatment in the AdParser's
+        _evaluate_single() method, offers a workaround that allows for summing (but
+        *only* summing) projection operators in the manner described in the previous
+        paragraph.
+
+    """
+
+    def __init__(self, operators: list[Projection], name: Optional[str] = None) -> None:
+        """Construct a list of projection operators.
+
+        Parameters:
+            operators: A list of projection operators to be summed. Note that other
+                operations (e.g., subtraction) are not supported.
+            name: Optional name for the projection list.
+
+        """
+        super().__init__(name=name, children=operators)
+
+    def _key(self) -> str:
+        if self._cached_key is None:
+            self._cached_key = f"(slicing_operator_list, operators={self.children})"
+        return self._cached_key
+
+    def __repr__(self) -> str:
+        return f"Slicing operator list with {len(self.children)} operators."
+
+    def parse(
+        self, mdg: pp.MixedDimensionalGrid
+    ) -> list[pp.matrix_operations.ArraySlicer]:
+        """Parsing returns a list of the underlying ArraySlicer objects."""
+        return [op.parse(mdg) for op in self.children]
+
+    def __getitem__(self, key: int) -> Projection:
+        """Enable indexing of the list. This is not needed in operational mode, but is
+        useful for testing and development."""
+        return cast(Projection, self.children[key])
+
+
 @overload
 def _ad_wrapper(
     vals: Union[pp.number, np.ndarray],
@@ -2000,5 +2161,92 @@ def sum_operator_list(
 
     if name is not None:
         result.set_name(name)
+
+    return result
+
+
+def sum_projection_list(
+    # Implementation note: This cannot be list[Projection], since list items can be
+    # multiplications.
+    operators: Sequence[Operator],
+    name: Optional[str] = None,
+) -> Operator:
+    """Sum a list of projection operators.
+
+    This method should only be called if the input list to be summed consists
+    exclusively of Projection objects, or of products of precisely two Projection
+    objects that have been (matrix) multiplied. For different use cases (such as
+    summing Projection objects multiplied with other types of operators), the standard
+    sum_operator_list method should be used instead.
+
+    Parameters:
+        operators: List of projection operators to be summed.
+        name: Name of the resulting operator.
+
+    Raises:
+        ValueError: If not one of the following two cases is met:
+            1. operators is a list of one or more Projection objects.
+            2. operators is a list of one or more products of precisely two Projection
+                objects that have been (matrix) multiplied.
+
+    Returns:
+        Operator that is the sum of the input operators.
+
+    """
+    # First check if this is a sum of atomic projection operators.
+    is_projection = [isinstance(op, Projection) for op in operators]
+    if any(is_projection):
+        if not all(is_projection):
+            # This is a mix of slicing and non-slicing operators. This is not allowed.
+            raise ValueError("Cannot sum slicing and non-slicing operators.")
+        if len(operators) == 1:
+            # If there is only one operator, there is no need to put it in a list.
+            result = operators[0]
+        else:
+            # We need the list.
+            result = ProjectionList(cast(list[Projection], operators), name)
+    else:
+        # This else covers the case of one or more products of precisily two projections
+        # that have been multiplied. While more cases in principle could be covered,
+        # this is the only one that is currently relevant.
+        #
+        # NOTE TO FUTURE SELF: If it at some point becomes tempting to add more cases,
+        # consider if this is really the right approach to take, or if the approach to
+        # constructing operator trees should be revisited.
+        new_operators = []
+        for op in operators:
+            # Check that this is a case we can handle.
+            if not op.operation == Operations.matmul:
+                raise ValueError(f"Operator {op} is not a valid matmul operation.")
+            if not isinstance(op.children[0], Projection) or not isinstance(
+                op.children[1], Projection
+            ):
+                raise ValueError(
+                    f"Operator {op} does not have valid Projection children."
+                )
+
+            # The trick here is to do a local parsing of the two Projections to fetch
+            # their underlying ArraySlicer objects. Then we multiply them and set the
+            # combined slicer to the second child (because this is what works together
+            # with the way matrix ArraySlicer objects are matrix multiplied).
+            child_1 = op.children[1]
+            # We know that op.children is a projection, which does not need the md grid
+            # for parsing. Hence, sending in None is okay, despite Mypy complaining.
+            slicer_0 = op.children[0].parse(None)  # type: ignore[arg-type]
+            slicer_1 = child_1.parse(None)  # type: ignore[arg-type]
+
+            # Create a copy of the second (rightmost) slicer, since we will modify it.
+            slicer_1_copy = slicer_1.copy()
+            prod = slicer_0 @ slicer_1_copy
+            child_1._slicer = prod
+            # Child is now a representation of the combined projection.
+            new_operators.append(child_1)
+
+        if len(new_operators) == 1:
+            # No need to wrap in a list if there is only one operator.
+            result = new_operators[0]
+        else:
+            # We do need the list.
+            result = ProjectionList(new_operators, name)
 
     return result

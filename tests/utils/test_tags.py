@@ -6,6 +6,7 @@ mixed dimensional grids and fractured/non-fractured domains.
 The tests have been developed gradually, and are not coherent, but should give
 reasonable coverage.
 """
+
 import numpy as np
 import pytest
 

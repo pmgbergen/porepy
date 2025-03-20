@@ -1,5 +1,5 @@
-""" Tests of methods from porepy.grids.partition.
-"""
+"""Tests of methods from porepy.grids.partition."""
+
 import numpy as np
 import pytest
 

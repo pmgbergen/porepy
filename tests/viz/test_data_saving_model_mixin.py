@@ -6,18 +6,17 @@ The following is covered:
 """
 
 import numpy as np
+import pytest
 
 import porepy as pp
-from porepy.models.momentum_balance import MomentumBalance
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.models.momentum_balance import MomentumBalance
 
-import pytest
 
-
-class DataSavingModelMixinSetup(SquareDomainOrthogonalFractures, MomentumBalance):
-    """Model setup for testing."""
+class DataSavingModelMixinModel(SquareDomainOrthogonalFractures, MomentumBalance):
+    """Model for testing data saving."""
 
     def write_pvd_and_vtu(self) -> None:
         """Logger for the times that are exported.
@@ -58,7 +57,7 @@ def test_export_chosen_times(times_to_export):
         "times_to_export": times_to_export,
     }
 
-    model = DataSavingModelMixinSetup(model_params)
+    model = DataSavingModelMixinModel(model_params)
     model.exported_times = []
     pp.run_time_dependent_model(model)
 

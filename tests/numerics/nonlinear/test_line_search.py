@@ -1,11 +1,10 @@
-import porepy as pp
 import numpy as np
-from typing import Any
 
-from porepy.numerics.nonlinear import line_search as ls
+import porepy as pp
 from porepy.applications.md_grids.model_geometries import (
     SquareDomainOrthogonalFractures,
 )
+from porepy.numerics.nonlinear import line_search as ls
 
 
 class ConstraintLineSearchNonlinearSolver(

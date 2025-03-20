@@ -13,6 +13,7 @@ Content:
     - Test that the discretization reproduces expected values on 2d grids.
 
 """
+
 from math import pi
 
 import numpy as np
@@ -325,10 +326,9 @@ class TestMpsaExactReproduction:
         g_list = [pp.CartGrid([n, n], physdims=physdims) for n in g_size]
         [g.compute_geometry() for g in g_list]
         for g in g_list:
-
-            sides = pp.domain.domain_sides_from_grid(g)
-            south = np.where(sides.south)[0]
-            west = np.where(sides.west)[0]
+            domain_sides = pp.domain.domain_sides_from_grid(g)
+            south = np.where(domain_sides.south)[0]
+            west = np.where(domain_sides.west)[0]
             dir_faces = np.hstack((west, south))
             bound = pp.BoundaryConditionVectorial(
                 g, dir_faces.ravel("F"), ["dir"] * dir_faces.size
@@ -360,9 +360,9 @@ class TestMpsaExactReproduction:
         g_list = [gt, gc]
         [g.compute_geometry() for g in g_list]
         for g in g_list:
-            sides = pp.domain.domain_sides_from_grid(g)
-            south = np.where(sides.south)[0]
-            west = np.where(sides.west)[0]
+            domain_sides = pp.domain.domain_sides_from_grid(g)
+            south = np.where(domain_sides.south)[0]
+            west = np.where(domain_sides.west)[0]
             dir_faces = np.hstack((west, south))
             bound = pp.BoundaryConditionVectorial(
                 g, dir_faces.ravel("F"), ["dir"] * dir_faces.size
@@ -681,11 +681,11 @@ class TestCreateBoundRhs:
         g.compute_geometry()
         basis = np.random.rand(g.dim, g.dim, g.num_faces)
 
-        sides = pp.domain.domain_sides_from_grid(g)
-        west = np.where(sides.west)[0]
-        east = np.where(sides.east)[0]
-        south = np.where(sides.south)[0]
-        north = np.where(sides.north)[0]
+        domain_sides = pp.domain.domain_sides_from_grid(g)
+        west = np.where(domain_sides.west)[0]
+        east = np.where(domain_sides.east)[0]
+        south = np.where(domain_sides.south)[0]
+        north = np.where(domain_sides.north)[0]
 
         bc = pp.BoundaryConditionVectorial(g)
         bc.is_neu[:] = False
@@ -763,12 +763,12 @@ class TestMpsaRotation:
         basis = np.array([[[0] * nf, [1] * nf], [[1] * nf, [0] * nf]])
         bc = pp.BoundaryConditionVectorial(g)
 
-        sides = pp.domain.domain_sides_from_grid(g)
-        west = np.where(sides.west)[0]
-        east = np.where(sides.east)[0]
-        south = np.where(sides.south)[0]
-        north = np.where(sides.north)[0]
-                
+        domain_sides = pp.domain.domain_sides_from_grid(g)
+        west = np.where(domain_sides.west)[0]
+        east = np.where(domain_sides.east)[0]
+        south = np.where(domain_sides.south)[0]
+        north = np.where(domain_sides.north)[0]
+
         bc.is_dir[0, west] = True
         bc.is_rob[1, west] = True
         bc.is_rob[0, north] = True
@@ -1145,13 +1145,11 @@ class TestAsymmetricNeumann:
     def test_cart_2d(self):
         g = pp.CartGrid([1, 1], physdims=(1, 1))
         g.compute_geometry()
-        right = g.face_centers[0] > 1 - 1e-10
-        top = g.face_centers[1] > 1 - 1e-10
 
         bc = pp.BoundaryConditionVectorial(g)
-        sides = pp.domain.domain_sides_from_grid(g)
-        east = np.where(sides.east)[0]
-        north = np.where(sides.north)[0]
+        domain_sides = pp.domain.domain_sides_from_grid(g)
+        east = np.where(domain_sides.east)[0]
+        north = np.where(domain_sides.north)[0]
 
         bc.is_dir[:, north] = True
         bc.is_dir[0, east] = True
