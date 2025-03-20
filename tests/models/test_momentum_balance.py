@@ -627,9 +627,9 @@ class TimeDependentBCs(
         if self.time_manager.time > 1e-5:
             # Create slip for second time step.
             u_z = 15.0 if self.time_manager.time > 1.1 else 1.0
-            u_n = np.tile([1, -.5, u_z], (bg.num_cells, 1)).T
+            u_n = np.tile([1, -0.5, u_z], (bg.num_cells, 1)).T
             values[:, domain_sides.north] += self.units.convert_units(u_n, "m")[
-              :, domain_sides.north
+                :, domain_sides.north
             ]
         return values.ravel("F")
 
@@ -643,7 +643,7 @@ class ElastoplasticModelTimeDependentBCs(
 
 
 def test_time_dependent_bc():
-    # Note: The performance of the Newton solver is quite sensitive to the parameters of this test. 
+    # Note: The performance of the Newton solver is quite sensitive to the parameters of this test.
     solid = pp.SolidConstants(
         fracture_tangential_stiffness=1e-1,
         shear_modulus=1e0,
