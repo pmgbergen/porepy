@@ -268,47 +268,29 @@ def intersect_sets(
     return ia_unique, ib_unique, a_in_b, intersection
 
 
-def unique_rows(
-    data: np.ndarray[Any, np.dtype[np.float64]],
-) -> Tuple[
-    np.ndarray[Any, np.dtype[np.float64]],
-    np.ndarray[Any, np.dtype[np.int64]],
-    np.ndarray[Any, np.dtype[np.int64]],
-]:
-    r"""Function similar to Matlab's unique(...,'rows')
-
-    See also function unique_columns in this module; this is likely slower, but
-    is understandable, documented, and has a tolerance option.
-
-    Copied from
-    http://stackoverflow.com/questions/16970982/find-unique-rows-in-numpy-array/
-    (summary pretty far down on the page)
-    Note: I have no idea what happens here
+def unique_rows(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Finds unique rows in a 2D NumPy array using np.unique with axis=0.
 
     Parameters:
-        data ``shape=(n, m)``.
-
-            Array to be uniquified along its first array.
+        data: A 2D NumPy array of shape `(n, m)`.
 
     Returns:
-        Uniquified array.
+        Tuple containing:
+            An array of the unique rows.
+            Indices of first occurrences of unique rows.
+            Inverse indices mapping original rows to unique rows.
 
-        np.ndarray: ``shape=(n, r), r \leq m``. Unique rows.
-
-        np.ndarray: ``shape=(r)`` Indexes that map from the unique to the original
-            array.
-
-        np.ndarray: ``shape=(m)`` Indexes that map from the original to the unique
-            array.
+    Example:
+        >>> arr = np.array([[1, 2], [3, 4], [1, 2], [5, 6]])
+        >>> unique_rows(arr)
+        (array([[1, 2], [3, 4], [5, 6]]), array([0, 1, 3]), array([0, 1, 0, 2]))
 
     """
-    b = np.ascontiguousarray(data).view(
-        np.dtype((np.void, data.dtype.itemsize * data.shape[1]))
+
+    unique, idx, inverse = np.unique(
+        data, axis=0, return_index=True, return_inverse=True
     )
-    _, ia = np.unique(b, return_index=True)
-    _, ic = np.unique(b, return_inverse=True)
-    # Ravel index data to get 1d output
-    return data[ia], ia.ravel(), ic.ravel()
+    return unique, idx, inverse
 
 
 def ismember_rows(
