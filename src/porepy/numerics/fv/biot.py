@@ -1013,8 +1013,8 @@ class Biot(pp.Mpsa):
         # that is a row contains only the force on one side of the face.
         vals = np.ones(num_subfno_unique * nd)
         rows = pp.array_operations.expand_indices_nd(subcell_topology.subfno_unique, nd)
-        cols = pp.array_operations.expand_indices_incr(
-            subcell_topology.unique_subfno, nd, num_subhfno
+        cols = pp.array_operations.repeat_array_add_increment(
+            x=subcell_topology.unique_subfno, times=nd, increment=num_subhfno
         )
         map_unique_subfno = sps.coo_matrix(
             (vals, (rows, cols)), shape=(num_subfno_unique * nd, num_subhfno * nd)

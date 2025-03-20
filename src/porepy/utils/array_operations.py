@@ -583,43 +583,6 @@ def uniquify_point_set(
     return upoints, ia, ib
 
 
-def accum(accmap: np.ndarray, a: np.ndarray):
-    """An accumulation function similar to Matlab's `accumarray` function.
-
-    Parameters:
-
-        accmap: This is the "accumulation map". It maps input (i.e. indices into
-            `a`) to their destination in the output array. The first `a.ndim`
-            dimensions of `accmap` must be the same as `a.shape`. That is,
-            `accmap.shape[:a.ndim]` must equal `a.shape`. For example, if `a`
-            has shape (15,4), then `accmap.shape[:2]` must equal (15,4). In this
-            case `accmap[i,j]` gives the index into the output array where
-            element (i,j) of `a` is to be accumulated. If the output is, say,
-            a 2D, then `accmap` must have shape (15,4,2). The value in the
-            last dimension give indices into the output array. If the output is
-            1D, then the shape of `accmap` can be either (15,4) or (15,4,1)
-
-        a: The input data to be accumulated.
-
-    Returns: The accumulated results.
-
-    Examples:
-
-        >>> from numpy import array, prod
-        >>> a = array([[1,2,3],[4,-1,6],[-1,8,9]])
-        >>> a
-        array([[ 1,  2,  3],
-            [ 4, -1,  6],
-            [-1,  8,  9]])
-        >>> # Sum the diagonals.
-        >>> accmap = array([[0,1,2],[2,0,1],[1,2,0]])
-        >>> s = accum(accmap, a)
-        array([9, 7, 15])
-
-    """
-    return np.bincount(accmap.ravel(), weights=a.ravel())
-
-
 def expand_indices_nd(ind: np.ndarray, nd: int, order="F") -> np.ndarray:
     """Expand indices from scalar to vector form.
 
@@ -649,13 +612,28 @@ def expand_indices_nd(ind: np.ndarray, nd: int, order="F") -> np.ndarray:
     return new_ind
 
 
-def expand_indices_incr(ind, dim, increment):
-    # Convenience method for duplicating a list, with a certain increment
+def repeat_array_add_increment(x: np.ndarray, times: int, increment: int) -> np.ndarray:
+    """Repeat array values and consequently add the increment to each next repetition.
+    Using Fortran order.
 
+    Examples:
+        >>> i = np.array([0, 1, 3])
+        >>> repeat_array_add_increment(i, 3, 200)
+        (array([0, 200, 400, 1, 201, 401, 3, 203, 403]))
+
+    Parameters:
+        x: Array to be repeated.
+        times: How many times to repeat.
+        increment: The number to add to each next repetition.
+
+    Returns:
+        The repeated array in Fortran order.
+
+    """
     # Duplicate rows
-    ind_nd = np.tile(ind, (dim, 1))
+    ind_nd = np.tile(x, (times, 1))
     # Add same increment to each row (0*incr, 1*incr etc.)
-    ind_incr = ind_nd + increment * np.array([np.arange(dim)]).transpose()
+    ind_incr = ind_nd + increment * np.array([np.arange(times)]).transpose()
     # Back to row vector
     ind_new = ind_incr.reshape(-1, order="F")
     return ind_new

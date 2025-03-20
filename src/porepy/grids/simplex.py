@@ -130,9 +130,7 @@ class TriangleGrid(Grid):
         scol = np.argsort(col)
 
         # Consistency check
-        assert np.all(
-            pp.array_operations.accum(col, np.ones(col.size)) == (self.dim + 1)
-        )
+        assert np.all(np.bincount(col) == (self.dim + 1))
 
         return row[scol].reshape(self.num_cells, 3)
 
