@@ -17,12 +17,13 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator, Any
+from typing import Any, Generator
 
 import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.test_utils.models import Thermoporomechanics
 from porepy.applications.test_utils.vtk import (
     PathLike,
     compare_pvd_files,
@@ -30,7 +31,6 @@ from porepy.applications.test_utils.vtk import (
 )
 from porepy.fracs.utils import pts_edges_to_linefractures
 from tests.models.test_poromechanics import NonzeroFractureGapPoromechanics
-from porepy.applications.test_utils.models import Thermoporomechanics
 
 # Globally store location of reference files
 FOLDER_REFERENCE = (
@@ -707,8 +707,8 @@ def test_rescaled_export(setup: ExporterTestSetup):
             "viscosity": 1.002e-1,  # [Pa s], absolute viscosity
         }
         nontrivial_reference_values = {
-            'pressure': 1.0,  # [Pa]
-            'temperature': 2.0,  # [K]
+            "pressure": 1.0,  # [Pa]
+            "temperature": 2.0,  # [K]
         }
 
         model_params = {

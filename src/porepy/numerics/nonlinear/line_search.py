@@ -26,7 +26,7 @@ The functionality is invoked by specifying the solver in the solver parameters, 
 The solver can be further customized by specifying parameters in the solver parameters.
 Using the tailored line search also requires implementation of the constraint functions
 in the model as methods called "opening_indicator" and "sliding_indicator", see
-model_setup.ContactIndicators.
+model.ContactIndicators.
 
 """
 

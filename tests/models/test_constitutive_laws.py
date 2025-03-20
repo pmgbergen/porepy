@@ -17,23 +17,22 @@ constitutive laws, the first test might be removed.
 
 from __future__ import annotations
 
-from typing import Any, Literal, Type
+from typing import Any, Literal, Optional, Type
 
 import numpy as np
-import scipy.sparse as sps
 import pytest
+import scipy.sparse as sps
 
 import porepy as pp
 import porepy.models.constitutive_laws as c_l
+from porepy.applications.discretizations.flux_discretization import FluxDiscretization
+from porepy.applications.md_grids.model_geometries import (
+    SquareDomainOrthogonalFractures,
+)
 from porepy.applications.test_utils import models
 from porepy.applications.test_utils.reference_dense_arrays import (
     test_constitutive_laws as reference_dense_arrays,
 )
-from porepy.applications.md_grids.model_geometries import (
-    SquareDomainOrthogonalFractures,
-)
-from porepy.applications.discretizations.flux_discretization import FluxDiscretization
-
 
 solid_values = pp.solid_values.granite
 solid_values.update(
@@ -46,9 +45,9 @@ solid_values.update(
 )
 
 mass_weighted_perm = (
-    pp.fluid_values.water['density']
-    / pp.fluid_values.water['viscosity']
-    * solid_values['permeability']
+    pp.fluid_values.water["density"]
+    / pp.fluid_values.water["viscosity"]
+    * solid_values["permeability"]
 )
 """Value for testing evaluation of MassWeightedPermeability."""
 
@@ -114,7 +113,11 @@ mass_weighted_perm = (
 # By default we run only a 2d test. Activate 3d if needed in debugging.
 @pytest.mark.parametrize("domain_dim", [2, pytest.param(3, marks=pytest.mark.skipped)])
 def test_parse_constitutive_laws(
-    model_type, method_name, only_codimension, num_fracs, domain_dim
+    model_type: str,
+    method_name: str,
+    only_codimension: Optional[int],
+    num_fracs: int,
+    domain_dim: int,
 ):
     """Test that the ad parsing of constitutive laws works as intended.
 
@@ -162,17 +165,17 @@ def test_parse_constitutive_laws(
         return
 
     # Set up an object of the prescribed model
-    setup = models.model(model_type, domain_dim, num_fracs=num_fracs)
+    model = models.model(model_type, domain_dim, num_fracs=num_fracs)
     # Fetch the relevant method of this model and extract the domains for which it is
     # defined by looping top to bottom through the namespace.
     method_namespace = method_name.split(".")
-    owner = setup
+    owner = model
     for name in method_namespace:
         method = getattr(owner, name)
         owner = method
 
     domains = models.subdomains_or_interfaces_from_method_name(
-        setup.mdg, method, dimensions_to_assemble
+        model.mdg, method, dimensions_to_assemble
     )
 
     # Call the method with the domain as argument. An error here will indicate that
@@ -183,12 +186,12 @@ def test_parse_constitutive_laws(
     assert isinstance(op, pp.ad.Operator)
 
     # Carry out discretization.
-    op.discretize(setup.mdg)
+    op.discretize(model.mdg)
     # Evaluate the discretized operator. An error here would typically be caused by the
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    setup.equation_system.evaluate(op, derivative=True)
+    model.equation_system.evaluate(op, derivative=True)
 
 
 # Shorthand for values with many digits. Used to compute expected values in the tests.
@@ -200,7 +203,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
 
 
 @pytest.mark.parametrize(
-    "model, method_name, expected, dimension",
+    "model_class, method_name, expected, dimension",
     [
         (models.Poromechanics, "fluid.density", 998.2 * np.exp(4.559e-10 * 2), None),
         (
@@ -318,13 +321,15 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         (
             models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
-            mass_weighted_perm * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
+            mass_weighted_perm
+            * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
             2,
         ),
         (
             models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
-            mass_weighted_perm * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
+            mass_weighted_perm
+            * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
             1,
         ),
         (
@@ -336,7 +341,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
     ],
 )
 def test_evaluated_values(
-    model: (
+    model_class: (
         Type[models.Poromechanics]
         | Type[models.Thermoporomechanics]
         | Type[models.MassAndEnergyBalance]
@@ -379,27 +384,27 @@ def test_evaluated_values(
         "fractional_flow": True,  # For testing MassWeightedPermeability
     }
 
-    setup = model(params)
-    setup.prepare_simulation()
+    model = model_class(params)
+    model.prepare_simulation()
 
     # Set variable values different from default zeros in iterate.
     # This yields non-zero perturbations.
-    if hasattr(setup, "pressure_variable"):
-        setup.equation_system.set_variable_values(
-            2 * np.ones(setup.mdg.num_subdomain_cells()),
-            [setup.pressure_variable],
+    if hasattr(model, "pressure_variable"):
+        model.equation_system.set_variable_values(
+            2 * np.ones(model.mdg.num_subdomain_cells()),
+            [model.pressure_variable],
             iterate_index=0,
         )
-    if hasattr(setup, "temperature_variable"):
-        setup.equation_system.set_variable_values(
-            3 * np.ones(setup.mdg.num_subdomain_cells()),
-            [setup.temperature_variable],
+    if hasattr(model, "temperature_variable"):
+        model.equation_system.set_variable_values(
+            3 * np.ones(model.mdg.num_subdomain_cells()),
+            [model.temperature_variable],
             iterate_index=0,
         )
 
     # Obtain the tested method by looping top to bottom through the namespace.
     method_namespace = method_name.split(".")
-    owner = setup
+    owner = model
     for name in method_namespace:
         method = getattr(owner, name)
         owner = method
@@ -408,7 +413,7 @@ def test_evaluated_values(
     # something is wrong with the way the method combines terms and factors (e.g., grids
     # parameters, variables, other methods) to form an Ad operator object.
     # TODO: At some point, we should also consider interface laws.
-    op = method(setup.mdg.subdomains(dim=dimension))
+    op = method(model.mdg.subdomains(dim=dimension))
     if isinstance(op, np.ndarray):
         # This will happen if the return type of method is a pp.ad.DenseArray. EK is not
         # sure if we still have such methods among the constitutive laws, but the test
@@ -420,26 +425,26 @@ def test_evaluated_values(
     assert isinstance(op, pp.ad.Operator)
 
     # Carry out discretization.
-    op.discretize(setup.mdg)
+    op.discretize(model.mdg)
     # Evaluate the discretized operator. An error here would typically be caused by the
     # method combining terms and factors of the wrong size etc. This could be a problem
     # with the constitutive law, or it could signify that something has changed in the
     # Ad machinery which makes the evaluation of the operator fail.
-    val = setup.equation_system.evaluate(op)
+    val = model.equation_system.evaluate(op)
     # Strict tolerance. We know analytical expected values, and some of the
     # perturbations are small relative to
     assert np.allclose(val, expected, rtol=1e-8, atol=1e-10)
 
 
 @pytest.mark.parametrize(
-    "model, quantities",
+    "model_class, quantities",
     [
         (models.MassBalance, ["pressure"]),
         (models.MassAndEnergyBalance, ["pressure", "temperature"]),
     ],
 )
 def test_perturbation_from_reference(
-    model: type[models.MassAndEnergyBalance], quantities: list[str]
+    model_class: type[models.MassAndEnergyBalance], quantities: list[str]
 ):
     """Tests the evaluation of operators perturbed from reference values."""
 
@@ -454,19 +459,19 @@ def test_perturbation_from_reference(
         "times_to_export": [],
     }
 
-    setup = model(params)
-    setup.prepare_simulation()
+    model = model_class(params)
+    model.prepare_simulation()
 
     # Set all variable values to zero
-    setup.equation_system.set_variable_values(
-        np.zeros(setup.equation_system.num_dofs()), time_step_index=0, iterate_index=0
+    model.equation_system.set_variable_values(
+        np.zeros(model.equation_system.num_dofs()), time_step_index=0, iterate_index=0
     )
 
     for q in quantities:
-        op = setup.perturbation_from_reference(q, setup.mdg.subdomains())
+        op = model.perturbation_from_reference(q, model.mdg.subdomains())
         # Calling value and jacobian to make sure there are no errors in parsing
         # but only value is checked.
-        op_val = setup.equation_system.evaluate(op, derivative=True)
+        op_val = model.equation_system.evaluate(op, derivative=True)
         # value of op is 0 - ref val
         assert np.allclose(op_val.val, -ref_vals[q])
 
@@ -508,19 +513,21 @@ def test_dimension_reduction_values(
     if geometry is models.RectangularDomainThreeFractures:
         params["fracture_indices"] = [0, 1]
 
-    class Model(geometry, pp.constitutive_laws.DimensionReduction, models.NoPhysics):
+    class LocalModel(
+        geometry, pp.constitutive_laws.DimensionReduction, models.NoPhysics
+    ):
         pass
 
-    setup = Model(params)
-    setup.prepare_simulation()
+    model = LocalModel(params)
+    model.prepare_simulation()
 
-    subdomains = setup.mdg.subdomains(dim=domain_dimension)
-    interfaces = setup.mdg.interfaces(dim=domain_dimension)
+    subdomains = model.mdg.subdomains(dim=domain_dimension)
+    interfaces = model.mdg.interfaces(dim=domain_dimension)
     # Check aperture and specific volume values
-    aperture = setup.equation_system.evaluate(setup.aperture(subdomains))
+    aperture = model.equation_system.evaluate(model.aperture(subdomains))
     assert np.allclose(aperture.data, expected[0])
     for grids, expected_value in zip([subdomains, interfaces], expected[1:]):
-        specific_volume = setup.equation_system.evaluate(setup.specific_volume(grids))
+        specific_volume = model.equation_system.evaluate(model.specific_volume(grids))
         assert np.allclose(specific_volume.data, expected_value)
 
 
@@ -582,13 +589,13 @@ class PoromechanicalTestDiffTpfa(
 
         # Fetch the mortar interface and the subdomains.
         intf = self.mdg.interfaces()[0]
-        g_2d, g_1d = self.mdg.subdomains()
+        sd_2d, sd_1d = self.mdg.subdomains()
 
         # Projection from the mortar to the primary grid, and directly from the mortar
         # cells to the high-dimensional cells. The latter uses an np.abs to avoid issues
         # with + and - in g.cell_faces.
         proj_high = intf.mortar_to_primary_int()
-        mortar_to_high_cell = np.abs(g_2d.cell_faces.T @ proj_high)
+        mortar_to_high_cell = np.abs(sd_2d.cell_faces.T @ proj_high)
 
         self.mortar_to_high_cell = mortar_to_high_cell
 
@@ -620,13 +627,13 @@ class PoromechanicalTestDiffTpfa(
         # Set the pressure variable in the 1d domain: The pressure is 2 in the leftmost
         # fracture cell, 0 in the rightmost fracture cell. This should give a flux
         # pointing to the right.
-        if np.diff(g_1d.cell_centers[0])[0] > 0:
+        if np.diff(sd_1d.cell_centers[0])[0] > 0:
             p_1d = np.array([2, 0])
         else:
             p_1d = np.array([0, 2])
 
         p_1d_var = self.equation_system.get_variables(
-            [self.pressure_variable], grids=[g_1d]
+            [self.pressure_variable], grids=[sd_1d]
         )
         self.equation_system.set_variable_values(p_1d, p_1d_var, iterate_index=0)
         self.p_1d = p_1d
@@ -640,9 +647,9 @@ class PoromechanicalTestDiffTpfa(
 
         # Set the pressure in the 2d grid
         p_2d_var = self.equation_system.get_variables(
-            [self.pressure_variable], grids=[g_2d]
+            [self.pressure_variable], grids=[sd_2d]
         )
-        p_2d = np.arange(g_2d.num_cells)
+        p_2d = np.arange(sd_2d.num_cells)
         self.equation_system.set_variable_values(p_2d, p_2d_var, iterate_index=0)
         self.p_2d = p_2d
 
@@ -680,7 +687,7 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     model.discretize()
 
     # Fetch the mortar interface and the 1d subdomain.
-    g_2d, g_1d = model.mdg.subdomains()
+    sd_2d, sd_1d = model.mdg.subdomains()
 
     ### First the test for the derivative of the Darcy flux with respect to the mortar
     # displacement.
@@ -694,7 +701,7 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     u_m = model.u_mortar
 
     # The permeability is given by the cubic law, calculate this and its derivative.
-    resid_ap = model.equation_system.evaluate(model.residual_aperture([g_1d]))
+    resid_ap = model.equation_system.evaluate(model.residual_aperture([sd_1d]))
     k_0 = ((u_m[2] - u_m[0]) + resid_ap) ** 3 / 12
     k_1 = (u_m[3] - u_m[1] + resid_ap) ** 3 / 12
 
@@ -706,7 +713,7 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
 
     # Calculate the transmissibility. First, get the distance between the cell center and
     # the face center (will be equal on the two sides of the face).
-    dist = np.abs(g_1d.face_centers[0, 1] - g_1d.cell_centers[0, 0])
+    dist = np.abs(sd_1d.face_centers[0, 1] - sd_1d.cell_centers[0, 0])
 
     # Half transmissibility
     trm_0 = k_0 / dist
@@ -729,14 +736,14 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
 
     # We also need the pressure difference. Multiply with the sign of the divergence to
     # account for the direction of the normal vector.
-    dp = (model.p_1d[1] - model.p_1d[0]) * g_1d.cell_faces[1, 1]
+    dp = (model.p_1d[1] - model.p_1d[0]) * sd_1d.cell_faces[1, 1]
 
     # Finally, the true values that should be compared with the discretization.
     true_derivatives = dp * np.array([dtrm_du0, dtrm_du1, dtrm_du2, dtrm_du3])
 
     # The computed flux
     computed_flux = model.equation_system.evaluate(
-        model.darcy_flux([g_1d]), derivative=True
+        model.darcy_flux([sd_1d]), derivative=True
     )
     # Pick out the middle face, and only those faces that are associated with the mortar
     # displacement in the y-direction. The column indices must also be reordered to
@@ -786,9 +793,9 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     # Cartesian ordering of the 2d cells, and from the ordering of the mortar cells. The
     # below code gives the fracture faces in the order corresponding to that of the 2d
     # cells.
-    fracture_faces = np.where(g_2d.tags["fracture_faces"])[0]
+    fracture_faces = np.where(sd_2d.tags["fracture_faces"])[0]
     fracture_faces_cart_ordering = fracture_faces[
-        g_2d.cell_faces[fracture_faces].indices
+        sd_2d.cell_faces[fracture_faces].indices
     ]
 
     # The reconstructed pressure is given by the sum of the pressure in the cell and the

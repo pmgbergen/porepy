@@ -1,4 +1,5 @@
 """Test the mcolon function."""
+
 import numpy as np
 import pytest
 

@@ -6,21 +6,16 @@ The tests fall into two categories:
 
 """
 
-import pytest
-
-import scipy.sparse as sps
 import numpy as np
+import pytest
+import scipy.sparse as sps
+
 import porepy as pp
-
-from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.discretizations.flux_discretization import FluxDiscretization
-
-from porepy.applications.md_grids.model_geometries import (
-    CubeDomainOrthogonalFractures,
-)
 from porepy.applications.md_grids import model_geometries
+from porepy.applications.md_grids.model_geometries import CubeDomainOrthogonalFractures
+from porepy.applications.test_utils import common_xpfa_tests as xpfa_tests
 from porepy.applications.test_utils import well_models
-
 
 """Local utility functions."""
 
@@ -249,7 +244,7 @@ class UnitTestAdTpfaFlux(
         # Define boundary condition on all boundary faces.
         return pp.BoundaryCondition(sd, boundary_faces, bc_type)
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for the fluid mass flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,
@@ -257,21 +252,21 @@ class UnitTestAdTpfaFlux(
         by default).
 
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
 
         Returns:
             Boundary condition values array.
 
         """
-        vals_loc = np.zeros(boundary_grid.num_cells)
+        vals_loc = np.zeros(bg.num_cells)
 
         neumann_face_boundary = (
-            boundary_grid.projection()[:, self._neumann_face].tocsc().indices[0]
+            bg.projection()[:, self._neumann_face].tocsc().indices[0]
         )
         vals_loc[neumann_face_boundary] = self._neumann_flux
         return vals_loc
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition values for Darcy flux.
 
         Dirichlet boundary conditions are defined on the north and south boundaries,
@@ -279,18 +274,16 @@ class UnitTestAdTpfaFlux(
         by default).
 
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
 
         Returns:
             Boundary condition values array.
 
         """
-        vals_loc = np.zeros(boundary_grid.num_cells)
+        vals_loc = np.zeros(bg.num_cells)
 
         dirichlet_face_boundary = (
-            boundary_grid.projection()[:, self._nonzero_dirichlet_face]
-            .tocsc()
-            .indices[0]
+            bg.projection()[:, self._nonzero_dirichlet_face].tocsc().indices[0]
         )
 
         vals_loc[dirichlet_face_boundary] = self._dirichlet_pressure
@@ -675,7 +668,7 @@ def test_diff_tpfa_on_grid_with_all_dimensions(base_discr: str, grid_type: str):
         {
             "darcy_flux_discretization": base_discr,
             "grid_type": grid_type,
-            "times_to_export": []
+            "times_to_export": [],
         }
     )
     model.prepare_simulation()

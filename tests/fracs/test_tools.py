@@ -1,4 +1,5 @@
 """Tests of mesh size determination for 2d simplex grids."""
+
 import numpy as np
 
 import porepy as pp

@@ -103,6 +103,7 @@ from porepy.utils import adtree
 from porepy.utils.tangential_normal_projection import (
     TangentialNormalProjection,
     set_local_coordinate_projections,
+    sides_of_fracture,
 )
 
 # Fractures
@@ -201,7 +202,12 @@ from porepy.compositional.base import Component, Phase, Fluid
 from porepy.compositional.compositional_mixins import FluidMixin
 
 # "Primary" models
-from porepy.models import energy_balance, fluid_mass_balance, momentum_balance
+from porepy.models import (
+    energy_balance,
+    fluid_mass_balance,
+    momentum_balance,
+    contact_mechanics,
+)
 
 # "Secondary" models inheriting from primary models
 from porepy.models import (

@@ -14,7 +14,7 @@ class VerificationUtils(pp.PorePyModel):
     """Mixin class storing useful utility methods.
 
     The intended use is to mix this class with a utlilty class, specific to a
-    verification/complete setup.
+    verification/complete model.
 
     """
 

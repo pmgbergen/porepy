@@ -176,9 +176,7 @@ class Mpfa(pp.FVElliptic):
                 sd, active_cells
             )
             # Constitutive law and boundary condition for the active grid.
-            active_k: pp.SecondOrderTensor = (
-                pp.fvutils.restrict_second_order_tensor_to_subgrid(k, active_cells)
-            )
+            active_k = k.restrict_to_cells(active_cells)
 
             # Extract the relevant part of the boundary condition.
             active_bound: pp.BoundaryCondition = self._bc_for_subgrid(
@@ -255,10 +253,8 @@ class Mpfa(pp.FVElliptic):
             # faces in the overlap.
             faces_in_subgrid_accum.append(faces_in_subgrid)
 
-            # Copy permeability tensor, and restrict to local cells
-            loc_k: pp.SecondOrderTensor = (
-                pp.fvutils.restrict_second_order_tensor_to_subgrid(active_k, l2g_cells)
-            )
+            # Restrict permeability tensor to local cells
+            loc_k = active_k.restrict_to_cells(l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces that are
             # on the global boundary. Then transfer boundary condition on those faces.
@@ -427,7 +423,7 @@ class Mpfa(pp.FVElliptic):
             # however this scales poorly with the number of blocks. Instead, use the
             # existing workaround to create a csr matrix based on R, and then pick out
             # the right parts of that one.
-            full_rot_mat = pp.matrix_operations.csr_matrix_from_blocks(
+            full_rot_mat = pp.matrix_operations.csr_matrix_from_dense_blocks(
                 # Replicate R with the right ordering of data elements
                 np.tile(R.ravel(), (1, sd.num_cells)).ravel(),
                 # size of the blocks - this will always be the dimension of the rotation
@@ -821,17 +817,20 @@ class Mpfa(pp.FVElliptic):
         # if normal vector points out of subcell). The information can be obtained from
         # sd.cell_faces, which doubles as a discrete divergence operator. The .A suffix
         # is necessary to get a numpy array, instead of a scipy matrix.
-        sgn = sd.cell_faces[subcell_topology.fno, subcell_topology.cno].A
+        sgn = np.asarray(
+            sd.cell_faces[subcell_topology.fno, subcell_topology.cno]
+        ).ravel()
+
         # Then insert the signs into a matrix that maps cells to subfaces
         pr_cont_cell_all = sps.coo_matrix(
-            (sgn[0], (subcell_topology.subfno, subcell_topology.cno))
+            (sgn, (subcell_topology.subfno, subcell_topology.cno))
         ).tocsr()
 
         # Create a sign array that only contains one side (subcell) of each subface.
         # This will be used at various points below.
-        sgn_unique = sd.cell_faces[
-            subcell_topology.fno_unique, subcell_topology.cno_unique
-        ].A.ravel("F")
+        sgn_unique = np.asarray(
+            sd.cell_faces[subcell_topology.fno_unique, subcell_topology.cno_unique]
+        ).ravel()
 
         ## Discretize the Robin condition.
         # This takes the form

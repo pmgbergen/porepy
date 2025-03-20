@@ -76,7 +76,7 @@ class SubcellTopology:
             (np.ones(face_ind.size), (face_ind, np.arange(face_ind.size))),
             shape=(face_ind.max() + 1, face_ind.size),
         )
-        nodes_duplicated = sd.face_nodes * M
+        nodes_duplicated = sd.face_nodes @ M
         nodes_duplicated = nodes_duplicated.indices
 
         face_nodes_indptr = sd.face_nodes.indptr
@@ -85,7 +85,7 @@ class SubcellTopology:
         sub_face_mat = sps.csc_matrix(
             (face_nodes_data, face_nodes_indices, face_nodes_indptr)
         )
-        sub_faces = sub_face_mat * M
+        sub_faces = sub_face_mat @ M
         sub_faces = (sub_faces.data - 1).astype(int)
 
         # If the grid has periodic faces the topology of the subcells are changed.
@@ -197,9 +197,9 @@ class SubcellTopology:
             sps.matrix, size (self.subfno_unique.size x something)
         """
 
-        sgn = self.sd.cell_faces[self.fno, self.cno].A
-        pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
-        return pair_over_subfaces * other
+        sgn = np.asarray(self.sd.cell_faces[self.fno, self.cno]).ravel()
+        pair_over_subfaces = sps.coo_matrix((sgn, (self.subfno, self.subhfno)))
+        return pair_over_subfaces @ other
 
     def pair_over_subfaces_nd(self, other):
         """nd-version of pair_over_subfaces, see above."""
@@ -1693,46 +1693,3 @@ def partial_discretization(
     pp.matrix_operations.zero_rows(data[kw2], affected_faces)
     data[kw1] += trm
     data[kw2] += bound_flux
-
-
-def restrict_fourth_order_tensor_to_subgrid(
-    tensor: pp.FourthOrderTensor, loc_cells: np.ndarray
-) -> pp.FourthOrderTensor:
-    """Extract a fourth order tensor for a subgrid.
-
-    Parameters:
-        tensor: Constitutive law for the original grid.
-        loc_cells: Index of cells of the original grid from which the new constitutive
-            law should be picked.
-
-    Returns:
-        Fourth order tensor for the specified subset of cells.
-
-    """
-    # Copy stiffness tensor, and restrict to local cells
-    loc_tensor = tensor.copy()
-    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
-    # Also restrict the lambda and mu fields; we will copy the stiffness tensors
-    # later.
-    loc_tensor.lmbda = loc_tensor.lmbda[loc_cells]
-    loc_tensor.mu = loc_tensor.mu[loc_cells]
-    return loc_tensor
-
-
-def restrict_second_order_tensor_to_subgrid(
-    tensor: pp.SecondOrderTensor, loc_cells: np.ndarray
-) -> pp.SecondOrderTensor:
-    """Extract the second-order tensor for a subgrid.
-
-    Parameters:
-        tensor: Permeability tensor for the full grid.
-        loc_cells: Indices of the cells in the subgrid.
-
-    Returns:
-        Second order tensor for the specified subset of cells.
-
-    """
-    # Copy second order tensor, and restrict to local cells
-    loc_tensor = tensor.copy()
-    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
-    return loc_tensor

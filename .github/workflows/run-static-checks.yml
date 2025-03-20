@@ -102,17 +102,17 @@ jobs:
     # Run the various checks
     - name: Ruff linting
       if: ${{ always() }}
-      run: ruff check src
+      run: ruff check src tests
 
     - name: Ruff formatting
       if: ${{always()}}
-      run: ruff format --check src
+      run: ruff format --check src tests
 
       # EK note to self: Ruff may introduce sorting of imports in the future, if so, we
       # should use that instead of isort.
     - name: isort 
       if: ${{ always() }}
-      run: isort src 
+      run: isort src tests
 
     - name: mypy
       if: ${{ always() }}

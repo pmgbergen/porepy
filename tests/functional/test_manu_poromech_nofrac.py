@@ -49,8 +49,8 @@ import pytest
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from tests.functional.setups.manu_poromech_nofrac_2d import ManuPoroMechSetup2d
-from tests.functional.setups.manu_poromech_nofrac_3d import ManuPoroMechSetup3d
+from tests.functional.setups.manu_poromech_nofrac_2d import ManuPoroMechModel2d
+from tests.functional.setups.manu_poromech_nofrac_3d import ManuPoroMechModel3d
 
 
 # --> Declaration of module-wide fixtures that are re-used throughout the tests
@@ -58,7 +58,7 @@ from tests.functional.setups.manu_poromech_nofrac_3d import ManuPoroMechSetup3d
 def material_constants() -> dict:
     """Set material constants.
 
-    Use default values provided in the module where the setup class is included.
+    Use default values provided in the module where the model class is included.
 
     Returns:
         Dictionary containing the material constants with the `solid` and `fluid`
@@ -102,13 +102,13 @@ def actual_l2_errors(material_constants: dict) -> list[list[dict[str, float]]]:
     # Retrieve actual L2-relative errors.
     errors: list[list[dict[str, float]]] = []
     # Loop through models, i.e., 2d and 3d.
-    for model in [ManuPoroMechSetup2d, ManuPoroMechSetup3d]:
+    for model_class in [ManuPoroMechModel2d, ManuPoroMechModel3d]:
         # Make deep copy of params to avoid nasty bugs.
-        setup: pp.PorePyModel = model(deepcopy(model_params))
-        pp.run_time_dependent_model(setup)
+        model: pp.PorePyModel = model_class(deepcopy(model_params))
+        pp.run_time_dependent_model(model)
         errors_setup: list[dict[str, float]] = []
         # Loop through results, i.e., results for each scheduled time.
-        for result in setup.results:
+        for result in model.results:
             errors_setup.append(
                 {
                     "error_pressure": getattr(result, "error_pressure"),
@@ -238,7 +238,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     """
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models.
-    for model_idx, model in enumerate([ManuPoroMechSetup2d, ManuPoroMechSetup3d]):
+    for model_idx, model_class in enumerate([ManuPoroMechModel2d, ManuPoroMechModel3d]):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type.
         for grid_type in ["cartesian", "simplex"]:
@@ -257,7 +257,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                 # Use 4 levels of refinement for 2d and 3 levels for 3d.
                 if model_idx == 0:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=model,
+                        model_class=model_class,
                         model_params=deepcopy(params),
                         levels=4,
                         spatial_refinement_rate=2,
@@ -265,7 +265,7 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                     )
                 else:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=model,
+                        model_class=model_class,
                         model_params=deepcopy(params),
                         levels=3,
                         spatial_refinement_rate=2,

@@ -1,4 +1,4 @@
-""" Various tests of the upwind discretization for transport problems on:
+"""Various tests of the upwind discretization for transport problems on:
     - TestUpwind: for fixed dimensional problems
     - TestMixedDimensionalUpwind: for mixed-dimensional problems
 

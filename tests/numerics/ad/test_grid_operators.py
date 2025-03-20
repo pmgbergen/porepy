@@ -16,6 +16,7 @@ Checks performed include the following:
 import numpy as np
 import pytest
 import scipy.sparse as sps
+
 import porepy as pp
 
 
@@ -213,19 +214,19 @@ def test_mortar_projections(mdg, scalar, non_matching):
     # (relevant for projection to primary) and cells (relevant for projection to
     # secondary). For the interfaces, we need the offset for the cells (used in both
     # directions).
-    def _row_offset_primary(sds):
+    def _row_offset_primary(subdomains):
         return proj_dim * np.cumsum(
-            np.hstack((0, np.array([sd.num_faces for sd in sds])))
+            np.hstack((0, np.array([sd.num_faces for sd in subdomains])))
         )
 
-    def _row_offset_secondary(sds):
+    def _row_offset_secondary(subdomains):
         return proj_dim * np.cumsum(
-            np.hstack((0, np.array([sd.num_cells for sd in sds])))
+            np.hstack((0, np.array([sd.num_cells for sd in subdomains])))
         )
 
-    def _col_offset(intfs):
+    def _col_offset(interfaces):
         return proj_dim * np.cumsum(
-            np.hstack((0, np.array([m.num_cells for m in intfs])))
+            np.hstack((0, np.array([m.num_cells for m in interfaces])))
         )
 
     # Get the indices of the projection matrices for the mapping to primary and
@@ -368,8 +369,12 @@ def test_mortar_projections(mdg, scalar, non_matching):
         assert _compare_matrices(proj_known_primary_int.T, proj.primary_to_mortar_avg())
 
         # Same for the mapping to the secondary subdomains.
-        assert _compare_matrices(proj_known_secondary_int, proj.mortar_to_secondary_int())
-        assert _compare_matrices(proj_known_secondary_avg, proj.mortar_to_secondary_avg())
+        assert _compare_matrices(
+            proj_known_secondary_int, proj.mortar_to_secondary_int()
+        )
+        assert _compare_matrices(
+            proj_known_secondary_avg, proj.mortar_to_secondary_avg()
+        )
         # See the mapping from primary to mortar above for comments.
         assert _compare_matrices(
             proj_known_secondary_avg.T, proj.secondary_to_mortar_int()

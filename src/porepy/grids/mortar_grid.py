@@ -762,7 +762,7 @@ class MortarGrid:
         """
         return sparse_kronecker_product(self._mortar_to_secondary_avg, nd)
 
-    def sign_of_mortar_sides(self, nd: int = 1) -> sps.spmatrix:
+    def sign_of_mortar_sides(self, nd: int = 1) -> sps.dia_matrix:
         """Assign positive or negative weight to the two sides of a mortar grid.
 
         This is needed e.g. to make projection operators into signed projections, for

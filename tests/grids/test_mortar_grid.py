@@ -365,7 +365,7 @@ def test_2d_domain_replace_2d_grid_with_permuted_and_perturbed_nodes():
 
 
 def _create_2d_mdg(
-    size: list[int, int]
+    size: list[int, int],
 ) -> tuple[pp.MixedDimensionalGrid, pp.Grid, sps.spmatrix]:
     """Helper function to create a 2d md grid with a single interface.
 
@@ -706,7 +706,7 @@ def test_3d_domain_replace_2d_grid_with_finer_perturbed_grid():
 
 
 def _compare_3d_mortar_projections(
-    projections: list[tuple[np.ndarray | sps.spmatrix, np.ndarray | sps.spmatrix]]
+    projections: list[tuple[np.ndarray | sps.spmatrix, np.ndarray | sps.spmatrix]],
 ):
     """Helper method to compare two sets of mortar projections."""
     # Loop over projections

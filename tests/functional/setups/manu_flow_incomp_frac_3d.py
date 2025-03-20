@@ -12,6 +12,7 @@ References:
       elliptic equations. Journal of Numerical Mathematics.
 
 """
+
 from __future__ import annotations
 
 from typing import Callable, Literal
@@ -22,7 +23,7 @@ import sympy as sym
 import porepy as pp
 from porepy.applications.md_grids.domains import nd_cube_domain
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
-    ManuIncompFlowSetup2d,
+    ManuIncompFlowModel2d,
     ManuIncompSolutionStrategy2d,
 )
 
@@ -33,11 +34,10 @@ grid = pp.GridLike
 
 # -----> Exact solution
 class ManuIncompExactSolution3d:
-    """Class containing the exact manufactured solution for the verification setup."""
+    """Class containing the exact manufactured solution for the verification model."""
 
-    def __init__(self, setup):
-        # Model setup
-        self.setup = setup
+    def __init__(self, model):
+        self.model = model
 
         # Symbolic variables
         x, y, z = sym.symbols("x y z")
@@ -127,13 +127,13 @@ class ManuIncompExactSolution3d:
         assert where in ["cc", "fc", "bg"]
 
         # Retrieve coordinates
-        sd = self.setup.mdg.subdomains()[0]
+        sd = self.model.mdg.subdomains()[0]
         if where == "cc":
             x = sd.cell_centers
         elif where == "fc":
             x = sd.face_centers
         else:
-            bg = self.setup.mdg.subdomain_to_boundary_grid(sd)
+            bg = self.model.mdg.subdomain_to_boundary_grid(sd)
             assert bg is not None
             x = bg.cell_centers
 
@@ -403,14 +403,14 @@ class ManuIncompExactSolution3d:
 
         return lmbda_cc
 
-    def boundary_values(self, boundary_grid_matrix: pp.BoundaryGrid) -> np.ndarray:
+    def boundary_values(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            boundary_grid_matrix: Matrix boundary grid.
+            bg: Matrix boundary grid.
 
         Returns:
-            Array of ``shape=(boundary_grid_matrix.num_cells, )`` with the exact
+            Array of ``shape=(bg.num_cells, )`` with the exact
             pressure values at the exterior boundary faces.
 
         """
@@ -418,14 +418,14 @@ class ManuIncompExactSolution3d:
         x, y, z = sym.symbols("x y z")
 
         # Get list of face indices
-        fc = boundary_grid_matrix.cell_centers
+        fc = bg.cell_centers
         face_idx = self.get_region_indices(where="bg")
 
         # Lambdify expression
         p_fun = [sym.lambdify((x, y, z), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(boundary_grid_matrix.num_cells)
+        p_bf = np.zeros(bg.num_cells)
         for p, idx in zip(p_fun, face_idx):
             p_bf += p(fc[0], fc[1], fc[2]) * idx
 
@@ -730,7 +730,7 @@ class SingleEmbeddedVerticalPlaneFracture:
 
 # -----> Solution strategy
 class ManuIncompSolutionStrategy3d(ManuIncompSolutionStrategy2d):
-    """Modified solution strategy for the verification setup."""
+    """Modified solution strategy for the verification model."""
 
     exact_sol: ManuIncompExactSolution3d
     """Exact solution object."""
@@ -744,18 +744,18 @@ class ManuIncompSolutionStrategy3d(ManuIncompSolutionStrategy2d):
         """Exact solution object."""
 
     def set_materials(self):
-        """Set material constants for the verification setup."""
+        """Set material constants for the verification model."""
         super().set_materials()
         # Instantiate exact solution object
         self.exact_sol = ManuIncompExactSolution3d(self)
 
 
 # -----> Mixer
-class ManuIncompFlowSetup3d(  # type: ignore[misc]
+class ManuIncompFlowModel3d(  # type: ignore[misc]
     SingleEmbeddedVerticalPlaneFracture,
     ManuIncompSolutionStrategy3d,
-    ManuIncompFlowSetup2d,
+    ManuIncompFlowModel2d,
 ):
     """
-    Mixer class for the 3d incompressible flow setup with a single fracture.
+    Mixer class for the 3d incompressible flow model with a single fracture.
     """

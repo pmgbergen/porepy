@@ -30,7 +30,7 @@ class CustomBoundaryCondition(pp.PorePyModel):
             name=self.custom_bc_neumann_key, function=self.bc_values_neumann
         )
 
-    def bc_values_neumann(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_neumann(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Returns values on the whole boundary. We implicitly rely on the filter that
         sets zeros at the cells related to Dirichlet condition.
 
@@ -38,12 +38,12 @@ class CustomBoundaryCondition(pp.PorePyModel):
 
         """
         t = self.time_manager.time
-        return np.arange(boundary_grid.num_cells) * boundary_grid.parent.dim * t
+        return np.arange(bg.num_cells) * bg.parent.dim * t
 
-    def bc_type_dummy(self, subdomain: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_dummy(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """The north boundary is Dirichlet, the remainder is Neumann."""
-        sides = self.domain_boundary_sides(subdomain)
-        return pp.BoundaryCondition(sd=subdomain, faces=sides.north, cond="dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        return pp.BoundaryCondition(sd=sd, faces=domain_sides.north, cond="dir")
 
     def create_dummy_ad_boundary_condition(
         self, subdomains: Sequence[pp.Grid]
@@ -74,29 +74,29 @@ def test_boundary_condition_mixin(t_end: int):
     3) Previous timestep values are set correctly for the time dependent Neumann.
 
     """
-    setup = MassBalance(
+    model = MassBalance(
         {
             "times_to_export": [],  # Suppress output for tests
         }
     )
-    setup.time_manager.dt = 1
-    setup.time_manager.time_final = t_end
-    pp.run_time_dependent_model(setup)
+    model.time_manager.dt = 1
+    model.time_manager.time_final = t_end
+    pp.run_time_dependent_model(model)
 
-    subdomains = setup.mdg.subdomains()
+    subdomains = model.mdg.subdomains()
 
     for sd in subdomains:
-        bc_type = setup.bc_type_dummy(sd)
-        bc_operator = setup.create_dummy_ad_boundary_condition([sd])
-        bc_val = setup.equation_system.evaluate(bc_operator)
+        bc_type = model.bc_type_dummy(sd)
+        bc_operator = model.create_dummy_ad_boundary_condition([sd])
+        bc_val = model.equation_system.evaluate(bc_operator)
 
         # Testing the Dirichlet values. They should be equal to the fluid density.
-        expected_val = setup.fluid.reference_component.density
+        expected_val = model.fluid.reference_component.density
         assert np.allclose(bc_val[bc_type.is_dir], expected_val)
         assert not np.allclose(bc_val[bc_type.is_neu], expected_val)
 
         # Testing the Neumann values.
-        bg = setup.mdg.subdomain_to_boundary_grid(sd)
+        bg = model.mdg.subdomain_to_boundary_grid(sd)
         assert bg is not None
         expected_val = np.arange(bg.num_cells) * bg.parent.dim * t_end
         # Projecting the expected value to the subdomain.
@@ -104,7 +104,7 @@ def test_boundary_condition_mixin(t_end: int):
         assert np.allclose(bc_val[bc_type.is_neu], expected_val[bc_type.is_neu])
 
         # Testing previous timestep.
-        bc_val_prev_ts = setup.equation_system.evaluate(bc_operator.previous_timestep())
+        bc_val_prev_ts = model.equation_system.evaluate(bc_operator.previous_timestep())
         expected_val = np.arange(bg.num_cells) * bg.parent.dim * (t_end - 1)
         # Projecting the expected value to the subdomain.
         expected_val = bg.projection().T @ expected_val
@@ -114,7 +114,7 @@ def test_boundary_condition_mixin(t_end: int):
 """Here follows mixins related to testing of Robin limit cases, and eventually the test itself. """
 
 
-class BCValuesDirichletIndices:
+class BCValuesDirichletIndices(pp.PorePyModel):
     """Boundary values for primary variables on Dirichlet boundaries.
 
     Used for:
@@ -123,31 +123,31 @@ class BCValuesDirichletIndices:
 
     """
 
-    def rob_inds(self, g) -> np.ndarray:
+    def rob_inds(self, sd) -> np.ndarray:
         """Indices for the non-Dirichlet boundaries for test.
 
         The Robin limit case test tests Robin approximating either Dirichlet or Neumann.
-        All test setups have Dirichlet on dir_inds (Dirichlet index) boundaries, and
+        All test models have Dirichlet on dir_inds (Dirichlet index) boundaries, and
         Robin approximating Dirichlet or Neumann on the remaining ones. This method
         returns the indices of the north and south boundaries, which are the Dirichlet
         indices.
 
         """
-        bounds = self.domain_boundary_sides(g)
-        return bounds.north + bounds.south
+        domain_sides = self.domain_boundary_sides(sd)
+        return domain_sides.north + domain_sides.south
 
-    def dir_inds(self, g) -> np.ndarray:
+    def dir_inds(self, sd) -> np.ndarray:
         """Indices for the Dirichlet boundaries for test.
 
         The Robin limit case test tests Robin approximating either Dirichlet or Neumann.
-        All test setups have Dirichlet on dir_inds (Dirichlet index) boundaries, and
+        All test models have Dirichlet on dir_inds (Dirichlet index) boundaries, and
         Robin approximating Dirichlet or Neumann on the remaining ones. This method
         returns the indices of the west and east boundaries, which are the Robin
         indices.
 
         """
-        bounds = self.domain_boundary_sides(g)
-        return bounds.west + bounds.east
+        domain_sides = self.domain_boundary_sides(sd)
+        return domain_sides.west + domain_sides.east
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns displacement values in the x-direction of the Dirichlet boundaries."""
@@ -170,7 +170,7 @@ class BCValuesDirichletIndices:
         return self._bc_values_scalar(bg=bg)
 
 
-class BCRobin:
+class BCRobin(pp.PorePyModel):
     """Set Dirichlet and Robin for momentum balance and mass and energy balance.
 
     Sets Dirichlet on dir_inds-boundaries, and Robin on the remaining ones. The value of
@@ -183,21 +183,23 @@ class BCRobin:
     """
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Sets Robin and Dirichlet conditions for the test setup.
+        """Sets Robin and Dirichlet conditions.
 
         Sets Dirichlet boundary condition type on the Dirichlet index-boundaries and
         Robin on all others.
 
         """
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "rob")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, domain_sides.all_bf, "rob")
         bc.is_rob[:, self.dir_inds(sd)] = False
         bc.is_dir[:, self.dir_inds(sd)] = True
 
         alpha = self.params["alpha"]
 
         r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
-        bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F") * alpha
+        bc.robin_weight = (
+            np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), order="F") * alpha
+        )
         return bc
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -207,8 +209,8 @@ class BCRobin:
         Robin on all others.
 
         """
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.all_bf, "rob")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, domain_sides.all_bf, "rob")
         bc.is_rob[self.dir_inds(sd)] = False
         bc.is_dir[self.dir_inds(sd)] = True
 
@@ -222,12 +224,11 @@ class BCRobin:
         return self._bc_type_scalar(sd=sd)
 
 
-class BCNeumannReference:
+class BCNeumannReference(pp.PorePyModel):
     """Set Dirichlet and Neumann for momentum balance and mass and energy balance."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Assigns Neumann and Dirichlet boundaries for the Neumann reference setup."""
-        bounds = self.domain_boundary_sides(sd)
+        """Assigns Neumann and Dirichlet boundaries for the Neumann case."""
         bc = pp.BoundaryConditionVectorial(sd, self.dir_inds(sd), "dir")
         return bc
 
@@ -249,7 +250,7 @@ class BCNeumannReference:
         return self._bc_type_scalar(sd=sd)
 
 
-class BCValuesFlux:
+class BCValuesFlux(pp.PorePyModel):
     def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Fourier flux values on Robin index boundaries."""
         return self._bc_values_scalar_flux(bg)
@@ -263,7 +264,7 @@ class BCValuesFlux:
         val = 24
         if self.params["alpha"] > 0:  # Robin-Dirichlet
             # The flux value here will be the value of the Robin condition and not seen
-            # in the Dirichlet reference setup. We need to multiply with the cell volume
+            # in the Dirichlet reference case. We need to multiply with the cell volume
             # and the alpha value to account for Robin being interpreted as an
             # integrated flux (volume) and being compared to alpha * u, since the Robin
             # condition is on the form sigma * n + alpha * u = G and the first term is
@@ -274,12 +275,12 @@ class BCValuesFlux:
         return values.ravel("F")
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns stress values on the non-Dirichlet boundaries for the test setup."""
+        """Assigns stress values on the non-Dirichlet boundaries."""
         values = np.zeros((self.nd, bg.num_cells))
         val = 24
         if self.params["alpha"] > 0:  # Robin-Dirichlet
             # The flux value here will be the value of the Robin condition and not seen
-            # in the Dirichlet reference setup. We need to multiply with the cell volume
+            # in the Dirichlet reference case. We need to multiply with the cell volume
             # and the alpha value to account for Robin being interpreted as an
             # integrated flux (volume) and being compared to alpha * u, since the Robin
             # condition is on the form sigma * n + alpha * u = G and the first term is
@@ -290,13 +291,13 @@ class BCValuesFlux:
         return values.ravel("F")
 
 
-class BCDirichletReference:
+class BCDirichletReference(pp.PorePyModel):
     """Set all Dirichlet boundaries for momentum balance and mass and energy balance."""
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
         """Assigns Dirichlet boundaries on all domain boundary sides."""
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryConditionVectorial(sd, bounds.all_bf, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryConditionVectorial(sd, domain_sides.all_bf, "dir")
         return bc
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -305,8 +306,8 @@ class BCDirichletReference:
         The function sets Dirichlet on all boundaries.
 
         """
-        bounds = self.domain_boundary_sides(sd)
-        bc = pp.BoundaryCondition(sd, bounds.all_bf, "dir")
+        domain_sides = self.domain_boundary_sides(sd)
+        bc = pp.BoundaryCondition(sd, domain_sides.all_bf, "dir")
         return bc
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -340,11 +341,11 @@ class CommonMassEnergyBalance(
     BCValuesFlux,
     pp.MassAndEnergyBalance,
 ):
-    """Base mass and energy balance setup.
+    """Base mass and energy balance model.
 
-    The setup in this class is common for the reference class for mass and energy
+    The model in this class is common for the reference class for mass and energy
     balance and for the "test" class for mass and energy balance. The "test" class is
-    the class which represents a problem setup with Robin boundaries.
+    the class which represents a problem model with Robin boundaries.
 
     """
 
@@ -364,11 +365,11 @@ class CommonMomentumBalance(
     BCValuesFlux,
     MomentumBalance,
 ):
-    """Base momentum balance setup.
+    """Base momentum balance model.
 
-    The setup in this class is common for the reference class for momentum balance and
+    The model in this class is common for the reference class for momentum balance and
     for the "test" class for momentum balance. The "test" class is the class which
-    represents a problem setup with Robin boundaries.
+    represents a problem model with Robin boundaries.
 
     """
 
@@ -382,31 +383,30 @@ class MomentumBalanceRobin(BCRobin, CommonMomentumBalance):
     """
 
 
-def run_model(balance_class, alpha):
+def run_model(model_class: type[pp.PorePyModel], alpha: float) -> dict[str, np.ndarray]:
     params = {
-        "times_to_export": [],
         "fracture_indices": [],
         "meshing_arguments": {"cell_size": 0.5},
         "times_to_export": [],  # Suppress output for tests
     }
 
     params["alpha"] = alpha
-    instance = balance_class(params)
-    pp.run_time_dependent_model(instance)
-    sd = instance.mdg.subdomains(dim=2)[0]
+    model = model_class(params)
+    pp.run_time_dependent_model(model)
+    sd = model.mdg.subdomains(dim=2)[0]
 
-    if isinstance(instance, MomentumBalance):
-        displacement = instance.equation_system.evaluate(instance.displacement([sd]))
+    if isinstance(model, MomentumBalance):
+        displacement = model.equation_system.evaluate(model.displacement([sd]))
         return {"displacement": displacement}
-    elif isinstance(instance, pp.MassAndEnergyBalance):
-        pressure = instance.equation_system.evaluate(instance.pressure([sd]))
-        temperature = instance.equation_system.evaluate(instance.temperature([sd]))
+    elif isinstance(model, pp.MassAndEnergyBalance):
+        pressure = model.equation_system.evaluate(model.pressure([sd]))
+        temperature = model.equation_system.evaluate(model.temperature([sd]))
         return {"temperature": temperature, "pressure": pressure}
 
 
 # Parameterize the test function with the necessary balance types and conditions
 @pytest.mark.parametrize(
-    "rob_class, reference_class, alpha",
+    "model_class, reference_model_class, alpha",
     [
         (MomentumBalanceRobin, CommonMomentumBalance, 0),
         (MassAndEnergyBalanceRobin, CommonMassEnergyBalance, 0),
@@ -414,7 +414,11 @@ def run_model(balance_class, alpha):
         (MomentumBalanceRobin, CommonMomentumBalance, 1e8),
     ],
 )
-def test_robin_limit_case(rob_class, reference_class, alpha):
+def test_robin_limit_case(
+    model_class: type[pp.PorePyModel],
+    reference_model_class: type[pp.PorePyModel],
+    alpha: float,
+):
     """Test Robin limit cases.
 
     The Robin conditions are implemented on the form: sigma * n + alpha * u = G. That
@@ -424,10 +428,10 @@ def test_robin_limit_case(rob_class, reference_class, alpha):
 
     We test this for momentum balance and mass and energy balance.
 
-    Common for all model setups is that all of them have Dirichlet conditions on the
-    boundaries returned by the method dir_inds.
+    Common for all models is that the have Dirichlet conditions on the boundaries
+    returned by the method dir_inds.
 
-    The model class setups with documentation are further up in this document.
+    The model classes with documentation are further up in this document.
 
     """
     if alpha > 0:
@@ -435,11 +439,11 @@ def test_robin_limit_case(rob_class, reference_class, alpha):
     elif alpha == 0:
         reference_bc_class = BCNeumannReference
 
-    class LocalReference(reference_bc_class, reference_class):
+    class LocalReferenceModel(reference_bc_class, reference_model_class):
         """Reference class with the correct reference boundary types."""
 
-    rob_results = run_model(rob_class, alpha)
-    reference_results = run_model(LocalReference, alpha)
+    rob_results = run_model(model_class, alpha)
+    reference_results = run_model(LocalReferenceModel, alpha)
 
     assert all(
         np.allclose(rob_results[key], reference_results[key], atol=1e-7)

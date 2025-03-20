@@ -155,3 +155,44 @@ class OrthogonalFractures3d(CubeDomainOrthogonalFractures):
             "cell_size_min": 0.2 * ls,
         }
         return mesh_sizes
+
+
+class NonMatchingSquareDomainOrthogonalFractures(SquareDomainOrthogonalFractures):
+    """Create a non-matching mixed-dimensional grid of a square domain with up to two
+    orthogonal fractures.
+
+    The setup is similar to :class:`SquareDomainOrthogonalFractures`, but the
+    geometry allows for non-matching grids and different resolution for each grid.
+    """
+
+    def create_mdg(self) -> None:
+        """Create a non-matching grid.
+
+        The actual grid is created by the mdg_library function for orthogonal fractures.
+
+        """
+
+        # Create a non-matching mixed-dimensional grid. The parameters below are picked
+        # from the model, with default values set to mirror those applied in
+        # SquareDomainOrthogonalFractures.
+        self.mdg, _ = pp.mdg_library.square_with_orthogonal_fractures(
+            grid_type=self.grid_type(),
+            meshing_args=self.meshing_arguments(),
+            fracture_indices=self.params.get("fracture_indices", [0]),
+            fracture_endpoints=self.params.get("fracture_endpoints", None),
+            size=self.domain_size,
+            non_matching=True,
+            **(
+                {
+                    "fracture_refinement_ratio": self.params.get(
+                        "fracture_refinement_ratio", 2
+                    ),
+                    "interface_refinement_ratio": self.params.get(
+                        "interface_refinement_ratio", 2
+                    ),
+                }
+            ),
+        )
+
+        # Create projections between local and global coordinates for fracture grids.
+        pp.set_local_coordinate_projections(self.mdg)
