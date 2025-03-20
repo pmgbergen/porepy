@@ -981,7 +981,7 @@ def _cell_projections(
     cell_offset = 0
 
     for sd in subdomains:
-        cell_ind = cell_offset + pp.fvutils.expand_indices_nd(
+        cell_ind = cell_offset + pp.array_operations.expand_indices_nd(
             np.arange(sd.num_cells), dim
         )
         cell_sz = sd.num_cells * dim
@@ -1021,7 +1021,7 @@ def _face_projections(
     face_offset = 0
 
     for sd in subdomains:
-        face_ind = face_offset + pp.fvutils.expand_indices_nd(
+        face_ind = face_offset + pp.array_operations.expand_indices_nd(
             np.arange(sd.num_faces), dim
         )
         face_sz = sd.num_faces * dim

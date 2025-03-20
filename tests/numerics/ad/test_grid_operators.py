@@ -61,8 +61,8 @@ def test_subdomain_projections(mdg, scalar):
         row_cell = np.arange(nc * dim)
         data_face = np.ones(nf * dim)
         row_face = np.arange(nf * dim)
-        col_cell = pp.fvutils.expand_indices_nd(cell_inds, dim)
-        col_face = pp.fvutils.expand_indices_nd(face_inds, dim)
+        col_cell = pp.array_operations.expand_indices_nd(cell_inds, dim)
+        col_face = pp.array_operations.expand_indices_nd(face_inds, dim)
         return row_cell, col_cell, data_cell, row_face, col_face, data_face
 
     # Test projections to and from an empty list of subdomains.

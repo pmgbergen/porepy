@@ -16,7 +16,6 @@ import scipy.spatial
 
 import porepy as pp
 from porepy.grids.grid import Grid
-from porepy.utils import accumarray
 
 
 class TriangleGrid(Grid):
@@ -131,7 +130,9 @@ class TriangleGrid(Grid):
         scol = np.argsort(col)
 
         # Consistency check
-        assert np.all(accumarray.accum(col, np.ones(col.size)) == (self.dim + 1))
+        assert np.all(
+            pp.array_operations.accum(col, np.ones(col.size)) == (self.dim + 1)
+        )
 
         return row[scol].reshape(self.num_cells, 3)
 

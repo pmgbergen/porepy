@@ -212,7 +212,7 @@ class TestDivergenceTrace:
         # matrix. These will be identical if dim=1, but for dim > 1, there will be dim
         # boundary indices for each boundary face.
         bound_faces = self._boundary_faces(g)
-        bound_ind = pp.fvutils.expand_indices_nd(bound_faces, dim)
+        bound_ind = pp.array_operations.expand_indices_nd(bound_faces, dim)
         # The indices corresponding to internal faces are the complement of the boundary
         # indices.
         int_face_ind = np.setdiff1d(np.arange(g.num_faces * dim), bound_ind)

@@ -647,7 +647,7 @@ class Biot(pp.Mpsa):
 
         if update:
             # The faces to be updated are given by active_faces
-            update_face_ind = pp.fvutils.expand_indices_nd(active_faces, sd.dim)
+            update_face_ind = pp.array_operations.expand_indices_nd(active_faces, sd.dim)
 
             matrices_m[self.stress_matrix_key][update_face_ind] = stress[
                 update_face_ind
@@ -1012,8 +1012,8 @@ class Biot(pp.Mpsa):
         # faces. Note that this mapping acts on nAlpha_grad, not unique_nAlpha_grad,
         # that is a row contains only the force on one side of the face.
         vals = np.ones(num_subfno_unique * nd)
-        rows = pp.fvutils.expand_indices_nd(subcell_topology.subfno_unique, nd)
-        cols = pp.fvutils.expand_indices_incr(
+        rows = pp.array_operations.expand_indices_nd(subcell_topology.subfno_unique, nd)
+        cols = pp.array_operations.expand_indices_incr(
             subcell_topology.unique_subfno, nd, num_subhfno
         )
         map_unique_subfno = sps.coo_matrix(
@@ -1035,7 +1035,7 @@ class Biot(pp.Mpsa):
         """
         rows = np.tile(np.arange(nf), ((nd, 1))).reshape((1, nd * nf), order="F")[0]
 
-        cols = pp.fvutils.expand_indices_nd(np.arange(nf), nd)
+        cols = pp.array_operations.expand_indices_nd(np.arange(nf), nd)
         vals = np.ones(nf * nd)
         return sps.coo_matrix((vals, (rows, cols))).tocsr()
 

@@ -556,50 +556,9 @@ def remove_nonlocal_contribution(
         None: DESCRIPTION.
 
     """
-    eliminate_ind = pp.fvutils.expand_indices_nd(raw_ind, nd)
+    eliminate_ind = pp.array_operations.expand_indices_nd(raw_ind, nd)
     for mat in args:
         pp.matrix_operations.zero_rows(mat, eliminate_ind)
-
-
-def expand_indices_nd(ind: np.ndarray, nd: int, order="F") -> np.ndarray:
-    """Expand indices from scalar to vector form.
-
-    Examples:
-    >>> i = np.array([0, 1, 3])
-    >>> expand_indices_nd(i, 2)
-    (array([0, 1, 2, 3, 6, 7]))
-
-    >>> expand_indices_nd(i, 3, "C")
-    (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
-
-    Parameters:
-        ind: Indices to be expanded.
-        nd: Dimension of the vector.
-        order: Order of the expansion. "F" for Fortran, "C" for C. Default is "F".
-
-    Returns:
-        np.ndarray: Expanded indices.
-
-    """
-    if nd == 1:
-        return ind
-    dim_inds = np.arange(nd)
-    dim_inds = dim_inds[:, np.newaxis]  # Prepare for broadcasting
-    new_ind = nd * ind + dim_inds
-    new_ind = new_ind.ravel(order)
-    return new_ind
-
-
-def expand_indices_incr(ind, dim, increment):
-    # Convenience method for duplicating a list, with a certain increment
-
-    # Duplicate rows
-    ind_nd = np.tile(ind, (dim, 1))
-    # Add same increment to each row (0*incr, 1*incr etc.)
-    ind_incr = ind_nd + increment * np.array([np.arange(dim)]).transpose()
-    # Back to row vector
-    ind_new = ind_incr.reshape(-1, order="F")
-    return ind_new
 
 
 def adjust_eta_length(
@@ -631,7 +590,7 @@ def adjust_eta_length(
     assert np.unique(num_nodes_per_face).size == 1
     expansion_index = num_nodes_per_face[0]
 
-    indices = expand_indices_nd(l2g_faces, expansion_index)
+    indices = pp.array_operations.expand_indices_nd(l2g_faces, expansion_index)
     loc_eta = np.array([eta[i] for i in indices])
     return loc_eta
 
@@ -661,8 +620,8 @@ def map_hf_2_f(fno=None, subfno=None, nd=None, sd=None):
         subfno = s_t.subfno_unique
         if nd is None:
             nd = sd.dim
-    hfi = expand_indices_nd(subfno, nd)
-    hf = expand_indices_nd(fno, nd)
+    hfi = pp.array_operations.expand_indices_nd(subfno, nd)
+    hf = pp.array_operations.expand_indices_nd(fno, nd)
     hf2f = sps.coo_matrix(
         (np.ones(hf.size), (hf, hfi)), shape=(hf.max() + 1, hfi.max() + 1)
     ).tocsr()
@@ -688,7 +647,7 @@ def cell_vector_to_subcell(nd, sub_cell_index, cell_index):
     num_cells = cell_index.max() + 1
 
     rows = sub_cell_index.ravel("F")
-    cols = expand_indices_nd(cell_index, nd)
+    cols = pp.array_operations.expand_indices_nd(cell_index, nd)
     vals = np.ones(rows.size)
     mat = sps.coo_matrix(
         (vals, (rows, cols)), shape=(sub_cell_index.size, num_cells * nd)
@@ -1530,7 +1489,7 @@ def map_subgrid_to_grid(
         face_map = sps.csr_matrix(
             (
                 np.ones(num_faces_loc * nd),
-                (expand_indices_nd(loc_faces, nd), np.arange(num_faces_loc * nd)),
+                (pp.array_operations.expand_indices_nd(loc_faces, nd), np.arange(num_faces_loc * nd)),
             ),
             shape=(sd.num_faces * nd, num_faces_loc * nd),
         )
@@ -1538,7 +1497,7 @@ def map_subgrid_to_grid(
         cell_map = sps.csr_matrix(
             (
                 np.ones(num_cells_loc * nd),
-                (np.arange(num_cells_loc * nd), expand_indices_nd(loc_cells, nd)),
+                (np.arange(num_cells_loc * nd), pp.array_operations.expand_indices_nd(loc_cells, nd)),
             ),
             shape=(num_cells_loc * nd, sd.num_cells * nd),
         )
@@ -1687,7 +1646,7 @@ def partial_discretization(
     )
 
     # Account for dof offset for mechanical problem
-    affected_faces = expand_indices_nd(affected_faces, dof_multiplier)
+    affected_faces = pp.array_operations.expand_indices_nd(affected_faces, dof_multiplier)
 
     pp.matrix_operations.zero_rows(data[kw1], affected_faces)
     pp.matrix_operations.zero_rows(data[kw2], affected_faces)

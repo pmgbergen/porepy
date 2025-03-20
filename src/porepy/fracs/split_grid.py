@@ -11,7 +11,6 @@ import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
 from porepy.utils import tags
 from porepy.utils.graph import Graph
-from porepy.utils.mcolon import mcolon
 
 
 def split_fractures(
@@ -362,7 +361,7 @@ def _duplicate_specific_faces(sd: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     # manipulating the CSC-format of the matrix Nodes of the target faces
     node_start = sd.face_nodes.indptr[frac_id]
     node_end = sd.face_nodes.indptr[frac_id + 1]
-    nodes = sd.face_nodes.indices[mcolon(node_start, node_end)]
+    nodes = sd.face_nodes.indices[pp.array_operations.mcolon(node_start, node_end)]
 
     # Start point for the new columns. They will be appended to the matrix, thus the
     # offset of the previous size of gh.face_nodes

@@ -62,10 +62,10 @@ def match_1d(
     # Cell-node relation between grids - we know there are two nodes per cell
     cell_nodes_new = new_g.cell_nodes()
     cell_nodes_old = old_g.cell_nodes()
-    nodes_new = pp.utils.mcolon.mcolon(
+    nodes_new = pp.array_operations.mcolon(
         cell_nodes_new.indptr[0:-1], cell_nodes_new.indptr[1:]
     )
-    nodes_old = pp.utils.mcolon.mcolon(
+    nodes_old = pp.array_operations.mcolon(
         cell_nodes_old.indptr[0:-1], cell_nodes_old.indptr[1:]
     )
 
