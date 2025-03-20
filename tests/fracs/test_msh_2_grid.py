@@ -28,7 +28,7 @@ filename: str = str(
     / "md_grids"
     / "gmsh_file_library"
     / "benchmark_3d_case_3"
-    / "mesh30k.msh"
+    / "mesh30k_2.msh"
 )
 
 
@@ -83,7 +83,7 @@ def cell_info(num_phys_names: int, simplex_grid: pp.Grid) -> dict[str, np.ndarra
     dic: dict[str, np.ndarray] = {}
     for gmsh_element_type in gmsh_element_types:
         # Find the number of elements of the given type present in the grid.
-        if gmsh_element_type == "point":
+        if gmsh_element_type == "vertex":
             num_elements: int = simplex_grid.num_nodes
         elif gmsh_element_type == "line":
             if simplex_grid.dim == 2:
@@ -131,9 +131,12 @@ def test_tag_grids(
     """Assert that the tags are correctly assigned to the grid."""
     tagged_grid: pp.Grid = tag_grid(simplex_grid, phys_names, cell_info)
     for gmsh_element_type in cell_info:
-        for phys_ind, phys_name in phys_names.items():
+        for tag in np.unique(cell_info[gmsh_element_type]):
+            phys_ind = tag
+            phys_name = phys_names[tag].lower()
+            #        for phys_ind, phys_name in phys_names.items():
             assert np.all(
-                tagged_grid.tags[f"{phys_name}_{gmsh_element_type}s"]
+                tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
                 == (cell_info[gmsh_element_type] == phys_ind)
             )
 

@@ -17,10 +17,7 @@ import porepy as pp
 from .gmsh_interface import PhysicalNames
 
 gmsh_element_types: list[str] = [
-    # "point",
-    # TODO Not sure whether point is a valid element type that can occur in PorePy. See
-    # test_gmsh_elements. It is possible, that the mesh used in the test is too
-    # "simple".
+    "vertex",
     "line",
     "triangle",
     "tetra",
