@@ -8,7 +8,7 @@ from typing import Generator, Optional, Union
 import numpy as np
 from numpy.typing import ArrayLike
 
-from porepy.utils import setmembership
+import porepy as pp
 
 
 class Fracture(abc.ABC):
@@ -196,7 +196,7 @@ class Fracture(abc.ABC):
         """
         p = p.reshape((-1, 1))
         ap = np.hstack((p, self.pts))
-        up, _, ind = setmembership.unique_columns_tol(ap, tol=tol * np.sqrt(3))
+        up, _, ind = pp.array_operations.unique_columns_tol(ap, tol=tol * np.sqrt(3))
 
         # If the unique-operation did not remove any points, it is not a vertex.
         if up.shape[1] == ap.shape[1]:

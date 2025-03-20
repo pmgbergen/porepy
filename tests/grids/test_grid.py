@@ -15,7 +15,6 @@ import porepy as pp
 from porepy.applications.test_utils import reference_dense_arrays
 from porepy.grids import simplex, structured
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils import setmembership
 
 
 @pytest.mark.parametrize(
@@ -797,7 +796,7 @@ def test_geometry_tetrahedral_grid(tetrahedral_grid):
     face_nodes = tetrahedral_grid.face_nodes.indices.reshape(
         (3, tetrahedral_grid.num_faces), order="F"
     )
-    ismem, ind_map = setmembership.ismember_rows(fn, face_nodes)
+    ismem, ind_map = pp.array_operations.ismember_rows(fn, face_nodes)
     assert np.all(ismem)
     assert np.allclose(tetrahedral_grid.face_centers[:, ind_map], fc)
     assert np.allclose(tetrahedral_grid.face_areas[ind_map], fa)

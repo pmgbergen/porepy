@@ -15,7 +15,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.grids import grid
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
+from porepy.utils import accumarray, grid_utils, mcolon, tags
 
 
 def coarsen(
@@ -445,7 +445,7 @@ def create_partition(
 
     # Remove one of the neighbors cells
     if pairs.size:
-        pairs = setmembership.unique_rows(np.sort(pairs, axis=1))[0]
+        pairs = pp.array_operations.unique_rows(np.sort(pairs, axis=1))[0]
         for ij in pairs:
             A_val = A[ij, ij].A.ravel()
             ids = ij[np.argsort(A_val)]

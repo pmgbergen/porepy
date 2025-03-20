@@ -14,8 +14,9 @@ import numpy as np
 import scipy.sparse as sps
 import scipy.spatial
 
+import porepy as pp
 from porepy.grids.grid import Grid
-from porepy.utils import accumarray, setmembership
+from porepy.utils import accumarray
 
 
 class TriangleGrid(Grid):
@@ -82,7 +83,7 @@ class TriangleGrid(Grid):
 
         # Face node relations. Each face is oriented from low to high node index.
         face_nodes.sort(axis=1)
-        face_nodes, _, cell_faces = setmembership.unique_rows(face_nodes)
+        face_nodes, _, cell_faces = pp.array_operations.unique_rows(face_nodes)
 
         num_faces = face_nodes.shape[0]
         num_cells = tri.shape[1]
@@ -265,7 +266,9 @@ class TetrahedralGrid(Grid):
         face_nodes = face_nodes.reshape((3, 4 * num_cells), order="F")
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
         face_nodes_sorted = np.sort(face_nodes, axis=0)
-        face_nodes, _, cell_faces = setmembership.unique_columns_tol(face_nodes_sorted)
+        face_nodes, _, cell_faces = pp.array_operations.unique_columns_tol(
+            face_nodes_sorted
+        )
 
         num_faces = face_nodes.shape[1]
 

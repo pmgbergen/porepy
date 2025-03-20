@@ -354,7 +354,7 @@ def relative_displacements(
         h_1_sign = normal_primary_1_r[1]
         assert np.all(np.isclose(h_1_sign * normal_primary_1_r, np.array([0, 1, 0])))
         # Find what frac-pair the tip i corresponds to
-        j = pp.utils.setmembership.ismember_rows(
+        j = pp.array_operations.ismember_rows(
             face_pair[:, np.newaxis], sd_primary.frac_pairs
         )[1]
         d_u = np.dot(R, np.append(du_faces[:, j], np.zeros((1, 3 - sd_primary.dim))))[

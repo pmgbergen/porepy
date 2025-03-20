@@ -8,7 +8,7 @@ Created on Thu Feb 25 20:43:38 2016
 import numpy as np
 import pytest
 
-from porepy.utils import setmembership
+import porepy as pp
 
 
 def test_unique_rows():
@@ -16,7 +16,7 @@ def test_unique_rows():
     ua_expected = np.array([[1, 2], [2, 1], [2, 4]])
     ia_expected = np.array([0, 1, 2])
     ic_expected = np.array([0, 1, 2, 1, 2])
-    ua, ia, ic = setmembership.unique_rows(a)
+    ua, ia, ic = pp.array_operations.unique_rows(a)
     assert np.sum(np.abs(ua) - np.abs(ua_expected)) == 0
     assert np.all(ia - ia_expected == 0)
     assert np.all(ic - ic_expected == 0)
@@ -85,7 +85,7 @@ def test_unique_rows():
     ],
 )
 def test_ismember_rows_with_sort(a, b, ma_known, ia_known):
-    ma, ia = setmembership.ismember_rows(a, b)
+    ma, ia = pp.array_operations.ismember_rows(a, b)
     assert np.allclose(ma, ma_known)
     assert np.allclose(ia, ia_known)
 
@@ -102,7 +102,7 @@ def test_ismember_rows_with_sort(a, b, ma_known, ia_known):
     ],
 )
 def test_ismember_rows_no_sort(a, b, ma_known, ia_known):
-    ma, ia = setmembership.ismember_rows(a, b, sort=False)
+    ma, ia = pp.array_operations.ismember_rows(a, b, sort=False)
 
     assert np.allclose(ma, ma_known)
     assert np.allclose(ia, ia_known)
@@ -110,7 +110,7 @@ def test_ismember_rows_no_sort(a, b, ma_known, ia_known):
 
 def test_unique_columns_tol_no_common_points():
     p = np.array([[0, 1, 2], [0, 0, 0]])
-    p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
+    p_unique, new_2_old, old_2_new = pp.array_operations.unique_columns_tol(p)
 
     assert np.allclose(p, p_unique)
     assert np.all(old_2_new == np.arange(3))
@@ -119,7 +119,7 @@ def test_unique_columns_tol_no_common_points():
 
 def test_unique_columns_tol_remove_one_point():
     p = np.ones((2, 2))
-    _, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
+    _, new_2_old, old_2_new = pp.array_operations.unique_columns_tol(p)
 
     assert np.allclose(p, np.ones((2, 1)))
     assert np.all(old_2_new == np.zeros(2))
@@ -128,7 +128,7 @@ def test_unique_columns_tol_remove_one_point():
 
 def test_unique_columns_tol_remove_one_of_tree():
     p = np.array([[1, 1, 0], [1, 1, 0]])
-    p_unique, new_2_old, old_2_new = setmembership.unique_columns_tol(p)
+    p_unique, new_2_old, old_2_new = pp.array_operations.unique_columns_tol(p)
 
     # The sorting of the output depends on how the unique array is computed
     # (see unique_columns_tol for the various options that may be applied).

@@ -12,7 +12,6 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 import porepy as pp
-from porepy.utils import setmembership
 
 from .fracture import Fracture
 
@@ -129,7 +128,7 @@ class PlaneFracture(Fracture):
             )
         )
         self.pts = np.hstack((self.pts, p))
-        self.pts, _, _ = setmembership.unique_columns_tol(self.pts, tol=tol)
+        self.pts, _, _ = pp.array_operations.unique_columns_tol(self.pts, tol=tol)
 
         # Sort points to counter-clockwise
         mask = self.sort_points()

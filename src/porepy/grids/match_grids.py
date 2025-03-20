@@ -18,7 +18,6 @@ from typing_extensions import Literal
 import porepy as pp
 from porepy.grids.structured import TensorGrid
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
 logger = logging.getLogger(__name__)
 
@@ -297,7 +296,7 @@ def match_grids_along_1d_mortar(
         if f.size != fi.size:
             raise ValueError("We assume fi are boundary faces")
 
-        ismem, ind_map = ismember_rows(fi, fi[f], sort=False)
+        ismem, ind_map = pp.array_operations.ismember_rows(fi, fi[f], sort=False)
         if not np.all(ismem):
             raise ValueError
 
@@ -310,7 +309,7 @@ def match_grids_along_1d_mortar(
             raise ValueError("Nodes are not colinear")
         sort_ind = pp.map_geometry.sort_points_on_line(nodes, tol=tol)
         n = nodes[:, sort_ind]
-        unique_nodes, _, _ = unique_columns_tol(n, tol=tol)
+        unique_nodes, _, _ = pp.array_operations.unique_columns_tol(n, tol=tol)
         g = TensorGrid(np.arange(unique_nodes.shape[1]))
         g.nodes = unique_nodes
         g.compute_geometry()
@@ -348,7 +347,7 @@ def match_grids_along_1d_mortar(
         cn = g_1d.cell_nodes().indices.reshape((2, g_1d.num_cells), order="F")
 
         # Find cell index of each face
-        ismem, ind = ismember_rows(fn_loc, cn)
+        ismem, ind = pp.array_operations.ismember_rows(fn_loc, cn)
         # Quality check, the grids should be conforming
         if not np.all(ismem):
             raise ValueError

@@ -9,7 +9,7 @@ from scipy import sparse as sps
 
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils import setmembership, tags
+from porepy.utils import tags
 from porepy.utils.graph import Graph
 from porepy.utils.mcolon import mcolon
 
@@ -95,7 +95,7 @@ def split_fractures(
             # Enforce 64 bit to comply with ismember_rows. Was np.int32
             source = np.atleast_2d(sd.global_point_ind).astype(np.int64)
             target = np.atleast_2d(sd_primary.global_point_ind).astype(np.int64)
-            _, mapping = setmembership.ismember_rows(source, target)
+            _, mapping = pp.array_operations.ismember_rows(source, target)
             secondary_to_primary_nodes.append(mapping)
 
         split_nodes(sd_primary, low_dim_neigh, secondary_to_primary_nodes, offset)
