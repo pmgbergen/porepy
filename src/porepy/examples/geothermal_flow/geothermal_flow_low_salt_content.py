@@ -1,44 +1,45 @@
 from __future__ import annotations
 
 import time
+from typing import cast
 
 import numpy as np
+
+import porepy as pp
 
 # Figure 4 single with low pressure (lP) condition
 # Figure 4 single with moderate pressure (mP) condition
 # Figure 4 single with high pressure (hP) condition
-from model_configuration.bc_description.bc_market import (
+from .model_configuration.bc_description.bc_market import (
     BC_single_phase_high_pressure as BC_hP,
 )
-from model_configuration.bc_description.bc_market import (
+from .model_configuration.bc_description.bc_market import (
     BC_single_phase_low_pressure as BC_lP,
 )
-from model_configuration.bc_description.bc_market import (
+from .model_configuration.bc_description.bc_market import (
     BC_single_phase_moderate_pressure as BC_mP,
+)
+from .model_configuration.DriesnerModelConfiguration import (
+    DriesnerBrineFlowModel as FlowModel,
 )
 
 # geometry description horizontal case
-from model_configuration.geometry_description.geometry_market import (
+from .model_configuration.geometry_description.geometry_market import (
     SimpleGeometryHorizontal as ModelGeometryH,
 )
-from model_configuration.geometry_description.geometry_market import (
+from .model_configuration.geometry_description.geometry_market import (
     SimpleGeometryVertical as ModelGeometryV,
 )
-from model_configuration.ic_description.ic_market import (
+from .model_configuration.ic_description.ic_market import (
     IC_single_phase_high_pressure as IC_hP,
 )
-from model_configuration.ic_description.ic_market import (
+from .model_configuration.ic_description.ic_market import (
     IC_single_phase_low_pressure as IC_lP,
 )
-from model_configuration.ic_description.ic_market import (
+from .model_configuration.ic_description.ic_market import (
     IC_single_phase_moderate_pressure as IC_mP,
 )
-
-import porepy as pp
-from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (
-    DriesnerBrineFlowModel as FlowModel,
-)
-from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
+from .vtk_sampler import VTKSampler
 
 # Main directives
 case_name = "case_mP"
@@ -78,11 +79,11 @@ geometry_cases = {
 }
 
 
-tf = simulation_cases[case_name]["tf"]
-dt = simulation_cases[case_name]["dt"]
-BoundaryConditions = simulation_cases[case_name]["bc"]
-InitialConditions = simulation_cases[case_name]["ic"]
-ModelGeometry = geometry_cases[geometry_case]
+tf = cast(float, simulation_cases[case_name]["tf"])
+dt = cast(float, simulation_cases[case_name]["dt"])
+BoundaryConditions: type = cast(type, simulation_cases[case_name]["bc"])
+InitialConditions: type = cast(type, simulation_cases[case_name]["ic"])
+ModelGeometry: type = cast(type, geometry_cases[geometry_case])
 
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
@@ -93,13 +94,11 @@ time_manager = pp.TimeManager(
 )
 
 solid_constants = pp.SolidConstants(
-    {
-        "permeability": 1.0e-15,
-        "porosity": 0.1,
-        "thermal_conductivity": 2.0 * 1.0e-6,
-        "density": 2700.0,
-        "specific_heat_capacity": 880.0 * 1.0e-6,
-    }
+    permeability=1e-15,
+    porosity=0.1,
+    thermal_conductivity=2.0 * 1e-6,
+    density=2700.0,
+    specific_heat_capacity=880.0 * 1e-6,
 )
 material_constants = {"solid": solid_constants}
 params = {
@@ -108,7 +107,7 @@ params = {
     "eliminate_reference_component": True,  # z_H2O eliminated, default is True
     "time_manager": time_manager,
     "prepare_simulation": False,
-    "reduce_linear_system_q": False,
+    "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
     "nl_convergence_tol_res": 1.0e-9,
     "max_iterations": 50,
@@ -121,7 +120,7 @@ class GeothermalWaterFlowModel(
     def after_nonlinear_convergence(self) -> None:
         day = 86400
         year = 365 * day
-        super().after_nonlinear_convergence()
+        super().after_nonlinear_convergence()  # type:ignore[safe-super]
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value (year): ", self.time_manager.time / year)
         print("Time index: ", self.time_manager.time_index)
@@ -133,6 +132,8 @@ class GeothermalWaterFlowModel(
 
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
+model.primary_equations = model.get_primary_equations_cf()
+model.primary_variables = model.get_primary_variables_cf()
 
 parametric_space_ref_level = 2
 file_name_prefix = "model_configuration/constitutive_description/driesner_vtk_files/"
@@ -180,6 +181,7 @@ bc_sides = model.domain_boundary_sides(grid)
 
 # Integrated overall mass flux on all facets
 mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
+mn = cast(np.ndarray, mn)
 
 inlet_idx, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])
 print("Inflow values : ", mn[inlet_idx])

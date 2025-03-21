@@ -501,7 +501,7 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     bc_data_component_flux_key: Callable[[pp.Component], str]
     """See :class:`BoundaryConditionsMulticomponent`."""
 
-    has_independent_fraction: Callable[[pp.Component], bool]
+    has_independent_fraction: Callable[[pp.Component | pp.Phase], bool]
     """Provided by mixin for compositional variables."""
 
     def _mass_balance_equation_name(self, component: pp.Component) -> str:
@@ -1922,7 +1922,7 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
             logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
         else:
             assert isinstance(self, pp.SolutionStrategy)
-            super().assemble_linear_system()  # type:ignore[safe-super]
+            super().assemble_linear_system()  # type:ignore
 
     def solve_linear_system(self) -> np.ndarray:
         """After calling the parent method, the global solution is calculated by Schur

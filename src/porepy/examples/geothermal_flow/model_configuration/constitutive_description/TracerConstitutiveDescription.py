@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Callable, Sequence
+from typing import Callable, Sequence, cast
 
 import numpy as np
 
 import porepy as pp
-import porepy.compositional as ppc
-from porepy.models.compositional_flow import SecondaryEquationsMixin
+from porepy.models.abstract_equations import LocalElimination
 
 
 def gas_saturation_func(
@@ -102,7 +101,7 @@ chi_functions_map = {
 }
 
 
-class LiquidLikeCorrelations(ppc.AbstractEoS):
+class LiquidLikeCorrelations(pp.compositional.EquationOfState):
     """Class implementing the calculation of thermodynamic properties.
 
     Note:
@@ -157,8 +156,10 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         return vals, diffs
 
     def compute_phase_properties(
-        self, phase_state: ppc.PhysicalState, *thermodynamic_input: np.ndarray
-    ) -> ppc.PhaseProperties:
+        self,
+        phase_state: pp.compositional.PhysicalState,
+        *thermodynamic_input: np.ndarray,
+    ) -> pp.compositional.PhaseProperties:
         """Function will be called to compute the values for a phase.
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
         ``thermodynamic_dependencies`` are as defined by the user.
@@ -187,7 +188,7 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
             (2, 3, nc)
         )  # (2, 3, n)  array (2 components, 3 dependencies, n cells)
 
-        return ppc.PhaseProperties(
+        return pp.compositional.PhaseProperties(
             state=phase_state,
             rho=rho,
             drho=drho,
@@ -202,7 +203,7 @@ class LiquidLikeCorrelations(ppc.AbstractEoS):
         )
 
 
-class GasLikeCorrelations(ppc.AbstractEoS):
+class GasLikeCorrelations(pp.compositional.EquationOfState):
     """Class implementing the calculation of thermodynamic properties.
 
     Note:
@@ -256,8 +257,10 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         return vals, diffs
 
     def compute_phase_properties(
-        self, phase_state: ppc.PhysicalState, *thermodynamic_input: np.ndarray
-    ) -> ppc.PhaseProperties:
+        self,
+        phase_state: pp.compositional.PhysicalState,
+        *thermodynamic_input: np.ndarray,
+    ) -> pp.compositional.PhaseProperties:
         """Function will be called to compute the values for a phase.
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
         ``thermodynamic_dependencies`` are as defined by the user.
@@ -285,7 +288,7 @@ class GasLikeCorrelations(ppc.AbstractEoS):
             (2, 3, nc)
         )  # (2, 3, n)  array (2 components, 3 dependencies, n cells)
 
-        return ppc.PhaseProperties(
+        return pp.compositional.PhaseProperties(
             state=phase_state,
             rho=rho,
             drho=drho,
@@ -300,48 +303,41 @@ class GasLikeCorrelations(ppc.AbstractEoS):
         )
 
 
-class FluidMixture(ppc.FluidMixtureMixin):
+class FluidMixture(pp.PorePyModel):
     """Mixture mixin creating the brine mixture with two components."""
 
-    enthalpy: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Provided by :class:`~porepy.models.compositional_flow.VariablesEnergyBalance`."""
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
-    def get_components(self) -> Sequence[ppc.Component]:
+    def get_components(self) -> Sequence[pp.FluidComponent]:
         """Setting H20 as first component in Sequence makes it the reference component.
         z_H20 will be eliminated."""
-        species = ppc.load_species(["H2O", "NaCl"])
-        components = [ppc.Component.from_species(s) for s in species]
-        return components
+        return pp.compositional.load_fluid_constants(["H2O", "NaCl"], "chemicals")
 
     def get_phase_configuration(
-        self, components: Sequence[ppc.Component]
-    ) -> Sequence[tuple[ppc.AbstractEoS, ppc.PhysicalState, str]]:
+        self, components: Sequence[pp.Component]
+    ) -> Sequence[
+        tuple[pp.compositional.EquationOfState, pp.compositional.PhysicalState, str]
+    ]:
         eos_L = LiquidLikeCorrelations(components)
         eos_G = GasLikeCorrelations(components)
         return [
-            (eos_L, ppc.PhysicalState.liquid, "liq"),
-            (eos_G, ppc.PhysicalState.gas, "gas"),
+            (eos_L, pp.compositional.PhysicalState.liquid, "liq"),
+            (eos_G, pp.compositional.PhysicalState.gas, "gas"),
         ]
 
     def dependencies_of_phase_properties(
-        self, phase: ppc.Phase
-    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Operator]]:
+        self, phase: pp.Phase
+    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
         z_NaCl = [
             comp.fraction
-            for comp in self.fluid_mixture.components
-            if comp != self.fluid_mixture.reference_component
+            for comp in self.fluid.components
+            if comp != self.fluid.reference_component
         ]
-        return [self.pressure, self.enthalpy] + z_NaCl
-
-    def set_components_in_phases(
-        self, components: Sequence[ppc.Component], phases: Sequence[ppc.Phase]
-    ) -> None:
-        """By default, the unified assumption is applied: all components are present
-        in all phases."""
-        super().set_components_in_phases(components, phases)
+        return [self.pressure, self.enthalpy] + z_NaCl  # type:ignore[return-value]
 
 
-class SecondaryEquations(SecondaryEquationsMixin):
+class SecondaryEquations(LocalElimination):
     """Mixin to provide expressions for dangling variables.
 
     The CF framework has the following quantities always as independent variables:
@@ -353,55 +349,56 @@ class SecondaryEquations(SecondaryEquationsMixin):
 
     """
 
-    dependencies_of_phase_properties: Sequence[
-        Callable[[pp.GridLikeSequence], pp.ad.Operator]
+    dependencies_of_phase_properties: Callable[
+        ..., Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]
     ]
     """Defined in the Brine mixture mixin."""
 
-    temperature: Callable[[list[pp.Grid]], pp.ad.MixedDimensionalVariable]
-    """Provided by :class:`~porepy.models.energy_balance.VariablesEnergyBalance`."""
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
-    has_independent_partial_fraction: Callable[[ppc.Component, ppc.Phase], bool]
+    has_independent_partial_fraction: Callable[[pp.Component, pp.Phase], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     def set_equations(self) -> None:
+        super().set_equations()
         subdomains = self.mdg.subdomains()
 
         matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
-        matrix_boundary = [self.mdg.subdomain_to_boundary_grid(matrix)]
+        matrix_boundary = cast(
+            pp.BoundaryGrid, self.mdg.subdomain_to_boundary_grid(matrix)
+        )
+        subdomains_and_matrix = subdomains + [matrix_boundary]
 
         ### Providing constitutive law for gas saturation based on correlation
-        rphase = self.fluid_mixture.reference_phase  # liquid phase
+        rphase = self.fluid.reference_phase  # liquid phase
         # gas phase is independent
-        independent_phases = [p for p in self.fluid_mixture.phases if p != rphase]
+        independent_phases = [p for p in self.fluid.phases if p != rphase]
 
         for phase in independent_phases:
-            self.eliminate_by_constitutive_law(
+            self.eliminate_locally(
                 phase.saturation,  # callable giving saturation on ``subdomains``
                 self.dependencies_of_phase_properties(
                     phase
                 ),  # callables giving primary variables on subdoains
                 gas_saturation_func,  # numerical function implementing correlation
-                subdomains
-                + matrix_boundary,  # all subdomains on which to eliminate s_gas
-                # dofs = {'cells': 1},  # default value
+                subdomains_and_matrix,  # all subdomains on which to eliminate s_gas
             )
 
         ### Providing constitutive laws for partial fractions based on correlations
-        for phase in self.fluid_mixture.phases:
+        for phase in self.fluid.phases:
             for comp in phase:
                 if self.has_independent_partial_fraction(comp, phase):
-                    self.eliminate_by_constitutive_law(
+                    self.eliminate_locally(
                         phase.partial_fraction_of[comp],
                         self.dependencies_of_phase_properties(phase),
                         chi_functions_map[comp.name + "_" + phase.name],
-                        subdomains + matrix_boundary,
+                        subdomains_and_matrix,
                     )
 
         ### Provide constitutive law for temperature
-        self.eliminate_by_constitutive_law(
+        self.eliminate_locally(
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
             temperature_func,
-            subdomains + matrix_boundary,
+            subdomains_and_matrix,
         )
