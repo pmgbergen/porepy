@@ -1,16 +1,12 @@
-from typing import Literal, Union
+from typing import Callable, Literal, Union, cast
 
 import numpy as np
 
 import porepy as pp
 import porepy.compositional as ppc
-from porepy.models.compositional_flow import (
-    BoundaryConditionsCF,
-    CFModelMixin,
-    InitialConditionsCF,
-    PrimaryEquationsCF,
-)
+from porepy.models.compositional_flow import CompositionalFlowTemplate
 
+from ..vtk_sampler import VTKSampler
 from .constitutive_description.BrineConstitutiveDescription import (
     FluidMixture,
     SecondaryEquations,
@@ -18,8 +14,13 @@ from .constitutive_description.BrineConstitutiveDescription import (
 from .geometry_description.geometry_market import SimpleGeometry as ModelGeometry
 
 
-class BoundaryConditions(BoundaryConditionsCF):
+class BoundaryConditions(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    vtk_sampler_ptz: VTKSampler
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
@@ -75,10 +76,12 @@ class BoundaryConditions(BoundaryConditionsCF):
             return z_NaCl
 
 
-class InitialConditions(InitialConditionsCF):
+class InitialConditions(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    vtk_sampler_ptz: VTKSampler
+
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_inlet = 50.0
         p_outlet = 25.0
         xc = sd.cell_centers.T
@@ -86,20 +89,20 @@ class InitialConditions(InitialConditionsCF):
         p_init = np.array(list(map(p_linear, xc)))
         return p_init
 
-    def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
         t_init = 423.15
         return np.ones(sd.num_cells) * t_init
 
-    def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
-        p = self.initial_pressure(sd)
-        t = self.initial_temperature(sd)
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        p = self.ic_values_pressure(sd)
+        t = self.ic_values_temperature(sd)
         z_NaCl = np.zeros_like(p)
         par_points = np.array((z_NaCl, t, p)).T
         self.vtk_sampler_ptz.sample_at(par_points)
         h_init = self.vtk_sampler_ptz.sampled_could.point_data["H"] * 1.0e-6
         return h_init
 
-    def initial_overall_fraction(
+    def ic_values_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
         z = 0.0
@@ -109,38 +112,18 @@ class InitialConditions(InitialConditionsCF):
             return z * np.ones(sd.num_cells)
 
 
-class ModelEquations(
-    PrimaryEquationsCF,
-    SecondaryEquations,
-):
-    """Collecting primary flow and transport equations, and secondary equations
-    which provide substitutions for independent saturations and partial fractions.
-    """
-
-    def set_equations(self):
-        """Call to the equation. Parent classes don't use super(). User must provide
-        proper order resultion.
-
-        I don't know why, but the other models are doing it this way was well.
-        Maybe it has something to do with the sparsity pattern.
-
-        """
-        # Flow and transport in MD setting
-        PrimaryEquationsCF.set_equations(self)
-        # local elimination of dangling secondary variables
-        SecondaryEquations.set_equations(self)
-
-
-class DriesnerBrineFlowModel(
+class DriesnerBrineFlowModel(  # type:ignore[misc]
     ModelGeometry,
     FluidMixture,
     InitialConditions,
     BoundaryConditions,
-    ModelEquations,
-    CFModelMixin,
+    SecondaryEquations,
+    CompositionalFlowTemplate,
 ):
-    def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
-        return saturation
+    def relative_permeability(
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        return phase.saturation(domains)
 
     @property
     def vtk_sampler(self):
@@ -160,24 +143,28 @@ class DriesnerBrineFlowModel(
 
     def gravity_force(
         self,
-        subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
+        grids: Union[list[pp.Grid], list[pp.MortarGrid]],
         material: Literal["fluid", "solid"],
     ) -> pp.ad.Operator:
-        overall_rho = self.fluid_density(subdomains)
+        if material == "fluid":
+            rho = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
+        elif material == "solid":
+            rho = self.solid_density(grids)  # type:ignore[arg-type]
+        else:
+            raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
         # Keeping the following line for quantitative verification purposes
         # rho_avg = np.sum(overall_rho.value(self.equation_system) * subdomains[0].cell_volumes) / np.sum(subdomains[0].cell_volumes)
 
         scaling = 1.0e-6
         g_constant = pp.GRAVITY_ACCELERATION
-        val = self.fluid.convert_units(g_constant, "m*s^-2") * scaling
-        size = np.sum([g.num_cells for g in subdomains]).astype(int)
-        overall_gravity_flux = pp.wrap_as_dense_ad_array(val, size=size)
+        val = self.units.convert_units(g_constant, "m*s^-2") * scaling
+        size = np.sum([g.num_cells for g in grids]).astype(int)
 
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
-        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+        e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)
         overall_gravity_flux = (
-            pp.ad.Scalar(-1) * e_n @ (overall_rho * overall_gravity_flux)
+            pp.ad.Scalar(-1) * e_n @ (rho * pp.wrap_as_dense_ad_array(val, size=size))
         )
         overall_gravity_flux.set_name("overall gravity flux")
         return overall_gravity_flux

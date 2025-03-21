@@ -1016,17 +1016,17 @@ class InitialConditionsEnthalpy(pp.InitialConditionMixin):
     """See :class:`EnthalpyVariable`."""
 
     def set_initial_values_primary_variables(self) -> None:
-        """Calls :meth:`initial_enthalpy` and sets the values to iterate index 0."""
+        """Calls :meth:`ic_values_enthalpy` and sets the values to iterate index 0."""
         super().set_initial_values_primary_variables()
 
         for sd in self.mdg.subdomains():
             self.equation_system.set_variable_values(
-                self.initial_enthalpy(sd),
+                self.ic_values_enthalpy(sd),
                 [cast(pp.ad.Variable, self.enthalpy([sd]))],
                 iterate_index=0,
             )
 
-    def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         """Initial values for (specific fluid) enthalpy.
 
         Override this method to customize the initialization.

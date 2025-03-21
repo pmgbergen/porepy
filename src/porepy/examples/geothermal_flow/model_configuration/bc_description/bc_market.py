@@ -1,12 +1,19 @@
+from typing import Callable
+
 import numpy as np
 
 import porepy as pp
-import porepy.compositional as ppc
-from porepy.models.compositional_flow import BoundaryConditionsCF
+
+from ...vtk_sampler import VTKSampler
 
 
-class BC_single_phase_high_pressure(BoundaryConditionsCF):
+class BC_single_phase_high_pressure(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+    vtk_sampler_ptz: VTKSampler
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
@@ -50,7 +57,7 @@ class BC_single_phase_high_pressure(BoundaryConditionsCF):
         return h
 
     def bc_values_overall_fraction(
-        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
         z_init = 0.0
@@ -65,8 +72,13 @@ class BC_single_phase_high_pressure(BoundaryConditionsCF):
             return z_NaCl
 
 
-class BC_single_phase_moderate_pressure(BoundaryConditionsCF):
+class BC_single_phase_moderate_pressure(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+    vtk_sampler_ptz: VTKSampler
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
@@ -110,7 +122,7 @@ class BC_single_phase_moderate_pressure(BoundaryConditionsCF):
         return h
 
     def bc_values_overall_fraction(
-        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
         z_init = 0.0
@@ -125,8 +137,13 @@ class BC_single_phase_moderate_pressure(BoundaryConditionsCF):
             return z_NaCl
 
 
-class BC_single_phase_low_pressure(BoundaryConditionsCF):
+class BC_single_phase_low_pressure(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
+    vtk_sampler_ptz: VTKSampler
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
@@ -170,7 +187,7 @@ class BC_single_phase_low_pressure(BoundaryConditionsCF):
         return h
 
     def bc_values_overall_fraction(
-        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
         z_init = 0.0

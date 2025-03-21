@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Callable, Sequence, Union, cast
+from typing import Callable, Optional, Sequence, Union, cast
 
 import numpy as np
 
@@ -230,7 +230,7 @@ class LocalElimination(EquationMixin):
         dependencies: Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]],
         func: Callable[..., tuple[np.ndarray, np.ndarray]],
         domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
-        equations_per_grid_entity: None | dict[GridEntity, int],
+        equations_per_grid_entity: Optional[dict[GridEntity, int]] = None,
     ) -> None:
         """Method to add a secondary equation eliminating a variable by some
         constitutive law depending on *other* variables.
@@ -275,10 +275,11 @@ class LocalElimination(EquationMixin):
             domains: A Sequence of grids on which the quantity and its dependencies are
                 defined and on which the equation should be introduces.
                 Used to call ``independent_quantity`` and ``dependencies``.
-            equations_per_grid_entity: ``default={'cells':1}``
+            equations_per_grid_entity: ``default=None``
 
                 Argument for when adding above equation to the equation system and
-                creating a surrogate factory.
+                creating a surrogate factory. If None, the default ``{'cells':1}`` is
+                assigned.
 
         """
         if equations_per_grid_entity is None:
