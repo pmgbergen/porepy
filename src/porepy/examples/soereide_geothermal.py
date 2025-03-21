@@ -668,5 +668,6 @@ t_0 = time.time()
 pp.run_time_dependent_model(model, params)
 sim_time = time.time() - t_0
 
-print(f"Finished prepare_simulation in {prep_sim_time} seconds.")
-print(f"Finished simulation in {sim_time} seconds.")
+print(f"Set-up time: {prep_sim_time} (s).")
+print(f"Approximate compilation time: {compile_time} (s).")
+print(f"Simulation run time: {sim_time} (s).")
