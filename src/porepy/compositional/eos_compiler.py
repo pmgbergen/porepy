@@ -29,8 +29,33 @@ properties"""
 
 
 VectorFunction: TypeAlias = Callable[..., np.ndarray]
-"""Type alias for vector functions returning a numpy array. Used to type derivative functions
-of thermodynamic properties."""
+"""Type alias for vector functions returning a numpy array. Used to type derivative
+functions of thermodynamic properties."""
+
+
+PropertyFunctionNames: TypeAlias = Literal[
+    "prearg_val",
+    "prearg_jac",
+    "phis",
+    "dphis",
+    "h",
+    "dh",
+    "v",
+    "dv",
+    "rho",
+    "drho",
+    "mu",
+    "dmu",
+    "kappa",
+    "dkappa",
+]
+"""Type alias for names/keys of property functions stored in :attr:`EoSCompiler.funcs`
+and :attr:`EoSCompiler.gufuncs`.
+
+See also:
+    :class:`~porepy.compositional.states.PhaseProperties`
+
+"""
 
 
 class PropertyFunctionDict(TypedDict, total=False):
@@ -168,7 +193,7 @@ def fugacity_coeff_template_func(
 def fugacity_coeff_derivative_template_func(
     prearg_val: np.ndarray, prearg_jac: np.ndarray, p: float, T: float, xn: np.ndarray
 ) -> np.ndarray:
-    """Template c-func for derivatives offugacity coefficients.
+    """Template c-func for derivatives of fugacity coefficients.
 
     Used for numba type infering.
 
@@ -457,26 +482,6 @@ def _evaluate_vectorized_fug_coeff_diff_func(
             prearg_val[i], prearg_jac[i], p[i], T[i], xn[i]
         )
     return dphis
-
-
-PropertyFunctionNames: TypeAlias = Literal[
-    "prearg_val",
-    "prearg_jac",
-    "phis",
-    "dphis",
-    "h",
-    "dh",
-    "v",
-    "dv",
-    "rho",
-    "drho",
-    "mu",
-    "dmu",
-    "kappa",
-    "dkappa",
-]
-"""Type alias for names/keys of property functions stored in :attr:`EoSCompiler.funcs`
-and :attr:`EoSCompiler.gufuncs`."""
 
 
 class EoSCompiler(EquationOfState):
