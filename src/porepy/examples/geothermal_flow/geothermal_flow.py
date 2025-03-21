@@ -72,8 +72,6 @@ class GeothermalFlowModel(FlowModel):
 
 # Instance of the computational model
 model = GeothermalFlowModel(params)
-model.primary_equations = model.get_primary_equations_cf()
-model.primary_variables = model.get_primary_variables_cf()
 
 parametric_space_ref_level = 2
 file_name_prefix = (
@@ -103,6 +101,8 @@ te = time.time()
 print("Elapsed time prepare simulation: ", te - tb)
 print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid employed: ", model.mdg)
+model.primary_equations = model.get_primary_equations_cf()
+model.primary_variables = model.get_primary_variables_cf()
 
 # print geometry
 model.exporter.write_vtu()

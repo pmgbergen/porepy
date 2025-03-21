@@ -25,8 +25,9 @@ from typing import cast
 import numpy as np
 
 import porepy as pp
-
-from .model_configuration.TracerModelConfiguration import TracerFlowModel as FlowModel
+from porepy.examples.geothermal_flow.model_configuration.TracerModelConfiguration import (
+    TracerFlowModel as FlowModel,
+)
 
 day = 86400
 t_scale = 1.0
@@ -74,8 +75,6 @@ class TracerLikeFlowModel(FlowModel):
 
 
 model = TracerLikeFlowModel(params)
-model.primary_equations = model.get_primary_equations_cf()
-model.primary_variables = model.get_primary_variables_cf()
 
 tb = time.time()
 model.prepare_simulation()
@@ -83,6 +82,8 @@ te = time.time()
 print("Elapsed time prepare simulation: ", te - tb)
 print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid employed: ", model.mdg)
+model.primary_equations = model.get_primary_equations_cf()
+model.primary_variables = model.get_primary_variables_cf()
 
 # print geometry
 model.exporter.write_vtu()
