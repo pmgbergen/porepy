@@ -10,36 +10,36 @@ import porepy as pp
 # Figure 4 single with low pressure (lP) condition
 # Figure 4 single with moderate pressure (mP) condition
 # Figure 4 single with high pressure (hP) condition
-from .model_configuration.bc_description.bc_market import (
+from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (
     BC_single_phase_high_pressure as BC_hP,
 )
-from .model_configuration.bc_description.bc_market import (
+from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (
     BC_single_phase_low_pressure as BC_lP,
 )
-from .model_configuration.bc_description.bc_market import (
+from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (
     BC_single_phase_moderate_pressure as BC_mP,
 )
-from .model_configuration.DriesnerModelConfiguration import (
+from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (
     DriesnerBrineFlowModel as FlowModel,
 )
 
 # geometry description horizontal case
-from .model_configuration.geometry_description.geometry_market import (
+from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (
     SimpleGeometryHorizontal as ModelGeometryH,
 )
-from .model_configuration.geometry_description.geometry_market import (
+from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (
     SimpleGeometryVertical as ModelGeometryV,
 )
-from .model_configuration.ic_description.ic_market import (
+from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (
     IC_single_phase_high_pressure as IC_hP,
 )
-from .model_configuration.ic_description.ic_market import (
+from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (
     IC_single_phase_low_pressure as IC_lP,
 )
-from .model_configuration.ic_description.ic_market import (
+from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (
     IC_single_phase_moderate_pressure as IC_mP,
 )
-from .vtk_sampler import VTKSampler
+from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
 
 # Main directives
 case_name = "case_mP"
@@ -132,11 +132,12 @@ class GeothermalWaterFlowModel(
 
 # Instance of the computational model
 model = GeothermalWaterFlowModel(params)
-model.primary_equations = model.get_primary_equations_cf()
-model.primary_variables = model.get_primary_variables_cf()
 
 parametric_space_ref_level = 2
-file_name_prefix = "model_configuration/constitutive_description/driesner_vtk_files/"
+file_name_prefix = (
+    "src/porepy/examples/geothermal_flow/"
+    + "model_configuration/constitutive_description/driesner_vtk_files/"
+)
 file_name_phz = (
     file_name_prefix
     + "XHP_l"
@@ -165,6 +166,8 @@ te = time.time()
 print("Elapsed time prepare simulation: ", te - tb)
 print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid employed: ", model.mdg)
+model.primary_equations = model.get_primary_equations_cf()
+model.primary_variables = model.get_primary_variables_cf()
 
 # print geometry
 model.exporter.write_vtu()
