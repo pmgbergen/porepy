@@ -216,8 +216,7 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         # sum of the tangential basis vectors. Then take a Hadamard product with the
         # tangential displacement jump and add to the tangential component of the
         # contact traction to arrive at the expression that enters the equation.
-        basis_sum = pp.ad.sum_projection_list(tangential_basis)
-        tangential_sum = t_t + (basis_sum @ c_num_as_scalar) * u_t_increment
+        tangential_sum = t_t + (scalar_to_tangential @ c_num_as_scalar) * u_t_increment
 
         norm_tangential_sum = f_norm(tangential_sum)
         norm_tangential_sum.set_name("norm_tangential")
