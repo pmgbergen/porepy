@@ -292,7 +292,7 @@ class DisplacementJumpAperture(DimensionReduction):
     # NOTE: This method contains a call to self.equation_system.evaluate, signifying
     # that caching may not be a good idea. However, the evaluated quantity is static, it
     # depends only on geometric properties of the grid, and the caching is therefore
-    # safe.
+    # safe as long as the grid does not change.
     @pp.ad.cached_method
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
