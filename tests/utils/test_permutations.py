@@ -1,4 +1,5 @@
 """Tests of module porepy.utils.permutations."""
+
 import itertools
 
 import numpy as np

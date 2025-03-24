@@ -624,16 +624,15 @@ def _update_connectivity_fracture_grid(
             sd_primary.tags["domain_boundary_nodes"][fi], axis=0
         )
         sd_secondary.tags["tip_faces"][new_face_indices_l] = ~domain_boundary_faces
-        sd_secondary.tags["domain_boundary_faces"][
-            new_face_indices_l
-        ] = domain_boundary_faces
+        sd_secondary.tags["domain_boundary_faces"][new_face_indices_l] = (
+            domain_boundary_faces
+        )
 
         # Expand array of face-nodes in sd_secondary
         all_faces_l = np.append(all_faces_l, faces_l[:, ~exist], axis=1)
 
         # Find node indices faces to be updated.
         ind_n_local = faces_l[:, ~exist]
-        # TODO: What happens here if ~exist is more than one face?
         local_pts = sd_secondary.nodes[:, ind_n_local]
         local_face_centers = np.mean(local_pts, axis=1)
 

@@ -32,7 +32,8 @@ class AndersonAcceleration:
             iteration: current iteration count.
 
         Returns:
-            TODO: What is returned?
+            Modified application of fixed point approximation after acceleration, i.e.,
+            the new iterate xk+1.
 
         """
 
@@ -46,21 +47,21 @@ class AndersonAcceleration:
 
         # Apply actual acceleration (not in the first iteration).
         if mk > 0:
-            # Build matrices of changes
+            # Build matrices of changes.
             col = (iteration - 1) % self._depth
             self._Fk[:, col] = fk - self._fkm1
             self._Gk[:, col] = gk - self._gkm1
 
-            # Solve least squares problem
+            # Solve least squares problem.
             lstsq_solution = lstsq(self._Fk[:, 0:mk], fk)
             gamma_k = lstsq_solution[0]
             # Do the mixing
-            xkp1 = gk - np.dot(self._Gk[:, 0:mk], gamma_k)
+            x_k_plus_1 = gk - np.dot(self._Gk[:, 0:mk], gamma_k)
         else:
-            xkp1 = gk
+            x_k_plus_1 = gk
 
-        # Store values for next iteration
+        # Store values for next iteration.
         self._fkm1 = fk.copy()
         self._gkm1 = gk.copy()
 
-        return xkp1
+        return x_k_plus_1

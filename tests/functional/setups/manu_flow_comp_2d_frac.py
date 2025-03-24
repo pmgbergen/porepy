@@ -3,8 +3,8 @@ This module contains a code verification implementation for a manufactured solut
 the two-dimensional, compressible, single phase flow with a single, fully embedded
 vertical fracture in the middle of the domain.
 
-The exact solution was obtained by extending the solution from the incompressible
-case [1].
+The exact solution is the 2d version of the 3d manufactured solution presented in
+Section 6.1 from [1].
 
 In particular, we have added a pressure-dependent density which obeys the following
 constitutive relationship:
@@ -19,11 +19,12 @@ fluid compressibility.
 
 References:
 
-    - [1] Varela, J., Ahmed, E., Keilegavlen, E., Nordbotten, J. M., & Radu, F. A.
-      (2022). A posteriori error estimates for hierarchical mixed-dimensional
-      elliptic equations. Journal of Numerical Mathematics.
+    - [1] Stefansson, I., Varela, J., Keilegavlen, E., & Berre, I. (2024). Flexible and
+      rigorous numerical modelling of multiphysics processes in fractured porous
+      media using PorePy. Results in Applied Mathematics, 21, 100428.
 
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,7 +35,6 @@ import sympy as sym
 
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
-from porepy.viz.data_saving_model_mixin import VerificationDataSaving
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
     ManuIncompSaveData,
     ManuIncompUtils,
@@ -45,13 +45,12 @@ from tests.functional.setups.manu_flow_incomp_frac_2d import (
 number = pp.number
 grid = pp.GridLike
 
-# Material constants for the verification setup. Constants with (**) cannot be
+# Material constants for the verification model. Constants with (**) cannot be
 # changed since the manufactured solution implicitly assumes such values.
 manu_comp_fluid: dict[str, number] = {
     "viscosity": 1.0,  # (**)
     "compressibility": 0.2,
     "density": 1.0,  # reference value
-    "pressure": 0.0,  # reference value
 }
 
 manu_comp_solid: dict[str, number] = {
@@ -61,17 +60,22 @@ manu_comp_solid: dict[str, number] = {
     "porosity": 0.1,  # reference value
 }
 
+manu_comp_ref_vals: dict[str, number] = {
+    "pressure": 0.0,
+    "temperature": 0.0,
+}
+
 
 # -----> Data-saving
 @dataclass
 class ManuCompSaveData(ManuIncompSaveData):
-    """Data class to store relevant data from the verification setup."""
+    """Data class to store relevant data from the verification model."""
 
     time: number
     """Current simulation time."""
 
 
-class ManuCompDataSaving(VerificationDataSaving):
+class ManuCompDataSaving(pp.PorePyModel):
     """Mixin class to store relevant data."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -98,7 +102,7 @@ class ManuCompDataSaving(VerificationDataSaving):
     """
 
     def collect_data(self) -> ManuCompSaveData:
-        """Collect data from the verification setup.
+        """Collect data from the verification model.
 
         Returns:
             ManuCompSaveData object containing the results of the verification for the
@@ -115,8 +119,8 @@ class ManuCompDataSaving(VerificationDataSaving):
         # Collect data
         exact_matrix_pressure = exact_sol.matrix_pressure(sd_matrix, t)
         matrix_pressure_ad = self.pressure([sd_matrix])
-        approx_matrix_pressure = matrix_pressure_ad.value(self.equation_system)
-        error_matrix_pressure = ConvergenceAnalysis.l2_error(
+        approx_matrix_pressure = self.equation_system.evaluate(matrix_pressure_ad)
+        error_matrix_pressure = ConvergenceAnalysis.lp_error(
             grid=sd_matrix,
             true_array=exact_matrix_pressure,
             approx_array=approx_matrix_pressure,
@@ -127,8 +131,8 @@ class ManuCompDataSaving(VerificationDataSaving):
 
         exact_matrix_flux = exact_sol.matrix_flux(sd_matrix, t)
         matrix_flux_ad = self.darcy_flux([sd_matrix])
-        approx_matrix_flux = matrix_flux_ad.value(self.equation_system)
-        error_matrix_flux = ConvergenceAnalysis.l2_error(
+        approx_matrix_flux = self.equation_system.evaluate(matrix_flux_ad)
+        error_matrix_flux = ConvergenceAnalysis.lp_error(
             grid=sd_matrix,
             true_array=exact_matrix_flux,
             approx_array=approx_matrix_flux,
@@ -139,8 +143,8 @@ class ManuCompDataSaving(VerificationDataSaving):
 
         exact_frac_pressure = exact_sol.fracture_pressure(sd_frac, t)
         frac_pressure_ad = self.pressure([sd_frac])
-        approx_frac_pressure = frac_pressure_ad.value(self.equation_system)
-        error_frac_pressure = ConvergenceAnalysis.l2_error(
+        approx_frac_pressure = self.equation_system.evaluate(frac_pressure_ad)
+        error_frac_pressure = ConvergenceAnalysis.lp_error(
             grid=sd_frac,
             true_array=exact_frac_pressure,
             approx_array=approx_frac_pressure,
@@ -151,8 +155,8 @@ class ManuCompDataSaving(VerificationDataSaving):
 
         exact_frac_flux = exact_sol.fracture_flux(sd_frac, t)
         frac_flux_ad = self.darcy_flux([sd_frac])
-        approx_frac_flux = frac_flux_ad.value(self.equation_system)
-        error_frac_flux = ConvergenceAnalysis.l2_error(
+        approx_frac_flux = self.equation_system.evaluate(frac_flux_ad)
+        error_frac_flux = ConvergenceAnalysis.lp_error(
             grid=sd_frac,
             true_array=exact_frac_flux,
             approx_array=approx_frac_flux,
@@ -163,8 +167,8 @@ class ManuCompDataSaving(VerificationDataSaving):
 
         exact_intf_flux = exact_sol.interface_flux(intf, t)
         int_flux_ad = self.interface_darcy_flux([intf])
-        approx_intf_flux = int_flux_ad.value(self.equation_system)
-        error_intf_flux = ConvergenceAnalysis.l2_error(
+        approx_intf_flux = self.equation_system.evaluate(int_flux_ad)
+        error_intf_flux = ConvergenceAnalysis.lp_error(
             grid=intf,
             true_array=exact_intf_flux,
             approx_array=approx_intf_flux,
@@ -198,16 +202,20 @@ class ManuCompDataSaving(VerificationDataSaving):
 
 # -----> Exact solution
 class ManuCompExactSolution2d:
-    """Class containing the exact manufactured solution for the verification setup."""
+    """Class containing the exact manufactured solution for the verification model."""
 
-    def __init__(self, setup):
+    def __init__(self, model: pp.PorePyModel):
         """Constructor of the class."""
 
-        # Retrieve material constant from the setup
-        rho_0 = setup.fluid.density()  # [kg * m^-3]  Reference fluid density
-        p_0 = setup.fluid.pressure()  # [Pa] Reference fluid pressure
-        c_f = setup.fluid.compressibility()  # [Pa^-1]  Fluid compressibility
-        phi_0 = setup.solid.porosity()  # [-] Reference porosity
+        # Retrieve material constant from the model
+        # [kg * m^-3]  Reference fluid density
+        rho_0 = model.fluid.reference_component.density
+        # [Pa] Reference fluid pressure
+        p_0 = model.reference_variable_values.pressure
+        # [Pa^-1]  Fluid compressibility
+        c_f = model.fluid.reference_component.compressibility
+        # [-] Reference porosity
+        phi_0 = model.solid.porosity
 
         # Symbolic variables
         x, y, t = sym.symbols("x y t")
@@ -559,13 +567,11 @@ class ManuCompExactSolution2d:
 
         return lmbda_cc
 
-    def matrix_boundary_pressure(
-        self, bg_matrix: pp.BoundaryGrid, time: number
-    ) -> np.ndarray:
+    def matrix_boundary_pressure(self, bg: pp.BoundaryGrid, time: number) -> np.ndarray:
         """Exact pressure at the boundary faces.
 
         Parameters:
-            bg_matrix: Boundary grid of the matrix.
+            bg: Boundary grid of the matrix.
             time: time in seconds.
 
         Returns:
@@ -577,7 +583,7 @@ class ManuCompExactSolution2d:
         x, y, t = sym.symbols("x y t")
 
         # Get list of face indices
-        fc = bg_matrix.cell_centers
+        fc = bg.cell_centers
         bot = fc[1] < 0.25
         mid = (fc[1] >= 0.25) & (fc[1] <= 0.75)
         top = fc[1] > 0.75
@@ -587,7 +593,7 @@ class ManuCompExactSolution2d:
         p_fun = [sym.lambdify((x, y, t), p, "numpy") for p in self.p_matrix]
 
         # Boundary pressures
-        p_bf = np.zeros(bg_matrix.num_cells)
+        p_bf = np.zeros(bg.num_cells)
         for p, idx in zip(p_fun, face_idx):
             p_bf += p(fc[0], fc[1], time) * idx
 
@@ -621,11 +627,11 @@ class ManuCompBoundaryConditions(
             boundary_faces = self.domain_boundary_sides(sd).all_bf
             return pp.BoundaryCondition(sd, boundary_faces, "neu")
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Analytical boundary condition values for Darcy flux.
 
         Parameters:
-            boundary_grid: Boundary grid for which to define boundary conditions.
+            bg: Boundary grid for which to define boundary conditions.
 
         Returns:
             Boundary condition values array.
@@ -638,32 +644,31 @@ class ManuCompBoundaryConditions(
         sd_frac = self.mdg.subdomains()[1]
 
         # Boundary conditions for the elliptic discretization
-        if boundary_grid.parent == sd_matrix:
-            return self.exact_sol.matrix_boundary_pressure(boundary_grid, t)
-        elif boundary_grid.parent == sd_frac:
-            return np.zeros(boundary_grid.num_cells)
+        if bg.parent == sd_matrix:
+            return self.exact_sol.matrix_boundary_pressure(bg, t)
+        elif bg.parent == sd_frac:
+            return np.zeros(bg.num_cells)
         else:
-            raise ValueError(boundary_grid)
+            raise ValueError(bg)
 
 
 # -----> Balance equations
-class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
+class ManuCompBalanceEquation(pp.fluid_mass_balance.FluidMassBalanceEquations):
     """Modify balance equation to account for external sources."""
 
     def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Modify balance equation to account for time-dependent external sources."""
 
-        # Internal sources are inherit from parent class
+        # Internal sources are inherited from parent class.
         internal_sources: pp.ad.Operator = super().fluid_source(subdomains)
 
-        # External sources are retrieved from SOLUTIONS and wrapped as an
-        # AdArray.
+        # External sources are retrieved from SOLUTIONS and wrapped as an AdArray.
         external_sources = pp.ad.TimeDependentDenseArray(
             name="external_sources",
             domains=self.mdg.subdomains(),
         ).previous_timestep()
 
-        # Add-up contribution
+        # Add up contributions.
         fluid_source = internal_sources + external_sources
         fluid_source.set_name("Time-dependent fluid source")
 
@@ -672,10 +677,7 @@ class ManuCompBalanceEquation(pp.fluid_mass_balance.MassBalanceEquations):
 
 # -----> Solution strategy
 class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePhaseFlow):
-    """Modified solution strategy for the verification setup."""
-
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid."""
+    """Modified solution strategy for the verification model."""
 
     darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
@@ -686,11 +688,8 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
     exact_sol: ManuCompExactSolution2d
     """Exact solution object."""
 
-    fluid: pp.FluidConstants
-    """Object containing the fluid constants."""
-
     plot_results: Callable
-    """Method to plot results of the verification setup. Usually provided by the
+    """Method to plot results of the verification model. Usually provided by the
     mixin class :class:`SetupUtilities`.
 
     """
@@ -698,31 +697,22 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
     results: list[ManuCompSaveData]
     """List of SaveData objects."""
 
-    solid: pp.SolidConstants
-    """Object containing the solid constants."""
-
     def __init__(self, params: dict):
         """Constructor of the class."""
         super().__init__(params)
-
-        self.exact_sol: ManuCompExactSolution2d
-        """Exact solution object."""
-
-        self.results: list[ManuCompSaveData] = []
-        """Object that stores exact and approximated solutions and L2 errors."""
 
         self.subdomain_darcy_flux_variable: str = "darcy_flux"
         """Keyword to access the subdomain Darcy fluxes."""
 
     def set_materials(self):
-        """Set material constants for the verification setup."""
+        """Set material constants for the verification model."""
         super().set_materials()
 
         # Sanity checks
-        assert self.fluid.viscosity() == 1
-        assert self.solid.permeability() == 1
-        assert self.solid.residual_aperture() == 1
-        assert self.solid.normal_permeability() == 0.5
+        assert self.fluid.reference_component.viscosity == 1
+        assert self.solid.permeability == 1
+        assert self.solid.residual_aperture == 1
+        assert self.solid.normal_permeability == 0.5
 
         # Instantiate exact solution object
         self.exact_sol = ManuCompExactSolution2d(self)
@@ -766,15 +756,15 @@ class ManuCompSolutionStrategy2d(pp.fluid_mass_balance.SolutionStrategySinglePha
 
 
 # -----> Mixer
-class ManuCompFlowSetup2d(  # type: ignore[misc]
+class ManuCompFlowModel2d(  # type: ignore[misc]
     SingleEmbeddedVerticalLineFracture,
     ManuCompBalanceEquation,
     ManuCompBoundaryConditions,
     ManuCompSolutionStrategy2d,
     ManuIncompUtils,
     ManuCompDataSaving,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """
-    Mixer class for the 2d compressible flow setup with a single fracture.
+    Mixer class for the 2d compressible flow model with a single fracture.
     """

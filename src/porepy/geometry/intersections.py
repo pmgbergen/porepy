@@ -35,9 +35,6 @@ def segments_2d(
 
     a line segment is returned instead of an intersection point.
 
-    Todo:
-        This function can be replaced by a call to :meth:`segments_3d`.
-
     Example:
         >>> segments_2d([0, 0], [1, 1], [0, 1], [1, 0])
         array([[ 0.5],
@@ -1729,12 +1726,6 @@ def triangulations(
     # to other cell shapes. This would require more general data structures, but should
     # not be too much of an effort.
     import shapely.geometry as shapely_geometry
-    import shapely.speedups as shapely_speedups
-
-    try:
-        shapely_speedups.enable()
-    except AttributeError:
-        pass
 
     n_1 = t_1.shape[1]
     n_2 = t_2.shape[1]
@@ -1893,13 +1884,6 @@ def surface_tessellations(
 
     # local imports
     import shapely.geometry as shapely_geometry
-    import shapely.speedups as shapely_speedups
-
-    try:
-        shapely_speedups.enable()
-    except AttributeError:
-        # Nothing to do here, but this may be slow.
-        pass
 
     def _min_max_coord(coord):
         # Convenience function to get max and minimum coordinates for a set of polygons
@@ -2075,7 +2059,9 @@ def surface_tessellations(
                 is_ccw = np.array(
                     [
                         pp.geometry_property_checks.is_ccw_polyline(
-                            start[:, i], middle[:, i], end[:, i]  # type:ignore
+                            start[:, i],  # type: ignore
+                            middle[:, i],  # type: ignore
+                            end[:, i],  # type:ignore
                         )
                         for i in range(poly.shape[1])  # type:ignore
                     ]

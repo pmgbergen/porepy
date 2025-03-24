@@ -1,18 +1,18 @@
 from abc import abstractmethod
-from typing import cast
+from typing import Literal, cast
 
 import numpy as np
 
 import porepy as pp
 from porepy.applications.md_grids.mdg_library import benchmark_3d_case_3
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
-from porepy.models.geometry import ModelGeometry
 
 
-class Geometry(ModelGeometry):
-
+class Geometry(pp.PorePyModel):
     @abstractmethod
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
         pass
 
     @staticmethod
@@ -23,20 +23,20 @@ class Geometry(ModelGeometry):
 
 
 class Benchmark2DC1(Geometry):
-
     def set_fractures(self) -> None:
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_1()
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size = self.units.convert_units(0.1, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):
@@ -60,20 +60,20 @@ class Benchmark2DC1(Geometry):
 
 
 class Benchmark2DC3(Geometry):
-
     def set_fractures(self) -> None:
         self._fractures = pp.applications.md_grids.fracture_sets.benchmark_2d_case_3()
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.1, "m")
+        cell_size = self.units.convert_units(0.1, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):
@@ -97,7 +97,6 @@ class Benchmark2DC3(Geometry):
 
 
 class Benchmark3DC3(Geometry):
-
     def set_geometry(self) -> None:
         """Create mixed-dimensional grid and fracture network."""
 
@@ -125,8 +124,9 @@ class Benchmark3DC3(Geometry):
             # grid along with these grids' new interfaces to fractures.
             self.well_network.mesh(self.mdg)
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):
@@ -150,13 +150,11 @@ class Benchmark3DC3(Geometry):
 
 
 class SimpleGeometry(Geometry):
-
     def set_domain(self) -> None:
-
         dimension = 2
-        size_x = self.solid.convert_units(10.0, "m")
-        size_y = self.solid.convert_units(10.0, "m")
-        size_z = self.solid.convert_units(1.0, "m")
+        size_x = self.units.convert_units(10.0, "m")
+        size_y = self.units.convert_units(10.0, "m")
+        size_z = self.units.convert_units(1.0, "m")
         box: dict[str, pp.number] = {"xmax": size_x}
         if dimension > 1:
             box.update({"ymax": size_y})
@@ -164,16 +162,17 @@ class SimpleGeometry(Geometry):
             box.update({"zmax": size_z})
         self._domain = pp.Domain(box)
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         return self.params.get("grid_type", "simplex")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(1.0, "m")
+        cell_size = self.units.convert_units(1.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
-
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
         if isinstance(sd, pp.Grid):
             x = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):
@@ -210,20 +209,22 @@ class SimpleGeometryHorizontal(Geometry):
     _outlet_centre: np.ndarray = np.array([2000.0, 5.0, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.solid.convert_units(2000.0, "m")
-        y_length = self.solid.convert_units(10.0, "m")
+        x_length = self.units.convert_units(2000.0, "m")
+        y_length = self.units.convert_units(10.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(10.0, "m")
+        cell_size = self.units.convert_units(10.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
         if isinstance(sd, pp.Grid):
             face_centers = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):
@@ -243,30 +244,33 @@ class SimpleGeometryHorizontal(Geometry):
         outlet_facets = find_facets(self._outlet_centre)
         return inlet_facets, outlet_facets
 
+
 class SimpleGeometryVertical(Geometry):
     """A class to represent a simple 1D geometry for a simulation domain.
     The start of domain serve as inlet and end of domain serves as the outlet
     """
 
     _dist_from_ref_point: float = 5.0
-    _inlet_centre: np.ndarray = np.array([5.0, 0.0,  0.0])
+    _inlet_centre: np.ndarray = np.array([5.0, 0.0, 0.0])
     _outlet_centre: np.ndarray = np.array([5.0, 2000.0, 0.0])
 
     def set_domain(self) -> None:
-        x_length = self.solid.convert_units(10.0, "m")
-        y_length = self.solid.convert_units(2000.0, "m")
+        x_length = self.units.convert_units(10.0, "m")
+        y_length = self.units.convert_units(2000.0, "m")
         box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
         self._domain = pp.Domain(box)
 
-    def grid_type(self) -> str:
+    def grid_type(self) -> Literal["simplex", "cartesian", "tensor_grid"]:
         return self.params.get("grid_type", "cartesian")
 
     def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(10.0, "m")
+        cell_size = self.units.convert_units(10.0, "m")
         mesh_args: dict[str, float] = {"cell_size": cell_size}
         return mesh_args
 
-    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+    def get_inlet_outlet_sides(
+        self, sd: pp.Grid | pp.BoundaryGrid
+    ) -> tuple[np.ndarray, np.ndarray]:
         if isinstance(sd, pp.Grid):
             face_centers = sd.face_centers.T
         elif isinstance(sd, pp.BoundaryGrid):

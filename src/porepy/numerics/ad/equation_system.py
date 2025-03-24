@@ -13,7 +13,7 @@ from typing_extensions import TypeAlias
 
 import porepy as pp
 
-from . import _ad_utils
+from . import _ad_parser, _ad_utils
 from .operators import MixedDimensionalVariable, Operator, Variable
 
 __all__ = ["EquationSystem"]
@@ -212,6 +212,8 @@ class EquationSystem:
 
         """
 
+        self._ad_parser = _ad_parser.AdParser(self.mdg)
+
     def SubSystem(
         self,
         equation_names: Optional[EquationList] = None,
@@ -243,7 +245,8 @@ class EquationSystem:
         equations = list(self._parse_equations(equation_names).keys())
         variables = self._parse_variable_type(variable_names)
 
-        # Check that the requested equations and variables are known to the system.
+        # Check that the requested equations and variables are known to the equation
+        # system.
         known_equations = set(self._equations.keys())
         unknown_equations = set(equations).difference(known_equations)
         if len(unknown_equations) > 0:
@@ -252,7 +255,7 @@ class EquationSystem:
         if len(unknown_variables) > 0:
             raise ValueError(f"Unknown variable(s) {unknown_variables}.")
 
-        # Create the new subsystem.
+        # Create the new equation system.
         new_equation_system = EquationSystem(self.mdg)
 
         # IMPLEMENTATION NOTE: This method imitates the variable creation and equation
@@ -262,15 +265,15 @@ class EquationSystem:
         # Loop over known variables to preserve DOF order.
         for variable in self.variables:
             if variable in variables:
-                # Update variables in subsystem.
+                # Update variables.
                 new_equation_system._variables[variable.id] = variable
 
-                # Update variable numbers in subsystem.
+                # Update variable numbers.
                 new_equation_system._variable_dof_type[variable.id] = (
                     self._variable_dof_type[variable.id]
                 )
 
-                # Create dofs in subsystem.
+                # Create DOFs.
                 new_equation_system._append_dofs(variable)
 
         new_equation_system._cluster_dofs_gridwise()
@@ -292,7 +295,7 @@ class EquationSystem:
     @property
     def equations(self) -> dict[str, Operator]:
         """Dictionary containing names of operators (keys) and operators (values), which
-        have been set as equations in this system.
+        have been set as equations in this EquationSystem.
 
         """
         return self._equations
@@ -316,13 +319,13 @@ class EquationSystem:
     ### Variable management ------------------------------------------------------------
 
     def md_variable(
-        self, name: str, grids: Optional[DomainList] = None
+        self, name: str, domains: Optional[DomainList] = None
     ) -> MixedDimensionalVariable:
         """Create a mixed-dimensional variable for a given name-domain list combination.
 
         Parameters:
             name (str): Name of the mixed-dimensional variable.
-            grids (optional): List of grids where the variable is defined. If None
+            domains (optional): List of grids where the variable is defined. If None
                 (default), all grids where the variable is defined are used.
 
         Returns:
@@ -330,10 +333,10 @@ class EquationSystem:
 
         Raises:
             ValueError: If variables name exist on both grids and interfaces and domain
-                type is not specified (grids is None).
+                type is not specified (domains is None).
 
         """
-        if grids is None:
+        if domains is None:
             variables = [var for var in self.variables if var.name == name]
             # We don't allow combinations of variables with different domain types
             # in a md variable.
@@ -356,7 +359,7 @@ class EquationSystem:
             variables = [
                 var
                 for var in self.variables
-                if var.name == name and var.domain in grids
+                if var.name == name and var.domain in domains
             ]
         return MixedDimensionalVariable(variables)
 
@@ -379,7 +382,8 @@ class EquationSystem:
 
             .. code:: Python
 
-                p = ad_system.create_variables('pressure', subdomains=mdg.subdomains())
+                p = equation_system.create_variables('pressure',
+                                                     subdomains=mdg.subdomains())
 
         Parameters:
             name: Name of the variable.
@@ -477,6 +481,32 @@ class EquationSystem:
 
         return merged_variable
 
+    def remove_variables(self, variables: VariableList) -> None:
+        """Removes variables from the system.
+        The variables are removed from the system and the DOFs are reordered.
+
+        Parameters:
+            variables: List of variables to remove. Variables can be given as a list of
+                variables, mixed-dimensional variables, or variable names (strings).
+
+        Raises:
+            ValueError: If a variable is not known to the system.
+
+        """
+        variables = self._parse_variable_type(variables)
+        for var in variables:
+            if var.id not in self._variables:
+                raise ValueError(
+                    f"Variable {var.name} (ID: {var.id}) not known to the system."
+                )
+            # Remove the variable from the system. _variables, _variable_dof_type and
+            # _variable_numbers are indexed by variable id.
+            del self._variables[var.id]
+            self._variable_dof_type.pop(var.id)
+            self._variable_numbers.pop(var.id)
+            # Update the variable clustering. This also updates _variable_num_dofs.
+            self._cluster_dofs_gridwise()
+
     def update_variable_tags(
         self,
         tags: dict[str, Any],
@@ -509,12 +539,12 @@ class EquationSystem:
         """Filter variables based on grid, tag name and tag value.
 
         Particular usage: calling without arguments will return all variables in the
-        system.
+        EquationSystem.
 
         Parameters:
-            variables: List of variables to filter. If None, all variables in the system
-                are included. Variables can be given as a list of variables, mixed-
-                dimensional variables, or variable names (strings).
+            variables: List of variables to filter. If None, all variables in the
+                EquationSystem are included. Variables can be given as a list of
+                variables, mixed- dimensional variables, or variable names (strings).
             grids: List of grids to filter on. If None, all grids are included.
             tag_name: Name of the tag to filter on. If None, no filtering on tags.
             tag_value: Value of the tag to filter on. If None, no filtering on tag
@@ -705,7 +735,7 @@ class EquationSystem:
             variables: ``default=None``
 
                 VariableType input for which the values should be shifted in time.
-                If None, all variables created by this system will be shifted.
+                If None, all variables created by this EquationSystem will be shifted.
             max_index: ``default=None``
 
                 A positive integer, capping the range of the shift operation to
@@ -1118,8 +1148,8 @@ class EquationSystem:
             )
 
         # We loop over the subdomains and interfaces in that order to assert a correct
-        # indexation according to the global order (for grid in sds, for grid in intfs).
-        # The user does not have to care about the order in grids.
+        # indexation according to the global order (for grid in subdomains, for grid in
+        # interfaces). The user does not have to care about the order in grids.
         for sd in self.mdg.subdomains():
             if sd in grids:
                 # Equations on subdomains can be defined on any grid quantity.
@@ -1500,11 +1530,11 @@ class EquationSystem:
         included will simply be sliced out.
 
         Note:
-            The ordering of columns in the returned system are defined by the global DOF
-            order. The row blocks are in the same order as equations were added to this
-            system. If an equation is defined on multiple grids, the respective
-            row-block is internally ordered as given by the mixed-dimensional grid (for
-            sd in subdomains, for intf in interfaces).
+            The ordering of columns in the returned EquationSystem are defined by the
+            global DOF order. The row blocks are in the same order as equations were
+            added to this EquationSystem. If an equation is defined on multiple grids,
+            the respective row-block is internally ordered as given by the
+            mixed-dimensional grid (for sd in subdomains, for intf in interfaces).
 
             The columns of the subsystem are assumed to be properly defined by
             ``variables``, otherwise a matrix of shape ``(M,)`` is returned. This
@@ -1563,47 +1593,45 @@ class EquationSystem:
         if evaluate_jacobian:
             self.assembled_equation_indices = dict()
 
-        # Iterate over equations, assemble.
-        # Also keep track of the row indices of each equation, and store it in
-        # assembled_equation_indices.
-        for equ_name, rows in equ_blocks.items():
-            # This will raise a key error if the equation name is unknown.
-            eq = self._equations[equ_name]
+        eqs: list[pp.ad.Operator] = [self._equations[name] for name in equ_blocks]
+        rows = list(equ_blocks.values())
 
-            if not evaluate_jacobian:
-                # Evaluate the residual vector only. Enforce that the result is a numpy
-                # array.
-                val = np.asarray(eq.value(self, state))
-                if rows is not None:
-                    rhs.append(val[rows])
+        # The evaluation method to use depends on whether the Jacobian is requested.
+        if not evaluate_jacobian:
+            # Evaluate the operator to get the residual vector.
+            values = self.evaluate(eqs, derivative=False, state=state)
+            for row, val in zip(rows, values):
+                # The residual of individual equations can be a scalar or an array.
+                # Forcing to array to ensure consistent handling.
+                val = np.asarray(val)
+                if row is not None:
+                    rhs.append(val[row])
                 else:
                     rhs.append(val)
-                # Go to the next equation
-                continue
+        else:
+            ad_list: list[pp.ad.AdArray] = self.evaluate(eqs, True, state)
+            for row, equ_name, ad in zip(rows, equ_blocks, ad_list):
+                if row is not None:
+                    # If restriction to grid-related row blocks was made, perform row
+                    # slicing based on information we have obtained from parsing.
+                    mat.append(ad.jac.tocsr()[row])
+                    rhs.append(ad.val[row])
+                    block_length = len(rhs[-1])
+                else:
+                    # If no grid-related row restriction was made, append the whole
+                    # thing.
+                    mat.append(ad.jac)
+                    rhs.append(ad.val)
+                    block_length = len(ad.val)
 
-            ad = eq.value_and_jacobian(self, state)
+                # Create indices range and shift to correct position.
+                block_indices = np.arange(block_length) + ind_start
+                # Extract last index and add 1 to get the starting point for next block
+                # of indices.
+                self.assembled_equation_indices.update({equ_name: block_indices})
+                if block_length > 0:
+                    ind_start = block_indices[-1] + 1
 
-            # If restriction to grid-related row blocks was made,
-            # perform row slicing based on information we have obtained from parsing.
-            if rows is not None:
-                mat.append(ad.jac.tocsr()[rows])
-                rhs.append(ad.val[rows])
-                block_length = len(rhs[-1])
-            # If no grid-related row restriction was made, append the whole thing.
-            else:
-                mat.append(ad.jac)
-                rhs.append(ad.val)
-                block_length = len(ad.val)
-
-            # Create indices range and shift to correct position.
-            block_indices = np.arange(block_length) + ind_start
-            # Extract last index and add 1 to get the starting point for next block of
-            # indices.
-
-            self.assembled_equation_indices.update({equ_name: block_indices})
-
-            if block_length > 0:
-                ind_start = block_indices[-1] + 1
         # Concatenate results equation-wise.
         if len(rhs) > 0:
             if evaluate_jacobian:
@@ -1876,6 +1904,110 @@ class EquationSystem:
         # Prolong primary and secondary block to global-sized arrays
         X = prolong_p * reduced_solution + prolong_s * x_s
         return X
+
+    ### Evaluate Ad operators ----------------------------------------------------------
+
+    # IMPLEMENTATION NOTE: The following overloads was what turned out to be necessary
+    # to get the typing right, or keep mypy silent. EK cannot see a principled reason
+    # why exactly these signatures had to be represented, but has reached the point of
+    # exhaustion, so this is what we have. For future reference, the following link
+    # might be useful to tackle similar issues:
+    #   https://github.com/python/typing/discussions/1326
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+    ) -> pp.number | np.ndarray | sps.spmatrix: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+        derivative: None,
+        state: np.ndarray | None,
+    ) -> pp.number | np.ndarray | sps.spmatrix: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+        derivative: None,
+        state: np.ndarray | None,
+    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+        derivative: Literal[False] = False,
+        state: Optional[np.ndarray] = None,
+    ) -> pp.number | np.ndarray | sps.spmatrix: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+        derivative: Literal[False] = False,
+        state: Optional[np.ndarray] = None,
+    ) -> list[pp.number | np.ndarray | sps.spmatrix]: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: pp.ad.Operator,
+        derivative: Literal[True],
+        state: Optional[np.ndarray],
+    ) -> pp.ad.AdArray: ...
+
+    @overload
+    def evaluate(
+        self,
+        operator: list[pp.ad.Operator],
+        derivative: Literal[True],
+        state: Optional[np.ndarray],
+    ) -> list[pp.ad.AdArray]: ...
+
+    def evaluate(
+        self,
+        operator: pp.ad.Operator | list[pp.ad.Operator],
+        derivative: Optional[bool] = False,
+        state: Optional[np.ndarray] = None,
+    ) -> (
+        pp.number
+        | np.ndarray
+        | sps.spmatrix
+        | pp.ad.AdArray
+        | list[pp.number | np.ndarray | sps.spmatrix]
+        | list[pp.ad.AdArray]
+    ):
+        """Evaluate an operator on the current state.
+
+        Parameters:
+            operator: Operator to evaluate.
+            derivative: Whether to evaluate the derivative of the operator. Defaults to
+                False.
+            state: State vector to evaluate the operator on. By default, the current
+                state is used.
+
+        Returns:
+            The operator evaluated on the current state. If the operator is a list, a
+            list of evaluations is returned. If the derivative is requested, the
+            evaluation is returned as an AdArray.
+
+        """
+        # EK: Ignore a typing error regarding 'no overload variant of "evaluate" matches
+        # the argument types' since the overloads are correctly defined. I have no idea
+        # why this error occurs.
+        return self._ad_parser.evaluate(  # type: ignore[call-overload]
+            operator, self, derivative, state
+        )
 
     ### Special methods ----------------------------------------------------------------
 

@@ -24,3 +24,10 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "skipped" in item.keywords:
                 item.add_marker(skipper)
+
+
+def pytest_configure(config):
+    # See https://docs.pytest.org/en/stable/how-to/mark.html
+    config.addinivalue_line(
+        "markers", "skipped: Mark test to be run only once a week and not during PR."
+    )

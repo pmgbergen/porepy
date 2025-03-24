@@ -16,7 +16,7 @@ References:
 
 """
 
-from typing import Callable, cast
+from typing import cast
 
 import numpy as np
 
@@ -30,19 +30,14 @@ from porepy.examples.flow_benchmark_2d_case_1 import (
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 solid_constants = FractureSolidConstants(
-    {
-        "residual_aperture": 1e-2,
-        "normal_permeability": 1e4,
-        "fracture_permeability": 1e4,
-    }
+    residual_aperture=1e-2,
+    normal_permeability=1e4,
+    fracture_permeability=1e4,
 )
 
 
-class Geometry(pp.ModelGeometry):
+class Geometry(pp.PorePyModel):
     """Define Geometry as specified in Section 5.3 of the benchmark study [1]."""
-
-    params: dict
-    """User-defined model parameters."""
 
     def set_geometry(self) -> None:
         """Create mixed-dimensional grid and fracture network."""
@@ -87,55 +82,42 @@ class IntersectionPermeability(Permeability):
         # Use `fracture_permeability` as intersection permeability under the assumption
         # that they are equal. This is valid in the current benchmark case.
         permeability = pp.wrap_as_dense_ad_array(
-            self.solid.fracture_permeability(), size, name="intersection permeability"
+            self.solid.fracture_permeability, size, name="intersection permeability"
         )
         return self.isotropic_second_order_tensor(subdomains, permeability)
 
 
-class BoundaryConditions:
+class BoundaryConditions(pp.PorePyModel):
     """Define inlet and outlet boundary conditions as specified by the benchmark."""
-
-    fluid: pp.FluidConstants
-    """Fluid constant object that takes care of scaling of fluid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
-
-    domain_boundary_sides: Callable[[pp.Grid | pp.BoundaryGrid], pp.domain.DomainSides]
-    """Boundary sides of the domain. Defined by a mixin instance of
-    :class:`~porepy.models.geometry.ModelGeometry`.
-
-    """
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Assign Dirichlet to the top and bottom  part of the north (y=y_max)
         boundary."""
         # Retrieve boundary sides.
-        bounds = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         # Get Dirichlet faces.
         dir_faces = np.zeros(sd.num_faces, dtype=bool)
-        north_top_dir_cells = sd.face_centers[2][bounds.north] > (2 / 3)
-        north_bottom_dir_faces = sd.face_centers[2][bounds.north] < (1 / 3)
-        dir_faces[bounds.north] = north_top_dir_cells + north_bottom_dir_faces
+        north_top_dir_cells = sd.face_centers[2][domain_sides.north] > (2 / 3)
+        north_bottom_dir_faces = sd.face_centers[2][domain_sides.north] < (1 / 3)
+        dir_faces[domain_sides.north] = north_top_dir_cells + north_bottom_dir_faces
         # Assign boundary conditions, the rest are Neumann by default.
         bc = pp.BoundaryCondition(sd, dir_faces, "dir")
         return bc
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assign non-zero Darcy flux to the middle south (y=y_min) boundary."""
         # Retrieve boundary sides and cell centers.
-        bounds = self.domain_boundary_sides(boundary_grid)
-        cc = boundary_grid.cell_centers
+        domain_sides = self.domain_boundary_sides(bg)
+        cc = bg.cell_centers
         # Get inlet faces.
-        inlet_faces = np.zeros(boundary_grid.num_cells, dtype=bool)
-        inlet_faces[bounds.south] = (cc[2][bounds.south] < (2 / 3)) & (
-            cc[2][bounds.south] > (1 / 3)
+        inlet_faces = np.zeros(bg.num_cells, dtype=bool)
+        inlet_faces[domain_sides.south] = (cc[2][domain_sides.south] < (2 / 3)) & (
+            cc[2][domain_sides.south] > (1 / 3)
         )
         # Assign unitary flow. Negative since fluid is entering into the domain.
-        val = self.fluid.convert_units(-1, "m * s^-1")
-        values = np.zeros(boundary_grid.num_cells)
-        values[inlet_faces] = val * boundary_grid.cell_volumes[inlet_faces]
+        val = self.units.convert_units(-1, "m * s^-1")
+        values = np.zeros(bg.num_cells)
+        values[inlet_faces] = val * bg.cell_volumes[inlet_faces]
         return values
 
 
@@ -144,6 +126,6 @@ class FlowBenchmark3dCase3Model(  # type:ignore[misc]
     Geometry,
     IntersectionPermeability,
     BoundaryConditions,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ):
     """Mixer class for case 3 from the 3d flow benchmark."""

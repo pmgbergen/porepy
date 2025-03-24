@@ -56,7 +56,7 @@ def perturb_grid(g, rate, dx):
 
 
 def create_grid_mpfa_mpsa_reproduce_known_values(
-    grid_type: Literal["cart", "simplex"]
+    grid_type: Literal["cart", "simplex"],
 ) -> tuple[pp.Grid, pp.Grid]:
     """Create grids for the tests that mpfa and mpsa reproduce known values.
 
@@ -282,7 +282,7 @@ def set_params_and_discretize_gravity(g, ambient_dim, method, periodic=False):
     vector_source = data[pp.DISCRETIZATION_MATRICES][keyword][
         discr.vector_source_matrix_key
     ]
-    div = pp.fvutils.scalar_divergence(g)
+    div = g.divergence(dim=1)
     return flux, vector_source, div
 
 
@@ -822,7 +822,7 @@ class XpfaBoundaryPressureTests:
 
 
 def test_split_discretization_into_subproblems(
-    discr_class: Union[pp.Mpfa, pp.Mpsa, pp.Biot]
+    discr_class: Union[pp.Mpfa, pp.Mpsa, pp.Biot],
 ):
     """Test that the discretization matrices produced by Mpxa are the same if they
     are split into subproblems or not.

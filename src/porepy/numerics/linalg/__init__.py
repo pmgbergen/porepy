@@ -1,2 +1,1 @@
-"""Directory is intended to contain various linear algebra modules.
-"""
+"""Directory is intended to contain various linear algebra modules."""

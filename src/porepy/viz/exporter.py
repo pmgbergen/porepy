@@ -794,7 +794,7 @@ class Exporter:
                 self._exported_timesteps_constants[i] for i in indices
             ]
 
-        # Setup file name and check whether it already exists in storage
+        # Set up file name and check whether it already exists in storage.
         pvd_file: Path = Path(
             self._append_folder_name(self._folder_name, self._file_name) + ".pvd"
         )
@@ -968,7 +968,7 @@ class Exporter:
             if not value.size == num_dofs and not (
                 len(value.shape) > 1 and value.shape[1] == num_dofs
             ):
-                value = np.reshape(value, (-1, num_dofs), "F")
+                value = np.reshape(value, (-1, num_dofs), order="F")
 
             return value
 
@@ -1913,7 +1913,7 @@ class Exporter:
             meshio_pts[sl, :] = grid.nodes.T * self._length_scale
 
             # Determine cell types based on number of nodes.
-            num_nodes_per_cell = grid.cell_nodes().getnnz(axis=0)
+            num_nodes_per_cell = grid.cell_nodes().count_nonzero(axis=0)
 
             # Loop over all available cell types and group cells of one type.
             g_cell_map = dict()
@@ -2061,7 +2061,7 @@ class Exporter:
         for grid in grids:
             # The number of faces per cell wil be later used to determining
             # the cell types
-            num_faces_per_cell = np.unique(grid.cell_faces.getnnz(axis=0))
+            num_faces_per_cell = np.unique(grid.cell_faces.count_nonzero(axis=0))
 
             if num_faces_per_cell.shape[0] == 1:
                 n = num_faces_per_cell[0]
@@ -2387,7 +2387,7 @@ class Exporter:
 
             # Categorize all polyhedron cells by their number of nodes. Each category
             # will be treated separately allowing for using fitting datastructures.
-            num_nodes_per_cell = grid.cell_nodes().getnnz(axis=0)
+            num_nodes_per_cell = grid.cell_nodes().count_nonzero(axis=0)
 
             g_cell_map = dict()
 

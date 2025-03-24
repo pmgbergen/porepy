@@ -1,4 +1,4 @@
-""" Modules contains discretization of poro-elasticity by the multi-point stress
+"""Modules contains discretization of poro-elasticity by the multi-point stress
 approximation.
 
 The discretization scheme is described in
@@ -341,14 +341,11 @@ class Biot(pp.Mpsa):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit: pp.FourthOrderTensor = (
-            pp.fvutils.restrict_fourth_order_tensor_to_subgrid(constit, active_cells)
-        )
+        active_constit = constit.restrict_to_cells(active_cells)
+
         active_alphas: dict[str, pp.SecondOrderTensor] = {}
         for key, val in alphas.items():
-            active_alphas[key] = pp.fvutils.restrict_second_order_tensor_to_subgrid(
-                alphas[key], active_cells
-            )
+            active_alphas[key] = alphas[key].restrict_to_cells(active_cells)
 
         # Extract the relevant part of the boundary condition
         active_bound: pp.BoundaryConditionVectorial = self._bc_for_subgrid(
@@ -431,18 +428,13 @@ class Biot(pp.Mpsa):
             faces_in_subgrid_accum.append(faces_in_subgrid)
 
             tic = time()
-            # Copy stiffness tensor, and restrict to local cells
-            loc_c: pp.FourthOrderTensor = (
-                pp.fvutils.restrict_fourth_order_tensor_to_subgrid(
-                    active_constit, l2g_cells
-                )
-            )
-            # Copy Biot coefficient, and restrict to local cells
+            # Restrict the stiffness tensor to local cells.
+            loc_c = active_constit.restrict_to_cells(l2g_cells)
+
+            # Restrict the Biot coefficients to local cells
             loc_alphas = {}
             for key in active_alphas:
-                loc_alphas[key] = pp.fvutils.restrict_second_order_tensor_to_subgrid(
-                    active_alphas[key], l2g_cells
-                )
+                loc_alphas[key] = active_alphas[key].restrict_to_cells(l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces
             # that are on the global boundary.
@@ -952,7 +944,9 @@ class Biot(pp.Mpsa):
             # component-based. This is to build a block diagonal sparse matrix
             # compatible with igrad * rhs_units, that is first all x-component, then y,
             # and z
-            return sps.block_diag([mat[:, ind[i]] for i in range(nd)], format="csr")
+            return pp.matrix_operations.csr_matrix_from_sparse_blocks(
+                [mat[:, ind[i]] for i in range(nd)]
+            )
 
         # Reshape nAlpha component-wise
         nAlpha_grad = component_wise_ordering(nAlpha_grad, nd, sub_cell_index)

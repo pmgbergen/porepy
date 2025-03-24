@@ -1,5 +1,4 @@
-"""Module contains various utility functions for working with grids.
-"""
+"""Module contains various utility functions for working with grids."""
 
 import numpy as np
 import scipy.sparse as sps
@@ -10,7 +9,7 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 
 def switch_sign_if_inwards_normal(
     g: pp.Grid, nd: int, faces: np.ndarray
-) -> sps.spmatrix:
+) -> sps.dia_matrix:
     """Construct a matrix that changes sign of quantities on faces with a
     normal that points into the grid.
 

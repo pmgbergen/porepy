@@ -2,6 +2,7 @@
 match_grids_1d() is tested.
 
 """
+
 import numpy as np
 import scipy.sparse as sps
 

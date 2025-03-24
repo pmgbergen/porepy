@@ -2,10 +2,6 @@
 
 The functions in this module can be accessed through the meshing wrapper module.
 
-Todo:
-    Since this module contains only private methods, consider making the whole
-    module private.
-
 """
 
 from __future__ import annotations
@@ -213,9 +209,9 @@ def _create_lower_dim_grids_3d(
         is_xy_frac = np.allclose(f[2, 0], f[2])
         is_xz_frac = np.allclose(f[1, 0], f[1])
         is_yz_frac = np.allclose(f[0, 0], f[0])
-        assert (
-            is_xy_frac + is_xz_frac + is_yz_frac == 1
-        ), "Fracture must align to x-, y- or z-axis"
+        assert is_xy_frac + is_xz_frac + is_yz_frac == 1, (
+            "Fracture must align to x-, y- or z-axis."
+        )
 
         # snap to grid
         if physdims is None:
@@ -318,11 +314,9 @@ def _create_lower_dim_grids_3d(
     pts = network.decomposition["points"]
     edges = network.decomposition["edges"]
     poly = network._poly_2_segment()
-    # And tags identifying points and edges corresponding to normal fractures,
-    # domain boundaries and subdomain boundaries. Only the entities corresponding to
-    # normal fractures should actually be gridded.
-
-    # TODO: Constraints have not been implemented for structured DFM grids.
+    # And tags identifying points and edges corresponding to normal fractures, domain
+    # boundaries and subdomain boundaries. Only the entities corresponding to normal
+    # fractures should actually be gridded.
 
     # Simply pass nothing for now, not sure how do deal with this, or if it at all is
     # meaningful.
@@ -356,10 +350,10 @@ def _create_lower_dim_grids_3d(
         e_pt = pts[:, edges[1, e]]
         nodes = _find_nodes_on_line(g_3d, nx, s_pt, e_pt)
         loc_coord = g_3d.nodes[:, nodes]
-        assert (
-            loc_coord.shape[1] > 1
-        ), "1d grid in intersection should span\
+        assert loc_coord.shape[1] > 1, (
+            "1d grid in intersection should span\
             more than one node"
+        )
         g = msh_2_grid.create_embedded_line_grid(loc_coord, nodes)
         g_1d.append(g)
 

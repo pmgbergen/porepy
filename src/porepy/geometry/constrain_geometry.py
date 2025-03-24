@@ -48,12 +48,7 @@ def lines_by_polygon(
 
     """
     import shapely.geometry as shapely_geometry
-    import shapely.speedups as shapely_speedups
 
-    try:
-        shapely_speedups.enable()
-    except AttributeError:
-        pass
     # it stores the points after the intersection
     int_pts = np.empty((2, 0))
     # define the polygon
@@ -555,7 +550,8 @@ def polygons_by_polyhedron(
                     el, is_circular=False
                 )
                 inds = np.hstack((sorted_pairs[0], sorted_pairs[1, -1]))
-                # TODO: check for hanging nodes here?
+                # There is no check for hanging nodes her. EK is not sure if that is
+                # important or not.
             else:
                 sorted_pairs, _ = pp.utils.sort_points.sort_point_pairs(el)
 
