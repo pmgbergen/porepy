@@ -20,11 +20,11 @@ geometry_mixins = [
 # Additional solid parameters used for parameterizing the tests for different regimes
 # of frictional and dilational damage.
 additional_solid_params = {
-    "friction": {
+    "dilation": {
         "initial_friction_damage": 1.0,  # Initial value 1 implies no frictional damage
         "initial_dilation_damage": 2.0,
     },
-    "dilation": {
+    "friction": {
         "initial_friction_damage": 1.5,
         "initial_dilation_damage": 1.0,  # Initial value 1 implies no dilational damage
     },
@@ -35,14 +35,14 @@ additional_solid_params = {
 }
 
 
-@pytest.mark.parametrize("isotropic", [False, True])
+@pytest.mark.parametrize("isotropic", [True, False])
 @pytest.mark.parametrize("dim", [2, 3])
 @pytest.mark.parametrize(
     "regime",
     ["dilation", "friction", "both"],
 )
 @pytest.mark.parametrize(
-    "time_steps", [2, pytest.param(6, marks=[pytest.mark.skip(reason="slow")])]
+    "time_steps", [2, pytest.param(7, marks=pytest.mark.skipped(reason="slow"))]
 )
 def test_damage(
     isotropic: bool,
@@ -107,6 +107,9 @@ def test_damage(
             e = getattr(results, name + "_error")
             # Uncomment to print the error. Useful for debugging. Might require running
             # the test with pytest -s.
+            # val = getattr(results, "exact_" + name)
             # print(f"Time step {t + 1}, {name}: {e}")
-            # Assert that the error is small
+            # print(f"Time step {t + 1}, {name} exact: {val}")
+
+            # Assert that the error is small.
             assert e < 1e-6

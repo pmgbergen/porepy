@@ -288,6 +288,7 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
     """Heaviside function.
 
     The Heaviside function is defined as:
+
     .. math::
         H(x) = \\begin{cases}
             0, & x < 0, \\\\
@@ -297,13 +298,12 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
 
     Parameters:
         zerovalue: Value of the Heaviside function at zero. Typically, this is
-        set to 0, 0.5 or 1.
+            set to 0, 0.5 or 1.
         var: Input array.
 
     Returns:
         Heaviside function (and its Jacobian if applicable) in form of a AdArray
         or ndarray (depending on the input).
-
     """
     if isinstance(var, pp.ad.AdArray):
         zero_jac = sps.csr_matrix(var.jac.shape)

@@ -208,44 +208,53 @@ class AnisotropicHistoryEquation(DamageHistoryEquation):
             [e_i.T for e_i in tangential_basis]
         )
 
-        m_t = self._normalized_tangential_plastic_jump_increment(subdomains)
+        m_t = self._normalized_tangential_plastic_jump(subdomains)
         num_steps = self.time_manager.time_index
         # The first term in the equation, the implicit part.
-        current_inner = tangential_to_scalar @ (m_t * u_t_increment)
+        current_inner = tangential_to_scalar @ (m_t * u_t)
         # We are only interested in positive values of the inner product.
-        f_max = pp.ad.Function(pp.ad.functions.maximum, "max")
-        zero = pp.ad.Scalar(0.0)
-        eq = self.damage_history(subdomains) - f_max(current_inner, zero)
+        f_heaviside = pp.ad.Function(partial(pp.ad.functions.heaviside, 0.5), "max")
+        f_abs = pp.ad.Function(pp.ad.functions.abs, "abs")
+        eq = self.damage_history(subdomains) - f_heaviside(current_inner) * f_abs(
+            tangential_to_scalar @ (m_t * u_t_increment)
+        )
         # Then add the explicit part, i.e., the sum of the inner product of m with the u_t
         # increment from all previous time steps. The sum starts at 1 since the first
         # increment is already included in the implicit part.
         for i in range(1, num_steps):
-            u_t_increment_i = u_t.previous_timestep(i) - u_t.previous_timestep(i + 1)
-            inner = tangential_to_scalar @ (m_t * u_t_increment_i)
-            contr_i = f_max(inner, zero)
+            u_t_i = u_t.previous_timestep(i)
+            u_t_increment_i = u_t_i - u_t.previous_timestep(i + 1)
+            if np.allclose(
+                self.equation_system.evaluate(u_t_increment_i), 0, atol=1e-12
+            ):
+                # The contribution is zero, so we skip it to avoid unnecessary
+                # computations.
+                continue
+            inner_u = tangential_to_scalar @ (m_t * u_t_i)
+            inner_u_increment = tangential_to_scalar @ (m_t * u_t_increment_i)
+
+            contr_i = f_heaviside(inner_u) * f_abs(inner_u_increment)
             eq -= contr_i
 
         return eq
 
-    def _normalized_tangential_plastic_jump_increment(
+    def _normalized_tangential_plastic_jump(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
-        """Normalized tangential plastic jump increment [-].
+        """Normalized tangential plastic jump [-].
 
         Parameters:
             subdomains: List of subdomains where the jump is defined. Should
                 be of co-dimension one, i.e. fractures.
 
         Returns:
-            Normalized tangential plastic jump increment.
+            Normalized tangential plastic jump.
 
         """
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
-        u_t_increment = nd_vec_to_tangential @ self.plastic_displacement_jump(
-            subdomains
-        )
+        u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
         scalar_to_tangential = pp.ad.sum_operator_list(
             [e_i for e_i in tangential_basis]
         )
@@ -256,9 +265,9 @@ class AnisotropicHistoryEquation(DamageHistoryEquation):
         )
         # Compute normalised tangential displacement increment. First, compute the norm
         # of the increment.
-        norm_u_t_increment = scalar_to_tangential @ f_norm(u_t_increment)
+        norm_u_t = scalar_to_tangential @ f_norm(u_t)
         # Then, normalise the increment by multiplying it by the inverse of the norm.
-        m_t = f_power(norm_u_t_increment) * u_t_increment
+        m_t = f_power(norm_u_t) * u_t
         return m_t
 
 
@@ -308,6 +317,12 @@ class IsotropicHistoryEquation(pp.PorePyModel):
         # increment is already included in the implicit part.
         for i in range(1, num_steps):
             u_t_increment_i = u_t.previous_timestep(i) - u_t.previous_timestep(i + 1)
+            # if np.allclose(
+            #     self.equation_system.evaluate(u_t_increment_i), 0, atol=1e-12
+            # ):
+            #     # The contribution is zero, so we skip it to avoid unnecessary
+            #     # computations.
+            #     continue
             eq -= f_norm(u_t_increment_i)
 
         return eq

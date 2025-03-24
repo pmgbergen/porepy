@@ -266,12 +266,20 @@ class ExactSolutionAnisotropic(ExactSolution):
 
         """
         var = 0
-        m = self.displacement_increment(sd, n)
-        m /= np.linalg.norm(m, axis=1)[:, np.newaxis]
+        m = self.displacement_jump(sd, n)
+        nonzero = np.linalg.norm(m, axis=1) > 0
+        # Compute normalized m for nonzero values.
+        m[nonzero] /= np.linalg.norm(m[nonzero], axis=1)[:, np.newaxis]
+        # Loop through time steps and compute the damage history.
         for i in range(1, n + 1):
-            u = self.displacement_increment(sd, i)
-            inner = np.einsum("ij,ij->i", u, m)
-            var_i = np.maximum(inner, 0)
+            # Obtain the displacement increment and displacement jump.
+            u_dot = self.displacement_increment(sd, i)
+            u = self.displacement_jump(sd, i)
+            # Compute inner products with m.
+            inner_u = np.einsum("ij,ij->i", u, m)
+            inner_dot = np.einsum("ij,ij->i", u_dot, m)
+            # Compute the contribution to the damage history from the current time step.
+            var_i = np.heaviside(inner_u, 0.5) * np.abs(inner_dot)
             var += var_i
         return var
 
@@ -320,7 +328,6 @@ class DamageDataSaving(pp.PorePyModel):
             approx_array=cast(np.ndarray, approx_damage),
             is_scalar=True,
             is_cc=True,
-            relative=True,
         )
         friction_damage = self.exact_sol.friction_damage(sd, n)
         approx_friction_damage = cast(
@@ -345,7 +352,6 @@ class DamageDataSaving(pp.PorePyModel):
                 approx_array=approx_friction_damage,
                 is_scalar=True,
                 is_cc=True,
-                relative=True,
             )
         dilation_damage = self.exact_sol.dilation_damage(sd, n)
         approx_dilation_damage = cast(
@@ -365,7 +371,6 @@ class DamageDataSaving(pp.PorePyModel):
                 approx_array=approx_dilation_damage,
                 is_scalar=True,
                 is_cc=True,
-                relative=True,
             )
         collected_data = DamageSaveData(
             exact_friction_damage=friction_damage,
@@ -383,10 +388,17 @@ class DamageDataSaving(pp.PorePyModel):
 
 # Collect parameters etc. This defines the test case as used in test_fracture_damage.py
 # (dim x number of time steps) displacement values on the north boundary
-num_time_steps = 6
+num_time_steps = 7
 north_displacements_3d = np.zeros((3, num_time_steps))
-north_displacements_3d[0] = np.array([0.0, 0.2, 0.0, 0.2, 0.0, -0.2])
-north_displacements_3d[2] = np.array([0.0, 0.1, 0.0, 0.1, 0.0, 0.1])
+# Steps/increments in the tangential direction:
+# 1. d_0  (north_displacements[:, 1] - north_displacements[:, 0])
+# 2. -d_0
+# 3. d_0
+# 4. 0
+# 5. -d_0
+# 6. d_1 (different from d_0)
+north_displacements_3d[0] = np.array([0.0, 0.2, 0.2, 0.01, 0.2, 0.01, -0.2])
+north_displacements_3d[2] = np.array([0.0, 0.1, 0.1, 0.01, 0.1, 0.01, 0.1])
 # Set constant negative y component to get compression
 north_displacements_3d[1] = 0.1
 solid_params = {
@@ -411,6 +423,7 @@ model_params = {
     "north_displacements": north_displacements_3d,
     "interface_displacement_parameter_values": north_displacements_3d,
     "exact_solution": ExactSolutionAnisotropic,
+    "times_to_export": [],  # Suppress export of data for testing.
 }
 
 
