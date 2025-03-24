@@ -190,7 +190,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
         y_j = [phase.fraction(subdomains) for phase in phases]
         x_ij = [phase.extended_fraction_of[component](subdomains) for phase in phases]
 
-        equ = z_i - pp.ad.sum_operator_list([x * y for x, y in zip(x_ij, y_j)])
+        equ = pp.ad.sum_operator_list([x * y for x, y in zip(x_ij, y_j)]) - z_i
 
         equ.set_name(f"local_mass_constraint_{component.name}")
         return equ
