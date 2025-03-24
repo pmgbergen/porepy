@@ -626,7 +626,7 @@ class MergedOperator(operators.Operator):
             mat.append(local_mat)
 
         if all([isinstance(m, np.ndarray) for m in mat]):
-            # TODO: EK is almost sure this never happens, but leave this check for now.
+            # EK is almost sure this never happens, but leave this check for now.
             raise NotImplementedError("")
 
         else:

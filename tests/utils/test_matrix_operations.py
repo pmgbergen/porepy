@@ -3,54 +3,49 @@ Tests for matrix operations for zeroing rows/columns, efficient slicing, stackin
 merging and construction from arrays.
 """
 
+from typing import Literal
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
 
+import porepy as pp
 from porepy import matrix_operations
 from porepy.applications.test_utils.arrays import compare_matrices
 
 # ------------------ Test zero_columns -----------------------
 
 
-def test_zero_1_column():
-    A = sps.csc_matrix(
-        (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
-        shape=(3, 3),
+@pytest.fixture(scope="module")
+def A():
+    return sps.csr_matrix(
+        np.array(
+            [[1, 0, 2, -1], [3, 0, 0, -4], [4, 5, 6, 0], [0, 7, 8, -2], [1, 3, 4, 5]]
+        )
     )
-    matrix_operations.zero_columns(A, 0)
-    assert np.all(A.toarray() == np.array([[0, 0, 0], [0, 0, 3], [0, 2, 0]]))
-    assert A.nnz == 3
-    assert A.getformat() == "csc"
 
 
-def test_zero_2_columns():
-    A = sps.csc_matrix(
-        (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
-        shape=(3, 3),
-    )
-    matrix_operations.zero_columns(A, np.array([0, 2]))
-    assert np.all(A.toarray() == np.array([[0, 0, 0], [0, 0, 0], [0, 2, 0]]))
-    assert A.nnz == 3
-    assert A.getformat() == "csc"
+@pytest.mark.parametrize("column", [True, False])
+@pytest.mark.parametrize("index", [0, np.array([0, 2]), np.array([0])])
+def test_zero_column_row(A, column: bool, index: np.ndarray | int):
+    """Test that function to zero out columns and rows works as expected.
 
+    Parameters:
+        A: sparse matrix to be modified.
+        column: if True, zero columns, otherwise rows.
+        index: index of the columns or rows to be zeroed.
+    """
+    A_known = A.toarray()
+    if column:
+        # If we zero columns, we need to convert to csc format.
+        A = A.tocsc()
+        matrix_operations.zero_columns(A, index)
+        A_known[:, index] = 0
+    else:
+        matrix_operations.zero_rows(A, index)
+        A_known[index, :] = 0
 
-def test_zero_columns():
-    A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
-
-    A0_t = sps.csc_matrix(np.array([[0, 0, 0], [0, 0, 0], [0, 0, 3]]))
-    A2_t = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 0]]))
-    A0_2_t = sps.csc_matrix(np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]]))
-    A0 = A.copy()
-    A2 = A.copy()
-    A0_2 = A.copy()
-    matrix_operations.zero_columns(A0, np.array([0], dtype=int))
-    matrix_operations.zero_columns(A2, 2)
-    matrix_operations.zero_columns(A0_2, np.array([0, 1, 2]))
-
-    assert np.sum(A0 != A0_t) == 0
-    assert np.sum(A2 != A2_t) == 0
-    assert np.sum(A0_2 != A0_2_t) == 0
+    assert np.allclose(A.toarray(), A_known)
 
 
 def test_zero_columns_assert():
@@ -58,49 +53,6 @@ def test_zero_columns_assert():
     with pytest.raises(ValueError):
         # Should be csc_matrix
         matrix_operations.zero_columns(A, 1)
-
-
-# ------------------ Test zero_rows -----------------------
-
-
-def test_zero_1_row():
-    A = sps.csr_matrix(
-        (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
-        shape=(3, 3),
-    )
-    matrix_operations.zero_rows(A, 0)
-    assert np.all(A.toarray() == np.array([[0, 0, 0], [0, 0, 3], [0, 2, 0]]))
-    assert A.nnz == 3
-    assert A.getformat() == "csr"
-
-
-def test_zero_2_rows():
-    A = sps.csr_matrix(
-        (np.array([1, 2, 3]), (np.array([0, 2, 1]), np.array([0, 1, 2]))),
-        shape=(3, 3),
-    )
-    matrix_operations.zero_rows(A, np.array([0, 2]))
-    assert np.all(A.toarray() == np.array([[0, 0, 0], [0, 0, 3], [0, 0, 0]]))
-    assert A.nnz == 3
-    assert A.getformat() == "csr"
-
-
-def test_zero_rows():
-    A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
-
-    A0_t = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
-    A2_t = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 0]]))
-    A0_2_t = sps.csr_matrix(np.array([[0, 0, 0], [0, 0, 0], [0, 0, 0]]))
-    A0 = A.copy()
-    A2 = A.copy()
-    A0_2 = A.copy()
-    matrix_operations.zero_rows(A0, np.array([0], dtype=int))
-    matrix_operations.zero_rows(A2, 2)
-    matrix_operations.zero_rows(A0_2, np.array([0, 1, 2]))
-
-    assert np.sum(A0 != A0_t) == 0
-    assert np.sum(A2 != A2_t) == 0
-    assert np.sum(A0_2 != A0_2_t) == 0
 
 
 def test_zero_rows_assert():
@@ -144,60 +96,355 @@ def test_csc_slice():
     assert np.all(rows0_2 == np.array([1, 2]))
 
 
-# ------------------ Test slice_mat -----------------------
+# ------------------ Test slice_sparse_matrix -----------------------
 
 
-def test_sliced_mat_columns():
-    # original matrix
-    A = sps.csc_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
+@pytest.mark.parametrize("column", [True, False])
+@pytest.mark.parametrize(
+    "index",
+    [
+        2,
+        np.array([0, 2]),
+        np.array([2]),
+        np.array([0, 1, 3]),
+        np.array([1, 1]),
+        np.array([1, 0, 0, 1, 0], dtype=bool),
+    ],
+)
+def test_sliced_matrix(A, column: bool, index: int | np.ndarray):
+    """Test that slicing a sparse matrix works as expected.
 
-    # expected results
-    A0_t = sps.csc_matrix(np.array([[0, 0], [0, 0], [0, 3]]))
-    A1_t = sps.csc_matrix(np.array([[0, 0], [1, 0], [0, 0]]))
-    A2_t = sps.csc_matrix(np.array([[0], [0], [3]]))
-    A3_t = sps.csc_matrix(np.array([[], [], []]))
-    A4_t = sps.csc_matrix(np.array([[0, 0], [1, 0], [0, 3]]))
+    Parameters:
+        A: sparse matrix to be sliced.
+        column: if True, slice columns, otherwise rows.
+        index: index of the columns or rows to be sliced.
+    """
+    if column:
+        # If we slice columns, we need to convert to csc format.
+        A = A.tocsc()
+        if isinstance(index, np.ndarray) and index.dtype == bool:
+            index = index[: A.shape[1]]
+        A_known = A[:, index].toarray()
+    else:
+        A_known = A[index].toarray()
 
-    A5_t = sps.csc_matrix(np.array([[0, 0], [0, 0], [0, 0]]))
-
-    A0 = matrix_operations.slice_mat(A, np.array([1, 2], dtype=int))
-    A1 = matrix_operations.slice_mat(A, np.array([0, 1]))
-    A2 = matrix_operations.slice_mat(A, 2)
-    A3 = matrix_operations.slice_mat(A, np.array([], dtype=int))
-    A4 = matrix_operations.slice_mat(A, np.array([0, 2], dtype=int))
-    A5 = matrix_operations.slice_mat(A, np.array([1, 1], dtype=int))
-
-    assert np.sum(A0 != A0_t) == 0
-    assert np.sum(A1 != A1_t) == 0
-    assert np.sum(A2 != A2_t) == 0
-    assert np.sum(A3 != A3_t) == 0
-    assert np.sum(A4 != A4_t) == 0
-    assert np.sum(A5 != A5_t) == 0
+    assert np.allclose(
+        matrix_operations.slice_sparse_matrix(A, index).toarray(), A_known
+    )
 
 
-def test_sliced_mat_rows():
-    A = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0], [0, 0, 3]]))
+# ------------------ Test ArraySlicer -----------------------
 
-    A0_t = sps.csr_matrix(np.array([[1, 0, 0], [0, 0, 3]]))
-    A1_t = sps.csr_matrix(np.array([[0, 0, 0], [1, 0, 0]]))
-    A2_t = sps.csr_matrix(np.array([[0, 0, 3]]))
-    A3_t = sps.csr_matrix(np.atleast_2d(np.array([[], [], []])).T)
-    A4_t = sps.csr_matrix(np.array([[0, 0, 0], [0, 0, 3]]))
-    A5_t = sps.csr_matrix(np.array([[1, 0, 0], [1, 0, 0]]))
 
-    A0 = matrix_operations.slice_mat(A, np.array([1, 2], dtype=int))
-    A1 = matrix_operations.slice_mat(A, np.array([0, 1]))
-    A2 = matrix_operations.slice_mat(A, 2)
-    A3 = matrix_operations.slice_mat(A, np.array([], dtype=int))
-    A4 = matrix_operations.slice_mat(A, np.array([0, 2], dtype=int))
-    A5 = matrix_operations.slice_mat(A, np.array([1, 1], dtype=int))
+def _get_arrayslicer_target(mat, mode: Literal["float", "dense", "sparse", "ad"]):
+    """Get the target matrix for the array slicer test.
 
-    assert np.sum(A0 != A0_t) == 0
-    assert np.sum(A1 != A1_t) == 0
-    assert np.sum(A2 != A2_t) == 0
-    assert np.sum(A3 != A3_t) == 0
-    assert np.sum(A4 != A4_t) == 0
-    assert np.sum(A5 != A5_t) == 0
+    Parameters:
+        mat: The matrix to be sliced
+
+    Returns:
+        The target quantity to be sliced.
+
+    """
+    if mode == "sparse":
+        target = mat
+    elif mode == "float":
+        return 42.0
+    else:
+        vec = np.array([1, 2, 3, 4, 5])
+        if mode == "dense":
+            # The dense mode uses a vector. In principle, it is possible also to
+            # consider 2d numpy arrays, but the ArraySlicer is not designed to handle
+            # this case.
+            target = vec
+        else:
+            target = pp.ad.AdArray(vec, mat)
+    return target
+
+
+@pytest.mark.parametrize("mode", ["dense", "sparse", "ad", "float"])
+@pytest.mark.parametrize(
+    "domain_inds, range_inds",
+    [
+        # Extract selected rows, insert at specified rows in the range domain.
+        (np.array([3, 1]), np.array([0, 3])),
+        # Extract selected columns, force the range to have at least five dimensions.
+        (np.array([3, 1]), np.array([0, 4])),
+        # Extract selected columns. Both domain and range indices vary non-monotonically.
+        (np.array([2, 3, 0]), np.array([3, 0, 1])),
+        # Domain indices are not specified. The first three rows will be extracted.
+        (None, np.array([0, 1, 3])),
+        # Range indices are not specified. The mapped rows will be inserted in the first
+        # three rows.
+        (np.array([0, 1, 3]), None),
+    ],
+)
+# If None, the range size is given by the range indices. The value 6 will force the
+# result to have exactly 6 rows, independent of the range indices.
+@pytest.mark.parametrize("range_size", [None, 6])
+# The domain size is not used for the ArraySlicer, however, when transpose is True, it
+# will take the role of the range_size, see description above.
+@pytest.mark.parametrize("domain_size", [None, 6])
+@pytest.mark.parametrize("transpose", [True, False])
+def test_array_slicer(
+    A,
+    mode: Literal["dense", "sparse", "ad", "float"],
+    domain_inds: np.ndarray | None,
+    range_inds: np.ndarray | None,
+    range_size: int,
+    domain_size: int,
+    transpose: bool,
+):
+    """Test that the ArraySlicer acts as expected.
+
+    The test constructs an ArraySlicer with a given domain and range indices, and
+    applies it to a target array. By parametrization, this target is etiher a numpy
+    array, a scipy sparse matrix, or an AdArray (that is, the three data types on which
+    the ArraySlicer is meant to operate).
+
+    A failure in this test indicates that the ArraySlicer does not behave as expected;
+    quite likely, something is wrong with the treatment of indices in the slicer class.
+
+    Parameters:
+        A: The matrix to be sliced.
+        mode: The mode of the target matrix. Can be 'dense', 'sparse' or 'ad'.
+        domain_inds: The indices of the domain of the slicer.
+        range_inds: The indices of the range of the slicer.
+        range_size: The size of the range of the slicer.
+        transpose: If True, transpose the slicer before applying it.
+
+    """
+    target = _get_arrayslicer_target(A, mode)
+    slicer = matrix_operations.ArraySlicer(
+        domain_inds, range_inds, range_size, domain_size
+    )
+
+    if transpose:
+        # First transpose the slicer.
+        slicer = slicer.T
+        # Now, the number of rows in the resulting matrix is determined from domain
+        # information, since the slicer is transposed.
+        if domain_size is not None:
+            # If the domain size is given, the number of rows is given by this.
+            num_rows = domain_size
+        elif domain_inds is not None:
+            # If no domain size is given but domain indices are, the output number of
+            # rows is the maximum index + 1 (because indices are 0-offset).
+            num_rows = domain_inds.max() + 1
+        else:
+            # If no domain size or indices are given, the output number of rows is the
+            # number of range indices.
+            num_rows = range_inds.size
+    else:
+        # Get the number of output rows from the range information. The logic is the
+        # same as for the transpose case.
+        if range_size is not None:
+            num_rows = range_size
+        elif range_inds is not None:
+            num_rows = range_inds.max() + 1
+        else:
+            num_rows = domain_inds.size
+
+    if range_inds is None:
+        range_inds = np.arange(domain_inds.size)
+    if domain_inds is None:
+        domain_inds = np.arange(range_inds.size)
+
+    result = slicer @ target
+
+    if mode == "float":
+        # A scalar target will effectively be broadcast to a vector. The result is known
+        # to be a vector. Create an empty one, then fill in the relevant entries from
+        # the target.
+        known_scalar = target
+        known_array = np.zeros(num_rows)
+        if transpose:
+            known_array[domain_inds] = known_scalar
+        else:
+            known_array[range_inds] = known_scalar
+        assert isinstance(result, np.ndarray)
+        assert result.size == num_rows
+        np.testing.assert_allclose(result, known_array)
+
+    elif mode == "dense":
+        # The result is known to be a vector. Create an empty one, then fill in the
+        # relevant entries from the target.
+        A_known = np.zeros(num_rows)
+        if transpose:
+            # Flip the domain and range indices in the transposed case.
+            A_known[domain_inds] = target[range_inds]
+        else:
+            A_known[range_inds] = target[domain_inds]
+        assert np.allclose(result, A_known)
+
+    elif mode == "sparse":
+        # The result is known to be a sparse matrix. Create an empty one, having the
+        # same number of columns as the target, but with the number of rows given by the
+        # input to the slicer. Fill in the relevant entries from the target.
+        A_known = np.zeros((num_rows, target.shape[1]))
+        if transpose:
+            # Flip the domain and range indices in the transposed case.
+            A_known[domain_inds] = target.toarray()[range_inds]
+        else:
+            A_known[range_inds] = target.toarray()[domain_inds]
+        assert np.allclose(result.toarray(), A_known)
+    else:  # AdArray.
+        # The logic is the same as in the two above cases. Consider the val and jac
+        # attributes of the AdArray separately.
+        val_known = np.zeros(num_rows)
+        if transpose:
+            val_known[domain_inds] = target.val[range_inds]
+        else:
+            val_known[range_inds] = target.val[domain_inds]
+        assert np.allclose(result.val, val_known)
+
+        jac_known = np.zeros((num_rows, target.jac.shape[1]))
+        if transpose:
+            jac_known[domain_inds] = target.jac.toarray()[range_inds]
+        else:
+            jac_known[range_inds] = target.jac.toarray()[domain_inds]
+        assert np.allclose(result.jac.toarray(), jac_known)
+
+
+@pytest.mark.parametrize(
+    "other_mode, target_mode, operator",
+    [
+        ("sparse", "dense", "@"),
+        ("sparse", "sparse", "@"),
+        ("sparse", "ad", "@"),
+        ("sparse", "float", "@"),
+    ],
+)
+def test_matrix_slicer_delayed_evaluation_sparse(
+    A: sps.spmatrix,
+    other_mode: Literal["sparse"],
+    target_mode: Literal["dense", "sparse", "ad", "float"],
+    operator: Literal["@"],
+):
+    """Test the application of the ArraySlicer to a sparse matrix, with delayed
+    evaluation. This test is split from the other data types (see just below), since the
+    sparse matrix can only be combined with the '@' operator (and the others should
+    not), hence the parametrization is different.
+    """
+    # The actual test is left to a backend function, to avoid code duplication.
+    _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)
+
+
+@pytest.mark.parametrize("other_mode", ["ad", "float"])
+@pytest.mark.parametrize("target_mode", ["ad", "dense", "float"])
+@pytest.mark.parametrize("operator", ["*", "/", "+", "-", "**"])
+def test_matrix_slicer_delayed_evaluation_ad_dense_float(
+    A: sps.spmatrix,
+    other_mode: Literal["ad", "float"],
+    target_mode: Literal["ad", "dense", "float"],
+    operator: Literal["*", "/", "+", "-", "**"],
+):
+    """Test the application of the ArraySlicer to numpy and AdArrays, as well as scalars
+    (floats), with delayed evaluation.
+
+    Note that the parametrization of 'other_mode' does not include 'dense' (i.e. a numpy
+    array), since this does not make sense in the context of the ArraySlicer. See the
+    docstring of that class for more information.
+    """
+    # The actual test is left to a backend function, to avoid code duplication.
+    _matrix_slicer_delayed_evaluation_backend(A, other_mode, target_mode, operator)
+
+
+def _matrix_slicer_delayed_evaluation_backend(
+    A: sps.spmatrix,
+    other_mode: Literal["dense", "sparse", "ad", "float"],
+    target_mode: Literal["dense", "sparse", "ad", "float"],
+    operator: Literal["*", "/", "@", "+", "-", "**"],
+):
+    """Test the delayed evaluation of the matrix slicer.
+
+    When the matrix slicer is involved in a three-term operation on the form
+
+        (1) other_operand operator matrix_slicer @ target
+
+    the matrix slicer delay the evaluation of the operation, so that the expression is
+    evaluated as
+
+        (2) other_operand operator (matrix_slicer @ target)
+
+    This test checks that the delayed evaluation works as expected, that is, that the
+    result of (1) is the same as the form (2), with explicitly enforced paratheses.
+
+    Parameters:
+        A: The matrix to be sliced.
+        other_mode: The data type for the 'other' (leftmost) operand, as described
+            above.
+        target_mode: The data type for the operand to be sliced (the target of the
+            slicing).
+        operator: The operator to be applied.
+
+    """
+    other_operand = _get_arrayslicer_target(A, other_mode)
+    slicer_target = _get_arrayslicer_target(A, target_mode)
+
+    other_indices = np.array([0, 2])
+    if other_mode == "dense" or other_mode == "ad":
+        domain_indices = other_indices
+    elif other_mode == "ad" and target_mode == "dense":
+        domain_indices = other_indices
+    else:
+        domain_indices = np.array([0, 1, 2, 3])
+
+    # The ArraySlicer will leave a target with a reduced size, as specified by the
+    # domain indices. To avoid a size mismatch in the evaluation of the delayed
+    # expression, we need to slice the other operand to the same size as the domain
+    # indices. The exception is if the other operand is a float, which cannot be sliced.
+    if other_mode == "float":
+        # Silence ruff errors here, we will use the variable in the below eval
+        # statement.
+        other_operand_sliced = other_operand  # noqa:F841
+    else:
+        other_operand_sliced = other_operand[other_indices]  # noqa:F841
+
+    # Silence ruff error about the variable not being used.
+    slicer = matrix_operations.ArraySlicer(domain_indices=domain_indices)  # noqa:F841
+
+    # Evaluate the expression without explicit parentheses. This is the form (1)
+    # described in the docstring. Under the hood, this forces python to interpret the
+    # expression 'other_operand {operator} array_slicer' (ex: float + ArraySlicer).
+    # This will invoke the respective __radd__, __rsub__, etc. methods of the
+    # ArraySlicer, and the delayed evaluation will be triggered.
+    result = eval(f"other_operand_sliced {operator} slicer @ slicer_target")
+
+    # Next we construct a benchmark result by effectively imposing parentheses around the
+    # slicing operation. This is the form (2) described in the docstring.
+    if target_mode == "float":
+        # If the target is a float, we expand it to a vector of the same size as the
+        # domain indices. This mimics the behavior of the ArraySlicer, which is expected
+        # to broadcast the float.
+        slicer_target = np.full(domain_indices.max() + 1, slicer_target)
+
+    # Mimic the effect of the array slicer to the target, by slicing it. This tests only
+    # a subset of the functionality of the ArraySlicer, as it only considers the case
+    # where the range is [0, 1, .., domain_indices.max()]. However, this is sufficient
+    # to test the delayed evaluation; the full functionality of the ArraySlicer is
+    # tested elsewhere.
+    #
+    # Silence ruff error about the variable not being used.
+    sliced_target = slicer_target[domain_indices]  # noqa:F841
+
+    # Combine the other operand with the sliced target, using the 'operator'.
+    #
+    # Implementation note: It is tempting to convert the slicer to a projection matrix,
+    # and use that for constructing a known result. However, perhaps due to EK's lack of
+    # imagination, this ran into various issues with sizes etc. The explicit slicing
+    # above is equivalent, and as good a representation of what the slicer should do.
+    known_result = eval(f"other_operand_sliced {operator} sliced_target")
+
+    # Thanks to the delayed evaluation, the result of the two expressions should be the
+    # same.
+    if target_mode == "ad" or other_mode == "ad":
+        assert np.allclose(result.val, known_result.val)
+        assert np.allclose(result.jac.toarray(), known_result.jac.toarray())
+    elif target_mode == "sparse":
+        assert np.allclose(result.toarray(), known_result.toarray())
+    else:
+        assert np.allclose(result, known_result)
 
 
 # ------------------ Test stack_mat -----------------------
