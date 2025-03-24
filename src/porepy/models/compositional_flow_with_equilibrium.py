@@ -45,7 +45,7 @@ class LocalIsenthalpicEquilibriumEquations(Unified_ph_Equilibrium):
 
     """
 
-    has_independent_fraction: Callable[[pp.Phase | pp.Component], bool]
+    has_independent_saturation: Callable[[pp.Phase], bool]
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     def set_equations(self):
@@ -61,7 +61,7 @@ class LocalIsenthalpicEquilibriumEquations(Unified_ph_Equilibrium):
 
         subdomains = self.mdg.subdomains()
         for phase in self.fluid.phases:
-            if self.has_independent_fraction(phase):
+            if self.has_independent_saturation(phase):
                 equ = self.mass_constraint_for_phase(phase, subdomains)
                 self.equation_system.set_equation(equ, subdomains, {"cells": 1})
 

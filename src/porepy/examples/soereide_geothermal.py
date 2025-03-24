@@ -420,7 +420,7 @@ class BoundaryConditions(pp.PorePyModel):
 
     _T_IN: float = InitialConditions._T_INIT
     _T_OUT: float = InitialConditions._T_INIT
-    _T_HEATED: float = InitialConditions._T_INIT
+    _T_HEATED: float = InitialConditions._T_INIT + 50.0
 
     _z_IN: dict[str, float] = {
         "H2O": InitialConditions._z_INIT["H2O"] - 0.095,
@@ -584,7 +584,7 @@ else:
 
 
 # Model parametrization
-t_scale = 1e-2
+t_scale = 1e0
 
 max_iterations = 50
 newton_tol = 1e-5
@@ -608,9 +608,9 @@ flash_params = {
 }
 
 time_manager = pp.TimeManager(
-    schedule=[0, 1 * pp.DAY * t_scale],
-    dt_init=pp.HOUR * t_scale,
-    dt_min_max=(pp.MINUTE * t_scale, 3 * pp.HOUR),
+    schedule=[0, 1 * pp.DAY],
+    dt_init=pp.MINUTE * t_scale,
+    dt_min_max=(pp.MINUTE * 1 / 2 * t_scale, pp.HOUR),
     iter_max=max_iterations,
     iter_optimal_range=(4, 7),
     iter_relax_factors=(0.9, 1.3),
@@ -621,10 +621,10 @@ time_manager = pp.TimeManager(
 
 material_constants = {
     "solid": pp.SolidConstants(
-        permeability=1e-13,
+        permeability=1e-10,
         porosity=0.2,
         thermal_conductivity=1.6736,
-        specific_heat_capacity=603.0,
+        specific_heat_capacity=3.0,
     )
 }
 
@@ -643,7 +643,7 @@ params = {
     "material_constants": material_constants,
     "grid_type": "cartesian",
     "meshing_arguments": {
-        "cell_size": 1.0,
+        "cell_size": 1e0,
         "cell_size_fracture": 0.5,
     },
     "time_manager": time_manager,

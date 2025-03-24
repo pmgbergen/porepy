@@ -376,18 +376,23 @@ def npipm(
                 success = 2
                 break
 
-            if np.linalg.matrix_rank(df_i) == matrix_rank:
-                DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
-            else:
-                # NOTE rcond is the limit to cutting of the smallest singular values.
-                # This has quite large effects on the robustness of the flash in the
-                # v-h case for example, which is not yet fully understood.
-                # NOTE also, the default value in numba is machine precision, while
-                # with no-jit (pure numpy) is shape[0] * eps.
-                # The latter is chosen and set to avoid differences between jit and
-                # no-jit computations.
-                rcond = df_i.shape[0] * np.finfo(np.float64).eps
-                DX[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i, rcond=rcond)[0]
+            try:
+                if np.linalg.matrix_rank(df_i) == matrix_rank:
+                    DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
+                else:
+                    # NOTE rcond is the limit to cutting of the smallest singular values.
+                    # This has quite large effects on the robustness of the flash in the
+                    # v-h case for example, which is not yet fully understood.
+                    # NOTE also, the default value in numba is machine precision, while
+                    # with no-jit (pure numpy) is shape[0] * eps.
+                    # The latter is chosen and set to avoid differences between jit and
+                    # no-jit computations.
+                    rcond = df_i.shape[0] * np.finfo(np.float64).eps
+                    DX[-matrix_rank:] = np.linalg.lstsq(df_i, -f_i, rcond=rcond)[0]
+            except Exception:
+                # This means the linear solver failed.
+                success = 5
+                break
 
             if np.any(np.isnan(DX)) or np.any(np.isinf(DX)):
                 success = 2
