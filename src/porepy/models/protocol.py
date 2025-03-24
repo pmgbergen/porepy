@@ -947,7 +947,7 @@ else:
 
             Parameters:
                 subdomains: List of subdomains where the displacement jump is defined.
-                    Should be a fracture subdomain.
+                    Should be fracture subdomains.
 
             Returns:
                 Operator for the displacement jump.
@@ -1000,7 +1000,7 @@ else:
                 The fluid mobility is not included in the Darcy flux. This is because we
                 discretize it with an upstream scheme. This means that the fluid mobility
                 may have to be included when using the flux in a transport equation.
-                The units of the Darcy flux are [m^2 Pa / s].
+                The units of the Darcy flux are [m^2 / s].
 
             Parameters:
                 domains: List of domains where the Darcy flux is defined.
