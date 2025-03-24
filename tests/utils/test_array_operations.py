@@ -261,37 +261,42 @@ def test_intersect_sets(data):
         assert np.allclose(e1, e2)
 
 
-@pytest.mark.parametrize(
-    # Simple comparison of input (2 arrays) and expected output of mcolon.
-    {
-        "input": ([1, 2], [3, 4]),
-        "expected": [1, 2, 2, 3],
-    },
-    # Zero size result.
-    {
-        "input": ([1, 2], [1, 2]),
-        "expected": [],
-    },
-    # Equal middle point. Motivated by GitHub issue #11.
-    {
-        "input": ([1, 5, 5], [5, 5, 6]),
-        "expected": [1, 2, 3, 4, 5],
-    },
-    # Equal last point. Motivated by GitHub issue #11.
-    {
-        "input": ([1, 5], [5, 5]),
-        "expected": [1, 2, 3, 4],
-    },
-    # Different sizes of high and low bounds.
-    {
-        "input": ([1, 2], [2, 3, 4]),
-        "raises": True,
-    },
-    # Test type conversion.
-    {
-        "input": (np.array([1, 3], dtype=np.int8), np.array([2, 4], dtype=np.int16)),
-        "expected_dtype": int,
-    },
+@pytest.mark.parametrize("params",
+    [
+        # Simple comparison of input (2 arrays) and expected output of mcolon.
+        {
+            "input": ([1, 2], [3, 4]),
+            "expected": [1, 2, 2, 3],
+        },
+        # Zero size result.
+        {
+            "input": ([1, 2], [1, 2]),
+            "expected": [],
+        },
+        # Equal middle point. Motivated by GitHub issue #11.
+        {
+            "input": ([1, 5, 5], [5, 5, 6]),
+            "expected": [1, 2, 3, 4, 5],
+        },
+        # Equal last point. Motivated by GitHub issue #11.
+        {
+            "input": ([1, 5], [5, 5]),
+            "expected": [1, 2, 3, 4],
+        },
+        # Different sizes of high and low bounds.
+        {
+            "input": ([1, 2], [2, 3, 4]),
+            "raises": True,
+        },
+        # Test type conversion.
+        {
+            "input": (
+                np.array([1, 3], dtype=np.int8),
+                np.array([2, 4], dtype=np.int16),
+            ),
+            "expected_dtype": int,
+        },
+    ]
 )
 def test_mcolon(params: dict):
     a = np.array(params["input"][0])
