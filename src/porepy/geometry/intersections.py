@@ -2375,8 +2375,8 @@ def split_intersecting_segments_2d(
         # Keep the old tags before uniquifying
         tags = new_edge[2:].copy().ravel()
         # Uniquify.
-        _, edge_map, all_2_unique = pp.array_operations.unique_columns_tol(
-            new_edge[:2].astype(int), tol
+        _, edge_map, all_2_unique = pp.array_operations.unique_columns(
+            new_edge[:2].astype(int)
         )
         tag_info = (tags, all_2_unique)
 

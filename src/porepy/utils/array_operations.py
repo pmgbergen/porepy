@@ -9,8 +9,9 @@ from itertools import product
 
 import numpy as np
 from scipy.spatial import KDTree
+from numba import njit
 
-from typing import Any, Tuple
+from typing import Any, Literal, Tuple
 
 
 class SparseNdArray:
@@ -269,6 +270,7 @@ def intersect_sets(
 
 
 def unique_rows(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    # find_unique_rows
     """Finds unique rows in a 2D NumPy array using np.unique with axis=0.
 
     Parameters:
@@ -286,6 +288,7 @@ def unique_rows(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         (array([[1, 2], [3, 4], [5, 6]]), array([0, 1, 3]), array([0, 1, 0, 2]))
 
     """
+    assert np.issubdtype(data.dtype, np.integer), data
 
     unique, idx, inverse = np.unique(
         data, axis=0, return_index=True, return_inverse=True
@@ -293,11 +296,42 @@ def unique_rows(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return unique, idx, inverse
 
 
+def unique_columns(data: np.ndarray, preserve_order: bool = True):
+    assert np.issubdtype(data.dtype, np.integer), data
+    un_ar, new_2_old, old_2_new = np.unique(
+        data, axis=1, return_index=True, return_inverse=True
+    )
+    # if preserve_order:
+    #     ordering = np.argsort(new_2_old)
+    #     un_ar = un_ar[:, ordering]
+    #     new_2_old = new_2_old[ordering]
+
+    #     old_2_new_new = np.zeros_like(old_2_new)
+    #     for k, v in enumerate(ordering):
+    #         old_2_new_new[old_2_new == v] = k
+    #     old_2_new = old_2_new_new
+    # # Ravel index arrays to get 1d output
+    
+    # this fixed test_face_and_node_tags_for_non_fractured_domains case 3
+    # this fixed test_dual_vem
+    # this fixed test_rt0
+    # this does not fix/break test_3d_2d_1d_0d
+    # res1, new_2_old_1, old_2_new_1 = new_uniquify_point_set(data, tol=1e-8)
+    # assert un_ar.shape == res1.shape
+    # assert np.all(new_2_old == new_2_old_1)
+    # assert np.all(old_2_new == old_2_new_1)
+    # assert np.all(res1 == un_ar)
+    
+    return un_ar, new_2_old.ravel(), old_2_new.ravel()
+    return res1, new_2_old_1, old_2_new_1
+
+
 def ismember_rows(
     a: np.ndarray[Any, np.dtype[np.int64]],
     b: np.ndarray[Any, np.dtype[np.int64]],
     sort: float = True,
 ) -> Tuple[np.ndarray[Any, np.dtype[np.bool_]], np.ndarray[Any, np.dtype[np.int64]]]:
+    # must be something different since the signature is different
     """
     Find *columns* of a that are also members of *columns* of b.
 
@@ -383,6 +417,7 @@ def unique_columns_tol(
     np.ndarray[Any, np.dtype[np.int64]],
     np.ndarray[Any, np.dtype[np.int64]],
 ]:
+    # find_unique_columns_tol
     """
     For an array, remove columns that are closer than a given tolerance.
 
@@ -416,6 +451,11 @@ def unique_columns_tol(
     """
     import numba
 
+    if np.issubdtype(mat.dtype, np.integer) and tol <= 0.5:
+        return unique_columns(mat)
+
+    # return new_uniquify_point_set(mat, tol)
+
     # Treat 1d array as 2d
     mat = np.atleast_2d(mat)
 
@@ -429,12 +469,12 @@ def unique_columns_tol(
 
     # If the matrix is integers, and the tolerance less than 1/2, we can use
     # numpy's unique function
-    if issubclass(mat.dtype.type, np.int_) and tol < 0.5:
-        un_ar, new_2_old, old_2_new = np.unique(
-            mat, return_index=True, return_inverse=True, axis=1
-        )
-        # Ravel index arrays to get 1d output
-        return un_ar, new_2_old.ravel(), old_2_new.ravel()
+    # if issubclass(mat.dtype.type, np.int_) and tol < 0.5:
+    #     un_ar, new_2_old, old_2_new = np.unique(
+    #         mat, return_index=True, return_inverse=True, axis=1
+    #     )
+    #     # Ravel index arrays to get 1d output
+    #     return un_ar, new_2_old.ravel(), old_2_new.ravel()
 
     @numba.jit("Tuple((b1[:],i8[:],i8[:]))(f8[:, :],f8)", nopython=True, cache=True)
     def _numba_distance(mat, tol):
@@ -486,7 +526,22 @@ def unique_columns_tol(
     # practice failed.
 
     keep, new_2_old, old_2_new = _numba_distance(mat_t, tol)
-    return mat[:, keep], new_2_old, old_2_new
+
+    res = mat[:, keep]
+
+    res1, new_2_old_1, old_2_new_1 = new_uniquify_point_set(mat, tol)
+
+    assert res.shape == res1.shape
+    assert np.allclose(res1, res, atol=tol)
+    assert np.all(new_2_old == new_2_old_1)
+    assert np.all(old_2_new == old_2_new_1)
+    print("hi")
+
+    # for vec in res.T:
+    #     assert np.any(np.all(vec[:, None] == res1, axis=0))
+
+    # return res1, new_2_old_1, old_2_new_1
+    return res, new_2_old, old_2_new
 
 
 def uniquify_point_set(
@@ -580,10 +635,22 @@ def uniquify_point_set(
     upoints = points[:, ia]
 
     # Done.
+    # print('Done uniquify_point_set', time.time() - tick)
+    # upoints_1, ia_1, ib_1 = unique_columns_tol(points, tol)
+    # upoints_2, ia_2, ib_2 = new_unique_columns_tol(points, tol)
+    upoints_1, ia_1, ib_1 = unique_columns_tol(points, tol=tol)
+
+    assert upoints.shape == upoints_1.shape
+    assert np.allclose(upoints_1, upoints, atol=tol)
+    assert np.all(ia_1 == ia)
+    assert np.all(ib_1 == ib)
+
     return upoints, ia, ib
 
 
-def expand_indices_nd(ind: np.ndarray, nd: int, order="F") -> np.ndarray:
+def expand_indices_nd(
+    ind: np.ndarray, nd: int, order: Literal["F", "C"] = "F"
+) -> np.ndarray:
     """Expand indices from scalar to vector form.
 
     Examples:
@@ -612,8 +679,8 @@ def expand_indices_nd(ind: np.ndarray, nd: int, order="F") -> np.ndarray:
     return new_ind
 
 
-def repeat_array_add_increment(x: np.ndarray, times: int, increment: int) -> np.ndarray:
-    """Repeat array values and consequently add the increment to each next repetition.
+def expand_indices_add_increment(x: np.ndarray, n: int, increment: int) -> np.ndarray:
+    """Expend array values and consequently add the increment to each next repetition.
     Using Fortran order.
 
     Examples:
@@ -622,8 +689,8 @@ def repeat_array_add_increment(x: np.ndarray, times: int, increment: int) -> np.
         (array([0, 200, 400, 1, 201, 401, 3, 203, 403]))
 
     Parameters:
-        x: Array to be repeated.
-        times: How many times to repeat.
+        x: Array to be repeated with the increment.
+        n: How many times to repeat the array with the increment.
         increment: The number to add to each next repetition.
 
     Returns:
@@ -631,15 +698,16 @@ def repeat_array_add_increment(x: np.ndarray, times: int, increment: int) -> np.
 
     """
     # Duplicate rows
-    ind_nd = np.tile(x, (times, 1))
+    ind_nd = np.tile(x, (n, 1))
     # Add same increment to each row (0*incr, 1*incr etc.)
-    ind_incr = ind_nd + increment * np.array([np.arange(times)]).transpose()
+    ind_incr = ind_nd + increment * np.array([np.arange(n)]).transpose()
     # Back to row vector
     ind_new = ind_incr.reshape(-1, order="F")
     return ind_new
 
 
 def mcolon(lo, hi):
+    # expand_indptr
     """Expansion of np.arange(a, b) for arrays a and b.
 
     The code is equivalent to the following (less efficient) loop:
@@ -721,3 +789,154 @@ def mcolon(lo, hi):
     # store the result to avoid allocating a new array (this can give substantial
     # savings for large arrays).
     return np.cumsum(x, out=x)
+
+
+@njit(cache=True)
+def _unique_columns_in_cluster(
+    points: np.ndarray,
+    sorted_idx: np.ndarray,
+    cluster_start: int,
+    cluster_size: int,
+    tol: float,
+):
+    """This is an inner function of `new_uniquify_point_set`, but moved outside due to
+    numba. Finds unique columns in a specified cluster.
+
+    Parameters:
+        points: `shape=(nd x n_pts)`, points to be uniquified.
+        sorted_idx: `shape=(n_pts)`, sorted index of the points norms.
+        cluster_start: Index of the cluster start.
+        cluster_size: Number of points in the cluster.
+        tol: Tolerance for when columns are considered equal.
+
+    """
+    unique_cols = np.zeros((points.shape[0], cluster_size), dtype=points.dtype)
+    keep = 0
+    unique_cols_keep = unique_cols[:, :keep]
+
+    # new_2_old = np.zeros(cluster_size, dtype=np.int64)
+    old_2_new = np.zeros(cluster_size, dtype=np.int64)
+
+    new_2_old = np.full(shape=cluster_size, fill_value=points.shape[1], dtype=np.int64)
+
+    for i in range(cluster_start, cluster_start + cluster_size):
+        col = points[:, sorted_idx[i]]
+
+        within_tol = np.sum((col[:, None] - unique_cols_keep) ** 2, axis=0) < tol**2
+
+        if not np.any(within_tol):
+            unique_cols[:, keep] = col
+            old_2_new[i - cluster_start] = keep
+            new_2_old[keep] = sorted_idx[i]
+            #
+            keep += 1
+            unique_cols_keep = unique_cols[:, :keep]
+        else:
+            idx = np.argmax(within_tol)
+            old_2_new[i - cluster_start] = idx
+            if sorted_idx[i] < new_2_old[idx]:
+                new_2_old[idx] = sorted_idx[i]
+                unique_cols[:, idx] = col
+            # new_2_old[idx] = min(sorted_idx[i], new_2_old[idx])
+
+    return unique_cols_keep, new_2_old[:keep], old_2_new
+
+
+@njit(cache=True)
+def new_uniquify_point_set(points: np.ndarray, tol: float):
+    """Uniquify a set of points so that no two sets of points are closer than a
+    distance tol from each other.
+
+    The return order is guaranteed, each unique point is the first encountered.
+
+    Parameters:
+        points: `shape=(nd x n_pts)`, points to be uniquified.
+        tol: Tolerance for when columns are considered equal.
+            Should be seen in connection with distance between the points in
+            the point set (due to rounding errors).
+
+    Returns:
+        np.ndarray: Unique points.
+        new_2_old: Index of which points that are preserved.
+        old_2_new: Index of the representation of old points in the reduced list.
+
+    """
+    if points.shape[1] == 0:
+        return (
+            np.empty_like(points),
+            np.empty(shape=points.shape[1], dtype=np.int64),
+            np.empty(shape=points.shape[1], dtype=np.int64),
+        )
+
+    # Finding norms of each vector and sorting them.
+    point_norms = np.sqrt(np.sum(points**2, axis=0))
+    sorted_idx = np.argsort(point_norms)
+
+    # Counting vectors with close norms.
+    close_norms_count = np.zeros(points.shape[1], dtype=np.int64)
+    # Index corresponds to the current cluster of vectors with close norms.
+    cluster_idx = 0
+    # Norm of a vector in the current cluster.
+    cluster_norm = point_norms[sorted_idx[0]]
+
+    # Iterating through sorted norms.
+    for current_norm in point_norms[sorted_idx]:
+        # Reverse triangle inequality: abs(||x|| - ||y||) <= ||x - y||.
+        # If they don't fall into one cluster, they are certainly not close within tol.
+        if abs(cluster_norm - current_norm) > tol:
+            # Norms are not close. Moving to the next cluster.
+            cluster_idx += 1
+            cluster_norm = current_norm
+
+        close_norms_count[cluster_idx] += 1
+
+    # Keeping only nonzero clusters.
+    close_norms_count = close_norms_count[: cluster_idx + 1]
+    # Current number of unique vectors.
+    num_unique = 0
+    # Index of the cluster start.
+    cluster_start = 0
+
+    # Initializing result arrays.
+    unique_pts = np.zeros_like(points)
+    new_2_old = np.zeros(points.shape[1], dtype=np.int64)
+    old_2_new = np.zeros(points.shape[1], dtype=np.int64)
+
+    # Iterating through the clusters of vectors with close norms.
+    for cluster_size in close_norms_count:
+        # Compare vectors and find unique ones. O(m^2) for m vectors in a cluster.
+        unique_pts_inner, new_2_old_inner, old_2_new_inner = _unique_columns_in_cluster(
+            points=points,
+            sorted_idx=sorted_idx,
+            cluster_start=cluster_start,
+            cluster_size=cluster_size,
+            tol=tol,
+        )
+        # Number of unique vectors in the cluster.
+        unique_size_inner = unique_pts_inner.shape[1]
+
+        # Updating the global result arrays.
+        unique_pts[:, num_unique : num_unique + unique_size_inner] = unique_pts_inner
+        new_2_old[num_unique : num_unique + unique_size_inner] = new_2_old_inner
+        old_2_new[
+            sorted_idx[np.arange(cluster_start, cluster_start + cluster_size)]
+        ] = (old_2_new_inner + num_unique)
+
+        # Updating the counters.
+        num_unique += unique_size_inner
+        cluster_start += cluster_size
+
+    # Slicing result arrays to remove unused space.
+    unique_pts = unique_pts[:, :num_unique]
+    new_2_old = new_2_old[:num_unique]
+
+    # Reordering.
+    ordering = np.argsort(new_2_old)
+    unique_pts = unique_pts[:, ordering]
+    new_2_old = new_2_old[ordering]
+
+    old_2_new_new = np.zeros_like(old_2_new)
+    for k, v in enumerate(ordering):
+        old_2_new_new[old_2_new == v] = k
+
+    return unique_pts, new_2_old, old_2_new_new

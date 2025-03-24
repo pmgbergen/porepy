@@ -506,9 +506,9 @@ class FractureNetwork2d:
 
         tags = np.zeros((2, edges.shape[1]), dtype=int)
 
-        tags[0][np.logical_not(self.tags["boundary"])] = (
-            GmshInterfaceTags.FRACTURE.value
-        )
+        tags[0][
+            np.logical_not(self.tags["boundary"])
+        ] = GmshInterfaceTags.FRACTURE.value
         tags[0][self.tags["boundary"]] = GmshInterfaceTags.DOMAIN_BOUNDARY_LINE.value
         tags[0][constraints] = GmshInterfaceTags.AUXILIARY_LINE.value
 
@@ -533,9 +533,7 @@ class FractureNetwork2d:
         # This may disturb the line tags in lines[2], but we should not be dependent
         # on those.
         li = np.sort(lines[:2], axis=0)
-        _, new_2_old, old_2_new = pp.array_operations.unique_columns_tol(
-            li, tol=self.tol
-        )
+        _, new_2_old, old_2_new = pp.array_operations.unique_columns(li)
         lines = lines[:, new_2_old]
 
         if not np.all(np.diff(lines[:2], axis=0) != 0):

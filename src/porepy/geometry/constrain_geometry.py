@@ -488,7 +488,7 @@ def polygons_by_polyhedron(
         )
         unique_segments = ib[segments]
         # Then uniquify the segments, in terms of the unique coordinates
-        unique_segments, *rest = pp.array_operations.uniquify_point_set(unique_segments)
+        unique_segments, *rest = pp.array_operations.unique_columns(unique_segments)
         # Remove point segments.
         point_segment = unique_segments[0] == unique_segments[1]
         unique_segments = unique_segments[:, np.logical_not(point_segment)]

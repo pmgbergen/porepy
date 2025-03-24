@@ -110,7 +110,7 @@ def test_ismember_rows_no_sort(a, b, ma_known, ia_known):
 
 def test_unique_columns_tol_no_common_points():
     p = np.array([[0, 1, 2], [0, 0, 0]])
-    p_unique, new_2_old, old_2_new = pp.array_operations.unique_columns_tol(p)
+    p_unique, new_2_old, old_2_new = pp.array_operations.unique_columns(p)
 
     assert np.allclose(p, p_unique)
     assert np.all(old_2_new == np.arange(3))
@@ -118,8 +118,8 @@ def test_unique_columns_tol_no_common_points():
 
 
 def test_unique_columns_tol_remove_one_point():
-    p = np.ones((2, 2))
-    _, new_2_old, old_2_new = pp.array_operations.unique_columns_tol(p)
+    p = np.ones((2, 2), dtype=int)
+    _, new_2_old, old_2_new = pp.array_operations.unique_columns(p)
 
     assert np.allclose(p, np.ones((2, 1)))
     assert np.all(old_2_new == np.zeros(2))
@@ -128,7 +128,7 @@ def test_unique_columns_tol_remove_one_point():
 
 def test_unique_columns_tol_remove_one_of_tree():
     p = np.array([[1, 1, 0], [1, 1, 0]])
-    p_unique, new_2_old, old_2_new = pp.array_operations.unique_columns_tol(p)
+    p_unique, new_2_old, old_2_new = pp.array_operations.unique_columns(p)
 
     # The sorting of the output depends on how the unique array is computed
     # (see unique_columns_tol for the various options that may be applied).

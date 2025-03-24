@@ -265,7 +265,7 @@ class TetrahedralGrid(Grid):
         face_nodes = face_nodes.reshape((3, 4 * num_cells), order="F")
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
         face_nodes_sorted = np.sort(face_nodes, axis=0)
-        face_nodes, _, cell_faces = pp.array_operations.unique_columns_tol(
+        face_nodes, _, cell_faces = pp.array_operations.unique_columns(
             face_nodes_sorted
         )
 

@@ -1036,7 +1036,7 @@ class FractureNetwork3d(object):
         # fractures meeting in a line.
 
         # Do a sort of edges before looking for duplicates.
-        e_unique, unique_ind_e, all_2_unique_e = pp.array_operations.unique_columns_tol(
+        e_unique, unique_ind_e, all_2_unique_e = pp.array_operations.unique_columns(
             np.sort(edges, axis=0)
         )
 
@@ -1862,7 +1862,7 @@ class FractureNetwork3d(object):
                 ]
             ).T
             all_edges.sort(axis=0)
-            edges, _, b = pp.array_operations.unique_columns_tol(all_edges)
+            edges, _, b = pp.array_operations.unique_columns(all_edges)
 
             # Edges on the boundary
             essential_edge = np.where(np.bincount(b) == 1)[0]
