@@ -76,7 +76,7 @@ class SubcellTopology:
             (np.ones(face_ind.size), (face_ind, np.arange(face_ind.size))),
             shape=(face_ind.max() + 1, face_ind.size),
         )
-        nodes_duplicated = sd.face_nodes * M
+        nodes_duplicated = sd.face_nodes @ M
         nodes_duplicated = nodes_duplicated.indices
 
         face_nodes_indptr = sd.face_nodes.indptr
@@ -85,7 +85,7 @@ class SubcellTopology:
         sub_face_mat = sps.csc_matrix(
             (face_nodes_data, face_nodes_indices, face_nodes_indptr)
         )
-        sub_faces = sub_face_mat * M
+        sub_faces = sub_face_mat @ M
         sub_faces = (sub_faces.data - 1).astype(int)
 
         # If the grid has periodic faces the topology of the subcells are changed.
@@ -197,9 +197,9 @@ class SubcellTopology:
             sps.matrix, size (self.subfno_unique.size x something)
         """
 
-        sgn = self.sd.cell_faces[self.fno, self.cno].A
-        pair_over_subfaces = sps.coo_matrix((sgn[0], (self.subfno, self.subhfno)))
-        return pair_over_subfaces * other
+        sgn = np.asarray(self.sd.cell_faces[self.fno, self.cno]).ravel()
+        pair_over_subfaces = sps.coo_matrix((sgn, (self.subfno, self.subhfno)))
+        return pair_over_subfaces @ other
 
     def pair_over_subfaces_nd(self, other):
         """nd-version of pair_over_subfaces, see above."""
@@ -353,7 +353,7 @@ def find_active_indices(
 
 
 def parse_partition_arguments(
-    partition_arguments: Optional[dict[str, int]] = None
+    partition_arguments: Optional[dict[str, int]] = None,
 ) -> tuple[int | None, int | None]:
     """Parse arguments related to the splitting of discretization into subproblems.
 
@@ -477,9 +477,13 @@ def subproblems(
         raise ValueError("Either max_memory or num_subproblems must be given")
 
     if num_part == 1:
-        yield sd, np.arange(sd.num_faces), np.arange(sd.num_cells), np.arange(
-            sd.num_cells
-        ), np.arange(sd.num_faces)
+        yield (
+            sd,
+            np.arange(sd.num_faces),
+            np.arange(sd.num_cells),
+            np.arange(sd.num_cells),
+            np.arange(sd.num_faces),
+        )
 
     else:
         # Since MPxA discretizations are based on interaction regions (cells in the dual
@@ -557,9 +561,8 @@ def remove_nonlocal_contribution(
         pp.matrix_operations.zero_rows(mat, eliminate_ind)
 
 
-def expand_indices_nd(ind: np.ndarray, nd: int, direction="F") -> np.ndarray:
-    """
-    Expand indices from scalar to vector form.
+def expand_indices_nd(ind: np.ndarray, nd: int, order="F") -> np.ndarray:
+    """Expand indices from scalar to vector form.
 
     Examples:
     >>> i = np.array([0, 1, 3])
@@ -569,18 +572,21 @@ def expand_indices_nd(ind: np.ndarray, nd: int, direction="F") -> np.ndarray:
     >>> expand_indices_nd(i, 3, "C")
     (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
 
-    Args:
-        ind
-        nd
-        direction
+    Parameters:
+        ind: Indices to be expanded.
+        nd: Dimension of the vector.
+        order: Order of the expansion. "F" for Fortran, "C" for C. Default is "F".
 
-    Returns
+    Returns:
+        np.ndarray: Expanded indices.
 
     """
+    if nd == 1:
+        return ind
     dim_inds = np.arange(nd)
     dim_inds = dim_inds[:, np.newaxis]  # Prepare for broadcasting
     new_ind = nd * ind + dim_inds
-    new_ind = new_ind.ravel(direction)
+    new_ind = new_ind.ravel(order)
     return new_ind
 
 
@@ -724,50 +730,6 @@ def cell_scalar_to_subcell_vector(nd, sub_cell_index, cell_index):
         sc2c = sps.vstack([sc2c, this_dim])
 
     return sc2c
-
-
-def scalar_divergence(sd: pp.Grid) -> sps.csr_matrix:
-    """
-    Get divergence operator for a grid.
-
-    The operator is easily accessible from the grid itself, so we keep it
-    here for completeness.
-
-    See also vector_divergence(g)
-
-    Args:
-        sd (pp.Grid): grid
-
-    Returns
-        divergence operator
-    """
-    return sd.cell_faces.T.tocsr()
-
-
-def vector_divergence(sd: pp.Grid) -> sps.csr_matrix:
-    """
-    Get vector divergence operator for a grid g
-
-    It is assumed that the first column corresponds to the x-equation of face
-    0, second column is y-equation etc. (and so on in nd>2). The next column is
-    then the x-equation for face 1. Correspondingly, the first row
-    represents x-component in first cell etc.
-
-    Args:
-        sd (pp.Grid): grid
-
-    Returns
-        vector_div (sparse csr matrix), dimensions: nd * (num_cells, num_faces)
-    """
-    # Scalar divergence
-    scalar_div = sd.cell_faces
-
-    # Vector extension, convert to coo-format to avoid odd errors when one
-    # grid dimension is 1 (this may return a bsr matrix)
-    # The order of arguments to sps.kron is important.
-    block_div = sps.kron(scalar_div, sps.eye(sd.dim)).tocsc()
-
-    return block_div.transpose().tocsr()
 
 
 def scalar_tensor_vector_prod(
@@ -1731,46 +1693,3 @@ def partial_discretization(
     pp.matrix_operations.zero_rows(data[kw2], affected_faces)
     data[kw1] += trm
     data[kw2] += bound_flux
-
-
-def restrict_fourth_order_tensor_to_subgrid(
-    tensor: pp.FourthOrderTensor, loc_cells: np.ndarray
-) -> pp.FourthOrderTensor:
-    """Extract a fourth order tensor for a subgrid.
-
-    Parameters:
-        tensor: Constitutive law for the original grid.
-        loc_cells: Index of cells of the original grid from which the new constitutive
-            law should be picked.
-
-    Returns:
-        Fourth order tensor for the specified subset of cells.
-
-    """
-    # Copy stiffness tensor, and restrict to local cells
-    loc_tensor = tensor.copy()
-    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
-    # Also restrict the lambda and mu fields; we will copy the stiffness tensors
-    # later.
-    loc_tensor.lmbda = loc_tensor.lmbda[loc_cells]
-    loc_tensor.mu = loc_tensor.mu[loc_cells]
-    return loc_tensor
-
-
-def restrict_second_order_tensor_to_subgrid(
-    tensor: pp.SecondOrderTensor, loc_cells: np.ndarray
-) -> pp.SecondOrderTensor:
-    """Extract the second-order tensor for a subgrid.
-
-    Parameters:
-        tensor: Permeability tensor for the full grid.
-        loc_cells: Indices of the cells in the subgrid.
-
-    Returns:
-        Second order tensor for the specified subset of cells.
-
-    """
-    # Copy second order tensor, and restrict to local cells
-    loc_tensor = tensor.copy()
-    loc_tensor.values = loc_tensor.values[::, ::, loc_cells]
-    return loc_tensor

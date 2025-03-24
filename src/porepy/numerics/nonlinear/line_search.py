@@ -26,7 +26,7 @@ The functionality is invoked by specifying the solver in the solver parameters, 
 The solver can be further customized by specifying parameters in the solver parameters.
 Using the tailored line search also requires implementation of the constraint functions
 in the model as methods called "opening_indicator" and "sliding_indicator", see
-model_setup.ContactIndicators.
+model.ContactIndicators.
 
 """
 
@@ -340,13 +340,15 @@ class SplineInterpolationLineSearch:
         # is an array.
         f_1_vals = cast(
             np.ndarray,
-            constraint_function.value(model.equation_system, x_0 + solution_update * b),
+            model.equation_system.evaluate(
+                constraint_function, state=x_0 + solution_update * b
+            ),
         )
         f_1 = f_1_vals[crossing_inds]
 
         def f(x):
-            return constraint_function.value(
-                model.equation_system, x_0 + solution_update * x
+            return model.equation_system.evaluate(
+                constraint_function, state=x_0 + solution_update * x
             )[crossing_inds]
 
         alpha, a, b = self.recursive_spline_interpolation(
@@ -655,13 +657,13 @@ class ConstraintLineSearch:
         # value is an array to avoid type errors.
         f_1 = cast(
             np.ndarray,
-            constraint_function.value(
-                model.equation_system, x_0 + max_weight * solution_update
+            model.equation_system.evaluate(
+                constraint_function, state=x_0 + max_weight * solution_update
             ),
         )
         weight = max_weight
         weights = max_weight * np.ones(f_1.shape)
-        f_0 = constraint_function.value(model.equation_system, x_0)
+        f_0 = model.equation_system.evaluate(constraint_function, state=x_0)
         active_inds = np.ones(f_1.shape, dtype=bool)
         for i in range(10):
             # Only consider dofs where the constraint indicator has changed sign.
@@ -708,8 +710,8 @@ class ConstraintLineSearch:
             # Check how many indices are active for current weight.
             f_1 = cast(
                 np.ndarray,
-                constraint_function.value(
-                    model.equation_system, x_0 + weight * solution_update
+                model.equation_system.evaluate(
+                    constraint_function, state=x_0 + weight * solution_update
                 ),
             )
             active_inds = np.logical_and(

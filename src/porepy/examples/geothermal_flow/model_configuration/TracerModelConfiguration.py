@@ -1,13 +1,12 @@
+from __future__ import annotations
+
+from typing import Callable
+
 import numpy as np
 
 import porepy as pp
 import porepy.compositional as ppc
-from porepy.models.compositional_flow import (
-    BoundaryConditionsCF,
-    CFModelMixin,
-    InitialConditionsCF,
-    PrimaryEquationsCF,
-)
+from porepy.models.compositional_flow import CompositionalFlowTemplate
 
 from .constitutive_description.TracerConstitutiveDescription import (
     FluidMixture,
@@ -16,8 +15,12 @@ from .constitutive_description.TracerConstitutiveDescription import (
 from .geometry_description.geometry_market import SimpleGeometry as ModelGeometry
 
 
-class BoundaryConditions(BoundaryConditionsCF):
+class BoundaryConditions(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    get_inlet_outlet_sides: Callable[
+        [pp.Grid | pp.BoundaryGrid], tuple[np.ndarray, np.ndarray]
+    ]
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         facet_idx = np.concatenate(self.get_inlet_outlet_sides(sd))
@@ -58,18 +61,18 @@ class BoundaryConditions(BoundaryConditionsCF):
             return z_NaCl
 
 
-class InitialConditions(InitialConditionsCF):
+class InitialConditions(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
 
-    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_init = 1.0e6
         return np.ones(sd.num_cells) * p_init
 
-    def initial_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
         h = 1892.6
         return np.ones(sd.num_cells) * h
 
-    def initial_overall_fraction(
+    def ic_values_overall_fraction(
         self, component: ppc.Component, sd: pp.Grid
     ) -> np.ndarray:
         z = 0.0
@@ -79,36 +82,15 @@ class InitialConditions(InitialConditionsCF):
             return z * np.ones(sd.num_cells)
 
 
-class ModelEquations(
-    PrimaryEquationsCF,
-    SecondaryEquations,
-):
-    """Collecting primary flow and transport equations, and secondary equations
-    which provide substitutions for independent saturations and partial fractions.
-    """
-
-    def set_equations(self):
-        """Call to the equation. Parent classes don't use super(). User must provide
-        proper order resultion.
-
-        I don't know why, but the other models are doing it this way was well.
-        Maybe it has something to do with the sparsity pattern.
-
-        """
-        # Flow and transport in MD setting
-        PrimaryEquationsCF.set_equations(self)
-        # local elimination of dangling secondary variables
-        SecondaryEquations.set_equations(self)
-
-
-class TracerFlowModel(
+class TracerFlowModel(  # type:ignore[misc]
     ModelGeometry,
     FluidMixture,
     InitialConditions,
     BoundaryConditions,
-    ModelEquations,
-    CFModelMixin,
+    SecondaryEquations,
+    CompositionalFlowTemplate,
 ):
-
-    def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
-        return saturation
+    def relative_permeability(
+        self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+        return phase.saturation(domains)

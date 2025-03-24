@@ -7,7 +7,11 @@ Changes here should be done with much care.
 
 from __future__ import annotations
 
+import os
 from enum import Enum
+from typing import Callable, TypeAlias
+
+import numba
 
 __all__ = [
     "R_IDEAL_MOL",
@@ -16,6 +20,42 @@ __all__ = [
     "COMPOSITIONAL_VARIABLE_SYMBOLS",
     "PhysicalState",
 ]
+
+
+_IS_JIT_DISABLED: bool = False
+"""Environment flag checking whether numba JIT is enabled or not.
+
+Used for typing alternatives in case it is not, such that the code remains functional.
+
+"""
+
+if "NUMBA_DISABLE_JIT" in os.environ:
+    if os.environ["NUMBA_DISABLE_JIT"].lower() in ["1", "true"]:
+        _IS_JIT_DISABLED = True
+
+
+typeof: Callable[..., TypeAlias]
+"""Type inference function depending on whether numba is enabled or not.
+
+If enabled, uses :obj:`numba.typeof`, otherwise the regular Python type.
+
+"""
+
+cfunc: Callable[..., Callable[[Callable], Callable]]
+"""C-type decorator for Callables, depending on whether numba is enabler or not.
+
+If enabled, uses :obj:`numba.cfunc`, otherwise the identity.
+
+"""
+
+if _IS_JIT_DISABLED:
+    typeof = lambda x: type(x)
+
+    def cfunc(*args, **kwargs):
+        return lambda x: x
+else:
+    typeof = numba.typeof
+    cfunc = numba.cfunc
 
 
 NUMBA_CACHE: bool = True
@@ -38,7 +78,7 @@ See Also:
 """
 
 NUMBA_FAST_MATH: bool = False
-"""Flag to instruct the numba compiler to use it's ``fastmath`` functions.
+"""Flag to instruct the numba compiler to use its ``fastmath`` functions.
 
 To be used with care, due to loss in precision.
 
@@ -52,7 +92,7 @@ NUMBA_PARALLEL: bool = True
 
 By default, the parallel backend will be used.
 
-Flag is introduced for developing processes when involving other packages supporing
+Flag is introduced for developing processes when involving other packages supporting
 parallelism such as numpy and PETSc.
 
 Affected numba functionality includes:
@@ -169,5 +209,5 @@ class PhysicalState(Enum):
 
     """
 
-    liquid: int = 0
-    gas: int = 1
+    liquid = 0
+    gas = 1

@@ -162,7 +162,7 @@ class PhaseProperties(ExtensiveProperties):
         """
         # Treatment to avoid division by zero errors
         idx = self.rho > 0.0
-        outer = np.zeros_like(self.v)
+        outer = np.zeros_like(self.rho)
         outer[idx] = -1 / self.rho[idx] ** 2
         return np.array([outer * d for d in self.drho])
 
@@ -229,23 +229,17 @@ class PhaseProperties(ExtensiveProperties):
 
 @dataclass
 class FluidProperties(IntensiveProperties, ExtensiveProperties):
-    """Nested dataclass characterizing the thermodynamic state of a
-    multiphase multicomponent fluid.
+    """Nested dataclass characterizing the thermodynamic state of a multiphase
+    multicomponent fluid.
 
-    This is a collection of intensive and extensive states of the fluid,
-    as well as a collection of :class:`PhaseProperties` isntances characterizing individual
-    phases.
-
-    Note:
-        The first phase is always assumed to be the reference phase
-        (see :class:`~porepy.compositional.base.FluidMixture`).
-        I.e., its fractional values are usually dependent by unity of fractions.
+    This is a collection of intensive and extensive states of the fluid, as well as a
+    collection of :class:`PhaseProperties` isntances characterizing individual phases.
 
     Contrary to :class:`PhaseProperties`, this dataclass does not support derivatives of
-    extensive properties on a mixture-level.
-    Since the derivatives w.r.t. to phase fractions or saturations are trivially
-    the respective property of the phase, this can be done easily by the user without
-    having the same values stored at two different places.
+    extensive properties on a mixture-level. Since the derivatives w.r.t. to phase
+    fractions or saturations are trivially the respective property of the phase, this
+    can be done easily by the user without having the same values stored at two
+    different places.
 
     """
 

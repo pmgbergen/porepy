@@ -1,6 +1,4 @@
-"""Geometry definition for simulation setup.
-
-"""
+"""Geometry definition for simulation model."""
 
 from __future__ import annotations
 
@@ -15,50 +13,28 @@ from porepy.applications.md_grids.domains import nd_cube_domain
 from porepy.fracs.fracture_network_3d import FractureNetwork3d
 
 
-class ModelGeometry:
+class ModelGeometry(pp.PorePyModel):
     """This class provides geometry related methods and information for a simulation
     model."""
 
-    # Define attributes to be assigned later
-    fracture_network: pp.fracture_network
-    """Representation of fracture network including intersections."""
-    well_network: pp.WellNetwork3d
-    """Well network."""
-    mdg: pp.MixedDimensionalGrid
-    """Mixed-dimensional grid. Set by the method :meth:`set_md_grid`."""
-    nd: int
-    """Ambient dimension of the problem. Set by the method :meth:`set_geometry`"""
-    units: pp.Units
-    """Unit system."""
-    params: dict
-    """Parameters for the model."""
-    solid: pp.SolidConstants
-    """Solid constant object that takes care of scaling of solid-related quantities.
-    Normally, this is set by a mixin of instance
-    :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-
-    """
+    _domain: pp.Domain
+    _fractures: list
 
     def set_geometry(self) -> None:
         """Define geometry and create a mixed-dimensional grid.
 
         The default values provided in set_domain, set_fractures, grid_type and
-        meshing_arguments produce a 2d unit square domain with no fractures and a four
-        Cartesian cells.
+        meshing_arguments produce a 2d unit square domain with no fractures and a
+        four Cartesian cells.
 
         """
         # Create the geometry through domain amd fracture set.
         self.set_domain()
         self.set_fractures()
-        # Create a fracture network.
-        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
-        # Create a mixed-dimensional grid.
-        self.mdg = pp.create_mdg(
-            self.grid_type(),
-            self.meshing_arguments(),
-            self.fracture_network,
-            **self.meshing_kwargs(),
-        )
+        # Create a fracture network and a mixed-dimensional grid.
+        self.create_fracture_network()
+        self.create_mdg()
+
         self.nd: int = self.mdg.dim_max()
 
         # Create projections between local and global coordinates for fracture grids.
@@ -87,11 +63,11 @@ class ModelGeometry:
         Override this method to define a geometry with a different domain.
 
         """
-        self._domain = nd_cube_domain(2, self.solid.convert_units(1.0, "m"))
+        self._domain = nd_cube_domain(2, self.units.convert_units(1.0, "m"))
 
     @property
     def fractures(self) -> Union[list[pp.LineFracture], list[pp.PlaneFracture]]:
-        """List of fractures in the fracture network."""
+        """Fractures of the problem."""
         return self._fractures
 
     def set_fractures(self) -> None:
@@ -100,7 +76,22 @@ class ModelGeometry:
         Override this method to define a geometry with fractures.
 
         """
-        self._fractures: list = []
+        self._fractures = []
+
+    def create_fracture_network(self) -> None:
+        """Set the fracture network from the fractures and domain."""
+        self.fracture_network = pp.create_fracture_network(self.fractures, self.domain)
+
+    def create_mdg(self) -> None:
+        """Set the mixed-dimensional grid from the domain, fracture network and meshing
+        arguments.
+        """
+        self.mdg = pp.create_mdg(
+            self.grid_type(),
+            self.meshing_arguments(),
+            self.fracture_network,
+            **self.meshing_kwargs(),
+        )
 
     def set_well_network(self) -> None:
         """Assign well network class."""
@@ -141,7 +132,7 @@ class ModelGeometry:
 
         """
         # Default value of 1/2, scaled by the length unit.
-        cell_size = self.solid.convert_units(0.5, "m")
+        cell_size = self.units.convert_units(0.5, "m")
         default_meshing_args: dict[str, float] = {"cell_size": cell_size}
         # If meshing arguments are provided in the params, they should already be
         # scaled by the length unit.
@@ -166,13 +157,13 @@ class ModelGeometry:
 
         Parameters:
             subdomains: Subdomains for which to find interfaces.
-            codims: Codimension of interfaces to return. The common option is [1], i.e.
-                only interfaces between subdomains one dimension apart.
+            codims: Codimension of interfaces to return. The common option is [1],
+                i.e. only interfaces between subdomains one dimension apart.
 
         Returns:
-            Unique list of all interfaces neighboring any of the subdomains. Interfaces
-            are sorted according to their index, as defined by the mixed-dimensional
-            grid.
+            Unique list of all interfaces neighboring any of the subdomains.
+            Interfaces are sorted according to their index, as defined by the
+            mixed-dimensional grid.
 
         """
         # Initialize list of interfaces, build it up one subdomain at a time.
@@ -209,6 +200,9 @@ class ModelGeometry:
     ) -> Sequence[pp.BoundaryGrid]:
         """Boundary grids of subdomains.
 
+        This is a 1-1 mapping between subdomains and their boundary grids. No
+        sorting is performed.
+
         Parameters:
             subdomains: List of subdomains for which to find boundary grids.
 
@@ -230,43 +224,27 @@ class ModelGeometry:
 
         Parameters:
             grids: List of grids on which the property is defined.
-            attr: Grid attribute to wrap. The attribute should be a ndarray and will be
-                flattened if it is not already one dimensional.
+            attr: Grid attribute to wrap. The attribute should be a ndarray and will
+                be flattened if it is not already one-dimensional.
             dim: Dimensions to include for vector attributes. Intended use is to
-                limit the number of dimensions for a vector attribute, e.g. to exclude
-                the z-component of a vector attribute in 2d, to achieve compatibility
-                with code which is explicitly 2d (e.g. fv discretizations).
+                limit the number of dimensions for a vector attribute, e.g. to
+                exclude the z-component of a vector attribute in 2d, to achieve
+                compatibility with code which is explicitly 2d (e.g. fv
+                discretizations).
 
         Returns:
-            class:`porepy.numerics.ad.DenseArray`: ``(shape=(dim * num_cells_in_grids,))``
+            class:`porepy.numerics.ad.DenseArray`: `(shape=(dim *
+                num_cells_in_grids,))`
 
                 The property wrapped as a single ad vector. The values are arranged
-                according to the order of the grids in the list, optionally flattened if
-                the attribute is a vector.
+                according to the order of the grids in the list, optionally
+                flattened if the attribute is a vector.
 
         Raises:
             ValueError: If one of the grids does not have the attribute.
-            ValueError: If the attribute is not a ndarray.
+            ValueError: If the attribute is not an ndarray.
 
         """
-        # NOTE: The enforcement of keyword-only arguments, combined with this class
-        # being used as a mixin with other classes (thus this function represented as a
-        # Callable in the other classes) does not make mypy happy. The problem seems to
-        # be that a method specified as Callable must be called exactly as the type
-        # specification, thus when this method is called with arguments
-        #
-        #   self.wrap_grid_attribute(..., dim=some_integer, ...)
-        #
-        # mypy will react on the difference between the type specification (that did not
-        # include the dim argument) and the actual call. We also tried adding the *
-        # (indicating the start of keyword-only in the type specification), but while
-        # this made mypy happy, it is not vald syntax. The only viable solution (save
-        # from using typing protocols, which we really do not want to do, there are
-        # enough classes and inheritance in the mixin combination as it is) seems to be
-        # to add a # type: ignore[call-arg] comment where the method is called. By only
-        # ignoring call-args problems, we limit the risk of silencing other errors that
-        # mypy might find.
-
         if len(grids) > 0:
             # Check that all grids have the sought after attribute. We could have
             # avoided this loop by surrounding the getattr with a try-except, but this
@@ -300,48 +278,46 @@ class ModelGeometry:
         array.set_name(f"Array wrapping attribute {attr} on {len(grids)} grids.")
         return array
 
-    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.SparseArray]:
+    def basis(self, grids: Sequence[pp.GridLike], dim: int) -> list[pp.ad.Projection]:
         """Return a cell-wise basis for all subdomains.
 
-        The basis is represented as a list of matrices, each of which represents a
-        basis function. The individual matrices have shape ``Nc * dim, Nc`` where ``Nc``
-        is the total number of cells in the subdomains.
+        The basis is represented as a list of projections, each of which represents a
+        basis function. The individiual basis functions can be represented as a
+        projection matrix, of shape ``Nc * dim, Nc`` where ``Nc`` is the total number of
+        cells in the subdomains.
 
         Examples:
             To extend a cell-wise scalar to a vector field, use
-            ``sum([e_i for e_i in basis(subdomains)])``. To restrict to a vector in the
-            tangential direction only, use
+            ``sum([e_i for e_i in basis(subdomains)])``. To restrict to a vector in
+            the tangential direction only, use
             ``sum([e_i for e_i in basis(subdomains, dim=nd-1)])``
 
         See also:
             :meth:`e_i` for the construction of a single basis function.
             :meth:`normal_component` for the construction of a restriction to the
                 normal component of a vector only.
-            :meth:`tangential_component` for the construction of a restriction to the
-                tangential component of a vector only.
+            :meth:`tangential_component` for the construction of a restriction to
+                the tangential component of a vector only.
 
         Parameters:
             grids: List of grids on which the basis is defined.
             dim: Dimension of the basis.
 
         Returns:
-            List of pp.ad.SparseArrayArray, each of which represents a basis function.
+            List of pp.ad.SparseArray, each of which represents a basis
+            function.
 
         """
-        # NOTE: See self.wrap_grid_attribute for comments on typing when this method
-        # is used as a mixin, and the need to add type-ignore[call-arg] on use of this
-        # method.
-
-        # Collect the basis functions for each dimension
-        basis: list[pp.ad.SparseArray] = []
+        # Collect the basis functions for each dimension.
+        basis: list[pp.ad.Projection] = []
         for i in range(dim):
             basis.append(self.e_i(grids, i=i, dim=dim))
-        # Stack the basis functions horizontally
+        # Stack the basis functions horizontally.
         return basis
 
     def e_i(
         self, grids: Sequence[pp.GridLike], *, i: int, dim: int
-    ) -> pp.ad.SparseArray:
+    ) -> pp.ad.Projection:
         """Return a cell-wise basis function in a specified dimension.
 
         It is assumed that the grids are embedded in a space of dimension dim and
@@ -350,7 +326,8 @@ class ModelGeometry:
 
         Example:
             For a grid with two cells, and with `i=1` and `dim=3`, the returned basis
-            will be (after conversion to a numpy array)
+            will be a Projection that is equivalent to applying the following projection
+            matrix:
             .. code-block:: python
                 array([[0., 0.],
                        [1., 0.],
@@ -368,21 +345,12 @@ class ModelGeometry:
             dim: Dimension of the functions.
 
         Returns:
-            pp.ad.SparseArray: Ad representation of a matrix with the basis functions as
-            columns.
+            Ad projection that represents a basis function.
 
         Raises:
-            ValueError: If i is larger than dim.
+            ValueError: If i is larger than dim - 1.
 
         """
-        # NOTE: See self.wrap_grid_attribute for comments on typing when this method
-        # is used as a mixin, and the need to add type-ignore[call-arg] on use of this
-        # method.
-
-        # TODO: Should we expand this to grids not aligned with the coordinate axes, and
-        # possibly unify with ``porepy.utils.projections.TangentialNormalProjection``?
-        # This is not a priority for the moment, though.
-
         if dim is None:
             dim = self.nd
 
@@ -390,41 +358,45 @@ class ModelGeometry:
         if i >= dim:
             raise ValueError("Basis function index out of range")
 
-        # Construct a single vector, and later stack it to a matrix
-        # Collect the basis functions for each dimension
-        e_i = np.zeros((dim, 1))
-        e_i[i] = 1
         # Expand to cell-wise column vectors.
         num_cells = sum([g.num_cells for g in grids])
-        # Expand to a matrix.
-        mat = sps.kron(sps.eye(num_cells), e_i)
-        return pp.ad.SparseArray(mat)
+        range_ind = np.arange(i, dim * num_cells, dim)
+
+        slicer = pp.ad.Projection(
+            domain_indices=np.arange(num_cells),
+            range_indices=range_ind,
+            range_size=num_cells * dim,
+            domain_size=num_cells,
+        )
+
+        return slicer
 
     # Local basis related methods
     def tangential_component(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Compute the tangential component of a vector field.
 
         The tangential space is defined according to the local coordinates of the
-        subdomains, with the tangential space defined by the first `self.nd` components
-        of the cell-wise vector. It is assumed that the components of the vector are
-        stored with a dimension-major ordering (the dimension varies fastest).
+        subdomains, with the tangential space defined by the first `self.nd`
+        components of the cell-wise vector. It is assumed that the components of the
+        vector are stored with a dimension-major ordering (the dimension varies
+        fastest).
 
         Parameters:
             subdomains: List of grids on which the vector field is defined.
 
         Returns:
-            Operator extracting tangential component of the vector field and expressing
-            it in tangential basis.
+            Operator extracting tangential component of the vector field and
+            expressing it in tangential basis.
 
         """
         # We first need an inner product (or dot product), i.e. extract the tangential
         # component of the cell-wise vector v to be transformed. Then we want to express
         # it in the tangential basis. The two operations are combined in a single
         # operator composed right to left: v will be hit by first e_i.T (row vector) and
-        # secondly t_i (column vector). Ignore mypy keyword argument error.
-        op: pp.ad.Operator = pp.ad.sum_operator_list(
+        # secondly t_i (column vector).
+        op: pp.ad.Operator = pp.ad.sum_projection_list(
             [
-                self.e_i(subdomains, i=i, dim=self.nd - 1)  # type: ignore[arg-type]
+                self.e_i(subdomains, i=i, dim=self.nd - 1)
                 @ self.e_i(subdomains, i=i, dim=self.nd).T
                 for i in range(self.nd - 1)
             ]
@@ -432,14 +404,14 @@ class ModelGeometry:
         op.set_name("tangential_component")
         return op
 
-    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
+    def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Projection:
         """Compute the normal component of a vector field.
 
         The normal space is defined according to the local coordinates of the
         subdomains, with the normal space defined by final component, e.g., number
         `self.nd-1` (zero offset). of the cell-wise vector. It is assumed that the
-        components of a vector are stored with a dimension-major ordering (the dimension
-        varies fastest).
+        components of a vector are stored with a dimension-major ordering (the
+        dimension varies fastest).
 
         See also:
             :meth:`e_i` for the definition of the basis functions.
@@ -449,8 +421,8 @@ class ModelGeometry:
             subdomains: List of grids on which the vector field is defined.
 
         Returns:
-            Matrix extracting normal component of the vector field and expressing it
-            in normal basis. The size of the matrix is `(Nc, Nc * self.nd)`, where
+            Projection extracting normal component of the vector field and expressing it
+            in normal basis. The size of the projection is `(Nc, Nc * self.nd)`, where
             `Nc` is the total number of cells in the subdomains.
 
         """
@@ -463,18 +435,23 @@ class ModelGeometry:
     def local_coordinates(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
         """Ad wrapper around tangential_normal_projections for fractures.
 
+        The method constructs a projection from global to local coordinates for a list
+        of subdomains. The local coordinates are defined by the tangential and normal
+        directions of the subdomains, as defined by their tangential_normal_projection
+        attribute.
+
+        The inverse of this projection can be used to map quantities from local to
+        global coordinates. It can be constructed by transposing the projection returned
+        by this method.
+
         Parameters:
             subdomains: List of subdomains for which to compute the local coordinates.
 
         Returns:
-            Local coordinates as a pp.ad.SparseArray.
+            Projection from global to local coordinates as a pp.ad.SparseArray.
 
         """
-        # TODO: If we ever implement a mapping to reference space for all subdomains,
-        # the present method should be revisited.
-
         # For now, assert all subdomains are fractures, i.e. dim == nd - 1.
-        # TODO: Extend to all subdomains, not only codimension 1?
         assert all([sd.dim == self.nd - 1 for sd in subdomains])
         if len(subdomains) > 0:
             # Compute the local coordinates for each subdomain. For this, we use the
@@ -485,20 +462,22 @@ class ModelGeometry:
                 ].project_tangential_normal(sd.num_cells)
                 for sd in subdomains
             ]
-            local_coord_proj = sps.block_diag(local_coord_proj_list)
+            local_coord_proj = pp.matrix_operations.csc_matrix_from_sparse_blocks(
+                local_coord_proj_list
+            )
         else:
-            # Also treat no subdomains
+            # Also treat no subdomains.
             local_coord_proj = sps.csr_matrix((0, 0))
         return pp.ad.SparseArray(local_coord_proj)
 
     def subdomain_projections(self, dim: int) -> pp.ad.SubdomainProjections:
         """Return the projection operators for all subdomains in md-grid.
 
-        The projection operators restrict or prolong a dim-dimensional quantity from the
-        full set of subdomains to any subset. Projection operators are constructed once
-        and then stored. If you need to use projection operators based on a different
-        set of subdomains, please construct them yourself. Alternatively, compose a
-        projection from subset A to subset B as
+        The projection operators restrict or prolong a dim-dimensional quantity
+        from the full set of subdomains to any subset. Projection operators are
+        constructed once and then stored. If you need to use projection operators
+        based on a different set of subdomains, please construct them yourself.
+        Alternatively, compose a projection from subset A to subset B as
             P_A_to_B = P_full_to_B * P_A_to_full.
 
         Parameters:
@@ -521,25 +500,32 @@ class ModelGeometry:
     ) -> pp.domain.DomainSides:
         """Obtain indices of the faces lying on the sides of the domain boundaries.
 
-        The method is primarily intended for box-shaped domains. However, it can also be
-        applied to non-box-shaped domains (e.g., domains with perturbed boundary nodes)
-        provided `tol` is tuned accordingly.
+        The method is primarily intended for box-shaped domains. However, it can
+        also be applied to non-box-shaped domains (e.g., domains with perturbed
+        boundary nodes) provided `tol` is tuned accordingly.
 
         Parameters:
             domain: Subdomain or boundary grid.
-            tol: Tolerance used to determine whether a face center lies on a boundary
-                side.
+            tol: Tolerance used to determine whether a face center lies on a
+                boundary side.
 
         Returns:
-            NamedTuple containing the domain boundary sides. Available attributes are:
+            NamedTuple containing the domain boundary sides. Available attributes
+            are:
 
                 - all_bf (np.ndarray of int): indices of the boundary faces.
-                - east (np.ndarray of bool): flags of the faces lying on the East side.
-                - west (np.ndarray of bool): flags of the faces lying on the West side.
-                - north (np.ndarray of bool): flags of the faces lying on the North side.
-                - south (np.ndarray of bool): flags of the faces lying on the South side.
-                - top (np.ndarray of bool): flags of the faces lying on the Top side.
-                - bottom (np.ndarray of bool): flags of the faces lying on Bottom side.
+                - east (np.ndarray of bool): flags of the faces lying on the East
+                    side.
+                - west (np.ndarray of bool): flags of the faces lying on the West
+                    side.
+                - north (np.ndarray of bool): flags of the faces lying on the North
+                    side.
+                - south (np.ndarray of bool): flags of the faces lying on the South
+                    side.
+                - top (np.ndarray of bool): flags of the faces lying on the Top
+                    side.
+                - bottom (np.ndarray of bool): flags of the faces lying on Bottom
+                    side.
 
         Examples:
 
@@ -548,10 +534,10 @@ class ModelGeometry:
                 model = pp.SinglePhaseFlow({})
                 model.prepare_simulation()
                 sd = model.mdg.subdomains()[0]
-                sides = model.domain_boundary_sides(sd)
+                domain_sides = model.domain_boundary_sides(sd)
                 # Access north faces using index or name is equivalent:
-                north_by_index = sides[3]
-                north_by_name = sides.north
+                north_by_index = domain_sides[3]
+                north_by_name = domain_sides.north
                 assert all(north_by_index == north_by_name)
 
         """
@@ -605,16 +591,17 @@ class ModelGeometry:
         """Obtain a vector for flipping normal vectors on internal boundaries.
 
         For a list of subdomains, check if the normal vector on internal boundaries
-        point into the internal interface (e.g., into the fracture), and if so, flip the
-        normal vector. The flipping takes the form of an operator that multiplies the
-        normal vectors of all faces on fractures, leaves internal faces (internal to the
-        subdomain proper, that is) unchanged, but flips the relevant normal vectors on
-        subdomain faces that are part of an internal boundary.
+        point into the internal interface (i.e., away from the fracture), and if so,
+        flip the normal vector. The flipping takes the form of an operator that
+        multiplies the normal vectors of all faces on fractures, leaves internal
+        faces (internal to the subdomain proper, that is) unchanged, but flips the
+        relevant normal vectors on subdomain faces that are part of an internal
+        boundary.
 
         Currently, this is a helper method for the computation of outward normals in
         :meth:`outwards_internal_boundary_normals`. Other usage is allowed, but one
-        is adviced to carefully consider subdomain lists when combining this with other
-        operators.
+        is adviced to carefully consider subdomain lists when combining this with
+        other operators.
 
         Parameters:
             subdomains: List of subdomains.
@@ -645,7 +632,9 @@ class ModelGeometry:
                 matrices.append(switcher_int)
 
             # Construct the block diagonal matrix.
-            sign_flipper = pp.ad.SparseArray(sps.block_diag(matrices).tocsr())
+            sign_flipper = pp.ad.SparseArray(
+                pp.matrix_operations.sparse_dia_from_sparse_blocks(matrices)
+            )
         sign_flipper.set_name("Flip_normal_vectors")
         return sign_flipper
 
@@ -662,15 +651,11 @@ class ModelGeometry:
             unitary: If True, return unit vectors, i.e. normalize by face area.
 
         Returns:
-            Operator computing outward normal vectors on internal boundaries; in effect,
-            this is a matrix. Evaluated shape `(num_intf_cells * dim,
+            Operator computing outward normal vectors on internal boundaries; in
+            effect, this is a matrix. Evaluated shape `(num_intf_cells * dim,
             num_intf_cells * dim)`.
 
         """
-        # NOTE: See self.wrap_grid_attribute for comments on typing when this method
-        # is used as a mixin, and the need to add type-ignore[call-arg] on use of this
-        # method.
-
         if len(interfaces) == 0:
             # Special case if no interfaces.
             return pp.ad.DenseArray(np.zeros(0))
@@ -693,15 +678,13 @@ class ModelGeometry:
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, primary_subdomains, interfaces, dim=self.nd
         )
-        # Ignore mypy complaint about unexpected keyword arguments.
         primary_face_normals = self.wrap_grid_attribute(
-            primary_subdomains, "face_normals", dim=self.nd  # type: ignore[call-arg]
+            primary_subdomains, "face_normals", dim=self.nd
         )
         # Account for sign of boundary face normals. This will give a matrix with a
         # shape equal to the total number of faces in all primary subdomains.
-        # Ignore mypy complaint about unexpected keyword arguments.
         flip = self.internal_boundary_normal_to_outwards(
-            primary_subdomains, dim=self.nd  # type: ignore[call-arg]
+            primary_subdomains, dim=self.nd
         )
         # Flip the normal vectors. Unravelled from the right: Restrict from faces on all
         # subdomains to the primary ones, multiply with the face normals, flip the
@@ -712,15 +695,14 @@ class ModelGeometry:
         # must logically be integration, not average. This also means that the normals
         # have length equal to cell_volume on mortar grids, by analogy to face_area for
         # subdomains.
-        outwards_normals = mortar_projection.primary_to_mortar_int @ flipped_normals
+        outwards_normals = mortar_projection.primary_to_mortar_int() @ flipped_normals
         outwards_normals.set_name("outwards_internal_boundary_normals")
 
         # Normalize by face area if requested.
         if unitary:
             # 1 over cell volumes on the interfaces
-            # Ignore mypy complaint about unexpected keyword arguments.
             cell_volumes_inv = pp.ad.Scalar(1) / self.wrap_grid_attribute(
-                interfaces, "cell_volumes", dim=self.nd  # type: ignore[call-arg]
+                interfaces, "cell_volumes", dim=self.nd
             )
 
             # Expand cell volumes to nd by multiplying from left by e_i and summing

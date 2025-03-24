@@ -1,5 +1,4 @@
-""" Utility function for permutation of numbers.
-"""
+"""Utility function for permutation of numbers."""
 
 
 def multinary_permutations(base, length):

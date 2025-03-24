@@ -115,7 +115,6 @@ class Domain:
         if self.is_boxed:
             s = f"pp.Domain(bounding_box={self.bounding_box})"
         else:
-            # TODO: Create a function that prints a polytope prettily
             s = f"pp.Domain(polytope=\n {self.polytope} \n )"
         return s
 
@@ -140,10 +139,17 @@ class Domain:
         return s
 
     def __eq__(self, other: object) -> bool:
-        # Two domains are equal if they have the same polytope. Note that this assumes
-        # that the arrays of the polytope list are stored in the exact same order.
-        # TODO: The condition for equality is too strict, we might want to consider
-        #  the possibility that polytopes are defined in different orders
+        """Two domains are equal if they have the same polytope.
+
+        Note:
+            This assumes that the arrays of the polytope list are stored in the exact
+            same order. This condition may be too strict - we might want to consider the
+            possibility that polytopes are defined in different orders.
+
+        Returns:
+            True if the polytopes are the same, False otherwise.
+
+        """
 
         if not isinstance(other, pp.Domain):
             return NotImplemented

@@ -73,7 +73,7 @@ class BoundaryGrid:
 
         """
         self.cell_centers: np.ndarray
-        """Cell centers of the boundary grid.
+        """Cell centers of the boundary grid with ``shape=(3, num_cells)``
 
         Subset of the face centers of the parent grid. Initialized in
         :meth:`~compute_geometry`.

@@ -19,7 +19,7 @@ from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
 
 
 def coarsen(
-    g: Union[pp.Grid, pp.MixedDimensionalGrid], method: str, **method_kwargs
+    grid: Union[pp.Grid, pp.MixedDimensionalGrid], method: str, **method_kwargs
 ) -> None:
     """Create a coarse grid from a given grid.
 
@@ -31,7 +31,7 @@ def coarsen(
         - Do not call :meth:`~porepy.grids.grid.Grid.compute_geometry` afterwards.
 
     Parameters:
-        g: The grid or mixed-dimensional grid to be coarsened.
+        grid: The grid or mixed-dimensional grid to be coarsened.
         method: A string defining the coarsening method.
 
             The available options are:
@@ -57,25 +57,23 @@ def coarsen(
     warnings.warn(msg, DeprecationWarning)
 
     if method.lower() == "by_volume":
-        partition = create_aggregations(g, **method_kwargs)
+        partition = create_aggregations(grid, **method_kwargs)
 
     elif method.lower() == "by_tpfa":
         seeds = np.empty(0, dtype=int)
         if method_kwargs.get("if_seeds", False):
-            seeds = generate_seeds(g)
-        matrix = _tpfa_matrix(g)
-        partition = create_partition(
-            matrix, g, seeds=seeds, **method_kwargs
-        )  # type: ignore
+            seeds = generate_seeds(grid)
+        matrix = _tpfa_matrix(grid)
+        partition = create_partition(matrix, grid, seeds=seeds, **method_kwargs)  # type: ignore
 
     else:
         raise ValueError(f"Undefined method `{method}` for coarsening algorithm.")
 
-    generate_coarse_grid(g, partition)  # type: ignore
+    generate_coarse_grid(grid, partition)  # type: ignore
 
 
 def generate_coarse_grid(
-    g: Union[pp.Grid, pp.MixedDimensionalGrid],
+    grid: Union[pp.Grid, pp.MixedDimensionalGrid],
     subdiv: Union[np.ndarray, dict[pp.Grid, tuple[Any, np.ndarray]]],
 ) -> None:
     """Generates a coarse grid by clustering the cells according to the flags
@@ -85,7 +83,7 @@ def generate_coarse_grid(
     integers (possibly not continuous) which represent the cell IDs in the final,
     coarser mesh. I.e. it is a cell map from finer to coarser.
 
-    If ``g`` is a mixed-dimensional grid, the coarsening is applied to the higher
+    If ``grid`` is a mixed-dimensional grid, the coarsening is applied to the higher
     dimensional grid.
 
     Warning:
@@ -98,32 +96,32 @@ def generate_coarse_grid(
 
     Example:
 
-        >>> g = ...  # some grid with 12 cells
+        >>> grid = ...  # some grid with 12 cells
         >>> subdiv = np.array([0,0,1,1,2,2,3,3,4,4,5,5])  # coarser grid with 6 cells
-        >>> generate_coarse_grid(g, subdiv)
+        >>> generate_coarse_grid(grid, subdiv)
 
     Parameters:
-        g: A grid or mixed-dimensional grid.
-        subdiv: If ``g`` is a single grid, a single array-like object as in above
+        grid: A grid or mixed-dimensional grid.
+        subdiv: If ``grid`` is a single grid, a single array-like object as in above
             example suffices.
 
-            If ``g`` is a mixed-dimensional grid, a dictionary containing per grid (key)
-            a 2-tuple, where the second entry is the partition map as seen above.
+            If ``grid`` is a mixed-dimensional grid, a dictionary containing per grid
+            (key) a 2-tuple, where the second entry is the partition map as seen above.
             This special structure is passed by :func:`coarsen`.
 
     """
     msg = "This functionality is deprecated and will be removed in a future version"
     warnings.warn(msg, DeprecationWarning)
 
-    if isinstance(g, grid.Grid):
+    if isinstance(grid, pp.Grid):
         if isinstance(subdiv, dict):
-            # If the subdiv is a dictionary with g as a key (this can happen if we are
+            # If the subdiv is a dictionary with grid as a key (this can happen if we are
             # forwarded here from coarsen), the input must be simplified.
-            subdiv = subdiv[g][1]
-        _generate_coarse_grid_single(g, subdiv, False)
+            subdiv = subdiv[grid][1]
+        _generate_coarse_grid_single(grid, subdiv, False)
 
-    if isinstance(g, pp.MixedDimensionalGrid):
-        _generate_coarse_grid_mdg(g, subdiv)
+    if isinstance(grid, pp.MixedDimensionalGrid):
+        _generate_coarse_grid_mdg(grid, subdiv)
 
 
 def reorder_partition(

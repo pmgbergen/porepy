@@ -22,115 +22,108 @@ from __future__ import annotations
 
 import logging
 import os
-import pathlib
 import time
+import warnings
 
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+os.environ["NUMBA_DISABLE_JIT"] = "1"
+
 compile_time = 0.0
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("porepy").setLevel(logging.INFO)
+logging.getLogger("porepy").setLevel(logging.DEBUG)
 
-from typing import Sequence, cast
+from typing import Any, Callable, Optional, Sequence, no_type_check
 
 import numpy as np
 
 import porepy as pp
 
 t_0 = time.time()
-import porepy.compositional as ppc
-import porepy.compositional.peng_robinson as ppcpr
-from porepy.compositional.peng_robinson.pr_utils import (
-    get_bip_matrix,
-    h_ideal_CO2,
-    h_ideal_H2O,
-)
+import porepy.compositional.peng_robinson as pr
 
 compile_time += time.time() - t_0
 
 import porepy.models.compositional_flow_with_equilibrium as cfle
-from porepy.applications.md_grids.domains import nd_cube_domain
 
 logger = logging.getLogger(__name__)
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 class SoereideMixture:
     """Model fluid using the Soereide mixture, a Peng-Robinson based EoS for
     NaCl brine with CO2, H2S and N2."""
 
-    def get_components(self) -> Sequence[ppc.Component]:
-        components = [
-            ppc.Component.from_species(s) for s in ppc.load_species(["H2O", "CO2"])
-        ]
-        return components
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
+    def get_components(self) -> Sequence[pp.FluidComponent]:
+        return pp.compositional.load_fluid_constants(["H2O", "CO2"], "chemicals")
 
     def get_phase_configuration(
-        self, components: Sequence[ppc.Component]
-    ) -> Sequence[tuple[ppc.EoSCompiler, int, str]]:
-
-        eos = ppcpr.PengRobinsonCompiler(
-            components, [h_ideal_H2O, h_ideal_CO2], get_bip_matrix(components)
+        self, components: Sequence[pp.FluidComponent]
+    ) -> Sequence[
+        tuple[pp.compositional.EoSCompiler, pp.compositional.PhysicalState, str]
+    ]:
+        eos = pr.PengRobinsonCompiler(
+            components, [pr.h_ideal_H2O, pr.h_ideal_CO2], pr.get_bip_matrix(components)
         )
+        return [
+            (eos, pp.compositional.PhysicalState.liquid, "L"),
+            (eos, pp.compositional.PhysicalState.gas, "G"),
+        ]
 
-        return [(eos, ppc.PhysicalState.liquid, "L"), (eos, ppc.PhysicalState.gas, "G")]
+    def dependencies_of_phase_properties(
+        self, phase: pp.Phase
+    ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
+        return [self.pressure, self.temperature] + [  # type:ignore[return-value]
+            phase.extended_fraction_of[comp] for comp in phase
+        ]
 
 
-class CompiledFlash(ppc.FlashMixin):
-    """Sets the compiled flash as the flash class, consistent with the EoS."""
+class SolutionStrategy(pp.PorePyModel):
+    """Provides some pre- and post-processing for flash methods."""
 
-    flash_params = {
-        "mode": "parallel",
-    }
+    flash: pp.compositional.Flash
 
-    def set_up_flasher(self) -> None:
-        eos = self.fluid_mixture.reference_phase.eos
-        eos = cast(ppcpr.PengRobinsonCompiler, eos)
+    pressure_variable: str
+    temperature_variable: str
+    enthalpy_variable: str
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
-        flash = ppc.CompiledUnifiedFlash(self.fluid_mixture, eos)
+    def compute_residual_norm(
+        self, residual: Optional[np.ndarray], reference_residual: np.ndarray
+    ) -> float:
+        if residual is None:
+            return np.nan
+        residual_norm = np.linalg.norm(residual)
+        return float(residual_norm)
 
-        # Compiling the flash and the EoS
-        eos.compile()
-        flash.compile()
-
-        # Configuring solver for the requested equilibrium type
-        flash.tolerance = 1e-8
-        flash.max_iter = 150
-        flash.heavy_ball_momentum = False
-        flash.armijo_parameters["rho"] = 0.99
-        flash.armijo_parameters["kappa"] = 0.4
-        flash.armijo_parameters["max_iter"] = (
-            50 if "p-T" in self.equilibrium_type else 30
-        )
-        flash.npipm_parameters["u1"] = 10.0
-        flash.npipm_parameters["u2"] = (
-            10.0  # if 'p-T' in self.equilibrium_type else 1.0
-        )
-        flash.npipm_parameters["eta"] = 0.5
-        flash.initialization_parameters["N1"] = 3
-        flash.initialization_parameters["N2"] = 1
-        flash.initialization_parameters["N3"] = 5
-        flash.initialization_parameters["eps"] = flash.tolerance
-
-        # Setting the attribute of the mixin
-        self.flash = flash
+    def after_nonlinear_failure(self):
+        self.exporter.write_pvd()
+        super().after_nonlinear_failure()  # type:ignore
 
     def get_fluid_state(
-        self, subdomains: Sequence[pp.Grid], state: np.ndarray | None = None
-    ) -> ppc.FluidProperties:
+        self, subdomains: Sequence[pp.Grid], state: Optional[np.ndarray] = None
+    ) -> pp.compositional.FluidProperties:
         """Method to pre-process the evaluated fractions. Normalizes the extended
         fractions where they violate the unity constraint."""
-        fluid_state = super().get_fluid_state(subdomains, state)
+        fluid_state: pp.compositional.FluidProperties = super().get_fluid_state(  # type:ignore
+            subdomains, state
+        )
 
         # sanity checks
-        p = self.equation_system.get_variable_values(
-            [self.pressure_variable], iterate_index=0
-        )
-        T = self.equation_system.get_variable_values(
-            [self.temperature_variable], iterate_index=0
-        )
-        if np.any(p <= 0.0):
-            raise ValueError("Pressure diverged to negative values.")
-        if np.any(T <= 0):
-            raise ValueError("Temperature diverged to negative values.")
+        # p = self.equation_system.get_variable_values(
+        #     [self.pressure_variable], iterate_index=0
+        # )
+        # T = self.equation_system.get_variable_values(
+        #     [self.temperature_variable], iterate_index=0
+        # )
+        # if np.any(p <= 0.0):
+        #     raise ValueError("Pressure diverged to negative values.")
+        # if np.any(T <= 0):
+        #     raise ValueError("Temperature diverged to negative values.")
 
         unity_tolerance = 0.05
 
@@ -147,7 +140,9 @@ class CompiledFlash(ppc.FlashMixin):
         y_sum = np.sum(fluid_state.y, axis=0)
         idx = y_sum > 1.0
         if np.any(idx):
-            fluid_state.y[:, idx] = ppc.normalize_rows(fluid_state.y[:, idx].T).T
+            fluid_state.y[:, idx] = pp.compositional.normalize_rows(
+                fluid_state.y[:, idx].T
+            ).T
 
         # if np.any(y_sum > 1 + unity_tolerance):
         #     raise ValueError("Phase fractions violate unity constraint")
@@ -160,7 +155,7 @@ class CompiledFlash(ppc.FlashMixin):
             x_sum = phase.x.sum(axis=0)
             idx = x_sum > 1.0
             if np.any(idx):
-                phase.x[:, idx] = ppc.normalize_rows(phase.x[:, idx].T).T
+                phase.x[:, idx] = pp.compositional.normalize_rows(phase.x[:, idx].T).T
             idx = phase.x < 0
             if np.any(idx):
                 phase.x[idx] = 0.0
@@ -179,8 +174,11 @@ class CompiledFlash(ppc.FlashMixin):
         return fluid_state
 
     def postprocess_flash(
-        self, subdomain: pp.Grid, fluid_state: ppc.FluidProperties, success: np.ndarray
-    ) -> ppc.FluidProperties:
+        self,
+        subdomain: pp.Grid,
+        fluid_state: pp.compositional.FluidProperties,
+        success: np.ndarray,
+    ) -> pp.compositional.FluidProperties:
         """A post-processing where the flash is again attempted where not succesful.
 
         1. Where not successful, it re-attempts the flash from scratch, with
@@ -192,30 +190,31 @@ class CompiledFlash(ppc.FlashMixin):
 
         """
         failure = success > 0
+        equilibrium_type = str(pp.compositional.get_equilibrium_type(self))
         if np.any(failure):
             logger.warning(
                 f"Flash from iterate state failed in {failure.sum()} cases."
                 + " Re-starting with computation of initial guess."
             )
             z = [
-                comp.fraction([subdomain]).value(self.equation_system)[failure]
-                for comp in self.fluid_mixture.components
+                comp.fraction([subdomain]).value(self.equation_system)[failure]  # type:ignore[index]
+                for comp in self.fluid.components
             ]
-            p = self.pressure([subdomain]).value(self.equation_system)[failure]
-            h = self.enthalpy([subdomain]).value(self.equation_system)[failure]
-            T = self.temperature([subdomain]).value(self.equation_system)[failure]
+            p = self.equation_system.evaluate(self.pressure([subdomain]))[failure]  # type:ignore[index]
+            h = self.equation_system.evaluate(self.enthalpy([subdomain]))[failure]  # type:ignore[index]
+            T = self.equation_system.evaluate(self.temperature([subdomain]))[failure]  # type:ignore[index]
 
             logger.info(f"Failed at\nz: {z}\np: {p}\nT: {T}\nh: {h}")
             # no initial guess, and this model uses only p-h flash.
-            flash_kwargs = {
+            flash_kwargs: dict[str, Any] = {
                 "z": z,
                 "p": p,
-                "parameters": self.flash_params,
+                "params": self.params.get("flash_params"),
             }
 
-            if "p-h" in self.equilibrium_type:
+            if "p-h" in equilibrium_type:
                 flash_kwargs["h"] = h
-            elif "p-T" in self.equilibrium_type:
+            elif "p-T" in equilibrium_type:
                 flash_kwargs["T"] = T
 
             sub_state, sub_success, _ = self.flash.flash(**flash_kwargs)
@@ -258,33 +257,35 @@ class CompiledFlash(ppc.FlashMixin):
                 fluid_state.phases[j].dphis[:, :, failure] = sub_state.phases[j].dphis
 
         # Parent method performs a check that everything is successful.
-        return super().postprocess_flash(subdomain, fluid_state, success)
+        return super().postprocess_flash(subdomain, fluid_state, success)  # type:ignore
 
+    @no_type_check
     def fall_back(
         self,
         grid: pp.Grid,
-        sub_state: ppc.FluidProperties,
+        sub_state: pp.compositional.FluidProperties,
         failed_idx: np.ndarray,
         fallback_idx: np.ndarray,
-    ) -> ppc.FluidProperties:
+    ) -> pp.compositional.FluidProperties:
         """Falls back to previous iterate values for the fluid state, on given
         grid."""
         sds = [grid]
         data = self.mdg.subdomain_data(grid)
-        if "T" not in self.equilibrium_type:
+        equilibrium_type = str(pp.compositional.get_equilibrium_type(self))
+        if "T" not in equilibrium_type:
             sub_state.T[fallback_idx] = pp.get_solution_values(
                 self.temperature_variable, data, iterate_index=0
             )[failed_idx][fallback_idx]
-        if "h" not in self.equilibrium_type:
+        if "h" not in equilibrium_type:
             sub_state.h[fallback_idx] = pp.get_solution_values(
                 self.pressure_variable, data, iterate_index=0
             )[failed_idx][fallback_idx]
-        if "p" not in self.equilibrium_type:
+        if "p" not in equilibrium_type:
             sub_state.p[fallback_idx] = pp.get_solution_values(
                 self.enthalpy_variable, data, iterate_index=0
             )[failed_idx][fallback_idx]
 
-        for j, phase in enumerate(self.fluid_mixture.phases):
+        for j, phase in enumerate(self.fluid.phases):
             if j > 0:
                 sub_state.sat[j][fallback_idx] = pp.get_solution_values(
                     phase.saturation(sds).name, data, iterate_index=0
@@ -293,6 +294,7 @@ class CompiledFlash(ppc.FlashMixin):
                     phase.fraction(sds).name, data, iterate_index=0
                 )[failed_idx][fallback_idx]
 
+            # mypy: ignore[union-attr]
             sub_state.phases[j].rho[fallback_idx] = pp.get_solution_values(
                 phase.density.name, data, iterate_index=0
             )[failed_idx][fallback_idx]
@@ -303,7 +305,7 @@ class CompiledFlash(ppc.FlashMixin):
                 phase.viscosity.name, data, iterate_index=0
             )[failed_idx][fallback_idx]
             sub_state.phases[j].kappa[fallback_idx] = pp.get_solution_values(
-                phase.conductivity.name, data, iterate_index=0
+                phase.thermal_conductivity.name, data, iterate_index=0
             )[failed_idx][fallback_idx]
 
             sub_state.phases[j].drho[:, fallback_idx] = pp.get_solution_values(
@@ -316,7 +318,7 @@ class CompiledFlash(ppc.FlashMixin):
                 phase.viscosity._name_derivatives, data, iterate_index=0
             )[:, failed_idx][:, fallback_idx]
             sub_state.phases[j].dkappa[:, fallback_idx] = pp.get_solution_values(
-                phase.conductivity._name_derivatives, data, iterate_index=0
+                phase.thermal_conductivity._name_derivatives, data, iterate_index=0
             )[:, failed_idx][:, fallback_idx]
 
             for i, comp in enumerate(phase):
@@ -337,64 +339,62 @@ class CompiledFlash(ppc.FlashMixin):
                 sub_state.phases[j].dphis[i, :, :] = dphi
 
         # reference phase fractions and saturations must be computed, since not stored
-        sub_state.y[0, :] = 1 - np.sum(sub_state.y[1:, :], axis=0)
-        sub_state.sat[0, :] = 1 - np.sum(sub_state.sat[1:, :], axis=0)
+        sub_state.y[self.fluid.reference_phase_index, :] = 1 - np.sum(
+            sub_state.y[1:, :], axis=0
+        )
+        sub_state.sat[self.fluid.reference_phase_index, :] = 1 - np.sum(
+            sub_state.sat[1:, :], axis=0
+        )
 
         return sub_state
 
 
-class ModelGeometry:
+class Geometry(pp.PorePyModel):
     def set_domain(self) -> None:
-        size = self.solid.convert_units(1, "m")
-        self._domain = nd_cube_domain(2, size)
+        self._domain = pp.Domain(
+            {
+                "xmin": 0.0,
+                "xmax": self.units.convert_units(10.0, "m"),
+                "ymin": 0.0,
+                "ymax": self.units.convert_units(2.0, "m"),
+            }
+        )
 
     # def set_fractures(self) -> None:
     #     """Setting a diagonal fracture"""
     #     frac_1_points = self.solid.convert_units(
-    #         np.array([[0.2, 1.8], [0.2, 1.8]]), "m"
+    #         np.array([[1., 9.], [1., 4.]]), "m"
     #     )
     #     frac_1 = pp.LineFracture(frac_1_points)
     #     self._fractures = [frac_1]
 
-    def grid_type(self) -> str:
-        return self.params.get("grid_type", "simplex")
 
-    def meshing_arguments(self) -> dict:
-        cell_size = self.solid.convert_units(0.05, "m")
-        cell_size_fracture = self.solid.convert_units(0.05, "m")
-        mesh_args: dict[str, float] = {
-            "cell_size": cell_size,
-            "cell_size_fracture": cell_size_fracture,
-        }
-        return mesh_args
-
-
-class InitialConditions:
+class InitialConditions(pp.PorePyModel):
     """Define initial pressure, temperature and compositions."""
 
     _p_IN: float
     _p_OUT: float
 
-    _p_INIT: float = 12e6
-    _T_INIT: float = 540.0
+    _p_INIT: float = 20e6
+    _T_INIT: float = 450.0
     _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
-    def initial_pressure(self, sd: pp.Grid) -> np.ndarray:
-        # f = lambda x: self._p_IN + x * (self._p_OUT - self._p_IN)
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        # f = lambda x: self._p_IN + x /10 * (self._p_OUT - self._p_IN)
         # vals = np.array(list(map(f, sd.cell_centers[0])))
         # return vals
         return np.ones(sd.num_cells) * self._p_INIT
 
-    def initial_temperature(self, sd: pp.Grid) -> np.ndarray:
+    def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
         return np.ones(sd.num_cells) * self._T_INIT
 
-    def initial_overall_fraction(
-        self, component: ppc.Component, sd: pp.Grid
+    def ic_values_overall_fraction(
+        self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         return np.ones(sd.num_cells) * self._z_INIT[component.name]
 
 
-class BoundaryConditions:
+class BoundaryConditions(pp.PorePyModel):
     """Boundary conditions defining a ``left to right`` flow in the matrix (2D)
 
     Mass flux:
@@ -411,22 +411,20 @@ class BoundaryConditions:
 
     """
 
-    mdg: pp.MixedDimensionalGrid
-
     _p_INIT: float
     _T_INIT: float
     _z_INIT: dict[str, float]
 
-    _p_IN: float = 15e6
-    _p_OUT: float = InitialConditions._p_INIT
+    _p_IN: float = InitialConditions._p_INIT
+    _p_OUT: float = InitialConditions._p_INIT - 1e6
 
     _T_IN: float = InitialConditions._T_INIT
     _T_OUT: float = InitialConditions._T_INIT
     _T_HEATED: float = InitialConditions._T_INIT
 
     _z_IN: dict[str, float] = {
-        "H2O": InitialConditions._z_INIT["H2O"] - 0.105,
-        "CO2": InitialConditions._z_INIT["CO2"] + 0.105,
+        "H2O": InitialConditions._z_INIT["H2O"] - 0.095,
+        "CO2": InitialConditions._z_INIT["CO2"] + 0.095,
     }
     _z_OUT: dict[str, float] = {
         "H2O": InitialConditions._z_INIT["H2O"],
@@ -439,8 +437,8 @@ class BoundaryConditions:
 
         inlet = np.zeros(sd.num_faces, dtype=bool)
         inlet[sides.west] = True
-        inlet &= sd.face_centers[1] > 0.2
-        inlet &= sd.face_centers[1] < 0.5
+        # inlet &= sd.face_centers[1] > 1
+        # inlet &= sd.face_centers[1] < 4
 
         return inlet
 
@@ -451,8 +449,8 @@ class BoundaryConditions:
 
         outlet = np.zeros(sd.num_faces, dtype=bool)
         outlet[sides.east] = True
-        outlet &= sd.face_centers[1] > 0.75
-        outlet &= sd.face_centers[1] < 0.99
+        # outlet &= sd.face_centers[1] > 1
+        # outlet &= sd.face_centers[1] < 4
 
         return outlet
 
@@ -462,15 +460,14 @@ class BoundaryConditions:
 
         heated = np.zeros(sd.num_faces, dtype=bool)
         heated[sides.south] = True
-        heated &= sd.face_centers[0] > 0.2
-        heated &= sd.face_centers[0] < 0.8
+        heated &= sd.face_centers[0] > 3.5
+        heated &= sd.face_centers[0] < 6.5
 
         return heated
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         # Setting only conditions on matrix
         if sd.dim == 2:
-
             inout = self._inlet_faces(sd) | self._outlet_faces(sd)
             # Define boundary condition on all boundary faces.
             return pp.BoundaryCondition(sd, inout, "dir")
@@ -487,8 +484,17 @@ class BoundaryConditions:
         else:
             return pp.BoundaryCondition(sd)
 
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_darcy_flux(sd)
+        # if sd.dim == 2:
+        #     return pp.BoundaryCondition(sd, self._inlet_faces(sd), "dir")
+        # else:
+        #     return pp.BoundaryCondition(sd)
 
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_enthalpy_flux(sd)
+
+    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
@@ -498,7 +504,6 @@ class BoundaryConditions:
             inlet = self._inlet_faces(sd)
             outlet = self._outlet_faces(sd)
 
-            # vals[sides.west] = 10e6
             vals[inlet] = self._p_IN
             vals[outlet] = self._p_OUT
 
@@ -509,7 +514,6 @@ class BoundaryConditions:
         return vals
 
     def bc_values_temperature(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
-
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
@@ -531,9 +535,8 @@ class BoundaryConditions:
         return vals
 
     def bc_values_overall_fraction(
-        self, component: ppc.Component, boundary_grid: pp.BoundaryGrid
+        self, component: pp.Component, boundary_grid: pp.BoundaryGrid
     ) -> np.ndarray:
-
         sd = boundary_grid.parent
         sides = self.domain_boundary_sides(sd)
 
@@ -553,87 +556,118 @@ class BoundaryConditions:
         return vals
 
 
-class GeothermalFlow(
-    pp.constitutive_laws.DarcysLawAd,
-    pp.constitutive_laws.FouriersLawAd,
-    ModelGeometry,
-    SoereideMixture,
-    CompiledFlash,
-    InitialConditions,
-    BoundaryConditions,
-    cfle.CFLEModelMixin_ph,
-):
-    """Geothermal flow using a fluid defined by the Soereide model and the compiled
-    flash."""
-
-    def after_nonlinear_failure(self):
-        self.exporter.write_pvd()
-        super().after_nonlinear_failure()
+fractional_flow: bool = False
 
 
-days = 365
-t_scale = 1e-5
-T_end = 40 * days * t_scale
-dt_init = 1 * days * t_scale
-max_iterations = 80
-newton_tol = 1e-6
-newton_tol_increment = newton_tol
+if fractional_flow:
+
+    class GeothermalFlow(  # type:ignore[misc]
+        pp.constitutive_laws.DarcysLawAd,
+        pp.constitutive_laws.FouriersLawAd,
+        Geometry,
+        SoereideMixture,
+        SolutionStrategy,
+        InitialConditions,
+        BoundaryConditions,
+        cfle.EnthalpyBasedCFFLETemplate,
+    ): ...
+else:
+
+    class GeothermalFlow(  # type:ignore[misc,no-redef]
+        Geometry,
+        SoereideMixture,
+        SolutionStrategy,
+        InitialConditions,
+        BoundaryConditions,
+        cfle.EnthalpyBasedCFLETemplate,
+    ): ...
+
+
+# Model parametrization
+t_scale = 1e-2
+
+max_iterations = 50
+newton_tol = 1e-5
+newton_tol_increment = 1e-1
+
+equilibrium_type: str = "unified-p-h"
+
+flash_params = {
+    "mode": "parallel",
+    "solver": "npipm",
+    "solver_params": {
+        "tolerance": 1e-8,
+        "max_iterations": 150,
+        "armijo_rho": 0.99,
+        "armijo_kappa": 0.4,
+        "armijo_max_iterations": 50 if "p-T" in equilibrium_type else 30,
+        "npipm_u1": 10,
+        "npipm_u2": 10,
+        "npipm_eta": 0.5,
+    },
+}
 
 time_manager = pp.TimeManager(
-    schedule=[0, T_end],
-    dt_init=dt_init,
-    dt_min_max=(0.1 * dt_init, 2 * dt_init),
+    schedule=[0, 1 * pp.DAY * t_scale],
+    dt_init=pp.HOUR * t_scale,
+    dt_min_max=(pp.MINUTE * t_scale, 3 * pp.HOUR),
     iter_max=max_iterations,
-    iter_optimal_range=(2, 10),
-    iter_relax_factors=(0.9, 1.1),
-    recomp_factor=0.1,
+    iter_optimal_range=(4, 7),
+    iter_relax_factors=(0.9, 1.3),
+    recomp_factor=0.5,
     recomp_max=5,
     print_info=True,
 )
 
-solid_constants = pp.SolidConstants(
-    {
-        "permeability": 1e-16,
-        "porosity": 0.2,
-        "thermal_conductivity": 1.6736,
-        "specific_heat_capacity": 603.0,
-    }
-)
-material_constants = {"solid": solid_constants}
-
-restart_options = {
-    "restart": True,
-    "is_mdg_pvd": True,
-    "pvd_file": pathlib.Path("./visualization/data.pvd"),
+material_constants = {
+    "solid": pp.SolidConstants(
+        permeability=1e-13,
+        porosity=0.2,
+        thermal_conductivity=1.6736,
+        specific_heat_capacity=603.0,
+    )
 }
 
-# Model setup:
-# eliminate reference phase fractions  and reference component.
 params = {
-    "material_constants": material_constants,
-    "equilibrium_type": "unified-p-h",
+    "equilibrium_type": equilibrium_type,
     "has_time_dependent_boundary_equilibrium": False,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
     "normalize_state_constraints": True,
     "use_semismooth_complementarity": True,
-    "reduce_linear_system_q": False,
+    "reduce_linear_system": False,
+    "flash_params": flash_params,
+    "fractional_flow": fractional_flow,
+    "rediscretize_fourier_flux": fractional_flow,
+    "rediscretize_darcy_flux": fractional_flow,
+    "material_constants": material_constants,
+    "grid_type": "cartesian",
+    "meshing_arguments": {
+        "cell_size": 1.0,
+        "cell_size_fracture": 0.5,
+    },
     "time_manager": time_manager,
     "max_iterations": max_iterations,
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
     "prepare_simulation": False,
-    "progressbars": True,
-    # 'restart_options': restart_options,  # NOTE no yet fully integrated in porepy
+    "linear_solver": "scipy_sparse",
 }
+
 model = GeothermalFlow(params)
 
 t_0 = time.time()
 model.prepare_simulation()
 prep_sim_time = time.time() - t_0
 compile_time += prep_sim_time
+
+model.primary_equations = model.get_primary_equations_cf()
+model.primary_variables = model.get_primary_variables_cf()
+
 t_0 = time.time()
 pp.run_time_dependent_model(model, params)
 sim_time = time.time() - t_0
-print(f"Finished prepare_simulation in {prep_sim_time} seconds.")
-print(f"Finished simulation in {sim_time} seconds.")
+
+print(f"Set-up time: {prep_sim_time} (s).")
+print(f"Approximate compilation time: {compile_time} (s).")
+print(f"Simulation run time: {sim_time} (s).")

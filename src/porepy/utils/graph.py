@@ -47,7 +47,7 @@ class Graph:
             else:
                 return
         raise RuntimeWarning(
-            "number of regions can not be greater than " "number of nodes"
+            "number of regions can not be greater than number of nodes"
         )
 
     def bfs(self, start, color):

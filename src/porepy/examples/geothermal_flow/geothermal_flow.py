@@ -16,6 +16,7 @@ instances of that object provide functions and their gradients within the produc
 from __future__ import annotations
 
 import time
+from typing import cast
 
 import numpy as np
 
@@ -37,13 +38,11 @@ time_manager = pp.TimeManager(
 )
 
 solid_constants = pp.SolidConstants(
-    {
-        "permeability": 5.0e-14,
-        "porosity": 0.1,
-        "thermal_conductivity": 1.8,
-        "density": 2650.0,
-        "specific_heat_capacity": 1000.0,
-    }
+    permeability=5.0e-14,
+    porosity=0.1,
+    thermal_conductivity=1.8,
+    density=2650.0,
+    specific_heat_capacity=1e3,
 )
 material_constants = {"solid": solid_constants}
 params = {
@@ -52,7 +51,7 @@ params = {
     "eliminate_reference_component": True,  # z_H2O eliminated, default is True
     "time_manager": time_manager,
     "prepare_simulation": False,
-    "reduce_linear_system_q": False,
+    "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
     "nl_convergence_tol_res": 1.0e-3,
     "max_iterations": 50,
@@ -60,9 +59,8 @@ params = {
 
 
 class GeothermalFlowModel(FlowModel):
-
     def after_nonlinear_convergence(self) -> None:
-        super().after_nonlinear_convergence()
+        super().after_nonlinear_convergence()  # type:ignore[safe-super]
         print("Number of iterations: ", self.nonlinear_solver_statistics.num_iteration)
         print("Time value: ", self.time_manager.time)
         print("Time index: ", self.time_manager.time_index)
@@ -103,6 +101,8 @@ te = time.time()
 print("Elapsed time prepare simulation: ", te - tb)
 print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid employed: ", model.mdg)
+model.primary_equations = model.get_primary_equations_cf()
+model.primary_variables = model.get_primary_variables_cf()
 
 # print geometry
 model.exporter.write_vtu()
@@ -119,6 +119,7 @@ bc_sides = model.domain_boundary_sides(grid)
 
 # Integrated overall mass flux on all facets
 mn = model.darcy_flux(model.mdg.subdomains()).value(model.equation_system)
+mn = cast(np.ndarray, mn)
 
 inlet_idx, outlet_idx = model.get_inlet_outlet_sides(model.mdg.subdomains()[0])
 print("Inflow values : ", mn[inlet_idx])

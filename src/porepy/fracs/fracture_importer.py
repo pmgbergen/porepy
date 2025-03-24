@@ -45,14 +45,12 @@ def network_3d_from_csv(
 
     """
 
-    # The first line of the csv file defines the bounding box for the domain
-
+    # The first line of the csv file defines the bounding box for the domain.
     frac_list = []
-    # Extract the data from the csv file
+    # Extract the data from the csv file.
     with open(file_name, "r") as csv_file:
         spam_reader = csv.reader(csv_file, delimiter=",")
-
-        # Read the domain first
+        # Read the domain first.
         if has_domain:
             read_domain = False
 
@@ -74,7 +72,7 @@ def network_3d_from_csv(
                     read_domain = True
 
         for row in spam_reader:
-            # If the line starts with a '#', we consider this a comment
+            # If the line starts with a '#', we consider this a comment.
             if len(row) == 0 or row[0][0] == "#":
                 continue
 
@@ -111,9 +109,6 @@ def elliptic_network_3d_from_csv(
 ) -> pp.fracture_network:
     """Create fracture network from a set of elliptic fractures stored in a CSV file.
 
-    Todo:
-        Fill description of argument ``degrees``.
-
     In the CSV file, we assume the following structure:
 
         The first line (optional) describes the domain as a cuboid with ``X_MIN,
@@ -129,7 +124,6 @@ def elliptic_network_3d_from_csv(
     Lines that start with a # are ignored.
 
     Parameters:
-
         file_name: Path to the CSV file.
         has_domain: ``default=True``
 
@@ -137,21 +131,22 @@ def elliptic_network_3d_from_csv(
         tol: ``default=1e-4``
 
             Geometric tolerance used in the computations.
-        degrees:
+        degrees: ``default=False``
+
+            Indicates whether the angles are given in degrees or radians.
 
     Returns:
         3D fracture network object with elliptic fractures.
 
     """
 
-    # The first line of the csv file defines the bounding box for the domain
-
+    # The first line of the csv file defines the bounding box for the domain.
     frac_list = []
-    # Extract the data from the csv file
+    # Extract the data from the csv file.
     with open(file_name, "r") as csv_file:
         spam_reader = csv.reader(csv_file, delimiter=",")
 
-        # Read the domain first
+        # Read the domain first.
         if has_domain:
             bbox_as_array = np.asarray(next(spam_reader), dtype=float)
             bbox = {
@@ -165,11 +160,11 @@ def elliptic_network_3d_from_csv(
             domain = pp.Domain(bbox)
 
         for row in spam_reader:
-            # If the line starts with a '#', we consider this a comment
+            # If the line starts with a '#', we consider this a comment.
             if row[0][0] == "#":
                 continue
 
-            # Read the data
+            # Read the data.
             data = np.asarray(row, dtype=float)
             if not data.size % 9 == 0:
                 raise ValueError("Data has to have size 9")
@@ -190,7 +185,7 @@ def elliptic_network_3d_from_csv(
                     centers, maj_ax, min_ax, maj_ax_ang, strike_ang, dip_ang, num_points
                 )
             )
-    # Create the network
+    # Create the network.
     if has_domain:
         return pp.create_fracture_network(frac_list, domain, tol=tol)
     else:
@@ -272,14 +267,14 @@ def network_2d_from_csv(
     data = np.genfromtxt(f_name, **npargs)
     # Shortcut if no data is loaded
     if data.size == 0:
-        # we still consider the possibility that a domain is given
+        # We still consider the possibility that a domain is given.
         if return_frac_id:
             return FractureNetwork2d(domain=domain, tol=tol), np.empty(0)
         else:
             return FractureNetwork2d(domain=domain, tol=tol)
     data = np.atleast_2d(data)
 
-    # Consider subset of fractures if asked for
+    # Consider subset of fractures if asked for.
     if max_num_fracs is not None:
         if max_num_fracs == 0:
             if return_frac_id:

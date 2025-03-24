@@ -12,7 +12,7 @@ from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
-import scipy.spatial.qhull
+import scipy.spatial
 
 from porepy.grids.grid import Grid
 from porepy.utils import accumarray, setmembership
@@ -55,7 +55,7 @@ class TriangleGrid(Grid):
         self.dim = 2
 
         if tri is None:
-            triangulation = scipy.spatial.qhull.Delaunay(p.transpose())
+            triangulation = scipy.spatial.Delaunay(p.transpose())
             tri = triangulation.simplices
             tri = tri.transpose()
 
@@ -240,7 +240,7 @@ class TetrahedralGrid(Grid):
         # Transform points to column vector if necessary (scipy.Delaunay requires this
         # format)
         if tet is None:
-            tesselation = scipy.spatial.qhull.Delaunay(p.transpose())
+            tesselation = scipy.spatial.Delaunay(p.transpose())
             tet = tesselation.simplices.transpose()
 
         if name is None:

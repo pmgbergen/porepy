@@ -1,5 +1,5 @@
-""" Module contains a sets of unit tests for hybrid Virtual Element Method (VEM).
-    - It is dedicated for checking the consistency of discrete operators.
+"""Module contains a sets of unit tests for hybrid Virtual Element Method (VEM).
+- It is dedicated for checking the consistency of discrete operators.
 """
 
 import numpy as np

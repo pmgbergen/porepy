@@ -3,6 +3,7 @@
 Currently only tests the bases for 2d and 3d Vectorial BCs.
 
 """
+
 import numpy as np
 
 import porepy as pp

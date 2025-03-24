@@ -9,8 +9,8 @@ from [1] (i.e., the bubble function is scaled to obtain a better conditioned sys
 
 Tests:
 
-    [TEST_1] Relative L2-error on Cartesian grids for primary and secondary variables
-      for three different times for 2d and 3d.
+    [TEST_1] Relative L2-errors on Cartesian grids for primary and secondary variables
+      for 2d and 3d.
 
     [TEST_2] Observed order of convergence (using four levels of refinement for 2d and
       three levels of refinement for 3d) for primary and secondary variables. Order
@@ -25,6 +25,7 @@ References:
       elliptic equations. Journal of Numerical Mathematics.
 
 """
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -35,11 +36,11 @@ import pytest
 import porepy as pp
 from porepy.applications.convergence_analysis import ConvergenceAnalysis
 from tests.functional.setups.manu_flow_incomp_frac_2d import (
-    ManuIncompFlowSetup2d,
+    ManuIncompFlowModel2d,
     manu_incomp_fluid,
     manu_incomp_solid,
 )
-from tests.functional.setups.manu_flow_incomp_frac_3d import ManuIncompFlowSetup3d
+from tests.functional.setups.manu_flow_incomp_frac_3d import ManuIncompFlowModel3d
 
 
 # --> Declaration of module-wide fixtures that are re-used throughout the tests
@@ -47,15 +48,15 @@ from tests.functional.setups.manu_flow_incomp_frac_3d import ManuIncompFlowSetup
 def material_constants() -> dict:
     """Set material constants.
 
-    Use default values provided in the module where the setup class is included.
+    Use default values provided in the module where the model class is included.
 
     Returns:
         Dictionary containing the material constants with the `solid` and `fluid`
         constant classes.
 
     """
-    solid_constants = pp.SolidConstants(manu_incomp_solid)
-    fluid_constants = pp.FluidConstants(manu_incomp_fluid)
+    solid_constants = pp.SolidConstants(**manu_incomp_solid)
+    fluid_constants = pp.FluidComponent(**manu_incomp_fluid)
     return {"solid": solid_constants, "fluid": fluid_constants}
 
 
@@ -65,7 +66,7 @@ def material_constants() -> dict:
 # ----> Retrieve actual L2-errors
 @pytest.fixture(scope="module")
 def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
-    """Run verification setups and retrieve results.
+    """Run verification models and retrieve results.
 
     Parameters:
         material_constants: Dictionary containing the material constant classes.
@@ -81,21 +82,25 @@ def actual_l2_errors(material_constants: dict) -> list[dict[str, float]]:
         "grid_type": "cartesian",
         "material_constants": material_constants,
         "meshing_arguments": {"cell_size": 0.125},
+        "times_to_export": [],  # Suppress output for tests
     }
 
     # Retrieve actual L2-relative errors
     errors: list[dict[str, float]] = []
     # Loop through models, i.e., 2d and 3d
-    for model in [ManuIncompFlowSetup2d, ManuIncompFlowSetup3d]:
-        setup = model(deepcopy(model_params))  # make deep copy of params to avoid nasty bugs
-        pp.run_time_dependent_model(setup)
+    for model_class in [ManuIncompFlowModel2d, ManuIncompFlowModel3d]:
+        # Make deep copy of params to avoid nasty bugs.
+        model: ManuIncompFlowModel2d | ManuIncompFlowModel3d = model_class(
+            deepcopy(model_params)
+        )
+        pp.run_time_dependent_model(model)
         errors.append(
             {
-                "error_matrix_pressure": setup.results[0].error_matrix_pressure,
-                "error_matrix_flux": setup.results[0].error_matrix_flux,
-                "error_frac_pressure": setup.results[0].error_frac_pressure,
-                "error_frac_flux": setup.results[0].error_frac_flux,
-                "error_intf_flux": setup.results[0].error_intf_flux,
+                "error_matrix_pressure": model.results[0].error_matrix_pressure,
+                "error_matrix_flux": model.results[0].error_matrix_flux,
+                "error_frac_pressure": model.results[0].error_frac_pressure,
+                "error_frac_flux": model.results[0].error_frac_flux,
+                "error_intf_flux": model.results[0].error_intf_flux,
             }
         )
 
@@ -114,7 +119,7 @@ def desired_l2_errors() -> list[dict[str, float]]:
     # Desired errors for 2d
     desired_errors_2d = {
         "error_matrix_pressure": 0.060732124330406576,
-        "error_matrix_flux": 0.01828457897868048,
+        "error_matrix_flux": 0.019884589070890718,
         "error_frac_pressure": 4.984308951373194,
         "error_frac_flux": 0.0019904878330327946,
         "error_intf_flux": 3.1453166913070185,
@@ -123,7 +128,7 @@ def desired_l2_errors() -> list[dict[str, float]]:
     # Desired error for 3d
     desired_errors_3d = {
         "error_matrix_pressure": 1.3822466693314728,
-        "error_matrix_flux": 1.2603123149160123,
+        "error_matrix_flux": 1.0879261547986523,
         "error_frac_pressure": 6.272401337799361,
         "error_frac_flux": 0.044759629637959035,
         "error_intf_flux": 5.291360607983224,
@@ -202,7 +207,9 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
     """
     ooc: list[list[dict[str, float]]] = []
     # Loop through the models
-    for model_idx, model in enumerate([ManuIncompFlowSetup2d, ManuIncompFlowSetup3d]):
+    for model_idx, model_class in enumerate(
+        [ManuIncompFlowModel2d, ManuIncompFlowModel3d]
+    ):
         ooc_setup: list[dict[str, float]] = []
         # Loop through grid type
         for grid_type in ["cartesian", "simplex"]:
@@ -215,18 +222,19 @@ def actual_ooc(material_constants: dict) -> list[list[dict[str, float]]]:
                     "grid_type": grid_type,
                     "material_constants": material_constants,
                     "meshing_arguments": {"cell_size": 0.125},
+                    "times_to_export": [],  # Suppress output for tests
                 }
                 # Use 4 levels of refinement for 2d and 3 levels for 3d
                 if model_idx == 0:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=model,
+                        model_class=model_class,
                         model_params=deepcopy(params),
                         levels=4,
                         spatial_refinement_rate=2,
                     )
                 else:
                     conv_analysis = ConvergenceAnalysis(
-                        model_class=model,
+                        model_class=model_class,
                         model_params=deepcopy(params),
                         levels=3,
                         spatial_refinement_rate=2,
@@ -253,7 +261,7 @@ def desired_ooc() -> list[list[dict[str, float]]]:
             "ooc_frac_flux": 1.3967607529647372,
             "ooc_frac_pressure": 1.8534965991529369,
             "ooc_intf_flux": 1.9986496319323037,
-            "ooc_matrix_flux": 1.660155297595291,
+            "ooc_matrix_flux": 1.7008944272450548,
             "ooc_matrix_pressure": 1.900941278698522,
         },
         {  # simplex
@@ -270,7 +278,7 @@ def desired_ooc() -> list[list[dict[str, float]]]:
             "ooc_frac_flux": 2.0540239290134323,
             "ooc_frac_pressure": 2.01831767379812,
             "ooc_intf_flux": 2.005622051446942,
-            "ooc_matrix_flux": 2.1319834447112367,
+            "ooc_matrix_flux": 2.064200262931642,
             "ooc_matrix_pressure": 2.007165614273335,
         }
     ]
@@ -326,5 +334,5 @@ def test_order_of_convergence(
                 desired_ooc[dim_idx][grid_type_idx]["ooc_" + var],
                 actual_ooc[dim_idx][grid_type_idx]["ooc_" + var],
                 atol=1e-1,  # allow for an absolute difference of 0.1 in OOC
-                rtol=5e-1,  # allow for 5% of relative difference in OOC
+                rtol=5e-2,  # allow for 5% of relative difference in OOC
             )

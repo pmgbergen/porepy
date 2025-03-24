@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import numpy as np
 
@@ -12,10 +12,16 @@ from porepy.applications.md_grids.model_geometries import (
     OrthogonalFractures3d,
     RectangularDomainThreeFractures,
 )
+from porepy.models.contact_mechanics import ContactMechanics
 
 
 class NoPhysics(  # type: ignore[misc]
-    pp.ModelGeometry, pp.SolutionStrategy, pp.DataSavingMixin, pp.BoundaryConditionMixin
+    pp.ModelGeometry,
+    pp.SolutionStrategy,
+    pp.DataSavingMixin,
+    pp.BoundaryConditionMixin,
+    pp.InitialConditionMixin,
+    pp.FluidMixin,
 ):
     """A model with no physics, for testing purposes.
 
@@ -36,42 +42,81 @@ class NoPhysics(  # type: ignore[misc]
 
 class MassBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.fluid_mass_balance.SinglePhaseFlow,
+    pp.SinglePhaseFlow,
 ): ...
 
 
 class MomentumBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.momentum_balance.MomentumBalance,
+    pp.MomentumBalance,
 ):
     """Combine components needed for momentum balance simulation."""
 
 
 class MassAndEnergyBalance(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.mass_and_energy_balance.MassAndEnergyBalance,
+    pp.MassAndEnergyBalance,
 ):
     """Combine components needed for force balance simulation."""
 
 
 class Poromechanics(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.poromechanics.Poromechanics,
+    pp.Poromechanics,
 ):
     """Combine components needed for poromechanics simulation."""
 
 
 class Thermoporomechanics(  # type: ignore[misc]
     RectangularDomainThreeFractures,
-    pp.thermoporomechanics.Thermoporomechanics,
+    pp.Thermoporomechanics,
 ):
     """Combine components needed for poromechanics simulation."""
 
 
-def model(
-    model_type: str, dim: int, num_fracs: int = 1
-) -> MassBalance | MomentumBalance | MassAndEnergyBalance | Poromechanics:
-    """Setup for tests."""
+class ContactMechanicsTester(ContactMechanics):
+    def interface_displacement_parameter_values(
+        self, intf: pp.MortarGrid
+    ) -> np.ndarray:
+        """Return the interface displacement values.
+
+        This implementation identifies the side of the interface on the "top" of the
+        fracture and sets nonzero displacement values at that side. The top side is
+        defined as the one on the positive side of the vector v=np.ones(self.nd) and
+        identified by the inner product between v and the outwards normal vector of the
+        interface. Values are retrieved from the parameter dictionary using the key
+        "interface_displacement_parameter_values".
+
+        Parameters:
+            intf: Interface where the displacement values are to be returned.
+
+        Returns:
+            Array of interface displacement values, shaped as (self.nd, num_cells).
+
+        """
+        # PorePy grid coordinates are 3d regardless of the dimension of the grid.
+        coord_dim = 3
+        # v is a vector pointing in the positive direction of all dimensions. It can be
+        # used to identify the top side of the interface for all fractures in which do
+        # not contain it.
+        v = np.ones((coord_dim, intf.num_cells))
+        vals: np.ndarray = np.zeros((self.nd, intf.num_cells))
+        sd_primary = self.mdg.interface_to_subdomain_pair(intf)[0]
+        # The second return is the side of the fracture having outwards normals in the
+        # negative direction of v, i.e. the top side.
+        _, top_side, _ = pp.sides_of_fracture(intf, sd_primary, v)
+        # Get the displacement values from the parameter dictionary.
+        param_values = cast(
+            np.ndarray, self.params["interface_displacement_parameter_values"]
+        )
+        top_val = param_values[:, self.time_manager.time_index]
+        # Broadcast and assign.
+        vals[:, top_side] = np.tile(top_val, (top_side.shape[0], 1)).T
+        return vals
+
+
+def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
+    """Model for tests."""
     # Suppress output for tests
     fracture_indices = [i for i in range(num_fracs)]
     params = {"times_to_export": [], "fracture_indices": fracture_indices}
@@ -92,15 +137,15 @@ def model(
     # Identify the physics class
     model_class: Any = None
     if model_type == "mass_balance":
-        model_class = pp.fluid_mass_balance.SinglePhaseFlow
+        model_class = pp.SinglePhaseFlow
     elif model_type == "momentum_balance":
-        model_class = pp.momentum_balance.MomentumBalance
+        model_class = pp.MomentumBalance
     elif model_type == "energy_balance" or model_type == "mass_and_energy_balance":
-        model_class = pp.mass_and_energy_balance.MassAndEnergyBalance
+        model_class = pp.MassAndEnergyBalance
     elif model_type == "poromechanics":
-        model_class = pp.poromechanics.Poromechanics
+        model_class = pp.Poromechanics
     elif model_type == "thermoporomechanics":
-        model_class = pp.thermoporomechanics.Thermoporomechanics
+        model_class = pp.Thermoporomechanics
     else:
         # To add a new model, insert an elif clause here, and a new class above.
         raise ValueError(f"Unknown model type {model_type}")
@@ -110,7 +155,7 @@ def model(
         pass
 
     # Create an instance of the combined class
-    model = Model(params)
+    model = cast(pp.PorePyModel, Model(params))
 
     # Prepare the simulation
     # (create grids, variables, equations, discretize, etc.)
@@ -118,25 +163,19 @@ def model(
     return model
 
 
-class RobinDirichletNeumannConditions:
+class RobinDirichletNeumannConditions(pp.PorePyModel):
     """Mixin for applying Neumann, Dirichlet and Robin conditions for a
     thermoporomechanics model."""
 
-    params: dict
-
-    domain_boundary_sides: Callable[[pp.GridLike], pp.domain.DomainSides]
-
-    nd: int
-
-    def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_pressure(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns pressure values on the north and south boundary."""
         p_north = self.params.get("pressure_north", 1)
         p_south = self.params.get("pressure_south", 1)
-        values = np.zeros(boundary_grid.num_cells)
-        bounds = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros(bg.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
 
-        values[bounds.north] += np.ones(len(values[bounds.north])) * p_north
-        values[bounds.south] += np.ones(len(values[bounds.south])) * p_south
+        values[domain_sides.north] += np.ones(len(values[domain_sides.north])) * p_north
+        values[domain_sides.south] += np.ones(len(values[domain_sides.south])) * p_south
         return values
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
@@ -145,20 +184,23 @@ class RobinDirichletNeumannConditions:
         Puts Robin on west, Neumann on east and Dirichlet on north and south.
 
         """
-        bounds = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         bc = pp.BoundaryConditionVectorial(
             sd,
-            bounds.north + bounds.south + bounds.east + bounds.west,
+            domain_sides.north
+            + domain_sides.south
+            + domain_sides.east
+            + domain_sides.west,
             "dir",
         )
-        bc.is_dir[:, bounds.west + bounds.east] = False
+        bc.is_dir[:, domain_sides.west + domain_sides.east] = False
 
-        bc.is_rob[:, bounds.west] = True
-        bc.is_neu[:, bounds.east] = True
+        bc.is_rob[:, domain_sides.west] = True
+        bc.is_neu[:, domain_sides.east] = True
 
         # Assign the robin weight
         r_w = np.tile(np.eye(sd.dim), (1, sd.num_faces))
-        bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), "F")
+        bc.robin_weight = np.reshape(r_w, (sd.dim, sd.dim, sd.num_faces), order="F")
         return bc
 
     def _bc_type_scalar(self, sd: pp.Grid) -> pp.BoundaryCondition:
@@ -167,13 +209,18 @@ class RobinDirichletNeumannConditions:
         Puts Robin on west, Neumann on east and Dirichlet on north and south.
 
         """
-        bounds = self.domain_boundary_sides(sd)
+        domain_sides = self.domain_boundary_sides(sd)
         bc = pp.BoundaryCondition(
-            sd, bounds.north + bounds.south + bounds.west + bounds.east, "dir"
+            sd,
+            domain_sides.north
+            + domain_sides.south
+            + domain_sides.west
+            + domain_sides.east,
+            "dir",
         )
-        bc.is_dir[bounds.west + bounds.east] = False
-        bc.is_rob[bounds.west] = True
-        bc.is_neu[bounds.east] = True
+        bc.is_dir[domain_sides.west + domain_sides.east] = False
+        bc.is_rob[domain_sides.west] = True
+        bc.is_neu[domain_sides.east] = True
 
         bc.robin_weight = np.ones(sd.num_faces)
         return bc
@@ -184,26 +231,26 @@ class RobinDirichletNeumannConditions:
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self._bc_type_scalar(sd=sd)
 
-    def bc_values_darcy_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_darcy_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Darcy flux values on the west and east boundaries."""
         df_west = self.params.get("darcy_flux_west", 1)
         df_east = self.params.get("darcy_flux_east", 1)
-        values = np.zeros(boundary_grid.num_cells)
-        bounds = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros(bg.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
 
-        values[bounds.west] += np.ones(len(values[bounds.west])) * df_west
-        values[bounds.east] += np.ones(len(values[bounds.east])) * df_east
+        values[domain_sides.west] += np.ones(len(values[domain_sides.west])) * df_west
+        values[domain_sides.east] += np.ones(len(values[domain_sides.east])) * df_east
         return values
 
-    def bc_values_fourier_flux(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_fourier_flux(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Assigns Fourier flux values on the west and east boundaries."""
         ff_west = self.params.get("fourier_flux_west", 1)
         ff_east = self.params.get("fourier_flux_east", 1)
-        values = np.zeros(boundary_grid.num_cells)
-        bounds = self.domain_boundary_sides(boundary_grid)
+        values = np.zeros(bg.num_cells)
+        domain_sides = self.domain_boundary_sides(bg)
 
-        values[bounds.west] += np.ones(len(values[bounds.west])) * ff_west
-        values[bounds.east] += np.ones(len(values[bounds.east])) * ff_east
+        values[domain_sides.west] += np.ones(len(values[domain_sides.west])) * ff_west
+        values[domain_sides.east] += np.ones(len(values[domain_sides.east])) * ff_east
         return values
 
     def bc_values_stress(self, bg: pp.BoundaryGrid) -> np.ndarray:
@@ -211,10 +258,14 @@ class RobinDirichletNeumannConditions:
         ms_west = self.params.get("mechanical_stress_west", 1)
         ms_east = self.params.get("mechanical_stress_east", 1)
         values = np.zeros((self.nd, bg.num_cells))
-        bounds = self.domain_boundary_sides(bg)
+        domain_sides = self.domain_boundary_sides(bg)
 
-        values[0][bounds.west] += np.ones(len(values[0][bounds.west])) * ms_west
-        values[0][bounds.east] += np.ones(len(values[0][bounds.east])) * ms_east
+        values[0][domain_sides.west] += (
+            np.ones(len(values[0][domain_sides.west])) * ms_west
+        )
+        values[0][domain_sides.east] += (
+            np.ones(len(values[0][domain_sides.east])) * ms_east
+        )
         return values.ravel("F")
 
 
@@ -245,16 +296,19 @@ def subdomains_or_interfaces_from_method_name(
     assert len(signature.parameters) == 1
 
     # The domain is a list of either subdomains or interfaces.
+    domains: list[pp.Grid] | list[pp.MortarGrid]
     if "subdomains" in signature.parameters or "domains" in signature.parameters:
         # If relevant, filter out the domains that are not to be tested.
         domains = mdg.subdomains(dim=domain_dimension)
     elif "interfaces" in signature.parameters:
-        domains = mdg.interfaces(dim=domain_dimension)  # type: ignore[assignment]
+        domains = mdg.interfaces(dim=domain_dimension)
 
     return domains
 
 
-def _add_mixin(mixin, parent):
+def add_mixin(
+    mixin: type[pp.PorePyModel], parent: type[pp.PorePyModel]
+) -> type[pp.PorePyModel]:
     """Helper method to dynamically construct a class by adding a mixin.
 
     Multiple mixins can be added by nested calls to this method.
@@ -274,35 +328,26 @@ def _add_mixin(mixin, parent):
     return cls
 
 
-# TODO: Purge in favour of pp.solid_values.granite
-granite_values = {
-    "biot_coefficient": 0.8,
-    "permeability": 1e-20,
-    "density": 2700,
-    "porosity": 7e-3,
-    "shear_modulus": 16.67 * pp.GIGA,
-    "lame_lambda": 11.11 * pp.GIGA,
-    "specific_heat_capacity": 790,
-    "thermal_conductivity": 2.5,
-    "thermal_expansion": 1e-5,
-    "fracture_normal_stiffness": 1529,
-    "maximum_elastic_fracture_opening": 1e-4,
-    "fracture_gap": 1e-4,
-    "residual_aperture": 0.01,
-}
-water_values = {
-    "specific_heat_capacity": 4180,
-    "compressibility": 4e-10,
-    "viscosity": 1e-3,
-    "density": 1000,
-    "thermal_conductivity": 0.6,
-    "thermal_expansion": 2.1e-4,
-}
+def create_local_model_class(
+    model_class: type[pp.PorePyModel], mixin_models: list[type[pp.PorePyModel]]
+) -> type[pp.PorePyModel]:
+    """Helper method to add mixins to a model class for testing purpose.
+
+    Note that the order in ``mixin_models`` has an effect. First element will be mixed
+    in first, last element last.
+
+    """
+    local_model_class: type[pp.PorePyModel] = model_class
+
+    for mixin_model in mixin_models:
+        local_model_class = add_mixin(mixin_model, local_model_class)
+
+    return local_model_class
 
 
 def compare_scaled_primary_variables(
-    setup_0: pp.SolutionStrategy,
-    setup_1: pp.SolutionStrategy,
+    model_0: pp.SolutionStrategy,
+    model_1: pp.SolutionStrategy,
     variable_names: list[str],
     variable_units: list[str],
     cell_wise: bool = True,
@@ -313,29 +358,29 @@ def compare_scaled_primary_variables(
     variables. The method compares the values of the variables in SI units.
 
     Parameters:
-        setup_0: First simulation.
-        setup_1: Second simulation.
+        model_0: First simulation.
+        model_1: Second simulation.
         variable_names: Names of the variables to be compared.
         variable_units: Units of the variables to be compared.
 
     """
     for var_name, var_unit in zip(variable_names, variable_units):
         # Obtain scaled values.
-        scaled_values_0 = setup_0.equation_system.get_variable_values(
+        scaled_values_0 = model_0.equation_system.get_variable_values(
             variables=[var_name], time_step_index=0
         )
-        scaled_values_1 = setup_1.equation_system.get_variable_values(
+        scaled_values_1 = model_1.equation_system.get_variable_values(
             variables=[var_name], time_step_index=0
         )
         # Convert back to SI units.
-        values_0 = setup_0.fluid.convert_units(scaled_values_0, var_unit, to_si=True)
-        values_1 = setup_1.fluid.convert_units(scaled_values_1, var_unit, to_si=True)
+        values_0 = model_0.units.convert_units(scaled_values_0, var_unit, to_si=True)
+        values_1 = model_1.units.convert_units(scaled_values_1, var_unit, to_si=True)
         compare_values(values_0, values_1, cell_wise=cell_wise)
 
 
 def compare_scaled_model_quantities(
-    setup_0: pp.SolutionStrategy,
-    setup_1: pp.SolutionStrategy,
+    model_0: pp.SolutionStrategy,
+    model_1: pp.SolutionStrategy,
     method_names: list[str],
     method_units: list[str],
     domain_dimensions: list[int | None],
@@ -347,8 +392,8 @@ def compare_scaled_model_quantities(
     variables. The method compares the values of the variables in SI units.
 
     Parameters:
-        setup_0: First simulation.
-        setup_1: Second simulation.
+        model_0: First simulation.
+        model_1: Second simulation.
         method_names: Names of the methods to be compared.
         method_units: Units of the methods to be compared.
         domain_dimensions: Dimensions of the domains to be tested. If None, the method
@@ -361,15 +406,15 @@ def compare_scaled_model_quantities(
         method_names, method_units, domain_dimensions
     ):
         values = []
-        for setup in [setup_0, setup_1]:
+        for model in [model_0, model_1]:
             # Obtain scaled values.
-            method = getattr(setup, method_name)
+            method = getattr(model, method_name)
             domains = subdomains_or_interfaces_from_method_name(
-                setup.mdg, method, domain_dimension=dim
+                model.mdg, method, domain_dimension=dim
             )
             # Convert back to SI units.
-            value = method(domains).value(setup.equation_system)
-            values.append(setup.fluid.convert_units(value, method_unit, to_si=True))
+            value = model.equation_system.evaluate(method(domains))
+            values.append(model.units.convert_units(value, method_unit, to_si=True))
         compare_values(values[0], values[1], cell_wise=cell_wise)
 
 
@@ -391,17 +436,16 @@ def compare_values(
         # Compare cell-wise values.
         assert np.allclose(values_0, values_1)
     else:
-        # Compare sums instead of individual values, to avoid
-        # errors due to different grids generated by gmsh (particularly for different
-        # length scales).
-        # Tolerance relative to the sum of the absolute values, not the differences.
-        # Add a small absolute tolerance to avoid problems with zero values.
+        # Compare sums instead of individual values, to avoid errors due to different
+        # grids generated by gmsh (particularly for different length scales). Tolerance
+        # relative to the sum of the absolute values, not the differences. Add a small
+        # absolute tolerance to avoid problems with zero values.
         rtol = 1e-5 * np.sum(np.abs(values_0))
         assert np.isclose(np.sum(values_0 - values_1), 0, atol=1e-10 + rtol)
 
 
-def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
-    """Get all possible testable methods to be used in the test_ad_methods_xxx.py files.
+def get_model_methods_returning_ad_operator(model: pp.PorePyModel) -> list[str]:
+    """Get all possible testable methods to be used in test_ad_operator_methods_xx.
 
     A testable method is one that:
 
@@ -410,7 +454,7 @@ def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
         (3) Returns either a 'pp.ad.Operator' or a 'pp.ad.DenseArray'.
 
     Parameters:
-        model_setup: Model setup after `prepare_simulation()` has been called.
+        model: Model after `prepare_simulation()` has been called.
 
     Returns:
         List of all possible testable method names for the given model.
@@ -418,13 +462,13 @@ def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
     """
 
     # Get all public methods
-    all_methods = [method for method in dir(model_setup) if not method.startswith("_")]
+    all_methods = [method for method in dir(model) if not method.startswith("_")]
 
     # Get all testable methods
     testable_methods: list[str] = []
     for method in all_methods:
         # Get method in callable form
-        callable_method = getattr(model_setup, method)
+        callable_method = getattr(model, method)
 
         # Retrieve method signature via inspect
         try:
@@ -432,7 +476,7 @@ def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
         except TypeError:
             continue
 
-        # Append method to the `testable_methods` list if the conditions are met
+        # Append method to the `testable_methods` list if the conditions are met.
         if (
             len(signature.parameters) == 1
             and (
@@ -447,4 +491,73 @@ def get_model_methods_returning_ad_operator(model_setup) -> list[str]:
         ):
             testable_methods.append(method)
 
-    return testable_methods
+    # Appending testable methods of the fluid.
+    fluid_methods = [
+        method for method in dir(model.fluid) if not method.startswith("_")
+    ]
+    testable_fluid_methods: list[str] = []
+    # The basic flow model has no energy-related methods.
+    skip_methods = ["specific_enthalpy", "thermal_conductivity"]
+    for method in fluid_methods:
+        if method in skip_methods:
+            continue
+        # Get method in callable form.
+        callable_method = getattr(model.fluid, method)
+
+        # Retrieve method signature via inspect.
+        try:
+            signature = inspect.signature(callable_method)
+        except TypeError:
+            continue
+
+        # Append method to the `testable_methods` list if the conditions are met.
+        if (
+            len(signature.parameters) == 1
+            and (
+                "subdomains" in signature.parameters
+                or "interfaces" in signature.parameters
+                or "domains" in signature.parameters
+            )
+            and (
+                "pp.ad.Operator" in signature.return_annotation
+                or "pp.ad.DenseArray" in signature.return_annotation
+            )
+        ):
+            testable_fluid_methods.append(f"fluid.{method}")
+
+    # The fluid is represented by a reference phase, whose saturation is 1. I.e., it's
+    # thermodynamic properties are equal to the fluid properties.
+    phase_methods = [
+        method
+        for method in dir(model.fluid.reference_phase)
+        if not method.startswith("_")
+    ]
+    testable_phase_methods: list[str] = []
+    for method in phase_methods:
+        if method in skip_methods:
+            continue
+        # Get method in callable form.
+        callable_method = getattr(model.fluid.reference_phase, method)
+
+        # Retrieve method signature via inspect.
+        try:
+            signature = inspect.signature(callable_method)
+        except TypeError:
+            continue
+
+        # Append method to the `testable_methods` list if the conditions are met.
+        if (
+            len(signature.parameters) == 1
+            and (
+                "subdomains" in signature.parameters
+                or "interfaces" in signature.parameters
+                or "domains" in signature.parameters
+            )
+            and (
+                "pp.ad.Operator" in signature.return_annotation
+                or "pp.ad.DenseArray" in signature.return_annotation
+            )
+        ):
+            testable_phase_methods.append(f"fluid.reference_phase.{method}")
+
+    return testable_methods + testable_fluid_methods + testable_phase_methods

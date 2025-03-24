@@ -222,7 +222,7 @@ def plot_wells(
         else:
             raise NotImplementedError("Have not thought of more than six colors")
 
-    # Setup figure and plot the domain
+    # Set up figure and plot the domain.
     plt.figure(kwargs.get("fig_id", 1))
     box_data: tuple[float, float, float, float] = (
         d.bounding_box["xmin"],

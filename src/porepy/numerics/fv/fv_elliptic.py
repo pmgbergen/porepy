@@ -85,26 +85,26 @@ class FVElliptic(Discretization):
         flux = matrix_dictionary[self.flux_matrix_key]
         bound_flux = matrix_dictionary[self.bound_flux_matrix_key]
 
-        div = pp.fvutils.scalar_divergence(sd)
+        div = sd.divergence(dim=1)
 
         # Assemble matrix.
         if flux.shape[0] != sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
-            flux = hf2f * flux
-        matrix = div * flux
+            flux = hf2f @ flux
+        matrix = div @ flux
 
         # Assemble right-hand side.
         if sd.dim > 0 and bound_flux.shape[0] != sd.num_faces:
             hf2f = pp.fvutils.map_hf_2_f(nd=1, sd=sd)
-            bound_flux = hf2f * bound_flux
+            bound_flux = hf2f @ bound_flux
 
-        rhs = -div * bound_flux * parameter_dictionary["bc_values"]
+        rhs = -div @ bound_flux @ parameter_dictionary["bc_values"]
 
         # Also assemble vector sources if discretization of the vector source term if
         # specified.
         if "vector_source" in parameter_dictionary:
             vector_source_discr = matrix_dictionary[self.vector_source_matrix_key]
             vector_source = parameter_dictionary.get("vector_source")
-            rhs -= div * vector_source_discr * vector_source
+            rhs -= div @ vector_source_discr @ vector_source
 
         return matrix, rhs

@@ -1,4 +1,5 @@
 """Test functionality related to plane_fracture module."""
+
 import numpy as np
 import pytest
 

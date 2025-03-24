@@ -167,16 +167,7 @@ class PlaneFracture(Fracture):
             self.orig_pts = self.pts
 
     def is_convex(self) -> bool:
-        """See parent class docs.
-
-        Todo:
-            If a hanging node is inserted at a segment, this may slightly
-            violate convexity due to rounding errors. It should be possible to
-            write an algorithm that accounts for this. First idea: Project
-            point onto line between points before and after, if the projection
-            is less than a tolerance, it is okay.
-
-        """
+        """See parent class docs."""
         if self.pts.shape[1] == 3:
             # A triangle is always convex
             return True

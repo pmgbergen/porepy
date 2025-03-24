@@ -9,6 +9,7 @@ Functionalities being tested:
 * Generation of simplicial DFN meshes with dimension {2, 3}
 
 """
+
 from __future__ import annotations
 
 from typing import List, Union

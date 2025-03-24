@@ -70,6 +70,7 @@ S_s = 4.65e-6 m^-1 = 4.65e-6 / (rho_water * g) Pa^-1 = 4.74e-10 Pa^-1.
 """
 
 granite = {
+    "name": "granite",
     "biot_coefficient": 0.47,  # [-]
     "density": 2683.0,  # [kg * m^-3]
     "friction_coefficient": 0.6,  # [-]
@@ -148,6 +149,7 @@ Chose the average value of the estimate provided in table 6.
 """
 
 basalt = {
+    "name": "basalt",
     "biot_coefficient": 0.35,  # [-]
     "density": 2950.0,  # [kg * m^-3]
     "friction_coefficient": 0.7,  # [-]
@@ -179,10 +181,13 @@ extended_granite_values_for_testing.update(
         "maximum_elastic_fracture_opening": 1e-3,  # [m]
         "normal_permeability": 5.0e-15,  # [m^2]
         "residual_aperture": 1e-3,  # [m]
-        "skin_factor": 37,  # [-]
-        "temperature": 293.15,  # [K]
+        "skin_factor": 37.0,  # [-]
         "well_radius": 0.1,  # [m]
     }
 )
 for n in ["lame_lambda", "shear_modulus"]:
-    extended_granite_values_for_testing[n] *= 1e-3  # Improve conditioning
+    # Because the dict contains a string value, mypy complains about multiplying an
+    # object with a float. The multiplied values are floats, so we can safely ignore.
+    extended_granite_values_for_testing[  # type: ignore
+        n
+    ] *= 1e-3  # Improve conditioning
