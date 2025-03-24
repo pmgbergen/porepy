@@ -204,7 +204,7 @@ class AnisotropicHistoryEquation(DamageHistoryEquation):
         u_t_increment: pp.ad.Operator = pp.ad.time_increment(u_t)
         # Prepare for taking the inner product sum.
         tangential_basis = self.basis(subdomains, dim=self.nd - 1)
-        tangential_to_scalar = pp.ad.sum_operator_list(
+        tangential_to_scalar = pp.ad.sum_projection_list(
             [e_i.T for e_i in tangential_basis]
         )
 
@@ -255,9 +255,7 @@ class AnisotropicHistoryEquation(DamageHistoryEquation):
         nd_vec_to_tangential = self.tangential_component(subdomains)
 
         u_t = nd_vec_to_tangential @ self.plastic_displacement_jump(subdomains)
-        scalar_to_tangential = pp.ad.sum_operator_list(
-            [e_i for e_i in tangential_basis]
-        )
+        scalar_to_tangential = pp.ad.sum_projection_list(tangential_basis)
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
         # TODO: Reconsider this function and its implementation.
         f_power = pp.ad.Function(
