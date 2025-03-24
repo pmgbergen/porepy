@@ -6,7 +6,7 @@ for representation of permeability and stiffness, respectively.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, cast, Self
+from typing import Optional, Self, cast
 
 import numpy as np
 
