@@ -293,7 +293,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         (
             # Tets permeability for the matrix domain. Should give the matrix
             # permeability. 9 * (nc = 32) entries of isotropic permeability.
-            models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
+            models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
             5.0e-18 * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
             2,
@@ -303,7 +303,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
             # the cubic law (i.e., aperture squared by 12, an aditional aperture scaling
             # to get the transmissivity is taken care of elsewhere). 9 * (nc = 6)
             # entries of isotropic permeability.
-            models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
+            models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
             0.01**2 / 12 * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
             1,
@@ -311,7 +311,7 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         (
             # Test the permeability for an intersection. The reasoning is the same as
             # for the 1-d domain. 9 entries of isotropic permeability.
-            models._add_mixin(c_l.CubicLawPermeability, models.MassBalance),
+            models.add_mixin(c_l.CubicLawPermeability, models.MassBalance),
             "permeability",
             0.01**2 / 12 * np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
             0,
@@ -319,21 +319,21 @@ reference_arrays = reference_dense_arrays["test_evaluated_values"]
         # Tests for mass weighted permeability are analogous to CubicPermeability, only
         # with a different scalar.
         (
-            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            models.add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
             mass_weighted_perm
             * reference_arrays["isotropic_second_order_tensor"][: 9 * 32],
             2,
         ),
         (
-            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            models.add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
             mass_weighted_perm
             * reference_arrays["isotropic_second_order_tensor"][: 9 * 6],
             1,
         ),
         (
-            models._add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
+            models.add_mixin(c_l.MassWeightedPermeability, models.MassBalance),
             "permeability",
             mass_weighted_perm * np.array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
             0,
@@ -578,18 +578,37 @@ class PoromechanicalTestDiffTpfa(
             + e_yy @ self.pressure(subdomains) ** 2
         )
 
-    def initial_condition(self):
-        """Set the initial condition for the problem.
+    def ic_values_pressure(self, sd) -> np.ndarray:
+        if sd.dim == 1:
+            # Set the pressure variable in the 1d domain: The pressure is 2 in the leftmost
+            # fracture cell, 0 in the rightmost fracture cell. This should give a flux
+            # pointing to the right.
+            if np.diff(sd.cell_centers[0])[0] > 0:
+                p = np.array([2, 0])
+            else:
+                p = np.array([0, 2])
 
-        The interface displacement is non-zero in the y-direction to trigger a non-zero
-        contribution from the derivative of the permeability with respect to the mortar
-        displacement.
-        """
-        super().initial_condition()
+            self.p_1d = p
+        elif sd.dim == 2:
+            # Set the pressure in the 2d grid
+            p = np.arange(sd.num_cells)
+            self.p_2d = p
+            self.global_p_2d_ind = self.equation_system.dofs_of([self.pressure([sd])])
 
-        # Fetch the mortar interface and the subdomains.
-        intf = self.mdg.interfaces()[0]
-        sd_2d, sd_1d = self.mdg.subdomains()
+        return p
+
+    def ic_values_interface_darcy_flux(self, intf: pp.MortarGrid) -> np.ndarray:
+        # Set the interface Darcy flux to unity on all mortar cells.
+        interface_flux = np.arange(intf.num_cells)
+        self.interface_flux = interface_flux
+        self.global_intf_ind = self.equation_system.dofs_of(
+            [self.interface_darcy_flux_variable]
+        )
+        return interface_flux
+
+    def ic_values_interface_displacement(self, intf: pp.MortarGrid) -> np.ndarray:
+        # Fetch the matrix
+        sd_2d = self.mdg.subdomains()[0]
 
         # Projection from the mortar to the primary grid, and directly from the mortar
         # cells to the high-dimensional cells. The latter uses an np.abs to avoid issues
@@ -608,9 +627,6 @@ class PoromechanicalTestDiffTpfa(
 
         # Define the full mortar displacement vector and set it in the equation system.
         u_mortar = np.vstack([u_mortar_x, u_mortar_y]).ravel("F")
-        self.equation_system.set_variable_values(
-            u_mortar, [self.interface_displacement_variable], iterate_index=0
-        )
 
         # Store the y-component of the mortar displacement, using a Cartesian ordering
         # of the mortar cells (i.e., the same as the ordering of the 2d cells).
@@ -624,39 +640,7 @@ class PoromechanicalTestDiffTpfa(
         r, *_ = sps.find(mortar_to_high_cell)
         self.global_dof_u_mortar_y = dof_u_mortar_y[r]
 
-        # Set the pressure variable in the 1d domain: The pressure is 2 in the leftmost
-        # fracture cell, 0 in the rightmost fracture cell. This should give a flux
-        # pointing to the right.
-        if np.diff(sd_1d.cell_centers[0])[0] > 0:
-            p_1d = np.array([2, 0])
-        else:
-            p_1d = np.array([0, 2])
-
-        p_1d_var = self.equation_system.get_variables(
-            [self.pressure_variable], grids=[sd_1d]
-        )
-        self.equation_system.set_variable_values(p_1d, p_1d_var, iterate_index=0)
-        self.p_1d = p_1d
-
-        # Set the interface Darcy flux to unity on all mortar cells.
-        interface_flux = np.arange(intf.num_cells)
-        self.equation_system.set_variable_values(
-            interface_flux, [self.interface_darcy_flux_variable], iterate_index=0
-        )
-        self.interface_flux = interface_flux
-
-        # Set the pressure in the 2d grid
-        p_2d_var = self.equation_system.get_variables(
-            [self.pressure_variable], grids=[sd_2d]
-        )
-        p_2d = np.arange(sd_2d.num_cells)
-        self.equation_system.set_variable_values(p_2d, p_2d_var, iterate_index=0)
-        self.p_2d = p_2d
-
-        self.global_intf_ind = self.equation_system.dofs_of(
-            [self.interface_darcy_flux_variable]
-        )
-        self.global_p_2d_ind = self.equation_system.dofs_of(p_2d_var)
+        return u_mortar
 
 
 @pytest.mark.parametrize("base_discr", ["tpfa", "mpfa"])
