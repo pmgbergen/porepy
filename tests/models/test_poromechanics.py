@@ -31,38 +31,27 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
         domain_sides = self.domain_boundary_sides(sd)
         return pp.BoundaryCondition(sd, domain_sides.north + domain_sides.south, "dir")
 
-    def initial_condition(self):
-        """Set initial condition.
+    def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
+        # Initial pressure equals reference pressure.
+        return self.reference_variable_values.pressure * np.ones(sd.num_cells)
 
-        Set initial displacement compatible with fracture gap for matrix subdomain and
-        matrix-fracture interface. Also initialize boundary conditions to fracture gap
-        value on top half of the matrix.
-
-        """
-        super().initial_condition()
-        # Initial pressure equals reference pressure (defaults to zero).
-        self.equation_system.set_variable_values(
-            self.reference_variable_values.pressure
-            * np.ones(self.mdg.num_subdomain_cells()),
-            [self.pressure_variable],
-            time_step_index=0,
-            iterate_index=0,
-        )
-        sd = self.mdg.subdomains()[0]
-        # Initial displacement.
+    def ic_values_displacement(self, sd: pp.Grid) -> np.ndarray:
+        # Set initial displacement compatible with fracture gap for matrix subdomain.
         if len(self.mdg.subdomains()) > 1:
             top_cells = sd.cell_centers[1] > self.units.convert_units(0.5, "m")
             vals = np.zeros((self.nd, sd.num_cells))
             vals[1, top_cells] = self.solid.fracture_gap
-            self.equation_system.set_variable_values(
-                vals.ravel("F"),
-                [self.displacement_variable],
-                time_step_index=0,
-                iterate_index=0,
-            )
-            # Find mortar cells on the top boundary
-            intf = self.mdg.interfaces()[0]
-            # Identify by normal vector in sd_primary
+            return vals.ravel("F")
+        else:
+            # Call super to return expected trivial values, because this class is used
+            # in other test cases as well.
+            return super().ic_values_displacement(sd)
+
+    def ic_values_interface_displacement(self, intf: pp.MortarGrid) -> np.ndarray:
+        # Set initial displacement compatible with fracture gap for matrix-fracture
+        # interface.
+        if len(self.mdg.subdomains()) > 1:
+            sd = self.mdg.subdomains()[0]
             faces_primary = intf.primary_to_mortar_int().tocsr().indices
             switcher = pp.grid_utils.switch_sign_if_inwards_normal(
                 sd,
@@ -81,12 +70,11 @@ class NonzeroFractureGapPoromechanics(pp.PorePyModel):
             vals[1, top_cells] = (
                 self.solid.fracture_gap + self.solid.maximum_elastic_fracture_opening
             )
-            self.equation_system.set_variable_values(
-                vals.ravel("F"),
-                [self.interface_displacement_variable],
-                time_step_index=0,
-                iterate_index=0,
-            )
+            return vals.ravel("F")
+        else:
+            # Call super to return expected trivial values, because this class is used
+            # in other test cases as well.
+            return super().ic_values_interface_displacement(intf)
 
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Fracture stress on interfaces.
