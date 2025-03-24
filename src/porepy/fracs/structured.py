@@ -2,10 +2,6 @@
 
 The functions in this module can be accessed through the meshing wrapper module.
 
-Todo:
-    Since this module contains only private methods, consider making the whole
-    module private.
-
 """
 
 from __future__ import annotations
@@ -321,8 +317,6 @@ def _create_lower_dim_grids_3d(
     # And tags identifying points and edges corresponding to normal fractures, domain
     # boundaries and subdomain boundaries. Only the entities corresponding to normal
     # fractures should actually be gridded.
-
-    # TODO: Constraints have not been implemented for structured DFM grids.
 
     # Simply pass nothing for now, not sure how do deal with this, or if it at all is
     # meaningful.

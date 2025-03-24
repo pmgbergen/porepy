@@ -445,7 +445,7 @@ def _update_face_cells(
         if j == i:
             # We hit the target neighbor.
             # Pick out the part of f_c to be used with this neighbor.
-            f_c_sliced = pp.matrix_operations.slice_mat(f_c, face_id)
+            f_c_sliced = pp.matrix_operations.slice_sparse_matrix(f_c, face_id)
             # The new face-cell relations are added to the end of the matrix (since
             # the faces were added to the end of the face arrays in the
             # higher-dimensional grid). Columns (face-indices in the higher
@@ -1012,10 +1012,6 @@ def _sort_sub_list(
 
     E.g., face-node maps in CSC format, which needs conversion to CSR.
 
-    Todo:
-        Check whether the **Returns** is properly documented. Currently, it should
-        only be consider a fair guess (at best).
-
     Parameters:
         indices: An array of indices in the CSC/CSR format of sparse matrices.
         indptr: CSC/CSR format index pointer array.
@@ -1033,11 +1029,22 @@ def _sort_sub_list(
 
     """
     ix = np.zeros(indices.size, dtype=int)
+    # NOTE: Comments below are given for a CSR matrix. If the matrix is CSC, the roles
+    # of rows and columns are reversed.
+    # Loop over all rows.
     for i in range(indptr.size - 1):
+        # Indices in the sparse storage associated with the current row.
         sub_ind = slice(indptr[i], indptr[i + 1])
+        # Find the sorting indices of the columns that are non-zero for this row. This
+        # will be a 0-offset array.
         loc_ix = np.argsort(indices[sub_ind])
+        # Update the global index array. Adding indptr[i] ensures that the indices have
+        # the right offset (i.e., they start at the right place in the global index
+        # array, and not on 0).
         ix[sub_ind] = loc_ix + indptr[i]
+    # Rearrange the indices to be sorted in each row.
     indices = indices[ix]
+    # Create a mapping from the sorted indices to the original indices.
     iv = np.zeros(indices.size, dtype=int)
     iv[ix] = np.arange(indices.size)
     return indices, iv
@@ -1075,13 +1082,9 @@ def _find_cell_color(sd: pp.Grid, cells: np.ndarray) -> np.ndarray:
     c = np.sort(cells)
     # Local cell-face and face-node maps.
     assert sd.cell_faces.getformat() == "csc"
-    cell_faces = pp.matrix_operations.slice_mat(sd.cell_faces, c)
+    cell_faces = pp.matrix_operations.slice_sparse_matrix(sd.cell_faces, c)
     child_cell_ind = -np.ones(sd.num_cells, dtype=int)
     child_cell_ind[c] = np.arange(cell_faces.shape[1])
-
-    # Create a copy of the cell-face relation, so that we can modify it at will.
-    # RB: I don't think this is necessary as slice_mat creates a copy cell_faces =
-    # cf_sub.copy()
 
     # Direction of normal vector does not matter here, only 0s and 1s
     cell_faces.data = np.abs(cell_faces.data)

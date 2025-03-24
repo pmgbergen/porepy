@@ -198,7 +198,7 @@ else:
 
         def basis(
             self, grids: Sequence[pp.GridLike], dim: int
-        ) -> list[pp.ad.SparseArray]:
+        ) -> list[pp.ad.Projection]:
             """Return a cell-wise basis for all subdomains.
 
             The basis is represented as a list of matrices, each of which represents a
@@ -230,7 +230,7 @@ else:
 
         def e_i(
             self, grids: Sequence[pp.GridLike], *, i: int, dim: int
-        ) -> pp.ad.SparseArray:
+        ) -> pp.ad.Projection:
             """Return a cell-wise basis function in a specified dimension.
 
             It is assumed that the grids are embedded in a space of dimension dim and
@@ -257,8 +257,7 @@ else:
                 dim: Dimension of the functions.
 
             Returns:
-                pp.ad.SparseArray: Ad representation of a matrix with the basis
-                functions as columns.
+                Ad projection that represents a basis function.
 
             Raises:
                 ValueError: If i is larger than dim - 1.
@@ -283,7 +282,7 @@ else:
 
             """
 
-        def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.SparseArray:
+        def normal_component(self, subdomains: list[pp.Grid]) -> pp.ad.Projection:
             """Compute the normal component of a vector field.
 
             The normal space is defined according to the local coordinates of the
@@ -300,9 +299,9 @@ else:
                 subdomains: List of grids on which the vector field is defined.
 
             Returns:
-                Matrix extracting normal component of the vector field and expressing it
-                in normal basis. The size of the matrix is `(Nc, Nc * self.nd)`, where
-                `Nc` is the total number of cells in the subdomains.
+                Projection extracting normal component of the vector field and
+                expressing it in normal basis. The size of the projection is `(Nc, Nc *
+                self.nd)`, where `Nc` is the total number of cells in the subdomains.
 
             """
 
