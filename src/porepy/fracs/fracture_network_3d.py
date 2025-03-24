@@ -1024,7 +1024,7 @@ class FractureNetwork3d(object):
         )
 
         # We now need to find points that occur in multiple places
-        p_unique, _, all_2_unique_p = pp.array_operations.uniquify_point_set(
+        p_unique, _, all_2_unique_p = pp.array_operations.unique_vectors_tol(
             all_p, tol=self.tol * np.sqrt(3)
         )
 
@@ -1211,7 +1211,7 @@ class FractureNetwork3d(object):
             # Add the new points towards the end of the list.
             all_p = np.hstack((all_p, p_add_3d))
 
-            new_all_p, _, ia = pp.array_operations.uniquify_point_set(all_p, self.tol)
+            new_all_p, _, ia = pp.array_operations.unique_vectors_tol(all_p, self.tol)
 
             # Handle case where the new point is already represented in the global
             # list of points.
@@ -2539,7 +2539,7 @@ class FractureNetwork3d(object):
                         unique_candidates,
                         _,
                         o2n,
-                    ) = pp.array_operations.uniquify_point_set(candidates, self.tol)
+                    ) = pp.array_operations.unique_vectors_tol(candidates, self.tol)
 
                     # Make arrays for points along the segment (originally the
                     # endpoints), and for the auxiliary points

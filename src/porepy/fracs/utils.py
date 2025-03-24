@@ -76,7 +76,7 @@ def uniquify_points(
     """
 
     # uniquify points based on coordinates
-    p_unique, _, o2n = pp.array_operations.unique_columns_tol(pts, tol=tol)
+    p_unique, _, o2n = pp.array_operations.unique_vectors_tol(pts, tol=tol)
     # update edges
     e_unique_p = np.vstack((o2n[edges[:2]], edges[2:]))
 
