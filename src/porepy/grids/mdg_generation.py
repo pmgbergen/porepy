@@ -687,16 +687,19 @@ def create_mdg(
 
                 import porepy as pp import numpy as np
 
-                # Set a domain domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0,
-                "ymax": 1})
+                # Set a domain
+                domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})
 
-                # Generate a fracture network frac_1 = pp.LineFracture(np.array([[0.2,
-                0.8], [0.5, 0.5]])) frac_2 = pp.LineFracture(np.array([[0.5, 0.5], [0.1,
-                0.9]])) fractures = [frac_1, frac_2] fracture_network =
-                pp.create_fracture_network(fractures, domain)
+                # Generate a fracture network
+                frac_1 = pp.LineFracture(np.array([[0.2, 0.8], [0.5, 0.5]]))
 
-                # Generate a mixed-dimensional grid (MDG) meshing_args = {"cell_size":
-                0.1} mdg = pp.create_mdg("simplex", meshing_args, fracture_network)
+                frac_2 = pp.LineFracture(np.array([[0.5, 0.5], [0.1, 0.9]]))
+                fractures = [frac_1, frac_2]
+                fracture_network = pp.create_fracture_network(fractures, domain)
+
+                # Generate a mixed-dimensional grid (MDG)
+                meshing_args = {"cell_size": 0.1}
+                mdg = pp.create_mdg("simplex", meshing_args, fracture_network)
 
         See Also:
             - :meth:`~porepy.fracs.fracture_network_2d.FractureNetwork2d.mesh`
@@ -711,22 +714,19 @@ def create_mdg(
             meshing_args: A dictionary with meshing keys depending on each grid_type:
                 if grid_type == "simplex"
                     cell_size: ``float``: Overall target cell size. It is required, if
-                    one
-                        of [cell_size_min, cell_size_fracture, cell_size_boundary] is
-                        not provided.
+                        one of [cell_size_min, cell_size_fracture, cell_size_boundary]
+                        is not provided.
                     cell_size_min: ``float``: minimum cell size. If not provided,
                         cell_size will be used for completeness.
                     cell_size_fracture: ``float``: target mesh size close to the
-                    fracture.
-                        If not provided, cell_size will be used for completeness.
+                        fracture. If not provided, cell_size will be used for
+                        completeness.
                     cell_size_boundary: ``float``: target mesh size close to the
-                    external
-                        boundaries (can be seen as a far-field value). If not provided,
-                        cell_size will be used for completeness.
+                        external boundaries (can be seen as a far-field value). If not
+                        provided, cell_size will be used for completeness.
                 if grid_type == "cartesian"
                     cell_size: ``float``: side length of the grid elements (squares in
-                    2d
-                        and cubes 3d). It is required, if one of [cell_size_x,
+                        2d and cubes 3d). It is required, if one of [cell_size_x,
                         cell_size_y , cell_size_z] is not provided.
                     cell_size_x: ``float``: size in x-direction. If cell_size_x is
                         provided, it overwrites cell_size in the x-direction.
@@ -738,20 +738,17 @@ def create_mdg(
                     cell_size: ``float``: size in all directions. It is required, if one
                         of [x_pts, y_pts, z_pts] is not provided.
                     x_pts: ``np.ndarray``: points in x-direction. The points
-                    np.min(x_pts)
-                        , np.max(x_pts) must be on the boundary. If x_pts is provided,
-                        it overwrites the information computed from cell_size in the
-                        x-direction.
+                        np.min(x_pts), np.max(x_pts) must be on the boundary. If x_pts
+                        is provided, it overwrites the information computed from
+                        cell_size in the x-direction.
                     y_pts: ``np.ndarray``: points in y-direction. The points
-                    np.min(y_pts)
-                        , np.max(y_pts) must be on the boundary. If y_pts is provided,
-                        it overwrites the information computed from cell_size in the
-                        y-direction.
+                        np.min(y_pts), np.max(y_pts) must be on the boundary. If y_pts
+                        is provided, it overwrites the information computed from
+                        cell_size in the y-direction.
                     z_pts: ``np.ndarray``: points in z-direction. The points
-                    np.min(z_pts)
-                        , np.max(z_pts) must be on the boundary. If z_pts is provided,
-                        it overwrites the information computed from cell_size in the
-                        z-direction.
+                        np.min(z_pts), np.max(z_pts) must be on the boundary. If z_pts
+                        is provided, it overwrites the information computed from
+                        cell_size in the z-direction.
             fracture_network: fracture network specification. **kwargs: A dictionary
             with extra meshing keys associated with each grid_type:
                 if grid_type == "simplex" see signature for the `mesh` function in:
@@ -761,8 +758,7 @@ def create_mdg(
                         subregions of the domain (and assign e.g., sources, material
                         properties, etc.).
                     dfn: ``bool``: Defaults to False. Directive for generating a DFN
-                    mesh.
-                        Providing True activates the directive.
+                        mesh. Providing True activates the directive.
                 if grid_type == "simplex" or "tensor_grid":
                     offset: ``float``: Defaults to 0. Parameter that quantifies a
                         perturbation to nodes around the faces that are split. NOTE:
