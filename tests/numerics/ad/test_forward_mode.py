@@ -1,8 +1,8 @@
-"""Collection of unit tests for the automatic differentiation forward mode. For the class
-AdArray, tests are being conducted on the public attributes self.val, self.jac, and
-self.copy. The tests also cover the initialization of AdArray (joint initiation of
-multiple dependent variables) and the arithmetic operations implemented in AdArray, e.g.,
-add, sub, etc., which are also covered in other tests.
+"""Collection of unit tests for the automatic differentiation forward mode. For the
+class AdArray, tests are being conducted on the public attributes self.val, self.jac,
+and self.copy. The tests also cover the initialization of AdArray (joint initiation of
+multiple dependent variables) and the arithmetic operations implemented in AdArray,
+e.g., add, sub, etc., which are also covered in other tests.
 
 """
 
@@ -276,9 +276,9 @@ def test_get_set_slice_ad_var(index, index_c):
 )
 def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | AdArray):
     """Logical operations on Ad arrays are implemented such that they operate only on
-    values, making them completely equivalent to what numpy does. This test is based on that
-    premise: Logical operations on AdArrays should yield results identical to operations on
-    numpy arrays.
+    values, making them completely equivalent to what numpy does. This test is based
+    onthat premise: Logical operations on AdArrays should yield results identical to
+    operations on numpy arrays.
 
     Test that they work and that the result of the logical operation is doing the same
     as numpy for ``.val`` only.
