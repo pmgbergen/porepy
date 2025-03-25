@@ -294,7 +294,23 @@ def unique_rows(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return unique, idx, inverse
 
 
-def unique_columns(data: np.ndarray, preserve_order: bool = True):
+def unique_columns(
+    data: np.ndarray, preserve_order: bool = True
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Finds unique columns in a 2D numpy array.
+
+    Parameters:
+        data: The numpy array that we want to find unique columns in.
+        preserve_order: If True, the order of the columns will be preserved. If False,
+            they will not necessarily be preserved.
+
+    Returns:
+        Tuple containing:
+            An array of the unique columns.
+            An array of the mapping between the new and old collection of columns.
+            An array of the mapping between the old and new collection of columns.
+
+    """
     assert np.issubdtype(data.dtype, np.integer), data
     un_ar, new_2_old, old_2_new = np.unique(
         data, axis=1, return_index=True, return_inverse=True
@@ -678,7 +694,7 @@ def unique_vectors_tol(vectors: np.ndarray, tol: float):
         new_2_old[num_unique : num_unique + unique_size_inner] = new_2_old_inner
         old_2_new[
             sorted_idx[np.arange(cluster_start, cluster_start + cluster_size)]
-        ] = (old_2_new_inner + num_unique)
+        ] = old_2_new_inner + num_unique
 
         # Updating the counters.
         num_unique += unique_size_inner
