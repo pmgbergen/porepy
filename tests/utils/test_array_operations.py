@@ -264,6 +264,61 @@ def test_intersect_sets(data):
 @pytest.mark.parametrize(
     "params",
     [
+        # Array with only unique columns.
+        {
+            "input": np.array([[16, 15, 18], [5, 16, 25]]),
+            "expected": (
+                np.array([[16, 15, 18], [5, 16, 25]]),
+                np.array([0, 1, 2]),
+                np.array([0, 1, 2]),
+            ),
+        },
+        # Array with one duplicate column.
+        {
+            "input": np.array([[3, 13, 15, 3, 12, 13], [15, 13, 14, 15, 21, 14]]),
+            "expected": (
+                np.array([[3, 13, 15, 12, 13], [15, 13, 14, 21, 14]]),
+                np.array([0, 1, 2, 4, 5]),
+                np.array([0, 1, 2, 0, 3, 4]),
+            ),
+        },
+        # Array with several duplicate columns.
+        {
+            "input": np.array([[1, 2, 3, 1, 3, 4], [2, 3, 4, 2, 4, 5]]),
+            "expected": (
+                np.array([[1, 2, 3, 4], [2, 3, 4, 5]]),
+                np.array([0, 1, 2, 5]),
+                np.array([0, 1, 2, 0, 2, 3]),
+            ),
+        },
+    ],
+)
+def test_unique_columns(params):
+    """Tests the function unique_columns.
+
+    Tests the following different cases:
+        1) An array with only unique columns.
+        2) An array with one duplicate column.
+        3) An array with two duplicate columns.
+
+    Parameters:
+        params: Dictionary which contains two keys: "input" and "expected". The "input"
+            key contains the 2D input array, while the "expected" key contains a tuple
+            of the expected outputs of the function unique_columns (array of unique
+            columns, mapping from new to old array and mapping from old to new array).
+
+    """
+    input_array = params["input"]
+    result = pp.array_operations.unique_columns(input_array)
+
+    assert np.all(result[0] == params["expected"][0])
+    assert np.all(result[1] == params["expected"][1])
+    assert np.all(result[2] == params["expected"][2])
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
         # Expand indices with C order.
         {
             "input": ([0, 1, 3], 3, "C"),
@@ -288,6 +343,21 @@ def test_intersect_sets(data):
     ],
 )
 def test_expand_indices_nd(params):
+    """Tests the function expand_indices_nd.
+
+    Tests the following different cases:
+        1) Expand array with C order.
+        2) Expand the array with the default order ("F").
+        3) Expand array with indices which are not sorted.
+        4) Expand array with decreasing indices.
+
+    Parameters:
+        params: Dictionary which contains two keys: "input" and "expected". The "input"
+        is a tuple containing the array we want to expand, the dimension we want to
+        expand it with and the order (Fortran or C). "expected" contains the array which
+        is expected to be returned by the function.
+
+    """
     inputs = params.get("input")
     ind = np.array(inputs[0])
     nd = inputs[1]
@@ -322,6 +392,21 @@ def test_expand_indices_nd(params):
     ],
 )
 def test_expand_indices_add_increment(params):
+    """Tests the function expand_indices_add_increment.
+
+    Tests the following different cases:
+        1) Repeat/Expand array three times with an added increment value of 200 for each
+           repetition.
+        2) Repeating/Expanding array with a zero increment value.
+        3) Repeating an array only once.
+
+    Parameters:
+        params: Dictionary which contains two keys: "input" and "expected". The "input"
+        is a tuple containing the array we want to expand, the dimension we want to
+        expand it with and the order (Fortran or C). The key "expected" contains the
+        array which we expect to be returned from the function.
+
+    """
     input_array = np.array(params["input"][0])
     n = params["input"][1]
     increment = params["input"][2]
