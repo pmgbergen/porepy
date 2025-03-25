@@ -261,7 +261,81 @@ def test_intersect_sets(data):
         assert np.allclose(e1, e2)
 
 
-@pytest.mark.parametrize("params",
+@pytest.mark.parametrize(
+    "params",
+    [
+        # Expand indices with C order.
+        {
+            "input": ([0, 1, 3], 3, "C"),
+            "expected": [0, 3, 9, 1, 4, 10, 2, 5, 11],
+        },
+        # Expand indices with non-specified order (should correspond to "F", which is
+        # default.)
+        {
+            "input": ([0, 1, 3], 3, None),
+            "expected": [0, 1, 2, 3, 4, 5, 9, 10, 11],
+        },
+        # Array with indices that are not sorted.
+        {
+            "input": ([9, 14, 7, 18, 9, 4], 2, "F"),
+            "expected": [18, 19, 28, 29, 14, 15, 36, 37, 18, 19, 8, 9],
+        },
+        # Array with decreasing indices.
+        {
+            "input": ([25, 21, 18, 1], 3, "F"),
+            "expected": [75, 76, 77, 63, 64, 65, 54, 55, 56, 3, 4, 5],
+        },
+    ],
+)
+def test_expand_indices_nd(params):
+    inputs = params.get("input")
+    ind = np.array(inputs[0])
+    nd = inputs[1]
+    order = params["input"][2]
+    if order is None:
+        result = pp.array_operations.expand_indices_nd(ind=ind, nd=nd)
+    else:
+        result = pp.array_operations.expand_indices_nd(ind=ind, nd=nd, order=order)
+    expected = np.array(params["expected"])
+
+    assert np.all(result == expected)
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        # Repeat array 3 times and add increment of 200.
+        {
+            "input": ([0, 1, 3], 3, 200),
+            "expected": [0, 200, 400, 1, 201, 401, 3, 203, 403],
+        },
+        # No increment is added. The original array is thus just expanded.
+        {
+            "input": ([0, 1, 3], 4, 0),
+            "expected": [0, 0, 0, 0, 1, 1, 1, 1, 3, 3, 3, 3],
+        },
+        # Repeat only once, but add increment. This should result in the original array.
+        {
+            "input": ([0, 1, 3], 1, 5),
+            "expected": [0, 1, 3],
+        },
+    ],
+)
+def test_expand_indices_add_increment(params):
+    input_array = np.array(params["input"][0])
+    n = params["input"][1]
+    increment = params["input"][2]
+
+    result = pp.array_operations.expand_indices_add_increment(
+        x=input_array, n=n, increment=increment
+    )
+    expected = np.array(params["expected"])
+
+    assert np.all(result == expected)
+
+
+@pytest.mark.parametrize(
+    "params",
     [
         # Simple comparison of input (2 arrays) and expected output of mcolon.
         {
@@ -296,7 +370,7 @@ def test_intersect_sets(data):
             ),
             "expected_dtype": int,
         },
-    ]
+    ],
 )
 def test_mcolon(params: dict):
     a = np.array(params["input"][0])
