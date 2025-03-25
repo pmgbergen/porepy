@@ -295,7 +295,8 @@ class InterfaceDisplacementArray(pp.PorePyModel):
             interface: Single interface grid.
 
         Returns:
-            Array representing the displacement on the interface of shape (nd, num_cells).
+            Array representing the displacement on the interface of shape (nd,
+            num_cells).
 
         """
         return np.zeros((self.nd, interface.num_cells))

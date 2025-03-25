@@ -3,26 +3,22 @@ for 3D geometric searching and intersection problems.
 
 See the following works: 10.1002/nme.1620310102 and 10.1201/9781420050349 section 14.
 
-Let [a, b) be the interval that contains the points that we want to insert
-in a binary tree. We then divide the interval into two equal parts: all
-the points in the interval [a, (a+b)/2) will be inserted in the left
-subtree, while the points in the interval [(a+b)/2, b ) will be placed
-in the right subtree. The reasoning is then iterated to the next
-level for each subtree.
+Let [a, b) be the interval that contains the points that we want to insert in a binary
+tree. We then divide the interval into two equal parts: all the points in the interval
+[a, (a+b)/2) will be inserted in the left subtree, while the points in the interval
+[(a+b)/2, b ) will be placed in the right subtree. The reasoning is then iterated to the
+next level for each subtree.
 
-                    [0, 1)
-                    /    \
+                    [0, 1) /    \
                    /      \
                   /        \
-           [0, 0.5)         [0.5, 1)
-           /   |              |     \
+           [0, 0.5)         [0.5, 1) /   |              |     \
           /    |              |      \
          /     |              |       \
 [0, 0.25)   [0.25, 0.5)   [0.5, 0.75)  [0.75, 1)
 
-When inserting the following nodes
-A = 0.1, B = 0.6, C = 0.7, D = 0.8, E = 0.2 and F = 0.1
-in the tree, we get the following
+When inserting the following nodes A = 0.1, B = 0.6, C = 0.7, D = 0.8, E = 0.2 and F =
+0.1 in the tree, we get the following
 
                       A
                     /    \
@@ -32,34 +28,31 @@ in the tree, we get the following
                /   \      /   \
               F   -1     C     D
 
-The first element A is added as the root. The second element B check if its
-coordinate (in this case is a single value) is smaller than 0.5. If so, it goes
-on the left part of the tree starting from the root otherwise on the right part.
-Now, since B = 0.6 it goes on the right part. Now are with the node C,
-we need to check as before if its coordinate is smaller than 0.5 (so it goes on the left)
-or bigger than 0.5 (so it goes on the right). Since it is 0.7 it goes on the right and being
-already taken by B we need to go one level down. We check now if its coordinate is
-smaller (left) or bigger (right) than 0.75. Since it's smaller we proceed on the left
-part and being empty we add it. The insertion is not related to the parent but to
-which level and coordinate a node has. For the multi-dimension case we alternate
-the dimension by each level, so first we check the abscissa
-(again with left and right decided as before) and then the
-ordinate and so on. We detail a bit more here in the sequel.
+The first element A is added as the root. The second element B check if its coordinate
+(in this case is a single value) is smaller than 0.5. If so, it goes on the left part of
+the tree starting from the root otherwise on the right part. Now, since B = 0.6 it goes
+on the right part. Now are with the node C, we need to check as before if its coordinate
+is smaller than 0.5 (so it goes on the left) or bigger than 0.5 (so it goes on the
+right). Since it is 0.7 it goes on the right and being already taken by B we need to go
+one level down. We check now if its coordinate is smaller (left) or bigger (right) than
+0.75. Since it's smaller we proceed on the left part and being empty we add it. The
+insertion is not related to the parent but to which level and coordinate a node has. For
+the multi-dimension case we alternate the dimension by each level, so first we check the
+abscissa (again with left and right decided as before) and then the ordinate and so on.
+We detail a bit more here in the sequel.
 
-In the multi-dimensional case, the ADT is organized in the same way, but
-the subdivision takes place alternately for the various coordinates:
-if the structure must contain n-dimensional points, at the i-th level
-of the tree the subdivision is carried out with respect to the j-th
-coordinate, where j is the remainder of the i / n division.
-We immediately observe that the n-dimensional "points", the structure
-contains true points in 2 or 3 dimensions, and rectangles or
-parallelepipeds, which can be represented by "points" in 4 and 6
-dimensions, with the writing (xmin, ymin, zmin, xmax, ymax, zmax).
-Other geometrical objects are represented by their bounding box.
-To avoid floating point problems, all the "points" are rescaled in [0, 1].
+In the multi-dimensional case, the ADT is organized in the same way, but the subdivision
+takes place alternately for the various coordinates: if the structure must contain
+n-dimensional points, at the i-th level of the tree the subdivision is carried out with
+respect to the j-th coordinate, where j is the remainder of the i / n division. We
+immediately observe that the n-dimensional "points", the structure contains true points
+in 2 or 3 dimensions, and rectangles or parallelepipeds, which can be represented by
+"points" in 4 and 6 dimensions, with the writing (xmin, ymin, zmin, xmax, ymax, zmax).
+Other geometrical objects are represented by their bounding box. To avoid floating point
+problems, all the "points" are rescaled in [0, 1].
 
-A search in the tree gives a list of all possible nodes that may
-intersect the given one.
+A search in the tree gives a list of all possible nodes that may intersect the given
+one.
 
 """
 
@@ -72,34 +65,28 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 
 
 class ADTNode:
-    """
-    Simple bookkeeping class that contains the basic information of a tree node.
-
-    Attributes:
-        key (Any): any key related to the node
-        box (np.ndarray): the bounding box associated to the node
-        child (list): list of identification of right and left children, if a children is not
-            present is marked as -1.
-        parent (int): identification of the parent node, marked -1 if not present (the root
-            of a tree)
-
-    """
+    """Simple bookkeeping class that contains the basic information of a tree node."""
 
     def __init__(self, key: Any, box: np.ndarray) -> None:
         """Initialize the node.
-        The physical dimension associated to the node represents the dimension of the object.
-        For a 3d element is 3, for 2d elements is 2, for 1d elements is 1, for 0d elements
-        is 1. The latter can be seen as the degenerate case of a 1d element.
+        The physical dimension associated to the node represents the dimension of the
+        object. For a 3d element is 3, for 2d elements is 2, for 1d elements is 1, for
+        0d elements is 1. The latter can be seen as the degenerate case of a 1d element.
 
         Parameters:
             key (Any): The key associated to the node
             box (np.ndarray): The bounding box of the node
         """
         self.key: Any = key
+        """Any: The key associated to the node."""
         self.box: np.ndarray = np.atleast_1d(np.asarray(box))
-
+        """np.ndarray: The bounding box of the node."""
         self.child: List[int] = [-1, -1]
+        """List[int]: The identification of the right and left children. If no children
+        are present the value is -1."""
         self.parent: int = -1
+        """int: The identification of the parent node. If no parent is present, i.e.,
+        the Node is the root, the value is -1."""
 
     def __str__(self) -> str:
         """Implementation of __str__"""
@@ -134,42 +121,45 @@ class ADTNode:
 
 class ADTree:
     """
-    ADT structure, it is possible to fill the tree by giving a PorePy grid and then search for
-    possible intersections. The implementation does not include some features, like removing a
-    node, that are not used so far. Possible extensions in the future.
+    ADT structure, it is possible to fill the tree by giving a PorePy grid and then
+    search for possible intersections. The implementation does not include some
+    features, like removing a node, that are not used so far. Possible extensions in the
+    future.
 
     Attributes:
-        tree_dim (int): search dimension of the tree, typically (e.g., when a pp.Grid is
-            given) the double of the phys_dim
-        phys_dim (int): physical dimension of nodes in the tree, e.g., a 2d grid will have
-            phys_dim = 2
-        nodes (list): the list of nodes as ADTNode
-        region_min (float): to scale the bounding box of all the elements in [0, 1]^phys_dim
-            we need the minimum corner point of the all region
-        delta (float): a parameter to scale and get all the bounding box of the elements in
-            [0, 1]^phys_dim
+
         LEFT (int): define the index of the left child, being equal to 0
         RIGHT (int): define the index of the right child, being equal to 1
     """
 
     # Pre-defined ordering of left and right node
     LEFT: int = 0
+    """Define the index of the left child, being equal to 0."""
     RIGHT: int = 1
+    """Define the index of the right child, being equal to 1."""
 
     def __init__(self, tree_dim: int, phys_dim: int) -> None:
         """Initialize the tree, if the grid is given then the tree is filled.
 
         Parameters:
-            tree_dim (np.ndarray, optional): Set the tree dimension (typically the double of
-                the physical dimension)
-            tree_dim (np.ndarray, optional): Set the physical dimension
+            tree_dim: Set the tree dimension (typically the double of the physical
+                dimension).
+            phys_dim: Set the physical dimension.
         """
         self.tree_dim: int = tree_dim
+        """Search dimension of the tree, typically (e.g., when a pp.Grid is given) the
+        double of the phys_dim."""
         self.phys_dim: int = phys_dim
+        """Physical dimension of nodes in the tree, e.g., a 2d grid will have
+        phys_dim = 2."""
 
         self.nodes: List[ADTNode] = []
+        """The list of nodes as ADTNode."""
         self.region_min: float = 0.0
+        """To scale the bounding box of all the elements in [0, 1]^phys_dim."""
         self.delta: float = 1.0
+        """float: a parameter to scale and get all the bounding box of the elements in
+        [0, 1]^phys_dim."""
 
     def __str__(self) -> str:
         """Implementation of __str__"""
@@ -245,31 +235,31 @@ class ADTree:
             next_node_id = self.nodes[current_node_id].child[edge]
             level += 1
 
-        # The correct position has been found, add informations to its parent
+        # The correct position has been found, add informations to its parent.
         self.nodes[current_node_id].child[edge] = len(self.nodes)
 
-        # Add the new node to the list
+        # Add the new node to the list.
         node.parent = current_node_id
         self.nodes.append(node)
 
     def search(self, node: ADTNode, tol: float = 2.0e-6) -> np.ndarray:
-        """Search all possible nodes in the tree that might intersect with the input node.
-        The node is not added to the tree.
+        """Search all possible nodes in the tree that might intersect with the input
+        node. The node is not added to the tree.
 
         Parameters:
-            node (ADTNode): Input node
-            tol (float, optional): Geometrical tolerance to avoid floating point problems
+            node: Input node
+            tol: Geometrical tolerance to avoid floating point problems
 
         Returns:
-            nodes (np.ndarray): Sorted, by id, list of nodes id that might intersect the node
+            Nodes sorted, by id, list of nodes id that might intersect the node.
         """
 
-        # Enlarge the region to avoid floating point problems
+        # Enlarge the region to avoid floating point problems.
         box = node.box.copy()
         box[: self.phys_dim] = self._scale(box[: self.phys_dim]) - tol
         box[self.phys_dim :] = self._scale(box[self.phys_dim :]) + tol
 
-        # Origin of the sub-tree
+        # Origin of the sub-tree.
         origin = np.zeros(self.tree_dim, dtype=float)
 
         level = 0
@@ -327,7 +317,7 @@ class ADTree:
                     origin = info[1]
                     level = info[2] + 1
 
-                # Check if the subtree intersects the box. Otherwise set right_link = -1,
+                # Check if the subtree intersects the box. Otherwise set right_link=-1,
                 # pop new node from the stack and adjourn level.
                 #
                 # lev-1 is the level of the parent node, which directs the search.
@@ -375,7 +365,8 @@ class ADTree:
             which_nodes = np.unique(which_nodes)
 
         else:
-            # if only_cells is not specified consider all the cells and nodes of the mesh
+            # If only_cells is not specified consider all the cells and nodes of the
+            # mesh.
             which_cells = np.arange(self.g.num_cells)
             which_nodes = np.arange(self.g.num_nodes)
 
