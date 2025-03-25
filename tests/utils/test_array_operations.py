@@ -264,6 +264,82 @@ def test_intersect_sets(data):
 @pytest.mark.parametrize(
     "params",
     [
+        # Array with only unique rows.
+        {
+            "input": np.array(
+                [
+                    [3, 1, 20, 19],
+                    [12, 15, 22, 5],
+                    [20, 21, 14, 1],
+                    [1, 12, 15, 20],
+                ]
+            ),
+            # Note different ordering in the output array vs. the input array. TODO:
+            # Include preserve_order or not? This also affects the unique_columns test,
+            # which does have a preserve_order argument.
+            "expected": (
+                np.array(
+                    [
+                        [1, 12, 15, 20],
+                        [3, 1, 20, 19],
+                        [12, 15, 22, 5],
+                        [20, 21, 14, 1],
+                    ]
+                ),
+                np.array([3, 0, 1, 2]),
+                np.array([1, 2, 3, 0]),
+            ),
+        },
+        # Array with duplicate rows.
+        {
+            "input": np.array(
+                [
+                    [12, 15, 22, 5],
+                    [3, 1, 20, 19],
+                    [12, 15, 22, 5],
+                    [3, 1, 20, 19],
+                    [1, 12, 15, 20],
+                ]
+            ),
+            "expected": (
+                np.array(
+                    [
+                        [1, 12, 15, 20],
+                        [3, 1, 20, 19],
+                        [12, 15, 22, 5],
+                    ]
+                ),
+                np.array([4, 1, 0]),
+                np.array([2, 1, 2, 1, 0]),
+            ),
+        },
+    ],
+)
+def test_unique_rows(params):
+    """Tests the function unique_rows.
+
+        Tests the following different cases:
+        1) An array with only unique rows.
+        2) An array with two duplicate rows.
+
+    Parameters:
+        params: Dictionary which contains two keys: "input" and "expected". The "input"
+            key contains the 2D input array, while the "expected" key contains a tuple
+            of the expected outputs of the function unique_columns (array of unique
+            rows, mapping from new to old array and mapping from old to new array).
+
+    """
+    input_array = params["input"]
+    result = pp.array_operations.unique_rows(input_array)
+
+    assert np.all(result[0] == params["expected"][0])
+    assert np.all(result[1] == params["expected"][1])
+    assert np.all(result[2] == params["expected"][2])
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
         # Array with only unique columns.
         {
             "input": np.array([[16, 15, 18], [5, 16, 25]]),
