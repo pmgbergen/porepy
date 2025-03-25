@@ -23,21 +23,17 @@ except ImportError:
 
 def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
     """
-    Function to zero out columns in matrix A. Note that this function does not
-    change the sparcity structure of the matrix, it only changes the column
-    values to 0.
+    Function to zero out columns in matrix A. Note that this function does not change
+    the sparcity structure of the matrix, it only changes the column values to 0.
 
     The matrix is modified in place.
 
-    Parameter
-    ---------
-    A (scipy.sparse.spmatrix): A sparce matrix
-    cols (ndarray): A numpy array of columns that should be zeroed
+    Parameters:
+        A: A sparce matrix.
+        cols: A numpy array of columns that should be zeroed.
 
-    Return
-    ------
-    None
-
+    Returns:
+        None
 
     """
 
@@ -50,20 +46,17 @@ def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
 
 def zero_rows(A: sps.csr_matrix, rows: np.ndarray) -> None:
     """
-    Function to zero out rows in matrix A. Note that this function does not
-    change the sparcity structure of the matrix, it only changes the row
-    values to 0.
+    Function to zero out rows in matrix A. Note that this function does not change the
+    sparcity structure of the matrix, it only changes the row values to 0.
 
     The matrix is modified in place.
 
-    Parameter
-    ---------
-    A (scipy.sparse.spmatrix): A sparce matrix
-    rows (ndarray): A numpy array of columns that should be zeroed
+    Parameters:
+        A: A sparce matrix.
+        rows: A numpy array of rows that should be zeroed.
 
-    Return
-    ------
-    None
+    Returns:
+        None
 
     """
 
@@ -1313,9 +1306,9 @@ def invert_diagonal_blocks(
             parallel=True,
         )
         def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
-            # Construction of simple data structures (low complexity)
-            # Indices for block positions, flattened inverse block positions and nonzeros
-            # Expanded block positions
+            # Construction of simple data structures (low complexity). Indices for block
+            # positions, flattened inverse block positions and nonzeros. Expanded block
+            # positions.
             idx_blocks = np.cumsum(sz).astype(np.int32)
             # Expanded nonzero positions for flattened inverse blocks
             idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)

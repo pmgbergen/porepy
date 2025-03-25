@@ -14,11 +14,11 @@ def switch_sign_if_inwards_normal(
     normal that points into the grid.
 
     Parameters:
-        g (pp.Grid): Grid.
-        nd (int): Number of quantities per face; this will for instance be the
+        g: Grid.
+        nd: Number of quantities per face; this will for instance be the
             number of components in a face-vector.
-        faces (np.array-like of ints): Index for which faces to be considered. Should only
-            contain boundary faces.
+        faces: Index for which faces to be considered. Should only contain boundary
+            faces.
 
     Returns:
         sps.dia_matrix: Diagonal matrix which switches the sign of faces if the
@@ -48,68 +48,60 @@ def switch_sign_if_inwards_normal(
 def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
     """
     For a given grid compute the star shape center for each cell.
-    The algorithm computes the half space intersections of the spaces defined
-    by the cell faces and the face normals by using the method half_space_interior_point.
-    half_space_pt,
-    of the spaces defined by the cell faces and the face normals.
-    This is a wrapper method that operates on a grid.
 
-    Parameters
-    ----------
-    g: pp.Grid
-        the grid
-    as_nan: bool, optional
-        Decide whether to return nan as the new center for cells which are not
+    The algorithm computes the half space intersections of the spaces defined by the
+    cell faces and the face normals. This is a wrapper method that operates on a grid.
+
+    Parameters:
+        g: the grid.
+    as_nan: Decide whether to return nan as the new center for cells which are not
          star-shaped. Otherwise, an exception is raised (default behaviour).
 
-    Returns
-    -------
-    np.ndarray
-        The new cell centers.
+    Returns:
+        Array containing the new cell centers.
 
     """
-
-    # no need for 1d or 0d grids
+    # Nothing to do for 1d or 0d grids.
     if g.dim < 2:
         return g.cell_centers
 
-    # retrieve the faces and nodes
+    # Retrieve the faces and nodes.
     faces, _, sgn = sparse_array_to_row_col_data(g.cell_faces)
     nodes, _, _ = sparse_array_to_row_col_data(g.face_nodes)
 
-    # Shift the nodes close to the origin to avoid numerical problems when coordinates are
-    # too big
+    # Shift the nodes close to the origin to avoid numerical problems when coordinates
+    # are too big.
     xn = g.nodes.copy()
     xn_shift = np.average(xn, axis=1)
     xn -= np.tile(xn_shift, (xn.shape[1], 1)).T
 
-    # compute the star shape cell centers by constructing the half spaces of each cell
-    # given by its faces and related normals
+    # Compute the star shape cell centers by constructing the half spaces of each cell
+    # given by its faces and related normals.
     cell_centers = np.zeros((3, g.num_cells))
     for c in np.arange(g.num_cells):
         loc = slice(g.cell_faces.indptr[c], g.cell_faces.indptr[c + 1])
         faces_loc = faces[loc]
         loc_n = g.face_nodes.indptr[faces_loc]
-        # make the normals coherent
+        # Make the normals coherent.
         normal = np.multiply(
             sgn[loc], np.divide(g.face_normals[:, faces_loc], g.face_areas[faces_loc])
         )
 
         x0, x1 = xn[:, nodes[loc_n]], xn[:, nodes[loc_n + 1]]
         coords = np.concatenate((x0, x1), axis=1)
-        # compute a point in the half space intersection of all cell faces
+        # Compute a point in the half space intersection of all cell faces.
         try:
             cell_centers[:, c] = pp.half_space.half_space_interior_point(
                 normal, (x1 + x0) / 2.0, coords
             )
         except ValueError:
-            # the cell is not star-shaped
+            # The cell is not star-shaped.
             if as_nan:
                 cell_centers[:, c] = np.array([np.nan, np.nan, np.nan])
             else:
                 raise ValueError(
-                    "Cell not star-shaped impossible to compute the center."
+                    "Cell not star-shaped; impossible to compute the center."
                 )
 
-    # shift back the computed cell centers and return them
+    # Shift back the computed cell centers and return them.
     return cell_centers + np.tile(xn_shift, (g.num_cells, 1)).T
