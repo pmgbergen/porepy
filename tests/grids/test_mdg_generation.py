@@ -149,8 +149,8 @@ class TestMDGridGeneration:
             fracture_indices (list): combination of fractures
 
         Returns:
-            Union[pp.FractureNetwork2d, pp.FractureNetwork3d]: Collection of Fractures with
-            geometrical information
+            Union[pp.FractureNetwork2d, pp.FractureNetwork3d]: Collection of Fractures
+            with geometrical information
         """
 
         disjoint_fractures: list = None
@@ -267,8 +267,8 @@ class TestMDGridGeneration:
         "grid_type, domain_index, fracture_indices", test_parameters
     )
     def test_generation(self, grid_type, domain_index, fracture_indices) -> None:
-        """Test logic compares a mdg generated using pp.create_mdg with one not generated
-        with pp.create_mdg.
+        """Test logic compares a mdg generated using pp.create_mdg with one not
+        generated with pp.create_mdg.
         The function pp.create_mdg encapsulates the generation of an mdg by
         utilizing the input provided by the user and calling internal functions
         `fracture_network.mesh`, `pp.meshing.cart_grid` or `pp.meshing.tensor_grid`.
@@ -534,7 +534,7 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
 
         with pytest.raises(TypeError) as error_message:
             ref_msg = str(
-                "fracture_network must be FractureNetwork2d or FractureNetwork3d, not %r"
+                "fracture_network must be FractureNetwork2d or FractureNetwork3d not %r"
                 % type(complex(1, 2))
             )
             pp.create_mdg(grid_type, mesh_arguments, complex(1, 2))

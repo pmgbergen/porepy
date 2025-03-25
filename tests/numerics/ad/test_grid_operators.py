@@ -387,7 +387,8 @@ def test_mortar_projections(mdg, scalar, non_matching):
 @pytest.mark.parametrize("scalar", [True, False])
 def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
     """Three main functionalities being tested:
-    1) That we can create a boundary projection operator with the correct size and items.
+    1) That we can create a boundary projection operator with the correct size and
+        items.
     2) Specifically that the top-dimensional grid and one of the fracture grids
        contribute to the boundary projection operator, while the third has a projection
        matrix with zero rows.
