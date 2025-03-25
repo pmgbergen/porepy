@@ -2264,7 +2264,7 @@ def cached_method(func: Callable) -> Callable:
     `_operator_cache` attribute of the class instance.
 
     It is assumed that any arguments (both positional and keyword) to the function to be
-    decorated is either hashable, or a list. This covers all known use cases within the
+    decorated are either hashable, or a list. This covers all known use cases within the
     Ad module. If an unhashable argument is passed, a warning will be given, and the
     function will be called every time.
 
@@ -2286,6 +2286,9 @@ def cached_method(func: Callable) -> Callable:
         # IMPLEMENTATION NOTE: It is possible to extend the below if-else to handle more
         # cases, but this should be done as needed. The same applies to the keyword
         # arguments just below.
+
+        # Create a list to be converted to a tuple below. Append the arguments as they
+        # are, unless they are lists, in which case they are converted to tuples.
         args_as_tuples = []
         for arg in args:
             if isinstance(arg, list):
