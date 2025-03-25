@@ -534,8 +534,8 @@ class TestGenerationInconsistencies(TestMDGridGeneration):
 
         with pytest.raises(TypeError) as error_message:
             ref_msg = str(
-                "fracture_network must be FractureNetwork2d or FractureNetwork3d not %r"
-                % type(complex(1, 2))
+                "fracture_network must be FractureNetwork2d or FractureNetwork3d, not "
+                "%r" % type(complex(1, 2))
             )
             pp.create_mdg(grid_type, mesh_arguments, complex(1, 2))
         assert ref_msg in str(error_message.value)
