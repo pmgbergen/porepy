@@ -25,7 +25,7 @@ import os
 import time
 import warnings
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 compile_time = 0.0
 logging.basicConfig(level=logging.INFO)
@@ -354,9 +354,9 @@ class Geometry(pp.PorePyModel):
         self._domain = pp.Domain(
             {
                 "xmin": 0.0,
-                "xmax": self.units.convert_units(10.0, "m"),
+                "xmax": self.units.convert_units(100.0, "m"),
                 "ymin": 0.0,
-                "ymax": self.units.convert_units(2.0, "m"),
+                "ymax": self.units.convert_units(20.0, "m"),
             }
         )
 
@@ -420,7 +420,7 @@ class BoundaryConditions(pp.PorePyModel):
 
     _T_IN: float = InitialConditions._T_INIT
     _T_OUT: float = InitialConditions._T_INIT
-    _T_HEATED: float = InitialConditions._T_INIT + 50.0
+    _T_HEATED: float = InitialConditions._T_INIT + 20.0
 
     _z_IN: dict[str, float] = {
         "H2O": InitialConditions._z_INIT["H2O"] - 0.095,
@@ -608,9 +608,9 @@ flash_params = {
 }
 
 time_manager = pp.TimeManager(
-    schedule=[0, 1 * pp.DAY],
+    schedule=[0, 1 * pp.YEAR],
     dt_init=pp.MINUTE * t_scale,
-    dt_min_max=(pp.MINUTE * 1 / 2 * t_scale, pp.HOUR),
+    dt_min_max=(pp.MINUTE / 2 * t_scale, 30 * pp.DAY),
     iter_max=max_iterations,
     iter_optimal_range=(4, 7),
     iter_relax_factors=(0.9, 1.3),
@@ -641,10 +641,10 @@ params = {
     "rediscretize_fourier_flux": fractional_flow,
     "rediscretize_darcy_flux": fractional_flow,
     "material_constants": material_constants,
-    "grid_type": "cartesian",
+    "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 1e0,
-        "cell_size_fracture": 0.5,
+        "cell_size": 5e-1,
+        "cell_size_fracture": 5e-1,
     },
     "time_manager": time_manager,
     "max_iterations": max_iterations,
