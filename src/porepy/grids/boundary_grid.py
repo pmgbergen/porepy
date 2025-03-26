@@ -88,6 +88,14 @@ class BoundaryGrid:
 
         """
 
+        self.cell_normals: np.ndarray
+        """Normals of cells of the boundary grid. Remember that boundary grid cells are
+        faces of the parent grid. Thus, it stores normals of boundary faces.
+
+        Initialized in :meth:`~compute_geometry`.
+
+        """
+
     def compute_geometry(self) -> None:
         """Compute the geometry of the boundary grid.
 
