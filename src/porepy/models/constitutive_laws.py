@@ -2723,6 +2723,9 @@ class GravityForce(pp.PorePyModel):
     """Callable returning the solid density on some subdomains.
     See e.g.,:class:`ConstantSolidDensity`."""
 
+    porosity: Callable[[list[pp.Grid] | list[pp.MortarGrid]], pp.ad.Operator]
+    """Callable returning the porosity. See e.g.,:class:`ConstantPorosity`."""
+
     def gravity_force(
         self,
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
