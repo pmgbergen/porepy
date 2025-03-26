@@ -719,7 +719,7 @@ class SolutionStrategyFlash(pp.PorePyModel):
             assert isinstance(
                 self.fluid.reference_phase.eos, pp.compositional.EoSCompiler
             ), "EoS of phases must be instance of EoSCompiler."
-            self.flash.compile()
+            self.flash.compile(*self.params.get("flash_compiler_args", tuple()))
 
     def update_thermodynamic_properties_of_phases(self) -> None:
         """The solution strategy for CF with LE uses this step of the
