@@ -2736,7 +2736,8 @@ class GravityForce(pp.PorePyModel):
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
                 defined.
-            material: Name of the material. Could be either "fluid" or "solid".
+            material: Name of the material. Could be either "fluid", "solid", or
+                "bulk".
 
         Returns:
             Cell-wise nd-vector representing the gravity force [kg*s^-2*m^-2].
@@ -2776,14 +2777,14 @@ class ZeroGravityForce(pp.PorePyModel):
     def gravity_force(
         self,
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
-        material: Literal["fluid", "solid"],
+        material: Literal["fluid", "solid", "bulk"],
     ) -> pp.ad.Operator:
         """Gravity force term on either subdomains or interfaces.
 
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
                 defined.
-            material: Name of the material. Could be either "fluid" or "solid".
+            material: Name of the material. Could be either "fluid", "solid", "bulk".
 
         Returns:
             Cell-wise nd-vector representing the gravity force.
