@@ -2752,10 +2752,10 @@ class GravityForce(pp.PorePyModel):
         elif material == "solid":
             rho = self.solid_density(grids)
         elif material == "bulk":
-            phi = self.porosity(cast(pp.SubdomainsOrBoundaries, grids))
+            phi = self.porosity(grids)
             rho_f = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
             rho_s = self.solid_density(grids)
-            rho = pp.ad.Scalar(1.0) * (phi * rho_f + (1 - phi) * rho_s)
+            rho = phi * rho_f + (pp.ad.Scalar(1.0) - phi) * rho_s
         else:
             raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
