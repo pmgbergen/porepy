@@ -976,23 +976,6 @@ else:
             """
             pass
 
-        def plastic_displacement_jump(
-            self, subdomains: list[pp.Grid]
-        ) -> pp.ad.Operator:
-            """The plastic component of the displacement jump.
-
-            The plastic displacement jump is the difference between the total displacement
-            jump and the elastic displacement jump.
-
-            Parameters:
-                subdomains: List of fracture subdomains.
-
-            Returns:
-                Operator representing the plastic displacement jump.
-
-            """
-            pass
-
         def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
             """Discretization of Darcy's law.
 
