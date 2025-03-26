@@ -71,6 +71,20 @@ class EquationsPoromechanics(
 ):
     """Combines mass and momentum balance and contact mechanics equations."""
 
+    def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Body force integrated over the subdomain cells.
+
+        Parameters:
+            subdomains: List of subdomains where the body force is defined.
+
+        Returns:
+            Operator for the body force [kg*m*s^-2].
+
+        """
+        return self.volume_integral(
+            self.gravity_force(subdomains, "bulk"), subdomains, dim=self.nd
+        )
+
 
 class VariablesPoromechanics(
     pp.momentum_balance.VariablesMomentumBalance,

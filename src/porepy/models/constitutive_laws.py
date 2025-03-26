@@ -2726,7 +2726,7 @@ class GravityForce(pp.PorePyModel):
     def gravity_force(
         self,
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
-        material: Literal["fluid", "solid"],
+        material: Literal["fluid", "solid", "bulk"],
     ) -> pp.ad.Operator:
         """Gravity force term on either subdomains or interfaces.
 
@@ -2747,6 +2747,11 @@ class GravityForce(pp.PorePyModel):
             rho = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
         elif material == "solid":
             rho = self.solid_density(grids)
+        elif material == "bulk":
+            phi = self.porosity(cast(pp.SubdomainsOrBoundaries, grids))
+            rho_f = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
+            rho_s = self.solid_density(grids)
+            rho = pp.ad.Scalar(1.0) * (phi * rho_f + (1 - phi) * rho_s)
         else:
             raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
