@@ -93,12 +93,13 @@ class BoundaryGrid:
 
         Compute the cell centers and volumes of the boundary grid. By default, the
         boundary grid cell information is constructed from the domain boundary faces of
-        theparent grid.
+        the parent grid.
 
         """
         parent_boundary = self._parent.tags["domain_boundary_faces"]
         self.cell_centers = self._parent.face_centers[:, parent_boundary]
         self.cell_volumes = self._parent.face_areas[parent_boundary]
+        self.cell_normals = self._parent.face_normals[:, parent_boundary]
 
     def set_projections(self) -> None:
         """Set projections from the parent grid and set the corresponding attributes.
