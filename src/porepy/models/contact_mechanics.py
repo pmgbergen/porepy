@@ -28,6 +28,11 @@ class ContactMechanicsEquations(pp.BalanceEquation):
     :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
     """
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The plastic component of the displacement jump. Normally defined in a mixin
+    instance of
+    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
+    """
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Gap of a fracture. Normally provided by a mixin instance of
     :class:`~porepy.models.constitutive_laws.FractureGap`.
