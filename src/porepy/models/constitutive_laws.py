@@ -3442,13 +3442,13 @@ class BartonBandis(pp.PorePyModel):
 
     The Barton-Bandis model represents a non-linear elastic deformation in the normal
     direction of a fracture. Specifically, the increase in normal opening,
-    :math:``\Delta u_n``, under a force :math:``\sigma_n`` (negative for compression),
+    :math:``\Delta u_n``, under a force :math:``t_n`` (negative for compression),
     is given as
 
     .. math::
 
         \Delta u_n = \Delta u_n^{max}
-            + \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n - \sigma_n}
+            + \frac{\Delta u_n^{max} t_n}{\Delta u_n^{max} K_n - t_n}
 
     where :math:``\Delta u_n^{max}`` is the maximum fracture opening and the material
     constant :math:``K_n`` is known as the fracture normal stiffness.
@@ -3873,13 +3873,13 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         # Constant unitary porosity in fractures and intersections
         size = sum(sd.num_cells for sd in subdomains_lower)
         one = pp.wrap_as_dense_ad_array(1, size=size, name="one")
-        rho_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
+        phi_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
             subdomains_nd
         )
-        rho_lower = projection.cell_prolongation(subdomains_lower) @ one
-        rho = rho_nd + rho_lower
-        rho.set_name("porosity")
-        return rho
+        phi_lower = projection.cell_prolongation(subdomains_lower) @ one
+        phi = phi_nd + phi_lower
+        phi.set_name("porosity")
+        return phi
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity in the nd-dimensional matrix [-].
