@@ -107,7 +107,6 @@ class DisplacementJump(pp.PorePyModel):
         u_n = self.elastic_normal_fracture_deformation(subdomains)
         return tangential_to_nd @ u_t + normal_to_nd @ u_n
 
-    @pp.ad.cached_method
     def plastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The plastic component of the displacement jump.
 
@@ -3392,6 +3391,12 @@ class ShearDilation(pp.PorePyModel):
 
     The main method of the class is :meth:`shear_dilation_gap`.
 
+    """
+
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The plastic component of the displacement jump. Normally defined in a mixin
+    instance of
+    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
     """
 
     def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
