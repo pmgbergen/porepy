@@ -91,6 +91,7 @@ class SolutionStrategy(pp.PorePyModel):
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    has_independent_fraction: Callable[[pp.Component | pp.Phase], bool]
 
     def compute_residual_norm(
         self, residual: Optional[np.ndarray], reference_residual: np.ndarray
@@ -99,6 +100,38 @@ class SolutionStrategy(pp.PorePyModel):
             return np.nan
         residual_norm = np.linalg.norm(residual)
         return float(residual_norm)
+
+    def after_nonlinear_iteration(self, nonlinear_increment: np.ndarray) -> None:
+        """To avoid nonphysical overall fractions due to over-shooting with large
+        time step sizes, we introduce a normalization here after the Newton increment is
+        added to the global solution vector.
+
+        """
+        super().after_nonlinear_iteration(nonlinear_increment)  # type:ignore
+
+        sds = self.mdg.subdomains()
+
+        # Normalizing feed fractions in case of overshooting
+        eps = 1e-7  # binding overall fractions away from zero
+        z = np.array(
+            [
+                self.equation_system.evaluate(comp.fraction(sds))
+                for comp in self.fluid.components
+            ]
+        )
+        z[z >= 1.0] = 1.0 - eps
+        z[z <= 0.0] = 0.0 + eps
+
+        z = pp.compositional.normalize_rows(z.T).T
+
+        for i, zc in enumerate(zip(z, self.fluid.components)):
+            z_i, comp = zc
+            if self.has_independent_fraction(comp):
+                self.equation_system.set_variable_values(
+                    z_i,
+                    [comp.fraction(sds)],  # type:ignore[arg-type]
+                    iterate_index=0,
+                )
 
     def after_nonlinear_failure(self):
         self.exporter.write_pvd()
@@ -193,8 +226,8 @@ class SolutionStrategy(pp.PorePyModel):
         equilibrium_type = str(pp.compositional.get_equilibrium_type(self))
         if np.any(failure):
             logger.warning(
-                f"Flash from iterate state failed in {failure.sum()} cases."
-                + " Re-starting with computation of initial guess."
+                f"Flash from iterate state failed in {failure.sum()} cells on grid"
+                + f" {subdomain.id}. Performing full flash .."
             )
             z = [
                 comp.fraction([subdomain]).value(self.equation_system)[failure]  # type:ignore[index]
@@ -204,7 +237,6 @@ class SolutionStrategy(pp.PorePyModel):
             h = self.equation_system.evaluate(self.enthalpy([subdomain]))[failure]  # type:ignore[index]
             T = self.equation_system.evaluate(self.temperature([subdomain]))[failure]  # type:ignore[index]
 
-            logger.info(f"Failed at\nz: {z}\np: {p}\nT: {T}\nh: {h}")
             # no initial guess, and this model uses only p-h flash.
             flash_kwargs: dict[str, Any] = {
                 "z": z,
@@ -226,8 +258,8 @@ class SolutionStrategy(pp.PorePyModel):
             # fall back to previous iter values
             if np.any(fallback):
                 logger.warning(
-                    f"Falling back to previous iteration values in {fallback.sum()}"
-                    + f" cells on grid {subdomain}"
+                    f"Full flash failed in {fallback.sum()} cells on grid {subdomain.id}."
+                    + " Falling back to previous iterate state."
                 )
                 sub_state = self.fall_back(subdomain, sub_state, failure, fallback)
                 sub_success[fallback] = 0
@@ -431,14 +463,29 @@ class BoundaryConditions(pp.PorePyModel):
         "CO2": InitialConditions._z_INIT["CO2"],
     }
 
+    def _central_stripe(self, sd: pp.Grid) -> tuple[float, float]:
+        """Returns the left and right boundary of the central, vertical stripe of the
+        matrix, which represents roughly a third of the area.
+
+        The x-axis is used to determin what is a third.
+
+        """
+
+        x_min = float(sd.cell_centers[0].min())
+        x_max = float(sd.cell_centers[0].max())
+
+        c = (x_min + x_max) / 2.0
+        s = (x_max - x_min) / 6.0
+
+        return c - s, c + s
+
     def _inlet_faces(self, sd: pp.Grid) -> np.ndarray:
         """Define inlet."""
         sides = self.domain_boundary_sides(sd)
 
         inlet = np.zeros(sd.num_faces, dtype=bool)
         inlet[sides.west] = True
-        # inlet &= sd.face_centers[1] > 1
-        # inlet &= sd.face_centers[1] < 4
+        inlet &= sd.face_centers[1] >= 15.0
 
         return inlet
 
@@ -449,8 +496,6 @@ class BoundaryConditions(pp.PorePyModel):
 
         outlet = np.zeros(sd.num_faces, dtype=bool)
         outlet[sides.east] = True
-        # outlet &= sd.face_centers[1] > 1
-        # outlet &= sd.face_centers[1] < 4
 
         return outlet
 
@@ -460,8 +505,9 @@ class BoundaryConditions(pp.PorePyModel):
 
         heated = np.zeros(sd.num_faces, dtype=bool)
         heated[sides.south] = True
-        heated &= sd.face_centers[0] > 3.5
-        heated &= sd.face_centers[0] < 6.5
+        left, right = self._central_stripe(sd)
+        heated &= sd.face_centers[0] >= left
+        heated &= sd.face_centers[0] <= right
 
         return heated
 
@@ -585,6 +631,9 @@ else:
 
 # Model parametrization
 t_scale = 1e0
+times_to_export = [i * pp.YEAR for i in range(20)] + [
+    i * pp.YEAR for i in range(20, 510, 10)
+]
 
 max_iterations = 50
 newton_tol = 1e-5
@@ -608,20 +657,20 @@ flash_params = {
 }
 
 time_manager = pp.TimeManager(
-    schedule=[0, 1 * pp.YEAR],
-    dt_init=pp.MINUTE * t_scale,
-    dt_min_max=(pp.MINUTE / 2 * t_scale, 30 * pp.DAY),
+    schedule=times_to_export,
+    dt_init=0.9 * pp.YEAR * t_scale,
+    dt_min_max=(pp.MINUTE * t_scale, 10 * pp.YEAR),
     iter_max=max_iterations,
-    iter_optimal_range=(4, 7),
-    iter_relax_factors=(0.9, 1.3),
+    iter_optimal_range=(5, 9),
+    iter_relax_factors=(0.7, 1.8),
     recomp_factor=0.5,
-    recomp_max=5,
+    recomp_max=15,
     print_info=True,
 )
 
 material_constants = {
     "solid": pp.SolidConstants(
-        permeability=1e-10,
+        permeability=1e-13,
         porosity=0.2,
         thermal_conductivity=1.6736,
         specific_heat_capacity=3.0,
@@ -647,11 +696,14 @@ params = {
         "cell_size_fracture": 5e-1,
     },
     "time_manager": time_manager,
+    # "times_to_export": times_to_export,
     "max_iterations": max_iterations,
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
     "prepare_simulation": False,
     "linear_solver": "scipy_sparse",
+    "compile": True,
+    "flash_compiler_args": ("p-T", "p-h"),
 }
 
 model = GeothermalFlow(params)
