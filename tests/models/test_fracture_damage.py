@@ -9,14 +9,14 @@ from porepy.applications.md_grids.model_geometries import (
     CubeDomainOrthogonalFractures,
     SquareDomainOrthogonalFractures,
 )
-from porepy.applications.test_utils.models import _add_mixin
+from porepy.applications.test_utils.models import add_mixin
 from porepy.compositional.materials import FractureDamageSolidConstants
 from porepy.examples import fracture_damage as damage
 
-geometry_mixins = [
-    SquareDomainOrthogonalFractures,
-    CubeDomainOrthogonalFractures,
-]
+geometry_mixins = {
+    "2": SquareDomainOrthogonalFractures,
+    "3": CubeDomainOrthogonalFractures,
+}
 # Additional solid parameters used for parameterizing the tests for different regimes
 # of frictional and dilational damage.
 additional_solid_params = {
@@ -63,7 +63,7 @@ def test_damage(
         # Use the anisotropic damage model.
         model_class = damage.AnisotropicFractureDamage
     # Add geometry mixin.
-    model_class = _add_mixin(geometry_mixins[dim - 2], model_class)
+    model_class = add_mixin(geometry_mixins[str(dim)], model_class)
 
     # Combine the solid parameters giving priority to the additional parameters.
     # solid_params is not modified and can be reused in other tests.
