@@ -14,7 +14,7 @@ from porepy.models import fracture_damage as damage
 
 
 class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
-    def bc_values_displacement(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
+    def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary values for the mechanics problem as a numpy array.
 
         Values for the north boundary are retrieved from the parameter dictionary passed
@@ -23,23 +23,23 @@ class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
         dimension by the current time index.
 
         Parameters:
-            boundary_grid: Boundary grid for which boundary values are to be returned.
+            bg: Boundary grid for which boundary values are to be returned.
 
         Returns:
             Array of boundary values, with one value for each dimension of the
                 domain, for each face in the subdomain.
 
         """
-        sides = self.domain_boundary_sides(boundary_grid)
-        values = np.zeros((self.nd, boundary_grid.num_cells))
-        if boundary_grid.dim < self.nd - 1:
+        sides = self.domain_boundary_sides(bg)
+        values = np.zeros((self.nd, bg.num_cells))
+        if bg.dim < self.nd - 1:
             # No displacement is implemented on grids of co-dimension >= 2.
             return values.ravel("F")
 
         # Wrap as array for convert_units. Thus, the passed values can be scalar or
         # list. Then tile for correct broadcasting below.
         u_north = self.params["north_displacements"][:, self.time_manager.time_index]
-        u_n = np.tile(u_north, (boundary_grid.num_cells, 1)).T
+        u_n = np.tile(u_north, (bg.num_cells, 1)).T
         values[:, sides.north] = self.units.convert_units(u_n, "m")[:, sides.north]
         return values.ravel("F")
 
