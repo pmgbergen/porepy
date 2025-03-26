@@ -1892,7 +1892,7 @@ def test_operator_method_caching():
     assert model.method_with_two_args(foo=1, bar=2) == 5
     # When the keywords are passed in the opposite order, they will be found in the
     # cache.
-    assert model.method_with_two_args(bar=2, foo=1) == 6
+    assert model.method_with_two_args(bar=2, foo=1) == 5
 
     # The model with a list argument should have its counter incremented each time it is
     # called with a different list argument. When later called with the same list
