@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import numpy as np
+
 import porepy as pp
 
 
@@ -71,41 +73,26 @@ class InitialConditionMixin(pp.PorePyModel):
     """
 
     def initial_condition(self) -> None:
-        """Attaches to the implementation of ``initial_condition`` of the solution
-        strategy.
+        """Interface method for the solution strategy to be called to set initial values
+        for all variables.
 
-        Calls the methods :meth:`set_initial_values_primary_variables` and copies values
-        stored at iterate index 0 to all other time and iterate indices.
+        A first, global initialization with zeros is required for the equation system to
+        be able to evaluate operators.
+
+        Then the method :meth:`set_initial_values_primary_variables` is called.
+
+        Can be overridden to set other initial conditions after a super-call.
+
+        Important:
+            The user must set initial values at ``iterate_index=0``. The solution
+            strategy copies said values by default to all other indices in order to get
+            a runable model.
 
         """
-        # First call super and let the solution strategy handle the initialization of
-        # everything (likely with zeros).
-        # Then run the functionality given by this class.
-
-        # Mypy complains about the parent (the protocol) having a trivial body.
-        # We ignore the safe-super check here, but do not compromise safety by
-        # explicitly checking the inheritance tree.
-        if isinstance(self, pp.SolutionStrategy):
-            super().initial_condition()  # type:ignore[safe-super]
-        else:
-            raise TypeError(
-                f"Model class {type(self)} does not have a SolutionStrategy included."
-            )
-
+        self.equation_system.set_variable_values(
+            np.zeros(self.equation_system.num_dofs()), iterate_index=0
+        )
         self.set_initial_values_primary_variables()
-
-        # Updating variable values from current time step, to all previous and iterate.
-        val = self.equation_system.get_variable_values(iterate_index=0)
-        for iterate_index in self.iterate_indices:
-            self.equation_system.set_variable_values(
-                val,
-                iterate_index=iterate_index,
-            )
-        for time_step_index in self.time_step_indices:
-            self.equation_system.set_variable_values(
-                val,
-                time_step_index=time_step_index,
-            )
 
     def set_initial_values_primary_variables(self) -> None:
         """Method to set initial values for primary variables.
@@ -113,5 +100,21 @@ class InitialConditionMixin(pp.PorePyModel):
         The base method does nothing except provide an interface and compatibility for
         super-calls to model-specific initialization procedures.
 
+        Important:
+            For ordering of initialization procedures to work as intended, this method
+            **must not** be called anywhere, with two exceptions:
+
+            1. It is only called directly in :meth:`initial_condition` in this base
+               class.
+            2. Only in overrides of this method in the context of a ``super``-call.
+               I.e. each initialization of primary variables in a single-physics model
+               should have a ``super().set_initial_values_primary_variables()``
+               somewhere in the body of the override to ensure that primary variables
+               of other physics models are also initialized.
+
+            Calling this method anywhere else explicitely via
+            ``self.set_initial_values_primary_variables()`` will invalidate the guarante
+            that the primary variables are initialized first, because it risks
+            circumventing the intended ``super()`` resolution.
+
         """
-        pass
