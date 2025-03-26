@@ -2265,6 +2265,21 @@ def cached_method(func: Callable) -> Callable:
     Ad module. If an unhashable argument is passed, a warning will be given, and the
     function will be called every time.
 
+    Known limitations:
+        - A call with a (non-keyword) argument, and call with the same argument passed
+          as a keyword argument (respectively, func(1) and func(arg=1)) will be
+          conisedered different and lead to two actual function evaluations and two
+          different items in the cache. It may be possible to extend the caching
+          mechanism (really, the way the cache key is constructed) to fix this, but
+          considering the current use cases, this is not deemed necessary.
+
+    Note:
+        This caching mechanism should not be confused with hashing of individual Ad
+        Operators, see above classes. The difference is that the present caching is
+        invoked on a method that returns an Operator, without constructing the Operator
+        itself (this can be costly). In contrast, caching of Operators is done after
+        construction, and is primarily intended for Operator evaluation.
+
     Parameters:
         func: The function to be cached.
 
@@ -2317,10 +2332,12 @@ def cached_method(func: Callable) -> Callable:
             self._operator_cache[key] = func(self, *args, **kwargs)
         return self._operator_cache[key]
 
-    # For testing purposes, we need to be able to access the signature of the original
-    # function. Calling inspect.signature on the wrapper would return the signature of
-    # the wrapper (*args, **kwargs, see above), which is not very useful. Therefore, we
-    # copy the signature from the original function to the wrapper.
+    # For testing purposes (specifically testing of constitutive laws and other tests
+    # that dynamically adapt to method signatures), we need to be able to access the
+    # signature of the original function. Calling inspect.signature on the wrapper would
+    # return the signature of the wrapper (*args, **kwargs, see above), which is not
+    # very useful. Therefore, we copy the signature from the original function to the
+    # wrapper.
     wrapper.__signature__ = inspect.signature(func)  # type: ignore[attr-defined]
 
     return wrapper
