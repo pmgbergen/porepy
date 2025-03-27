@@ -118,12 +118,6 @@ class MandelSaveData:
 class MandelDataSaving(pp.PorePyModel):
     """Mixin class to save relevant data."""
 
-    darcy_flux: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Method that returns the Darcy fluxes in the form of an Ad operator. Usually
-    provided by the mixin class :class:`~porepy.models.fluid_mass_balance.DarcysLaw`.
-
-    """
-
     displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.

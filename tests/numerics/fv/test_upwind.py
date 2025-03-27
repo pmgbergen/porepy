@@ -472,10 +472,9 @@ class TestMixedDimensionalUpwind:
             rhs_loc[0] = h_rhs
             rhs_loc[1] = l_rhs
 
-            # block scatter
-            # The block scatter operation takes the discretization matrix associated with
-            # each subdomain and inserts it into a sparse block structure (lhs and rhs) to
-            # construct the final algebraic representation.
+            # block scatter The block scatter operation takes the discretization matrix
+            # associated with each subdomain and inserts it into a sparse block
+            # structure (lhs and rhs) to construct the final algebraic representation.
             h_idx = hashes.index(hash(h_sd))
             l_idx = hashes.index(hash(l_sd))
             i_idx = hashes.index(hash(intf))

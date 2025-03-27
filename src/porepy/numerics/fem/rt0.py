@@ -222,15 +222,16 @@ class RT0(DualElliptic):
         dim: np.ndarray,
         R: np.ndarray,
     ) -> np.ndarray:
-        """Construct a local matrix that evaluate a RT0 solution in a give point (cell center).
+        """Construct a local matrix that evaluate a RT0 solution in a give point (cell
+        center).
 
-        Parameters
-        ----------
-        pt: the point where to evaluate the field, usually cell center
-        coord: the vertices of the simplex
-        f_centers: the centre of the faces ordered following coord
-        f_normals: the normal of the faces ordered as f_centers
-        dim: the spatial dimension
+        Parameters:
+            pt: the point where to evaluate the field, usually cell center
+            coord: the vertices of the simplex
+            f_centers: the centre of the faces ordered following coord
+            f_normals: the normal of the faces ordered as f_centers
+            dim: the spatial dimension
+            R: the rotation matrix.
 
         """
         pt_reshaped = np.repeat(pt, coord.shape[1]).reshape((-1, coord.shape[1]))

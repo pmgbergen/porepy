@@ -425,7 +425,6 @@ class BoundaryConditionsSinglePhaseFlow(pp.BoundaryConditionMixin):
     pressure_variable: str
     """Name of the pressure variable."""
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Boundary conditions on all external boundaries.

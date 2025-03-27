@@ -69,8 +69,12 @@ where = ["src"]
 python_files = "tests/*.py"
 addopts = "--cov=src/porepy --cov-report term-missing -p no:warnings"
 
+[tool.ruff]
+line-length = 88
+
 # Static analysis.
 [tool.ruff.lint]
+select = ["E501"]
 ignore = [
     "E731",  # do not assign a lambda expression, use a def
     "E266",  # too many leading '#' for block comment

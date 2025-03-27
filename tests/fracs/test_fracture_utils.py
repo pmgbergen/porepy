@@ -123,7 +123,8 @@ def test_uniquify_points_delete_point_edge():
 
 
 class Test_pts_edges_to_linefractures:
-    """This class is a collection of tests of the function pts_edges_to_linefractures."""
+    """This class is a collection of tests of the function
+    pts_edges_to_linefractures."""
 
     @pytest.mark.parametrize(
         "fracs_edges_points",

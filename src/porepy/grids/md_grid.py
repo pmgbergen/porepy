@@ -448,7 +448,8 @@ class MixedDimensionalGrid:
             raise ValueError("Grid already defined in MixedDimensionalGrid")
 
         for sd in ng:
-            # Add the grid to the dictionary of subdomains with an empty data dictionary.
+            # Add the grid to the dictionary of subdomains with an empty data
+            # dictionary.
             self._subdomain_data[sd] = {}
 
         # Generate boundary grids for each subdomain.

@@ -29,8 +29,8 @@ class Tpfa(pp.FVElliptic):
         super().__init__(keyword)
 
     def discretize(self, sd: pp.Grid, data: dict) -> None:
-        """
-        Discretize the second order elliptic equation using two-point flux approximation.
+        """Discretize the second order elliptic equation using two-point flux
+        approximation.
 
         The method computes fluxes over faces in terms of pressures in adjacent
         cells (defined as the two cells sharing the face).
@@ -689,7 +689,8 @@ class DifferentiableTpfa:
             # Signs on all half faces. fi will contain the indices of all internal faces
             # twice (one for each side).
             fi, _, sgn = sps.find(sd.cell_faces)
-            # Obtain a map to uniquify the face indices. This will also sort the indices.
+            # Obtain a map to uniquify the face indices. This will also sort the
+            # indices.
             _, fi_ind = np.unique(fi, return_index=True)
             # Get the unique signs, ordered according to the unique (sorted) face
             # indices.

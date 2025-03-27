@@ -257,7 +257,8 @@ model_classes: list[type[pp.PorePyModel]] = [
 
 @pytest.mark.parametrize("model_class", model_classes)
 def test_targeted_rediscretization(model_class):
-    """Test that targeted rediscretization yields same results as full discretization."""
+    """Test that targeted rediscretization yields same results as full
+    discretization."""
     model_params = {
         "fracture_indices": [0, 1],
         "full_rediscretization": True,
