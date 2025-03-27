@@ -77,6 +77,10 @@ class TestGeometry:
                 # Set the geometry configuration.
                 geometry_model.set_geometry()
 
+                # The operator_cache is usually set by the SolutionStrategy, but since
+                # this class is used standalone, we need to set it here.
+                geometry_model._operator_cache = {}
+
                 self.geometries[(geometry_class, num_fracs)] = geometry_model
 
     def test_set_geometry(

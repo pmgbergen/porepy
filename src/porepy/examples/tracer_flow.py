@@ -162,7 +162,17 @@ if __name__ == "__main__":
         "grid_type": "simplex",
     }
 
-    model = TracerFlowModel(params)
+    # EK: Ignore a mypy error here: Mypy complains that the model does not implement
+    # abstract methods displacement_jump, plastic_displacement_jump, and
+    # elastic_displacement_jump. The likely cause is that mypy believes the methods are
+    # decleared (as abstract?) but not implemented, but searching the codebase does not
+    # give any indication how mypy came to this false conclusion. I have also tried to
+    # search through the class hirearchy to look for clues, to no avail.
+    #
+    # The issue arose in connection with the decoration of the relevant methods with
+    # @pp.ad.cached_method, however, removing this decorator does not resolve the issue.
+
+    model = TracerFlowModel(params)  # type: ignore[abstract]
     pp.run_time_dependent_model(model, params)
     pp.plot_grid(
         model.mdg,
