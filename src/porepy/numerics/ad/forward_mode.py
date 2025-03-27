@@ -93,13 +93,13 @@ class AdArray:
         self.jac: sps.spmatrix = jac.astype(float)
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         s = f"Ad array of size {self.val.size}\n"
         s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size}"
         s += " elements."
         return s
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         s = f"Ad array of size {self.val.size}\n"
         s += f"Value: {self.val}\n"
         s += f"Jacobian: {self.jac}"
