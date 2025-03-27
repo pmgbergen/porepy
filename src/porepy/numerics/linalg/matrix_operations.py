@@ -29,7 +29,7 @@ def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
     The matrix is modified in place.
 
     Parameters:
-        A: A sparce matrix.
+        A: A sparse matrix.
         cols: A numpy array of columns that should be zeroed.
 
     Returns:
@@ -47,16 +47,13 @@ def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
 def zero_rows(A: sps.csr_matrix, rows: np.ndarray) -> None:
     """
     Function to zero out rows in matrix A. Note that this function does not change the
-    sparcity structure of the matrix, it only changes the row values to 0.
+    sparsity structure of the matrix, it only changes the row values to 0.
 
     The matrix is modified in place.
 
     Parameters:
-        A: A sparce matrix.
+        A: A sparse matrix.
         rows: A numpy array of rows that should be zeroed.
-
-    Returns:
-        None
 
     """
 

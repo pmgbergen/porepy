@@ -9,10 +9,12 @@ tree. We then divide the interval into two equal parts: all the points in the in
 [(a+b)/2, b ) will be placed in the right subtree. The reasoning is then iterated to the
 next level for each subtree.
 
-                    [0, 1) /    \
+                    [0, 1)
+                    /    \
                    /      \
                   /        \
-           [0, 0.5)         [0.5, 1) /   |              |     \
+           [0, 0.5)         [0.5, 1)
+           /   |              |     \
           /    |              |      \
          /     |              |       \
 [0, 0.25)   [0.25, 0.5)   [0.5, 0.75)  [0.75, 1)
