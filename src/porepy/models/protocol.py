@@ -963,9 +963,9 @@ else:
         ) -> pp.ad.Operator:
             """The elastic component of the displacement jump [m].
 
-            The elastic displacement jump is composed of a tangential and normal component,
-            each implementing a relation between displacement jumps, contact tractions and
-            stiffness. The relation may or may not be linear.
+            The elastic displacement jump is composed of a tangential and normal
+            component, each implementing a relation between displacement jumps, contact
+            tractions and stiffness. The relation may or may not be linear.
 
             Parameters:
                 subdomains: List of fracture subdomains.
@@ -981,9 +981,9 @@ else:
 
             Note:
                 The fluid mobility is not included in the Darcy flux. This is because we
-                discretize it with an upstream scheme. This means that the fluid mobility
-                may have to be included when using the flux in a transport equation.
-                The units of the Darcy flux are [m^2 / s].
+                discretize it with an upstream scheme. This means that the fluid
+                mobility may have to be included when using the flux in a transport
+                equation. The units of the Darcy flux are [m^2 / s].
 
             Parameters:
                 domains: List of domains where the Darcy flux is defined.
