@@ -10,8 +10,8 @@ To define the manufactured solution, we introduce the auxiliary function
     f(x, y, t) = t * x * (1 - x) * (x - 1 / 2) * sin(2 * pi * y)
 
 Define the characteristic function $$\\chi$$, which is 1 if $$x > 0.5$$ and $$y > 0.5$$,
-and 0 otherwise. Also, define a heterogeneity factor $$\\kappa$$. The exact solutions for
-the primary variables pressure, displacement, and temperature are then defined as
+and 0 otherwise. Also, define a heterogeneity factor $$\\kappa$$. The exact solutions
+for the primary variables pressure, displacement, and temperature are then defined as
 
 .. math::
 
@@ -274,9 +274,9 @@ class ManuThermoPoroMechDataSaving(pp.PorePyModel):
 class ManuThermoPoroMechExactSolution2d:
     """Class containing the exact manufactured solution for the verification model.
 
-    The exact solutions for the primary variables pressure, displacement and temperature,
-    are defined below, as well as the exact solutions for the secondary variables Darcy
-    flux and thermoporoelastic force.
+    The exact solutions for the primary variables pressure, displacement and
+    temperature, are defined below, as well as the exact solutions for the secondary
+    variables Darcy flux and thermoporoelastic force.
 
     A heterogeneity is introduced in the permeability and Lamé parameters, so that these
     take different values in the region x > 0.5 and y > 0.5. The primary variables
@@ -288,8 +288,8 @@ class ManuThermoPoroMechExactSolution2d:
     used to verify convergence of the numerical solution.
 
     The temperature variable was not scaled with the heterogeneity, since this would be
-    difficult to make work with the fluid heat conductivity (thus effective heterogeneity)
-    not being heterogeneous.
+    difficult to make work with the fluid heat conductivity (thus effective
+    heterogeneity) not being heterogeneous.
 
     The problem is defined with tensorial Biot's coefficient and thermal expansion
     tensor. These are also spatially heterogeneous.
@@ -1112,8 +1112,8 @@ class ManuThermoPoroMechSolutionStrategy2d(
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem.
 
-        The parent class' definitions of permeability, stiffness parameters, and the Biot
-        and thermal stress tensors are owerwritten.
+        The parent class' definitions of permeability, stiffness parameters, and the
+        Biot and thermal stress tensors are owerwritten.
         """
         super().set_discretization_parameters()
 

@@ -188,7 +188,8 @@ class SubdomainProjections:
         """Construct prolongation from subdomain to global face quantities.
 
         Parameters:
-            subdomains: One or several subdomains to which the prolongation should apply.
+            subdomains: One or several subdomains to which the prolongation should
+                apply.
 
         Raises:
             ValueError: If subdomains is not a list.
@@ -652,8 +653,8 @@ class MortarProjections:
                 projection method in the MortarGrid class.
             to_mortar: If True, the projection is from subdomains to mortar grids. If
                 False, the projection is from mortar grids to subdomains.
-            is_primary: If True, the projection is to or from primary grids. If False, the
-                projection is to or from secondary grids.
+            is_primary: If True, the projection is to or from primary grids. If False,
+                the projection is to or from secondary grids.
             name: Name of the operator.
 
         Raises:

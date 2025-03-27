@@ -435,9 +435,9 @@ else:
         ) -> pp.ad.Operator:
             """Specific volume [m^(nd-d)].
 
-            For subdomains, the specific volume is the cross-sectional area/volume of the
-            cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the specific
-            volume is inherited from the higher-dimensional subdomain neighbor.
+            For subdomains, the specific volume is the cross-sectional area/volume of
+            the cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the
+            specific volume is inherited from the higher-dimensional subdomain neighbor.
 
             See also:
                 :meth:aperture.
@@ -478,8 +478,8 @@ else:
 
             Returns:
                 3d isotropic permeability, with nonzero values on the diagonal and zero
-                values elsewhere. K is a second order tensor having 3^2 entries per cell,
-                represented as an array of length 9*nc. The values are ordered as
+                values elsewhere. K is a second order tensor having 3^2 entries per
+                cell, represented as an array of length 9*nc. The values are ordered as
                     Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
 
             """
@@ -607,15 +607,16 @@ else:
         def after_nonlinear_convergence(self) -> None:
             """Method to be called after every non-linear iteration.
 
-            Possible usage is to distribute information on the solution, visualization, etc.
+            Possible usage is to distribute information on the solution, visualization,
+            etc.
 
             """
 
         def set_nonlinear_discretizations(self) -> None:
             """Set the list of nonlinear discretizations.
 
-            This method is called before the discretization is performed. It is intended to
-            be used to set the list of nonlinear discretizations.
+            This method is called before the discretization is performed. It is intended
+            to be used to set the list of nonlinear discretizations.
 
             """
 
@@ -696,7 +697,8 @@ else:
 
             This method calls the model method with given ``name`` on given ``grids`` to
             create an operator ``A``. It then fetches the respective reference value and
-            wraps it into an AD scalar ``A_0``. The return value is an operator ``A - A_0``.
+            wraps it into an AD scalar ``A_0``. The return value is an operator
+            ``A - A_0``.
 
             Parameters:
                 name: Name of the quantity to be perturbed from a reference value.

@@ -102,11 +102,13 @@ class SubcellTopology:
             # sd.periodic_face_map.
             if not np.allclose(sorted_left, sd.periodic_face_map[0]):
                 raise NotImplementedError(
-                    "Can not create subcell topology for periodic faces that are not sorted"
+                    """Can not create subcell topology for periodic faces that are not
+                    sorted"""
                 )
             if not np.allclose(sorted_right, sd.periodic_face_map[1]):
                 raise NotImplementedError(
-                    "Can not create subcell topology for periodic faces that are not sorted"
+                    """Can not create subcell topology for periodic faces that are not
+                    sorted"""
                 )
             left_subfaces = np.where(
                 np.isin(faces_duplicated, sd.periodic_face_map[0])
@@ -114,9 +116,9 @@ class SubcellTopology:
             right_subfaces = np.where(
                 np.isin(faces_duplicated, sd.periodic_face_map[1])
             )[0]
-            # We loose the ordering of sd.per map using np.isin. But since we have assumed
-            # sd.periodic_face_map[0] and sd.periodic_face_map[1] to be sorted, we can easily
-            # retrive the ordering by this trick:
+            # We loose the ordering of sd.per map using np.isin. But since we have
+            # assumed sd.periodic_face_map[0] and sd.periodic_face_map[1] to be sorted,
+            # we can easily retrive the ordering by this trick:
             left_subfaces = left_subfaces[np.argsort(faces_duplicated[left_subfaces])]
             right_subfaces = right_subfaces[
                 np.argsort(faces_duplicated[right_subfaces])
@@ -124,9 +126,9 @@ class SubcellTopology:
 
             # The right subface nodes should be equal to the left subface nodes. We
             # also have to change the nodes of any other subface that has a node that
-            # is on the rigth boundary.
+            # is on the right boundary.
             for i in range(right_subfaces.size):
-                # We loop over each righ subface and find all other nodes that has the
+                # We loop over each right subface and find all other nodes that have the
                 # same index as the right node. These node indices are swapped with the
                 # corresponding left node index.
                 nodes_duplicated = np.where(
@@ -149,8 +151,8 @@ class SubcellTopology:
         self.num_cno = self.cno.max() + 1
         self.num_nodes = self.nno.max() + 1
         # If we have periodic faces, the subface indices might have gaps. E.g., if
-        # subface 4 is mapped to subface 1, the index 4 is not included into subfno.
-        # The following code will then subtract 1 from all subface indices larger than 4.
+        # subface 4 is mapped to subface 1, the index 4 is not included into subfno. The
+        # following code will then subtract 1 from all subface indices larger than 4.
         _, Ia, Ic = np.unique(self.subfno, return_index=True, return_inverse=True)
         self.subfno = (
             self.subfno - np.cumsum(np.diff(np.r_[-1, self.subfno[Ia]]) - 1)[Ic]
@@ -228,15 +230,16 @@ def compute_dist_face_cell(sd, subcell_topology, eta, return_paired=True):
     On the boundary, eta is set to zero, thus the continuity point is at the
     face center
 
-    Args:
+    Parameters:
         sd: Grid
         subcell_topology: Of class subcell topology in this module
         eta: [0,1), eta = 0 gives cont. pt. at face midpoint, eta = 1 means at
             the vertex. If eta is given as a scalar this value will be applied to
             all subfaces except the boundary faces, where eta=0 will be enforced.
             If the length of eta equals the number of subfaces, eta[i] will be used
-            in the computation of the continuity point of the subface s_t.subfno_unique[i].
-            Note that eta=0 at the boundary is ONLY enforced for scalar eta.
+            in the computation of the continuity point of the subface
+            s_t.subfno_unique[i]. Note that eta=0 at the boundary is ONLY enforced for
+            scalar eta.
 
     Returns
         sps.csr() matrix representation of vectors. Size sd.nf x (sd.nc * sd.nd)
@@ -803,11 +806,11 @@ def scalar_tensor_vector_prod(
 
 class ExcludeBoundaries:
     """Wrapper class to store mappings needed in the finite volume discretizations.
-    The original use for this class was for exclusion of equations that are
-    redundant due to the presence of boundary conditions, hence the name. The use of
-    this class has increased to also include linear transformation that can be applied
-    to the subfaces before the exclusion operator. This will typically be a rotation matrix,
-    so that the boundary conditions can be specified in an arbitary coordinate system.
+    The original use for this class was for exclusion of equations that are redundant
+    due to the presence of boundary conditions, hence the name. The use of this class
+    has increased to also include linear transformation that can be applied to the
+    subfaces before the exclusion operator. This will typically be a rotation matrix, so
+    that the boundary conditions can be specified in an arbitrary coordinate system.
 
     The systems being set up in mpfa (and mpsa) describe continuity of flux and
     potential (respectively stress and displacement) on all sub-faces. For the boundary
@@ -818,17 +821,22 @@ class ExcludeBoundaries:
 
     """
 
-    def __init__(self, subcell_topology, bound, nd):
+    def __init__(
+        self,
+        subcell_topology: SubcellTopology,
+        bound: pp.BoundaryCondition | pp.BoundaryConditionVectorial,
+        nd: int,
+    ):
         """
         Define mappings to exclude boundary subfaces/components with Dirichlet,
         Neumann or Robin conditions. If bound.bc_type=="scalar" we assign one
         component per subface, while if bound.bc_type=="vector" we assign nd
         components per subface.
 
-        Args:
-            subcell_topology (pp.SubcellTopology)
-            bound (pp.BoundaryCondition / pp.BoundaryConditionVectorial)
-            nd (int)
+        Parameters:
+            subcell_topology: A subcell topology object.
+            bound: A boundary condition object.
+            nd: An integer representing the number of dimensions.
 
         Attributes:
             basis_matrix: sps.csc_matrix, mapping from all subfaces/components to all
@@ -836,22 +844,24 @@ class ExcludeBoundaries:
                 operator for the functions self.exlude...(other, transform),
                 if transform==True.
             robin_weight: sps.csc_matrix, mapping from all subfaces/components to all
-                subfaces/components. Gives the weight that is applied to the displacement in
-                the Robin condition.
-            exclude_neu: sps.csc_matrix, mapping from all subfaces/components to those having
-                pressure continuity
-            exclude_dir: sps.csc_matrix, mapping from all subfaces/components to those having
-                flux continuity
-            exclude_neu_dir: sps.csc_matrix, mapping from all subfaces/components to those
-                having both pressure and flux continuity (i.e., Robin + internal)
-            exclude_neu_rob: sps.csc_matrix, mapping from all subfaces/components to those
-                not having Neumann or Robin conditions (i.e., Dirichlet + internal)
-            exclude_rob_dir: sps.csc_matrix, mapping from all subfaces/components to those
-                not having Robin or Dirichlet conditions (i.e., Neumann + internal)
-            exclude_bnd: sps.csc_matrix, mapping from all subfaces/components to internal
-                subfaces/components.
-            keep_neu: sps.csc_matrix, mapping from all subfaces/components to only Neumann
-                subfaces/components.
+                subfaces/components. Gives the weight that is applied to the
+                displacement in the Robin condition.
+            exclude_neu: sps.csc_matrix, mapping from all subfaces/components to those
+                having pressure continuity.
+            exclude_dir: sps.csc_matrix, mapping from all subfaces/components to those
+                having flux continuity.
+            exclude_neu_dir: sps.csc_matrix, mapping from all subfaces/components to
+                those having both pressure and flux continuity (i.e., Robin + internal).
+            exclude_neu_rob: sps.csc_matrix, mapping from all subfaces/components to
+                those not having Neumann or Robin conditions (i.e., Dirichlet +
+                internal).
+            exclude_rob_dir: sps.csc_matrix, mapping from all subfaces/components to
+                those not having Robin or Dirichlet conditions (i.e., Neumann +
+                internal).
+            exclude_bnd: sps.csc_matrix, mapping from all subfaces/components to
+                internal subfaces/components.
+            keep_neu: sps.csc_matrix, mapping from all subfaces/components to only
+                Neumann subfaces/components.
             keep_rob: sps.csc_matrix, mapping from all subfaces/components to only Robin
                 subfaces/components.
         """
@@ -898,8 +908,8 @@ class ExcludeBoundaries:
 
     def _linear_transformation(self, loc_trans):
         """
-        Creates a global linear transformation matrix from a set of local matrices.
-        The global matrix is a mapping from sub-faces to sub-faces as given by loc_trans.
+        Creates a global linear transformation matrix from a set of local matrices. The
+        global matrix is a mapping from sub-faces to sub-faces as given by loc_trans.
         The loc_trans matrices are given per sub-face and is a mapping from a nd vector
         on each subface to a nd vector on each subface. (If self.bc_type="scalar" nd=1
         is enforced). The loc_trans is a (nd, nd, num_subfno_unique) matrix where
