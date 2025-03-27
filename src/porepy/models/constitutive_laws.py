@@ -2817,8 +2817,10 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Characteristic contact traction. Normally defined in a mixin instance of
-    either :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
+    either 
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
+    or 
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
 
@@ -3013,8 +3015,10 @@ class PressureStress(LinearElasticMechanicalStress):
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Characteristic contact traction. Normally defined in a mixin instance of
-    either :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
+    either 
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
+    or 
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
     darcy_keyword: str
@@ -3521,8 +3525,10 @@ class BartonBandis(pp.PorePyModel):
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Characteristic contact traction. Normally defined in a mixin instance of
-    either :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
+    either 
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
+    or 
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
 
