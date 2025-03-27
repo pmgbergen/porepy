@@ -3709,7 +3709,8 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
 class FrictionDamage(pp.PorePyModel):
     """Frictional damage relations.
 
-    The frictional damage is computed from the history variable h as
+    The frictional damage is computed from the history variable h, according to J. White
+    (2014) https://doi.org/10.1002/nag.2247, as
 
     .. math::
         d = 1+(d_0-1)  exp⁡(-c h)
@@ -3734,8 +3735,8 @@ class FrictionDamage(pp.PorePyModel):
         """Frictional damage [-].
 
         Parameters:
-            subdomains: List of subdomains where the damage is defined. Should
-             be of co-dimension one, i.e. fractures.
+            subdomains: List of subdomains where the damage is defined. Should be of co-
+                dimension one, i.e. fractures.
 
         Returns:
             Operator for nondimensionalized frictional damage.
@@ -3812,13 +3813,14 @@ class DilationDamage(pp.PorePyModel):
     """Dilation damage relations.
 
 
-    The dilation damage is computed from the history variable h as
+    The dilation damage is computed from the history variable h according to J. White
+    (2014) https://doi.org/10.1002/nag.2247, as
 
     .. math::
         d = 1+(d_0-1)  exp⁡(-c h)
 
-    where :math:`d_0` is the initial damage and c is a material parameter. The
-    damage is used to compute the shear dilation gap according to
+    where :math:`d_0` is the initial damage and c is a material parameter. The damage is
+    used to compute the shear dilation gap according to
 
     .. math::
         g = d g_0,
