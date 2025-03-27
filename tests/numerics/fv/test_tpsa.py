@@ -516,7 +516,9 @@ class TestTpsaTailoredGrid:
             "bound_displacement_cell": bound_displacement_cell,
             "bound_displacement_face": bound_displacement_face,
             "bound_displacement_rotation_cell": bound_displacement_rotation_cell,
-            "bound_displacement_solid_pressure_cell": bound_displacement_solid_pressure_cell,  # noqa
+            "bound_displacement_solid_pressure_cell": (
+                bound_displacement_solid_pressure_cell
+            ),
         }
 
         self._compare_matrices(matrices, known_values)

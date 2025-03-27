@@ -685,7 +685,8 @@ def create_mdg(
 
             .. code:: python3
 
-                import porepy as pp import numpy as np
+                import porepy as pp
+                import numpy as np
 
                 # Set a domain
                 domain = pp.Domain({"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1})

@@ -96,8 +96,8 @@ class Discretization(abc.ABC):
         this information.
 
         Parameters:
-            g (pp.Grid): Grid to be rediscretized. data (dictionary): With
-            discretization parameters.
+            g: Grid to be rediscretized.
+            data: With discretization parameters.
 
         """
         # Default behavior is to discretize everything
