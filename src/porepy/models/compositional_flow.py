@@ -244,8 +244,6 @@ class MassicPressureEquations(pp.fluid_mass_balance.FluidMassBalanceEquations):
 
     """
 
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
@@ -439,9 +437,6 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
     porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
     """See :class:`ConstitutiveLawsSolidSkeletonCF`."""
-
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
     advective_flux: Callable[
         [
@@ -1122,7 +1117,8 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
     """
 
     def update_all_boundary_conditions(self) -> None:
-        """Calls :meth:`update_boundary_values_phase_properties` after the super-call."""
+        """Calls :meth:`update_boundary_values_phase_properties` after the
+        super-call."""
         super().update_all_boundary_conditions()
         self.update_boundary_values_phase_properties()
 

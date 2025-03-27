@@ -98,7 +98,8 @@ def test_2d_single_fracture(solid_vals, numerical_vals, north_displacement):
                 np.sign(vals[model.nd - 1 :: model.nd][top])
                 == np.sign(north_displacement)
             )
-            # Fracture cuts the domain in half, so the bottom half should be undisplaced.
+            # Fracture cuts the domain in half, so the bottom half should be
+            # undisplaced.
             bottom = matrix_subdomain.cell_centers[1] < 0.5
             assert np.allclose(vals[model.nd - 1 :: model.nd][bottom], 0)
             # No displacement in x direction
@@ -222,8 +223,8 @@ class LithostaticModel(pp.constitutive_laws.GravityForce, pp.MomentumBalance):
         return default_meshing_args
 
     def bc_type_mechanics(self, sd: pp.Grid) -> pp.BoundaryConditionVectorial:
-        """Lateral sides: No motion in the x-direction (xy-plane for 3d), free motion in the
-        vertical direction. Bottom: No motion. Top: Free motion.
+        """Lateral sides: No motion in the x-direction (xy-plane for 3d), free motion in
+        the vertical direction. Bottom: No motion. Top: Free motion.
 
         """
         # Define boundary faces.

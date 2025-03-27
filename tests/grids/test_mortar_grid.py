@@ -60,7 +60,8 @@ logic:
 
 The tests are made up of the following functions:
     - A set of functions to test indivdiual replacement operations.
-    - A helper function _create_2d_mdg, which creates a 2d domain with a single fracture.
+    - A helper function _create_2d_mdg, which creates a 2d domain with a single
+        fracture.
     - A helper function _replace_2d_grid_fetch_projections, which replaces the 2d grid
         in the domain and fetches the projections between the old and the new grid.
 
@@ -68,7 +69,8 @@ The tests are made up of the following functions:
 
 
 def test_2d_domain_replace_2d_grid_by_identical_copy():
-    """Copy the higher dimensional grid and replace. The mapping should stay the same."""
+    """Copy the higher dimensional grid and replace. The mapping should stay the
+    same."""
     # Create a first md grid
     mdg, sd_old, old_projection = _create_2d_mdg([1, 2])
     # Copy the highest-dimensional grid
@@ -612,7 +614,8 @@ def test_3d_domain_without_1d_grid_replace_2d_grid_with_finer_perturbed_grid():
     go = mdg.subdomains(dim=2)[0]
     mdg.replace_subdomains_and_interfaces({go: gn})
 
-    # Fetch the mortar mappings again. There is no 1d grid, thus the mappings to 1d are None
+    # Fetch the mortar mappings again. There is no 1d grid, thus the mappings to 1d are
+    # None
     _, _, new_proj_2_h, new_proj_2_l = _get_3d_mortar_projections(mdg)
 
     # The known projection matrix, from secondary to one of the mortar grids.
@@ -770,7 +773,8 @@ def _get_3d_mortar_projections(mdg: pp.MixedDimensionalGrid):
 
 
 def _create_3d_mdg(pert: bool = False, include_1d: bool = True):
-    """Set up a mixed-dimensional grid based on parameters given in the test function."""
+    """Set up a mixed-dimensional grid based on parameters given in the test
+    function."""
     if include_1d:
         sd_3 = _grid_3d(include_1d=include_1d, pert=pert)
         sd_2 = _grid_2d_two_cells(include_1d=include_1d, pert=pert)
@@ -990,8 +994,8 @@ def _grid_2d_four_cells(
             n[2, 2] = 2
             n[2, 6] = 2
             if move_interior_point:
-                # To make the midpoint (x, z) = (0.5, 0.5) stay on the line between
-                # (0, 0) and [the newly moved to] (1, 2), we need to update the coordinates
+                # To make the midpoint (x, z) = (0.5, 0.5) stay on the line between (0,
+                # 0) and [the newly moved to] (1, 2), we need to update the coordinates
                 # of points 3 and 7.
                 n[2, 3] = 1
                 n[2, 7] = 1

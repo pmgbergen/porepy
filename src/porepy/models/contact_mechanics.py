@@ -22,20 +22,16 @@ class ContactMechanicsEquations(pp.BalanceEquation):
 
     nd: int
     """Ambient dimension of the problem."""
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.geometry.ModelGeometry`.
 
-    """
-    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the plastic displacement jump on fracture grids. Normally defined
-    in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
-    """
     contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact traction variable. Normally defined in a mixin instance of
     :class:`~porepy.models.contact_mechanics.ContactTractionVariable`.
 
+    """
+    plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """The plastic component of the displacement jump. Normally defined in a mixin
+    instance of
+    :class:`~porepy.models.constitutive_laws.DisplacementJump`.
     """
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Gap of a fracture. Normally provided by a mixin instance of
@@ -216,8 +212,7 @@ class ContactMechanicsEquations(pp.BalanceEquation):
         # sum of the tangential basis vectors. Then take a Hadamard product with the
         # tangential displacement jump and add to the tangential component of the
         # contact traction to arrive at the expression that enters the equation.
-        basis_sum = pp.ad.sum_projection_list(tangential_basis)
-        tangential_sum = t_t + (basis_sum @ c_num_as_scalar) * u_t_increment
+        tangential_sum = t_t + (scalar_to_tangential @ c_num_as_scalar) * u_t_increment
 
         norm_tangential_sum = f_norm(tangential_sum)
         norm_tangential_sum.set_name("norm_tangential")
@@ -295,7 +290,8 @@ class InterfaceDisplacementArray(pp.PorePyModel):
             interface: Single interface grid.
 
         Returns:
-            Array representing the displacement on the interface of shape (nd, num_cells).
+            Array representing the displacement on the interface of shape (nd,
+            num_cells).
 
         """
         return np.zeros((self.nd, interface.num_cells))
@@ -303,6 +299,20 @@ class InterfaceDisplacementArray(pp.PorePyModel):
     def update_time_dependent_ad_arrays(self) -> None:
         """Update values of external sources and boundary conditions."""
         super().update_time_dependent_ad_arrays()  # type: ignore[misc]
+        self.update_interface_displacement_parameter()
+
+    def update_interface_displacement_parameter(self) -> None:
+        """Update the interface displacement parameter.
+
+        This method updates the values of the time-dependentinterface displacement
+        parameter, which is used as a substitute for the displacement variable on the
+        interfaces.
+
+        The method is intended to be called at the beginning of each time step to update
+        the values of the interface displacement parameter. The values are shifted
+        backwards in time and the most recent values are set to the unknown time step.
+
+        """
 
         name = self.interface_displacement_parameter_key
         for intf, data in self.mdg.interfaces(return_data=True):
