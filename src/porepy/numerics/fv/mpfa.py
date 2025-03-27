@@ -176,9 +176,7 @@ class Mpfa(pp.FVElliptic):
                 sd, active_cells
             )
             # Constitutive law and boundary condition for the active grid.
-            active_k: pp.SecondOrderTensor = (
-                pp.fvutils.restrict_second_order_tensor_to_subgrid(k, active_cells)
-            )
+            active_k = k.restrict_to_cells(active_cells)
 
             # Extract the relevant part of the boundary condition.
             active_bound: pp.BoundaryCondition = self._bc_for_subgrid(
@@ -255,10 +253,8 @@ class Mpfa(pp.FVElliptic):
             # faces in the overlap.
             faces_in_subgrid_accum.append(faces_in_subgrid)
 
-            # Copy permeability tensor, and restrict to local cells
-            loc_k: pp.SecondOrderTensor = (
-                pp.fvutils.restrict_second_order_tensor_to_subgrid(active_k, l2g_cells)
-            )
+            # Restrict permeability tensor to local cells
+            loc_k = active_k.restrict_to_cells(l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces that are
             # on the global boundary. Then transfer boundary condition on those faces.
@@ -1437,8 +1433,8 @@ class Mpfa(pp.FVElliptic):
             :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces, sd.num_faces))``
 
                     Matrix that can be multiplied with inverse block matrix to get basis
-                    functions for boundary values. If subface_rhs is True, the matrix will
-                    have ``subcell_topology.num_subfno_unique`` faces.
+                    functions for boundary values. If subface_rhs is True, the matrix
+                    will have ``subcell_topology.num_subfno_unique`` faces.
 
         """
         # For primal-like discretizations like the MPFA, internal boundaries are handled

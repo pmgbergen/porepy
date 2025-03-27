@@ -370,7 +370,8 @@ def test_time_dependent_array():
 
 def test_ad_variable_creation():
     """Test creation of Ad variables by way of the EquationSystem.
-    1) Fetching the same variable twice should get the same variable (same attribute id).
+    1) Fetching the same variable twice should get the same variable (same attribute
+        id).
     2) Fetching the same mixed-dimensional variable twice should result in objects with
        different id attributes, but point to the same underlying variable.
 
@@ -765,7 +766,9 @@ def test_ad_variable_prev_time_and_iter(prev_time):
     [["foo"], ["foo", "bar"]],
 )
 def test_variable_combinations(grids, variables):
-    """Test combinations of variables, and mixed-dimensional variables, on different grids.
+    """Test combinations of variables, and mixed-dimensional variables, on different
+    grids.
+
     The main check is if Jacobian matrices are of the right size.
     """
     # Make MixedDimensionalGrid, populate with necessary information
@@ -1068,11 +1071,15 @@ def _get_dense_array(wrapped: bool) -> np.ndarray | pp.ad.DenseArray:
         return array
 
 
-def _get_sparse_array(wrapped: bool) -> sps.spmatrix | pp.ad.SparseArray:
+def _get_sparse_array(
+    wrapped: bool, use_csr_matrix: bool
+) -> sps.spmatrix | sps.sparray | pp.ad.SparseArray:
     """Helper to set a sparse array (scipy sparse array). Expected values in the test
     are hardcoded with respect to this value. The array is either returned as-is, or
     wrapped as an Ad SparseArray."""
-    mat = sps.csr_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])).astype(float)
+    inner = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+    mat = sps.csr_matrix(inner) if use_csr_matrix else sps.csr_array(inner)
+    mat = mat.astype(float)
     if wrapped:
         return pp.ad.SparseArray(mat)
     else:
@@ -1172,7 +1179,7 @@ def _expected_value(
         except ValueError:
             assert op in ["@"]
             return False
-    elif isinstance(var_1, float) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, float) and isinstance(var_2, (sps.spmatrix, sps.sparray)):
         try:
             # This should fail for all operations expect from multiplication.
             val = eval(f"var_1 {op} var_2")
@@ -1188,13 +1195,15 @@ def _expected_value(
             return False
     elif isinstance(var_1, np.ndarray) and isinstance(var_2, np.ndarray):
         return eval(f"var_1 {op} var_2")
-    elif isinstance(var_1, np.ndarray) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, np.ndarray) and isinstance(
+        var_2, (sps.spmatrix, sps.sparray)
+    ):
         try:
             return eval(f"var_1 {op} var_2")
         except TypeError:
             assert op in ["/", "**"]
             return False
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, float):
+    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(var_2, float):
         if op == "**":
             # SciPy has implemented a limited version matrix powers to scalars, but not
             # with a satisfactory flexibility. If we try to evaluate the expression, it
@@ -1209,7 +1218,9 @@ def _expected_value(
             return val
         except (ValueError, NotImplementedError):
             return False
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, np.ndarray):
+    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
+        var_2, np.ndarray
+    ):
         if op == "**":
             # SciPy has implemented a limited version matrix powers to numpy arrays, but
             # not with a satisfactory flexibility. If we try to evaluate the expression,
@@ -1222,10 +1233,12 @@ def _expected_value(
             assert op in ["**"]
             return False
 
-    elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, (sps.spmatrix, sps.sparray)) and isinstance(
+        var_2, (sps.spmatrix, sps.sparray)
+    ):
         try:
             return eval(f"var_1 {op} var_2")
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, NotImplementedError):
             assert op in ["**"]
             return False
 
@@ -1434,13 +1447,23 @@ def _expected_value(
             )
             return pp.ad.AdArray(val, jac)
 
-    elif isinstance(var_1, pp.ad.AdArray) and isinstance(var_2, sps.spmatrix):
+    elif isinstance(var_1, pp.ad.AdArray) and isinstance(
+        var_2, (sps.spmatrix, sps.sparray)
+    ):
         return False
     elif isinstance(var_1, sps.spmatrix) and isinstance(var_2, pp.ad.AdArray):
         # This combination is only allowed for matrix-vector products (op = "@")
         if op == "@":
             val = var_1 * var_2.val
             jac = var_1 * var_2.jac
+            return pp.ad.AdArray(val, jac)
+        else:
+            return False
+    elif isinstance(var_1, sps.sparray) and isinstance(var_2, pp.ad.AdArray):
+        # This combination is only allowed for matrix-vector products (op = "@")
+        if op == "@":
+            val = var_1 @ var_2.val
+            jac = var_1 @ var_2.jac
             return pp.ad.AdArray(val, jac)
         else:
             return False
@@ -1525,10 +1548,16 @@ def _expected_value(
             return pp.ad.AdArray(val, jac)
         elif op == "@":
             return False
+    else:
+        raise ValueError(f"Unknown classes: {type(var_1)}, {type(var_2)}.")
 
 
-@pytest.mark.parametrize("var_1", ["scalar", "dense", "sparse", "ad"])
-@pytest.mark.parametrize("var_2", ["scalar", "dense", "sparse", "ad"])
+@pytest.mark.parametrize(
+    "var_1", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
+)
+@pytest.mark.parametrize(
+    "var_2", ["scalar", "dense", "sparse_matrix", "sparse_array", "ad"]
+)
 @pytest.mark.parametrize("op", ["+", "-", "*", "/", "**", "@"])
 @pytest.mark.parametrize("wrapped", [True, False])
 def test_arithmetic_operations_on_ad_objects(
@@ -1572,8 +1601,10 @@ def test_arithmetic_operations_on_ad_objects(
             return _get_scalar(do_wrap)
         elif v == "dense":
             return _get_dense_array(do_wrap)
-        elif v == "sparse":
-            return _get_sparse_array(do_wrap)
+        elif v == "sparse_matrix":
+            return _get_sparse_array(do_wrap, use_csr_matrix=True)
+        elif v == "sparse_array":
+            return _get_sparse_array(do_wrap, use_csr_matrix=False)
         elif v == "ad":
             return _get_ad_array(do_wrap)
         else:
@@ -1624,7 +1655,7 @@ def test_arithmetic_operations_on_ad_objects(
             assert np.isclose(v1, v2)
         elif isinstance(v1, np.ndarray):
             assert np.allclose(v1, v2)
-        elif isinstance(v1, sps.spmatrix):
+        elif isinstance(v1, (sps.spmatrix, sps.sparray)):
             assert np.allclose(v1.toarray(), v2.toarray())
         elif isinstance(v1, pp.ad.AdArray):
             assert np.allclose(v1.val, v2.val)
@@ -1639,8 +1670,8 @@ def test_arithmetic_operations_on_ad_objects(
             # _evaluate_single in the AdParser. This is the method that actually
             # translates an expression into a numerical value. An error here signifies
             # that something is wrong with the parsing itself. Note that testing of the
-            # frontend evaluation is done below (calls to equation_system.value()), as well
-            # as in the test of equation_system.py and other tests.
+            # frontend evaluation is done below (calls to equation_system.value()), as
+            # well as in the test of equation_system.py and other tests.
             expression = eval(f"v1 {op} v2")
             state = pp.ad.initAdArrays(
                 [equation_system.get_variable_values(time_step_index=0)]
@@ -1703,7 +1734,8 @@ def test_arithmetic_operations_on_ad_objects(
                 model.interface_darcy_flux_variable, model.mdg.interfaces()
             ),
         ],
-        # Some randomly selected operators: Leaves and trees in the Ad operator graph sense.
+        # Some randomly selected operators: Leaves and trees in the Ad operator graph
+        # sense.
         lambda model: [
             model.ad_time_step,
             model.permeability(model.mdg.subdomains()),

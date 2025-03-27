@@ -293,8 +293,8 @@ class TestLinesIntersect:
         )
 
     def test_segments_polyhedron_edge(self):
-        """Test for a segment that partially overlap one of the edge (face boundary) of the
-        polyhedron (cube)"""
+        """Test for a segment that partially overlap one of the edge (face boundary) of
+        the polyhedron (cube)"""
         s = np.array([1, 0, 0.5])
         e = np.array([1, 0, 1.5])
 
@@ -457,7 +457,8 @@ class TestSurfaceTesselation:
     def test_two_tessalations_two_cells_each_one_no_overlap(self):
         # First consists of quad + triangle
         p1 = [np.array([[0, 1, 1, 0], [0, 0, 1, 1]]), np.array([[0, 1, 0], [1, 1, 2]])]
-        # second has two triangles, one of which has no overlap with the first tessalation
+        # second has two triangles, one of which has no overlap with the first
+        # tessalation
         p2 = [
             np.array([[0, 1, 0], [0, 1, 2]]),
             np.array([[0, -1, 0], [0, 1, 2]]),
@@ -2452,7 +2453,8 @@ class TestPolygonPolyhedronIntersection:
     def test_point_intersection_fully_inside_box(self):
         self.setUp()
 
-        # f_1 has one intersection along a surface, point intersection in the third vertex.
+        # f_1 has one intersection along a surface, point intersection in the third
+        # vertex.
         f_1 = np.array([[0, 0, 1], [0.5, 0.5, 0.5], [0.2, 0.8, 0]])
         # f_2 has three point intersections on different vertexes.
         f_2 = np.array([[0, 0.5, 1], [0.5, 0.0, 0.5], [0.2, 0.8, 1]])

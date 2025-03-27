@@ -23,21 +23,17 @@ except ImportError:
 
 def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
     """
-    Function to zero out columns in matrix A. Note that this function does not
-    change the sparcity structure of the matrix, it only changes the column
-    values to 0.
+    Function to zero out columns in matrix A. Note that this function does not change
+    the sparcity structure of the matrix, it only changes the column values to 0.
 
     The matrix is modified in place.
 
-    Parameter
-    ---------
-    A (scipy.sparse.spmatrix): A sparce matrix
-    cols (ndarray): A numpy array of columns that should be zeroed
+    Parameters:
+        A: A sparse matrix.
+        cols: A numpy array of columns that should be zeroed.
 
-    Return
-    ------
-    None
-
+    Returns:
+        None
 
     """
 
@@ -50,20 +46,14 @@ def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
 
 def zero_rows(A: sps.csr_matrix, rows: np.ndarray) -> None:
     """
-    Function to zero out rows in matrix A. Note that this function does not
-    change the sparcity structure of the matrix, it only changes the row
-    values to 0.
+    Function to zero out rows in matrix A. Note that this function does not change the
+    sparsity structure of the matrix, it only changes the row values to 0.
 
     The matrix is modified in place.
 
-    Parameter
-    ---------
-    A (scipy.sparse.spmatrix): A sparce matrix
-    rows (ndarray): A numpy array of columns that should be zeroed
-
-    Return
-    ------
-    None
+    Parameters:
+        A: A sparse matrix.
+        rows: A numpy array of rows that should be zeroed.
 
     """
 
@@ -626,7 +616,7 @@ class ArraySlicer:
         # Slice matrix, vector, or AdArray by calling relevant helper methods.
         if isinstance(x, np.ndarray):
             sliced = self._slice_vector(x)
-        elif isinstance(x, sps.spmatrix):
+        elif isinstance(x, (sps.spmatrix, sps.sparray)):
             sliced = self._slice_matrix(x)
         elif isinstance(x, pp.ad.AdArray):
             val = self._slice_vector(x.val)
@@ -1313,9 +1303,9 @@ def invert_diagonal_blocks(
             parallel=True,
         )
         def inv_compiled_function(is_csr_q, data, indices, indptr, sz):
-            # Construction of simple data structures (low complexity)
-            # Indices for block positions, flattened inverse block positions and nonzeros
-            # Expanded block positions
+            # Construction of simple data structures (low complexity). Indices for block
+            # positions, flattened inverse block positions and nonzeros. Expanded block
+            # positions.
             idx_blocks = np.cumsum(sz).astype(np.int32)
             # Expanded nonzero positions for flattened inverse blocks
             idx_inv_blocks = np.cumsum(np.square(sz)).astype(np.int32)

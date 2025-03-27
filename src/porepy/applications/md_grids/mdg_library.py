@@ -297,16 +297,16 @@ def benchmark_3d_case_3(
         direct way of prescribing meshing arguments.
 
     Reference:
-        [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D., Keilegavlen,
-        E., ... & Zulian, P. (2021). Verification benchmarks for single-phase flow in
-        three-dimensional fractured porous media. Advances in Water Resources, 147,
-        103759.
+        [1] Berre, I., Boon, W. M., Flemisch, B., Fumagalli, A., Gläser, D.,
+        Keilegavlen, E., ... & Zulian, P. (2021). Verification benchmarks for
+        single-phase flow in three-dimensional fractured porous media. Advances in Water
+        Resources, 147, 103759.
 
     Parameters:
         refinement_level: An integer denoting the level of refinement. Use `0` to
-            generate a mixed-dimensional grid with approximately 30K 3D cells,
-            `1` for 140K 3D cells, `2` for 350K 3D cells, and `3` for 500K 3D cells.
-            Default is `0`.
+            generate a mixed-dimensional grid with approximately 30K 3D cells, `1` for
+            140K 3D cells, `2` for 350K 3D cells, and `3` for 500K 3D cells. Default is
+            `0`.
 
     Returns:
         Tuple containing a:

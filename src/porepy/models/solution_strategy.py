@@ -142,6 +142,10 @@ class SolutionStrategy(pp.PorePyModel):
         # opposed to e.g. pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
+        self.initialize_previous_iterate_and_time_step_values()
+
+        # Initialize time dependent ad arrays, including those for boundary values.
+        self.update_time_dependent_ad_arrays()
         self.reset_state_from_file()
         self.set_equations()
 
@@ -152,6 +156,26 @@ class SolutionStrategy(pp.PorePyModel):
 
         # Export initial condition
         self.save_data_time_step()
+
+    def initialize_previous_iterate_and_time_step_values(self) -> None:
+        """Method to be called after initial values are set at ``iterate_index=0`` in
+        the mixins for initial conditions.
+
+        This methods copies respective values to all other iterate and time step indices
+        to finalize the initialization procedure.
+
+        """
+        val = self.equation_system.get_variable_values(iterate_index=0)
+        for iterate_index in self.iterate_indices:
+            self.equation_system.set_variable_values(
+                val,
+                iterate_index=iterate_index,
+            )
+        for time_step_index in self.time_step_indices:
+            self.equation_system.set_variable_values(
+                val,
+                time_step_index=time_step_index,
+            )
 
     def set_equation_system_manager(self) -> None:
         """Create an equation_system manager on the mixed-dimensional grid."""
@@ -191,26 +215,6 @@ class SolutionStrategy(pp.PorePyModel):
             raise ValueError(
                 f"Expected a subclass of pp.SolverStatistics, got {statistics}."
             )
-
-    def initial_condition(self) -> None:
-        """Set the initial condition for the problem.
-
-        For each solution index stored in ``self.time_step_indices`` and
-        ``self.iterate_indices`` a zero initial value will be assigned.
-
-        """
-        val = np.zeros(self.equation_system.num_dofs())
-        for time_step_index in self.time_step_indices:
-            self.equation_system.set_variable_values(
-                val,
-                time_step_index=time_step_index,
-            )
-
-        for iterate_index in self.iterate_indices:
-            self.equation_system.set_variable_values(val, iterate_index=iterate_index)
-
-        # Initialize time dependent ad arrays, including those for boundary values.
-        self.update_time_dependent_ad_arrays()
 
     @property
     def time_step_indices(self) -> np.ndarray:
@@ -558,7 +562,7 @@ class SolutionStrategy(pp.PorePyModel):
         Parameters:
             residual: Residual of current iteration.
             reference_residual: Reference residual value (initial residual expected),
-                allowing for definiting relative criteria.
+                allowing for defining relative criteria.
 
         Returns:
             float: Residual norm; np.nan if the residual is None.

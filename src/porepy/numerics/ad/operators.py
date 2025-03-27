@@ -433,7 +433,8 @@ class Operator:
         an operator) should override this method to return e.g. a number, an array or a
         matrix.
         This method should not be called on operators that are formed as combinations
-        of atomic operators; such operators should be evaluated by the method :meth:`evaluate`.
+        of atomic operators; such operators should be evaluated by the method
+        :meth:`evaluate`.
 
         Parameters:
             mdg: Mixed-dimensional grid on which this operator is to be parsed.
@@ -445,7 +446,8 @@ class Operator:
         raise NotImplementedError("This type of operator cannot be parsed right away")
 
     def viz(self):
-        """Draws a visualization of the operator tree that has this operator as its root."""
+        """Draws a visualization of the operator tree that has this operator as its
+        root."""
         import matplotlib.pyplot as plt
         import networkx as nx
 
@@ -573,7 +575,7 @@ class Operator:
             return AdArray(
                 ad, sps.csr_matrix((ad.shape[0], equation_system.num_dofs()))
             )
-        elif isinstance(ad, (sps.spmatrix, np.ndarray)):
+        elif isinstance(ad, (sps.spmatrix, sps.sparray, np.ndarray)):
             # this case coverse both, dense and sparse matrices returned from
             # discretizations f.e.
             raise NotImplementedError(
@@ -901,7 +903,7 @@ class Operator:
             return [self, Scalar(other)]
         elif isinstance(other, np.ndarray):
             return [self, DenseArray(other)]
-        elif isinstance(other, sps.spmatrix):
+        elif isinstance(other, (sps.spmatrix, sps.sparray)):
             return [self, SparseArray(other)]
         elif isinstance(other, AdArray):
             # This may happen when using nested pp.ad.Function.
@@ -1359,7 +1361,8 @@ class TimeDependentDenseArray(TimeDependentOperator):
     Attributes:
         previous_timestep: If True, the array will be evaluated using
             ``data[pp.TIME_STEP_SOLUTIONS]`` (data being the data dictionaries for
-            subdomains and interfaces), if False, ``data[pp.ITERATE_SOLUTIONS]`` is used.
+            subdomains and interfaces), if False, ``data[pp.ITERATE_SOLUTIONS]`` is
+            used.
 
     Raises:
         ValueError: If either none of, or both of, subdomains and interfaces are empty.

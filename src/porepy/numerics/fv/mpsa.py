@@ -74,7 +74,8 @@ class Mpsa(Discretization):
 
         """
         self.keyword = keyword
-        """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'."""
+        """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'.
+        """
         self.stress_matrix_key = "stress"
         """Keyword used to identify the discretization matrix for the stress. Defaults
         to 'stress'."""
@@ -208,9 +209,7 @@ class Mpsa(Discretization):
             sd, active_cells
         )
         # Constitutive law and boundary condition for the active grid
-        active_constit: pp.FourthOrderTensor = (
-            pp.fvutils.restrict_fourth_order_tensor_to_subgrid(constit, active_cells)
-        )
+        active_constit = constit.restrict_to_cells(active_cells)
 
         # Extract the relevant part of the boundary condition
         active_bound: pp.BoundaryConditionVectorial = self._bc_for_subgrid(
@@ -271,12 +270,8 @@ class Mpsa(Discretization):
             # Start timer for subproblem
             tic = time()
 
-            # Copy stiffness tensor, and restrict to local cells.
-            loc_c: pp.FourthOrderTensor = (
-                pp.fvutils.restrict_fourth_order_tensor_to_subgrid(
-                    active_constit, l2g_cells
-                )
-            )
+            # Restrict stiffness tensor to local cells.
+            loc_c = active_constit.restrict_to_cells(l2g_cells)
 
             # Boundary conditions are slightly more complex. Find local faces that are
             # on the global boundary. Then transfer boundary condition on those faces.
@@ -1190,9 +1185,9 @@ class Mpsa(Discretization):
         For a subcell Ks associated with cell K and node s, the displacement at a point
         x is given by
             U_Ks + G_Ks (x - x_k),
-        x_K is the cell center of cell k. The point at which we evaluate the displacement
-        is given by eta, which is equivalent to the continuity points in mpsa.
-        For an internal subface we will obtain two values for the displacement,
+        x_K is the cell center of cell k. The point at which we evaluate the
+        displacement is given by eta, which is equivalent to the continuity points in
+        mpsa. For an internal subface we will obtain two values for the displacement,
         one for each of the cells associated with the subface. The displacement given
         here is the average of the two. Note that at the continuity points the two
         displacements will by construction be equal.

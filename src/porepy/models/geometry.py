@@ -304,7 +304,7 @@ class ModelGeometry(pp.PorePyModel):
             dim: Dimension of the basis.
 
         Returns:
-            List of pp.ad.SparseArrayArray, each of which represents a basis
+            List of pp.ad.SparseArray, each of which represents a basis
             function.
 
         """
@@ -351,7 +351,6 @@ class ModelGeometry(pp.PorePyModel):
             ValueError: If i is larger than dim - 1.
 
         """
-
         if dim is None:
             dim = self.nd
 

@@ -1,9 +1,9 @@
 """This module contains functions to be wrapped in a
-:class:`~porepy.numerics.ad.operator_functions.Function` and used as part
-of compound :class:`~porepy.numerics.ad.operators.Operator`, i.e. as (terms of) equations.
+:class:`~porepy.numerics.ad.operator_functions.Function` and used as part of compound
+:class:`~porepy.numerics.ad.operators.Operator`, i.e. as (terms of) equations.
 
-Some functions depend on non-ad objects. This requires that the function ``f`` be wrapped
-in an ``ad.Function`` using partial evaluation:
+Some functions depend on non-ad objects. This requires that the function ``f`` be
+wrapped in an ``ad.Function`` using partial evaluation:
 
 Examples:
     >>> from functools import partial
@@ -13,9 +13,8 @@ Examples:
     with ``var`` being some AD variable.
 
     Note that while the argument to ``AdFunction`` is a
-    :class:`~porepy.numerics.ad.operators.Operator, the wrapping in
-    ``pp.ad.Function`` implies that upon parsing,
-    the argument passed to ``f`` will be an AdArray.
+    :class:`~porepy.numerics.ad.operators.Operator, the wrapping in ``pp.ad.Function``
+    implies that upon parsing, the argument passed to ``f`` will be an AdArray.
 
 """
 
@@ -97,7 +96,8 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     matrix.
 
     Note:
-        See module level documentation on how to wrap functions like this in ad.Function.
+        See module level documentation on how to wrap functions like this in
+        ad.Function.
 
     Parameters:
         dim: Dimension, i.e. number of vector components.
@@ -416,7 +416,7 @@ def maximum(var_0: FloatType, var_1: FloatType) -> FloatType:
     # Start from var_0, then change entries corresponding to inds.
     max_jac = jacs[0].copy()
 
-    if isinstance(max_jac, sps.spmatrix):
+    if isinstance(max_jac, (sps.spmatrix, sps.sparray)):
         # Enforce csr format, unless the matrix is csc, in which case we keep it.
         if not max_jac.getformat() == "csc":
             max_jac = max_jac.tocsr()
