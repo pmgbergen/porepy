@@ -3442,13 +3442,13 @@ class BartonBandis(pp.PorePyModel):
 
     The Barton-Bandis model represents a non-linear elastic deformation in the normal
     direction of a fracture. Specifically, the increase in normal opening,
-    :math:``\Delta u_n``, under a force :math:``t_n`` (negative for compression),
+    :math:``\Delta u_n``, under a force :math:``\sigma_n`` (negative for compression),
     is given as
 
     .. math::
 
         \Delta u_n = \Delta u_n^{max}
-            + \frac{\Delta u_n^{max} t_n}{\Delta u_n^{max} K_n - t_n}
+            + \frac{\Delta u_n^{max} \sigma_n}{\Delta u_n^{max} K_n - \sigma_n}
 
     where :math:``\Delta u_n^{max}`` is the maximum fracture opening and the material
     constant :math:``K_n`` is known as the fracture normal stiffness.
