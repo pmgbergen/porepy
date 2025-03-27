@@ -42,6 +42,7 @@ class DisplacementJump(pp.PorePyModel):
     elastic_tangential_fracture_deformation: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Operator giving the tangential component of the elastic fracture deformation."""
 
+    @pp.ad.cached_method
     def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Displacement jump on fracture-matrix interfaces.
 
@@ -78,6 +79,7 @@ class DisplacementJump(pp.PorePyModel):
         rotated_jumps.set_name("Rotated_displacement_jump")
         return rotated_jumps
 
+    @pp.ad.cached_method
     def elastic_displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """The elastic component of the displacement jump [m].
 
@@ -151,6 +153,7 @@ class DimensionReduction(pp.PorePyModel):
                 aperture = self.solid.residual_aperture * aperture
         return aperture
 
+    @pp.ad.cached_method
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
 
@@ -192,6 +195,7 @@ class DimensionReduction(pp.PorePyModel):
 
         return apertures
 
+    @pp.ad.cached_method
     def specific_volume(
         self, grids: Union[list[pp.Grid], list[pp.MortarGrid]]
     ) -> pp.ad.Operator:
@@ -271,12 +275,6 @@ class DimensionReduction(pp.PorePyModel):
 class DisplacementJumpAperture(DimensionReduction):
     """Fracture aperture from displacement jump."""
 
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Operator giving the displacement jump on fracture grids. Normally defined in a
-    mixin instance of :class:`~porepy.models.constitutive_laws.DisplacementJump`.
-
-    """
-
     def residual_aperture(self, subdomains: list[pp.Grid]) -> Scalar:
         """Residual aperture [m].
 
@@ -291,6 +289,11 @@ class DisplacementJumpAperture(DimensionReduction):
         """
         return Scalar(self.solid.residual_aperture, name="residual_aperture")
 
+    # NOTE: This method contains a call to self.equation_system.evaluate, signifying
+    # that caching may not be a good idea. However, the evaluated quantity is static, it
+    # depends only on geometric properties of the grid, and the caching is therefore
+    # safe as long as the grid does not change.
+    @pp.ad.cached_method
     def aperture(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Aperture [m].
 
@@ -919,6 +922,7 @@ class DarcysLaw(pp.PorePyModel):
         )
         return pressure_trace
 
+    @pp.ad.cached_method
     def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         """Discretization of Darcy's law.
 
@@ -2488,10 +2492,6 @@ class FouriersLawAd(AdTpfaFlux):
 class AdvectiveFlux(pp.PorePyModel):
     """Mixin class for discretizing advective fluxes."""
 
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """Darcy flux variables on subdomains. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.DarcysLaw`.
-    """
     interface_darcy_flux: Callable[
         [list[pp.MortarGrid]], pp.ad.MixedDimensionalVariable
     ]
@@ -3398,7 +3398,6 @@ class ShearDilation(pp.PorePyModel):
     """The plastic component of the displacement jump. Normally defined in a mixin
     instance of
     :class:`~porepy.models.constitutive_laws.DisplacementJump`.
-
     """
 
     def shear_dilation_gap(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:

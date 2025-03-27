@@ -10,7 +10,6 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
 
 import numpy as np
 
@@ -349,8 +348,6 @@ class ManuSneddonDataSaving(pp.PorePyModel):
     """Class for saving the error in the displacement field."""
 
     exact_sol: SneddonExactSolution2d
-
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
 
     def collect_data(self) -> ManuSneddonSaveData:
         """Collecting the error in the displacement field."""
