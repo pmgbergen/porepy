@@ -599,7 +599,7 @@ def test_expand_indices_add_increment(params):
 @pytest.mark.parametrize(
     "params",
     [
-        # Simple comparison of input (2 arrays) and expected output of mcolon.
+        # Simple comparison of input (2 arrays) and expected output of expand_index_pointers.
         {
             "input": ([1, 2], [3, 4]),
             "expected": [1, 2, 2, 3],
@@ -634,15 +634,15 @@ def test_expand_indices_add_increment(params):
         },
     ],
 )
-def test_mcolon(params: dict):
+def test_expand_index_pointers(params: dict):
     a = np.array(params["input"][0])
     b = np.array(params["input"][1])
 
     if params.get("raises", False):
         with pytest.raises(ValueError):
-            pp.array_operations.mcolon(a, b)
+            pp.array_operations.expand_index_pointers(a, b)
         return
-    result = pp.array_operations.mcolon(a, b)
+    result = pp.array_operations.expand_index_pointers(a, b)
 
     expected = np.array(params["expected"]) if params.get("expected") else None
     if expected is not None:

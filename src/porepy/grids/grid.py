@@ -866,7 +866,9 @@ class Grid:
             if faces.size > 0:
                 first = self.face_nodes.indptr[faces]
                 second = self.face_nodes.indptr[faces + 1]
-                nodes = self.face_nodes.indices[pp.array_operations.mcolon(first, second)]
+                nodes = self.face_nodes.indices[
+                    pp.array_operations.expand_index_pointers(first, second)
+                ]
                 self.tags[node_tag][nodes] = True
 
     def cell_diameters(self, cn: Optional[sps.spmatrix] = None) -> np.ndarray:

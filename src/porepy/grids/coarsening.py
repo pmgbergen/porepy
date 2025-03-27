@@ -414,7 +414,9 @@ def create_partition(
         jf = j[candidate[j]]
         is_fine[jf] = True
         candidate[np.r_[i, jf]] = False
-        loop = ST.indices[pp.array_operations.mcolon(ST.indptr[jf], ST.indptr[jf + 1])]
+        loop = ST.indices[
+            pp.array_operations.expand_index_pointers(ST.indptr[jf], ST.indptr[jf + 1])
+        ]
         for row in np.unique(loop):
             s = ST.indices[ST.indptr[row] : ST.indptr[row + 1]]
             lmbda[row] = s[candidate[s]].size + 2 * s[is_fine[s]].size
@@ -482,7 +484,7 @@ def create_partition(
         axis=-1,
     )
 
-    connection_idx = pp.array_operations.mcolon(
+    connection_idx = pp.array_operations.expand_index_pointers(
         connection.indptr[coarse], connection.indptr[coarse + 1]
     )
 

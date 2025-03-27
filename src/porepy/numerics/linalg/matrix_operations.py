@@ -43,7 +43,9 @@ def zero_columns(A: sps.csc_matrix, cols: np.ndarray) -> None:
     if A.getformat() != "csc":
         raise ValueError("Need a csc matrix")
     indptr = A.indptr
-    col_indptr = pp.array_operations.mcolon(indptr[cols], indptr[cols + 1])
+    col_indptr = pp.array_operations.expand_index_pointers(
+        indptr[cols], indptr[cols + 1]
+    )
     A.data[col_indptr] = 0
 
 
@@ -69,7 +71,9 @@ def zero_rows(A: sps.csr_matrix, rows: np.ndarray) -> None:
     if A.getformat() != "csr":
         raise ValueError("Need a csr matrix")
     indptr = A.indptr
-    row_indptr = pp.array_operations.mcolon(indptr[rows], indptr[rows + 1])
+    row_indptr = pp.array_operations.expand_index_pointers(
+        indptr[rows], indptr[rows + 1]
+    )
     A.data[row_indptr] = 0
 
 
@@ -129,7 +133,9 @@ def merge_matrices(
     indices = A.indices
     data = A.data
 
-    ind_ix = pp.array_operations.mcolon(indptr[lines_to_replace], indptr[lines_to_replace + 1])
+    ind_ix = pp.array_operations.expand_index_pointers(
+        indptr[lines_to_replace], indptr[lines_to_replace + 1]
+    )
 
     # First we remove the old data
     num_rem = np.zeros(indptr.size, dtype=np.int32)
@@ -300,7 +306,9 @@ def slice_indices(
         array_ind = slice(A.indptr[slice_ind], A.indptr[slice_ind + 1])
         indices = A.indices[array_ind]
     else:
-        array_ind = pp.array_operations.mcolon(A.indptr[slice_ind], A.indptr[slice_ind + 1])
+        array_ind = pp.array_operations.expand_index_pointers(
+            A.indptr[slice_ind], A.indptr[slice_ind + 1]
+        )
         indices = A.indices[array_ind]
     if return_array_ind:
         return indices, array_ind
@@ -342,7 +350,9 @@ def slice_sparse_matrix(A: sps.spmatrix, ind: np.ndarray | int) -> sps.spmatrix:
     N = ind.size
     # Expand the indices along the compressed axis. To understand this command, it is
     # necessary to be familiar with the compressed storage format.
-    ind_slice = pp.array_operations.mcolon(A.indptr[ind], A.indptr[ind + 1])
+    ind_slice = pp.array_operations.expand_index_pointers(
+        A.indptr[ind], A.indptr[ind + 1]
+    )
     # Pick out the subset of the indices from A that are also in the slice.
     indices = A.indices[ind_slice]
     # Make a new indptr array and fill it with the relevant parts of the original indptr
@@ -801,7 +811,7 @@ class ArraySlicer:
         # Get the indices (referring to the fields A.data and A.indices) of the non-zero
         # elements in the target rows. This requires that we
         sorted_domain_indices = self._domain_indices[sort_ind_range]
-        sub_indices = pp.array_operations.mcolon(
+        sub_indices = pp.array_operations.expand_index_pointers(
             indptr[sorted_domain_indices], indptr[sorted_domain_indices + 1]
         )
 
@@ -1575,7 +1585,7 @@ def block_diag_index(
     p1_full = rldecode(p1, n)
     p2_full = rldecode(p2, n)
 
-    i = pp.array_operations.mcolon(p1_full, p2_full + 1)
+    i = pp.array_operations.expand_index_pointers(p1_full, p2_full + 1)
     sumn = np.arange(np.sum(n))
     m_n_full = rldecode(m, n)
     j = rldecode(sumn, m_n_full)

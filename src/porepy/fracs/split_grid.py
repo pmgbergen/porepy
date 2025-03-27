@@ -361,7 +361,9 @@ def _duplicate_specific_faces(sd: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     # manipulating the CSC-format of the matrix Nodes of the target faces
     node_start = sd.face_nodes.indptr[frac_id]
     node_end = sd.face_nodes.indptr[frac_id + 1]
-    nodes = sd.face_nodes.indices[pp.array_operations.mcolon(node_start, node_end)]
+    nodes = sd.face_nodes.indices[
+        pp.array_operations.expand_index_pointers(node_start, node_end)
+    ]
 
     # Start point for the new columns. They will be appended to the matrix, thus the
     # offset of the previous size of gh.face_nodes

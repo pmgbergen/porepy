@@ -469,8 +469,7 @@ def expand_indices_add_increment(x: np.ndarray, n: int, increment: int) -> np.nd
     return ind_new
 
 
-def mcolon(lo, hi):
-    # expand_indptr
+def expand_index_pointers(lo, hi):
     """Expansion of np.arange(a, b) for arrays a and b.
 
     The code is equivalent to the following (less efficient) loop:
@@ -487,13 +486,13 @@ def mcolon(lo, hi):
         larger than one, they should have the same length.
 
     Examples:
-        >>> mcolon(np.array([0, 0, 0]), np.array([2, 4, 3]))
+        >>> expand_index_pointers(np.array([0, 0, 0]), np.array([2, 4, 3]))
         array([0, 1, 0, 1, 2, 3, 0, 1, 2])
 
-        >>> mcolon(np.array([0, 1]), np.array([2]))
+        >>> expand_index_pointers(np.array([0, 1]), np.array([2]))
         array([0, 1, 1])
 
-        >>> mcolon(np.array([0, 1, 1, 1]), np.array([1, 3, 3, 3]))
+        >>> expand_index_pointers(np.array([0, 1, 1, 1]), np.array([1, 3, 3, 3]))
         array([0, 1, 2, 1, 2, 1, 2])
 
     Acknowledgements:
