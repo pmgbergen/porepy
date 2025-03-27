@@ -1036,8 +1036,12 @@ class FractureNetwork3d(object):
         # fractures meeting in a line.
 
         # Do a sort of edges before looking for duplicates.
+        # TODO> EK: This function calls to np.unique inside, which does not guarantee
+        # the return ordering. For some reason, we rely on this changed ordering, and
+        # sorting it breaks the test `TestMixedDimensionalUpwinding.test_3d_2d_1d_0d`.
+        # This must be investigated at some point due to potential bugs.
         e_unique, unique_ind_e, all_2_unique_e = pp.array_operations.unique_columns(
-            np.sort(edges, axis=0)
+            np.sort(edges, axis=0), preserve_order=False
         )
 
         # Update the edges_2_frac map to refer to the new edges

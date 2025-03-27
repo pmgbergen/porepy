@@ -265,8 +265,13 @@ class TetrahedralGrid(Grid):
         face_nodes = face_nodes.reshape((3, 4 * num_cells), order="F")
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
         face_nodes_sorted = np.sort(face_nodes, axis=0)
+
+        # TODO> EK: This function calls to np.unique inside, which does not guarantee
+        # the return ordering. For some reason, we rely on this changed ordering, and
+        # sorting it breaks the test `TestMVEMRHS.test_3d_isotropic_permeability`. This
+        # must be investigated at some point due to potential bugs.
         face_nodes, _, cell_faces = pp.array_operations.unique_columns(
-            face_nodes_sorted
+            face_nodes_sorted, preserve_order=False
         )
 
         num_faces = face_nodes.shape[1]
