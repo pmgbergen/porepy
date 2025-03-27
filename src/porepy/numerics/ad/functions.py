@@ -35,6 +35,7 @@ __all__ = [
     "log",
     "abs",
     "l2_norm",
+    "safe_power",
     "sin",
     "cos",
     "tan",
@@ -139,6 +140,37 @@ def l2_norm(dim: int, var: pp.ad.AdArray) -> pp.ad.AdArray:
     )
     jac = norm_jac * var.jac
     return pp.ad.AdArray(vals, jac)
+
+
+def safe_power(power: float, zero_val: float, tol: float, var: AdArray) -> AdArray:
+    """Safe (negative) power of an AdArray.
+
+    The power is performed only for nonzeros in the variable, whereas zeros
+    are left as zeros. This is useful for avoiding division by zero in the
+    Jacobian.
+
+    Parameters:
+        power: Power to raise the variable to.
+        zero_val: Value to assign to zero entries in the variable.
+        tol: Tolerance for comparison with zero.
+        var: AdArray representing the numerator.
+
+    Returns:
+        AdArray representing the safe power.
+
+    """
+    if isinstance(var, np.ndarray):
+        _val = var
+    else:
+        _val = var.val
+
+    nonzero_inds = np.abs(_val) > tol
+    vals = np.ones_like(_val) * zero_val
+    vals[nonzero_inds] = _val[nonzero_inds] ** power
+    if isinstance(var, np.ndarray):
+        return vals
+    new_jac = var._diagvec_mul_jac(power * vals ** (power - 1.0))
+    return AdArray(vals, new_jac)
 
 
 # Trigonometric functions
@@ -258,6 +290,7 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
     """Heaviside function.
 
     The Heaviside function is defined as:
+
     .. math::
         H(x) = \\begin{cases}
             0, & x < 0, \\\\
@@ -267,13 +300,12 @@ def heaviside(zerovalue: float, var: FloatType) -> FloatType:
 
     Parameters:
         zerovalue: Value of the Heaviside function at zero. Typically, this is
-        set to 0, 0.5 or 1.
+            set to 0, 0.5 or 1.
         var: Input array.
 
     Returns:
         Heaviside function (and its Jacobian if applicable) in form of a AdArray
         or ndarray (depending on the input).
-
     """
     if isinstance(var, pp.ad.AdArray):
         zero_jac = sps.csr_matrix(var.jac.shape)
