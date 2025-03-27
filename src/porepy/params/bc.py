@@ -32,7 +32,8 @@ class AbstractBoundaryCondition(ABC):
         Create a deep copy of the boundary condition.
 
         Returns:
-            AbstractBoundaryCondition: A deep copy of self. All attributes will also be copied.
+            AbstractBoundaryCondition: A deep copy of self. All attributes will also be
+            copied.
 
         """
         # We don't call the init since we don't have access to the grid.
@@ -97,19 +98,20 @@ class BoundaryCondition(AbstractBoundaryCondition):
         The conditions are specified by face numbers. Faces that do not get an
         explicit condition will have Neumann conditions assigned.
 
-        Args:
-            sd (pp.Grid): Subdomain for which boundary conditions are set.
-            faces (np.ndarray): Faces for which conditions are assigned.
-            cond (list of str or str): Conditions on the faces, in the same order as
-                used in faces. Should be as long as faces. The list elements
-                should be one of "dir", "neu", "rob".
+        Parameters:
+            sd: Subdomain for which boundary conditions are set.
+            faces: Faces for which conditions are assigned.
+            cond: Conditions on the faces, in the same order as used in faces. Should be
+                as long as faces. The list elements should be "dir", "neu" or "rob".
 
         Raises:
-            ValueError if faces are a boolean array with size not matching the number of faces.
-            ValueError if internal faces are marked
-            ValueError if the numbers of boundary condition types and faces are not matching
-            ValueError if another keyword is used as for the boundary condition type than
-                "dir", "neu" or "rob"
+            ValueError if faces are a boolean array with size not matching the number of
+                faces.
+            ValueError if internal faces are marked.
+            ValueError if the numbers of boundary condition types and faces are not
+                matching.
+            ValueError if another keyword is used as for the boundary condition type
+                than "dir", "neu" or "rob".
 
         Example:
             # Assign Dirichlet conditions on the left side of a subdomain; implicit
@@ -264,12 +266,12 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
         The conditions are specified by face numbers. Faces that do not get an
         explicit condition will have Neumann conditions assigned.
 
-        Args:
-            sd (pp.Grid): For which boundary conditions are set.
-            faces (np.ndarray, optional): Faces for which conditions are assigned.
-            cond (list of str or str, optional): Conditions on the faces, in the same order
-                as used in faces. Should be as long as faces. To set uniform condition
-                in all spatial directions for a face, use 'dir', 'neu', or 'rob'
+        Parameters:
+            sd: For which boundary conditions are set.
+            faces: Faces for which conditions are assigned.
+            cond: Conditions on the faces, in the same order as used in faces. Should be
+                as long as faces. To set uniform condition in all spatial directions for
+                a face, use 'dir', 'neu', or 'rob'
 
                 NOTE: For more general combinations of boundary conditions, it is
                 recommended to first construct a BoundaryConditionVectorial object,
@@ -281,8 +283,9 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
             # Neumann conditions on the rest
             sd = pp.CartGrid([2, 2])
             west_face = pp.bc.face_on_side(sd, 'west')
-            bound_cond = pp.BoundaryConditionVectorial(sd, faces=west_face, cond=['dir',
-                                                                                 'dir'])
+            bound_cond = pp.BoundaryConditionVectorial(
+                sd, faces=west_face, cond=['dir', 'dir']
+            )
 
         Example:
             Assign Dirichlet condition in the x-direction, Robin in the z-direction.
@@ -370,17 +373,19 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
     ) -> None:
         """Define a single boundary condition.
 
-        Args:
+        Parameters:
             faces (np.ndarray, optional): Boolean array determining which face is
                 considered.
             cond (str or list of str, optional): Boundary condition type
 
         Raises:
-            ValueError if faces are a boolean array with size not matching the number of faces.
-            ValueError if internal faces are marked
-            ValueError if the numbers of boundary condition types and faces are not matching
-            ValueError if another keyword is used as for the boundary condition type than
-                "dir", "neu" or "rob"
+            ValueError if faces are a boolean array with size not matching the number of
+                faces.
+            ValueError if internal faces are marked.
+            ValueError if the numbers of boundary condition types and faces are not
+                matching.
+            ValueError if another keyword is used as for the boundary condition type
+            than "dir", "neu" or "rob".
         """
         if faces is not None:
             # Validate arguments
@@ -394,7 +399,7 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
                 faces = np.argwhere(faces)
 
             if not np.all(np.isin(faces, self.bf)):
-                raise ValueError("Give boundary condition only on the boundary")
+                raise ValueError("Give boundary condition only on the boundary.")
             if isinstance(cond, str):
                 cond = [cond] * faces.size
             if faces.size != len(cond):
@@ -426,7 +431,7 @@ def face_on_side(
     (xmax / east), (ymin / south), (ymax / north), (zmin, bottom),
     (zmax / top).
 
-    Args:
+    Parameters:
         sd (pp.Grid): Subdomain for which we want to find faces.
         side (str, or list of str): Sides for which we want to find the
             boundary faces.
