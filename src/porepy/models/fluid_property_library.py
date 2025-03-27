@@ -28,7 +28,8 @@ Note:
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, cast
+from typing import Callable, Sequence, cast, Union
+import numpy as np
 
 import porepy as pp
 
@@ -455,6 +456,189 @@ class FluidMobility(pp.PorePyModel):
         )
         frac_mob.set_name(f"fractional_phase_mass_mobility_{phase.name}")
         return frac_mob
+
+
+class FluidBuoyancy(pp.PorePyModel):
+    """Class for fluid buoyancy and its discretization in flow & transport equations."""
+
+    component_mass_mobility: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`FluidMobility`."""
+
+    fractional_component_mass_mobility: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`FluidMobility`."""
+
+    phase_mobility: Callable[
+        [pp.Phase, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`FluidMobility`."""
+
+    darcy_flux_discretization: Callable[[list[pp.Grid]],pp.ad.MpfaA] # because it contains the div(w(rho)) term
+    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
+
+
+    def upward_key(self, xi: pp.Component) -> str:
+        return 'upward_dir_' + xi.name
+
+    def downward_key(self, eta: pp.Component) -> str:
+        return 'downward_dir_' + eta.name
+
+    def upward_flux_array_key(self, xi: pp.Component) -> str:
+        return 'upward_w_flux_' + xi.name
+
+    def downward_flux_array_key(self, eta: pp.Component) -> str:
+        return 'downward_w_flux_' + eta.name
+
+    def upward_component_discretization(self, xi: pp.Component, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
+        discr = pp.ad.UpwindAd(self.upward_key(xi), subdomains)
+        discr._discretization.upwind_matrix_key = self.upward_key(xi)
+        discr._discretization.flux_array_key = self.upward_flux_array_key(xi)
+        return discr
+
+    def downward_component_discretization(self, eta: pp.Component, subdomains: list[pp.Grid]) -> pp.ad.UpwindAd:
+        discr = pp.ad.UpwindAd(self.downward_key(eta), subdomains)
+        discr._discretization.upwind_matrix_key = self.downward_key(eta)
+        discr._discretization.flux_array_key = self.downward_flux_array_key(eta)
+        return discr
+
+    def interface_upward_component_discretization(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.UpwindCouplingAd:
+        return pp.ad.UpwindCouplingAd(self.upward_key(), interfaces)
+
+    def interface_downward_component_discretization(
+        self, interfaces: list[pp.MortarGrid]
+    ) -> pp.ad.UpwindCouplingAd:
+        return pp.ad.UpwindCouplingAd(self.downward_key(), interfaces)
+
+    def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        scaling = 1.0e-6
+        g_constant = pp.GRAVITY_ACCELERATION
+        val = self.fluid.convert_units(g_constant, "m*s^-2") * scaling
+        size = np.sum([g.num_cells for g in subdomains]).astype(int)
+        gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
+        gravity_field.set_name("gravity_field")
+        return gravity_field
+
+    def gravity_force(
+            self,
+            subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
+    ) -> pp.ad.Operator:
+
+        fractionally_weighted_rho = self.fractionally_weighted_density(subdomains)
+
+        # Keeping the following line for quantitative verification purposes
+        # fractionally_weighted_rho = np.sum(overall_rho.value(self.equation_system) * subdomains[0].cell_volumes) / np.sum(subdomains[0].cell_volumes)
+
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
+        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+        overall_gravity_flux = pp.ad.Scalar(-1) * e_n @ (fractionally_weighted_rho * self.gravity_field(subdomains))
+        overall_gravity_flux.set_name("overall gravity flux")
+        return overall_gravity_flux
+
+    def density_driven_flux(self,
+            subdomains: pp.SubdomainsOrBoundaries,
+            density_metric: pp.ad.Operator
+    ) -> pp.ad.Operator:
+
+        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
+        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+        gravity_flux = pp.ad.Scalar(-1) * e_n @ (density_metric * self.gravity_field(subdomains))
+
+        discr: Union[pp.ad.TpfaAd, pp.ad.MpfaAd] = self.darcy_flux_discretization(
+            subdomains
+        )
+        w_flux = discr.vector_source() @ gravity_flux
+        w_flux.set_name("density_driven_flux_" + density_metric.name)
+        return w_flux
+
+    def component_density(
+        self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
+    ) -> pp.ad.Operator:
+
+        # TODO: this may need and extra phase.density(domains) factor
+        name = f"component_density_{component.name}"
+        component_density = pp.ad.sum_operator_list(
+            [
+                phase.partial_fraction_of[component](domains)
+                * self.phase_mobility(phase, domains)
+                * phase.density(domains)
+                for phase in self.fluid.phases
+            ],
+            name,
+        ) / self.component_mass_mobility(component, domains)
+        return component_density
+
+    def fractionally_weighted_density(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+        overall_rho = pp.ad.sum_operator_list([
+            self.fractional_component_mass_mobility(component, domains) * self.component_density(component,domains)
+            for component in self.fluid.components])
+        overall_rho.set_name("fractionally_weighted_density")
+        return overall_rho
+
+    def component_buoyancy(self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+
+        # This construction implies that for each component pair there is a pair of upwinding objects
+        b_fluxes = []
+        for component_eta in self.fluid.components:
+            if component_eta == component_xi:
+                continue
+            rho_xi = self.component_density(component_xi, domains)
+            rho_eta = self.component_density(component_eta, domains)
+            w_flux_xi_eta = self.density_driven_flux(domains, rho_xi - rho_eta) # well-defined flux on facets
+            f_xi = self.fractional_component_mass_mobility(component_xi, domains)
+            f_eta = self.fractional_component_mass_mobility(component_eta, domains)
+
+            # Verify that the domains are subdomains.
+            if not all(isinstance(d, pp.Grid) for d in domains):
+                raise ValueError("domains must consist entirely of subdomains.")
+            domains = cast(list[pp.Grid], domains)
+
+            discr_xi = self.upward_component_discretization(component_xi, domains)
+            discr_eta = self.downward_component_discretization(component_eta, domains)
+
+            # TODO: Fixed dimensional implementation. Needs md-part
+            f_xi_upwind: pp.ad.Operator = discr_xi.upwind() @ f_xi # well-defined fraction flow on facets
+            f_eta_upwind: pp.ad.Operator = discr_eta.upwind() @ f_eta # well-defined fraction flow on facets
+
+            b_flux_xi_eta = w_flux_xi_eta * (f_xi_upwind * f_eta_upwind)
+            b_fluxes.append(b_flux_xi_eta)
+
+        b_flux = pp.ad.sum_operator_list(b_fluxes) # sum all buoyancy terms w.t. component_xi
+        b_flux.set_name("component_buoyancy_" + component_xi.name)
+        return b_flux
+
+    def update_buoyancy_discretizations(self):
+
+        for eta in self.fluid.components:
+            for xi in self.fluid.components:
+                if eta == xi:
+                    continue
+
+                for sd, data in self.mdg.subdomains(return_data=True):
+                    # Computing buoyancy flux and updating it in the mobility
+                    rho_xi = self.component_density(component_xi, [sd])
+                    rho_eta = self.component_density(component_eta, [sd])
+                    vals = self.density_driven_flux([sd], rho_xi - rho_eta).value(self.equation_system)
+                    data[pp.PARAMETERS][self.downward_key(eta)].update({self.downward_flux_array_key(eta): -vals})
+                    data[pp.PARAMETERS][self.upward_key(xi)].update({self.upward_flux_array_key(xi): +vals})
+
+                for intf, data in self.mdg.interfaces(return_data=True, codim=1):
+                    assert False # case not implemented yet
+                    # Computing the darcy flux in fractures (given by variable)
+                    vals = self.density_driven_flux([intf],pp.ad.Scalar(-1.0)).value(self.equation_system)
+                    data[pp.PARAMETERS][self.downward_keyword()].update({"downward_w_flux": -vals})
+                    data[pp.PARAMETERS][self.upward_keyword()].update({"upward_w_flux": +vals})
+
+                for intf, data in self.mdg.interfaces(return_data=True, codim=2):
+                    assert False  # case not implemented yet
+                    # Computing the darcy flux in wells (given by variable)
+                    vals = self.density_driven_flux([intf],pp.ad.Scalar(-1.0)).value(self.equation_system)
+                    data[pp.PARAMETERS][self.downward_keyword()].update({"downward_w_flux": -vals})
+                    data[pp.PARAMETERS][self.upward_keyword()].update({"upward_w_flux": +vals})
 
 
 class ConstantViscosity(pp.PorePyModel):
