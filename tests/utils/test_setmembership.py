@@ -11,17 +11,6 @@ import pytest
 import porepy as pp
 
 
-def test_unique_rows():
-    a = np.array([[1, 2], [2, 1], [2, 4], [2, 1], [2, 4]])
-    ua_expected = np.array([[1, 2], [2, 1], [2, 4]])
-    ia_expected = np.array([0, 1, 2])
-    ic_expected = np.array([0, 1, 2, 1, 2])
-    ua, ia, ic = pp.array_operations.unique_rows(a)
-    assert np.sum(np.abs(ua) - np.abs(ua_expected)) == 0
-    assert np.all(ia - ia_expected == 0)
-    assert np.all(ic - ic_expected == 0)
-
-
 @pytest.mark.parametrize(
     "a,b,ma_known,ia_known",
     [
@@ -106,43 +95,3 @@ def test_ismember_rows_no_sort(a, b, ma_known, ia_known):
 
     assert np.allclose(ma, ma_known)
     assert np.allclose(ia, ia_known)
-
-
-def test_unique_columns_tol_no_common_points():
-    p = np.array([[0, 1, 2], [0, 0, 0]])
-    p_unique, new_2_old, old_2_new = pp.array_operations.unique_columns(p)
-
-    assert np.allclose(p, p_unique)
-    assert np.all(old_2_new == np.arange(3))
-    assert np.all(old_2_new == new_2_old)
-
-
-def test_unique_columns_tol_remove_one_point():
-    p = np.ones((2, 2), dtype=int)
-    _, new_2_old, old_2_new = pp.array_operations.unique_columns(p)
-
-    assert np.allclose(p, np.ones((2, 1)))
-    assert np.all(old_2_new == np.zeros(2))
-    assert np.all(new_2_old == np.zeros(1))
-
-
-def test_unique_columns_tol_remove_one_of_tree():
-    p = np.array([[1, 1, 0], [1, 1, 0]])
-    p_unique, new_2_old, old_2_new = pp.array_operations.unique_columns(p)
-
-    # The sorting of the output depends on how the unique array is computed
-    # (see unique_columns_tol for the various options that may be applied).
-    # Do a simple sort to ensure we're safe.
-    if p_unique[0, 0] == 0:
-        assert np.all(np.sort(old_2_new) == np.array([0, 1, 1]))
-        assert np.all(np.sort(new_2_old) == np.array([0, 2]))
-    else:
-        assert np.all(np.sort(old_2_new) == np.array([0, 0, 1]))
-        assert np.all(np.sort(new_2_old) == np.array([0, 2]))
-
-    p_known = np.array([[0, 1], [0, 1]])
-
-    for i in range(p_unique.shape[1]):
-        assert np.min(np.sum(np.abs(p_known - p_unique[:, i]), axis=0)) == 0
-    for i in range(p_known.shape[1]):
-        assert np.min(np.sum(np.abs(p_known[:, i] - p_unique), axis=0)) == 0

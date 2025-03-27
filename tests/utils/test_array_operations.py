@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.applications.test_utils.arrays import compare_arrays
 
 
 coord_1 = [
@@ -367,6 +368,8 @@ def test_unique_rows(params):
                 np.array([0, 1, 2, 0, 2, 3]),
             ),
         },
+        # Edge case: no points.
+        {"input": np.array([]), "expected": (np.array([]), np.array([]), np.array([]))},
     ],
 )
 def test_unique_columns(params):
@@ -385,11 +388,25 @@ def test_unique_columns(params):
 
     """
     input_array = params["input"]
-    result = pp.array_operations.unique_columns(input_array)
+    result_ord = pp.array_operations.unique_columns(input_array, preserve_order=True)
 
-    assert np.all(result[0] == params["expected"][0])
-    assert np.all(result[1] == params["expected"][1])
-    assert np.all(result[2] == params["expected"][2])
+    assert np.all(result_ord[0] == params["expected"][0])
+    assert np.all(result_ord[1] == params["expected"][1])
+    assert np.all(result_ord[2] == params["expected"][2])
+
+    # Test that unique_vectors_tol produce the same result.
+    result_tol = pp.array_operations.unique_vectors_tol(input_array, tol=0.1)
+    assert np.all(result_tol[0] == params["expected"][0])
+    assert np.all(result_tol[1] == params["expected"][1])
+    assert np.all(result_tol[2] == params["expected"][2])
+
+    # Test that unordered produces the same result up to some permutation.
+    result_unord = pp.array_operations.unique_columns(input_array, preserve_order=False)
+    unique_unord, new_2_old_unord, old_2_new_unord = result_unord
+    assert compare_arrays(result_unord[0], params["expected"][0])
+    assert np.all(input_array[:, new_2_old_unord] == unique_unord)
+    assert compare_arrays(input_array[:, new_2_old_unord], params["expected"][1])
+    assert np.all(unique_unord[:, old_2_new_unord], input_array)
 
 
 @pytest.mark.parametrize(
@@ -550,3 +567,35 @@ def test_mcolon(params: dict):
     expected_dtype = params.get("expected_dtype")
     if expected_dtype is not None:
         assert result.dtype == expected_dtype
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        # Test that the ordering is preserved and some non-unique values are filtered.
+        {
+            "input": [[1, 1], [0, 0], [0.5, 0], [0, 0], [0, 0.5], [0, 0], [0.5, 0]],
+            "tol": 1e-2,
+            "expected_unique": [[1, 1], [0, 0], [0.5, 0], [0, 0.5]],
+        },
+        # Edge case for the values close to the tolerance.
+        {
+            "input": np.array([np.linspace(0, 1, num=101)[::-1], [0] * 101]).T,
+            "tol": 1e-1,
+            "expected_unique": [
+                [1, 0.97, 0.86, 0.75, 0.64, 0.53, 0.43, 0.32, 0.21, 0.1],
+                [0] * 10,
+            ],
+        },
+    ],
+)
+def test_unique_vectors_tol(params: dict):
+    input = np.array(params["input"]).T
+    tol = params["tol"]
+    unique_vectors, new_2_old, old_2_new = pp.array_operations.unique_vectors_tol(
+        vectors=input, tol=tol
+    )
+    expected_unique = np.array(params["expected_unique"]).T
+    assert np.allclose(unique_vectors, expected_unique, atol=tol)
+    assert np.allclose(input[:, new_2_old], expected_unique, atol=tol)
+    assert np.allclose(unique_vectors[:, old_2_new], input, atol=tol)
