@@ -16,24 +16,22 @@ def sort_point_pairs(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Sort pairs of numbers to form a chain.
 
-    The target application is to sort lines, defined by their
-    start end endpoints, so that they form a continuous polyline.
+    The target application is to sort lines, defined by their start end endpoints, so
+    that they form a continuous polyline.
 
-    The algorithm is brute-force, using a double for-loop. This can
-    surely be improved.
+    The algorithm is brute-force, using a double for-loop. This can surely be improved.
 
-    Args:
-        lines (np.ndarray, 2xn): the line pairs. If lines has more than 2 rows, we assume
+    Parameters:
+        lines: ``shape=(2, n)`` the line pairs. If lines has more than 2 rows, we assume
             that the points are stored in the first two rows.
-        check_circular (bool): Verify that the sorted polyline form a circle.
-        is_circular (bool): if the lines form a closed set. Default is True.
+        check_circular: Verify that the sorted polyline form a circle. is_circular: if
+        the lines form a closed set. Default is True.
 
     Returns:
-        np.ndarray, 2xn: sorted line pairs. If lines had more than 2 rows,
-            the extra are sorted accordingly.
-        np.ndarray, n: Sorted column indices, so that
-            sorted_lines = lines[:, sort_ind], modulo flipping of rows in individual
-            columns
+        Array of ``shape=(2, n)`` sorted line pairs. If lines had more than 2 rows, the
+        extra are sorted accordingly. Array of sorted column indices, so that
+        sorted_lines = lines[:, sort_ind], modulo flipping of rows in individual
+        columns.
 
     """
 
@@ -161,13 +159,13 @@ def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
             # line segment
             prev = sorted_lines[2 * c + 1, 0]
 
-            # The sorting algorithm: Loop over all positions in the chain to be set next.
-            # Find the right candidate to be moved to this position and possibly flipped
-            # if needed. A candidate is identified as fitting if it contains one point
-            # equal to the current starting point. This algorithm uses a double loop,
-            # which is the most naive approach. However, assume chain_length is in
+            # The sorting algorithm: Loop over all positions in the chain to be set
+            # next. Find the right candidate to be moved to this position and possibly
+            # flipped if needed. A candidate is identified as fitting if it contains one
+            # point equal to the current starting point. This algorithm uses a double
+            # loop, which is the most naive approach. However, assume chain_length is in
             # general small.
-            for i in range(1, chain_length):  # The first line has already been found
+            for i in range(1, chain_length):  # The first line has already been found.
                 for j in range(
                     1, chain_length
                 ):  # The first line has already been found
@@ -211,7 +209,7 @@ def sort_point_plane(
     The algorithm assumes a star-shaped disposition of the points with respect
     the centre.
 
-    Args:
+    Parameters:
         pts: np.ndarray, 3xn, the points.
         centre: np.ndarray, 3x1, the face centre.
         normal: (optional) the normal of the plane, otherwise three points are
@@ -245,7 +243,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     a common plane, methods based on geometry are at best cumbersome. This
     approach should work also in those cases.
 
-    Args:
+    Parameters:
         t (np.ndarray, 3 x n_tri): Triangulation to have vertexes ordered.
 
     Returns:

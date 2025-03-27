@@ -170,7 +170,8 @@ def _get_arrayslicer_target(mat, mode: Literal["float", "dense", "sparse", "ad"]
         (np.array([3, 1]), np.array([0, 3])),
         # Extract selected columns, force the range to have at least five dimensions.
         (np.array([3, 1]), np.array([0, 4])),
-        # Extract selected columns. Both domain and range indices vary non-monotonically.
+        # Extract selected columns. Both domain and range indices vary
+        # non-monotonically.
         (np.array([2, 3, 0]), np.array([3, 0, 1])),
         # Domain indices are not specified. The first three rows will be extracted.
         (None, np.array([0, 1, 3])),
@@ -411,8 +412,8 @@ def _matrix_slicer_delayed_evaluation_backend(
     # ArraySlicer, and the delayed evaluation will be triggered.
     result = eval(f"other_operand_sliced {operator} slicer @ slicer_target")
 
-    # Next we construct a benchmark result by effectively imposing parentheses around the
-    # slicing operation. This is the form (2) described in the docstring.
+    # Next we construct a benchmark result by effectively imposing parentheses around
+    # the slicing operation. This is the form (2) described in the docstring.
     if target_mode == "float":
         # If the target is a float, we expand it to a vector of the same size as the
         # domain indices. This mimics the behavior of the ArraySlicer, which is expected
@@ -649,8 +650,8 @@ def test_sparse_block_matrix_from_sparse(format):
 
 def test_diagonal_matrix_from_sparse_blocks():
     """Test the conversion of a sparse block matrix to a sparse matrix. The block matrix
-    is constructed from two sparse blocks. The matrix should be filled with the blocks on
-    the block diagonal.
+    is constructed from two sparse blocks. The matrix should be filled with the blocks
+    on the block diagonal.
     """
     # Make two blocks, one in csr and one in csc format.
     blocks = [

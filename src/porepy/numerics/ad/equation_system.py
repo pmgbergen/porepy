@@ -919,8 +919,8 @@ class EquationSystem:
         correct/does what it is supposed to do.
         """
 
-        # strings and md variables represent always a whole in the variable sense. Hence,
-        # the complement is empty
+        # strings and md variables represent always a whole in the variable sense.
+        # Hence, the complement is empty
         if isinstance(variables, (str, MixedDimensionalVariable)):
             # TODO: Can we drop this, or is it possible that a single variable has made
             # it into this subroutine?
@@ -1061,7 +1061,7 @@ class EquationSystem:
         assert len(variable) == 1, "Failed to find Variable corresponding to `dof`."
         return variable[0]
 
-    ### Equation management -------------------------------------------------------------------
+    ### Equation management ------------------------------------------------------------
 
     def set_equation(
         self,
@@ -1069,7 +1069,8 @@ class EquationSystem:
         grids: DomainList,
         equations_per_grid_entity: dict[GridEntity, int],
     ) -> None:
-        """Sets an equation using the passed operator and uses its name as an identifier.
+        """Sets an equation using the passed operator and uses its name as an
+        identifier.
 
         If an equation already exists under that name, it is overwritten.
 
@@ -1123,8 +1124,8 @@ class EquationSystem:
         # If no grids are specified, there is nothing to do
         if not grids:
             self._equation_image_space_composition.update({name: image_info})
-            # Information on the size of the equation, in terms of the grids it is defined
-            # on.
+            # Information on the size of the equation, in terms of the grids it is
+            # defined on.
             self._equation_image_size_info.update({name: equations_per_grid_entity})
             # Store the equation itself.
             self._equations.update({name: equation})
@@ -1248,7 +1249,7 @@ class EquationSystem:
             # Update local counting
             self._variable_num_dofs[self._variable_numbers[id_]] = num_dofs
 
-    ### System assembly and discretization ----------------------------------------------------
+    ### System assembly and discretization ---------------------------------------------
 
     @staticmethod
     def _recursive_discretization_search(operator: Operator, discr: list) -> list:
@@ -1666,7 +1667,8 @@ class EquationSystem:
         system as
 
         .. math::
-            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix} \right]
+            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix}
+            \right]
             \left [ \begin{matrix} x_p \\ x_s \end{matrix}\right]
             = \left [ \begin{matrix} b_p \\ b_s \end{matrix}\right]
 
@@ -1865,7 +1867,8 @@ class EquationSystem:
         With ``reduced_solution`` as :math:`x_p` from
 
         .. math::
-            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix} \right]
+            \left [ \begin{matrix} A_{pp} & A_{ps} \\ A_{sp} & A_{ss} \end{matrix}
+            \right]
             \left [ \begin{matrix} x_p \\ x_s \end{matrix}\right]
             = \left [ \begin{matrix} b_p \\ b_s \end{matrix}\right],
 

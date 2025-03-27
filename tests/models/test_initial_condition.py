@@ -86,11 +86,10 @@ class ICPrimaryVariablesTestMixin(ICAllVariablesTestMixin):
     """A special mixin for testing purpose which overloads the method setting
     initial values for primary variables.
 
-    The overload asserts that all values for variables flagged as primary are set
-    after the super-framework finishes with the method
-    set_initial_values_primary_variables.
-    It also tests that the evaluation of non-primary variables will lead to zeros because
-    no custom values were set so far.
+    The overload asserts that all values for variables flagged as primary are set after
+    the super-framework finishes with the method set_initial_values_primary_variables.
+    It also tests that the evaluation of non-primary variables will lead to zeros
+    because no custom values were set so far.
 
     """
 
@@ -130,7 +129,8 @@ class ICPrimaryVariablesTestMixin(ICAllVariablesTestMixin):
 class ICSinglePhaseFlow(pp.PorePyModel):
     """Single phase flow class with non-trivial IC for every variable.
 
-    For the purpose of this test, the only variable defined as being primary is pressure.
+    For the purpose of this test, the only variable defined as being primary is
+    pressure.
 
     """
 
@@ -147,7 +147,8 @@ class ICSinglePhaseFlow(pp.PorePyModel):
 class ICEnergy(pp.PorePyModel):
     """Non-trivial IC for the energy-related variables.
 
-    For the ppuposes of this test, the only variable defined as being primary is temperature.
+    For the ppuposes of this test, the only variable defined as being primary is
+    temperature.
 
     """
 
