@@ -6,14 +6,13 @@ This module contains a partial implementation of propagation, confer other modul
 for full implementation of the propagation.
 
 WARNING: This should be considered experimental code and should be used with
-    extreme caution. In particular, the code likely contains bugs, possibly of a
-    severe character. Moreover, simulation of fracture propagation may cause
-    numerical stability issues that it will likely take case-specific adaptations
-    to resolve.
+    extreme caution. In particular, the code likely contains bugs, possibly of a severe
+    character. Moreover, simulation of fracture propagation may cause numerical
+    stability issues that it will likely take case-specific adaptations to resolve.
 
-    The code structure for fracture propagation cannot be considered fixed, and it
-    may be fundamentally restructured at unknown points in the future. If you use
-    this functionality, please notify the maintainers (preferably by an email to
+    The code structure for fracture propagation cannot be considered fixed, and it may
+    be fundamentally restructured at unknown points in the future. If you use this
+    functionality, please notify the maintainers (preferably by an email to
     Eirik.Keilegavlen@uib.no), so that we may keep your use-cases in mind if a major
     overhaul of the code is undertaken.
 
@@ -133,11 +132,10 @@ class FracturePropagation(abc.ABC):
 
         """
         # Obtain old solution vector. The values are extracted in the first two loops
-        # and mapped and updated in the last two, after update_dof_count has been called.
-        # for sd, data in self.mdg.subdomains(return_data=True):
-        # First check if cells and faces have been updated, by checking if index
-        # maps are available. If this is not the case, there is no need to map
-        # variables.
+        # and mapped and updated in the last two, after update_dof_count has been
+        # called. for sd, data in self.mdg.subdomains(return_data=True): First check if
+        # cells and faces have been updated, by checking if index maps are available. If
+        # this is not the case, there is no need to map variables.
 
         # Make temporary storage for old solution.
 

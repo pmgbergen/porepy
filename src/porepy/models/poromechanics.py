@@ -159,8 +159,9 @@ class SolutionStrategyPoromechanics(
         # Nonlinear discretizations for the fluid mass balance subproblem. The momentum
         # balance does not have any.
         super().set_nonlinear_discretizations()
-        # Aperture changes render permeability variable. This requires a re-discretization
-        # of the diffusive flux in subdomains where the aperture changes.
+        # Aperture changes render permeability variable. This requires a
+        # re-discretization of the diffusive flux in subdomains where the aperture
+        # changes.
         subdomains = [sd for sd in self.mdg.subdomains() if sd.dim < self.nd]
         self.add_nonlinear_discretization(
             self.darcy_flux_discretization(subdomains).flux(),

@@ -193,7 +193,8 @@ def _tag_to_physical_name(tag: int | Tags) -> str:
         The string-value of corresponding enumeration in :class:`PhysicalNames`
 
     """
-    # Convenience function to map from numerical to string representation of a geometric object
+    # Convenience function to map from numerical to string representation of a geometric
+    # object.
     #    if isinstance(tag, Tags):
     t = Tags(tag)
     #    else:
