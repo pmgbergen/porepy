@@ -3889,18 +3889,19 @@ class DilationDamage(pp.PorePyModel):
         """Shear dilation gap [m].
 
         Parameters:
-            subdomains: List of subdomains where the shear dilation gap is defined. Should
-            be of co-dimension one, i.e. fractures.
+            subdomains: List of subdomains where the shear dilation gap is defined.
+                Should be of co-dimension one, i.e. fractures.
 
         Returns:
             Operator for nondimensionalized shear dilation gap.
 
         """
-        # Check that the super class has a shear dilation gap method. Otherwise, something
-        # has gone wrong in the inheritance.
+        # Check that the super class has a shear dilation gap method. Otherwise,
+        # something has gone wrong in the inheritance.
         if not hasattr(super(), "shear_dilation_gap"):
             raise ValueError(
-                "The super class of DilationDamage must have a shear_dilation_gap method."
+                "The super class of DilationDamage must have a shear_dilation_gap "
+                "method."
             )
         # Combine the dilation damage with the non-damaged dilation gap.
         intact_gap = super().shear_dilation_gap(subdomains)  # type: ignore[misc]

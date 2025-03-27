@@ -18,9 +18,9 @@ class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
         """Boundary values for the mechanics problem as a numpy array.
 
         Values for the north boundary are retrieved from the parameter dictionary passed
-        on model initialization. The values are time dependent and are retrieved from the
-        parameter dictionary using the key "north_displacements" and indexed in the second
-        dimension by the current time index.
+        on model initialization. The values are time dependent and are retrieved from
+        the parameter dictionary using the key "north_displacements" and indexed in the
+        second dimension by the current time index.
 
         Parameters:
             bg: Boundary grid for which boundary values are to be returned.
@@ -162,8 +162,8 @@ class ExactSolution:
         """
         num_cells = sd.num_cells
         if self.model.nd == 3:
-            # Get only 0th and 2nd components of the displacement, as the 1st component is
-            # the normal component, which is constant.
+            # Get only 0th and 2nd components of the displacement, as the 1st component
+            # is the normal component, which is constant.
             inds: np.ndarray = np.array([0, 2])
         else:
             inds = np.array([0])
@@ -334,11 +334,12 @@ class DamageDataSaving(pp.PorePyModel):
             np.ndarray, self.friction_damage(sds).value(self.equation_system)
         )
 
-        # initial_friction_damage = 1 implies no damage. In this case, the exact solution,
-        # which is used to normalize the relative error, is zero. This can lead to division
-        # by zero. To avoid this, we check if the initial_friction_damage is 1 and set the
-        # error to zero. To avoid masking errors, we also check that the approximated
-        # friction damage and the exact solution are zero.
+        # initial_friction_damage = 1 implies no damage. In this case, the exact
+        # solution, which is used to normalize the relative error, is zero. This can
+        # lead to division by zero. To avoid this, we check if the
+        # initial_friction_damage is 1 and set the error to zero. To avoid masking
+        # errors, we also check that the approximated friction damage and the exact
+        # solution are zero.
         if (
             np.isclose(self.solid.initial_friction_damage, 1.0)
             and np.allclose(approx_friction_damage, 0)
@@ -408,8 +409,10 @@ solid_params = {
     "dilation_angle": 0.1,
     # "shear_modulus": 1e6,  # Suppress shear displacement
     "fracture_normal_stiffness": 1.0e-3,  # Low normal stiffness to promote slip
-    "fracture_tangential_stiffness": 1.0e3,  # High tangential stiffness to suppress elastic deformation
-    "maximum_elastic_fracture_opening": 0.2,  # Larger than (bc displacement + shear dilation).
+    "fracture_tangential_stiffness": 1.0e3,  # High tangential stiffness to suppress
+    # elastic deformation
+    "maximum_elastic_fracture_opening": 0.2,  # Larger than (bc displacement + shear
+    # dilation).
 }
 model_params = {
     # We need two cells in the y direction to get a fracture. In the x direction, we
