@@ -240,7 +240,7 @@ def intersect_sets(
 
     # Find points in b that are close to elements in a. The intersection is structured
     # as a list of length a.shape[1]. Each list item is itself list that contains the
-    # indices to items in array b that that corresponds to this item in a (so, if
+    # indices to items in array b that corresponds to this item in a (so, if
     # intersection[2] == [3], a[:, 2] and b[:, 3] are identical up to the given tolerance).
     intersection = a_tree.query_ball_tree(b_tree, tol)
 
