@@ -643,7 +643,8 @@ class ElastoplasticModelTimeDependentBCs(
 
 
 def test_time_dependent_bc():
-    # Note: The performance of the Newton solver is quite sensitive to the parameters of this test.
+    # Note: The performance of the Newton solver is quite sensitive to the parameters 
+    # of this test.
     solid = pp.SolidConstants(
         fracture_tangential_stiffness=1e-1,
         shear_modulus=1e0,
