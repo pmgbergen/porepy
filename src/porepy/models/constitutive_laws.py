@@ -417,7 +417,8 @@ class DisplacementJumpAperture(DimensionReduction):
                 # a convoluted operation: Map from the trace (only defined on the
                 # parents) to the full set of subdomains. Project first to the mortars
                 # and then to the lower-dimensional subdomains. The resulting compound
-                # projection is used  to map apertures and to count the number of neighbors.
+                # projection is used  to map apertures and to count the number of
+                # neighbors.
                 parent_cells_to_intersection_cells = (
                     mortar_projection.mortar_to_secondary_avg()
                     @ mortar_projection.primary_to_mortar_avg()
@@ -1945,8 +1946,8 @@ class PeacemanWellFlux(pp.PorePyModel):
         # https://www.cambridge.org/core/books/an-introduction-to-
         # reservoir-simulation-using-matlabgnu-octave/F48C3D8C88A3F67E4D97D4E16970F894
         if len(subdomains) == 0:
-            # Set 0.2 as the unused value for equivalent radius. This is a bit arbitrary,
-            # but 0 is a bad choice, as it will lead to division by zero.
+            # Set 0.2 as the unused value for equivalent radius. This is a bit
+            # arbitrary, but 0 is a bad choice, as it will lead to division by zero.
             return Scalar(0.2, name="equivalent_well_radius")
 
         h_list = []
@@ -3044,10 +3045,9 @@ class PressureStress(LinearElasticMechanicalStress):
         # No need to accommodate different discretizations for the stress tensor, as we
         # have only one.
         discr = pp.ad.BiotAd(self.stress_keyword, subdomains)
-        # The stress is simply found by the scalar_gradient operator, multiplied with the
-        # pressure perturbation.
-        # The reference pressure is only defined on sd_primary, thus there is no
-        # need for a subdomain projection.
+        # The stress is simply found by the scalar_gradient operator, multiplied with
+        # the pressure perturbation. The reference pressure is only defined on
+        # sd_primary, thus there is no need for a subdomain projection.
         stress: pp.ad.Operator = discr.scalar_gradient(
             self.darcy_keyword
         ) @ self.perturbation_from_reference("pressure", subdomains)
@@ -3476,7 +3476,8 @@ class BartonBandis(pp.PorePyModel):
         """Barton-Bandis model for elastic normal deformation of a fracture [m].
 
         The model computes an increase in the normal opening as a function of the
-        contact traction and material constants as elaborated in the class documentation.
+        contact traction and material constants as elaborated in the class
+        documentation.
 
         The returned value depends on the value of the solid constant
         maximum_elastic_fracture_opening. If its value is zero, the Barton-Bandis model

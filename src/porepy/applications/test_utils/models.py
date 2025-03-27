@@ -277,14 +277,13 @@ def subdomains_or_interfaces_from_method_name(
     """Return the domains to be tested for a given method.
 
     The method to be tested is assumed to take as input only its domain of definition,
-    that is a list of subdomains or interfaces. The test framework is not compatible with
-    methods that take other arguments (and such a method would also break the implicit
-    contract of the constitutive laws). Note that for the ambiguity related to methods
-    defined on either subdomains or boundaries, only subdomains are considered.
+    that is a list of subdomains or interfaces. The test framework is not compatible
+    with methods that take other arguments (and such a method would also break the
+    implicit contract of the constitutive laws). Note that for the ambiguity related to
+    methods defined on either subdomains or boundaries, only subdomains are considered.
 
     Parameters:
-        mdg: Mixed-dimensional grid.
-        method_name: Name of the method to be tested.
+        mdg: Mixed-dimensional grid. method_name: Name of the method to be tested.
         domain_dimension: Only domains of the specified dimension will be tested.
 
     Returns:

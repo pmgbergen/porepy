@@ -370,7 +370,8 @@ def test_time_dependent_array():
 
 def test_ad_variable_creation():
     """Test creation of Ad variables by way of the EquationSystem.
-    1) Fetching the same variable twice should get the same variable (same attribute id).
+    1) Fetching the same variable twice should get the same variable (same attribute
+        id).
     2) Fetching the same mixed-dimensional variable twice should result in objects with
        different id attributes, but point to the same underlying variable.
 
@@ -765,7 +766,9 @@ def test_ad_variable_prev_time_and_iter(prev_time):
     [["foo"], ["foo", "bar"]],
 )
 def test_variable_combinations(grids, variables):
-    """Test combinations of variables, and mixed-dimensional variables, on different grids.
+    """Test combinations of variables, and mixed-dimensional variables, on different
+    grids.
+
     The main check is if Jacobian matrices are of the right size.
     """
     # Make MixedDimensionalGrid, populate with necessary information
@@ -1667,8 +1670,8 @@ def test_arithmetic_operations_on_ad_objects(
             # _evaluate_single in the AdParser. This is the method that actually
             # translates an expression into a numerical value. An error here signifies
             # that something is wrong with the parsing itself. Note that testing of the
-            # frontend evaluation is done below (calls to equation_system.value()), as well
-            # as in the test of equation_system.py and other tests.
+            # frontend evaluation is done below (calls to equation_system.value()), as
+            # well as in the test of equation_system.py and other tests.
             expression = eval(f"v1 {op} v2")
             state = pp.ad.initAdArrays(
                 [equation_system.get_variable_values(time_step_index=0)]
@@ -1731,7 +1734,8 @@ def test_arithmetic_operations_on_ad_objects(
                 model.interface_darcy_flux_variable, model.mdg.interfaces()
             ),
         ],
-        # Some randomly selected operators: Leaves and trees in the Ad operator graph sense.
+        # Some randomly selected operators: Leaves and trees in the Ad operator graph
+        # sense.
         lambda model: [
             model.ad_time_step,
             model.permeability(model.mdg.subdomains()),

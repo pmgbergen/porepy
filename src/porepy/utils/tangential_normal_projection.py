@@ -217,9 +217,9 @@ class TangentialNormalProjection:
             # plane. What caused this was never clear, but we do not want to take
             # chances here). We choose one tangential vector to lie in the plane
             # orthorgonal to the maximum direction of the normal vector (ex: a normal
-            # vector of [1, 3, 2] has maximum component in the y direction and thus gives
-            # a first tangent vector in the xz-plane). The second tangent vector is the
-            # cross product of the normal and the first tangent vector.
+            # vector of [1, 3, 2] has maximum component in the y direction and thus
+            # gives a first tangent vector in the xz-plane). The second tangent vector
+            # is the cross product of the normal and the first tangent vector.
 
             # Find the maximum direction of the normal vector for each column (each
             # individual normal vector)
