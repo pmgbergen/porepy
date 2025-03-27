@@ -681,8 +681,9 @@ class ConstraintLineSearch:
 
                 else:
                     logger.info(
-                        f"Relaxation factor {weight} is too large for {sum(active_inds)}"
-                        + " indices. Reducing constraint violation tolerance."
+                        f"Relaxation factor {weight} is too large for "
+                        + f"{sum(active_inds)} indices. Reducing constraint violation "
+                        + "tolerance."
                     )
 
             f_0_v = f_0 - violation
