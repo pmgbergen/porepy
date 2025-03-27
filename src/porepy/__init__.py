@@ -214,6 +214,7 @@ from porepy.models import (
     poromechanics,
     mass_and_energy_balance,
     thermoporomechanics,
+    fracture_damage,
 )
 
 # need to import compositional flow after mass_and_energy

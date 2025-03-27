@@ -144,8 +144,8 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         )
         proj = pp.ad.SubdomainProjections(subdomains, self.nd)
 
-        # Contact traction from primary grid and mortar displacements (via primary grid).
-        # Spelled out for clarity:
+        # Contact traction from primary grid and mortar displacements (via primary
+        # grid). Spelled out for clarity:
         #   1) The sign of the stress on the matrix subdomain is corrected so that all
         #      stress components point outwards from the matrix (or inwards, EK is not
         #      completely sure, but the point is the consistency).

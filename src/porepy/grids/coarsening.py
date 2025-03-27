@@ -115,8 +115,8 @@ def generate_coarse_grid(
 
     if isinstance(grid, pp.Grid):
         if isinstance(subdiv, dict):
-            # If the subdiv is a dictionary with grid as a key (this can happen if we are
-            # forwarded here from coarsen), the input must be simplified.
+            # If the subdiv is a dictionary with grid as a key (this can happen if we
+            # are forwarded here from coarsen), the input must be simplified.
             subdiv = subdiv[grid][1]
         _generate_coarse_grid_single(grid, subdiv, False)
 
