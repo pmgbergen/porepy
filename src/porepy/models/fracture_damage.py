@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Callable
+from typing import Callable, cast
 
 import numpy as np
 
@@ -199,6 +199,9 @@ class AnisotropicHistoryEquation(DamageHistoryEquation):
     plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method returning plastic displacement jump."""
 
+    characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic displacement."""
+
     def damage_history_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Anisotropic damage history equation.
 
@@ -252,8 +255,11 @@ class AnisotropicHistoryEquation(DamageHistoryEquation):
             # small contributions and should not impact the solution significantly. For
             # long simulations with deformation on some time steps only, this could save
             # non-negligible amounts of time.
-            tol = 1e-12 * self.equation_system.evaluate(
-                self.characteristic_displacement(subdomains)
+            tol = 1e-12 * cast(
+                float,
+                self.equation_system.evaluate(
+                    self.characteristic_displacement(subdomains)
+                ),
             )
             if np.allclose(self.equation_system.evaluate(u_t_increment_i), 0, atol=tol):
                 # The contribution is zero, so we skip it to avoid unnecessary
@@ -289,8 +295,9 @@ class AnisotropicHistoryEquation(DamageHistoryEquation):
 
         # Define the functions for the norm and safe power.
         f_norm = pp.ad.Function(partial(pp.ad.l2_norm, self.nd - 1), "norm_function")
-        zero_tol = 1e-12 * self.equation_system.evaluate(
-            self.characteristic_displacement(subdomains)
+        zero_tol = 1e-12 * cast(
+            float,
+            self.equation_system.evaluate(self.characteristic_displacement(subdomains)),
         )
         f_power = pp.ad.Function(
             partial(pp.ad.safe_power, -1, 1 / np.sqrt(self.nd - 1), zero_tol),
@@ -324,6 +331,9 @@ class IsotropicHistoryEquation(pp.PorePyModel):
 
     plastic_displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Method returning plastic displacement jump."""
+
+    characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Characteristic displacement."""
 
     def damage_history_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Isotropic damage history equation.
@@ -359,8 +369,11 @@ class IsotropicHistoryEquation(pp.PorePyModel):
             # small contributions and should not impact the solution significantly. For
             # long simulations with deformation on some time steps only, this could save
             # non-negligible amounts of time.
-            tol = 1e-12 * self.equation_system.evaluate(
-                self.characteristic_displacement(subdomains)
+            tol = 1e-12 * cast(
+                float,
+                self.equation_system.evaluate(
+                    self.characteristic_displacement(subdomains)
+                ),
             )
             if np.allclose(self.equation_system.evaluate(u_t_increment_i), 0, atol=tol):
                 # The contribution is zero, so we skip it to avoid unnecessary
