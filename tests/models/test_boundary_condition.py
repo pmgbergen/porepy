@@ -111,7 +111,8 @@ def test_boundary_condition_mixin(t_end: int):
         assert np.allclose(bc_val_prev_ts[bc_type.is_neu], expected_val[bc_type.is_neu])
 
 
-"""Here follows mixins related to testing of Robin limit cases, and eventually the test itself. """
+"""Here follows mixins related to testing of Robin limit cases, and eventually the test
+itself. """
 
 
 class BCValuesDirichletIndices(pp.PorePyModel):
@@ -150,7 +151,8 @@ class BCValuesDirichletIndices(pp.PorePyModel):
         return domain_sides.west + domain_sides.east
 
     def bc_values_displacement(self, bg: pp.BoundaryGrid) -> np.ndarray:
-        """Assigns displacement values in the x-direction of the Dirichlet boundaries."""
+        """Assigns displacement values in the x-direction of the Dirichlet
+        boundaries."""
         values = np.zeros((self.nd, bg.num_cells))
         values[0, self.dir_inds(bg)] = 42
         return values.ravel("F")
