@@ -83,8 +83,8 @@ def test_damage(
 
     m = model_class(params_local)
     # Some simulations do not converge in the default number of iterations. Only
-    # slightly increase the number of iterations, thus capturing any future deterioration
-    # in the convergence and avoiding excessive run times.
+    # slightly increase the number of iterations, thus capturing any future
+    # deterioration in the convergence and avoiding excessive run times.
 
     pp.run_time_dependent_model(
         m,
@@ -103,7 +103,8 @@ def test_damage(
         # Retrieve stored results for time step t + 1
         results = m.results[t]
         for name in test_names:
-            # Retrieve the normalized error for the current time step and the current variable.
+            # Retrieve the normalized error for the current time step and the current
+            # variable.
             e = getattr(results, name + "_error")
             # Uncomment to print the error. Useful for debugging. Might require running
             # the test with pytest -s.
