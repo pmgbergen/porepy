@@ -30,7 +30,12 @@ occur in a simplex grid.
 """
 
 
-def create_3d_grids(pts: np.ndarray, cells: dict[str, np.ndarray]) -> list[pp.Grid]:
+def create_3d_grids(
+    pts: np.ndarray,
+    cells: dict[str, np.ndarray],
+    phys_names: dict[int, str],
+    cell_info: dict[str, np.ndarray],
+) -> list[pp.Grid]:
     """Create a tetrahedral grid from a gmsh tesselation.
 
     Parameters:
@@ -47,9 +52,9 @@ def create_3d_grids(pts: np.ndarray, cells: dict[str, np.ndarray]) -> list[pp.Gr
 
     tet_cells = cells["tetra"]
     g_3d = pp.TetrahedralGrid(pts.transpose(), tet_cells.transpose())
-
     # Create mapping to global numbering (will be a unit mapping, but is
     # crucial for consistency with lower dimensions)
+    g_3d = tag_grid(g_3d, phys_names, cell_info)
     g_3d.global_point_ind = np.arange(pts.shape[0])
 
     # Convert to list to be consistent with lower dimensions
@@ -151,6 +156,7 @@ def create_2d_grids(
             pind_loc, p_map = np.unique(loc_tri_cells, return_inverse=True)
             loc_tri_ind = p_map.reshape((-1, 3))
             g = pp.TriangleGrid(pts[pind_loc, :].transpose(), loc_tri_ind.transpose())
+            g = tag_grid(g, phys_names, cell_info)
             # Add mapping to global point numbers
             g.global_point_ind = pind_loc
 
@@ -170,7 +176,7 @@ def create_2d_grids(
         triangles = cells["triangle"].transpose()
         # Construct grid
         g_2d: pp.Grid = pp.TriangleGrid(pts.transpose(), triangles)
-
+        g_2d = tag_grid(g_2d, phys_names, cell_info)
         # we need to add the face tags from gmsh to the current mesh, however,
         # since there is not a cell-face relation from gmsh but only a cell-node
         # relation we need to recover the corresponding face-line map. First find the
@@ -347,6 +353,7 @@ def create_1d_grids(
             loc_pts_1d = np.unique(loc_line_pts)
             loc_coord = pts[loc_pts_1d, :].transpose()
             g = create_embedded_line_grid(loc_coord, loc_pts_1d, tol=tol)
+            g = tag_grid(g, phys_names, cell_info)
             g.frac_num = int(frac_num)
             g_1d.append(g)
 
@@ -426,6 +433,7 @@ def create_0d_grids(
             if phys_name_vertex == target_tag_stem[:-1]:
                 # This should be a new grid.
                 g = pp.PointGrid(pts[point_cells[pi]])
+                g = tag_grid(g, phys_names, cell_info)
                 g.global_point_ind = np.atleast_1d(np.asarray(point_cells[pi]))
 
                 # Store the index of this physical name tag.

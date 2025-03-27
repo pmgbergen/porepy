@@ -264,7 +264,12 @@ def tetrahedral_grid_from_gmsh(
     # Call upon helper functions to create grids in various dimensions. The
     # constructors require somewhat different information, reflecting the different
     # nature of the grids.
-    g_3d = msh_2_grid.create_3d_grids(pts, cells)
+    g_3d = msh_2_grid.create_3d_grids(
+        pts,
+        cells,
+        phys_names=phys_names,
+        cell_info=cell_info,
+    )
     g_2d = msh_2_grid.create_2d_grids(
         pts,
         cells,

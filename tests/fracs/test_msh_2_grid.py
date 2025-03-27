@@ -12,6 +12,8 @@ from porepy.fracs.msh_2_grid import (
     tag_grid,
     create_0d_grids,
     create_1d_grids,
+    create_2d_grids,
+    create_3d_grids,
 )
 from porepy.fracs.simplex import _read_gmsh_file
 
@@ -146,7 +148,16 @@ def test_create_0d_grids(file_name: str) -> list[pp.PointGrid]:
 
     g_0d: list[pp.Grid] = create_0d_grids(pts, cells, phys_names, cell_info)
     for g in g_0d:
-        test_tag_grids(g, phys_names, cell_info)
+        tagged_grid = g
+        for gmsh_element_type in cell_info:
+            for tag in np.unique(cell_info[gmsh_element_type]):
+                phys_ind = tag
+                phys_name = phys_names[tag].lower()
+                #        for phys_ind, phys_name in phys_names.items():
+                assert np.all(
+                    tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
+                    == (cell_info[gmsh_element_type] == phys_ind)
+                )
 
 
 def test_create_1d_grids() -> list[pp.Grid]:
@@ -158,4 +169,49 @@ def test_create_1d_grids() -> list[pp.Grid]:
         g_1d = create_1d_grids(pts, cells, phys_names, cell_info)
 
     for g in g_1d:
-        test_tag_grids(g, phys_names, cell_info)
+        tagged_grid = g
+        for gmsh_element_type in cell_info:
+            for tag in np.unique(cell_info[gmsh_element_type]):
+                phys_ind = tag
+                phys_name = phys_names[tag].lower()
+                #        for phys_ind, phys_name in phys_names.items():
+                assert np.all(
+                    tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
+                    == (cell_info[gmsh_element_type] == phys_ind)
+                )
+
+
+def test_create_2d_grids() -> list[pp.Grid]:
+    pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
+    # this is tested in both values of is_embedded
+    g_2d = create_2d_grids(pts, cells, phys_names, cell_info, is_embedded=False)
+
+    for g in g_2d:
+        tagged_grid = g
+        for gmsh_element_type in cell_info:
+            for tag in np.unique(cell_info[gmsh_element_type]):
+                phys_ind = tag
+                phys_name = phys_names[tag].lower()
+                #        for phys_ind, phys_name in phys_names.items():
+                assert np.all(
+                    tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
+                    == (cell_info[gmsh_element_type] == phys_ind)
+                )
+
+
+def test_create_3d_grids() -> list[pp.Grid]:
+    pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
+
+    g_3d = create_3d_grids(pts, cells, phys_names, cell_info)
+
+    for g in g_3d:
+        tagged_grid = g
+        for gmsh_element_type in cell_info:
+            for tag in np.unique(cell_info[gmsh_element_type]):
+                phys_ind = tag
+                phys_name = phys_names[tag].lower()
+                #        for phys_ind, phys_name in phys_names.items():
+                assert np.all(
+                    tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
+                    == (cell_info[gmsh_element_type] == phys_ind)
+                )

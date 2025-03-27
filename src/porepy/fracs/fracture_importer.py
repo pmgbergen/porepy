@@ -378,7 +378,7 @@ def dfm_from_gmsh(file_name: str, dim: int, **kwargs) -> pp.MixedDimensionalGrid
 
     Returns:
         Mixed-dimensional grid as contained in the gmsh file.
-
+        The physical names are stored in pp.Grid.tags of the subdomains.
     """
 
     # run gmsh to create .msh file if
