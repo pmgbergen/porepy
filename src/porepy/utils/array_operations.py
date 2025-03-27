@@ -328,12 +328,11 @@ def unique_columns(
     return un_ar, new_2_old.ravel(), old_2_new.ravel()
 
 
-def ismember_rows(
+def ismember_columns(
     a: np.ndarray[Any, np.dtype[np.int64]],
     b: np.ndarray[Any, np.dtype[np.int64]],
-    sort: float = True,
+    sort: bool = True,
 ) -> Tuple[np.ndarray[Any, np.dtype[np.bool_]], np.ndarray[Any, np.dtype[np.int64]]]:
-    # must be something different since the signature is different
     """
     Find *columns* of a that are also members of *columns* of b.
 
@@ -342,26 +341,41 @@ def ismember_rows(
     TODO: Rename function, this is confusing!
 
     Parameters:
-        a (np.array): Each column in a will search for an equal in b.
-        b (np.array): Array in which we will look for a twin
-        sort (boolean, optional): If true, the arrays will be sorted before
-            seraching, increasing the chances for a match. Defaults to True.
+        a: `shape=(nd, num_vectors_a)`, each column in a will search for an equal in b.
+        b: `shape=(nd, num_vectors_b)`, array in which we will look for a twin.
+        sort: If `True`, treats permuted columns as twins. E.g., will treat `[5, 1]`
+            and `[1, 5]` as unique. Defaults to `True`.
 
     Returns:
-        np.array (boolean): For each column in a, true if there is a
-            corresponding column in b.
-        np.array (int): Indexes so that b[:, ind] is also found in a.
+        np.array: `shape=(nd, num_vectors_a)`, `True` if there is a twin column in b.
+        np.array: `shape=(nd, num_unique)`, Indices so that b[:, ind] only consists of
+            columns also found in a, see examples.
 
     Examples:
-        >>> a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
-        >>> b = np.array([[3, 1, 3, 5, 3], [3, 3, 2, 1, 2]])
-        >>> ismember_rows(a, b)
-        (array([ True,  True,  True,  True, False], dtype=bool), [1, 0, 2, 1])
+        ```
+        >>> a = np.array([[1, 3, 3, 1, 7],
+                          [3, 3, 2, 3, 0],])
+        >>> b = np.array([[3, 1, 3, 5, 3],
+                          [3, 3, 2, 1, 2],])
+        >>> ib, ic = ismember_columns(a, b)
+        >>> ib
+        array([ True,  True,  True,  True, False])
+        >>> ic
+        array([1, 0, 2, 1])
+        >>> a[:, ib]
+        array([[1, 3, 3, 1],
+               [3, 3, 2, 3],])
+        >>> b[:, ic]
+        array([[1, 3, 3, 1],
+               [3, 3, 2, 3],])
 
-        >>> a = np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]])
-        >>> b = np.array([[3, 1, 2, 5, 1], [3, 3, 3, 1, 2]])
-        >>> ismember_rows(a, b, sort=False)
+        >>> a = np.array([[1, 3, 3, 1, 7], 
+                          [3, 3, 2, 3, 0]])
+        >>> b = np.array([[3, 1, 2, 5, 1], 
+                          [3, 3, 3, 1, 2]])
+        >>> ismember_columns(a, b, sort=False)
         (array([ True,  True, False,  True, False], dtype=bool), [1, 0, 1])
+        ```
 
     """
     # IMPLEMENTATION NOTE: A serious attempt was made (June 2022) to speed up
@@ -377,9 +391,7 @@ def ismember_rows(
         sa = a
         sb = b
 
-    b = np.atleast_1d(b)
-    a = np.atleast_1d(a)
-    num_a = a.shape[-1]
+    num_a = sa.shape[-1]
 
     # stack the arrays
     c = np.hstack((sa, sb))

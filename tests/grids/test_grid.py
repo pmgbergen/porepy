@@ -796,7 +796,7 @@ def test_geometry_tetrahedral_grid(tetrahedral_grid):
     face_nodes = tetrahedral_grid.face_nodes.indices.reshape(
         (3, tetrahedral_grid.num_faces), order="F"
     )
-    ismem, ind_map = pp.array_operations.ismember_rows(fn, face_nodes)
+    ismem, ind_map = pp.array_operations.ismember_columns(fn, face_nodes)
     assert np.all(ismem)
     assert np.allclose(tetrahedral_grid.face_centers[:, ind_map], fc)
     assert np.allclose(tetrahedral_grid.face_areas[ind_map], fa)

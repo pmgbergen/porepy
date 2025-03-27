@@ -367,7 +367,7 @@ def obtain_interdim_mappings(
         # This sometimes fails, so enforce it.
         if cn.ndim == 1:
             fn = fn.ravel()
-    is_mem, cell_2_face = pp.array_operations.ismember_rows(
+    is_mem, cell_2_face = pp.array_operations.ismember_columns(
         cn.astype(np.int32), fn.astype(np.int32), sort=False
     )
     # An element in cell_2_face gives, for all cells in the lower-dimensional grid,

@@ -2703,7 +2703,7 @@ def _intersect_pairs(p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
         return np.empty((2, 0))
     else:
         # Do the intersection
-        _, ind = pp.array_operations.ismember_rows(p1, p2)
+        _, ind = pp.array_operations.ismember_columns(p1, p2)
         pairs = p2[:, ind]
 
         # First sort the pairs themselves

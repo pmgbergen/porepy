@@ -91,10 +91,10 @@ def split_fractures(
 
         secondary_to_primary_nodes = []
         for sd in low_dim_neigh:
-            # Enforce 64 bit to comply with ismember_rows. Was np.int32
+            # Enforce 64 bit to comply with ismember_columns. Was np.int32
             source = np.atleast_2d(sd.global_point_ind).astype(np.int64)
             target = np.atleast_2d(sd_primary.global_point_ind).astype(np.int64)
-            _, mapping = pp.array_operations.ismember_rows(source, target)
+            _, mapping = pp.array_operations.ismember_columns(source, target)
             secondary_to_primary_nodes.append(mapping)
 
         split_nodes(sd_primary, low_dim_neigh, secondary_to_primary_nodes, offset)

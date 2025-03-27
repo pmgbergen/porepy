@@ -546,7 +546,7 @@ def _update_connectivity_fracture_grid(
 
         # Find the nodes' place among the active higher-dimensional nodes, that is,
         # nodes that will be split
-        in_unique_nodes = pp.array_operations.ismember_rows(
+        in_unique_nodes = pp.array_operations.ismember_columns(
             local_nodes_h, nodes_h, sort=False
         )[1]
 
@@ -583,7 +583,7 @@ def _update_connectivity_fracture_grid(
             )
 
         else:
-            # Faces and nodes are 1:1, but ismember_rows (below) requires 2d array
+            # Faces and nodes are 1:1, but ismember_columns (below) requires 2d array
             faces_l = np.atleast_2d(local_nodes_l)
             local_faces_h = np.atleast_2d(local_nodes_h)
 
@@ -593,7 +593,7 @@ def _update_connectivity_fracture_grid(
 
         # Check which faces exist in sd_secondary already, either from before propgation
         # or from previous runs through current loop:
-        (exist, existing_faces_l) = pp.array_operations.ismember_rows(
+        (exist, existing_faces_l) = pp.array_operations.ismember_columns(
             faces_l, all_faces_l
         )
         # The existing faces are no longer tips (but internal).
@@ -802,7 +802,7 @@ def _update_nodes_fracture_grid(
 
     # Find index of the updated nodes in sd_secondary that belong to the split faces
     # Order preserving find:
-    unique_nodes_l = pp.array_operations.ismember_rows(
+    unique_nodes_l = pp.array_operations.ismember_columns(
         unique_global_nodes, sd_secondary.global_point_ind, sort=False
     )[1]
 

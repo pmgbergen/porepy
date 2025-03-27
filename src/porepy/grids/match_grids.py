@@ -296,7 +296,7 @@ def match_grids_along_1d_mortar(
         if f.size != fi.size:
             raise ValueError("We assume fi are boundary faces")
 
-        ismem, ind_map = pp.array_operations.ismember_rows(fi, fi[f], sort=False)
+        ismem, ind_map = pp.array_operations.ismember_columns(fi, fi[f], sort=False)
         if not np.all(ismem):
             raise ValueError
 
@@ -347,7 +347,7 @@ def match_grids_along_1d_mortar(
         cn = g_1d.cell_nodes().indices.reshape((2, g_1d.num_cells), order="F")
 
         # Find cell index of each face
-        ismem, ind = pp.array_operations.ismember_rows(fn_loc, cn)
+        ismem, ind = pp.array_operations.ismember_columns(fn_loc, cn)
         # Quality check, the grids should be conforming
         if not np.all(ismem):
             raise ValueError

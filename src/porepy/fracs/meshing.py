@@ -357,7 +357,7 @@ def _tag_faces(grids, check_highest_dim=True):
         true_tip = np.intersect1d(may_be_tip, occurs_once)
 
         # Take the intersection between tip nodes and the nodes in this fracture.
-        _, local_true_tip = pp.array_operations.ismember_rows(
+        _, local_true_tip = pp.array_operations.ismember_columns(
             true_tip, g_h.global_point_ind
         )
         tip_tag = np.zeros(g_h.num_nodes, dtype=bool)
@@ -367,7 +367,7 @@ def _tag_faces(grids, check_highest_dim=True):
         g_h.tags["node_is_fracture_tip"] = tip_tag
 
         on_any_tip = np.where(np.bincount(global_node_as_fracture_tip) > 0)[0]
-        _, local_any_tip = pp.array_operations.ismember_rows(
+        _, local_any_tip = pp.array_operations.ismember_columns(
             on_any_tip, g_h.global_point_ind
         )
         tip_of_a_fracture = np.zeros_like(tip_tag)
@@ -454,7 +454,7 @@ def _assemble_mdg(
 
             # Get a cell-node relation for the lower-dimensional grids. It turns out
             # that to do the intersection between the node groups is costly (mainly
-            # because the call to ismember_rows below does a unique over all
+            # because the call to ismember_columns below does a unique over all
             # faces-nodes in the higher-dimensional grid). To save a lot of time,
             # we first group cell-nodes for all lower- dimensional grids,
             # do the intersection once, and then process the results.
@@ -493,7 +493,7 @@ def _assemble_mdg(
 
             # Find intersection between cell-node and face-nodes. Node nede to sort
             # along 0-axis, we know we've done that above.
-            is_mem, cell_2_face = pp.array_operations.ismember_rows(
+            is_mem, cell_2_face = pp.array_operations.ismember_columns(
                 cn_all, fn, sort=False
             )
             # Now, for each lower-dimensional grid, either all of none of the cells

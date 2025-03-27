@@ -747,7 +747,7 @@ class FractureNetwork3d(object):
             ind_0, ind_1 = pair
             # Find the common indices of intersection points (referring to isect)
             # and find where they are located in the array point_ind[ind_0]
-            common_ind, i0 = pp.array_operations.ismember_rows(
+            common_ind, i0 = pp.array_operations.ismember_columns(
                 point_ind[ind_1], point_ind[ind_0]
             )
             # Convert from boolean indices to indices
@@ -756,7 +756,7 @@ class FractureNetwork3d(object):
             assert common_ind.size == 2
 
             # Do the same exercise with the second fracture
-            common_ind_2, i1 = pp.array_operations.ismember_rows(
+            common_ind_2, i1 = pp.array_operations.ismember_columns(
                 point_ind[ind_0], point_ind[ind_1]
             )
             common_ind_2 = np.where(common_ind_2)[0]  # type: ignore[assignment]
@@ -1244,7 +1244,7 @@ class FractureNetwork3d(object):
                 # split_intersection_segments_2d. We therefore compare the new edge
                 # to the old ones (before splitting). If found, use the old
                 # information; if not, use index as tracked by splitting.
-                is_old, old_loc_ind = pp.array_operations.ismember_rows(
+                is_old, old_loc_ind = pp.array_operations.ismember_columns(
                     edges_new_glob[:, ei].reshape((-1, 1)), edges[:2, edges_loc_ind]
                 )
                 if is_old[0]:
@@ -1326,7 +1326,7 @@ class FractureNetwork3d(object):
             # Loop over all polygons. If their edges are found in edges_loc,
             # store the corresponding fracture index
             for poly_ind, poly in enumerate(self.decomposition["polygons"]):
-                ismem, _ = pp.array_operations.ismember_rows(edges_loc, poly)
+                ismem, _ = pp.array_operations.ismember_columns(edges_loc, poly)
                 if any(ismem):
                     fracs_loc.append(self.decomposition["polygon_frac"][poly_ind])
             fracs_of_points.append(list(np.unique(fracs_loc)))
@@ -2224,8 +2224,8 @@ class FractureNetwork3d(object):
         poly_2_line = []
         line_reverse = []
         for p in poly:
-            hit, ind = pp.array_operations.ismember_rows(p, edges[:2], sort=False)
-            hit_reverse, ind_reverse = pp.array_operations.ismember_rows(
+            hit, ind = pp.array_operations.ismember_columns(p, edges[:2], sort=False)
+            hit_reverse, ind_reverse = pp.array_operations.ismember_columns(
                 p[::-1], edges[:2], sort=False
             )
             assert np.all(hit + hit_reverse == 1)

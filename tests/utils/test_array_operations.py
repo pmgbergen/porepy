@@ -487,8 +487,8 @@ def test_unique_columns(params):
         ),
     ],
 )
-def test_ismember_rows(a, b, ma_known, ia_known, sort):
-    ma, ia = pp.array_operations.ismember_rows(a, b, sort=sort)
+def test_ismember_columns(a, b, ma_known, ia_known, sort):
+    ma, ia = pp.array_operations.ismember_columns(a, b, sort=sort)
     assert np.allclose(ma, ma_known)
     assert np.allclose(ia, ia_known)
 

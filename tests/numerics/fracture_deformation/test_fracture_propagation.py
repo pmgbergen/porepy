@@ -1091,16 +1091,16 @@ def _check_equivalent_md_grids(md_grids, decimals=12):
             face_centers = np.round(face_centers, decimals)
             for i in range(1, num_md_grids):
                 assert np.all(
-                    pp.array_operations.ismember_rows(cell_centers[0], cell_centers[i])[
+                    pp.array_operations.ismember_columns(cell_centers[0], cell_centers[i])[
                         0
                     ]
                 )
                 assert np.all(
-                    pp.array_operations.ismember_rows(face_centers[0], face_centers[i])[
+                    pp.array_operations.ismember_columns(face_centers[0], face_centers[i])[
                         0
                     ]
                 )
-                assert np.all(pp.array_operations.ismember_rows(nodes[0], nodes[i])[0])
+                assert np.all(pp.array_operations.ismember_columns(nodes[0], nodes[i])[0])
 
             # Now we know all nodes, faces and cells are in all grids, we map them
             # to prepare cell_faces and face_nodes comparison
@@ -1164,7 +1164,7 @@ def _make_maps(g0, g1, n_digits=8, offset=0.11):
         offset: Weight determining how far the fracture neighbour nodes and faces
             are shifted (normally away from fracture) to ensure unique coordinates.
     """
-    cell_map = pp.array_operations.ismember_rows(
+    cell_map = pp.array_operations.ismember_columns(
         np.around(g0.cell_centers, n_digits),
         np.around(g1.cell_centers, n_digits),
         sort=False,
@@ -1193,11 +1193,11 @@ def _make_maps(g0, g1, n_digits=8, offset=0.11):
         for i, node in enumerate(un):
             n1[:, node] += offset * np.mean(fn1[:, fid1[inv == i]], axis=1)
 
-    face_map = pp.array_operations.ismember_rows(
+    face_map = pp.array_operations.ismember_columns(
         np.around(fc0, n_digits), np.around(fc1, n_digits), sort=False
     )[1]
 
-    node_map = pp.array_operations.ismember_rows(
+    node_map = pp.array_operations.ismember_columns(
         np.around(n0, n_digits), np.around(n1, n_digits), sort=False
     )[1]
     return cell_map, face_map, node_map
