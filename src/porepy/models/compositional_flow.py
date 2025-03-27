@@ -492,6 +492,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidMobility`."""
 
+    component_buoyancy: Callable[
+        [pp.Component, pp.SubdomainsOrBoundaries], pp.ad.Operator
+    ]
+    """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
+
     bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
     """
@@ -552,10 +557,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             self.component_mass(component, subdomains), subdomains, dim=1
         )
         flux = self.component_flux(component, subdomains)
+        buoyancy_flux = self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
-        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
+        eq = self.balance_equation(subdomains, accumulation, flux + buoyancy_flux, source, dim=1)
         eq.set_name(self._mass_balance_equation_name(component))
         return eq
 
