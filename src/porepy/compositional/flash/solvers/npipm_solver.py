@@ -380,7 +380,7 @@ def npipm(
                 if np.linalg.matrix_rank(df_i) == matrix_rank:
                     DX[-matrix_rank:] = np.linalg.solve(df_i, -f_i)
                 else:
-                    # NOTE rcond is the limit to cutting of the smallest singular values.
+                    # NOTE rcond is the limit to cutting off singular values.
                     # This has quite large effects on the robustness of the flash in the
                     # v-h case for example, which is not yet fully understood.
                     # NOTE also, the default value in numba is machine precision, while

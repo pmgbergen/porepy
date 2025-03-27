@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 
 class LocalIsenthalpicEquilibriumEquations(Unified_ph_Equilibrium):
-    """Equations for closing compositional flow models with isobaric-isenthalpic equilibrium
-    conditions.
+    """Equations for closing compositional flow models with isobaric-isenthalpic
+    equilibrium conditions.
 
     Due to saturations and molar fractions being independent variables, the model is
     closed with local phase mass conservation equations.
@@ -72,9 +72,9 @@ class EnthalpyBasedEquationsCFLE(
 ):
     """CFLE model equations with a p-h equilibrium.
 
-    Notably, this model uses the fluid mass balance (non-fractional flow) and the unified p-h
-    equilibrium, with a local closure for saturations in the form of mass constraints per
-    independent phase.
+    Notably, this model uses the fluid mass balance (non-fractional flow) and the
+    unified p-h equilibrium, with a local closure for saturations in the form of mass
+    constraints per independent phase.
 
     """
 
@@ -85,8 +85,8 @@ class EnthalpyBasedEquationsCFFLE(
 ):
     """CFFLE model equations with a p-h equilibrium.
 
-    Contrary to :class:`EnthalpyBasedEquationsCFLE`, this collection of equations which uses
-    the pressure equation in the fractional-flow formulation, and relies hence on
+    Contrary to :class:`EnthalpyBasedEquationsCFLE`, this collection of equations which
+    uses the pressure equation in the fractional-flow formulation, and relies hence on
     re-discretization of fluxes.
 
     """
@@ -96,16 +96,15 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
     """BC mixin for CF models with equilibrium and flash instance.
 
     This class uses the flash instance to provide BC values for secondary variables
-    and thermodynamic properties of phases, using BC values for pressure, temperature and
-    overall fractions of components.
+    and thermodynamic properties of phases, using BC values for pressure, temperature
+    and overall fractions of components.
 
     If the BC are not constant, the user needs to flag this in the model parameters and
     this class will perform the boundary flash in every time step to update respective
     values.
 
     Note:
-        As of now, the flash is only performed on the matrix boundary (grid dimension = ambient
-        dimension).
+        As of now, the flash is only performed on the matrix boundary.
 
     Supports the following model parameters:
 
@@ -122,19 +121,21 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
     """See :class:`SolutionStrategyFlash`."""
 
     bc_values_pressure: Callable[[pp.BoundaryGrid], np.ndarray]
-    """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`."""
+    """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
+    """
     bc_values_temperature: Callable[[pp.BoundaryGrid], np.ndarray]
     """See :class:`~porepy.models.energy_balance.BoundaryConditionsEnergy`."""
     bc_values_overall_fraction: Callable[[pp.Component, pp.BoundaryGrid], np.ndarray]
-    """See :class:`~porepy.models.compositional_flow.BoundaryConditionsMulticomponent`."""
+    """See :class:`~porepy.models.compositional_flow.BoundaryConditionsMulticomponent`.
+    """
 
     has_independent_fraction: Callable[[pp.Component], bool]
     """Provided by mixin for compositional variables."""
 
     @property
     def _boundary_flash_required(self) -> bool:
-        """Internally used flag triggering the boundary flash during prepare simulation and
-        in the course of simulations, if BC values are time-dependent."""
+        """Internally used flag triggering the boundary flash during prepare simulation
+        and in the course of simulations, if BC values are time-dependent."""
 
         start_of_simulation: bool = (
             self.time_manager.time_init == self.time_manager.time
@@ -151,8 +152,8 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
     def boundary_flash_results(
         self,
     ) -> dict[pp.BoundaryGrid, pp.compositional.FluidProperties]:
-        """The results of the boundary flash are stored here (per boundary grid) for further
-        processing."""
+        """The results of the boundary flash are stored here (per boundary grid) for
+        further processing."""
         return {}
 
     def update_boundary_values_phase_properties(self) -> None:
@@ -160,8 +161,8 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
         to compute the updates for phase properties, as well as for (extended) partial
         fractions and saturations.
 
-        Calls :meth:`boundary_flash` at the beginning of the simulation, and in the course of
-        it if BC values are time-dependent.
+        Calls :meth:`boundary_flash` at the beginning of the simulation, and in the
+        course of it if BC values are time-dependent.
 
         """
         if self._boundary_flash_required:
@@ -176,9 +177,10 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
         non-constant BC.
 
         Important:
-            The flash is performed on the whole boundary. It is up to the user to provide
-            values for pressure, temperature and overall fractions even on faces, on which they
-            are not used, or to implement a flash class handling zero-values (default values).
+            The flash is performed on the whole boundary. It is up to the user to
+            provide values for pressure, temperature and overall fractions even on
+            faces, on which they are not used, or to implement a flash class handling
+            zero-values (default values).
 
             This might change in the future after some work on the BC framework.
 
@@ -194,8 +196,7 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
 
         p = self.bc_values_pressure(bg)
         T = self.bc_values_temperature(bg)
-        # This is required to uphold the promise of the BC mixin for multi-component models:
-        # The bc_values method is only called for independent components
+        # The bc_values method is only called for independent components.
         feed = [
             self.bc_values_overall_fraction(comp, bg)
             for comp in self.fluid.components
@@ -224,8 +225,8 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
 
 
 class BoundaryConditionsCFLE(
-    # NOTE The order here is critical, since primary variables must be updated first in order
-    # for the BC flash to work.
+    # NOTE The order here is critical, since primary variables must be updated first in
+    # order for the BC flash to work.
     BoundaryConditionsFlash,
     cf.BoundaryConditionsMulticomponent,
     pp.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy,
@@ -236,9 +237,9 @@ class BoundaryConditionsCFLE(
     secondary variables such as partial fractions, which are relevant on the boundary.
 
     Note:
-        This mixin is built on the same assumption as :class:`BoundaryConditionsFlash`, in
-        terms of which variables are required on the boundary for the flash. Hence no BC values
-        for enthalpy.
+        This mixin is built on the same assumption as :class:`BoundaryConditionsFlash`,
+        in terms of which variables are required on the boundary for the flash. Hence no
+        BC values for enthalpy.
 
     """
 
@@ -250,8 +251,8 @@ class BoundaryConditionsCFLE(
     _partial_fraction_variable: Callable[[pp.Component, pp.Phase], str]
 
     def update_all_boundary_conditions(self):
-        """Updates BC values of phase properties (surrogate operators) and secondary variables
-        appearing in the non-linear weights on the boundary.
+        """Updates BC values of phase properties (surrogate operators) and secondary
+        variables appearing in the non-linear weights on the boundary.
 
         The update is performed using the results of the BC flash.
 
@@ -287,7 +288,8 @@ class BoundaryConditionsCFLE(
 
     def _update_phase_properties_on_boundaries(self, phase: pp.Phase) -> None:
         """Method updating the phase properties of a phase on all boundary grids for
-        which results of the boundary flash are stored in :meth:`boundary_flash_results`."""
+        which results of the boundary flash are stored in
+        :meth:`boundary_flash_results`."""
 
         nt = self.time_step_indices.size
 
@@ -331,7 +333,8 @@ class BoundaryConditionsCFLE(
     def bc_values_partial_fraction(
         self, component: pp.Component, phase: pp.Phase, bg: pp.BoundaryGrid
     ) -> np.ndarray:
-        """Boundary condition for the (extended) partial fraction of ``component`` in ``phase``.
+        """Boundary condition for the (extended) partial fraction of ``component`` in
+        ``phase``.
 
         This method is called for every (independent) component in every phase.
 
@@ -355,9 +358,9 @@ class BoundaryConditionsCFLE(
 
 
 class BoundaryConditionsCFFLE(
-    # NOTE The order here is critical for the functionality. Primary variables must be set
-    # first, followed by the BC flash execution. As a last step, the values of fractional flow
-    # weights can be assembled.
+    # NOTE The order here is critical for the functionality. Primary variables must be
+    # set first, followed by the BC flash execution. As a last step, the values of
+    # fractional flow weights can be assembled.
     cf.BoundaryConditionsFractionalFlow,
     BoundaryConditionsFlash,
     cf.BoundaryConditionsMulticomponent,
@@ -365,13 +368,13 @@ class BoundaryConditionsCFFLE(
 ):
     """BC mixin for CFLE models in the fractional flow formulation.
 
-    The results of the boundary flash are used to provide values of the fractional flow weights
-    on the boundary.
+    The results of the boundary flash are used to provide values of the fractional flow
+    weights on the boundary.
 
     """
 
-    # TODO this needs a better solution, depending on how relative_permeability is finally
-    # implemented.
+    # TODO this needs a better solution, depending on how relative_permeability is
+    # finally implemented.
     def _bc_value_phase_mobility(
         self, phase_index: int, fluid_properties: pp.compositional.FluidProperties
     ) -> np.ndarray:
@@ -390,8 +393,8 @@ class BoundaryConditionsCFFLE(
             bg: A boundary grid.
 
         Returns:
-            The value of the component mass mobility based on the results of the boundary
-            flash.
+            The value of the component mass mobility based on the results of the
+            boundary flash.
 
         """
         fluid_props = self.boundary_flash_results[bg]
@@ -414,7 +417,8 @@ class BoundaryConditionsCFFLE(
             bg: A boundary grid.
 
         Returns:
-            The value of the total mass mobility based on the results of the boundary flash.
+            The value of the total mass mobility based on the results of the boundary
+            flash.
 
         """
         fluid_props = self.boundary_flash_results[bg]
@@ -433,7 +437,8 @@ class BoundaryConditionsCFFLE(
             bg: A boundary grid.
 
         Returns:
-            The value of the advected enthalpy based on the results of the boundary flash.
+            The value of the advected enthalpy based on the results of the boundary
+            flash.
 
         """
         fluid_props = self.boundary_flash_results[bg]
@@ -486,8 +491,8 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
     for secondary variables and secondary operators representing the thermodynamic
     properties of phases.
 
-    It performs a p-T flash i.e., enthalpy (though primary) is also initialized using the
-    flash results.
+    It performs a p-T flash i.e., enthalpy (though primary) is also initialized using
+    the flash results.
 
     """
 
@@ -524,7 +529,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
             # pressure, temperature and overall fractions
             p = self.ic_values_pressure(grid)
             T = self.ic_values_temperature(grid)
-            # IC values for potentially dependent component are never to be called directly
+            # IC values for potentially dependent component are never called directly.
             feed = [
                 self.ic_values_overall_fraction(comp, grid)
                 for comp in self.fluid.components
@@ -545,10 +550,9 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
             if not np.all(success == 0):
                 raise ValueError(f"Initial equilibriam not successful on grid {grid}")
 
-            # NOTE Multiple ingores for mypy because the return type of several callables is a
-            # general Ad operator, while by logic it is indeed a variable.
-            # setting initial values for enthalpy
-            # NOTE that in the initialization, h is dependent compared to p, T, z
+            # NOTE Multiple ingores for mypy because the return type of several
+            # callables is a general operator, while by logic it is indeed a variable.
+            # NOTE That in the initialization, h is dependent compared to p, T, z.
             self.equation_system.set_variable_values(
                 state.h,
                 [self.enthalpy([grid])],  # type: ignore[arg-type]
@@ -665,8 +669,8 @@ class SolutionStrategyFlash(pp.PorePyModel):
       equilibrium problem e.g., ``'p-T'``,``'p-h'``. The string can also contain other
       qualifiers providing information about the equilibrium model, for example
       ``'unified-p-h'``.
-    - ``'flash_params'``: Defaults to None. Parameter dictionary used for flash initialization
-      and calling the flash method.
+    - ``'flash_params'``: Defaults to None. Parameter dictionary used for flash
+      initialization and calling the flash method.
 
     """
 
@@ -951,14 +955,6 @@ class SolutionStrategyFlash(pp.PorePyModel):
                     ),
                 }
             )
-        # TODO enable once volume is available in code.
-        # elif "v-h" in equilibrium_type:
-        #     flash_kwargs.update(
-        #         {
-        #           "v": self.equation_system.evaluate(self.volume(subdomains), state=state),
-        #           "h": self.equation_system.evaluate(self.enthalpy(subdomains), state=state),
-        #         }
-        #     )
         else:
             raise NotImplementedError(
                 "Attempting to equilibriate fluid with uncovered equilibrium type"
@@ -1091,7 +1087,7 @@ class SolutionStrategyCFFLE(
     SolutionStrategyFlash,
     cf.SolutionStrategyCFF,
 ):
-    """Analogous to :class:`SolutionstrategyCFLE`, but for fractional flow formulations."""
+    """Analogous to :class:`SolutionstrategyCFLE`, but for fractional flow."""
 
 
 class EnthalpyBasedCFLETemplate(  # type: ignore[misc]

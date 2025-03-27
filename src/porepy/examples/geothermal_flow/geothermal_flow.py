@@ -5,7 +5,8 @@ The model relies on pressure (P), specific fluid mixture enthalpy (H), and NaCl 
 composition (z_NaCl) as primary variables.
 
 Equilibrium calculations are included in the correlations. As a result, they contain
-expressions for saturation, partial fractions, and temperature based on primary variables.
+expressions for saturation, partial fractions, and temperature based on primary
+variables.
 
 The correlations are interpolated with VTK using a standalone object (VTKSampler). Two
 instances of that object provide functions and their gradients within the product spaces

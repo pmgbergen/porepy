@@ -584,9 +584,8 @@ class EoSCompiler(EquationOfState):
         for the evaluation of thermodynamic properties.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(phasetype: int, *args: float, x: np.ndarray)``
-            returning a 1D array.
+            A NJIT-ed function with signature as in
+            :func:`prearg_template_func`.
 
         """
         pass
@@ -597,10 +596,8 @@ class EoSCompiler(EquationOfState):
         for the evaluation of derivatives of thermodynamic properties.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(phasetype: int, *args: float, x: np.ndarray)``
-            returning a 1D array.
-
+            A NJIT-ed function with signature as in
+            :func:`prearg_template_func`.
         """
         pass
 
@@ -609,9 +606,8 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the fugacity coefficients.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of fugacity coefficients with ``shape=(num_comp,)``.
+            A NJIT-ed function with signature as in
+            :func:`fugacity_coeff_template_func`.
 
         """
         pass
@@ -627,11 +623,8 @@ class EoSCompiler(EquationOfState):
         I.e. the return value must be an array with ``shape=(num_comp, m + num_comp)``.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of fugacity coefficients with
-            ``shape=(num_comp, 2 + num_comp)``., where containing the derivatives w.r.t. the
-            arguments and fractions.
+            A NJIT-ed function with signature as in
+            :func:`fugacity_coeff_derivative_template_func`.
 
         """
         pass
@@ -641,9 +634,8 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the specific molar enthalpy.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an enthalpy value.
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
 
         """
         pass
@@ -654,11 +646,8 @@ class EoSCompiler(EquationOfState):
         enthalpy function for a phase.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of the enthalpy with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
-            fractions.
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
 
         """
         pass
@@ -668,9 +657,8 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the density.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning a density value.
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
 
         """
         pass
@@ -681,11 +669,8 @@ class EoSCompiler(EquationOfState):
         density function for a phase.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of the density with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
-            fractions.
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
 
         """
         pass
@@ -695,9 +680,8 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the dynamic molar viscosity.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning a viscosity value.
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
 
         """
         pass
@@ -708,11 +692,8 @@ class EoSCompiler(EquationOfState):
         viscosity function for a phase.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of the viscosity with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
-            fractions.
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
 
         """
         pass
@@ -722,9 +703,8 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the thermal conductivity.
 
         Returns:
-            A NJIT-ed with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning a conductivity value.
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
 
         """
         pass
@@ -735,11 +715,8 @@ class EoSCompiler(EquationOfState):
         conductivity function for a phase.
 
         Returns:
-            A NJIT-ed function taking with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of the conductivity with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
-            fractions.
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
 
         """
         pass
@@ -755,9 +732,8 @@ class EoSCompiler(EquationOfState):
             compiled and stored in :attr:`funcs`.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning a density value.
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
 
         """
         rho_c = self.funcs.get("rho", None)
@@ -782,18 +758,16 @@ class EoSCompiler(EquationOfState):
 
         Volume is expressed as the reciprocal of density.
         Hence the computations utilize :meth:`get_density_function`,
-        :meth:`get_density_derivative_function` and the chain-rule to compute the derivatives.
+        :meth:`get_density_derivative_function` and the chain-rule to compute the
+        derivatives.
 
         Note:
             This function is compiled faster, if the density function and its
             deritvative have already been compiled and stored in :attr:`funcs`.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of the volume with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
-            fractions.
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
 
         """
         rho_c = self.funcs.get("rho", None)

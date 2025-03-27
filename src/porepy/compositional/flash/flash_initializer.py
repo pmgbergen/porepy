@@ -680,8 +680,8 @@ class FlashInitializer:
             def update_pT_guess(
                 X_gen: np.ndarray, params: dict[str, float]
             ) -> np.ndarray:
-                """Helper function to update p-T guess for v-h flash by solving respective
-                equations using Newton and some corrections."""
+                """Helper function to update p-T guess for v-h flash by solving
+                respective equations using Newton and some corrections."""
 
                 # Parsing parameters
                 N2 = int(params["N2"])
@@ -762,7 +762,8 @@ class FlashInitializer:
                 drhos = np.empty((nphase, 2 + ncomp))
 
                 for _ in range(N2):
-                    # Assembling volume and enthalpy constraints with derivatives for s-p-T
+                    # Assembling volume and enthalpy constraints with derivatives for
+                    # s-p-T.
 
                     for j in range(nphase):
                         pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j])
@@ -807,7 +808,7 @@ class FlashInitializer:
                         # give preferance to pressure update if gas present and volume
                         # too large
                         if y_g > 1e-3 and v_mix > s1:
-                            # volume contraction only by positive p update, not negative T
+                            # volume contraction only by positive p update, not neg. T
                             if dT < 0.0:
                                 dT = 0.0
                             # unfeasible update (should compress if v_mix bigger than v)

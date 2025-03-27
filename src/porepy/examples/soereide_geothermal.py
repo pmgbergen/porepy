@@ -258,8 +258,8 @@ class SolutionStrategy(pp.PorePyModel):
             # fall back to previous iter values
             if np.any(fallback):
                 logger.debug(
-                    f"Full flash failed in {fallback.sum()} cells on grid {subdomain.id}."
-                    + " Falling back to previous iterate state."
+                    f"Full flash failed in {fallback.sum()} cells on grid "
+                    + f"{subdomain.id}. Falling back to previous iterate state."
                 )
                 sub_state = self.fall_back(subdomain, sub_state, failure, fallback)
                 sub_success[fallback] = 0
@@ -722,4 +722,4 @@ sim_time = time.time() - t_0
 
 print(f"Set-up time: {prep_sim_time} (s).")
 print(f"Approximate compilation time: {compile_time} (s).")
-print(f"Simulation run time: {sim_time / 60.} (min).")
+print(f"Simulation run time: {sim_time / 60.0} (min).")
