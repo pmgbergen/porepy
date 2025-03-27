@@ -369,7 +369,10 @@ def test_unique_rows(params):
             ),
         },
         # Edge case: no points.
-        {"input": np.array([]), "expected": (np.array([]), np.array([]), np.array([]))},
+        {
+            "input": np.atleast_2d([]).astype(int),
+            "expected": (np.array([]), np.array([]), np.array([])),
+        },
     ],
 )
 def test_unique_columns(params):
@@ -405,8 +408,8 @@ def test_unique_columns(params):
     unique_unord, new_2_old_unord, old_2_new_unord = result_unord
     assert compare_arrays(result_unord[0], params["expected"][0])
     assert np.all(input_array[:, new_2_old_unord] == unique_unord)
-    assert compare_arrays(input_array[:, new_2_old_unord], params["expected"][1])
-    assert np.all(unique_unord[:, old_2_new_unord], input_array)
+    assert compare_arrays(input_array[:, new_2_old_unord], params["expected"][0])
+    assert np.all(unique_unord[:, old_2_new_unord] == input_array)
 
 
 @pytest.mark.parametrize(
@@ -662,13 +665,36 @@ def test_expand_index_pointers(params: dict):
             "tol": 1e-2,
             "expected_unique": [[1, 1], [0, 0], [0.5, 0], [0, 0.5]],
         },
-        # Edge case for the values close to the tolerance.
+        # Edge case for multiple values close to the tolerance.
         {
             "input": np.array([np.linspace(0, 1, num=101)[::-1], [0] * 101]).T,
             "tol": 1e-1,
+            "expected_unique": np.array(
+                [
+                    [1, 0.97, 0.86, 0.75, 0.64, 0.53, 0.43, 0.32, 0.21, 0.1],
+                    [0] * 10,
+                ]
+            ).T,
+        },
+        # Repeated values.
+        {
+            "input": np.tile(
+                [
+                    [10.0, 100.0, 100.0, 0.0, 0.0, 100.0, 100.0, 0.0, 0.0, 10.0, 10.0],
+                    [10.0, 0.0, 10.0, 10.0, 0.0, 0.0, 10.0, 0.0, 100.0, 100.0, 0.0],
+                ],
+                reps=10,
+            ).T,
+            "tol": 1e-10,
             "expected_unique": [
-                [1, 0.97, 0.86, 0.75, 0.64, 0.53, 0.43, 0.32, 0.21, 0.1],
-                [0] * 10,
+                [10.0, 10.0],
+                [100.0, 0.0],
+                [100.0, 10.0],
+                [0.0, 10.0],
+                [0.0, 0.0],
+                [0.0, 100.0],
+                [10.0, 100.0],
+                [10.0, 0.0],
             ],
         },
     ],
@@ -676,9 +702,8 @@ def test_expand_index_pointers(params: dict):
 def test_unique_vectors_tol(params: dict):
     input = np.array(params["input"]).T
     tol = params["tol"]
-    unique_vectors, new_2_old, old_2_new = pp.array_operations.unique_vectors_tol(
-        vectors=input, tol=tol
-    )
+    results = pp.array_operations.unique_vectors_tol(vectors=input, tol=tol)
+    unique_vectors, new_2_old, old_2_new = results
     expected_unique = np.array(params["expected_unique"]).T
     assert np.allclose(unique_vectors, expected_unique, atol=tol)
     assert np.allclose(input[:, new_2_old], expected_unique, atol=tol)

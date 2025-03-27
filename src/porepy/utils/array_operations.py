@@ -268,7 +268,6 @@ def intersect_sets(
 
 
 def unique_rows(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    # find_unique_rows
     """Finds unique rows in a 2D NumPy array using np.unique with axis=0.
 
     Parameters:
@@ -286,7 +285,8 @@ def unique_rows(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         (array([[1, 2], [3, 4], [5, 6]]), array([0, 1, 3]), array([0, 1, 0, 2]))
 
     """
-    assert np.issubdtype(data.dtype, np.integer), data
+    error_message = "Use `unique_vectors_tol` for comparing floats."
+    assert np.issubdtype(data.dtype, np.integer), error_message
 
     unique, idx, inverse = np.unique(
         data, axis=0, return_index=True, return_inverse=True
@@ -300,7 +300,7 @@ def unique_columns(
     """Finds unique columns in a 2D numpy array.
 
     Parameters:
-        data: The numpy array that we want to find unique columns in.
+        data: The 2D numpy array that we want to find unique columns in.
         preserve_order: If True, the order of the columns will be preserved. If False,
             they will not necessarily be preserved.
 
@@ -311,21 +311,41 @@ def unique_columns(
             An array of the mapping between the old and new collection of columns.
 
     """
-    assert np.issubdtype(data.dtype, np.integer), data
+    if data.shape[1] == 0:
+        return (
+            np.empty_like(data),
+            np.empty(shape=data.shape[1], dtype=np.int64),
+            np.empty(shape=data.shape[1], dtype=np.int64),
+        )
+
+    error_message = "Use `unique_vectors_tol` for comparing floats."
+    assert np.issubdtype(data.dtype, np.integer), error_message
     un_ar, new_2_old, old_2_new = np.unique(
         data, axis=1, return_index=True, return_inverse=True
     )
-    if preserve_order:
-        ordering = np.argsort(new_2_old)
-        un_ar = un_ar[:, ordering]
-        new_2_old = new_2_old[ordering]
-
-        old_2_new_new = np.zeros_like(old_2_new)
-        for k, v in enumerate(ordering):
-            old_2_new_new[old_2_new == v] = k
-        old_2_new = old_2_new_new
     # Ravel index arrays to get 1d output
-    return un_ar, new_2_old.ravel(), old_2_new.ravel()
+    new_2_old = new_2_old.ravel()
+    old_2_new = old_2_new.ravel()
+
+    if not preserve_order:
+        return un_ar, new_2_old, old_2_new
+
+    # Sorting to preserve the order.
+    ordering = np.argsort(new_2_old)
+    un_ar = un_ar[:, ordering]
+    new_2_old = new_2_old[ordering]
+
+    # Constructing the reverse mapping for old_2_new.
+    # This is equivalent to:
+    # tmp = np.zeros_like(old_2_new)
+    # for k, v in enumerate(ordering):
+    #     tmp[old_2_new == v] = k
+    # old_2_new = tmp
+    lookup = np.zeros(ordering.max() + 1, dtype=int)
+    lookup[ordering] = np.arange(len(ordering))
+    old_2_new = lookup[old_2_new]
+
+    return un_ar, new_2_old, old_2_new
 
 
 def ismember_columns(
@@ -337,8 +357,6 @@ def ismember_columns(
     Find *columns* of a that are also members of *columns* of b.
 
     The function mimics Matlab's function ismember(..., 'rows').
-
-    TODO: Rename function, this is confusing!
 
     Parameters:
         a: `shape=(nd, num_vectors_a)`, each column in a will search for an equal in b.
@@ -369,9 +387,9 @@ def ismember_columns(
         array([[1, 3, 3, 1],
                [3, 3, 2, 3],])
 
-        >>> a = np.array([[1, 3, 3, 1, 7], 
+        >>> a = np.array([[1, 3, 3, 1, 7],
                           [3, 3, 2, 3, 0]])
-        >>> b = np.array([[3, 1, 2, 5, 1], 
+        >>> b = np.array([[3, 1, 2, 5, 1],
                           [3, 3, 3, 1, 2]])
         >>> ismember_columns(a, b, sort=False)
         (array([ True,  True, False,  True, False], dtype=bool), [1, 0, 1])
@@ -489,6 +507,8 @@ def expand_index_pointers(lo, hi):
     for l, h in zip(lo, hi):
         arr = np.hstack((arr, np.arange(l, h, 1)))
 
+    The function mimics Matlab's function mcolon(...).
+
     Parameters:
         lo (np.ndarray, int): Lower bounds of the arrays to be created.
         hi (np.ndarray, int): Upper bounds of the arrays to be created. The
@@ -574,14 +594,14 @@ def _unique_vectors_in_cluster(
     tol: float,
 ):
     """This is an inner function of `unique_vectors_tol`, but moved outside due to
-    numba. Finds unique columns in a specified cluster.
+    numba. Finds unique vectors in a specified cluster.
 
     Parameters:
-        vectors: `shape=(nd x n_pts)`, vectors to be uniquified.
-        sorted_idx: `shape=(n_pts)`, sorted index of the vectors norms.
+        vectors: `shape=(nd, n_pts)`, vectors to be uniquified.
+        sorted_idx: `shape=(n_pts,)`, sorted index of the vectors norms.
         cluster_start: Index of the cluster start.
         cluster_size: Number of vectors in the cluster.
-        tol: Tolerance for when columns are considered equal.
+        tol: Tolerance for when vectors are considered equal.
 
     Returns:
         np.ndarray: Unique vectors within the cluster.
@@ -631,19 +651,24 @@ def unique_vectors_tol(vectors: np.ndarray, tol: float):
 
     The result order is guaranteed, each unique vector is the first encountered.
 
-    Implementation note: It groups the vectors within clusters based on close norms.
-    Then it filters unique vectors in each cluster.
+    For integers and `tol < 0.5`, this is equivalent to
+    `unique_columns(vectors, preserve_order=True)`.
+
+    Implementation note: It groups the vectors into clusters based on similar norms.
+    Then it filters unique vectors in each cluster. This avoids heavy comparison of
+    all to all.
 
     Parameters:
-        vectors: `shape=(nd x n_pts)`, vectors to be uniquified.
+        vectors: `shape=(nd, n_pts)`, vectors to be uniquified.
         tol: Tolerance for when columns are considered equal.
             Should be seen in connection with distance between the vectors in
             the vector set (due to rounding errors).
 
     Returns:
-        np.ndarray: Unique vectors.
-        new_2_old: Index of which vectors that are preserved.
-        old_2_new: Index of the representation of old vectors in the reduced list.
+        np.ndarray: `shape=(nd, n_unique)`, unique vectors.
+        new_2_old: `shape=(n_unique,)`, index of which vectors that are preserved.
+        old_2_new: `shape=(n_pts,)`, index of the representation of old vectors in
+            the reduced list.
 
     """
     if vectors.shape[1] == 0:
@@ -705,7 +730,7 @@ def unique_vectors_tol(vectors: np.ndarray, tol: float):
         new_2_old[num_unique : num_unique + unique_size_inner] = new_2_old_inner
         old_2_new[
             sorted_idx[np.arange(cluster_start, cluster_start + cluster_size)]
-        ] = old_2_new_inner + num_unique
+        ] = (old_2_new_inner + num_unique)
 
         # Updating the counters.
         num_unique += unique_size_inner
@@ -720,9 +745,14 @@ def unique_vectors_tol(vectors: np.ndarray, tol: float):
     unique_pts = unique_pts[:, ordering]
     new_2_old = new_2_old[ordering]
 
-    old_2_new_new = np.zeros_like(old_2_new)
-    # NOTE: I didn't find a better way to do this.
-    for k, v in enumerate(ordering):
-        old_2_new_new[old_2_new == v] = k
+    # Constructing the reverse mapping for old_2_new.
+    # This is equivalent to:
+    # tmp = np.zeros_like(old_2_new)
+    # for k, v in enumerate(ordering):
+    #     tmp[old_2_new == v] = k
+    # old_2_new = tmp
+    lookup = np.zeros(ordering.max() + 1, dtype=np.int64)
+    lookup[ordering] = np.arange(len(ordering))
+    old_2_new = lookup[old_2_new]
 
-    return unique_pts, new_2_old, old_2_new_new
+    return unique_pts, new_2_old, old_2_new
