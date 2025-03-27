@@ -155,7 +155,8 @@ discriminant: Callable[[_T, _T], _T] = nb.njit(
     ],
     **_NUMBA_STATIC_COMPILE_KWARGS,
 )(eos_symbolic.discriminant)
-"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.discriminant`.
+"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.
+discriminant`.
 
 Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
@@ -200,9 +201,8 @@ def _get_root_case(A: float, B: float, eps: float) -> int:
     **_NUMBA_STATIC_COMPILE_KWARGS,
 )
 def get_root_case(A: np.ndarray, B: np.ndarray, eps: float) -> np.ndarray:
-    """A piece-wise constant function dependent on non-dimensional cohesion and covolume,
-    representing the number of roots of the characteristic polynomial in terms of
-    cohesion and covolume.
+    """A piece-wise constant function dependent on non-dimensional cohesion and
+    covolume, representing the number of roots of the characteristic polynomial.
 
     Function with signature ``(float64, float64, float64) -> int8``.
     Can be called with vectorized input for ``A,B``.
@@ -627,8 +627,8 @@ def is_extended_root(
     If True, an extension procedure was applied, i.e. the compressibility factor
     is not an actual root of the characteristic polynomial.
 
-    Numpy-universal function with signature ``(float64, float64, int8, float64) -> int8``.
-    Can be called with vectorized input for ``A,B``.
+    Numpy-universal function with signature ``(float64, float64, int8, float64) ->
+    int8``. Can be called with vectorized input for ``A,B``.
 
     Note:
         Argument ``gaslike`` must be also vectorized, if ``A`` and ``B`` are vectorized.
@@ -639,7 +639,8 @@ def is_extended_root(
         A: Non-dimensional cohesion.
         B: Non-dimensional covolume.
         gaslike: 1 if a gas-like root is assumed, 0 otherwise.
-        eps: Numerical zero, used to determine the root case (see :data:`get_root_case`).
+        eps: Numerical zero, used to determine the root case (see
+            :data:`get_root_case`).
 
     Returns:
         1, if the root is an extended root of the polynomial, 0 if it is an actual root.

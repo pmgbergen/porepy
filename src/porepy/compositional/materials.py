@@ -536,8 +536,8 @@ def load_fluid_constants(names: list[str], package: str) -> list[FluidComponent]
         mm = float(mw_loader(cas))
         v_crit = float(vc_loader(cas)) / mm
 
-        # Ignoring arg-type. If None, conversion will fail and alert the user that chosen
-        # database is incomplete.
+        # Ignoring arg-type. If None, conversion will fail and alert the user that
+        # chosen database is incomplete.
         species.append(
             FluidComponent(
                 name=name,

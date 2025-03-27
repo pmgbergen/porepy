@@ -203,8 +203,8 @@ class CompiledUnifiedFlash(Flash):
         return fluid_state
 
     def _convert_solver_params(self, solver_params: dict[str, float]) -> None:
-        """Helper method to convert the solver parameters dictionary into a numba-conformal
-        type."""
+        """Helper method to convert the solver parameters dictionary into a
+        numba-conformal type."""
 
         if not hasattr(self, "_nb_solver_params"):
             d = numba.typed.Dict.empty(
