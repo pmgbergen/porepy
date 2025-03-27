@@ -225,7 +225,7 @@ class SolutionStrategy(pp.PorePyModel):
         failure = success > 0
         equilibrium_type = str(pp.compositional.get_equilibrium_type(self))
         if np.any(failure):
-            logger.warning(
+            logger.debug(
                 f"Flash from iterate state failed in {failure.sum()} cells on grid"
                 + f" {subdomain.id}. Performing full flash .."
             )
@@ -257,7 +257,7 @@ class SolutionStrategy(pp.PorePyModel):
             sub_success[max_iter_reached] = 0
             # fall back to previous iter values
             if np.any(fallback):
-                logger.warning(
+                logger.debug(
                     f"Full flash failed in {fallback.sum()} cells on grid {subdomain.id}."
                     + " Falling back to previous iterate state."
                 )
@@ -696,7 +696,7 @@ params = {
         "cell_size_fracture": 5e-1,
     },
     "time_manager": time_manager,
-    # "times_to_export": times_to_export,
+    "times_to_export": times_to_export,
     "max_iterations": max_iterations,
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
@@ -722,4 +722,4 @@ sim_time = time.time() - t_0
 
 print(f"Set-up time: {prep_sim_time} (s).")
 print(f"Approximate compilation time: {compile_time} (s).")
-print(f"Simulation run time: {sim_time} (s).")
+print(f"Simulation run time: {sim_time / 60.} (min).")
