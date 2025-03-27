@@ -21,28 +21,26 @@ References:
 from __future__ import annotations
 
 import logging
-import os
 import time
 import warnings
-
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
-
-compile_time = 0.0
-logging.basicConfig(level=logging.INFO)
-logging.getLogger("porepy").setLevel(logging.DEBUG)
-
 from typing import Any, Callable, Optional, Sequence, no_type_check
 
 import numpy as np
 
 import porepy as pp
 
+# import os
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
+
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("porepy").setLevel(logging.DEBUG)
+
 t_0 = time.time()
 import porepy.compositional.peng_robinson as pr
-
-compile_time += time.time() - t_0
-
 import porepy.models.compositional_flow_with_equilibrium as cfle
+
+compile_time = time.time() - t_0
+
 
 logger = logging.getLogger(__name__)
 
@@ -631,8 +629,8 @@ else:
 
 # Model parametrization
 t_scale = 1e0
-times_to_export = [i * pp.YEAR for i in range(20)] + [
-    i * pp.YEAR for i in range(20, 510, 10)
+times_to_export = [i * pp.DAY for i in range(31)] + [
+    i * 30 * pp.DAY for i in range(2, 13)
 ]
 
 max_iterations = 50
@@ -658,8 +656,8 @@ flash_params = {
 
 time_manager = pp.TimeManager(
     schedule=times_to_export,
-    dt_init=0.9 * pp.YEAR * t_scale,
-    dt_min_max=(pp.MINUTE * t_scale, 10 * pp.YEAR),
+    dt_init=0.9 * pp.DAY * t_scale,
+    dt_min_max=(pp.MINUTE * t_scale, 30 * pp.DAY),
     iter_max=max_iterations,
     iter_optimal_range=(5, 9),
     iter_relax_factors=(0.7, 1.8),

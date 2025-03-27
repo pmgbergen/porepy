@@ -1413,7 +1413,7 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_viscosity_function(self) -> ScalarFunction:
         @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            return 1.0
+            return 1e-3
 
         return mu_c
 
