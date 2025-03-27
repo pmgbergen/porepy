@@ -920,7 +920,8 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
     @property
     def reference_phase(self) -> PhaseLike:
-        """Returns the reference phase as designated by :meth:`reference_phase_index`."""
+        """Returns the reference phase as designated by
+        :meth:`reference_phase_index`."""
         return self._phases[self.reference_phase_index]
 
     @property

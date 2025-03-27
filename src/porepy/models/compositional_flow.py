@@ -1122,7 +1122,8 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
     """
 
     def update_all_boundary_conditions(self) -> None:
-        """Calls :meth:`update_boundary_values_phase_properties` after the super-call."""
+        """Calls :meth:`update_boundary_values_phase_properties` after the
+        super-call."""
         super().update_all_boundary_conditions()
         self.update_boundary_values_phase_properties()
 
