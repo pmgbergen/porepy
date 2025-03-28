@@ -22,9 +22,10 @@ class SparseNdArray:
     the data should be mapped prior to feeding it to the data. To do this, it is
     recommended to consider the class AdaptiveInterpolationTable.
 
-    Args:
-        dims (int): Number of coordinate axes of the table.
-        value_dim: Dimension of the values to be represented in the array. Defaults to 1.
+    Parameters:
+        dims: Number of coordinate axes of the table.
+        value_dim: Dimension of the values to be represented in the array. Defaults to
+            1.
 
     """
 
@@ -240,8 +241,9 @@ def intersect_sets(
 
     # Find points in b that are close to elements in a. The intersection is structured
     # as a list of length a.shape[1]. Each list item is itself list that contains the
-    # indices to items in array b that corresponds to this item in a (so, if
-    # intersection[2] == [3], a[:, 2] and b[:, 3] are identical up to the given tolerance).
+    # indices to items in array b that that corresponds to this item in a (so, if
+    # intersection[2] == [3], a[:, 2] and b[:, 3] are identical up to the given
+    # tolerance).
     intersection = a_tree.query_ball_tree(b_tree, tol)
 
     # Get the indices.

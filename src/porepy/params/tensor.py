@@ -6,7 +6,7 @@ for representation of permeability and stiffness, respectively.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, cast, Self
+from typing import Optional, Self, cast
 
 import numpy as np
 
@@ -366,7 +366,7 @@ class FourthOrderTensor(Tensor):
         C.values = self.values.copy()
         return C
 
-    @property  # This cannot be a static method since it needs access to self and is updated in the constructor
+    @property
     def constitutive_parameters(self) -> list[str]:
         """Strings for the constitutive parameters found in the fourth order tensor.
 

@@ -10,7 +10,6 @@ References:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
 
 import numpy as np
 
@@ -23,7 +22,8 @@ from porepy.geometry.distances import point_pointset
 
 
 class SneddonExactSolution2d:
-    """Class representing the analytical solution for the pressurized fracture problem."""
+    """Class representing the analytical solution for the pressurized fracture
+    problem."""
 
     def __init__(self, model: "ManuSneddonModel2d"):
         self.p0 = model.params["p0"]
@@ -104,7 +104,8 @@ class SneddonExactSolution2d:
         return bem_centers
 
     def analytical_displacements(self, eta: np.ndarray) -> np.ndarray:
-        """Compute Sneddon's analytical solution for the pressurized fracture displacement.
+        """Compute Sneddon's analytical solution for the pressurized fracture
+        displacement.
 
         Parameters:
             eta: Distances of fracture points to the fracture center.
@@ -149,8 +150,8 @@ class SneddonExactSolution2d:
         h: float,
         du: float,
     ) -> np.ndarray:
-        """Computes semi-analytical displacement values on the boundary using the BEM for
-        the Sneddon problem.
+        """Computes semi-analytical displacement values on the boundary using the BEM
+        for the Sneddon problem.
 
         Parameter
             sd: The matrix grid.
@@ -347,8 +348,6 @@ class ManuSneddonDataSaving(pp.PorePyModel):
     """Class for saving the error in the displacement field."""
 
     exact_sol: SneddonExactSolution2d
-
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
 
     def collect_data(self) -> ManuSneddonSaveData:
         """Collecting the error in the displacement field."""

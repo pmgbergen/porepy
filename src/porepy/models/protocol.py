@@ -223,7 +223,7 @@ else:
                 dim: Dimension of the basis.
 
             Returns:
-                List of pp.ad.SparseArrayArray, each of which represents a basis
+                List of pp.ad.SparseArray, each of which represents a basis
                 function.
 
             """
@@ -435,9 +435,9 @@ else:
         ) -> pp.ad.Operator:
             """Specific volume [m^(nd-d)].
 
-            For subdomains, the specific volume is the cross-sectional area/volume of the
-            cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the specific
-            volume is inherited from the higher-dimensional subdomain neighbor.
+            For subdomains, the specific volume is the cross-sectional area/volume of
+            the cell, i.e. aperture to the power :math`nd-dim`. For interfaces, the
+            specific volume is inherited from the higher-dimensional subdomain neighbor.
 
             See also:
                 :meth:aperture.
@@ -478,8 +478,8 @@ else:
 
             Returns:
                 3d isotropic permeability, with nonzero values on the diagonal and zero
-                values elsewhere. K is a second order tensor having 3^2 entries per cell,
-                represented as an array of length 9*nc. The values are ordered as
+                values elsewhere. K is a second order tensor having 3^2 entries per
+                cell, represented as an array of length 9*nc. The values are ordered as
                     Kxx, Kxy, Kxz, Kyx, Kyy, Kyz, Kzx, Kzy, Kzz
 
             """
@@ -597,14 +597,6 @@ else:
             """Returns True if ``params['eliminate_reference_component'] == True`.
             Defaults to True."""
 
-        def initial_condition(self) -> None:
-            """Set the initial condition for the problem.
-
-            For each solution index stored in ``self.time_step_indices`` and
-            ``self.iterate_indices`` a zero initial value will be assigned.
-
-            """
-
         def before_nonlinear_iteration(self) -> None:
             """Method to be called at the start of every non-linear iteration.
 
@@ -615,15 +607,16 @@ else:
         def after_nonlinear_convergence(self) -> None:
             """Method to be called after every non-linear iteration.
 
-            Possible usage is to distribute information on the solution, visualization, etc.
+            Possible usage is to distribute information on the solution, visualization,
+            etc.
 
             """
 
         def set_nonlinear_discretizations(self) -> None:
             """Set the list of nonlinear discretizations.
 
-            This method is called before the discretization is performed. It is intended to
-            be used to set the list of nonlinear discretizations.
+            This method is called before the discretization is performed. It is intended
+            to be used to set the list of nonlinear discretizations.
 
             """
 
@@ -704,7 +697,8 @@ else:
 
             This method calls the model method with given ``name`` on given ``grids`` to
             create an operator ``A``. It then fetches the respective reference value and
-            wraps it into an AD scalar ``A_0``. The return value is an operator ``A - A_0``.
+            wraps it into an AD scalar ``A_0``. The return value is an operator
+            ``A - A_0``.
 
             Parameters:
                 name: Name of the quantity to be perturbed from a reference value.
@@ -803,6 +797,25 @@ else:
                 name: Name of the operator defined on the boundary.
                 function: A callable that provides the boundary condition values on a
                     given boundary grid.
+
+            """
+
+    class InitialConditionProtocol(Protocol):
+        """This protocol declares the interfaces to methods related to the
+        initialization of values for a model."""
+
+        def initial_condition(self) -> None:
+            """Interface method for the solution strategy to be called to set initial
+            values for all variables.
+
+            Calls the methods :meth:`set_initial_values_primary_variables`.
+
+            Can be overridden to set other initial conditions after a super-call.
+
+            Important:
+                The user must set initial values at ``iterate_index=0``. The solution
+                strategy copies said values by default to all other indices in order to
+                get a runable model.
 
             """
 
@@ -918,14 +931,82 @@ else:
 
             """
 
+    class CachedMethodProtocol(Protocol):
+        """This protocol provides the declarations of methods that have been decorated
+        with @pp.ad.cached_method, and that are not decleared in the other protocols.
+        """
+
+        # This is a workaround for a technical issue: While the decorated methods should
+        # keep their original signature, by use of functools.wraps, it was impossible to
+        # make mypy realize what is the signature of the decorated method. EK's
+        # suspicion is that this has to do with the combination of mixins and
+        # decorators, but this is just a hunch.
+
+        def displacement_jump(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+            """Displacement jump on fracture-matrix interfaces.
+
+            Parameters:
+                subdomains: List of subdomains where the displacement jump is defined.
+                    Should be fracture subdomains.
+
+            Returns:
+                Operator for the displacement jump.
+
+            Raises:
+                AssertionError: If the subdomains are not fractures, i.e. have dimension
+                    `nd - 1`.
+
+            """
+
+        def elastic_displacement_jump(
+            self, subdomains: list[pp.Grid]
+        ) -> pp.ad.Operator:
+            """The elastic component of the displacement jump [m].
+
+            The elastic displacement jump is composed of a tangential and normal
+            component, each implementing a relation between displacement jumps, contact
+            tractions and stiffness. The relation may or may not be linear.
+
+            Parameters:
+                subdomains: List of fracture subdomains.
+
+            Returns:
+                Operator representing the elastic displacement jump.
+
+            """
+            pass
+
+        def darcy_flux(self, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
+            """Discretization of Darcy's law.
+
+            Note:
+                The fluid mobility is not included in the Darcy flux. This is because we
+                discretize it with an upstream scheme. This means that the fluid
+                mobility may have to be included when using the flux in a transport
+                equation. The units of the Darcy flux are [m^2 / s].
+
+            Parameters:
+                domains: List of domains where the Darcy flux is defined.
+
+            Raises:
+                ValueError if the domains are a mixture of grids and boundary grids.
+
+            Returns:
+                Face-wise Darcy flux in cubic meters per second.
+
+            """
+            pass
+
     class PorePyModel(
         BoundaryConditionProtocol,
+        InitialConditionProtocol,
         EquationProtocol,
         VariableProtocol,
         FluidProtocol,
         ModelGeometryProtocol,
         DataSavingProtocol,
         SolutionStrategyProtocol,
+        CachedMethodProtocol,
         Protocol,
     ):
         """This protocol declares the core, physics-agnostic functionality of

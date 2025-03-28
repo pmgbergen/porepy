@@ -1433,8 +1433,8 @@ class Mpfa(pp.FVElliptic):
             :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces, sd.num_faces))``
 
                     Matrix that can be multiplied with inverse block matrix to get basis
-                    functions for boundary values. If subface_rhs is True, the matrix will
-                    have ``subcell_topology.num_subfno_unique`` faces.
+                    functions for boundary values. If subface_rhs is True, the matrix
+                    will have ``subcell_topology.num_subfno_unique`` faces.
 
         """
         # For primal-like discretizations like the MPFA, internal boundaries are handled

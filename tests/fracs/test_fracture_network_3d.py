@@ -289,7 +289,8 @@ def check_mdg(
     expected_num_1d_grids=0,
     expected_num_0d_grids=0,
 ):
-    """Validate the generated mixed-dimensional grid based on the expected grid properties.
+    """Validate the generated mixed-dimensional grid based on the expected grid
+    properties.
 
     Parameters:
         mdg: Grid to be validated

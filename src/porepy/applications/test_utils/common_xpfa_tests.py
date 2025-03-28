@@ -172,7 +172,8 @@ def _test_laplacian_stencil_cart_2d(discr_matrices_func):
 
 
 def _test_laplacian_stensil_cart_2d_periodic_bcs(discr_matrices_func):
-    """Apply TPFA and MPFA on a periodic Cartesian grid, should obtain Laplacian stencil."""
+    """Apply TPFA and MPFA on a periodic Cartesian grid, should obtain Laplacian
+    stencil."""
 
     # Structured Cartesian grid and permeability. We need tailored BC object.
     g, perm, _ = _setup_cart_2d(np.array([3, 3]))

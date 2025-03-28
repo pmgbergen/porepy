@@ -117,6 +117,17 @@ class SolutionStrategy(pp.PorePyModel):
         """A list of results collected by the data saving mixin in
         :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
 
+        self._operator_cache: dict[Any, pp.ad.Operator] = {}
+        """Cache for storing the result of methods that return Ad operators. This is
+        used to avoid re-construction of the same operator multiple times, but does not
+        affect evaluation of the operator.
+
+        An operator is added to the cache by adding the decorator @pp.ad.cache_operator
+        to the method that returns the operator. It is considered good practice to use
+        the cache sparingly, and only for operators that have been shown to be expensive
+        to construct.
+        """
+
         self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
@@ -142,6 +153,10 @@ class SolutionStrategy(pp.PorePyModel):
         # opposed to e.g. pressure or temperature.
         self.assign_thermodynamic_properties_to_phases()
         self.initial_condition()
+        self.initialize_previous_iterate_and_time_step_values()
+
+        # Initialize time dependent ad arrays, including those for boundary values.
+        self.update_time_dependent_ad_arrays()
         self.reset_state_from_file()
         self.set_equations()
 
@@ -152,6 +167,26 @@ class SolutionStrategy(pp.PorePyModel):
 
         # Export initial condition
         self.save_data_time_step()
+
+    def initialize_previous_iterate_and_time_step_values(self) -> None:
+        """Method to be called after initial values are set at ``iterate_index=0`` in
+        the mixins for initial conditions.
+
+        This methods copies respective values to all other iterate and time step indices
+        to finalize the initialization procedure.
+
+        """
+        val = self.equation_system.get_variable_values(iterate_index=0)
+        for iterate_index in self.iterate_indices:
+            self.equation_system.set_variable_values(
+                val,
+                iterate_index=iterate_index,
+            )
+        for time_step_index in self.time_step_indices:
+            self.equation_system.set_variable_values(
+                val,
+                time_step_index=time_step_index,
+            )
 
     def set_equation_system_manager(self) -> None:
         """Create an equation_system manager on the mixed-dimensional grid."""
@@ -191,26 +226,6 @@ class SolutionStrategy(pp.PorePyModel):
             raise ValueError(
                 f"Expected a subclass of pp.SolverStatistics, got {statistics}."
             )
-
-    def initial_condition(self) -> None:
-        """Set the initial condition for the problem.
-
-        For each solution index stored in ``self.time_step_indices`` and
-        ``self.iterate_indices`` a zero initial value will be assigned.
-
-        """
-        val = np.zeros(self.equation_system.num_dofs())
-        for time_step_index in self.time_step_indices:
-            self.equation_system.set_variable_values(
-                val,
-                time_step_index=time_step_index,
-            )
-
-        for iterate_index in self.iterate_indices:
-            self.equation_system.set_variable_values(val, iterate_index=iterate_index)
-
-        # Initialize time dependent ad arrays, including those for boundary values.
-        self.update_time_dependent_ad_arrays()
 
     @property
     def time_step_indices(self) -> np.ndarray:
@@ -444,15 +459,18 @@ class SolutionStrategy(pp.PorePyModel):
             self.time_manager.compute_time_step(
                 iterations=self.nonlinear_solver_statistics.num_iteration
             )
+        self.update_solution(solution)
 
+        self.convergence_status = True
+        self.save_data_time_step()
+
+    def update_solution(self, solution: np.ndarray) -> None:
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
         )
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
-        self.convergence_status = True
-        self.save_data_time_step()
 
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
@@ -731,9 +749,6 @@ class ContactIndicators(pp.PorePyModel):
 
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact mechanics numerical constant."""
-
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Displacement jump operator."""
 
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Fracture gap operator."""

@@ -89,7 +89,8 @@ def generate_mdg(case: int):
 
 
 def retrieve_md_targets_cells_and_angles(case: int):
-    """Retrieves mgd, target cells, and angles involved in the propagation for each case."""
+    """Retrieves mgd, target cells, and angles involved in the propagation for each
+    case."""
 
     mdg = generate_mdg(case)
     if case == 1:
@@ -550,7 +551,8 @@ class MockPropagationModel(pp.ConformingFracturePropagation):
         cell_map = d["cell_index_map"]
         n_new = cell_map.shape[0] - cell_map.shape[1]
 
-        # Fill the new values with an arbitrary number for instance 42, because of course
+        # Fill the new values with an arbitrary number for instance 42, because of
+        # course.
         vals = np.full(n_new * cell_dof, 42)
         return vals
 
@@ -796,8 +798,8 @@ class TestVariableMappingInitializationUnderPropagation:
         self._verify(mdg, split_faces)
 
     def test_two_fractures_propagate_both(self):
-        # Domain with 5x3 cells, with two fractures.
-        # Both fractures are initially one face long, and will be propagated in two steps
+        # Domain with 5x3 cells, with two fractures. Both fractures are initially one
+        # face long, and will be propagated in two steps
 
         frac = [np.array([[1, 2], [1, 1]]), np.array([[2, 3], [2, 2]])]
         mdg = pp.meshing.cart_grid(frac, [5, 3])
