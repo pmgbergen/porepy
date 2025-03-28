@@ -1870,9 +1870,7 @@ class FractureNetwork3d(object):
                 ]
             ).T
             all_edges.sort(axis=0)
-            edges, _, b = np.unique(
-                all_edges, axis=1, return_index=True, return_inverse=True
-            )
+            edges, b = np.unique(all_edges, axis=1, return_inverse=True)
 
             # Edges on the boundary
             essential_edge = np.where(np.bincount(b) == 1)[0]

@@ -513,13 +513,13 @@ def test_expand_index_pointers(params: dict):
         {
             "input": [[1, 1], [0, 0], [0.5, 0], [0, 0], [0, 0.5], [0, 0], [0.5, 0]],
             "tol": 1e-2,
-            "expected_unique": [[1, 1], [0, 0], [0.5, 0], [0, 0.5]],
+            "expected": [[1, 1], [0, 0], [0.5, 0], [0, 0.5]],
         },
         # Edge case for multiple values close to the tolerance.
         {
             "input": np.array([np.linspace(0, 1, num=101)[::-1], [0] * 101]).T,
             "tol": 1e-1,
-            "expected_unique": np.array(
+            "expected": np.array(
                 [
                     [1, 0.97, 0.86, 0.75, 0.64, 0.53, 0.43, 0.32, 0.21, 0.1],
                     [0] * 10,
@@ -536,7 +536,7 @@ def test_expand_index_pointers(params: dict):
                 reps=10,
             ).T,
             "tol": 1e-10,
-            "expected_unique": [
+            "expected": [
                 [10.0, 10.0],
                 [100.0, 0.0],
                 [100.0, 10.0],
@@ -547,6 +547,30 @@ def test_expand_index_pointers(params: dict):
                 [10.0, 0.0],
             ],
         },
+        # Array with only unique columns.
+        {
+            "input": np.array([[16.0, 15, 18], [5, 16, 25]]).T,
+            "expected": np.array([[16.0, 15, 18], [5, 16, 25]]).T,
+            "tol": 1e-5,
+        },
+        # Array with one duplicate column.
+        {
+            "input": np.array([[3.0, 13, 15, 3, 12, 13], [15, 13, 14, 15, 21, 14]]).T,
+            "expected": np.array([[3.0, 13, 15, 12, 13], [15, 13, 14, 21, 14]]).T,
+            "tol": 1e-5,
+        },
+        # Array with several duplicate columns.
+        {
+            "input": np.array([[1.0, 2, 3, 1, 3, 4], [2, 3, 4, 2, 4, 5]]).T,
+            "expected": np.array([[1.0, 2, 3, 4], [2, 3, 4, 5]]).T,
+            "tol": 1e-5,
+        },
+        # Edge case: no points.
+        {
+            "input": np.atleast_2d([]),
+            "expected": np.atleast_2d([]),
+            "tol": 1e-5,
+        },
     ],
 )
 def test_unique_vectors_tol(params: dict):
@@ -554,7 +578,7 @@ def test_unique_vectors_tol(params: dict):
     tol = params["tol"]
     results = pp.array_operations.unique_vectors_tol(vectors=input, tol=tol)
     unique_vectors, new_2_old, old_2_new = results
-    expected_unique = np.array(params["expected_unique"]).T
-    assert np.allclose(unique_vectors, expected_unique, atol=tol)
-    assert np.allclose(input[:, new_2_old], expected_unique, atol=tol)
+    expected = np.array(params["expected"]).T
+    assert np.allclose(unique_vectors, expected, atol=tol)
+    assert np.allclose(input[:, new_2_old], expected, atol=tol)
     assert np.allclose(unique_vectors[:, old_2_new], input, atol=tol)
