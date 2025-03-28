@@ -854,7 +854,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
     """
     operator_to_SecondOrderTensor: Callable[
-        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
+        [list[pp.Grid], pp.ad.Operator, pp.number], pp.SecondOrderTensor
     ]
     """Function that returns a SecondOrderTensor provided a method returning
     permeability as a Operator. Normally provided by a mixin instance of
@@ -903,16 +903,32 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
         """
         super().set_discretization_parameters()
-        for sd, data in self.mdg.subdomains(return_data=True):
+        # Profiling indicated that for problems with many subdomains, evaluating the
+        # permeability for one subdomain at a time is a significant bottleneck. We
+        # therefore evaluate the permeability for all subdomains at
+        # once, and then assign the values to the individual subdomains.
+        subdomains = self.mdg.subdomains()
+        permeability_all_cells = self.operator_to_SecondOrderTensor(
+            subdomains, self.permeability(subdomains), self.solid.permeability
+        )
+
+        # Get the start indices of individual subdomains in the permeability array.
+        sd_start = np.cumsum([0] + [sd.num_cells for sd in subdomains])
+
+        for id, sd in enumerate(subdomains):
+            data = self.mdg.subdomain_data(sd)
+            # Indices of cells in the current subdomain, relative to ordering in the
+            # permeability array.
+            loc_cells = np.arange(sd_start[id], sd_start[id + 1])
+            loc_permeability = permeability_all_cells.restrict_to_cells(loc_cells)
+
             pp.initialize_data(
                 sd,
                 data,
                 self.darcy_keyword,
                 {
                     "bc": self.bc_type_darcy_flux(sd),
-                    "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd, self.permeability([sd]), self.solid.permeability
-                    ),
+                    "second_order_tensor": loc_permeability,
                     "ambient_dimension": self.nd,
                 },
             )
