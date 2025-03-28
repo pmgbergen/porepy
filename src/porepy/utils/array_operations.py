@@ -297,7 +297,7 @@ def unique_rows(data: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def unique_columns(
-    data: np.ndarray, preserve_order: bool = True
+    data: np.ndarray, preserve_order: bool = False
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Finds unique columns in a 2D numpy array.
 

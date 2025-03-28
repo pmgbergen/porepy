@@ -487,8 +487,18 @@ def polygons_by_polyhedron(
             coord_extended, tol=tol
         )
         unique_segments = ib[segments]
+
         # Then uniquify the segments, in terms of the unique coordinates
-        unique_segments, *rest = pp.array_operations.unique_columns(unique_segments)
+
+        # TODO>EK: Here, it is logical to call the int counterpart of this function.
+        # But historicaly the float version was called, which returns the same result,
+        # but ordered differently. For some reason, this ordering is important, and
+        # TestMixedDimensionalUpwinding.test_3d_2d_1d_0d otherwise fails.
+        # Tol is arbitrary small and not the one passed to the function, because these
+        # are indices, you don't want indices 1 and 2 be treated as equal if tol > 1.
+        unique_segments, *rest = pp.array_operations.unique_vectors_tol(
+            unique_segments, tol=1e-10
+        )
         # Remove point segments.
         point_segment = unique_segments[0] == unique_segments[1]
         unique_segments = unique_segments[:, np.logical_not(point_segment)]
