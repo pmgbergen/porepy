@@ -1036,10 +1036,14 @@ class FractureNetwork3d(object):
         # fractures meeting in a line.
 
         # Do a sort of edges before looking for duplicates.
-        # TODO> EK: This function calls to np.unique inside, which does not guarantee
-        # the return ordering. For some reason, we rely on this changed ordering, and
-        # sorting it breaks the test `TestMixedDimensionalUpwinding.test_3d_2d_1d_0d`.
-        # This must be investigated at some point due to potential bugs.
+        # IMPLEMENTATION NOTE: The overall algorithm does not depend on preserving (or
+        # not preserving) the order of the edges, hence the simplest option would be to
+        # use the argument (which will preserve). However, altering the order may lead
+        # to different ordering of subdomains (fractures and their intersections), hence
+        # a rearrangement of the global degrees of freedom. Specifically, the test
+        # `TestMixedDimensionalUpwinding.test_3d_2d_1d_0d` relies on a specific ordering
+        # constructed without preserving the order (there are deep legacy reasons for
+        # this). There seems little reason to change the test, so we leave this as is.
         e_unique, unique_ind_e, all_2_unique_e = pp.array_operations.unique_columns(
             np.sort(edges, axis=0), preserve_order=False
         )
