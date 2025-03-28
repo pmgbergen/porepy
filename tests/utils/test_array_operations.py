@@ -602,7 +602,7 @@ def test_expand_indices_add_increment(params):
 @pytest.mark.parametrize(
     "params",
     [
-        # Simple comparison of input (2 arrays) and expected output of expand_index_pointers.
+        # Simple comparison of input (2 arrays) and expected output.
         {
             "input": ([1, 2], [3, 4]),
             "expected": [1, 2, 2, 3],
