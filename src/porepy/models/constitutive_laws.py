@@ -4075,13 +4075,13 @@ class PoroMechanicsPorosity(pp.PorePyModel):
         # Constant unitary porosity in fractures and intersections
         size = sum(sd.num_cells for sd in subdomains_lower)
         one = pp.wrap_as_dense_ad_array(1, size=size, name="one")
-        rho_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
+        phi_nd = projection.cell_prolongation(subdomains_nd) @ self.matrix_porosity(
             subdomains_nd
         )
-        rho_lower = projection.cell_prolongation(subdomains_lower) @ one
-        rho = rho_nd + rho_lower
-        rho.set_name("porosity")
-        return rho
+        phi_lower = projection.cell_prolongation(subdomains_lower) @ one
+        phi = phi_nd + phi_lower
+        phi.set_name("porosity")
+        return phi
 
     def matrix_porosity(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Porosity in the nd-dimensional matrix [-].
