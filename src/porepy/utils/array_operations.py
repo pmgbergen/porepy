@@ -283,7 +283,7 @@ def ismember_columns(
         a: `shape=(nd, num_vectors_a)`, each column in a will search for an equal in b.
         b: `shape=(nd, num_vectors_b)`, array in which we will look for a twin.
         sort: If `True`, treats permuted columns as twins. E.g., will treat `[5, 1]`
-            and `[1, 5]` as unique. Defaults to `True`.
+            and `[1, 5]` as equal. Defaults to `True`.
 
     Returns:
         np.array: `shape=(nd, num_vectors_a)`, `True` if there is a twin column in b.
@@ -583,15 +583,15 @@ def unique_vectors_tol(vectors: np.ndarray, tol: float):
 
     Parameters:
         vectors: `shape=(nd, n_pts)`, vectors to be uniquified.
-        tol: Tolerance for when columns are considered equal.
-            Should be seen in connection with distance between the vectors in
-            the vector set (due to rounding errors).
+        tol: Tolerance for when columns are considered equal. Should be seen in
+            connection with distance between the vectors in the vector set (due to
+            rounding errors).
 
     Returns:
         np.ndarray: `shape=(nd, n_unique)`, unique vectors.
         new_2_old: `shape=(n_unique,)`, index of which vectors that are preserved.
-        old_2_new: `shape=(n_pts,)`, index of the representation of old vectors in
-            the reduced list.
+        old_2_new: `shape=(n_pts,)`, index of the representation of old vectors in the
+            reduced list.
 
     """
     if vectors.shape[1] == 0:
