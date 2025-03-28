@@ -196,7 +196,7 @@ class Fracture(abc.ABC):
         """
         p = p.reshape((-1, 1))
         ap = np.hstack((p, self.pts))
-        up, _, ind = pp.array_operations.unique_vectors_tol(ap, tol=tol * np.sqrt(3))
+        up, _, ind = pp.array_operations.uniquify_point_set(ap, tol=tol * np.sqrt(3))
 
         # If the unique-operation did not remove any points, it is not a vertex.
         if up.shape[1] == ap.shape[1]:

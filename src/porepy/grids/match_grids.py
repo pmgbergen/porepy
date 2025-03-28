@@ -309,7 +309,7 @@ def match_grids_along_1d_mortar(
             raise ValueError("Nodes are not colinear")
         sort_ind = pp.map_geometry.sort_points_on_line(nodes, tol=tol)
         n = nodes[:, sort_ind]
-        unique_nodes, _, _ = pp.array_operations.unique_vectors_tol(n, tol=tol)
+        unique_nodes, _, _ = pp.array_operations.uniquify_point_set(n, tol=tol)
         g = TensorGrid(np.arange(unique_nodes.shape[1]))
         g.nodes = unique_nodes
         g.compute_geometry()

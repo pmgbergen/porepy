@@ -128,7 +128,7 @@ class PlaneFracture(Fracture):
             )
         )
         self.pts = np.hstack((self.pts, p))
-        self.pts, _, _ = pp.array_operations.unique_vectors_tol(self.pts, tol=tol)
+        self.pts, _, _ = pp.array_operations.uniquify_point_set(self.pts, tol=tol)
 
         # Sort points to counter-clockwise
         mask = self.sort_points()

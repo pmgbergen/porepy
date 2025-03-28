@@ -514,7 +514,7 @@ def _unique_vectors_in_cluster(
     cluster_size: int,
     tol: float,
 ):
-    """This is an inner function of `unique_vectors_tol`, but moved outside due to
+    """This is an inner function of `uniquify_point_set`, but moved outside due to
     numba. Finds unique vectors in a specified cluster.
 
     Parameters:
@@ -566,7 +566,7 @@ def _unique_vectors_in_cluster(
 
 
 @njit(cache=True)
-def unique_vectors_tol(vectors: np.ndarray, tol: float):
+def uniquify_point_set(vectors: np.ndarray, tol: float):
     """Uniquify a set of vectors so that no two sets of vectors are closer than a
     distance tol from each other.
 

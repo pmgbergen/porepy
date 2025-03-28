@@ -798,13 +798,13 @@ def polygons_3d(
 
                     # Uniquify the intersection points found on this segment of main.
                     # If more than one, the intersection is on the boundary of main.
-                    tmp_unique_isect, *rest = pp.array_operations.unique_vectors_tol(
+                    tmp_unique_isect, *rest = pp.array_operations.uniquify_point_set(
                         tmp_isect, tol=tol
                     )
                     if tmp_unique_isect.shape[1] > 1:
                         isect_on_boundary_main = True
 
-                isect, *rest = pp.array_operations.unique_vectors_tol(isect, tol=tol)
+                isect, *rest = pp.array_operations.uniquify_point_set(isect, tol=tol)
 
                 if isect.shape[1] == 0:
                     # The polygons share a plane, but no intersections
@@ -1002,14 +1002,14 @@ def polygons_3d(
                             isect = np.hstack((isect, loc_isect))
                             tmp_isect = np.hstack((tmp_isect, loc_isect))
 
-                    tmp_unique_isect, *rest = pp.array_operations.unique_vectors_tol(
+                    tmp_unique_isect, *rest = pp.array_operations.uniquify_point_set(
                         tmp_isect, tol=tol
                     )
 
                     if tmp_unique_isect.shape[1] > 1:
                         isect_on_boundary_other = True
 
-                isect, *rest = pp.array_operations.unique_vectors_tol(isect, tol=tol)
+                isect, *rest = pp.array_operations.uniquify_point_set(isect, tol=tol)
 
                 seg_vert_main_0 = (0, "not implemented for shared planes")
                 seg_vert_main_1 = (0, "not implemented for shared planes")
@@ -2335,7 +2335,7 @@ def split_intersecting_segments_2d(
         # NOTE: The tolerance used here is a bit sensitive, if set too loose, this
         # may merge non-intersecting fractures.
 
-        unique_all_pt, ia, ib = pp.array_operations.unique_vectors_tol(all_pt, tol)
+        unique_all_pt, ia, ib = pp.array_operations.uniquify_point_set(all_pt, tol)
 
         # Data structure for storing the split edges.
         new_edge = np.empty((e.shape[0], 0), dtype=int)
