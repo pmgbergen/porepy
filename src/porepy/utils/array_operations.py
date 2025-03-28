@@ -303,8 +303,11 @@ def unique_columns(
 
     Parameters:
         data: The 2D numpy array that we want to find unique columns in.
-        preserve_order: If True, the order of the columns will be preserved. If False,
-            they will not necessarily be preserved.
+        preserve_order: If `True`, guarantees to preserve the order, so each unique
+            vector is the first encountered. That is for the input
+            `[[5, 1, 5, 1], [1, 5, 1, 5]]`, the output will be `[[5, 1], [1, 5]]`,
+            and not `[[1, 5], [5, 1]]`. Otherwise, the ordering is controlled by numpy
+            and is not guaranteed.
 
     Returns:
         Tuple containing:
@@ -651,7 +654,9 @@ def unique_vectors_tol(vectors: np.ndarray, tol: float):
     """Uniquify a set of vectors so that no two sets of vectors are closer than a
     distance tol from each other.
 
-    The result order is guaranteed, each unique vector is the first encountered.
+    The result order is guaranteed, each unique vector is the first encountered. That is
+    for the input `[[5, 1, 5, 1], [1, 5, 1, 5]]`, the output will be `[[5, 1], [1, 5]]`,
+    and not `[[1, 5], [5, 1]]`.
 
     For integers and `tol < 0.5`, this is equivalent to
     `unique_columns(vectors, preserve_order=True)`.
