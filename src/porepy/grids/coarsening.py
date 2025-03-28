@@ -447,7 +447,9 @@ def create_partition(
 
     # Remove one of the neighbors cells
     if pairs.size:
-        pairs = pp.array_operations.unique_rows(np.sort(pairs, axis=1))[0]
+        pairs = np.unique(
+            np.sort(pairs, axis=1), axis=0, return_index=True, return_inverse=True
+        )[0]
         for ij in pairs:
             A_val = A[ij, ij].A.ravel()
             ids = ij[np.argsort(A_val)]

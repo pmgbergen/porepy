@@ -533,7 +533,9 @@ class FractureNetwork2d:
         # This may disturb the line tags in lines[2], but we should not be dependent
         # on those.
         li = np.sort(lines[:2], axis=0)
-        _, new_2_old, old_2_new = pp.array_operations.unique_columns(li)
+        _, new_2_old, old_2_new = np.unique(
+            li, axis=1, return_index=True, return_inverse=True
+        )
         lines = lines[:, new_2_old]
 
         if not np.all(np.diff(lines[:2], axis=0) != 0):

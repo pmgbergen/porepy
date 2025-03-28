@@ -82,7 +82,9 @@ class TriangleGrid(Grid):
 
         # Face node relations. Each face is oriented from low to high node index.
         face_nodes.sort(axis=1)
-        face_nodes, _, cell_faces = pp.array_operations.unique_rows(face_nodes)
+        face_nodes, _, cell_faces = np.unique(
+            face_nodes, axis=0, return_index=True, return_inverse=True
+        )
 
         num_faces = face_nodes.shape[0]
         num_cells = tri.shape[1]
@@ -269,8 +271,8 @@ class TetrahedralGrid(Grid):
         # IMPLEMENTATION NOTE: Do not use the order-preserving option to comply with
         # tacit, hard-coded assumptions that are made on the order of nodes, faces, and
         # cells in the test `TestMVEMRHS.test_3d_isotropic_permeability`.
-        face_nodes, _, cell_faces = pp.array_operations.unique_columns(
-            face_nodes_sorted, preserve_order=False
+        face_nodes, _, cell_faces = np.unique(
+            face_nodes_sorted, axis=1, return_index=True, return_inverse=True
         )
 
         num_faces = face_nodes.shape[1]

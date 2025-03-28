@@ -1044,8 +1044,8 @@ class FractureNetwork3d(object):
         # `TestMixedDimensionalUpwinding.test_3d_2d_1d_0d` relies on a specific ordering
         # constructed without preserving the order (there are deep legacy reasons for
         # this). There seems little reason to change the test, so we leave this as is.
-        e_unique, unique_ind_e, all_2_unique_e = pp.array_operations.unique_columns(
-            np.sort(edges, axis=0), preserve_order=False
+        e_unique, unique_ind_e, all_2_unique_e = np.unique(
+            np.sort(edges, axis=0), axis=1, return_index=True, return_inverse=True
         )
 
         # Update the edges_2_frac map to refer to the new edges
@@ -1870,7 +1870,9 @@ class FractureNetwork3d(object):
                 ]
             ).T
             all_edges.sort(axis=0)
-            edges, _, b = pp.array_operations.unique_columns(all_edges)
+            edges, _, b = np.unique(
+                all_edges, axis=1, return_index=True, return_inverse=True
+            )
 
             # Edges on the boundary
             essential_edge = np.where(np.bincount(b) == 1)[0]
