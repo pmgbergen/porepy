@@ -1093,16 +1093,18 @@ def _check_equivalent_md_grids(md_grids, decimals=12):
             face_centers = np.round(face_centers, decimals)
             for i in range(1, num_md_grids):
                 assert np.all(
-                    pp.array_operations.ismember_columns(cell_centers[0], cell_centers[i])[
-                        0
-                    ]
+                    pp.array_operations.ismember_columns(
+                        cell_centers[0], cell_centers[i]
+                    )[0]
                 )
                 assert np.all(
-                    pp.array_operations.ismember_columns(face_centers[0], face_centers[i])[
-                        0
-                    ]
+                    pp.array_operations.ismember_columns(
+                        face_centers[0], face_centers[i]
+                    )[0]
                 )
-                assert np.all(pp.array_operations.ismember_columns(nodes[0], nodes[i])[0])
+                assert np.all(
+                    pp.array_operations.ismember_columns(nodes[0], nodes[i])[0]
+                )
 
             # Now we know all nodes, faces and cells are in all grids, we map them
             # to prepare cell_faces and face_nodes comparison

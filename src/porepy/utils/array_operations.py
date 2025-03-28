@@ -5,11 +5,11 @@ ndarrays and various functions with set operations.
 
 from __future__ import annotations
 
-import numpy as np
-from scipy.spatial import KDTree
-from numba import njit
-
 from typing import Any, Literal, Tuple
+
+import numpy as np
+from numba import njit
+from scipy.spatial import KDTree
 
 
 class SparseNdArray:
@@ -732,7 +732,7 @@ def unique_vectors_tol(vectors: np.ndarray, tol: float):
         new_2_old[num_unique : num_unique + unique_size_inner] = new_2_old_inner
         old_2_new[
             sorted_idx[np.arange(cluster_start, cluster_start + cluster_size)]
-        ] = (old_2_new_inner + num_unique)
+        ] = old_2_new_inner + num_unique
 
         # Updating the counters.
         num_unique += unique_size_inner

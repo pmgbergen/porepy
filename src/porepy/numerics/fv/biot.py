@@ -647,7 +647,9 @@ class Biot(pp.Mpsa):
 
         if update:
             # The faces to be updated are given by active_faces
-            update_face_ind = pp.array_operations.expand_indices_nd(active_faces, sd.dim)
+            update_face_ind = pp.array_operations.expand_indices_nd(
+                active_faces, sd.dim
+            )
 
             matrices_m[self.stress_matrix_key][update_face_ind] = stress[
                 update_face_ind

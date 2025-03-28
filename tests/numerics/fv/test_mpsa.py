@@ -194,7 +194,9 @@ def test_partial_discretization_one_cell_at_a_time():
         active_faces = data[pp.PARAMETERS][keyword]["active_faces"]
 
         if np.any(faces_covered):
-            del_faces = pp.array_operations.expand_indices_nd(np.where(faces_covered)[0], g.dim)
+            del_faces = pp.array_operations.expand_indices_nd(
+                np.where(faces_covered)[0], g.dim
+            )
             pp.fvutils.remove_nonlocal_contribution(
                 del_faces, 1, partial_stress, partial_bound
             )

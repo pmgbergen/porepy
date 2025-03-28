@@ -1499,7 +1499,10 @@ def map_subgrid_to_grid(
         face_map = sps.csr_matrix(
             (
                 np.ones(num_faces_loc * nd),
-                (pp.array_operations.expand_indices_nd(loc_faces, nd), np.arange(num_faces_loc * nd)),
+                (
+                    pp.array_operations.expand_indices_nd(loc_faces, nd),
+                    np.arange(num_faces_loc * nd),
+                ),
             ),
             shape=(sd.num_faces * nd, num_faces_loc * nd),
         )
@@ -1507,7 +1510,10 @@ def map_subgrid_to_grid(
         cell_map = sps.csr_matrix(
             (
                 np.ones(num_cells_loc * nd),
-                (np.arange(num_cells_loc * nd), pp.array_operations.expand_indices_nd(loc_cells, nd)),
+                (
+                    np.arange(num_cells_loc * nd),
+                    pp.array_operations.expand_indices_nd(loc_cells, nd),
+                ),
             ),
             shape=(num_cells_loc * nd, sd.num_cells * nd),
         )
@@ -1656,7 +1662,9 @@ def partial_discretization(
     )
 
     # Account for dof offset for mechanical problem
-    affected_faces = pp.array_operations.expand_indices_nd(affected_faces, dof_multiplier)
+    affected_faces = pp.array_operations.expand_indices_nd(
+        affected_faces, dof_multiplier
+    )
 
     pp.matrix_operations.zero_rows(data[kw1], affected_faces)
     pp.matrix_operations.zero_rows(data[kw2], affected_faces)

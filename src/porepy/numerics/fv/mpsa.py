@@ -1637,7 +1637,9 @@ class Mpsa(Discretization):
 
             # Distribute (relevant parts of) Hook's law on subcells This will be nd
             # rows, thus cell ci is associated with indices ci*nd+np.arange(nd)
-            sub_cell_ind = pp.array_operations.expand_indices_nd(cell_node_blocks[0], nd)
+            sub_cell_ind = pp.array_operations.expand_indices_nd(
+                cell_node_blocks[0], nd
+            )
             sym_vals = sym_dim[sub_cell_ind]
             asym_vals = asym_dim[sub_cell_ind]
 
