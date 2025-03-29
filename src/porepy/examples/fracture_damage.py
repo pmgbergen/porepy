@@ -44,11 +44,17 @@ class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
         return values.ravel("F")
 
 
-class FractureDamageContactMechanics(  # type: ignore[misc]
+class DamageBase(
     pp.constitutive_laws.FrictionDamage,
     pp.constitutive_laws.DilationDamage,
     damage.DamageHistoryVariable,
     damage.DamageHistoryEquation,
+):
+    pass
+
+
+class FractureDamageContactMechanics(  # type: ignore[misc]
+    DamageBase,
     pp.contact_mechanics.ContactMechanics,
 ):
     """Fracture damage model.
@@ -407,7 +413,7 @@ solid_params = {
     "dilation_damage_decay": 0.5,
     "friction_coefficient": 0.1,  # Low friction to get slip \approx bc displacement
     "dilation_angle": 0.1,
-    # "shear_modulus": 1e6,  # Suppress shear displacement
+    "shear_modulus": 1e6,  # Suppress shear displacement in the matrix.
     "fracture_normal_stiffness": 1.0e-3,  # Low normal stiffness to promote slip
     "fracture_tangential_stiffness": 1.0e3,  # High tangential stiffness to suppress
     # elastic deformation
@@ -433,7 +439,6 @@ model_params = {
 class IsotropicFractureDamage(  # type: ignore[misc]
     damage.IsotropicHistoryEquation,
     DamageDataSaving,
-    # TimeDependentDamageBCs,
     ContactMechanicsTester,
     FractureDamageContactMechanics,
 ):
@@ -445,5 +450,15 @@ class AnisotropicFractureDamage(  # type: ignore[misc]
     DamageDataSaving,
     ContactMechanicsTester,
     FractureDamageContactMechanics,
+):
+    pass
+
+
+class FractureDamageMomentumBalance(  # type: ignore[misc]
+    damage.IsotropicHistoryEquation,
+    DamageDataSaving,
+    DamageBase,
+    TimeDependentDamageBCs,
+    pp.MomentumBalance,
 ):
     pass
