@@ -69,7 +69,9 @@ class EquationsPoromechanics(
     pp.fluid_mass_balance.FluidMassBalanceEquations,
     pp.contact_mechanics.ContactMechanicsEquations,
 ):
-    """Combines mass and momentum balance and contact mechanics equations."""
+    """Combines mass and momentum balance and contact mechanics equations.
+    Adaptation is made to the body force taking into account solid and
+    fluid."""
 
     def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Body force integrated over the subdomain cells.
