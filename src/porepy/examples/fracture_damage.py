@@ -58,11 +58,11 @@ class FractureDamageContactMechanics(  # type: ignore[misc]
     used with the same model, specifically during testing. TODO: Consider to choose one
     as default.
 
-    Two methods are overridden in this class: - variables_stored_all_time_steps: The
-    interface displacement is not included in the
-      model, and thus the method is overridden to exclude it.
-    - update_time_dependent_interface_displacement: The interface displacement parameter
-      needs to be stored at all time steps.
+    Two methods are overridden in this class:
+        - variables_stored_all_time_steps: The interface displacement is not included in
+        the model, and thus the method is overridden to exclude it.
+        - update_interface_displacement_parameter: The interface displacement parameter
+        needs to be stored at all time steps.
 
     The combination of the two overrides amounts to replacing the variable stored at
     each time step with the parameter value being stored.
@@ -85,7 +85,7 @@ class FractureDamageContactMechanics(  # type: ignore[misc]
             ]
         )
 
-    def update_time_dependent_interface_displacement(self) -> None:
+    def update_interface_displacement_parameter(self) -> None:
         """Update the interface displacement parameter."""
 
         name = self.interface_displacement_parameter_key
