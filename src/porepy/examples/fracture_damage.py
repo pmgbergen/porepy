@@ -44,11 +44,17 @@ class TimeDependentDamageBCs(BoundaryConditionsMechanicsDirNorthSouth):
         return values.ravel("F")
 
 
-class FractureDamageContactMechanics(  # type: ignore[misc]
+class DamageBase(
     pp.constitutive_laws.FrictionDamage,
     pp.constitutive_laws.DilationDamage,
     damage.DamageHistoryVariable,
     damage.DamageHistoryEquation,
+):
+    pass
+
+
+class FractureDamageContactMechanics(  # type: ignore[misc]
+    DamageBase,
     pp.contact_mechanics.ContactMechanics,
 ):
     """Fracture damage model.
@@ -58,11 +64,11 @@ class FractureDamageContactMechanics(  # type: ignore[misc]
     used with the same model, specifically during testing. TODO: Consider to choose one
     as default.
 
-    Two methods are overridden in this class: - variables_stored_all_time_steps: The
-    interface displacement is not included in the
-      model, and thus the method is overridden to exclude it.
-    - update_time_dependent_interface_displacement: The interface displacement parameter
-      needs to be stored at all time steps.
+    Two methods are overridden in this class:
+        - variables_stored_all_time_steps: The interface displacement is not included in
+        the model, and thus the method is overridden to exclude it.
+        - update_interface_displacement_parameter: The interface displacement parameter
+        needs to be stored at all time steps.
 
     The combination of the two overrides amounts to replacing the variable stored at
     each time step with the parameter value being stored.
@@ -85,7 +91,7 @@ class FractureDamageContactMechanics(  # type: ignore[misc]
             ]
         )
 
-    def update_time_dependent_interface_displacement(self) -> None:
+    def update_interface_displacement_parameter(self) -> None:
         """Update the interface displacement parameter."""
 
         name = self.interface_displacement_parameter_key
@@ -407,7 +413,7 @@ solid_params = {
     "dilation_damage_decay": 0.5,
     "friction_coefficient": 0.1,  # Low friction to get slip \approx bc displacement
     "dilation_angle": 0.1,
-    # "shear_modulus": 1e6,  # Suppress shear displacement
+    "shear_modulus": 1e6,  # Suppress shear displacement in the matrix.
     "fracture_normal_stiffness": 1.0e-3,  # Low normal stiffness to promote slip
     "fracture_tangential_stiffness": 1.0e3,  # High tangential stiffness to suppress
     # elastic deformation
@@ -433,11 +439,18 @@ model_params = {
 class IsotropicFractureDamage(  # type: ignore[misc]
     damage.IsotropicHistoryEquation,
     DamageDataSaving,
-    # TimeDependentDamageBCs,
     ContactMechanicsTester,
     FractureDamageContactMechanics,
 ):
-    pass
+    """Isotropic fracture damage model.
+
+    The equations are fracture damage and contact mechanics. Variables are contact
+    traction and damage history. The model is isotropic, i.e., the damage history is
+    independent of the loading direction.
+
+    Also contains specifics defining a test case.
+
+    """
 
 
 class AnisotropicFractureDamage(  # type: ignore[misc]
@@ -446,4 +459,30 @@ class AnisotropicFractureDamage(  # type: ignore[misc]
     ContactMechanicsTester,
     FractureDamageContactMechanics,
 ):
-    pass
+    """Anisotropic fracture damage model.
+
+    The equations are fracture damage and contact mechanics. Variables are contact
+    traction and damage history. The model is anisotropic, i.e., the damage history is
+    dependent on the loading direction.
+
+    Also contains specifics defining a test case.
+    """
+
+
+class FractureDamageMomentumBalance(  # type: ignore[misc]
+    damage.IsotropicHistoryEquation,
+    DamageDataSaving,
+    DamageBase,
+    TimeDependentDamageBCs,
+    pp.MomentumBalance,
+):
+    """Fracture damage momentum balance model.
+
+    This model combines fracture damage mechanics with momentum balance and force
+    balance across interfaces. Variables are matrix and interface displacements, contact
+    traction, and damage history. The model is isotropic, i.e., the damage history is
+    independent of the loading direction.
+
+    Also contains specifics defining a test case in terms of the boundary conditions.
+
+    """
