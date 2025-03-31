@@ -56,7 +56,6 @@ The following standard names are used for thermodynamic quantities:
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Callable, Sequence, TypeAlias
 
 import numba
@@ -76,8 +75,6 @@ __all__ = [
     "PengRobinsonSymbolic",
 ]
 
-logger = logging.getLogger(__name__)
-
 
 A_CRIT: float = (
     1
@@ -91,6 +88,7 @@ A_CRIT: float = (
 """Critical, non-dimensional cohesion value in the Peng-Robinson EoS,
 ~ 0.457235529."""
 
+
 B_CRIT: float = (
     1
     / 32
@@ -98,37 +96,487 @@ B_CRIT: float = (
 )
 """Critical, non-dimensional covolume in the Peng-Robinson EoS, ~ 0.077796073."""
 
+
 Z_CRIT: float = (
     1 / 32 * (11 + np.cbrt(16 * np.sqrt(2) - 13) - np.cbrt(16 * np.sqrt(2) + 13))
 )
 """Critical compressibility factor in the Peng-Robinson EoS, ~ 0.307401308."""
 
 
-Z_s: sp.Symbol = sp.Symbol("Z")
-"""Symbol for the compressibility factor.
+@numba.njit(cache=True)
+def _select(condlist: list, choicelist: list, default=np.nan):
+    """Intermediate function to replace the ``numpy.select`` for scalar condition and
+    choice input, because numba has a lot of issues resolving ``numpy.select``.
 
-Intended use is as an intermediate, independent quantity to evaluate
-complex symbolic expressions.
+    See also:
 
-"""
+        https://numba.readthedocs.io/en/0.59.1/reference/numpysupported.html
 
-
-A_s: sp.Symbol = sp.Symbol("A")
-"""Symbol for non-dimensional cohesion.
-
-Intended use is as an intermediate, independent quantity to evaluate complex
-symbolic expressions.
-
-"""
+    """
+    assert len(condlist) == len(choicelist) == 2, "Supported selection between two."
+    if condlist[0]:
+        return choicelist[0]
+    else:
+        return choicelist[1]
 
 
-B_s: sp.Symbol = sp.Symbol("B")
-"""Symbol for non-dimensional covolume.
+class PengRobinsonSymbolic:
+    """A class providing functions for thermodynamic properties using the Peng-Robinson
+    EoS, based on a symbolic representation using ``sympy``.
 
-Intended use is as an intermediate, independent quantity to evaluate complex
-symbolic expressions.
+    Note:
+        The functions are generated using :func:`sympy.lambdify` and are *sourceless*.
 
-"""
+    Parameters:
+        components: A sequence of ``num_comp`` components.
+        ideal_enthalpies: A list of ``num_comp`` callables representing the ideal
+            enthalpies of individual components in ``components``.
+        bip_matrix: A 2D array containing BIPs for ``components``. Note that only the
+            upper triangle of this matrix is used.
+
+    """
+
+    p_s: sp.Symbol = sp.Symbol(str(SYMBOLS["pressure"]))
+    """Symbolic representation of pressure."""
+
+    T_s: sp.Symbol = sp.Symbol(str(SYMBOLS["temperature"]))
+    """Symbolic representation of temperature."""
+
+    A_s: sp.Symbol = sp.Symbol("A")
+    """Symbolic representation of the non-dimensional cohesion."""
+
+    B_s: sp.Symbol = sp.Symbol("B")
+    """Symbolic representation of the non-dimensional covolume."""
+
+    Z_s: sp.Symbol = sp.Symbol("Z")
+    """Symbolic representation of the compressibility factor."""
+
+    def __init__(
+        self,
+        components: Sequence[FluidComponent],
+        ideal_enthalpies: Sequence[thd_function_type],
+        bip_matrix: np.ndarray,
+    ) -> None:
+        self.mixing_rule: str = "van-der-waals"
+        """Name of mixing rule applied to covolume and cohesion for a fluid mixture."""
+
+        self.x_s: list[sp.Symbol] = [
+            sp.Symbol(f"{SYMBOLS['phase_composition']}_{comp.name}_j")
+            for comp in components
+        ]
+        """List of phase composition fractions associated with a phase.
+        Length is equal to number of components, because every component is assumed
+        present in every phase in the unified setting."""
+
+        self.thd_arg: tuple[sp.Symbol, sp.Symbol, list[sp.Symbol]] = (
+            self.p_s,
+            self.T_s,
+            self.x_s,
+        )
+        """General representation of the thermodynamic argument:
+
+        1. a pressure value,
+        2. a temperature value,
+        3. an array of fractions per component.
+
+        """
+
+        self.ext_thd_arg = [self.p_s, self.T_s, self.x_s, self.A_s, self.B_s, self.Z_s]
+        """Extended thermodynamic argument (see :attr:`thd_arg`).
+
+        The extended arguments includes:
+
+        4. mixed non-dimensional cohesion,
+        5. mixed non-dimensional covolume,
+        6. compressibility factor.
+
+        The computation and dependencies have to be split by introducing additional
+        dependencies due to their complexity (compilability and efficiency).
+
+        """
+
+        self.T_i_crit: list[float] = [comp.critical_temperature for comp in components]
+        """List of critical temperatures per component."""
+
+        self.p_i_crit: list[float] = [comp.critical_pressure for comp in components]
+        """List of critical pressures per component."""
+
+        self.b_i_crit: list[float] = [
+            B_CRIT * (R_IDEAL_MOL * T_c) / p_c
+            for T_c, p_c in zip(self.T_i_crit, self.p_i_crit)
+        ]
+        """List of critical covolumes per component.
+
+        :math:`B_{c}R\\frac{T_{i,c}}{p_{i,c}}`, using :data:`B_CRIT`.
+
+        """
+
+        self.a_i_crit: list[float] = [
+            A_CRIT * (R_IDEAL_MOL**2 * T_c**2) / p_c
+            for T_c, p_c in zip(self.T_i_crit, self.p_i_crit)
+        ]
+        """List of critical cohesion values per component.
+
+        :math:`A_c \\frac{R^2 T_{i,c}^2}{p_{i,c}}`, using :data:`A_CRIT`.
+
+        """
+
+        self.k_i: list[float] = [
+            self.a_correction_weight(comp.acentric_factor) for comp in components
+        ]
+        """List of corrective weights for cohesion terms per components."""
+
+        self.bip_matrix: np.ndarray = bip_matrix
+        """Matrix of binary interaction parameters passed at instantiation."""
+
+        self.ideal_enthalpies: Sequence[thd_function_type] = ideal_enthalpies
+        """Sequence of callables representing ideal enthalpies per component, passed at
+        instantiation."""
+
+    @property
+    def b(self) -> sp.Expr:
+        """Covolume of the mixture according to the set mixing rule."""
+
+        if self.mixing_rule == "van-der-waals":
+            return VanDerWaals_covolume(self.x_s, self.b_i_crit)
+        else:
+            raise ValueError(f"Unknown mixing rule {self.mixing_rule}.")
+
+    @property
+    def B(self) -> sp.Expr:
+        """Non-dimensional, mixed covolume created using :meth:`b`.
+
+        :math:`\\frac{b p}{R T}`.
+
+        """
+        return self.b * self.p_s / (R_IDEAL_MOL * self.T_s)
+
+    @property
+    def grad_pTx_B(self) -> list[sp.Expr]:
+        """Derivatives of :meth:`B` w.r.t. pressure, temperature and component
+        fractions."""
+        B = self.B
+        return [B.diff(self.p_s), B.diff(self.T_s)] + [B.diff(x) for x in self.x_s]
+
+    @property
+    def B_func(self) -> Callable[[float, float, np.ndarray], float]:
+        """Lambdified expression :meth:`B` returning the non-dimensional covolume
+        for given values of pressure, temperature and component fractions."""
+        return sp.lambdify(self.thd_arg, self.B)
+
+    @property
+    def grad_pTx_B_func(self) -> Callable[[float, float, np.ndarray], list[float]]:
+        """Lambdified expression :meth:`grad_pTx_B` returning a list of floats of length
+        ``2 + num_comp``, representing the derivatives w.r.t. pressure, temperature and
+        component fractions."""
+        return sp.lambdify(self.thd_arg, self.grad_pTx_B)
+
+    @property
+    def a(self) -> sp.Expr:
+        """Cohesion of the mixture according to the set mixing rule."""
+        a_i_correction: list[sp.Expr] = [
+            1 + k * (1 - sp.sqrt(self.T_s / T_ic))
+            for k, T_ic in zip(self.k_i, self.T_i_crit)
+        ]
+
+        a_i: list[sp.Expr] = [
+            a * corr**2 for a, corr in zip(self.a_i_crit, a_i_correction)
+        ]
+
+        if self.mixing_rule == "van-der-waals":
+            return VanDerWaals_cohesion(
+                self.x_s, a_i, self.bip_matrix, sqrt_of_any=sp.sqrt
+            )
+        else:
+            raise ValueError(f"Unknown mixing rule {self.mixing_rule}.")
+
+    @property
+    def A(self) -> sp.Expr:
+        """Non-dimensional, mixed cohesion created using :attr:`a`.
+
+        :math:`\\frac{a p}{R^2 T^2}`.
+
+        """
+        return self.a * self.p_s / (R_IDEAL_MOL**2 * self.T_s**2)
+
+    @property
+    def grad_pTx_A(self) -> list[sp.Expr]:
+        """Derivatives of :meth:`A` w.r.t. pressure, temperature and component
+        fractions."""
+        A = self.A
+        return [A.diff(self.p_s), A.diff(self.T_s)] + [A.diff(x) for x in self.x_s]
+
+    @property
+    def A_func(self) -> Callable[[float, float, np.ndarray], float]:
+        """Lambdified expression :meth:`B` returning the non-dimensional covolume
+        for given values of pressure, temperature and component fractions."""
+        return sp.lambdify(self.thd_arg, self.A)
+
+    @property
+    def grad_pTx_A_func(self) -> Callable[[float, float, np.ndarray], list[float]]:
+        """Lambdified expression :meth:`grad_pTx_A` returning a list of floats of length
+        ``2 + num_comp``, representing the derivatives w.r.t. pressure, temperature and
+        component fractions."""
+        return sp.lambdify(self.thd_arg, self.grad_pTx_A)
+
+    @property
+    def rho(self) -> sp.Expr:
+        """Expression for density depending on pressure, temperature and compressibility
+        factor.
+
+        :math:`\\frac{p}{RTZ}`.
+
+        """
+        return self.p_s / (self.Z_s * self.T_s * R_IDEAL_MOL)
+
+    @property
+    def grad_pTZ_rho(self) -> list[sp.Expr]:
+        """Expression for gradient of :meth:`rho` containing derivatives w.r.t. pressure
+        temperature and compressibility factor.
+
+        """
+        rho = self.rho
+        return [rho.diff(_) for _ in [self.p_s, self.T_s, self.Z_s]]
+
+    @property
+    def rho_func(self) -> Callable[[float, float, float], float]:
+        """Lambdified expression :meth:`rho` returning density for given values of
+        pressure, temperature and compressibility factor."""
+        return sp.lambdify([self.p_s, self.T_s, self.Z_s], self.rho)
+
+    @property
+    def grad_pTZ_rho_func(self) -> Callable[[float, float, float], list[float]]:
+        """Lambdified expression :meth:`grad_pTZ_rho` returning a list of floats of
+        length 3, representing the derivatives w.r.t. pressure, temperature and
+        compressibility factor."""
+        return sp.lambdify([self.p_s, self.T_s, self.Z_s], self.grad_pTZ_rho)
+
+    @property
+    def h_ideal(self) -> sp.Expr:
+        """Expression for the ideal enthalpy based on the provided
+        :attr:`ideal_enthalpies` at instantiation."""
+        return safe_sum(
+            [x * h(self.T_s) for x, h in zip(self.x_s, self.ideal_enthalpies)]
+        )
+
+    @property
+    def grad_pTx_h_ideal(self) -> list[sp.Expr]:
+        """Derivatives of :meth:`h_ideal` w.r.t. pressure, temperature and component
+        fractions."""
+        h_ideal = self.h_ideal
+        return [h_ideal.diff(_) for _ in [self.p_s, self.T_s] + self.x_s]
+
+    @property
+    def h_ideal_func(self) -> Callable[[float, float, np.ndarray], float]:
+        """Lambdified expression :attr:`h_ideal` returning the ideal enthalpy for given
+        values of pressure, temperature and component fractions."""
+        return sp.lambdify(self.thd_arg, self.h_ideal)
+
+    @property
+    def grad_pTx_h_ideal_func(
+        self,
+    ) -> Callable[[float, float, np.ndarray], list[float]]:
+        """Lambdified expression :meth:`grad_pTx_h_ideal` returning a list of floats of
+        length ``2 + num_comp``, representing the derivatives w.r.t. pressure,
+        temperature and component fractions."""
+        return sp.lambdify(self.thd_arg, self.grad_pTx_h_ideal)
+
+    @property
+    def h_departure(self) -> sp.Expr:
+        r"""The departure enthalpy using the Peng-Robinson EoS, depending on pressure,
+        temperature, component fraction, non-dimensional cohesion and covolume, and
+        compressibility factor.
+
+        Note:
+            Due to the complexity, this quantity requires cohesion, covolume and
+            compressibility factor as intermediate values.
+            Numba struggles to compile otherwise.
+
+        :math:`RT(Z-1) + \frac{R}{\sqrt{8}B}(\frac{dA}{dT} T^2 + AT)
+        \ln(\frac{Z + (1 + \sqrt{2})B}{Z + (1 - \sqrt{2})B})`
+
+        """
+        T = self.T_s
+        A = self.A_s
+        B = self.B_s
+        Z = self.Z_s
+        dA_dT = self.A.diff(self.T_s)
+        return R_IDEAL_MOL * T * (Z - 1) + (R_IDEAL_MOL / np.sqrt(8)) * (
+            dA_dT * T**2 + A * T
+        ) / B * sp.ln(
+            PengRobinsonSymbolic._truncate(
+                (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B)
+            )
+        )
+
+    @property
+    def grad_pTxABZ_h_departure(self) -> list[sp.Expr]:
+        """Derivatives of :meth:`h_departure` w.r.t. pressure, temperature, component
+        fractions, non-dimensional cohesion and covolume, and compressibility factor."""
+        h_dep = self.h_departure
+        return [
+            h_dep.diff(_)
+            for _ in [self.p_s, self.T_s] + self.x_s + [self.A_s, self.B_s, self.Z_s]
+        ]
+
+    @property
+    def h_departure_func(
+        self,
+    ) -> Callable[[float, float, np.ndarray, float, float, float], float]:
+        """Lambdified expression :attr:`h_departure` returning the departure enthalpy
+        for given values of pressure, temperature, component fractions, non-dimensional
+        cohesion and covolume, and compressibility factor.
+
+        See also:
+            :attr:`ext_thd_arg`
+
+        """
+        return sp.lambdify(
+            self.ext_thd_arg, self.h_departure, modules=[{"select": _select}, "numpy"]
+        )
+
+    @property
+    def grad_pTxABZ_h_departure_func(
+        self,
+    ) -> Callable[[float, float, np.ndarray, float, float, float], list[float]]:
+        """Lambdified expression :attr:`grad_pTxABZ_h_departure` returning a list of
+        floats of length ``2 + num_comp + 3``, representing the derivatives w.r.t.
+        pressure, temperature, component fractions, non-dimensional cohesion and
+        covolume, and compressibility factor.
+
+        See also:
+            :attr:`ext_thd_arg`
+
+        """
+        return sp.lambdify(
+            self.ext_thd_arg,
+            self.grad_pTxABZ_h_departure,
+            modules=[{"select": _select}, "numpy"],
+        )
+
+    @property
+    def phis(self) -> sp.Matrix:
+        """Vector of fugacity coefficients per component, depending on pressure,
+        temperature, component fraction, non-dimensional cohesion and covolume, and
+        compressibility factor.
+
+        Note:
+            Due to the complexity, this quantity requires cohesion, covolume and
+            compressibility factor as intermediate values.
+            Numba struggles to compile otherwise.
+
+        """
+
+        A = self.A_s
+        B = self.B_s
+        Z = self.Z_s
+
+        ZB_term = (Z + (1 + np.sqrt(2)) * B) / (Z + (1 - np.sqrt(2)) * B)
+        A_expr = self.A
+
+        phi_i: list[sp.Expr] = []
+
+        for i in range(len(self.x_s)):
+            B_i = self.b_i_crit[i] * self.p_s / (R_IDEAL_MOL * self.T_s)
+            dA_dXi = A_expr.diff(self.x_s[i])
+
+            # TODO fix translation issue between numba and sympy
+            # (involves translation ufunc.reduce for numba, which us used by sympy)
+            # See https://numba.pydata.org/numba-doc/dev/reference/pysupported.html
+            # initial argument required for reduce
+            log_phi_i = (
+                B_i / B * (Z - 1)
+                # - sp.ln(PengRobinsonSymbolic._truncate(Z - B))
+                - sp.ln(Z - B)
+                + A
+                / (B * np.sqrt(8))
+                * (B_i / B - dA_dXi / A)
+                # * sp.ln(PengRobinsonSymbolic._truncate(ZB_term))
+                * sp.ln(ZB_term)
+            )
+            phi_i.append(sp.exp(PengRobinsonSymbolic._cap(log_phi_i)))
+
+        return sp.Matrix(phi_i)
+
+    @property
+    def phis_func(
+        self,
+    ) -> Callable[[float, float, np.ndarray, float, float, float], np.ndarray]:
+        """Lambdified expression :attr:`phis` returning the fugacity coefficients as
+        a vector of length ``num_components``, for given values of pressure,
+        temperature, component fractions, non-dimensional cohesion and covolume, and
+        compressibility factor.
+
+        See also:
+            :attr:`ext_thd_arg`
+
+        """
+        return sp.lambdify(
+            self.ext_thd_arg, self.phis, modules=[{"select": _select}, "numpy"]
+        )
+
+    @property
+    def jac_phis(self) -> sp.Matrix:
+        """The Jacobian of :meth:`phis` w.r.t. pressure,
+        temperature, component fraction, non-dimensional cohesion and covolume, and
+        compressibility factor."""
+        return self.phis.jacobian(
+            [self.p_s, self.T_s] + self.x_s + [self.A_s, self.B_s, self.Z_s]
+        )
+
+    @property
+    def jac_phis_func(
+        self,
+    ) -> Callable[[float, float, np.ndarray, float, float, float], np.ndarray]:
+        """Lambdified expression :attr:`jac_phis` returning a 2D array of shape
+        ``(num_components, num_components + 5)``, containing the derivatives of fugacity
+        coefficients w.r.t. pressure, temperature, component fractions, non-dimensional
+        cohesion and covolume, and compressibility factor.
+
+        See also:
+            :attr:`ext_thd_arg`
+
+        """
+        return sp.lambdify(
+            self.ext_thd_arg, self.jac_phis, modules=[{"select": _select}, "numpy"]
+        )
+
+    def _truncate(x: sp.Expr, eps: float = 1e-6) -> sp.Expr:
+        """Truncated expression where the value of ``eps`` is chosen if the argument
+        ``x`` becomes smaller than ``eps``."""
+        return sp.Piecewise((x, x > eps), (eps, True))
+
+    def _cap(x: sp.Expr, cap: float = 650) -> sp.Expr:
+        """Capped expression where the value ``cap`` is chosen if the argument
+        ``x`` becomes bigger than ``cap``."""
+        return sp.Piecewise((x, x < cap), (cap, True))
+
+    @staticmethod
+    def a_correction_weight(omega: float) -> float:
+        """Computes the cohesion correction weight based on the acentric factor.
+
+        References:
+            `Zhu et al. (2014), Appendix A
+            <https://doi.org/10.1016/j.fluid.2014.07.003>`_
+
+        Parameters:
+            omega: Acentric factor for a component.
+
+        Returns:
+            Returns the cohesion correction parameter depending on a component's
+            acentric factor.
+
+        """
+        if omega < 0.491:
+            return 0.37464 + 1.54226 * omega - 0.26992 * omega**2
+        else:
+            return (
+                0.379642 + 1.48503 * omega - 0.164423 * omega**2 + 0.016666 * omega**3
+            )
+
+
+A = PengRobinsonSymbolic.A_s
+B = PengRobinsonSymbolic.B_s
 
 
 # region Functionality related to cubic polynomials
@@ -428,31 +876,28 @@ def one_root(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
 # endregion
 
 
-# region Symbolic expressions for all root cases
+# Symbolic expressions for all root cases
 
-Z_triple_e: sp.Expr = triple_root(A_s, B_s)
-dZ_triple_e: list[sp.Expr] = [Z_triple_e.diff(A_s), Z_triple_e.diff(B_s)]
+Z_triple: sp.Expr = triple_root(A, B)
+dZ_triple: list[sp.Expr] = [Z_triple.diff(A), Z_triple.diff(B)]
 
-Z_one_e: sp.Expr = one_root(A_s, B_s)
-dZ_one_e: list[sp.Expr] = [Z_one_e.diff(A_s), Z_one_e.diff(B_s)]
+Z_one: sp.Expr = one_root(A, B)
+dZ_one: list[sp.Expr] = [Z_one.diff(A), Z_one.diff(B)]
 
-Z_double_g_e: sp.Expr = double_root(A_s, B_s, True)
-dZ_double_g_e: list[sp.Expr] = [Z_double_g_e.diff(A_s), Z_double_g_e.diff(B_s)]
-Z_double_l_e: sp.Expr = double_root(A_s, B_s, False)
-dZ_double_l_e: list[sp.Expr] = [Z_double_l_e.diff(A_s), Z_double_l_e.diff(B_s)]
+Z_double_g: sp.Expr = double_root(A, B, True)
+dZ_double_g: list[sp.Expr] = [Z_double_g.diff(A), Z_double_g.diff(B)]
+Z_double_l: sp.Expr = double_root(A, B, False)
+dZ_double_l: list[sp.Expr] = [Z_double_l.diff(A), Z_double_l.diff(B)]
 
-Z_three_g_e: sp.Expr = three_root(A_s, B_s, True)
-dZ_three_g_e: list[sp.Expr] = [Z_three_g_e.diff(A_s), Z_three_g_e.diff(B_s)]
-Z_three_l_e: sp.Expr = three_root(A_s, B_s, False)
-dZ_three_l_e: list[sp.Expr] = [Z_three_l_e.diff(A_s), Z_three_l_e.diff(B_s)]
-Z_three_i_e: sp.Expr = three_root_intermediate(A_s, B_s)
-dZ_three_i_e: list[sp.Expr] = [Z_three_i_e.diff(A_s), Z_three_i_e.diff(B_s)]
-
-
-# endregion
+Z_three_g: sp.Expr = three_root(A, B, True)
+dZ_three_g: list[sp.Expr] = [Z_three_g.diff(A), Z_three_g.diff(B)]
+Z_three_l: sp.Expr = three_root(A, B, False)
+dZ_three_l: list[sp.Expr] = [Z_three_l.diff(A), Z_three_l.diff(B)]
+Z_three_i: sp.Expr = three_root_intermediate(A, B)
+dZ_three_i: list[sp.Expr] = [Z_three_i.diff(A), Z_three_i.diff(B)]
 
 
-# region Lambdified functions for roots depending on A and B
+# Lambdified functions for roots depending on A and B
 
 
 Z_TYPE: TypeAlias = Callable[[float, float], float]
@@ -461,371 +906,26 @@ dZ_TYPE: TypeAlias = Callable[[float, float], list[float] | np.ndarray]
 """Type alias for functions representing the derivatives of the compressibility factor.
 """
 
+Z_triple_f: Z_TYPE = sp.lambdify([A, B], Z_triple)
+dZ_triple_f: dZ_TYPE = sp.lambdify([A, B], dZ_triple)
 
-@numba.njit(cache=True)
-def _select(condlist: list, choicelist: list, default=np.nan):
-    """Intermediate function to replace the ``numpy.select`` for scalar condition and
-    choice input, because numba has a lot of issues resolving ``numpy.select``.
-
-    See also:
-
-        https://numba.readthedocs.io/en/0.59.1/reference/numpysupported.html
-
-    """
-    assert len(condlist) == len(choicelist) == 2, "Supported selection between two."
-    if condlist[0]:
-        return choicelist[0]
-    else:
-        return choicelist[1]
-
-
-Z_triple_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_triple_e)
-dZ_triple_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_triple_e)
-
-Z_three_g_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_g_e)
-dZ_three_g_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_g_e)
-Z_three_l_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_l_e)
-dZ_three_l_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_l_e)
-Z_three_i_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_three_i_e)
-dZ_three_i_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_three_i_e)
+Z_three_g_f: Z_TYPE = sp.lambdify([A, B], Z_three_g)
+dZ_three_g_f: dZ_TYPE = sp.lambdify([A, B], dZ_three_g)
+Z_three_l_f: Z_TYPE = sp.lambdify([A, B], Z_three_l)
+dZ_three_l_f: dZ_TYPE = sp.lambdify([A, B], dZ_three_l)
+Z_three_i_f: Z_TYPE = sp.lambdify([A, B], Z_three_i)
+dZ_three_i_f: dZ_TYPE = sp.lambdify([A, B], dZ_three_i)
 
 # because piecewise and to provide numeric evaluation of custom cubic root
 _modules_one = [{"_cbrt": np.cbrt, "select": _select}, "numpy"]
 
-Z_one_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_one_e, modules=_modules_one)
-dZ_one_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_one_e, modules=_modules_one)
+Z_one_f: Z_TYPE = sp.lambdify([A, B], Z_one, modules=_modules_one)
+dZ_one_f: dZ_TYPE = sp.lambdify([A, B], dZ_one, modules=_modules_one)
 
 # because piece-wise
 _modules_double = [{"select": _select}, "numpy"]
 
-Z_double_g_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_double_g_e, modules=_modules_double)
-dZ_double_g_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_double_g_e, modules=_modules_double)
-Z_double_l_f: Z_TYPE = sp.lambdify([A_s, B_s], Z_double_l_e, modules=_modules_double)
-dZ_double_l_f: dZ_TYPE = sp.lambdify([A_s, B_s], dZ_double_l_e, modules=_modules_double)
-
-# endregion
-
-
-class PengRobinsonSymbolic:
-    """A class providing functions for thermodynamic properties using the Peng-Robinson
-    EoS, based on a symbolic representation using ``sympy``.
-
-    Note:
-        The functions are generated using :func:`sympy.lambdify` and are *sourceless*.
-
-    Parameters:
-        components: A sequence of ``num_comp`` components.
-        ideal_enthalpies: A list of ``num_comp`` callables representing the ideal
-            enthalpies of individual components in ``components``.
-        bip_matrix: A 2D array containing BIPs for ``components``. Note that only the
-            upper triangle of this matrix is used.
-
-    """
-
-    def __init__(
-        self,
-        components: Sequence[FluidComponent],
-        ideal_enthalpies: Sequence[thd_function_type],
-        bip_matrix: np.ndarray,
-    ) -> None:
-        self.p_s: sp.Symbol = sp.Symbol(str(SYMBOLS["pressure"]))
-        """Symbolic representation fo pressure."""
-
-        self.T_s: sp.Symbol = sp.Symbol(str(SYMBOLS["temperature"]))
-        """Symbolic representation fo temperature."""
-
-        self.x_in_j: list[sp.Symbol] = [
-            sp.Symbol(f"{SYMBOLS['phase_composition']}_{comp.name}_j")
-            for comp in components
-        ]
-        """List of phase composition fractions associated with a phase.
-        Length is equal to number of components, because every component is assumed
-        present in every phase in the unified setting."""
-
-        self.thd_arg: tuple[sp.Symbol, sp.Symbol, list[sp.Symbol]] = (
-            self.p_s,
-            self.T_s,
-            self.x_in_j,
-        )
-        """General representation of the thermodynamic argument:
-
-        1. a pressure value,
-        2. a temperature value,
-        3. an array of fractions per component.
-
-        """
-
-        self.ext_thd_arg = [self.p_s, self.T_s, self.x_in_j, A_s, B_s, Z_s]
-        """Extended thermodynamic argument (see :attr:`thd_arg`).
-
-        The extended arguments includes:
-
-        4. mixed non-dimensional cohesion,
-        5. mixed non-dimensional covolume,
-        6. compressibility factor.
-
-        The computation and dependencies have to be split by introducing additional
-        dependencies due to their complexity (compilability and efficiency).
-
-        """
-
-        self.A_f: Callable[[float, float, np.ndarray], float]
-        """Function evaluating the non-dimensional cohesion depending on
-        :attr:`thd_arg`."""
-
-        self.dA_f: Callable[[float, float, np.ndarray], list[float]]
-        """Gradient of :attr:`A_f` returning a list of floats of length
-        ``2 + num_comp``."""
-
-        self.B_f: Callable[[float, float, np.ndarray], float]
-        """Function evaluating the non-dimensional covolume depending on
-        :attr:`thd_arg`t."""
-
-        self.dB_f: Callable[[float, float, np.ndarray], list[float]]
-        """Gradient of :attr:`B_f` returning a list of floats of length
-        ``2 + num_comp``."""
-
-        self.phi_f: Callable[
-            [float, float, np.ndarray, float, float, float], np.ndarray
-        ]
-        """Vector-valued function computing fugacity coefficients per component.
-
-        It depends on :attr:`ext_thd_arg` because of its complexity."""
-
-        self.dphi_f: Callable[
-            [float, float, np.ndarray, float, float, float], np.ndarray
-        ]
-        """Jacobian of :attr:`phi_f`, w.r.t. all dependencies.
-
-        The Jacobian is of shape ``(num_comp, 2 + num_comp + 3)``."""
-
-        self.h_dep_f: Callable[[float, float, np.ndarray, float, float, float], float]
-        """Function evaluating the departure enthalpy depending on
-        :attr:`ext_thd_arg`."""
-
-        self.dh_dep_f: Callable[
-            [float, float, np.ndarray, float, float, float], list[float]
-        ]
-        """Gradient of :attr:`h_dep_f` returning a list of floats of length
-        ``2 + num_comp + 3``."""
-
-        self.h_ideal_f: Callable[[float, float, np.ndarray], float]
-        """Function evaluating the ideal enthalpy depending on :attr:`thd_arg`."""
-
-        self.dh_ideal_f: Callable[[float, float, np.ndarray], list[float]]
-        """Gradient of attr:`h_ideal_f` returning a list of floats of length
-        ``2 + num_comp``."""
-
-        self.rho_f: Callable[[float, float, float], float]
-        """Function evaluating the density dependent on
-
-        1. pressure,
-        2. temperature,
-        3. compressibility factor.
-
-        """
-
-        self.drho_f: Callable[[float, float, float], list[float]]
-        """Gradient of :attr:`rho_f` returning a list of floats of length ``3``."""
-
-        # region coterms
-
-        b_i_crit: list[float] = [
-            B_CRIT * (R_IDEAL_MOL * comp.critical_temperature) / comp.critical_pressure
-            for comp in components
-        ]
-        """List of critical covolumes per component"""
-
-        # mixed covolume
-        b_e: sp.Expr = VanDerWaals_covolume(self.x_in_j, b_i_crit)
-        """Mixed covolume according to the Van der Waals mixing rule."""
-        B_e: sp.Expr = b_e * self.p_s / (R_IDEAL_MOL * self.T_s)
-        """Non-dimensional, mixed covolume created using :attr:`b_e`"""
-        dB_e: list[sp.Expr] = [
-            B_e.diff(self.thd_arg[0]),
-            B_e.diff(self.thd_arg[1]),
-        ] + [B_e.diff(x) for x in self.x_in_j]
-        """Derivatives of :attr:`B_e` w.r.t. pressure, temperature and phase
-        compositions."""
-
-        self.B_f = sp.lambdify(self.thd_arg, B_e)
-        self.dB_f = sp.lambdify(self.thd_arg, dB_e)
-
-        a_i_crit: list[float] = [
-            A_CRIT
-            * (R_IDEAL_MOL**2 * comp.critical_temperature**2)
-            / comp.critical_pressure
-            for comp in components
-        ]
-        """List of critical cohesion values per component."""
-
-        ki: list[float] = [
-            self.a_correction_weight(comp.acentric_factor) for comp in components
-        ]
-        """List of corrective weights per cohesion of components."""
-        a_i_correction_e: list[sp.Expr] = [
-            1 + k * (1 - sp.sqrt(self.T_s / comp.critical_temperature))
-            for k, comp in zip(ki, components)
-        ]
-        """Corrective term in component cohesions (per component)."""
-
-        ai_e: list[sp.Expr] = [
-            a * corr**2 for a, corr in zip(a_i_crit, a_i_correction_e)
-        ]
-        """List of cohesion values per component, including a correction involving
-        the critical temperature and acentric factor."""
-
-        a_e: sp.Expr = VanDerWaals_cohesion(
-            self.x_in_j, ai_e, bip_matrix, sqrt_of_any=sp.sqrt
-        )
-        """Mixed cohesion according to the Van der Waals mixing rule."""
-        A_e: sp.Expr = a_e * self.p_s / (R_IDEAL_MOL**2 * self.T_s**2)
-        """Non-dimensional, mixed cohesion created using :attr:`b_e`"""
-        dA_e: list[sp.Expr] = [
-            A_e.diff(self.thd_arg[0]),
-            A_e.diff(self.thd_arg[1]),
-        ] + [A_e.diff(x) for x in self.x_in_j]
-        """Derivatives of :attr:`B_e` w.r.t. pressure, temperature and phase
-        compositions."""
-
-        self.A_f = sp.lambdify(self.thd_arg, A_e)
-        self.dA_f = sp.lambdify(self.thd_arg, dA_e)
-        # endregion
-
-        modules_lambdify = [{"select": _select}, "numpy"]
-        ZB_term = (Z_s + (1 + np.sqrt(2)) * B_s) / (Z_s + (1 - np.sqrt(2)) * B_s)
-
-        # region Fugacity coefficients
-        phi_i_e: list[sp.Expr] = []
-
-        for i in range(len(components)):
-            B_i_e = b_i_crit[i] * self.p_s / (R_IDEAL_MOL * self.T_s)
-            dA_dXi_e = A_e.diff(self.x_in_j[i])
-            log_phi_i = (
-                B_i_e / B_s * (Z_s - 1)
-                # TODO fix translation issue between numba and sympy
-                # (involves translation ufunc.reduce for numba, which us used by sympy)
-                # See https://numba.pydata.org/numba-doc/dev/reference/pysupported.html
-                # initial argument required for reduce
-                # - sp.ln(PengRobinsonSymbolic._truncate(Z_s - B_s))
-                - sp.ln(Z_s - B_s)
-                + A_s
-                / (B_s * np.sqrt(8))
-                * (B_i_e / B_s - dA_dXi_e / A_s)
-                # * sp.ln(PengRobinsonSymbolic._truncate(ZB_term))
-                * sp.ln(ZB_term)
-                # Additional term in extended setting (Gharbia)
-                # NOTE We use the original expression of phi as an approximation.
-                # + (d_xi_Z /Z_s - B_i_e / B_s)
-                # / (Z_s - B_s)
-                # + Z_s
-                # * (
-                #     Z_s**3
-                #     + (B_s - 1) * Z_s**2
-                #     + (A_s - 2 * B_s - 3 * B_s**2) * Z_s
-                #     + (B_s**2 + B_s**3 - A_s * B_s)
-                # ) / (Z_s**2 + 2*B_s*Z_s - B_s**2)
-            )
-            phi_i_e.append(sp.exp(PengRobinsonSymbolic._cap(log_phi_i)))
-
-        phi_e: sp.Matrix = sp.Matrix(phi_i_e)
-        """A vector-valued symbolic expression containing fugacity coefficients per
-        component.
-
-        Note:
-            We need to make it vector-valued to avoid looping over individual functions.
-            This is not parallelizable with numba.
-
-        """
-        dphi_e: sp.Matrix = phi_e.jacobian(
-            [self.p_s, self.T_s] + self.x_in_j + [A_s, B_s, Z_s]
-        )
-        """The symbolic Jacobian of ``phi_e`` w.r.t. to thermodynamic arguments and
-        :data:`A_s`, :data:`B_s`, :data:`Z_s`"""
-
-        self.phi_f = sp.lambdify(self.ext_thd_arg, phi_e, modules=modules_lambdify)
-        self.dphi_f = sp.lambdify(self.ext_thd_arg, dphi_e, modules=modules_lambdify)
-        # endregion
-
-        # region Enthalpy
-
-        dA_dT_e: sp.Expr = A_e.diff(self.T_s)
-
-        h_dep_e: sp.Expr = R_IDEAL_MOL * self.T_s * (Z_s - 1) + (
-            R_IDEAL_MOL / np.sqrt(8)
-        ) * (dA_dT_e * self.T_s**2 + A_s * self.T_s) / B_s * sp.ln(
-            PengRobinsonSymbolic._truncate(ZB_term)
-        )
-        """Symbolic expression for departure enthalpy."""
-
-        dh_dep_e: list[sp.Expr] = [
-            h_dep_e.diff(_)
-            for _ in [self.p_s, self.T_s] + self.x_in_j + [A_s, B_s, Z_s]
-        ]
-        """Symbolic gradient of :attr:`h_dep_e` w.r.t. to thermodynamic arguments and
-        :data:`A_s`, :data:`B_s`, :data:`Z_s`"""
-
-        h_ideal_e: sp.Expr = safe_sum(
-            [x * h_id(self.T_s) for x, h_id in zip(self.x_in_j, ideal_enthalpies)]
-        )
-        """Symbolic expression for the ideal enthalpy."""
-
-        dh_ideal_e: list[sp.Expr] = [
-            h_ideal_e.diff(_) for _ in [self.p_s, self.T_s] + self.x_in_j
-        ]
-        """Symbolic gradient of :attr:`h_ideal_e` w.r.t. to thermodynamic arguments."""
-
-        self.h_dep_f = sp.lambdify(self.ext_thd_arg, h_dep_e, modules=modules_lambdify)
-        self.dh_dep_f = sp.lambdify(
-            self.ext_thd_arg, dh_dep_e, modules=modules_lambdify
-        )
-        self.h_ideal_f = sp.lambdify(self.thd_arg, h_ideal_e)
-        self.dh_ideal_f = sp.lambdify(self.thd_arg, dh_ideal_e)
-        # endregion
-
-        # region Density
-
-        rho_e: sp.Expr = self.p_s / (Z_s * self.T_s * R_IDEAL_MOL)
-        """Symbolic expression for density, depending on pressure, temperature
-        and compressibility factor."""
-
-        drho_e: list[sp.Expr] = [rho_e.diff(_) for _ in [self.p_s, self.T_s, Z_s]]
-        """Symbolic gradient of specific volume, depending on pressure, temperature
-        and compressibility factor."""
-
-        self.rho_f = sp.lambdify([self.p_s, self.T_s, Z_s], rho_e)
-        self.drho_f = sp.lambdify([self.p_s, self.T_s, Z_s], drho_e)
-        # endregion
-
-    def _truncate(x: sp.Expr, eps: float = 1e-6) -> sp.Expr:
-        """Truncated expression where the value of ``eps`` is chosen if the argument
-        ``x`` becomes smaller than ``eps``."""
-        return sp.Piecewise((x, x > eps), (eps, True))
-
-    def _cap(x: sp.Expr, cap: float = 650) -> sp.Expr:
-        """Capped expression where the value ``cap`` is chosen if the argument
-        ``x`` becomes bigger than ``cap``."""
-        return sp.Piecewise((x, x < cap), (cap, True))
-
-    @staticmethod
-    def a_correction_weight(omega: float) -> float:
-        """Computes the cohesion correction weight based on the acentric factor.
-
-        References:
-            `Zhu et al. (2014), Appendix A
-            <https://doi.org/10.1016/j.fluid.2014.07.003>`_
-
-        Parameters:
-            omega: Acentric factor for a component.
-
-        Returns:
-            Returns the cohesion correction parameter depending on a component's
-            acentric factor.
-
-        """
-        if omega < 0.491:
-            return 0.37464 + 1.54226 * omega - 0.26992 * omega**2
-        else:
-            return (
-                0.379642 + 1.48503 * omega - 0.164423 * omega**2 + 0.016666 * omega**3
-            )
+Z_double_g_f: Z_TYPE = sp.lambdify([A, B], Z_double_g, modules=_modules_double)
+dZ_double_g_f: dZ_TYPE = sp.lambdify([A, B], dZ_double_g, modules=_modules_double)
+Z_double_l_f: Z_TYPE = sp.lambdify([A, B], Z_double_l, modules=_modules_double)
+dZ_double_l_f: dZ_TYPE = sp.lambdify([A, B], dZ_double_l, modules=_modules_double)

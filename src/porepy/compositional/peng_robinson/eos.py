@@ -1093,10 +1093,10 @@ def _compile_extended_thd_function_derivatives(
     return inner
 
 
-def _compile_volume_derivative(
+def _compile_density_derivative(
     dv: Callable[[float, float, float], list[float]],
 ) -> Callable[[float, float, float], np.ndarray]:
-    """Helper function to compile the gradient of the specific volume.
+    """Helper function to compile the gradient of the density.
 
     Required to wrap the result in an array.
 
@@ -1179,40 +1179,44 @@ class PengRobinsonCompiler(EoSCompiler):
         B_c = nb.njit(
             nb.f8(nb.f8, nb.f8, nb.f8[:]),
             fastmath=NUMBA_FAST_MATH,
-        )(self.symbolic.B_f)
+        )(self.symbolic.B_func)
         logger.debug("Compiling symbolic functions 1/12")
-        dB_c = _compile_thd_function_derivatives(self.symbolic.dB_f)
+        dB_c = _compile_thd_function_derivatives(self.symbolic.grad_pTx_B_func)
         logger.debug("Compiling symbolic functions 2/12")
 
-        A_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.A_f)
+        A_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.A_func)
         logger.debug("Compiling symbolic functions 3/12")
-        dA_c = _compile_thd_function_derivatives(self.symbolic.dA_f)
+        dA_c = _compile_thd_function_derivatives(self.symbolic.grad_pTx_A_func)
         logger.debug("Compiling symbolic functions 4/12")
 
-        phi_c = _compile_fugacities(self.symbolic.phi_f)
+        phi_c = _compile_fugacities(self.symbolic.phis_func)
         logger.debug("Compiling symbolic functions 5/12")
         dphi_c = nb.njit(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
-            self.symbolic.dphi_f
+            self.symbolic.jac_phis_func
         )
         logger.debug("Compiling symbolic functions 6/12")
 
         h_dep_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
-            self.symbolic.h_dep_f
+            self.symbolic.h_departure_func
         )
         logger.debug("Compiling symbolic functions 7/12")
-        h_ideal_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.h_ideal_f)
+        h_ideal_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.h_ideal_func)
         logger.debug("Compiling symbolic functions 8/12")
-        dh_dep_c = _compile_extended_thd_function_derivatives(self.symbolic.dh_dep_f)
+        dh_dep_c = _compile_extended_thd_function_derivatives(
+            self.symbolic.grad_pTxABZ_h_departure_func
+        )
         logger.debug("Compiling symbolic functions 9/12")
-        dh_ideal_c = _compile_thd_function_derivatives(self.symbolic.dh_ideal_f)
+        dh_ideal_c = _compile_thd_function_derivatives(
+            self.symbolic.grad_pTx_h_ideal_func
+        )
         logger.debug("Compiling symbolic functions 10/12")
 
         rho_c = nb.njit(
             nb.f8(nb.f8, nb.f8, nb.f8),
             fastmath=NUMBA_FAST_MATH,
-        )(self.symbolic.rho_f)
+        )(self.symbolic.rho_func)
         logger.debug("Compiling symbolic functions 11/12")
-        drho_c = _compile_volume_derivative(self.symbolic.drho_f)
+        drho_c = _compile_density_derivative(self.symbolic.grad_pTZ_rho_func)
         logger.debug("Compiling symbolic functions 12/12")
 
         self._cfuncs.update(
