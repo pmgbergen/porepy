@@ -576,7 +576,7 @@ def test_expand_index_pointers(params: dict):
 def test_uniquify_point_set(params: dict):
     input = np.array(params["input"]).T
     tol = params["tol"]
-    results = pp.array_operations.uniquify_point_set(vectors=input, tol=tol)
+    results = pp.array_operations.uniquify_point_set(points=input, tol=tol)
     unique_vectors, new_2_old, old_2_new = results
     expected = np.array(params["expected"]).T
     assert np.allclose(unique_vectors, expected, atol=tol)
