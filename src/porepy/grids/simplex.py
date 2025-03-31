@@ -266,9 +266,6 @@ class TetrahedralGrid(Grid):
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
         face_nodes_sorted = np.sort(face_nodes, axis=0)
 
-        # IMPLEMENTATION NOTE: Do not use the order-preserving option to comply with
-        # tacit, hard-coded assumptions that are made on the order of nodes, faces, and
-        # cells in the test `TestMVEMRHS.test_3d_isotropic_permeability`.
         face_nodes, cell_faces = np.unique(
             face_nodes_sorted, axis=1, return_inverse=True
         )
