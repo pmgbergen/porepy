@@ -60,7 +60,7 @@ class SparseNdArray:
         represented in the table have their values increased or overwritten, see
         parameter additive.
 
-        Args:
+        Parameters:
             coords: List of coordinates, each corresponding to an indivdiual data point.
             values: New values. Each element corresponds to an item in the list of new
                 coordinates.
@@ -153,7 +153,7 @@ class SparseNdArray:
     def get(self, coords: list[np.ndarray]) -> np.ndarray:
         """Retrieve values from the sparse array.
 
-        Args:
+        Parameters:
             coords (list[np.ndarray]): List of coordinates, each corresponding to an
                 indivdiual data point.
         Raises:
@@ -203,7 +203,7 @@ def intersect_sets(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list]:
     """Intersect two sets to find common elements up to a tolerance.
 
-    Args:
+    Parameters:
         a (np.ndarray, shape nd x n_pts): The first set to be intersected. The columns
             of a form set members.
         b (np.ndarray, shape nd x n_pts): The second set to be intersected. The columns
@@ -274,21 +274,9 @@ def ismember_columns(
     b: np.ndarray[Any, np.dtype[np.int64]],
     sort: bool = True,
 ) -> Tuple[np.ndarray[Any, np.dtype[np.bool_]], np.ndarray[Any, np.dtype[np.int64]]]:
-    """
-    Find *columns* of a that are also members of *columns* of b.
+    """Find columns of a that are also members of columns of b.
 
     The function mimics Matlab's function ismember(..., 'rows').
-
-    Parameters:
-        a: `shape=(nd, num_vectors_a)`, each column in a will search for an equal in b.
-        b: `shape=(nd, num_vectors_b)`, array in which we will look for a twin.
-        sort: If `True`, treats permuted columns as twins. E.g., will treat `[5, 1]`
-            and `[1, 5]` as equal. Defaults to `True`.
-
-    Returns:
-        np.array: `shape=(nd, num_vectors_a)`, `True` if there is a twin column in b.
-        np.array: `shape=(nd, num_unique)`, Indices so that b[:, ind] only consists of
-            columns also found in a, see examples.
 
     Examples:
         ```
@@ -315,6 +303,17 @@ def ismember_columns(
         >>> ismember_columns(a, b, sort=False)
         (array([ True,  True, False,  True, False], dtype=bool), [1, 0, 1])
         ```
+
+    Parameters:
+        a: `shape=(nd, num_vectors_a)`, each column in a will search for an equal in b.
+        b: `shape=(nd, num_vectors_b)`, array in which we will look for a twin.
+        sort: If `True`, treats permuted columns as twins. E.g., will treat `[5, 1]`
+            and `[1, 5]` as equal. Defaults to `True`.
+
+    Returns:
+        np.array: `shape=(nd, num_vectors_a)`, `True` if there is a twin column in b.
+        np.array: `shape=(nd, num_unique)`, Indices so that b[:, ind] only consists of
+            columns also found in a, see examples.
 
     """
     # IMPLEMENTATION NOTE: A serious attempt was made (June 2022) to speed up
@@ -430,6 +429,17 @@ def expand_index_pointers(lo, hi):
 
     The function mimics Matlab's function mcolon(...).
 
+    Examples:
+    >>> expand_index_pointers(np.array([0, 0, 0]), np.array([2, 4, 3]))
+    array([0, 1, 0, 1, 2, 3, 0, 1, 2])
+
+    >>> expand_index_pointers(np.array([0, 1]), np.array([2]))
+    array([0, 1, 1])
+
+    >>> expand_index_pointers(np.array([0, 1, 1, 1]), np.array([1, 3, 3, 3]))
+    array([0, 1, 2, 1, 2, 1, 2])
+
+
     Parameters:
         lo (np.ndarray, int): Lower bounds of the arrays to be created.
         hi (np.ndarray, int): Upper bounds of the arrays to be created. The
@@ -437,16 +447,6 @@ def expand_index_pointers(lo, hi):
 
         lo and hi should either have 1 or n elements. If their size are both
         larger than one, they should have the same length.
-
-    Examples:
-        >>> expand_index_pointers(np.array([0, 0, 0]), np.array([2, 4, 3]))
-        array([0, 1, 0, 1, 2, 3, 0, 1, 2])
-
-        >>> expand_index_pointers(np.array([0, 1]), np.array([2]))
-        array([0, 1, 1])
-
-        >>> expand_index_pointers(np.array([0, 1, 1, 1]), np.array([1, 3, 3, 3]))
-        array([0, 1, 2, 1, 2, 1, 2])
 
     Acknowledgements:
         The functions are a python translation of the corresponding matlab
