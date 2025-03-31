@@ -442,7 +442,15 @@ class IsotropicFractureDamage(  # type: ignore[misc]
     ContactMechanicsTester,
     FractureDamageContactMechanics,
 ):
-    pass
+    """Isotropic fracture damage model.
+
+    The equations are fracture damage and contact mechanics. Variables are contact
+    traction and damage history. The model is isotropic, i.e., the damage history is
+    independent of the loading direction.
+
+    Also contains specifics defining a test case.
+
+    """
 
 
 class AnisotropicFractureDamage(  # type: ignore[misc]
@@ -451,7 +459,14 @@ class AnisotropicFractureDamage(  # type: ignore[misc]
     ContactMechanicsTester,
     FractureDamageContactMechanics,
 ):
-    pass
+    """Anisotropic fracture damage model.
+
+    The equations are fracture damage and contact mechanics. Variables are contact
+    traction and damage history. The model is anisotropic, i.e., the damage history is
+    dependent on the loading direction.
+
+    Also contains specifics defining a test case.
+    """
 
 
 class FractureDamageMomentumBalance(  # type: ignore[misc]
@@ -461,4 +476,13 @@ class FractureDamageMomentumBalance(  # type: ignore[misc]
     TimeDependentDamageBCs,
     pp.MomentumBalance,
 ):
-    pass
+    """Fracture damage momentum balance model.
+
+    This model combines fracture damage mechanics with momentum balance and force
+    balance across interfaces. Variables are matrix and interface displacements, contact
+    traction, and damage history. The model is isotropic, i.e., the damage history is
+    independent of the loading direction.
+
+    Also contains specifics defining a test case in terms of the boundary conditions.
+
+    """

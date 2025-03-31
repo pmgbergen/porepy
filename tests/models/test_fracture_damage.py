@@ -82,10 +82,6 @@ def test_damage(
     )
 
     m = model_class(params_local)
-    # Some simulations do not converge in the default number of iterations. Only
-    # slightly increase the number of iterations, thus capturing any future
-    # deterioration in the convergence and avoiding excessive run times.
-
     pp.run_time_dependent_model(m)
     # Initialize test names for assertions
     test_names = [
@@ -115,11 +111,11 @@ def test_damage(
 def test_momentum_balance_with_damage(dim: int):
     """Test that damage also works with momentum balance.
 
-    For a leaner test, we only parametrize on dimension. We cover both regimes and use
-    four time steps, which should be enough to capture most aspects of the damage
-    evolution. The full parametrization above should ensures proper testing of the
-    actual damage models, while this test is more about verifying that the damage model
-    works with momentum balance.
+    For a leaner test, we only parametrize on dimension. We cover both dilation and
+    friction damage and use four time steps, which should be enough to capture most
+    aspects of the damage evolution. The full parametrization above should ensures
+    proper testing of the actual damage models, while this test is more about verifying
+    that the damage model works with momentum balance.
 
     """
     regime = "both"
