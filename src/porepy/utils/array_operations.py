@@ -507,58 +507,58 @@ def expand_index_pointers(lo, hi):
 
 
 @njit(cache=True)
-def _unique_vectors_in_cluster(
-    vectors: np.ndarray,
+def _unique_points_in_cluster(
+    points: np.ndarray,
     sorted_idx: np.ndarray,
     cluster_start: int,
     cluster_size: int,
     tol: float,
 ):
     """This is an inner function of `uniquify_point_set`, but moved outside due to
-    numba. Finds unique vectors in a specified cluster.
+    numba. Finds unique points in a specified cluster.
 
     Parameters:
-        vectors: `shape=(nd, n_pts)`, vectors to be uniquified.
-        sorted_idx: `shape=(n_pts,)`, sorted index of the vectors norms.
+        points: `shape=(nd, n_pts)`, points to be uniquified.
+        sorted_idx: `shape=(n_pts,)`, sorted index of the points norms.
         cluster_start: Index of the cluster start.
-        cluster_size: Number of vectors in the cluster.
-        tol: Tolerance for when vectors are considered equal.
+        cluster_size: Number of points in the cluster.
+        tol: Tolerance for when points are considered equal.
 
     Returns:
-        np.ndarray: Unique vectors within the cluster.
-        new_2_old: Index of which vectors that are preserved within the cluster.
-        old_2_new: Index of the representation of old vectors in the reduced list.
+        np.ndarray: Unique points within the cluster.
+        new_2_old: Index of which points that are preserved within the cluster.
+        old_2_new: Index of the representation of old points in the reduced list.
 
     """
-    unique_cols = np.zeros((vectors.shape[0], cluster_size), dtype=vectors.dtype)
-    new_2_old = np.full(shape=cluster_size, fill_value=vectors.shape[1], dtype=np.int64)
+    unique_cols = np.zeros((points.shape[0], cluster_size), dtype=points.dtype)
+    new_2_old = np.full(shape=cluster_size, fill_value=points.shape[1], dtype=np.int64)
     old_2_new = np.zeros(cluster_size, dtype=np.int64)
-    # Number of found unique vectors in this cluster.
+    # Number of found unique points in this cluster.
     keep = 0
-    # Slice of the result corresponding to the found unique vectors.
+    # Slice of the result corresponding to the found unique points.
     unique_cols_keep = unique_cols[:, :keep]
 
     # Iterating over the cluster.
     for i in range(cluster_start, cluster_start + cluster_size):
-        col = vectors[:, sorted_idx[i]]
-        # Comparing against known unique vectors in this cluster.
+        col = points[:, sorted_idx[i]]
+        # Comparing against known unique points in this cluster.
         within_tol = np.sum((col[:, None] - unique_cols_keep) ** 2, axis=0) < tol**2
 
         if not np.any(within_tol):
-            # This is a new vector.
+            # This is a new point.
             unique_cols[:, keep] = col
             old_2_new[i - cluster_start] = keep
             new_2_old[keep] = sorted_idx[i]
-            # Increasing the number of known unique vectors and reslicing.
+            # Increasing the number of known unique points and reslicing.
             keep += 1
             unique_cols_keep = unique_cols[:, :keep]
         else:
-            # This is not a new vector. Finding the index of its unique twin.
+            # This is not a new point. Finding the index of its unique twin.
             idx = np.argmax(within_tol)
             old_2_new[i - cluster_start] = idx
 
             if sorted_idx[i] < new_2_old[idx]:
-                # New vector goes before its stored twin. We replace the twin with it.
+                # New point goes before its stored twin. We replace the twin with it.
                 new_2_old[idx] = sorted_idx[i]
                 unique_cols[:, idx] = col
 
@@ -566,54 +566,54 @@ def _unique_vectors_in_cluster(
 
 
 @njit(cache=True)
-def uniquify_point_set(vectors: np.ndarray, tol: float):
-    """Uniquify a set of vectors so that no two sets of vectors are closer than a
+def uniquify_point_set(points: np.ndarray, tol: float):
+    """Uniquify a set of points so that no two sets of points are closer than a
     distance tol from each other.
 
-    The result order is guaranteed, each unique vector is the first encountered. That is
+    The result order is guaranteed, each unique point is the first encountered. That is
     for the input `[[5, 1, 5, 1], [1, 5, 1, 5]]`, the output will be `[[5, 1], [1, 5]]`,
     and not `[[1, 5], [5, 1]]`.
 
-    For integers and `tol < 0.5`, this is equivalent to
-    `unique_columns(vectors, preserve_order=True)`.
+    For integers and `tol < 0.5`, this is equivalent (up to a permutation) to
+    `np.unique(points, axis=1, return_index=True, return_inverse=True)`.
 
-    Implementation note: It groups the vectors into clusters based on similar norms.
-    Then it filters unique vectors in each cluster. This avoids heavy comparison of
+    Implementation note: It groups the points into clusters based on similar norms.
+    Then it filters unique points in each cluster. This avoids heavy comparison of
     all to all.
 
     Parameters:
-        vectors: `shape=(nd, n_pts)`, vectors to be uniquified.
+        points: `shape=(nd, n_pts)`, points to be uniquified.
         tol: Tolerance for when columns are considered equal. Should be seen in
-            connection with distance between the vectors in the vector set (due to
+            connection with distance between the points in the point set (due to
             rounding errors).
 
     Returns:
-        np.ndarray: `shape=(nd, n_unique)`, unique vectors.
-        new_2_old: `shape=(n_unique,)`, index of which vectors that are preserved.
-        old_2_new: `shape=(n_pts,)`, index of the representation of old vectors in the
+        np.ndarray: `shape=(nd, n_unique)`, unique points.
+        new_2_old: `shape=(n_unique,)`, index of which points that are preserved.
+        old_2_new: `shape=(n_pts,)`, index of the representation of old points in the
             reduced list.
 
     """
-    if vectors.shape[1] == 0:
+    if points.shape[1] == 0:
         return (
-            np.empty_like(vectors),
-            np.empty(shape=vectors.shape[1], dtype=np.int64),
-            np.empty(shape=vectors.shape[1], dtype=np.int64),
+            np.empty_like(points),
+            np.empty(shape=points.shape[1], dtype=np.int64),
+            np.empty(shape=points.shape[1], dtype=np.int64),
         )
 
-    # Finding norms of each vector and sorting them.
-    vector_norms = np.sqrt(np.sum(vectors**2, axis=0))
-    sorted_idx = np.argsort(vector_norms)
+    # Finding norms of each point and sorting them.
+    point_norms = np.sqrt(np.sum(points**2, axis=0))
+    sorted_idx = np.argsort(point_norms)
 
-    # Counting vectors with close norms.
-    close_norms_count = np.zeros(vectors.shape[1], dtype=np.int64)
-    # Index corresponds to the current cluster of vectors with close norms.
+    # Counting points with close norms.
+    close_norms_count = np.zeros(points.shape[1], dtype=np.int64)
+    # Index corresponds to the current cluster of points with close norms.
     cluster_idx = 0
-    # Norm of a vector in the current cluster.
-    cluster_norm = vector_norms[sorted_idx[0]]
+    # Norm of a point in the current cluster.
+    cluster_norm = point_norms[sorted_idx[0]]
 
     # Iterating through sorted norms.
-    for current_norm in vector_norms[sorted_idx]:
+    for current_norm in point_norms[sorted_idx]:
         # Reverse triangle inequality: abs(||x|| - ||y||) <= ||x - y||.
         # If they don't fall into one cluster, they are certainly not close within tol.
         if abs(cluster_norm - current_norm) > tol:
@@ -625,27 +625,27 @@ def uniquify_point_set(vectors: np.ndarray, tol: float):
 
     # Keeping only nonzero clusters.
     close_norms_count = close_norms_count[: cluster_idx + 1]
-    # Current number of unique vectors.
+    # Current number of unique points.
     num_unique = 0
     # Index of the cluster start.
     cluster_start = 0
 
     # Initializing result arrays.
-    unique_pts = np.zeros_like(vectors)
-    new_2_old = np.zeros(vectors.shape[1], dtype=np.int64)
-    old_2_new = np.zeros(vectors.shape[1], dtype=np.int64)
+    unique_pts = np.zeros_like(points)
+    new_2_old = np.zeros(points.shape[1], dtype=np.int64)
+    old_2_new = np.zeros(points.shape[1], dtype=np.int64)
 
-    # Iterating through the clusters of vectors with close norms.
+    # Iterating through the clusters of points with close norms.
     for cluster_size in close_norms_count:
-        # Compare vectors and find unique ones. O(m^2) for m vectors in a cluster.
-        unique_pts_inner, new_2_old_inner, old_2_new_inner = _unique_vectors_in_cluster(
-            vectors=vectors,
+        # Compare points and find unique ones. O(m^2) for m points in a cluster.
+        unique_pts_inner, new_2_old_inner, old_2_new_inner = _unique_points_in_cluster(
+            points=points,
             sorted_idx=sorted_idx,
             cluster_start=cluster_start,
             cluster_size=cluster_size,
             tol=tol,
         )
-        # Number of unique vectors in the cluster.
+        # Number of unique points in the cluster.
         unique_size_inner = unique_pts_inner.shape[1]
 
         # Updating the global result arrays.
