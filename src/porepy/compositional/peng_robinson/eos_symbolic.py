@@ -9,48 +9,13 @@ subsequently turned into numeric functions using :func:`sympy.lambdify`.
 
 Due to the magnitude of expressions and functions (and different versions),
 naming conflicts are hard to avoid.
-We introcued the naming convention ``<derivative><name>_<type>``,
-where the name represents the quantity, and type how the quantity is represented.
 
-The convention for types of a quantity include:
-
-- ``_s``: A symbol representing either an independent quantity, or an intermediate
-  quantity serving as an argument. Created using :class:`sympy.Symbol`.
-- ``_e``: A symbolic expression created using some algebraic combination of symbols.
-  It depends on usually several symbols.
-- ``_f``: A lambdify-generated function, based on an expression. The arguments of the
-  function reflect the dependency on symbols.
-
-For example, the compressibility factor has the standard symbol ``Z`` in literature:
-
-Example:
-    The compressibility factor has the standard symbol ``Z`` as found in the literature.
-
-    - ``Z_s`` denotes the symbolic representation using ``sympy``. It is used as an
-      intermediate dependency for e.g., departure functions.
-    - ``Z_e`` denotes a symbolic **expression** dependent on some other symbols.
-      In this case it is ``A_s`` and ``B_s``.
-    - ``dZ_e`` denotes the complete gradient w.r.t. all its dependencies.
-    - ``Z_f`` would be a function with signature ``(float, float) -> float``.
-    - ``dZ_f`` would be a function with signature ``(float, float) -> array(2)``
-      because it depends on two variables.
-
-The following standard names are used for thermodynamic quantities:
-
-- ``Z`` compressibility factor
-- ``A`` non-dimensional cohesion
-- ``B`` non-dimensional covolume
-- ``a`` cohesion
-- ``b`` covolume
-- ``T`` temperature
-- ``p`` pressure
-- ``x`` (extended) fractions of components in a phases
-- ``y`` molar phase fractions
-- ``z`` overall component fractions / feed fractions
-- ``sat`` volumetric phase fractions (saturations)
-- ``_i`` index related to a component i
-- ``_j`` index related to a phase j
-- ``_r`` index related to the reference phase (the first one is assumed to be r)
+- Quantities ending with ``*_f`` or ``*_func`` usually denote a callable version.
+- Quantities ending with ``*_s`` denote the symbolic representation.
+- Quantities ending with ``*_crit`` denote the critical value.
+- A prefix ``d*`` is often used to denote derivatives.
+- `*_i*`` is often used to denote an indexable object, where ``i`` represents the
+  component index.
 
 """
 
@@ -164,9 +129,8 @@ class PengRobinsonSymbolic:
             sp.Symbol(f"{SYMBOLS['phase_composition']}_{comp.name}_j")
             for comp in components
         ]
-        """List of phase composition fractions associated with a phase.
-        Length is equal to number of components, because every component is assumed
-        present in every phase in the unified setting."""
+        """Symbolic representation of fractions per component in ``components`` given at
+        instantiation."""
 
         self.thd_arg: tuple[sp.Symbol, sp.Symbol, list[sp.Symbol]] = (
             self.p_s,
@@ -575,10 +539,6 @@ class PengRobinsonSymbolic:
             )
 
 
-A = PengRobinsonSymbolic.A_s
-B = PengRobinsonSymbolic.B_s
-
-
 # region Functionality related to cubic polynomials
 
 
@@ -877,6 +837,9 @@ def one_root(A: sp.Symbol, B: sp.Symbol) -> sp.Expr:
 
 
 # Symbolic expressions for all root cases
+
+A = PengRobinsonSymbolic.A_s
+B = PengRobinsonSymbolic.B_s
 
 Z_triple: sp.Expr = triple_root(A, B)
 dZ_triple: list[sp.Expr] = [Z_triple.diff(A), Z_triple.diff(B)]
