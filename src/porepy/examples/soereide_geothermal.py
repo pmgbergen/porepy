@@ -379,7 +379,7 @@ class SolutionStrategy(pp.PorePyModel):
         return sub_state
 
 
-class Geometry(pp.PorePyModel):
+class PointWells2D(pp.PorePyModel):
     def set_domain(self) -> None:
         self._domain = pp.Domain(
             {
@@ -389,6 +389,26 @@ class Geometry(pp.PorePyModel):
                 "ymax": self.units.convert_units(20.0, "m"),
             }
         )
+
+    # def set_geometry(self):
+    #     super().set_geometry()
+
+    #     matrix = self.mdg.subdomains(dim=self.nd)[0]
+
+    #     for i, injector_point in enumerate(self.params['injector_points']):
+    #         assert isinstance(injector_point, np.ndarray)
+    #         if injector_point.shape[0] == 2:
+    #             p = np.zeros(3)
+    #             p[:2] = injector_point
+    #             injector_point = p
+
+    #         sd_0d = pp.PointGrid(injector_point)
+    #         sd_0d.tags['injection_point_2d'] = i
+    #         sd_0d.compute_geometry()
+
+    #         self.mdg.add_subdomains(sd_0d)
+
+    #         intf = pp.MortarGrid()
 
     # def set_fractures(self) -> None:
     #     """Setting a diagonal fracture"""
@@ -608,7 +628,7 @@ if fractional_flow:
     class GeothermalFlow(  # type:ignore[misc]
         pp.constitutive_laws.DarcysLawAd,
         pp.constitutive_laws.FouriersLawAd,
-        Geometry,
+        PointWells2D,
         SoereideMixture,
         SolutionStrategy,
         InitialConditions,
@@ -618,7 +638,7 @@ if fractional_flow:
 else:
 
     class GeothermalFlow(  # type:ignore[misc,no-redef]
-        Geometry,
+        PointWells2D,
         SoereideMixture,
         SolutionStrategy,
         InitialConditions,
