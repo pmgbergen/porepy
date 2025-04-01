@@ -724,7 +724,7 @@ params = {
     "flash_compiler_args": ("p-T", "p-h"),
 }
 
-model = GeothermalFlow(params)
+model = GeothermalFlow(params)  # type:ignore[abstract]
 
 t_0 = time.time()
 model.prepare_simulation()

@@ -22,7 +22,7 @@ from typing import cast
 import numpy as np
 
 import porepy as pp
-from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (
+from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (  # noqa: E501
     DriesnerBrineFlowModel as FlowModel,
 )
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
@@ -72,7 +72,7 @@ class GeothermalFlowModel(FlowModel):
 
 
 # Instance of the computational model
-model = GeothermalFlowModel(params)
+model = GeothermalFlowModel(params)  # type:ignore[abstract]
 
 parametric_space_ref_level = 2
 file_name_prefix = (

@@ -327,9 +327,6 @@ class EnthalpyBasedEnergyBalanceEquations(
 
     """
 
-    darcy_flux: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
-    """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
-
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`EnthalpyVariable`."""
 
