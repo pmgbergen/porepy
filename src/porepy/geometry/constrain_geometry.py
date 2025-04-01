@@ -499,7 +499,7 @@ def polygons_by_polyhedron(
         unique_segments, *_ = pp.array_operations.uniquify_point_set(
             unique_segments, tol=1e-10
         )
-    
+
         # Remove point segments.
         point_segment = unique_segments[0] == unique_segments[1]
         unique_segments = unique_segments[:, np.logical_not(point_segment)]
