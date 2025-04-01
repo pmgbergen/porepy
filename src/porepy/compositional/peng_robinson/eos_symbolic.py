@@ -236,15 +236,20 @@ class PengRobinsonSymbolic:
         return sp.lambdify(self.thd_arg, self.grad_pTx_B)
 
     @property
-    def a(self) -> sp.Expr:
-        """Cohesion of the mixture according to the set mixing rule."""
-        a_i_correction: list[sp.Expr] = [
+    def alphas(self) -> list[sp.Expr]:
+        """Corrective terms for cohesion value such that
+        :math:`a_{i} = \\alpha_i^2 a_{i,c}` for a component :math:`i`."""
+        return [
             1 + k * (1 - sp.sqrt(self.T_s / T_ic))
             for k, T_ic in zip(self.k_i, self.T_i_crit)
         ]
 
+    @property
+    def a(self) -> sp.Expr:
+        """Cohesion of the mixture according to the set mixing rule."""
+
         a_i: list[sp.Expr] = [
-            a * corr**2 for a, corr in zip(self.a_i_crit, a_i_correction)
+            a * alpha**2 for a, alpha in zip(self.a_i_crit, self.alphas)
         ]
 
         if self.mixing_rule == "van-der-waals":
@@ -272,7 +277,7 @@ class PengRobinsonSymbolic:
 
     @property
     def A_func(self) -> Callable[[float, float, np.ndarray], float]:
-        """Lambdified expression :meth:`B` returning the non-dimensional covolume
+        """Lambdified expression :meth:`A` returning the non-dimensional cohesion
         for given values of pressure, temperature and component fractions."""
         return sp.lambdify(self.thd_arg, self.A)
 

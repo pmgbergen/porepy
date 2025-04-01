@@ -25,7 +25,7 @@ from typing import cast
 import numpy as np
 
 import porepy as pp
-from porepy.examples.geothermal_flow.model_configuration.TracerModelConfiguration import (
+from porepy.examples.geothermal_flow.model_configuration.TracerModelConfiguration import (  # noqa: E501
     TracerFlowModel as FlowModel,
 )
 
@@ -74,7 +74,7 @@ class TracerLikeFlowModel(FlowModel):
         self.exporter.write_pvd()
 
 
-model = TracerLikeFlowModel(params)
+model = TracerLikeFlowModel(params)  # type:ignore[abstract]
 
 tb = time.time()
 model.prepare_simulation()

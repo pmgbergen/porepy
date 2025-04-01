@@ -4,7 +4,7 @@ EoS.
 The work here is largely based on below references.
 
 This subpackage implements the standard Peng-Robinson equation of state,
-including some mixing rules and model components.
+including some mixing rules and extensions.
 
 The core of the module are its EoS classes. One is a symbolic representation
 :class:`~porepy.compositional.peng_robinson.eos_s.PengRobinsonSymbolic`
@@ -14,11 +14,7 @@ by the symbolic one
 
 It provides furthermore an interface to load binary interaction parameters from the
 package ``thermo``, as well as some mixing rules to obtain a mixture's cohesion and
-covolume, such as
-:class:`~porepy.compositional.peng_robinson.mixing.VanDerWaals`.
-
-The mixing rules are independent of the EoS and can in theory be used for any other
-cubic EoS.
+covolume (Van der Waals).
 
 References:
     [1]: `Peng, Robinson (1976) <https://doi.org/10.1021/i160057a011>`_
@@ -31,11 +27,13 @@ References:
 
 __all__ = []
 
-from . import eos, eos_symbolic, utils
+from . import eos, eos_symbolic, soereide_extension, utils
 from .eos import *
 from .eos_symbolic import *
+from .soereide_extension import *
 from .utils import *
 
 __all__.extend(eos.__all__)
 __all__.extend(eos_symbolic.__all__)
 __all__.extend(utils.__all__)
+__all__.extend(soereide_extension.__all__)

@@ -1,7 +1,7 @@
 """This module contains functionality to set up mixtures using the (Peng-Robinson) EoS.
 
-it contains models for some ideal thermodynamic funcionts required for consistent
-computations of mixture properties, as well as utility funtions to get e.g., the
+It contains models for some ideal thermodynamic functions required for consistent
+computations of mixture properties, as well as utility functions to get e.g., the
 binary interaction parameters (BIP) for a mixture of components.
 
 Note:
@@ -334,46 +334,3 @@ class NaClBrine(Compound, pp.FluidComponent):
         # store NaCl for quick access
         self.NaCl = solute
         """Reference to the pseudo-component representing NaCl."""
-
-        def alpha(T):
-            # molal salinity
-            T_r = T / self.critical_temperature
-            b = self.molalities[1]
-
-            alpha_ = (
-                1 + 0.453 * (1 - T_r * (1 - 0.0103 * b**1.1)) + 0.0034 * (T_r**-3 - 1)
-            )
-
-            return alpha_
-
-        self.alpha = alpha
-
-        co2, h2s, n2 = load_fluid_constants(["CO2", "H2S", "N2"], "chemicals")
-
-        def bip_co2(T):
-            T_r = T / co2.critical_temperature
-            b = self.molalities[1]
-
-            return (
-                T_r * 0.23580 * (1 + 0.17837 * b**0.979)
-                - 21.2566 * pp.ad.exp(-6.7222 * T_r - b)
-                - 0.31092 * (1 + 0.15587 * b**0.7505)
-            ), (
-                21.2566
-                * pp.ad.exp(-6.7222 * T_r - b)
-                * (6.7222 / co2.critical_temperature)
-                + 0.23580 * (1 + 0.17837 * b**0.979) / co2.critical_temperature
-            )
-
-        def bip_h2s(T):
-            T_r = T / h2s.critical_temperature
-            return (-0.20441 + 0.23426 * T_r, 0.23426 / h2s.critical_temperature)
-
-        def bip_n2(T):
-            T_r = T / n2.critical_temperature
-            b = self.molalities[1]
-
-            return (
-                T_r * 0.44338 * (1 + 0.08126 * b**0.75)
-                - 1.70235 * (1 + 0.25587 * b**0.75)
-            ), (0.44338 * (1 + 0.08126 * b**0.75) / n2.critical_temperature)
