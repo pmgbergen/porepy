@@ -15,7 +15,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.grids import grid
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils import accumarray, grid_utils, mcolon, setmembership, tags
+from porepy.utils import grid_utils, tags
 
 
 def coarsen(
@@ -414,7 +414,9 @@ def create_partition(
         jf = j[candidate[j]]
         is_fine[jf] = True
         candidate[np.r_[i, jf]] = False
-        loop = ST.indices[mcolon.mcolon(ST.indptr[jf], ST.indptr[jf + 1])]
+        loop = ST.indices[
+            pp.array_operations.expand_index_pointers(ST.indptr[jf], ST.indptr[jf + 1])
+        ]
         for row in np.unique(loop):
             s = ST.indices[ST.indptr[row] : ST.indptr[row + 1]]
             lmbda[row] = s[candidate[s]].size + 2 * s[is_fine[s]].size
@@ -445,7 +447,9 @@ def create_partition(
 
     # Remove one of the neighbors cells
     if pairs.size:
-        pairs = setmembership.unique_rows(np.sort(pairs, axis=1))[0]
+        pairs = np.unique(
+            np.sort(pairs, axis=1), axis=0, return_index=True, return_inverse=True
+        )[0]
         for ij in pairs:
             A_val = A[ij, ij].A.ravel()
             ids = ij[np.argsort(A_val)]
@@ -482,12 +486,18 @@ def create_partition(
         axis=-1,
     )
 
-    connection_idx = mcolon.mcolon(
+    connection_idx = pp.array_operations.expand_index_pointers(
         connection.indptr[coarse], connection.indptr[coarse + 1]
     )
-    vals = sps.csr_matrix(
-        accumarray.accum(candidates, connection.data[connection_idx], size=[Nc, NC])
-    )
+
+    # The array "candidates" stores the nonzero rows and columns of the connection
+    # matrix. We utilize the COO sparse matrix, which has the same internal structure.
+    # Using the following constructor: coo_matrix((data, [row_idx, col_idx]))
+    # Then casting the format to CSR, which is conveniently used later.
+    vals = sps.coo_matrix(
+        (connection.data[connection_idx], candidates.T), shape=[Nc, NC]
+    ).tocsr()
+
     del candidates_rep, candidates_idx, connection_idx
 
     it = NC

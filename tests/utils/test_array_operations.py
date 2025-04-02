@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from porepy import array_operations
+import porepy as pp
+from porepy.applications.test_utils.arrays import compare_arrays
+
 
 coord_1 = [
     [[np.array([1])], np.array([42])],
@@ -111,19 +113,21 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
     # bath or one by one), retrieve the values and check that the result is as expected.
 
     # Additive, add all at the same time
-    arr_additive = array_operations.SparseNdArray(dim, value_dim=value_dim)
+    arr_additive = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
     arr_additive.add(coords, values, additive=True)
     retrieved_values_additive = arr_additive.get(coords)
     assert np.allclose(retrieved_values_additive, expected_values_additive)
 
     # Overwrite, all at the same time
-    arr_overwrite = array_operations.SparseNdArray(dim, value_dim=value_dim)
+    arr_overwrite = pp.array_operations.SparseNdArray(dim, value_dim=value_dim)
     arr_overwrite.add(coords, values)
     retrieved_values_overwrite = arr_overwrite.get(coords)
     assert np.allclose(retrieved_values_overwrite, expected_values_overwrite)
 
     # Additive, add one by one
-    arr_additive_incremental = array_operations.SparseNdArray(dim, value_dim=value_dim)
+    arr_additive_incremental = pp.array_operations.SparseNdArray(
+        dim, value_dim=value_dim
+    )
     for ind, coord in enumerate(coords):
         arr_additive_incremental.add(
             [coord], values[:, ind].reshape((-1, 1)), additive=True
@@ -133,7 +137,9 @@ def test_sparse_nd_array(coords_values: list[np.ndarray]):
     assert np.allclose(retrieved_values_additive_incremental, expected_values_additive)
 
     # Overwrite, one at a time
-    arr_overwrite_incremental = array_operations.SparseNdArray(dim, value_dim=value_dim)
+    arr_overwrite_incremental = pp.array_operations.SparseNdArray(
+        dim, value_dim=value_dim
+    )
     for ind, coord in enumerate(coords):
         arr_overwrite_incremental.add(
             [coord], values[:, ind].reshape((-1, 1)), additive=False
@@ -241,7 +247,7 @@ def test_intersect_sets(data):
     """
     a, b, tol, ia_known, ib_known, a_2_b_known = data
 
-    ia, ib, a_in_b, a_2_b = array_operations.intersect_sets(a, b, tol)
+    ia, ib, a_in_b, a_2_b = pp.array_operations.intersect_sets(a, b, tol)
 
     assert np.allclose(ia, np.sort(ia_known))
     assert np.allclose(ib, np.sort(ib_known))
@@ -254,3 +260,325 @@ def test_intersect_sets(data):
     # a_2_b is a list of list, check one by one.
     for e1, e2 in zip(a_2_b, a_2_b_known):
         assert np.allclose(e1, e2)
+
+
+@pytest.mark.parametrize(
+    "a, b, ma_known, ia_known, sort",
+    [
+        (
+            np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]]),
+            np.array([[3, 1, 3, 5, 3], [3, 3, 2, 1, 2]]),
+            np.array([1, 1, 1, 1, 0], dtype=bool),
+            np.array([1, 0, 2, 1]),
+            True,
+        ),
+        # unequal sizes
+        (
+            np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]]),
+            np.array([[3, 1, 2, 5], [3, 3, 3, 1]]),
+            np.array([1, 1, 1, 1, 0], dtype=bool),
+            np.array([1, 0, 2, 1]),
+            True,
+        ),
+        (
+            np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]]),
+            np.array([[3, 1, 2, 5, 3, 4, 7], [3, 3, 3, 1, 9, 9, 9]]),
+            np.array([1, 1, 1, 1, 0], dtype=bool),
+            np.array([1, 0, 2, 1]),
+            True,
+        ),
+        # double occurences
+        (
+            np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]]),
+            np.array([[3, 2, 5], [3, 3, 1]]),
+            np.array([0, 1, 1, 0, 0], dtype=bool),
+            np.array([0, 1]),
+            True,
+        ),
+        (
+            np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]]),
+            np.array([[3, 1, 2, 5, 3], [3, 3, 3, 1, 1]]),
+            np.array([1, 1, 1, 1, 0], dtype=bool),
+            np.array([1, 0, 2, 1]),
+            True,
+        ),
+        # 1D
+        (
+            np.array([0, 2, 1, 3, 0]),
+            np.array([2, 4, 3]),
+            np.array([0, 1, 0, 1, 0], dtype=bool),
+            np.array([0, 2]),
+            True,
+        ),
+        (
+            np.array([0, 2, 1, 13, 0]),
+            np.array([2, 4, 13, 0]),
+            np.array([1, 1, 0, 1, 1], dtype=bool),
+            np.array([3, 0, 2, 3]),
+            True,
+        ),
+        # test issue #123
+        (
+            np.array(
+                [
+                    [0.0, 1.0, 1.0, 0.0, 0.2, 0.8, 0.5, 0.5, 0.5],
+                    [0.0, 0.0, 1.0, 1.0, 0.5, 0.5, 0.8, 0.2, 0.5],
+                ]
+            ),
+            np.array([[0, 1, 1, 0], [0, 0, 1, 1]]),
+            np.array([1, 1, 1, 1, 0, 0, 0, 0, 0], dtype=bool),
+            np.array([0, 1, 2, 1]),
+            True,
+        ),
+        # Test no sorting:
+        (
+            np.array([[1, 3, 3, 1, 7], [3, 3, 2, 3, 0]]),
+            np.array([[3, 1, 2, 5, 3], [3, 3, 3, 1, 1]]),
+            np.array([1, 1, 0, 1, 0], dtype=bool),
+            np.array([1, 0, 1]),
+            False,
+        ),
+    ],
+)
+def test_ismember_columns(a, b, ma_known, ia_known, sort):
+    ma, ia = pp.array_operations.ismember_columns(a, b, sort=sort)
+    assert np.allclose(ma, ma_known)
+    assert np.allclose(ia, ia_known)
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        # Expand indices with C order.
+        {
+            "input": ([0, 1, 3], 3, "C"),
+            "expected": [0, 3, 9, 1, 4, 10, 2, 5, 11],
+        },
+        # Expand indices with non-specified order (should correspond to "F", which is
+        # default.)
+        {
+            "input": ([0, 1, 3], 3, None),
+            "expected": [0, 1, 2, 3, 4, 5, 9, 10, 11],
+        },
+        # Array with indices that are not sorted.
+        {
+            "input": ([9, 14, 7, 18, 9, 4], 2, "F"),
+            "expected": [18, 19, 28, 29, 14, 15, 36, 37, 18, 19, 8, 9],
+        },
+        # Array with decreasing indices.
+        {
+            "input": ([25, 21, 18, 1], 3, "F"),
+            "expected": [75, 76, 77, 63, 64, 65, 54, 55, 56, 3, 4, 5],
+        },
+    ],
+)
+def test_expand_indices_nd(params):
+    """Tests the function expand_indices_nd.
+
+    Tests the following different cases:
+        1) Expand array with C order.
+        2) Expand the array with the default order ("F").
+        3) Expand array with indices which are not sorted.
+        4) Expand array with decreasing indices.
+
+    Parameters:
+        params: Dictionary which contains two keys: "input" and "expected". The "input"
+        is a tuple containing the array we want to expand, the dimension we want to
+        expand it with and the order (Fortran or C). "expected" contains the array which
+        is expected to be returned by the function.
+
+    """
+    inputs = params.get("input")
+    ind = np.array(inputs[0])
+    nd = inputs[1]
+    order = params["input"][2]
+    if order is None:
+        result = pp.array_operations.expand_indices_nd(ind=ind, nd=nd)
+    else:
+        result = pp.array_operations.expand_indices_nd(ind=ind, nd=nd, order=order)
+    expected = np.array(params["expected"])
+
+    assert np.all(result == expected)
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        # Repeat array 3 times and add increment of 200.
+        {
+            "input": ([0, 1, 3], 3, 200),
+            "expected": [0, 200, 400, 1, 201, 401, 3, 203, 403],
+        },
+        # No increment is added. The original array is thus just expanded.
+        {
+            "input": ([0, 1, 3], 4, 0),
+            "expected": [0, 0, 0, 0, 1, 1, 1, 1, 3, 3, 3, 3],
+        },
+        # Repeat only once, but add increment. This should result in the original array.
+        {
+            "input": ([0, 1, 3], 1, 5),
+            "expected": [0, 1, 3],
+        },
+    ],
+)
+def test_expand_indices_add_increment(params):
+    """Tests the function expand_indices_add_increment.
+
+    Tests the following different cases:
+        1) Repeat/Expand array three times with an added increment value of 200 for each
+           repetition.
+        2) Repeating/Expanding array with a zero increment value.
+        3) Repeating an array only once.
+
+    Parameters:
+        params: Dictionary which contains two keys: "input" and "expected". The "input"
+        is a tuple containing the array we want to expand, the dimension we want to
+        expand it with and the order (Fortran or C). The key "expected" contains the
+        array which we expect to be returned from the function.
+
+    """
+    input_array = np.array(params["input"][0])
+    n = params["input"][1]
+    increment = params["input"][2]
+
+    result = pp.array_operations.expand_indices_add_increment(
+        x=input_array, n=n, increment=increment
+    )
+    expected = np.array(params["expected"])
+
+    assert np.all(result == expected)
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        # Simple comparison of input (2 arrays) and expected output.
+        {
+            "input": ([1, 2], [3, 4]),
+            "expected": [1, 2, 2, 3],
+        },
+        # Zero size result.
+        {
+            "input": ([1, 2], [1, 2]),
+            "expected": [],
+        },
+        # Equal middle point. Motivated by GitHub issue #11.
+        {
+            "input": ([1, 5, 5], [5, 5, 6]),
+            "expected": [1, 2, 3, 4, 5],
+        },
+        # Equal last point. Motivated by GitHub issue #11.
+        {
+            "input": ([1, 5], [5, 5]),
+            "expected": [1, 2, 3, 4],
+        },
+        # Different sizes of high and low bounds.
+        {
+            "input": ([1, 2], [2, 3, 4]),
+            "raises": True,
+        },
+        # Test type conversion.
+        {
+            "input": (
+                np.array([1, 3], dtype=np.int8),
+                np.array([2, 4], dtype=np.int16),
+            ),
+            "expected_dtype": int,
+        },
+    ],
+)
+def test_expand_index_pointers(params: dict):
+    a = np.array(params["input"][0])
+    b = np.array(params["input"][1])
+
+    if params.get("raises", False):
+        with pytest.raises(ValueError):
+            pp.array_operations.expand_index_pointers(a, b)
+        return
+    result = pp.array_operations.expand_index_pointers(a, b)
+
+    expected = np.array(params["expected"]) if params.get("expected") else None
+    if expected is not None:
+        assert np.all(result == expected)
+
+    expected_dtype = params.get("expected_dtype")
+    if expected_dtype is not None:
+        assert result.dtype == expected_dtype
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        # Test that the ordering is preserved and some non-unique values are filtered.
+        {
+            "input": [[1, 1], [0, 0], [0.5, 0], [0, 0], [0, 0.5], [0, 0], [0.5, 0]],
+            "tol": 1e-2,
+            "expected": [[1, 1], [0, 0], [0.5, 0], [0, 0.5]],
+        },
+        # Edge case for multiple values close to the tolerance.
+        {
+            "input": np.array([np.linspace(0, 1, num=101)[::-1], [0] * 101]).T,
+            "tol": 1e-1,
+            "expected": np.array(
+                [
+                    [1, 0.97, 0.86, 0.75, 0.64, 0.53, 0.43, 0.32, 0.21, 0.1],
+                    [0] * 10,
+                ]
+            ).T,
+        },
+        # Repeated values.
+        {
+            "input": np.tile(
+                [
+                    [10.0, 100.0, 100.0, 0.0, 0.0, 100.0, 100.0, 0.0, 0.0, 10.0, 10.0],
+                    [10.0, 0.0, 10.0, 10.0, 0.0, 0.0, 10.0, 0.0, 100.0, 100.0, 0.0],
+                ],
+                reps=10,
+            ).T,
+            "tol": 1e-10,
+            "expected": [
+                [10.0, 10.0],
+                [100.0, 0.0],
+                [100.0, 10.0],
+                [0.0, 10.0],
+                [0.0, 0.0],
+                [0.0, 100.0],
+                [10.0, 100.0],
+                [10.0, 0.0],
+            ],
+        },
+        # Array with only unique columns.
+        {
+            "input": np.array([[16.0, 15, 18], [5, 16, 25]]).T,
+            "expected": np.array([[16.0, 15, 18], [5, 16, 25]]).T,
+            "tol": 1e-5,
+        },
+        # Array with one duplicate column.
+        {
+            "input": np.array([[3.0, 13, 15, 3, 12, 13], [15, 13, 14, 15, 21, 14]]).T,
+            "expected": np.array([[3.0, 13, 15, 12, 13], [15, 13, 14, 21, 14]]).T,
+            "tol": 1e-5,
+        },
+        # Array with several duplicate columns.
+        {
+            "input": np.array([[1.0, 2, 3, 1, 3, 4], [2, 3, 4, 2, 4, 5]]).T,
+            "expected": np.array([[1.0, 2, 3, 4], [2, 3, 4, 5]]).T,
+            "tol": 1e-5,
+        },
+        # Edge case: no points.
+        {
+            "input": np.atleast_2d([]),
+            "expected": np.atleast_2d([]),
+            "tol": 1e-5,
+        },
+    ],
+)
+def test_uniquify_point_set(params: dict):
+    input = np.array(params["input"]).T
+    tol = params["tol"]
+    results = pp.array_operations.uniquify_point_set(points=input, tol=tol)
+    unique_vectors, new_2_old, old_2_new = results
+    expected = np.array(params["expected"]).T
+    assert np.allclose(unique_vectors, expected, atol=tol)
+    assert np.allclose(input[:, new_2_old], expected, atol=tol)
+    assert np.allclose(unique_vectors[:, old_2_new], input, atol=tol)
