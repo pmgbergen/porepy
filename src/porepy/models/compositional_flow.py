@@ -1128,6 +1128,9 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
     """Intermediate mixin layer to provide an interface for calculating values of phase
     properties on the boundary, which are represented by surrogate factories.
 
+    Allows the user to define ``model.params['phase_property_params']`` which are passed
+    as ``params`` to :meth:`~porepy.compositional.base.Phase.compute_properties`.
+
     Important:
         The computation of phase properties is performed on all boundary cells,
         Neumann and Dirichlet. This may require non-trivial values for primary
@@ -1182,7 +1185,10 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                         d([bg]).value(self.equation_system)
                         for d in self.dependencies_of_phase_properties(phase)
                     ]
-                    state = phase.compute_properties(*cast(list[np.ndarray], dep_vals))
+                    state = phase.compute_properties(
+                        *cast(list[np.ndarray], dep_vals),
+                        params=self.params.get("phase_property_params", None),
+                    )
                     rho_bc = state.rho
                     h_bc = state.h
                     mu_bc = state.mu
@@ -1434,6 +1440,9 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
     This class assumes that phase properties are given as surrogate factories, which
     can get values assigned after initial values for their dependencies are set.
 
+    Allows the user to define ``model.params['phase_property_params']`` which are passed
+    as ``params`` to :meth:`~porepy.compositional.base.Phase.compute_properties`.
+
     """
 
     def initial_condition(self) -> None:
@@ -1462,7 +1471,8 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
                 ]
 
                 phase_props = phase.compute_properties(
-                    *cast(list[np.ndarray], dep_vals)
+                    *cast(list[np.ndarray], dep_vals),
+                    params=self.params.get("phase_property_params", None),
                 )
 
                 # Set values and derivative values for current current index.
@@ -1532,6 +1542,9 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
     :attr:`~porepy.compositional.base.Phase.eos` and :attr:`~porepy.compositional.
     compositional_mixins.FluidMixin.dependencies_of_phase_properties` is required.
 
+    Allows the user to define ``model.params['phase_property_params']`` which are passed
+    as ``params`` to :meth:`~porepy.compositional.base.Phase.compute_properties`.
+
     Note:
         When using this solution strategy mixin, make sure it is **above** all other
         solution strategies in order to work property. This is due to the assumed order
@@ -1561,7 +1574,8 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                 ]
                 # Compute phase properties using the phase EoS.
                 phase_props = phase.compute_properties(
-                    *cast(list[np.ndarray], dep_vals)
+                    *cast(list[np.ndarray], dep_vals),
+                    params=self.params.get("phase_property_params", None),
                 )
 
                 # Set current iterate indices of values and derivatives.
@@ -1912,7 +1926,9 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
                     sps.linalg.spsolve(x, np.eye(x.shape[0]))
                 ),
             )
-            logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
+            logger.debug(
+                f"Assembled reduced linear system in {time.time() - t_0:.2e} seconds."
+            )
         else:
             assert isinstance(self, pp.SolutionStrategy)
             super().assemble_linear_system()  # type:ignore

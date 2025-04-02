@@ -21,16 +21,19 @@ References:
 from __future__ import annotations
 
 import logging
+import os
 import time
 import warnings
-from typing import Any, Callable, Optional, Sequence, no_type_check
+from typing import Any, Callable, Literal, Optional, Sequence, cast, no_type_check
 
 import numpy as np
+import scipy.sparse as sps
+
+os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
-
-# import os
-# os.environ["NUMBA_DISABLE_JIT"] = "1"
+from porepy.applications.test_utils.models import create_local_model_class
+from porepy.fracs.wells_3d import _add_interface
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.DEBUG)
@@ -46,8 +49,61 @@ logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
+# region Mathematical model configuration for flow & transport
 
-class SoereideMixture:
+fractional_flow: bool = False
+use_well_model: bool = True
+equilibrium_type: str = "unified-p-h"
+
+
+class _FlowConfiguration(pp.PorePyModel):
+    """Helper class to bundle the configuration of pressure, temperature and mass
+    for in- and outflow."""
+
+    # Initial values.
+    _p_INIT: float = 20e6
+    _T_INIT: float = 450.0
+    _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
+
+    # In- and outflow values, as well as well values per well index
+    _p_IN: float = _p_INIT
+    _p_OUT: float = _p_INIT - 1e6
+    _p_PRODUCTION: dict[int, float] = {0: _p_OUT}
+
+    _T_IN: float = _T_INIT
+    _T_OUT: float = _T_INIT
+    _T_HEATED: float = _T_INIT + 20.0
+    _T_INJECTION: dict[int, float] = {0: _T_IN}
+
+    _z_IN: dict[str, float] = {
+        "H2O": _z_INIT["H2O"] - 0.095,
+        "CO2": _z_INIT["CO2"] + 0.095,
+    }
+    _z_OUT: dict[str, float] = {
+        "H2O": _z_INIT["H2O"],
+        "CO2": _z_INIT["CO2"],
+    }
+
+    # Injected mass per component and per well index.
+
+    # Value obtained from a p-T flash with values defined above.
+    # Divide by 3600 to obtain an injection of 1 m^3 per hour
+    _TOTAL_INJECTED_MASS: float = 27430.998956110157 / (60 * 60)  # mol / m^3
+
+    _INJECTED_MASS: dict[str, dict[int, float]] = {
+        "H2O": {0: _TOTAL_INJECTED_MASS * _z_IN["H2O"]},
+        "CO2": {0: _TOTAL_INJECTED_MASS * _z_IN["CO2"]},
+    }
+
+    # Coordinates of injection and production wells in meters
+    _INJECTION_POINTS: list[np.ndarray] = [np.array([10.0, 10.0])]
+    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([90.0, 10.0])]
+
+
+# endregion
+
+
+class SoereideMixture(pp.PorePyModel):
     """Model fluid using the Soereide mixture, a Peng-Robinson based EoS for
     NaCl brine with CO2, H2S and N2."""
 
@@ -144,18 +200,6 @@ class SolutionStrategy(pp.PorePyModel):
             subdomains, state
         )
 
-        # sanity checks
-        # p = self.equation_system.get_variable_values(
-        #     [self.pressure_variable], iterate_index=0
-        # )
-        # T = self.equation_system.get_variable_values(
-        #     [self.temperature_variable], iterate_index=0
-        # )
-        # if np.any(p <= 0.0):
-        #     raise ValueError("Pressure diverged to negative values.")
-        # if np.any(T <= 0):
-        #     raise ValueError("Temperature diverged to negative values.")
-
         unity_tolerance = 0.05
 
         sat_sum = np.sum(fluid_state.sat, axis=0)
@@ -175,13 +219,6 @@ class SolutionStrategy(pp.PorePyModel):
                 fluid_state.y[:, idx].T
             ).T
 
-        # if np.any(y_sum > 1 + unity_tolerance):
-        #     raise ValueError("Phase fractions violate unity constraint")
-        # if np.any(fluid_state.y < 0 - unity_tolerance) or np.any(
-        #     fluid_state.y > 1 + unity_tolerance
-        # ):
-        #     raise ValueError("Phase fractions out of bound.")
-
         for phase in fluid_state.phases:
             x_sum = phase.x.sum(axis=0)
             idx = x_sum > 1.0
@@ -193,14 +230,6 @@ class SolutionStrategy(pp.PorePyModel):
             idx = phase.x > 1.0
             if np.any(idx):
                 phase.x[idx] = 1.0
-            # if np.any(x_sum > 1 + unity_tolerance):
-            #     raise ValueError(
-            #         f"Extended fractions in phase {j} violate unity constraint."
-            #     )
-            # if np.any(phase.x < 0 - unity_tolerance) or np.any(
-            #     phase.x > 1 + unity_tolerance
-            # ):
-            #     raise ValueError(f"Extended fractions in phase {j} out of bound.")
 
         return fluid_state
 
@@ -379,7 +408,9 @@ class SolutionStrategy(pp.PorePyModel):
         return sub_state
 
 
-class PointWells2D(pp.PorePyModel):
+class Geometry(_FlowConfiguration):
+    """2D matrix representing a rectangular domain."""
+
     def set_domain(self) -> None:
         self._domain = pp.Domain(
             {
@@ -390,53 +421,294 @@ class PointWells2D(pp.PorePyModel):
             }
         )
 
-    # def set_geometry(self):
-    #     super().set_geometry()
 
-    #     matrix = self.mdg.subdomains(dim=self.nd)[0]
+class PointWells2D(Geometry):
+    """2D matrix with point grids as injection and production points.
 
-    #     for i, injector_point in enumerate(self.params['injector_points']):
-    #         assert isinstance(injector_point, np.ndarray)
-    #         if injector_point.shape[0] == 2:
-    #             p = np.zeros(3)
-    #             p[:2] = injector_point
-    #             injector_point = p
+    Alternative for the ``WellNetwork3d`` in 2d.
 
-    #         sd_0d = pp.PointGrid(injector_point)
-    #         sd_0d.tags['injection_point_2d'] = i
-    #         sd_0d.compute_geometry()
+    """
 
-    #         self.mdg.add_subdomains(sd_0d)
+    def set_geometry(self):
+        super().set_geometry()
 
-    #         intf = pp.MortarGrid()
+        for i, injection_point in enumerate(self._INJECTION_POINTS):
+            self._add_well(injection_point, i, "injection")
 
-    # def set_fractures(self) -> None:
-    #     """Setting a diagonal fracture"""
-    #     frac_1_points = self.solid.convert_units(
-    #         np.array([[1., 9.], [1., 4.]]), "m"
-    #     )
-    #     frac_1 = pp.LineFracture(frac_1_points)
-    #     self._fractures = [frac_1]
+        for i, production_point in enumerate(self._PRODUCTION_POINTS):
+            self._add_well(production_point, i, "production")
+
+    def _add_well(
+        self,
+        point: np.ndarray,
+        well_index: int,
+        well_type: Literal["injection", "production"],
+    ) -> None:
+        """Helper method to construct a well in 2D as a PointGrid and add respective
+        interface.
+
+        Parameters:
+            point: Point in space representing well.
+            well_index: Assigned number for well of type ``well_type``.
+            well_type: Label to add a tag to the point grid labelng as injector or
+            producer.
+
+        """
+        matrix = self.mdg.subdomains(dim=self.nd)[0]
+        assert isinstance(point, np.ndarray)
+        p: np.ndarray
+        if point.shape == (2,):
+            p = np.zeros(3)
+            p[:2] = point
+        elif point.shape == (3,):
+            p = point
+        else:
+            raise ValueError(
+                f"Point for well {(well_type, well_index)} must be 1D array of length "
+                + "2 or 3."
+            )
+
+        sd_0d = pp.PointGrid(self.units.convert_units(p, "m"))
+        # Tag for processing of equations.
+        sd_0d.tags[f"{well_type}_well"] = well_index
+        sd_0d.compute_geometry()
+
+        self.mdg.add_subdomains(sd_0d)
+
+        # Motivated by wells_3d.py#L828
+        cell_matrix = matrix.closest_cell(sd_0d.cell_centers)
+        cell_well = np.array([0], dtype=int)
+        cell_cell_map = sps.coo_matrix(
+            (np.ones(1, dtype=bool), (cell_well, cell_matrix)),
+            shape=(sd_0d.num_cells, matrix.num_cells),
+        )
+
+        _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
 
 
-class InitialConditions(pp.PorePyModel):
-    """Define initial pressure, temperature and compositions."""
+class WellEquations2D(_FlowConfiguration):
+    """Augmentation of balance equations for domains of type :class:`PointWells2D`.
 
-    _p_IN: float
-    _p_OUT: float
+    Balance equations are created as usual, with the exception in Point grids labeled as
+    injection and production points.
 
-    _p_INIT: float = 20e6
-    _T_INIT: float = 450.0
-    _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
+    At injection points:
 
+    - The pressure equation/fluid mass balance will have an additional source term with
+      source values taken from the model params (rates of injection/ Neumann-type well).
+    - Analogously the component mass balance.
+    - The energy equation will be replaced by a Dirichlet-type constraint
+      ``T - T_injection = 0`` for the temperature (defined T of injected fluid).
+
+    At production points:
+
+    - The pressure equation/fluid mass balance will be replaced by a Dirichlet-type
+      constraint ``p - p_production = 0`` for the pressure (defined pressure at
+      production well).
+
+    Note:
+        In injection wells, only the injected mass is defined, not the injected energy.
+        This is due to the energy balance equation being replaced by an temperature
+        constraint. This can cause trouble if there is temporarily some backflow in
+        the production wells due to pressure drop around the wells. TODO
+
+    """
+
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
+    def _filter_wells(
+        self, subdomains: list[pp.Grid], well_type: Literal["production", "injection"]
+    ) -> tuple[list[pp.Grid], list[pp.Grid]]:
+        """Helper method to return the partitioning of subdomains into wells of defined
+        ``well_type`` and other grids.
+
+        Parameters:
+            subdomains: A list of subdomains.
+            well_type: Well type to filter out (injector or producer).
+
+        Returns:
+            A 2-tuple containing
+
+            1. All 0D grids tagged as wells of type ``well_type``.
+            2. All other grids found in ``subdomains``.
+
+        """
+        tag = f"{well_type}_well"
+        wells = [sd for sd in subdomains if sd.dim == 0 and tag in sd.tags]
+        other_sds = [sd for sd in subdomains if sd not in wells]
+        return wells, other_sds
+
+    def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Introduced the usual fluid mass balance equations but only on grids which
+        are not production wells."""
+        _, no_production_wells = self._filter_wells(subdomains, "production")
+        return super().mass_balance_equations(no_production_wells)  # type:ignore[misc]
+
+    def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Introduced the usual fluid mass balance equations but only on grids which
+        are not production wells."""
+        _, no_injection_wells = self._filter_wells(subdomains, "injection")
+        return super().energy_balance_equation(no_injection_wells)  # type:ignore[misc]
+
+    def set_equations(self):
+        """Introduces pressure and temperature constraints on production and injection
+        wells respectively."""
+        super().set_equations()
+
+        subdomains = self.mdg.subdomains()
+        injection_wells, _ = self._filter_wells(subdomains, "injection")
+        production_wells, _ = self._filter_wells(subdomains, "production")
+
+        p_constraint = self.pressure_constraint_at_production_wells(production_wells)
+        self.equation_system.set_equation(p_constraint, production_wells, {"cells": 1})
+        T_constraint = self.temperature_constraint_at_injection_wells(injection_wells)
+        self.equation_system.set_equation(T_constraint, injection_wells, {"cells": 1})
+
+    def pressure_constraint_at_production_wells(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Returns an constraint of form :math:`p - p_p=0` which replaces the
+        pressure equation in production wells.
+
+        Parameters:
+            subdomains: A list of grids (tagged as production wells).
+
+        Returns:
+            The left-hand side of above equation.
+
+        """
+        p_production = pp.wrap_as_dense_ad_array(
+            np.hstack(
+                [
+                    np.ones(sd.num_cells)
+                    * self._p_PRODUCTION[sd.tags["production_well"]]
+                    for sd in subdomains
+                ]
+            ),
+            name="production_pressure",
+        )
+
+        pressure_constraint_production = self.pressure(subdomains) - p_production
+        pressure_constraint_production.set_name("production_pressure_constraints")
+        return pressure_constraint_production
+
+    def temperature_constraint_at_injection_wells(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Analogous to :meth:`pressure_constraint_at_production_wells`, but for
+        temperature at production wells."""
+        T_injection = pp.wrap_as_dense_ad_array(
+            np.hstack(
+                [
+                    np.ones(sd.num_cells) * self._T_INJECTION[sd.tags["injection_well"]]
+                    for sd in subdomains
+                ]
+            ),
+            name="injection_temperature",
+        )
+
+        temperature_constraint_injection = self.temperature(subdomains) - T_injection
+        temperature_constraint_injection.set_name("injection_temperature_constraint")
+        return temperature_constraint_injection
+
+    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Augments the source term in the pressure equation to account for the mass
+        injected through injection wells."""
+        source: pp.ad.Operator = super().fluid_source(subdomains)  # type:ignore[misc]
+
+        injection_wells, _ = self._filter_wells(subdomains, "injection")
+
+        subdomain_projections = pp.ad.SubdomainProjections(self.mdg.subdomains())
+
+        injected_mass: pp.ad.Operator = pp.ad.sum_operator_list(
+            [
+                self.volume_integral(
+                    self.injected_component_mass(comp, injection_wells),
+                    injection_wells,
+                    1,
+                )
+                for comp in self.fluid.components
+            ],
+            "total_injected_fluid_mass",
+        )
+
+        source += subdomain_projections.cell_restriction(subdomains) @ (
+            subdomain_projections.cell_prolongation(injection_wells) @ injected_mass
+        )
+
+        return source
+
+    def component_source(
+        self, component: pp.Component, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Augmented source term for a component's mass balance equation to account
+        for the injected mass."""
+        source: pp.ad.Operator = super().component_source(component, subdomains)  # type:ignore[misc]
+
+        injection_wells, _ = self._filter_wells(subdomains, "injection")
+
+        subdomain_projections = pp.ad.SubdomainProjections(self.mdg.subdomains())
+
+        injected_mass = self.volume_integral(
+            self.injected_component_mass(component, injection_wells),
+            injection_wells,
+            1,
+        )
+
+        source += subdomain_projections.cell_restriction(subdomains) @ (
+            subdomain_projections.cell_prolongation(injection_wells) @ injected_mass
+        )
+
+        return source
+
+    def injected_component_mass(
+        self, component: pp.Component, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Returns the injected mass of a fluid component in [kg m^-3 s^-1] (or moles).
+
+        This is used as a source term on balance equations in injection wells. Note that
+        the volume integral is not performed here, but in the respective method
+        assembling the source term for a balance equation.
+
+        Parameters:
+            component: A fluid component.
+            subdomains: A list of grids (grids tagged as ``'injection_wells'``)
+
+        Returns:
+            The source term wrapped as a dens AD array.
+        """
+        injected_mass: list[np.ndarray] = []
+        for sd in subdomains:
+            assert "injection_well" in sd.tags, (
+                f"Grid {sd.id} not tagged as injection well."
+            )
+            injected_mass.append(
+                np.ones(sd.num_cells)
+                * self._INJECTED_MASS[component.name][sd.tags["injection_well"]]
+            )
+        return pp.ad.DenseArray(
+            np.hstack(injected_mass), f"injected_mass_density_{component.name}"
+        )
+
+
+class InitialConditions(_FlowConfiguration):
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         # f = lambda x: self._p_IN + x /10 * (self._p_OUT - self._p_IN)
         # vals = np.array(list(map(f, sd.cell_centers[0])))
         # return vals
-        return np.ones(sd.num_cells) * self._p_INIT
+        p = np.ones(sd.num_cells)
+        if sd.dim == 0 and "production_well" in sd.tags:
+            return p * self._p_PRODUCTION[sd.tags["production_well"]]
+        else:
+            return p * self._p_INIT
 
     def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
-        return np.ones(sd.num_cells) * self._T_INIT
+        T = np.ones(sd.num_cells)
+        if sd.dim == 0 and "injection_well" in sd.tags:
+            return T * self._T_INJECTION[sd.tags["injection_well"]]
+        else:
+            return T * self._T_INIT
 
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
@@ -444,7 +716,7 @@ class InitialConditions(pp.PorePyModel):
         return np.ones(sd.num_cells) * self._z_INIT[component.name]
 
 
-class BoundaryConditions(pp.PorePyModel):
+class BoundaryConditions(_FlowConfiguration):
     """Boundary conditions defining a ``left to right`` flow in the matrix (2D)
 
     Mass flux:
@@ -460,26 +732,6 @@ class BoundaryConditions(pp.PorePyModel):
     Trivial Neumann conditions for fractures.
 
     """
-
-    _p_INIT: float
-    _T_INIT: float
-    _z_INIT: dict[str, float]
-
-    _p_IN: float = InitialConditions._p_INIT
-    _p_OUT: float = InitialConditions._p_INIT - 1e6
-
-    _T_IN: float = InitialConditions._T_INIT
-    _T_OUT: float = InitialConditions._T_INIT
-    _T_HEATED: float = InitialConditions._T_INIT + 20.0
-
-    _z_IN: dict[str, float] = {
-        "H2O": InitialConditions._z_INIT["H2O"] - 0.095,
-        "CO2": InitialConditions._z_INIT["CO2"] + 0.095,
-    }
-    _z_OUT: dict[str, float] = {
-        "H2O": InitialConditions._z_INIT["H2O"],
-        "CO2": InitialConditions._z_INIT["CO2"],
-    }
 
     def _central_stripe(self, sd: pp.Grid) -> tuple[float, float]:
         """Returns the left and right boundary of the central, vertical stripe of the
@@ -620,34 +872,44 @@ class BoundaryConditions(pp.PorePyModel):
         return vals
 
 
-fractional_flow: bool = False
+model_class: type[pp.PorePyModel]
 
+if equilibrium_type == "unified-p-h" and fractional_flow:
+    model_class = cfle.EnthalpyBasedCFFLETemplate  # type:ignore[type-abstract]
+elif equilibrium_type == "unified-p-h" and not fractional_flow:
+    model_class = cfle.EnthalpyBasedCFLETemplate  # type:ignore[type-abstract]
+else:
+    raise ValueError(
+        "Unsupported base configuration: "
+        + f"{equilibrium_type}, "
+        + f"fractiona_flow={fractional_flow},"
+    )
+
+
+model_class = create_local_model_class(
+    model_class,
+    [InitialConditions, SolutionStrategy, SoereideMixture],  # type:ignore[type-abstract]
+)
+
+if use_well_model:
+    model_class = create_local_model_class(
+        model_class,
+        [PointWells2D, WellEquations2D],  # type:ignore[type-abstract]
+    )
+else:
+    model_class = create_local_model_class(
+        model_class,
+        [Geometry, BoundaryConditions],  # type:ignore[type-abstract]
+    )
 
 if fractional_flow:
-
-    class GeothermalFlow(  # type:ignore[misc]
-        pp.constitutive_laws.DarcysLawAd,
-        pp.constitutive_laws.FouriersLawAd,
-        PointWells2D,
-        SoereideMixture,
-        SolutionStrategy,
-        InitialConditions,
-        BoundaryConditions,
-        cfle.EnthalpyBasedCFFLETemplate,
-    ): ...
-else:
-
-    class GeothermalFlow(  # type:ignore[misc,no-redef]
-        PointWells2D,
-        SoereideMixture,
-        SolutionStrategy,
-        InitialConditions,
-        BoundaryConditions,
-        cfle.EnthalpyBasedCFLETemplate,
-    ): ...
+    model_class = create_local_model_class(
+        model_class,
+        [pp.constitutive_laws.FouriersLawAd, pp.constitutive_laws.DarcysLawAd],  # type:ignore[type-abstract]
+    )
 
 
-# Model parametrization
+# Numerical model parametrization
 t_scale = 1e0
 times_to_export = [i * pp.DAY for i in range(31)] + [
     i * 30 * pp.DAY for i in range(2, 13)
@@ -656,8 +918,6 @@ times_to_export = [i * pp.DAY for i in range(31)] + [
 max_iterations = 50
 newton_tol = 1e-5
 newton_tol_increment = 1e-1
-
-equilibrium_type: str = "unified-p-h"
 
 flash_params = {
     "mode": "parallel",
@@ -724,7 +984,8 @@ params = {
     "flash_compiler_args": ("p-T", "p-h"),
 }
 
-model = GeothermalFlow(params)  # type:ignore[abstract]
+# Casting to the most complex model type for typing purposes.
+model = cast(cfle.EnthalpyBasedCFFLETemplate, model_class(params))
 
 t_0 = time.time()
 model.prepare_simulation()
