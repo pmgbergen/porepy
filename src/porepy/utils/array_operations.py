@@ -1,11 +1,14 @@
 """The module contains various functions and classes useful for operations on numpy
-ndarrays.
+ndarrays and various functions with set operations.
 
 """
 
 from __future__ import annotations
 
+from typing import Any, Literal, Tuple
+
 import numpy as np
+from numba import njit
 from scipy.spatial import KDTree
 
 
@@ -57,7 +60,7 @@ class SparseNdArray:
         represented in the table have their values increased or overwritten, see
         parameter additive.
 
-        Args:
+        Parameters:
             coords: List of coordinates, each corresponding to an indivdiual data point.
             values: New values. Each element corresponds to an item in the list of new
                 coordinates.
@@ -150,7 +153,7 @@ class SparseNdArray:
     def get(self, coords: list[np.ndarray]) -> np.ndarray:
         """Retrieve values from the sparse array.
 
-        Args:
+        Parameters:
             coords (list[np.ndarray]): List of coordinates, each corresponding to an
                 indivdiual data point.
         Raises:
@@ -200,7 +203,7 @@ def intersect_sets(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, list]:
     """Intersect two sets to find common elements up to a tolerance.
 
-    Args:
+    Parameters:
         a (np.ndarray, shape nd x n_pts): The first set to be intersected. The columns
             of a form set members.
         b (np.ndarray, shape nd x n_pts): The second set to be intersected. The columns
@@ -264,3 +267,415 @@ def intersect_sets(
     a_in_b[ia] = True
 
     return ia_unique, ib_unique, a_in_b, intersection
+
+
+def ismember_columns(
+    a: np.ndarray[Any, np.dtype[np.int64]],
+    b: np.ndarray[Any, np.dtype[np.int64]],
+    sort: bool = True,
+) -> Tuple[np.ndarray[Any, np.dtype[np.bool_]], np.ndarray[Any, np.dtype[np.int64]]]:
+    """Find columns of a that are also members of columns of b.
+
+    The function mimics Matlab's function ismember(..., 'rows').
+
+    Examples:
+        ```
+        >>> a = np.array([[1, 3, 3, 1, 7],
+                          [3, 3, 2, 3, 0],])
+        >>> b = np.array([[3, 1, 3, 5, 3],
+                          [3, 3, 2, 1, 2],])
+        >>> ib, ic = ismember_columns(a, b)
+        >>> ib
+        array([ True,  True,  True,  True, False])
+        >>> ic
+        array([1, 0, 2, 1])
+        >>> a[:, ib]
+        array([[1, 3, 3, 1],
+               [3, 3, 2, 3],])
+        >>> b[:, ic]
+        array([[1, 3, 3, 1],
+               [3, 3, 2, 3],])
+
+        >>> a = np.array([[1, 3, 3, 1, 7],
+                          [3, 3, 2, 3, 0]])
+        >>> b = np.array([[3, 1, 2, 5, 1],
+                          [3, 3, 3, 1, 2]])
+        >>> ismember_columns(a, b, sort=False)
+        (array([ True,  True, False,  True, False], dtype=bool), [1, 0, 1])
+        ```
+
+    Parameters:
+        a: `shape=(nd, num_vectors_a)`, each column in a will search for an equal in b.
+        b: `shape=(nd, num_vectors_b)`, array in which we will look for a twin.
+        sort: If `True`, treats permuted columns as twins. E.g., will treat `[5, 1]`
+            and `[1, 5]` as equal. Defaults to `True`.
+
+    Returns:
+        np.array: `shape=(nd, num_vectors_a)`, `True` if there is a twin column in b.
+        np.array: `shape=(nd, num_unique)`, Indices so that b[:, ind] only consists of
+            columns also found in a, see examples.
+
+    """
+    # IMPLEMENTATION NOTE: A serious attempt was made (June 2022) to speed up
+    # this calculation by using functionality from scipy.spatial. This did not
+    # work: The Scipy functions scaled poorly with the size of arrays a and b,
+    # and lead to memory overflow for large arrays.
+
+    # Sort if required, but not if the input is 1d
+    if sort and a.ndim > 1:
+        sa = np.sort(a, axis=0)
+        sb = np.sort(b, axis=0)
+    else:
+        sa = a
+        sb = b
+
+    num_a = sa.shape[-1]
+
+    # stack the arrays
+    c = np.hstack((sa, sb))
+    # Uniquify c. We don't care about the unique array itself, but rather
+    # the indices which maps the unique array back to the original c
+    if a.ndim > 1:
+        _, ind = np.unique(c, axis=1, return_inverse=True)
+        ind = ind.ravel()
+    else:
+        _, ind = np.unique(c, return_inverse=True)
+
+    # Indices in a and b referring to the unique array.
+    # Elements in ind_a that are also in ind_b will correspond to rows
+    # in a that are also found in b
+    ind_a = ind[:num_a]
+    ind_b = ind[num_a:]
+
+    # Find common members
+    ismem_a = np.isin(ind_a, ind_b)
+
+    # Found this trick on
+    # https://stackoverflow.com/questions/8251541/numpy-for-every-element-in-one-array-find-the-index-in-another-array
+    # See answer by Joe Kington
+    sort_ind = np.argsort(ind_b)
+    ypos = np.searchsorted(ind_b[sort_ind], ind_a[ismem_a])
+    ia = sort_ind[ypos]
+
+    # Done
+    return ismem_a, ia
+
+
+def expand_indices_nd(
+    ind: np.ndarray, nd: int, order: Literal["F", "C"] = "F"
+) -> np.ndarray:
+    """Expand indices from scalar to vector form.
+
+    Examples:
+    >>> i = np.array([0, 1, 3])
+    >>> expand_indices_nd(i, 2)
+    (array([0, 1, 2, 3, 6, 7]))
+
+    >>> expand_indices_nd(i, 3, "C")
+    (array([0, 3, 9, 1, 4, 10, 2, 5, 11])
+
+    Parameters:
+        ind: Indices to be expanded.
+        nd: Dimension of the vector.
+        order: Order of the expansion. "F" for Fortran, "C" for C. Default is "F".
+
+    Returns:
+        np.ndarray: Expanded indices.
+
+    """
+    if nd == 1:
+        return ind
+    dim_inds = np.arange(nd)
+    dim_inds = dim_inds[:, np.newaxis]  # Prepare for broadcasting
+    new_ind = nd * ind + dim_inds
+    new_ind = new_ind.ravel(order)
+    return new_ind
+
+
+def expand_indices_add_increment(x: np.ndarray, n: int, increment: int) -> np.ndarray:
+    """Expend array values and consequently add the increment to each next repetition.
+    Using Fortran order.
+
+    Examples:
+        >>> i = np.array([0, 1, 3])
+        >>> repeat_array_add_increment(i, 3, 200)
+        (array([0, 200, 400, 1, 201, 401, 3, 203, 403]))
+
+    Parameters:
+        x: Array to be repeated with the increment.
+        n: How many times to repeat the array with the increment.
+        increment: The number to add to each next repetition.
+
+    Returns:
+        The repeated array in Fortran order.
+
+    """
+    # Duplicate rows
+    ind_nd = np.tile(x, (n, 1))
+    # Add same increment to each row (0*incr, 1*incr etc.)
+    ind_incr = ind_nd + increment * np.array([np.arange(n)]).transpose()
+    # Back to row vector
+    ind_new = ind_incr.reshape(-1, order="F")
+    return ind_new
+
+
+def expand_index_pointers(lo, hi):
+    """Expansion of np.arange(a, b) for arrays a and b.
+
+    The code is equivalent to the following (less efficient) loop:
+    arr = np.empty(0)
+    for l, h in zip(lo, hi):
+        arr = np.hstack((arr, np.arange(l, h, 1)))
+
+    The function mimics Matlab's function mcolon(...).
+
+    Examples:
+    >>> expand_index_pointers(np.array([0, 0, 0]), np.array([2, 4, 3]))
+    array([0, 1, 0, 1, 2, 3, 0, 1, 2])
+
+    >>> expand_index_pointers(np.array([0, 1]), np.array([2]))
+    array([0, 1, 1])
+
+    >>> expand_index_pointers(np.array([0, 1, 1, 1]), np.array([1, 3, 3, 3]))
+    array([0, 1, 2, 1, 2, 1, 2])
+
+
+    Parameters:
+        lo (np.ndarray, int): Lower bounds of the arrays to be created.
+        hi (np.ndarray, int): Upper bounds of the arrays to be created. The
+            elements in hi will *not* be included in the resulting array.
+
+        lo and hi should either have 1 or n elements. If their size are both
+        larger than one, they should have the same length.
+
+    Acknowledgements:
+        The functions are a python translation of the corresponding matlab
+        functions found in the Matlab Reservoir Simulation Toolbox (MRST) developed
+        by SINTEF ICT, see www.sintef.no/projectweb/mrst/ .
+
+    """
+    # IMPLEMENTATION NOTE: The below code uses clever tricks to arrive at the correct
+    # result (credit for the cleverness goes to SINTEF). The provided comments should
+    # explain the logic behind the code to some extent, but if you really want to
+    # understand what is going on, it is probably wise to go through the logic by hand
+    # for a few examples.
+
+    if lo.size == 1:
+        lo = lo * np.ones(hi.size, dtype=np.int32)
+    if hi.size == 1:
+        hi = hi * np.ones(lo.size, dtype=np.int32)
+    if lo.size != hi.size:
+        raise ValueError(
+            "Low and high should have same number of elements, or a single item "
+        )
+
+    # Find the positive differences. If there are none, return an empty array.
+    pos_diff = hi >= lo + 1
+    if not any(pos_diff):
+        return np.array([], dtype=np.int32)
+
+    # We only need the lows and highs where there is a positive difference.
+    lo = lo[pos_diff].astype(int)
+    # This changes hi from a non-inclusive to an inclusive upper bound of the range.
+    hi = (hi[pos_diff] - 1).astype(int)
+    # The number of elements to be generated for each interval (each pair of lo and hi).
+    # We have to add 1 to include the upper bound.
+    num_elements_in_interval = hi - lo + 1
+    # Create an array with size equal to the total number of elements to be generated.
+    # Initialize the array with ones, so that, if we do a cumulative sum, the indices
+    # will be increasing by one. This will work, provided we can also set the elements
+    # corresponding to the start of an interval (a lo value in a lo-hi pair) to its
+    # correct value.
+    tot_num_elements = np.sum(num_elements_in_interval)
+    x = np.ones(tot_num_elements, dtype=int)
+
+    # Set the first element to the first lo value.
+    x[0] = lo[0]
+    # For the elements corresponding to the start of interval 1, 2, ..., we cannot just
+    # set the value to lo[1:], since this will be overriden by the cumulative sum.
+    # Instead, set the value to lo[1:] - hi[0:-1], that is, to the difference between
+    # the end of the previous interval and the start of the current interval. Under a
+    # cumulative sum, this will give the correct value for the start of interval i,
+    # provided that interval i-1 ends at the correct value, and, since we set the first
+    # element to lo[0], with ones up to lo[1], this all works out by induction. Kudos to
+    # whomever came up with this!
+    x[np.cumsum(num_elements_in_interval[0:-1])] = lo[1:] - hi[0:-1]
+    # Finally, a cumulative sum will give the correct values for all elements. Use x to
+    # store the result to avoid allocating a new array (this can give substantial
+    # savings for large arrays).
+    return np.cumsum(x, out=x)
+
+
+@njit(cache=True)
+def _unique_points_in_cluster(
+    points: np.ndarray,
+    sorted_idx: np.ndarray,
+    cluster_start: int,
+    cluster_size: int,
+    tol: float,
+):
+    """This is an inner function of `uniquify_point_set`, but moved outside due to
+    numba. Finds unique points in a specified cluster.
+
+    Parameters:
+        points: `shape=(nd, n_pts)`, points to be uniquified.
+        sorted_idx: `shape=(n_pts,)`, sorted index of the points norms.
+        cluster_start: Index of the cluster start.
+        cluster_size: Number of points in the cluster.
+        tol: Tolerance for when points are considered equal.
+
+    Returns:
+        np.ndarray: Unique points within the cluster.
+        new_2_old: Index of which points that are preserved within the cluster.
+        old_2_new: Index of the representation of old points in the reduced list.
+
+    """
+    unique_cols = np.zeros((points.shape[0], cluster_size), dtype=points.dtype)
+    new_2_old = np.full(shape=cluster_size, fill_value=points.shape[1], dtype=np.int64)
+    old_2_new = np.zeros(cluster_size, dtype=np.int64)
+    # Number of found unique points in this cluster.
+    keep = 0
+    # Slice of the result corresponding to the found unique points.
+    unique_cols_keep = unique_cols[:, :keep]
+
+    # Iterating over the cluster.
+    for i in range(cluster_start, cluster_start + cluster_size):
+        col = points[:, sorted_idx[i]]
+        # Comparing against known unique points in this cluster.
+        within_tol = np.sum((col[:, None] - unique_cols_keep) ** 2, axis=0) < tol**2
+
+        if not np.any(within_tol):
+            # This is a new point.
+            unique_cols[:, keep] = col
+            old_2_new[i - cluster_start] = keep
+            new_2_old[keep] = sorted_idx[i]
+            # Increasing the number of known unique points and reslicing.
+            keep += 1
+            unique_cols_keep = unique_cols[:, :keep]
+        else:
+            # This is not a new point. Finding the index of its unique twin.
+            idx = np.argmax(within_tol)
+            old_2_new[i - cluster_start] = idx
+
+            if sorted_idx[i] < new_2_old[idx]:
+                # New point goes before its stored twin. We replace the twin with it.
+                new_2_old[idx] = sorted_idx[i]
+                unique_cols[:, idx] = col
+
+    return unique_cols_keep, new_2_old[:keep], old_2_new
+
+
+@njit(cache=True)
+def uniquify_point_set(points: np.ndarray, tol: float):
+    """Uniquify a set of points so that no two sets of points are closer than a
+    distance tol from each other.
+
+    The result order is guaranteed, each unique point is the first encountered. That is
+    for the input `[[5, 1, 5, 1], [1, 5, 1, 5]]`, the output will be `[[5, 1], [1, 5]]`,
+    and not `[[1, 5], [5, 1]]`.
+
+    For integers and `tol < 0.5`, this is equivalent (up to a permutation) to
+    `np.unique(points, axis=1, return_index=True, return_inverse=True)`.
+
+    Implementation note: It groups the points into clusters based on similar norms.
+    Then it filters unique points in each cluster. This avoids heavy comparison of
+    all to all.
+
+    Parameters:
+        points: `shape=(nd, n_pts)`, points to be uniquified.
+        tol: Tolerance for when columns are considered equal. Should be seen in
+            connection with distance between the points in the point set (due to
+            rounding errors).
+
+    Returns:
+        np.ndarray: `shape=(nd, n_unique)`, unique points.
+        new_2_old: `shape=(n_unique,)`, index of which points that are preserved.
+        old_2_new: `shape=(n_pts,)`, index of the representation of old points in the
+            reduced list.
+
+    """
+    if points.shape[1] == 0:
+        return (
+            np.empty_like(points),
+            np.empty(shape=points.shape[1], dtype=np.int64),
+            np.empty(shape=points.shape[1], dtype=np.int64),
+        )
+
+    # Finding norms of each point and sorting them.
+    point_norms = np.sqrt(np.sum(points**2, axis=0))
+    sorted_idx = np.argsort(point_norms)
+
+    # Counting points with close norms.
+    close_norms_count = np.zeros(points.shape[1], dtype=np.int64)
+    # Index corresponds to the current cluster of points with close norms.
+    cluster_idx = 0
+    # Norm of a point in the current cluster.
+    cluster_norm = point_norms[sorted_idx[0]]
+
+    # Iterating through sorted norms.
+    for current_norm in point_norms[sorted_idx]:
+        # Reverse triangle inequality: abs(||x|| - ||y||) <= ||x - y||.
+        # If they don't fall into one cluster, they are certainly not close within tol.
+        if abs(cluster_norm - current_norm) > tol:
+            # Norms are not close. Moving to the next cluster.
+            cluster_idx += 1
+            cluster_norm = current_norm
+
+        close_norms_count[cluster_idx] += 1
+
+    # Keeping only nonzero clusters.
+    close_norms_count = close_norms_count[: cluster_idx + 1]
+    # Current number of unique points.
+    num_unique = 0
+    # Index of the cluster start.
+    cluster_start = 0
+
+    # Initializing result arrays.
+    unique_pts = np.zeros_like(points)
+    new_2_old = np.zeros(points.shape[1], dtype=np.int64)
+    old_2_new = np.zeros(points.shape[1], dtype=np.int64)
+
+    # Iterating through the clusters of points with close norms.
+    for cluster_size in close_norms_count:
+        # Compare points and find unique ones. O(m^2) for m points in a cluster.
+        unique_pts_inner, new_2_old_inner, old_2_new_inner = _unique_points_in_cluster(
+            points=points,
+            sorted_idx=sorted_idx,
+            cluster_start=cluster_start,
+            cluster_size=cluster_size,
+            tol=tol,
+        )
+        # Number of unique points in the cluster.
+        unique_size_inner = unique_pts_inner.shape[1]
+
+        # Updating the global result arrays.
+        unique_pts[:, num_unique : num_unique + unique_size_inner] = unique_pts_inner
+        new_2_old[num_unique : num_unique + unique_size_inner] = new_2_old_inner
+        old_2_new[
+            sorted_idx[np.arange(cluster_start, cluster_start + cluster_size)]
+        ] = old_2_new_inner + num_unique
+
+        # Updating the counters.
+        num_unique += unique_size_inner
+        cluster_start += cluster_size
+
+    # Slicing result arrays to remove unused space.
+    unique_pts = unique_pts[:, :num_unique]
+    new_2_old = new_2_old[:num_unique]
+
+    # Reordering to preserve the first-encountered order.
+    ordering = np.argsort(new_2_old)
+    unique_pts = unique_pts[:, ordering]
+    new_2_old = new_2_old[ordering]
+
+    # Constructing the reverse mapping for old_2_new.
+    # This is equivalent to:
+    # tmp = np.zeros_like(old_2_new)
+    # for k, v in enumerate(ordering):
+    #     tmp[old_2_new == v] = k
+    # old_2_new = tmp
+    lookup = np.zeros(ordering.max() + 1, dtype=np.int64)
+    lookup[ordering] = np.arange(len(ordering))
+    old_2_new = lookup[old_2_new]
+
+    return unique_pts, new_2_old, old_2_new
