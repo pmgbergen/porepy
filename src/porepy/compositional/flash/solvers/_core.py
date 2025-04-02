@@ -30,7 +30,7 @@ __all__ = [
     "FLASH_RESIDUAL_FUNCTION_TYPE",
     "FLASH_JACOBIAN_FUNCTION_TYPE",
     "SOLVER_FUNCTION_SIGNATURE",
-    "serial_solver",
+    "sequential_solver",
     "parallel_solver",
     "MULTI_SOLVERS",
 ]
@@ -220,11 +220,11 @@ _multi_solver_signature = numba.types.Tuple(
     SOLVER_FUNCTION_TYPE,
     SOLVER_PARAMETERS_TYPE,
 )
-"""Multi-solver signature for compiled serial or parallel application of solvers."""
+"""Multi-solver signature for compiled sequential or parallel application of solvers."""
 
 
 @numba.njit(_multi_solver_signature, cache=True)
-def serial_solver(
+def sequential_solver(
     X0: np.ndarray,
     F: Callable[[np.ndarray], np.ndarray],
     DF: Callable[[np.ndarray], np.ndarray],
@@ -239,9 +239,9 @@ def serial_solver(
     ],
     solver_params: dict[str, float],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Serial application of a solver to vectorized input.
+    """Sequential application of a solver to vectorized input.
 
-    The serialization is applied row-wise on ``X0``.
+    The solver is applied row-wise on ``X0``.
 
     Parameters:
         X0: 2D array, where each row is an initial guess for an individual problem.
@@ -295,10 +295,10 @@ def parallel_solver(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Parallel application of a solver to vectorized input.
 
-    Otherwise analogous to :func:`serial_solver`.
+    Otherwise analogous to :func:`sequential_solver`.
 
     To be used for a large quantity of problems, where parallelization outperforms
-    serialization.
+    the sequential solver.
 
     Important:
         As of now, numba does not support ``try.. except`` inside a parallelized
@@ -314,35 +314,35 @@ def parallel_solver(
     num_iter = np.zeros(n, dtype=np.int32)
     converged = np.ones(n, dtype=np.int32) * 5
 
-    for i in numba.prange(n):
-        # NOTE Numba can as of now not parallelize if there is a try-except clause
-        # try:
-        res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
-        # except Exception:
-        #     converged[i] = 5
-        #     num_iter[i] = -1
-        #     result[i, :] = np.nan
-        # else:
-        converged[i] = conv_i
-        num_iter[i] = n_i
-        result[i] = res_i
+    # NOTE Numba can as of now not parallelize if there is a try-except clause within
+    # the parallelized loop. As a work-around we place it outside and use the sequential
+    # solver as a fallback.
+    try:
+        for i in numba.prange(n):
+            res_i, conv_i, n_i = solver(X0[i], F, DF, solver_params)
+            converged[i] = conv_i
+            num_iter[i] = n_i
+            result[i] = res_i
+    except Exception:
+        print("Parallel solver threw an exception. Falling back to sequential solver.")
+        return sequential_solver(X0, F, DF, solver, solver_params)
 
     return result, converged, num_iter
 
 
 MULTI_SOLVERS: dict[
-    Literal["serial", "parallel"],
+    Literal["sequential", "parallel"],
     Callable[..., tuple[np.ndarray, np.ndarray, np.ndarray]],
 ] = {
-    "serial": serial_solver,
+    "sequential": sequential_solver,
     "parallel": parallel_solver,
 }
-"""Map of multi-solver functions, applying some solver either in serial
+"""Map of multi-solver functions, applying some solver either sequentially
 or in parallel for vectorized input.
 
 See also:
 
-    - :func:`serial_solver`
+    - :func:`sequential_solver`
     - :func:`parallel_solver`
 
 """
