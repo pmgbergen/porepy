@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Sequence, cast
+from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
 
@@ -33,6 +33,7 @@ class LiquidDriesnerCorrelations(pp.compositional.EquationOfState):
         self,
         phase_state: pp.compositional.PhysicalState,
         *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> pp.compositional.PhaseProperties:
         """Function will be called to compute the values for a phase.
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).
@@ -118,6 +119,7 @@ class GasDriesnerCorrelations(pp.compositional.EquationOfState):
         self,
         phase_state: pp.compositional.PhysicalState,
         *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> pp.compositional.PhaseProperties:
         """Function will be called to compute the values for a phase.
         ``phase_type`` indicates the phsycal type (0 - liq, 1 - gas).

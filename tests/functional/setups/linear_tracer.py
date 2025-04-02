@@ -528,7 +528,7 @@ class TracerFlowModel_1p_ff(
 class TrivialEoS(pp.compositional.EquationOfState):
     """Trivial EoS returning 1 for every property and zero derivatives."""
 
-    def compute_phase_properties(self, phase_state, *thermodynamic_input):
+    def compute_phase_properties(self, phase_state, *thermodynamic_input, params=None):
         # Number of derivatives and number of values per derivative.
         nd = len(thermodynamic_input)
         nx = len(thermodynamic_input[0])

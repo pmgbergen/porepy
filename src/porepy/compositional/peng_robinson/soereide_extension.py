@@ -15,11 +15,13 @@ from __future__ import annotations
 
 from typing import Callable, Literal, Optional, Sequence
 
+import numba as nb
 import numpy as np
 import sympy as sp
 
 import porepy as pp
 
+from .._core import NUMBA_FAST_MATH
 from . import eos, eos_symbolic
 from .utils import thd_function_type
 
@@ -173,6 +175,16 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
     Does not take the ``bip_matrix`` argument, since BIPs are customized in this
     extension.
 
+    The parameter array for the pre-argument function can have up to 4 entries
+    (see also :attr:`params`):
+
+    1. ``'salinity'``: Molality of NaCl in the brine.
+    2. ``'smoothing_multiphase'`` : Portion of 2-phase region used for smoothing roots
+       near phase borders
+    3. ``'smoothing_extensions'``: Portion of A-B space around lines bordering different
+       extension procedures.
+    4. ``'eps'``: Numerical tolerance to determine zero (root case computation).
+
     """
 
     def __init__(
@@ -188,3 +200,124 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
         self.symbolic: PengRobinsonSoereideSymbolic = PengRobinsonSoereideSymbolic(
             components, ideal_enthalpies
         )
+
+        self.params["salinity"] = 0.0
+        """The EoS has an additional parameter ``'salinity'`` which represents the
+        molality of NaCl in the brine. Defaults to zero."""
+
+    def _get_cohesion(self) -> eos.ScalarFunction:
+        """Cohesion takes molal salinity as last argument."""
+        return nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8))(self.symbolic.A_func)
+
+    def _get_cohesion_derivatives(self) -> eos.VectorFunction:
+        """Cohesion derivatives take molal salinity as last argument."""
+        df = nb.njit(self.symbolic.grad_pTx_A_func, fastmath=NUMBA_FAST_MATH)
+
+        @nb.njit(nb.f8[:](nb.f8, nb.f8, nb.f8[:], nb.f8), fastmath=NUMBA_FAST_MATH)
+        def inner(p_, T_, X_, c_):
+            return np.array(df(p_, T_, X_, c_), dtype=np.float64)
+
+        return inner
+
+    def get_prearg_for_values(self) -> eos.VectorFunction:
+        """Modified pre-argument for values expecting molal salinity as the first
+        element in the parameters array argument."""
+        A_c = self._cfuncs["A"]
+        B_c = self._cfuncs["B"]
+
+        eps = self.params["eps"]
+        s_m = self.params["smoothing_multiphase"]
+        s_e = self.params["smoothing_extension"]
+        sal = self.params["salinity"]
+
+        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        def prearg_val_c(
+            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
+        ) -> np.ndarray:
+            prearg = np.empty((3,), dtype=np.float64)
+
+            if params.size == 0:
+                raise ValueError(
+                    "Pre-argument function expects at least 1 parameter: salinity"
+                )
+
+            s_m_ = s_m
+            s_e_ = s_e
+            eps_ = eps
+            sal_ = sal
+            if params.size >= 1:
+                sal_ = params[0]
+            if params.size >= 2:
+                s_m_ = params[1]
+            if params.size >= 3:
+                s_e_ = params[2]
+            if params.size >= 4:
+                eps_ = params[3]
+
+            A = A_c(p, T, xn, sal_)
+            B = B_c(p, T, xn)
+
+            prearg[0] = A_c(p, T, xn)
+            prearg[1] = B_c(p, T, xn)
+            prearg[2] = eos._Z_from_AB(A, B, phasetype, eps_, s_e_, s_m_)
+
+            return prearg
+
+        return prearg_val_c
+
+    def get_prearg_for_derivatives(self) -> eos.VectorFunction:
+        """Modified pre-argument for derivatives expecting molal salinity as the first
+        element in the parameters array argument."""
+        A_c = self._cfuncs["A"]
+        B_c = self._cfuncs["B"]
+        dA_c = self._cfuncs["dA"]
+        dB_c = self._cfuncs["dB"]
+        # number of derivatives for A, B, Z (p, T, and per component fraction)
+        d = 2 + self._nc
+
+        eps = self.params["eps"]
+        s_m = self.params["smoothing_multiphase"]
+        s_e = self.params["smoothing_extension"]
+        sal = self.params["salinity"]
+
+        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
+        def prearg_jac_c(
+            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
+        ) -> np.ndarray:
+            # the pre-arg for the jacobian contains the derivatives of A, B, Z
+            # w.r.t. p, T, and fractions.
+            prearg = np.empty((3 * d,), dtype=np.float64)
+
+            if params.size == 0:
+                raise ValueError(
+                    "Pre-argument function expects at least 1 parameter: salinity"
+                )
+
+            s_m_ = s_m
+            s_e_ = s_e
+            eps_ = eps
+            sal_ = sal
+            if params.size >= 1:
+                sal_ = params[0]
+            if params.size >= 2:
+                s_m_ = params[1]
+            if params.size >= 3:
+                s_e_ = params[2]
+            if params.size >= 4:
+                eps_ = params[3]
+
+            A = A_c(p, T, xn, sal_)
+            B = B_c(p, T, xn)
+
+            dA = dA_c(p, T, xn)
+            dB = dB_c(p, T, xn)
+            dZ_ = eos._dZ_dAB(A, B, phasetype, eps_, s_e_, s_m_)
+            dZ = dZ_[0] * dA + dZ_[1] * dB
+
+            prearg[0:d] = dA
+            prearg[d : 2 * d] = dB
+            prearg[2 * d : 3 * d] = dZ
+
+            return prearg
+
+        return prearg_jac_c

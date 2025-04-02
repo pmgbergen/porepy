@@ -210,7 +210,9 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
         )
 
         # Performing flash, asserting everything is successful, and storing results.
-        logger.debug(f"Computing equilibrium on boundary {bg.id}")
+        logger.info(
+            f"Computing equilibrium on boundary {bg.id} at t={self.time_manager.time}."
+        )
         boundary_state, success, _ = self.flash.flash(
             z=feed,
             p=p,
@@ -525,7 +527,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
         has_unified_equilibrium = pp.compositional.has_unified_equilibrium(self)
 
         for grid in subdomains:
-            logger.debug(f"Computing initial equilibrium on grid {grid.id}")
+            logger.info(f"Computing initial equilibrium on grid {grid.id}")
             # pressure, temperature and overall fractions
             p = self.ic_values_pressure(grid)
             T = self.ic_values_temperature(grid)
@@ -745,19 +747,18 @@ class SolutionStrategyFlash(pp.PorePyModel):
         equilibrium_type = str(pp.compositional.get_equilibrium_type(self))
         has_unified_equilibrium = pp.compositional.has_unified_equilibrium(self)
 
-        logger.info(
-            f"Updating thermodynamic state of fluid with {equilibrium_type} flash."
-        )
-
         for sd in self.mdg.subdomains():
-            logger.debug(f"Flashing on grid {sd.id}")
+            logger.info(
+                f"Equilibrating fluid on grid {sd.id} at time {self.time_manager.time}"
+                + f" and iteration {self.nonlinear_solver_statistics.num_iteration}."
+            )
             start = time.time()
             fluid = self.postprocess_flash(
                 sd,
                 *self.equilibrate_fluid([sd], None, self.get_fluid_state([sd], None)),
             )
-            logger.info(
-                f"Fluid equilibriated on grid {sd.id}"
+            logger.debug(
+                f"Fluid equilibrated on grid {sd.id}"
                 + " (elapsed time: %.5f (s))." % (time.time() - start)
             )
 

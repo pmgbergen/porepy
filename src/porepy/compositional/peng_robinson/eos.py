@@ -1119,6 +1119,15 @@ class PengRobinsonCompiler(EoSCompiler):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS.
 
+    The parameter array for the pre-argument function can have up to 3 entries
+    (see also :attr:`params`):
+
+    1. ``'smoothing_multiphase'`` : Portion of 2-phase region used for smoothing roots
+       near phase borders
+    2. ``'smoothing_extensions'``: Portion of A-B space around lines bordering different
+       extension procedures.
+    3. ``'eps'``: Numerical tolerance to determine zero (root case computation).
+
     Parameters:
         components: A list of ``num_comp`` component instances.
         ideal_enthalpies: A list of ``num_comp`` callables representing the ideal
@@ -1169,6 +1178,17 @@ class PengRobinsonCompiler(EoSCompiler):
         """Symbolic representation of the EoS, providing expressions and derivatives
         for properties, which are turned into functions and compiled."""
 
+    # NOTE: The two _get_cohesion* methods are only abstracted for the Soereide
+    # extension because of the varying signature. Abstraction of other compilations of
+    # symbolic functions can be done analogously once required.
+    def _get_cohesion(self) -> ScalarFunction:
+        """Abstraction of compilation of non-dimensional cohesion."""
+        return nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.A_func)
+
+    def _get_cohesion_derivatives(self) -> VectorFunction:
+        """Abstraction of compilation of non-dimensional cohesion derivatives."""
+        return _compile_thd_function_derivatives(self.symbolic.grad_pTx_A_func)
+
     def compile(self) -> None:
         """Child method compiles essential functions from symbolic part before calling
         the parent class compiler"""
@@ -1184,9 +1204,9 @@ class PengRobinsonCompiler(EoSCompiler):
         dB_c = _compile_thd_function_derivatives(self.symbolic.grad_pTx_B_func)
         logger.debug("Compiling symbolic functions 2/12")
 
-        A_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.A_func)
+        A_c = self._get_cohesion()
         logger.debug("Compiling symbolic functions 3/12")
-        dA_c = _compile_thd_function_derivatives(self.symbolic.grad_pTx_A_func)
+        dA_c = self._get_cohesion_derivatives()
         logger.debug("Compiling symbolic functions 4/12")
 
         phi_c = _compile_fugacities(self.symbolic.phis_func)
@@ -1251,17 +1271,30 @@ class PengRobinsonCompiler(EoSCompiler):
         s_m = self.params["smoothing_multiphase"]
         s_e = self.params["smoothing_extension"]
 
-        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:]))
+        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
         def prearg_val_c(
-            phasetype: int, p: float, T: float, xn: np.ndarray
+            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
             prearg = np.empty((3,), dtype=np.float64)
             A = A_c(p, T, xn)
             B = B_c(p, T, xn)
 
+            # Choose default parameters, and then parse given parameters.
+            # Can only be done this way because params are a sub-array of the generic
+            # argument.
+            s_m_ = s_m
+            s_e_ = s_e
+            eps_ = eps
+            if params.size >= 1:
+                s_m_ = params[0]
+            if params.size >= 2:
+                s_e_ = params[1]
+            if params.size >= 3:
+                eps_ = params[2]
+
             prearg[0] = A_c(p, T, xn)
             prearg[1] = B_c(p, T, xn)
-            prearg[2] = _Z_from_AB(A, B, phasetype, eps, s_e, s_m)
+            prearg[2] = _Z_from_AB(A, B, phasetype, eps_, s_e_, s_m_)
 
             return prearg
 
@@ -1279,20 +1312,30 @@ class PengRobinsonCompiler(EoSCompiler):
         s_m = self.params["smoothing_multiphase"]
         s_e = self.params["smoothing_extension"]
 
-        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:]))
+        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
         def prearg_jac_c(
-            phasetype: int, p: float, T: float, xn: np.ndarray
+            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
             # the pre-arg for the jacobian contains the derivatives of A, B, Z
             # w.r.t. p, T, and fractions.
             prearg = np.empty((3 * d,), dtype=np.float64)
+
+            s_m_ = s_m
+            s_e_ = s_e
+            eps_ = eps
+            if params.size >= 1:
+                s_m_ = params[0]
+            if params.size >= 2:
+                s_e_ = params[1]
+            if params.size >= 3:
+                eps_ = params[2]
 
             A = A_c(p, T, xn)
             B = B_c(p, T, xn)
 
             dA = dA_c(p, T, xn)
             dB = dB_c(p, T, xn)
-            dZ_ = _dZ_dAB(A, B, phasetype, eps, s_e, s_m)
+            dZ_ = _dZ_dAB(A, B, phasetype, eps_, s_e_, s_m_)
             dZ = dZ_[0] * dA + dZ_[1] * dB
 
             prearg[0:d] = dA

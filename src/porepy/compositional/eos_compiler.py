@@ -6,7 +6,7 @@ from __future__ import annotations
 import abc
 import logging
 from functools import partial
-from typing import Callable, Literal, Sequence, TypeAlias, TypedDict, cast
+from typing import Callable, Literal, Optional, Sequence, TypeAlias, TypedDict, cast
 
 import numba as nb
 import numpy as np
@@ -96,9 +96,9 @@ class PropertyFunctionDict(TypedDict, total=False):
 # They are completely meaningless and need to return something corresponding to the
 # annotated return type. They also use every argument somehow, in case mypy ever
 # complains.
-@cfunc(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:]), cache=True)
+@cfunc(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]), cache=True)
 def prearg_template_func(
-    phase_State: int, p: float, T: float, xn: np.ndarray
+    phase_State: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
 ) -> np.ndarray:
     """Template c-func for the pre-argument, both for property values and derivative
     values.
@@ -108,6 +108,7 @@ def prearg_template_func(
         p: Pressure value.
         T: Temperature value.
         xn: 1D array containing normalized fractions.
+        params: 1D array containing parameters stored in the generic argument.
 
     Returns:
         Some 1D array.
@@ -220,16 +221,24 @@ def fugacity_coeff_derivative_template_func(
 # signatures. This ensures maximum efficiency when importing and executing the code
 # continuously.
 @nb.njit(
-    nb.f8[:, :](typeof(prearg_template_func), nb.i1, nb.f8[:], nb.f8[:], nb.f8[:, :]),
+    nb.f8[:, :](
+        typeof(prearg_template_func),
+        nb.i1,
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:, :],
+        nb.f8[:, :],
+    ),
     parallel=NUMBA_PARALLEL,
     cache=True,
 )
 def _evaluate_vectorized_prearg_func(
-    prearg_func: Callable[[int, float, float, np.ndarray], np.ndarray],
+    prearg_func: Callable[[int, float, float, np.ndarray, np.ndarray], np.ndarray],
     phase_state: int,
     p: np.ndarray,
     T: np.ndarray,
     xn: np.ndarray,
+    params: np.ndarray,
 ) -> np.ndarray:
     """Parallelized evaluation of some pre-argument function.
 
@@ -243,9 +252,12 @@ def _evaluate_vectorized_prearg_func(
         T: ``shape=(N,)``
 
             Temperature values.
-        xn: ``shape(N, num_components)``
+        xn: ``shape=(N, num_components)``
 
             (Normalized) partial fractions.
+        params: ``shape=(N, num_params)``
+
+            Parameters for the pre-argument functions.
 
     Returns:
         An array of shape ``(N, M)``, where each row represents an evaluation of
@@ -253,11 +265,11 @@ def _evaluate_vectorized_prearg_func(
 
     """
     N = p.shape[0]
-    prearg_0 = prearg_func(phase_state, p[0], T[0], xn[0])
+    prearg_0 = prearg_func(phase_state, p[0], T[0], xn[0], params[0])
     prearg = np.empty((N, prearg_0.shape[0]))
     prearg[0] = prearg_0
     for i in nb.prange(1, N):
-        prearg[i] = prearg_func(phase_state, p[i], T[i], xn[i])
+        prearg[i] = prearg_func(phase_state, p[i], T[i], xn[i], params[i])
     return prearg
 
 
@@ -513,6 +525,7 @@ class EoSCompiler(EquationOfState):
     1. an integer representing a phase :attr:`~porepy.compositional.base.Phase.state`
     2. Two scalar arguments representing pressure and temperature.
     3. A vector argument representing partial fractions.
+    4. A vector argument containing parameters.
 
     There are two ``prearg`` computations: One for property values, one for the
     derivatives.
@@ -884,6 +897,7 @@ class EoSCompiler(EquationOfState):
         self,
         phase_state: PhysicalState,
         *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> PhaseProperties:
         """This method must only be called after the vectorized computations have been
         compiled (see :meth:`compile`).
@@ -909,6 +923,8 @@ class EoSCompiler(EquationOfState):
 
                 Partial fractions per component (row-wise). Note that extended partial
                 fractions must be normalized before passing them as arguments.
+            params: Parameters to be passed to the pre-argument functions. If not
+                provided, a zero array will be passed.
 
         Returns:
             A complete datastructure containing values for thermodynamic phase
@@ -931,8 +947,24 @@ class EoSCompiler(EquationOfState):
 
         thermodynamic_input = tuple([_ for _ in thermodynamic_input[:-1]] + [x_norm])
 
-        prearg_val = self.gufuncs["prearg_val"](phase_state.value, *thermodynamic_input)
-        prearg_jac = self.gufuncs["prearg_jac"](phase_state.value, *thermodynamic_input)
+        # Inferring shape of parameter array.
+        if params is None:
+            # NOTE explicitly set second axis to zero, for the so that the vectorized
+            # evaluation will pass arrays with shape (0,) to the pre-argument functions.
+            # Otherwise a float will be passed, which is not accepted by the signature
+            # of the pre-argument functions.
+            params_array = np.zeros((x_norm.shape[0], 0))
+        else:
+            params_array = np.zeros((x_norm.shape[0], len(params)))
+            for i, param in enumerate(params):
+                params_array[:, i] = param
+
+        prearg_val = self.gufuncs["prearg_val"](
+            phase_state.value, *thermodynamic_input, params_array
+        )
+        prearg_jac = self.gufuncs["prearg_jac"](
+            phase_state.value, *thermodynamic_input, params_array
+        )
 
         props = {}
         k: PropertyFunctionNames
