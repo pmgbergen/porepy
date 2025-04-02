@@ -522,11 +522,11 @@ class CompiledUnifiedFlash(Flash):
         - ``'mode'``: Mode of solving the equilibrium problems for multiple state
           definitions given by vectorized input.
 
-          - ``'serial'``: A classical loop over state defintions (row-wise).
+          - ``'sequential'``: A classical loop over state defintions (row-wise).
           - ``'parallel'``: A parallelized loop, intended for larger amounts of
             problems.
 
-            Defaults to ``'serial'``.
+            Defaults to ``'sequential'``.
         - ``'solver'``: selected solver (see
           :data:`~porepy.compositional.flash.solvers.SOLVERS`)
         - ``'solver_params'``: Custom solver parameters for single run. Otherwise the
@@ -546,9 +546,9 @@ class CompiledUnifiedFlash(Flash):
         """
 
         if params is None:
-            params = {"mode": "serial", "solver": "npipm"}
+            params = {"mode": "sequential", "solver": "npipm"}
 
-        mode = params.get("mode", "serial")
+        mode = params.get("mode", "sequential")
         assert mode in MULTI_SOLVERS, f"Unsupported mode {mode}."
         solver = params.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}."
@@ -567,7 +567,7 @@ class CompiledUnifiedFlash(Flash):
         )
         logger.debug(
             f"{flash_type} flash target state parsed with {NF} points."
-            + f" Local size problem size: {f_dim}."
+            + f" Local problem size: {f_dim}."
         )
         assert flash_type in self.SUPPORTED_FLASH_TYPES, (
             f"Unsupported flash type {flash_type}."
@@ -624,7 +624,8 @@ class CompiledUnifiedFlash(Flash):
             + f" Max iter reached: {np.sum(success == 1)};"
             + f" Diverged: {np.sum(success == 2)};"
             + f" Other failures: {np.sum(success > 2)};"
-            + f" Iterations: {num_iter.max()} (max) {np.mean(num_iter)} (avg);"
+            + f" Iterations: {num_iter.max()} (max) "
+            + f"{np.ceil(np.mean(num_iter)).astype(int)} (avg);"
         )
 
         return (
