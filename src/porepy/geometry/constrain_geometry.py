@@ -490,12 +490,16 @@ def polygons_by_polyhedron(
 
         # Then uniquify the segments, in terms of the unique coordinates
 
-        # Here, it is logical to call the int counterpart of this function.
-        # But historicaly the float version was called, which returns the same result,
-        # but ordered differently. For some reason, this ordering is important, and
-        # TestMixedDimensionalUpwinding.test_3d_2d_1d_0d otherwise fails.
-        # Tol is arbitrary small and not the one passed to the function, because these
-        # are indices, you don't want indices 1 and 2 be treated as equal if tol > 1.
+        # Here, it is logical to call np.unique(unique_segments, axis=1). However, for
+        # historic reasons, the method uniquify_point_set was used when this code was
+        # developed. This returns the same result as np.unique(..., axis=1) would have
+        # done, but different order of the uniquified segments. The order does not
+        # impact the stability of the algorithm per se, but it may (through a long and
+        #  circuitous route) impact the order of the degrees of freedom in the final
+        # system. Specifically, in the test
+        # TestMixedDimensionalUpwinding.test_3d_2d_1d_0d there appears to be hard-coded
+        # assumptions on the dof ordering that are not met if np.unique is called below.
+        # We therefore used the uniquify_point_set method below.
         unique_segments, *_ = pp.array_operations.uniquify_point_set(
             unique_segments, tol=1e-10
         )
