@@ -121,7 +121,9 @@ def create_grid_mpfa_mpsa_reproduce_known_values(
     node_ind = g.face_nodes.indices
     # Nodes of faces on the boundary
     bnd_nodes = node_ind[
-        pp.utils.mcolon.mcolon(node_ptr[bnd_face], node_ptr[bnd_face + 1])
+        pp.array_operations.expand_index_pointers(
+            node_ptr[bnd_face], node_ptr[bnd_face + 1]
+        )
     ]
     g.nodes[:, bnd_nodes] = old_nodes[:, bnd_nodes]
     g.compute_geometry()

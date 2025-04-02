@@ -1225,7 +1225,7 @@ class Tpsa:
             rob_weight = np.vstack((rob_weight, bnd_disp.robin_weight[2, 2]))
 
         # Nd version of the faces with Robin boundary conditions.
-        rob_boundary_faces_expanded = pp.fvutils.expand_indices_nd(
+        rob_boundary_faces_expanded = pp.array_operations.expand_indices_nd(
             np.arange(nf), nd
         ).reshape((nd, nf), order="F")[bnd_disp.is_rob]
         rob_weights_boundary_faces = rob_weight[bnd_disp.is_rob]
@@ -1385,8 +1385,8 @@ class Tpsa:
         fi, ci, sgn = sparse_array_to_row_col_data(sd.cell_faces)
 
         # Expand face and cell indices to construct nd discretization matrices.
-        fi_expanded = fvutils.expand_indices_nd(fi, nd)
-        ci_expanded = fvutils.expand_indices_nd(ci, nd)
+        fi_expanded = pp.array_operations.expand_indices_nd(fi, nd)
+        ci_expanded = pp.array_operations.expand_indices_nd(ci, nd)
         # For vector quantities, we need fi repeated nd times, do this once and for all
         # here.
         sgn_nd = np.repeat(sgn, nd)
