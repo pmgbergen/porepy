@@ -237,11 +237,11 @@ def test_mesh_size_determination():
     # Two of the domain corners are close enough to the fracture to have their mesh size
     # modified from the default boundary value.
     origin = np.zeros((3, 1))
-    _, ind = pp.utils.setmembership.ismember_rows(origin, decomp["points"])
+    _, ind = pp.array_operations.ismember_columns(origin, decomp["points"])
     mesh_size_known[ind] = np.sqrt(3)
 
     corner = np.array([5, 0, 0]).reshape((3, 1))
-    _, ind = pp.utils.setmembership.ismember_rows(corner, decomp["points"], sort=False)
+    _, ind = pp.array_operations.ismember_columns(corner, decomp["points"], sort=False)
     mesh_size_known[ind] = np.sqrt(2)
 
     assert np.all(np.isclose(mesh_size, mesh_size_known))
