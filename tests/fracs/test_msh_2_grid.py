@@ -143,10 +143,10 @@ def test_tag_grids(
             )
 
 
-def test_create_0d_grids(file_name: str) -> list[pp.PointGrid]:
+def test_create_0d_grids(file_name: str):
     pts, cells, cell_info, phys_names = _read_gmsh_file(file_name)
 
-    g_0d: list[pp.Grid] = create_0d_grids(pts, cells, phys_names, cell_info)
+    g_0d: list[pp.PointGrid] = create_0d_grids(pts, cells, phys_names, cell_info)
     for g in g_0d:
         tagged_grid = g
         for gmsh_element_type in cell_info:
@@ -160,13 +160,12 @@ def test_create_0d_grids(file_name: str) -> list[pp.PointGrid]:
                 )
 
 
-def test_create_1d_grids() -> list[pp.Grid]:
+def test_create_1d_grids():
     pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
 
-    if isinstance(create_1d_grids(pts, cells, phys_names, cell_info), tuple):
-        g_1d, _ = create_1d_grids(pts, cells, phys_names, cell_info)
-    else:
-        g_1d = create_1d_grids(pts, cells, phys_names, cell_info)
+    # Create_1d_grids may return a tuple of grids. If so, we need to unpack it.
+    result = create_1d_grids(pts, cells, phys_names, cell_info)
+    g_1d = result[0] if isinstance(result, tuple) else result
 
     for g in g_1d:
         tagged_grid = g
@@ -181,7 +180,7 @@ def test_create_1d_grids() -> list[pp.Grid]:
                 )
 
 
-def test_create_2d_grids() -> list[pp.Grid]:
+def test_create_2d_grids():
     pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
     # this is tested in both values of is_embedded
     g_2d = create_2d_grids(pts, cells, phys_names, cell_info, is_embedded=False)
@@ -199,7 +198,7 @@ def test_create_2d_grids() -> list[pp.Grid]:
                 )
 
 
-def test_create_3d_grids() -> list[pp.Grid]:
+def test_create_3d_grids():
     pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
 
     g_3d = create_3d_grids(pts, cells, phys_names, cell_info)
