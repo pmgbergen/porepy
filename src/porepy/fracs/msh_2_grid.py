@@ -243,7 +243,7 @@ def create_1d_grids(
     tol: float = 1e-4,
     constraints: Optional[np.ndarray] = None,
     return_fracture_tips: bool = True,
-):
+) -> tuple[list[pp.Grid], np.ndarray] | list[pp.Grid]:
     """Create 1D grids for lines of a specified type from a gmsh tesselation.
 
     Only lines that were defined as 'physical' in the gmsh sense may have a grid
