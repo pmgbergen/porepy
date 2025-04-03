@@ -691,6 +691,15 @@ class SolutionStrategy(pp.PorePyModel):
 
         return np.atleast_1d(x)
 
+    def _is_nonlinear_problem(self) -> bool:
+        """Specifies whether the Model problem is nonlinear.
+
+        Returns:
+            bool: True if the problem is nonlinear, False otherwise.
+
+        """
+        return any(self.equation_system.equation_is_nonlinear.values())
+
     def _is_time_dependent(self) -> bool:
         """Specifies whether the Model problem is time-dependent.
 

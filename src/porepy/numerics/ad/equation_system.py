@@ -319,6 +319,11 @@ class EquationSystem:
             domains.add(var.domain)
         return list(domains)
 
+    @property
+    def equation_is_nonlinear(self) -> dict[str, bool]:
+        """TODO"""
+        return self._equation_is_nonlinear.copy()
+
     ### Variable management ------------------------------------------------------------
 
     def md_variable(
