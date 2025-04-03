@@ -497,7 +497,7 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
             c_num: Numerical constant.
 
         """
-        constant = pp.ad.Scalar(1) / self.characteristic_displacement(subdomains)
+        constant = pp.ad.Scalar(1.0) / self.characteristic_displacement(subdomains)
         constant.set_name("Contact_mechanics_numerical_constant")
         return constant
 
