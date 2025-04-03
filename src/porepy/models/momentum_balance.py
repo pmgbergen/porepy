@@ -386,13 +386,6 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
                     },
                 )
 
-    def _is_nonlinear_problem(self) -> bool:
-        """
-        If there is no fracture, the problem is usually linear. Overwrite this function
-        if e.g. parameter nonlinearities are included.
-        """
-        return self.mdg.dim_min() < self.nd
-
 
 class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):
     """Boundary conditions for the momentum balance."""

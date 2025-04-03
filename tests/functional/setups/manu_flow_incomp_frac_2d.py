@@ -769,10 +769,6 @@ class ManuIncompSolutionStrategy2d(
         if self.params.get("plot_results", False):
             self.plot_results()
 
-    def _is_nonlinear_problem(self) -> bool:
-        """The problem is linear."""
-        return False
-
     def _is_time_dependent(self) -> bool:
         """The problem is stationary."""
         return False

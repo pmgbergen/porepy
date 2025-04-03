@@ -486,10 +486,6 @@ def stationary_model():
 
         results: list[StationaryModelSaveData]
 
-        def _is_nonlinear_problem(self) -> bool:
-            """Whether the model is non-linear."""
-            return False
-
         def _is_time_dependent(self) -> bool:
             """Whether the model is time-dependent."""
             return False
@@ -550,10 +546,6 @@ def time_dependent_model():
         """Solution strategy for the time-dependent flow model."""
 
         results: list[TimeDependentModelSaveData]
-
-        def _is_nonlinear_problem(self) -> bool:
-            """Whether the problem is non-linear."""
-            return True
 
         def _is_time_dependent(self) -> bool:
             """Whether the problem is time-dependent."""

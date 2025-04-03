@@ -565,10 +565,6 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         characteristic.set_name("characteristic_function_of_b_p")
         return characteristic
 
-    def _is_nonlinear_problem(self) -> bool:
-        """The contact mechanics problem is nonlinear."""
-        return True
-
 
 class ContactMechanics(
     ContactMechanicsEquations,

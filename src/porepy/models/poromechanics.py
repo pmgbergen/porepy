@@ -150,10 +150,6 @@ class SolutionStrategyPoromechanics(
                 scalar_vector_mappings
             )
 
-    def _is_nonlinear_problem(self) -> bool:
-        """The coupled problem is nonlinear."""
-        return True
-
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""
         # Nonlinear discretizations for the fluid mass balance subproblem. The momentum
