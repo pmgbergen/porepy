@@ -231,6 +231,7 @@ class LocalElimination(EquationMixin):
         func: Callable[..., tuple[np.ndarray, np.ndarray]],
         domains: Sequence[pp.Grid | pp.MortarGrid | pp.BoundaryGrid],
         equations_per_grid_entity: None | dict[GridEntity, int],
+        is_nonlinear: bool,
     ) -> None:
         """Method to add a secondary equation eliminating a variable by some
         constitutive law depending on *other* variables.
@@ -279,6 +280,8 @@ class LocalElimination(EquationMixin):
 
                 Argument for when adding above equation to the equation system and
                 creating a surrogate factory.
+            
+            is_nonlinear: A flag used to decide whether the eliminating equation is non-linear
 
         """
         if equations_per_grid_entity is None:
@@ -312,6 +315,7 @@ class LocalElimination(EquationMixin):
             local_equ,
             cast(list[pp.Grid] | list[pp.MortarGrid], non_boundaries),
             equations_per_grid_entity,
+            is_nonlinear
         )
 
         self._add_local_elimination(

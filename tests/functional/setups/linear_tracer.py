@@ -693,6 +693,7 @@ class ModelClosure_3p(pp.LocalElimination):
                     # framework handle the IC/BC using the function.
                     self.mdg.subdomains() + self.mdg.boundaries(),
                     {"cells": 1},
+                    is_nonlinear=False
                 )
 
     def _set_enthalpy_closure(self) -> None:
