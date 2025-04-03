@@ -63,9 +63,11 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         matrix_eq = self.momentum_balance_equation(matrix_subdomains)
         intf_eq = self.interface_force_balance_equation(interfaces)
         self.equation_system.set_equation(
-            matrix_eq, matrix_subdomains, {"cells": self.nd}
+            matrix_eq, matrix_subdomains, {"cells": self.nd}, is_nonlinear=False
         )
-        self.equation_system.set_equation(intf_eq, interfaces, {"cells": self.nd})
+        self.equation_system.set_equation(
+            intf_eq, interfaces, {"cells": self.nd}, is_nonlinear=True
+        )
 
     def momentum_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Momentum balance equation in the matrix.

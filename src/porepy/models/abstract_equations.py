@@ -38,13 +38,13 @@ class EquationMixin(pp.PorePyModel):
             class Equation1(EquationMixin):
 
                 def set_equations(self):
-                    super().set_equation()
+                    super().set_equations()
                     # proceed to set equation 1
 
             class Equation2(EquationMixin):
 
                 def set_equations(self):
-                    super().set_equation()
+                    super().set_equations()
                     # proceed to set equation 2
 
             class ModelEquations(Equation1, Equation2):

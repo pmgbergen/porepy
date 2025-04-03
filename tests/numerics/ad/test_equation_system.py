@@ -484,11 +484,13 @@ class EquationSystemMockModel:
             self.eq_all_subdomains,
             grids=subdomains,
             equations_per_grid_entity=dof_all_subdomains,
+            is_nonlinear=True,
         )
         equation_system.set_equation(
             self.eq_single_subdomain,
             grids=[sd_top],
             equations_per_grid_entity=dof_single_subdomain,
+            is_nonlinear=True,
         )
 
         # Define equations on the interfaces
@@ -506,11 +508,13 @@ class EquationSystemMockModel:
             self.eq_all_interfaces,
             grids=interfaces,
             equations_per_grid_entity=dof_all_interfaces,
+            is_nonlinear=True,
         )
         equation_system.set_equation(
             self.eq_single_interface,
             grids=[intf_top],
             equations_per_grid_entity=dof_single_interface,
+            is_nonlinear=True,
         )
         self.eq_inds = np.array(
             [
@@ -527,7 +531,10 @@ class EquationSystemMockModel:
             self.eq_combined = self.sd_top_variable * (proj @ self.sd_variable)
             self.eq_combined.set_name("eq_combined")
             equation_system.set_equation(
-                self.eq_combined, grids=[sd_top], equations_per_grid_entity=dof_combined
+                self.eq_combined,
+                grids=[sd_top],
+                equations_per_grid_entity=dof_combined,
+                is_nonlinear=True,
             )
             self.eq_inds = np.append(self.eq_inds, mdg.subdomains()[0].num_cells)
 
@@ -926,6 +933,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
             model.eq_all_subdomains,
             grids=model.subdomains,
             equations_per_grid_entity=dof_info_subdomain,
+            is_nonlinear=True,
         )
 
     # Now remove all equations.
@@ -942,6 +950,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         model.eq_single_subdomain,
         grids=[model.sd_top],
         equations_per_grid_entity=dof_info_subdomain,
+        is_nonlinear=True,
     )
 
     # Check that the equation size has been set correctly
@@ -956,6 +965,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         model.eq_all_subdomains,
         grids=model.subdomains,
         equations_per_grid_entity=dof_info_subdomain,
+        is_nonlinear=True,
     )
     offset = 0
     for sd in model.subdomains:
@@ -973,6 +983,7 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         model.eq_all_interfaces,
         grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_info_interface,
+        is_nonlinear=True,
     )
     offset = 0
     for intf in model.interfaces:

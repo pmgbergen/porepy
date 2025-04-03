@@ -702,7 +702,9 @@ class ModelClosure_3p(pp.LocalElimination):
         subdomains = self.mdg.subdomains()
         op = self.enthalpy(subdomains) - self.fluid.specific_enthalpy(subdomains)
         op.set_name("enthalpy_closure")
-        self.equation_system.set_equation(op, subdomains, {"cells": 1})
+        self.equation_system.set_equation(
+            op, subdomains, {"cells": 1}, is_nonlinear=False
+        )
 
     def _set_phase_fraction_closure(self) -> None:
         """Relates the phase fractions to the saturation variables y=s."""
@@ -711,7 +713,9 @@ class ModelClosure_3p(pp.LocalElimination):
             if phase != self.fluid.reference_phase:
                 op = phase.fraction(subdomains) - phase.saturation(subdomains)
                 op.set_name(f"phase_fraction_relation_{phase.name}")
-                self.equation_system.set_equation(op, subdomains, {"cells": 1})
+                self.equation_system.set_equation(
+                    op, subdomains, {"cells": 1}, is_nonlinear=False
+                )
 
     def _set_partial_fraction_closure(self) -> None:
         """Closes the system by introducing local mass balance equations for the
@@ -737,7 +741,9 @@ class ModelClosure_3p(pp.LocalElimination):
             ]
         )
         op.set_name(f"local_mass_conservation_{tracer.name}")
-        self.equation_system.set_equation(op, subdomains, {"cells": 1})
+        self.equation_system.set_equation(
+            op, subdomains, {"cells": 1}, is_nonlinear=False
+        )
 
         indpendent_phases = [p for p in self.fluid.phases if p != rphase]
         assert len(indpendent_phases) == 2
@@ -748,13 +754,17 @@ class ModelClosure_3p(pp.LocalElimination):
             0
         ].partial_fraction_of[tracer](subdomains)
         op.set_name(f"K_value_{tracer.name}_{indpendent_phases[0].name}")
-        self.equation_system.set_equation(op, subdomains, {"cells": 1})
+        self.equation_system.set_equation(
+            op, subdomains, {"cells": 1}, is_nonlinear=False
+        )
 
         op = rphase.partial_fraction_of[tracer](subdomains) - indpendent_phases[
             1
         ].partial_fraction_of[tracer](subdomains)
         op.set_name(f"K_value_{tracer.name}_{indpendent_phases[1].name}")
-        self.equation_system.set_equation(op, subdomains, {"cells": 1})
+        self.equation_system.set_equation(
+            op, subdomains, {"cells": 1}, is_nonlinear=False
+        )
 
     def update_all_boundary_conditions(self):
         """Partial fractions for the tracer must be provided on the boundary.
