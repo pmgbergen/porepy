@@ -168,6 +168,9 @@ class EquationSystem:
 
         """
 
+        self._equation_is_nonlinear: dict[str, bool] = dict()
+        """TODO"""
+
         self._variables: dict[int, Variable] = dict()
         """Dictionary mapping variable IDs to the atomic variables created and managed
         by this instance.
@@ -1068,6 +1071,7 @@ class EquationSystem:
         equation: Operator,
         grids: DomainList,
         equations_per_grid_entity: dict[GridEntity, int],
+        is_nonlinear: bool,
     ) -> None:
         """Sets an equation using the passed operator and uses its name as an
         identifier.
@@ -1094,6 +1098,7 @@ class EquationSystem:
                 operators are able to provide information on their image space.
                 The dictionary must contain the number of equations per grid entity
                 (cells, faces, nodes) for the operator.
+            is_nonlinear: TODO
 
         Raises:
             ValueError: If the equation operator has a name already assigned to a
@@ -1129,6 +1134,8 @@ class EquationSystem:
             self._equation_image_size_info.update({name: equations_per_grid_entity})
             # Store the equation itself.
             self._equations.update({name: equation})
+            # TODO
+            self._equation_is_nonlinear.update({name: is_nonlinear})
             return
 
         # We require that equations are defined either on a set of subdomains, or a set
@@ -1196,6 +1203,8 @@ class EquationSystem:
         self._equation_image_size_info.update({name: equations_per_grid_entity})
         # Store the equation itself.
         self._equations.update({name: equation})
+        # TODO
+        self._equation_is_nonlinear.update({name: is_nonlinear})
 
     def remove_equation(self, name: str) -> Operator | None:
         """Removes a previously set equation and all related information.
