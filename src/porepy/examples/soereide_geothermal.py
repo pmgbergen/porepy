@@ -35,6 +35,8 @@ import porepy as pp
 from porepy.applications.test_utils.models import create_local_model_class
 from porepy.fracs.wells_3d import _add_interface
 
+
+
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.DEBUG)
 
@@ -52,7 +54,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 # region Mathematical model configuration for flow & transport
 
 fractional_flow: bool = False
-use_well_model: bool = True
+use_well_model: bool = False
 equilibrium_type: str = "unified-p-h"
 
 
@@ -96,8 +98,8 @@ class _FlowConfiguration(pp.PorePyModel):
     }
 
     # Coordinates of injection and production wells in meters
-    _INJECTION_POINTS: list[np.ndarray] = [np.array([10.0, 10.0])]
-    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([90.0, 10.0])]
+    _INJECTION_POINTS: list[np.ndarray] = [np.array([20.0, 10.0])]
+    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([80.0, 10.0])]
 
 
 # endregion
@@ -187,6 +189,22 @@ class SolutionStrategy(pp.PorePyModel):
                     iterate_index=0,
                 )
 
+        for n, e  in self.equation_system.equations.items():
+            res = np.linalg.norm(self.equation_system.evaluate(e))
+            print(f'Res {n}: {res}')
+
+        for sd in self.mdg.subdomains(dim=0):
+            p = self.equation_system.evaluate(self.pressure([sd]))
+            T = self.equation_system.evaluate(self.temperature([sd]))
+            h = self.equation_system.evaluate(self.enthalpy([sd]))
+            if 'injection_well' in sd.tags:
+                s = 'injection'
+                i = sd.tags['injection_well']
+            elif 'production_well' in sd.tags:
+                s = 'production'
+                i = sd.tags['production_well']
+            print(f"{s} well {i}:\n\tp={p}\n\tT={T}\n\th={h}")
+
     def after_nonlinear_failure(self):
         self.exporter.write_pvd()
         super().after_nonlinear_failure()  # type:ignore
@@ -239,7 +257,7 @@ class SolutionStrategy(pp.PorePyModel):
         fluid_state: pp.compositional.FluidProperties,
         success: np.ndarray,
     ) -> pp.compositional.FluidProperties:
-        """A post-processing where the flash is again attempted where not succesful.
+        """A post-processing where the flash is again attempted where not successful.
 
         1. Where not successful, it re-attempts the flash from scratch, with
            initialization procedure.
@@ -543,7 +561,7 @@ class WellEquations2D(_FlowConfiguration):
         """Introduced the usual fluid mass balance equations but only on grids which
         are not production wells."""
         _, no_production_wells = self._filter_wells(subdomains, "production")
-        return super().mass_balance_equations(no_production_wells)  # type:ignore[misc]
+        return super().mass_balance_equation(no_production_wells)  # type:ignore[misc]
 
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Introduced the usual fluid mass balance equations but only on grids which
@@ -716,6 +734,25 @@ class InitialConditions(_FlowConfiguration):
         return np.ones(sd.num_cells) * self._z_INIT[component.name]
 
 
+class BoundaryConditionsNoFlux(pp.PorePyModel):
+    """Declares all faces to be Neumann and all boundary fluxes to be zero."""
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd)
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd)
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd)
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd)
+
+    def bc_type_flash(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd)
+
+
 class BoundaryConditions(_FlowConfiguration):
     """Boundary conditions defining a ``left to right`` flow in the matrix (2D)
 
@@ -800,15 +837,19 @@ class BoundaryConditions(_FlowConfiguration):
         else:
             return pp.BoundaryCondition(sd)
 
-    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self.bc_type_darcy_flux(sd)
         # if sd.dim == 2:
         #     return pp.BoundaryCondition(sd, self._inlet_faces(sd), "dir")
         # else:
         #     return pp.BoundaryCondition(sd)
 
-    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self.bc_type_enthalpy_flux(sd)
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_fluid_flux(sd)
+
+    def bc_type_flash(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Flag the inflow and outflow faces for the flash."""
+        return self.bc_type_fourier_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sd = boundary_grid.parent
@@ -894,7 +935,7 @@ model_class = create_local_model_class(
 if use_well_model:
     model_class = create_local_model_class(
         model_class,
-        [PointWells2D, WellEquations2D],  # type:ignore[type-abstract]
+        [PointWells2D, WellEquations2D, BoundaryConditionsNoFlux],  # type:ignore[type-abstract]
     )
 else:
     model_class = create_local_model_class(
@@ -936,7 +977,7 @@ flash_params = {
 
 time_manager = pp.TimeManager(
     schedule=times_to_export,
-    dt_init=0.9 * pp.DAY * t_scale,
+    dt_init=0.5 * pp.DAY * t_scale,
     dt_min_max=(pp.MINUTE * t_scale, 30 * pp.DAY),
     iter_max=max_iterations,
     iter_optimal_range=(5, 9),
@@ -970,7 +1011,7 @@ params = {
     "material_constants": material_constants,
     "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 5e-1,
+        "cell_size": 20/4, #5e-1,
         "cell_size_fracture": 5e-1,
     },
     "time_manager": time_manager,
@@ -994,6 +1035,12 @@ compile_time += prep_sim_time
 
 model.primary_equations = model.get_primary_equations_cf()
 model.primary_variables = model.get_primary_variables_cf()
+
+sd = model.mdg.subdomains()[0]
+fd = model.darcy_flux([sd])
+ff = model.fluid_flux([sd])
+fc = model.component_flux(model.fluid.components[1], [sd])
+sides = model.domain_boundary_sides(sd)
 
 t_0 = time.time()
 pp.run_time_dependent_model(model, params)

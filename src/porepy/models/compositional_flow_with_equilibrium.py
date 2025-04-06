@@ -194,36 +194,126 @@ class BoundaryConditionsFlash(cf.BoundaryConditionsPhaseProperties):
         assert bg is not None, "Boundary grid of matrix not found."
         assert bg.num_cells > 0, "Matrix boundary grid has no cells."
 
-        p = self.bc_values_pressure(bg)
-        T = self.bc_values_temperature(bg)
-        # The bc_values method is only called for independent components.
-        feed = [
-            self.bc_values_overall_fraction(comp, bg)
-            for comp in self.fluid.components
-            if self.has_independent_fraction(comp)
+        # Boundary faces flagged as dir are used for bc flash.
+        faces_for_flash = self.bc_type_flash(sd).is_dir[
+            self.domain_boundary_sides(sd).all_bf
         ]
-        z_r = 1.0 - pp.compositional.safe_sum(feed)
-        feed = (
-            feed[: self.fluid.reference_component_index]
-            + [z_r]
-            + feed[self.fluid.reference_component_index :]
+
+        # Define by default trivial values so that the system can be evaluated.
+        bg_state = self._default_boundary_state(bg)
+
+        # Perform flash on tagged faces and prolong solution to whole boundary.
+        if np.any(faces_for_flash):
+            p = self.bc_values_pressure(bg)[faces_for_flash]
+            T = self.bc_values_temperature(bg)[faces_for_flash]
+            # The bc_values method is only called for independent components.
+            feed = [
+                self.bc_values_overall_fraction(comp, bg)[faces_for_flash]
+                for comp in self.fluid.components
+                if self.has_independent_fraction(comp)
+            ]
+            z_r = 1.0 - pp.compositional.safe_sum(feed)
+            feed = (
+                feed[: self.fluid.reference_component_index]
+                + [z_r]
+                + feed[self.fluid.reference_component_index :]
+            )
+
+            # Performing flash, asserting everything is successful.
+            logger.info(
+                f"Computing flash on boundary {bg.id} at t={self.time_manager.time}."
+            )
+            state, success, _ = self.flash.flash(
+                z=feed,
+                p=p,
+                T=T,
+                params=self.params.get("flash_params", None),
+            )
+
+            if not np.all(success == 0):
+                raise ValueError("Boundary flash did not succeed.")
+
+            # Prolong solution.
+            bg_state.p[faces_for_flash] = state.p
+            bg_state.T[faces_for_flash] = state.T
+            bg_state.h[faces_for_flash] = state.h
+            bg_state.rho[faces_for_flash] = state.rho
+            bg_state.y[:, faces_for_flash] = state.y
+            bg_state.sat[:, faces_for_flash] = state.sat
+
+            for j in range(self.fluid.num_phases):
+                bg_state.phases[j].h[faces_for_flash] = state.phases[j].h
+                bg_state.phases[j].rho[faces_for_flash] = state.phases[j].rho
+                bg_state.phases[j].mu[faces_for_flash] = state.phases[j].mu
+                bg_state.phases[j].kappa[faces_for_flash] = state.phases[j].kappa
+                bg_state.phases[j].phis[:, faces_for_flash] = state.phases[j].phis
+                bg_state.phases[j].x[:, faces_for_flash] = state.phases[j].x
+
+        self.boundary_flash_results[bg] = bg_state
+
+    def bc_type_flash(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Method for defining boundary faces on which to perform the flash for boundary
+        conditions.
+
+        Faces on the boundary tagged as ``'dir'`` are used to evaluate the target state
+        and perform the flash.
+
+        Note:
+            The user must ensure that propper pressure, temperature and overall fraction
+            values are defined on respectie faces.
+
+        Parameters:
+            sd: A subdomain in the md-grid.
+
+        Returns:
+            A boundary conditions object. By default fall faces are tagged as ``'dir'``
+            and the flash is performed everywhere.
+
+        """
+        # Define boundary faces.
+        boundary_faces = self.domain_boundary_sides(sd).all_bf
+        # Define boundary condition on all boundary faces.
+        return pp.BoundaryCondition(sd, boundary_faces, "dir")
+
+    def _default_boundary_state(
+        self, bg: pp.BoundaryGrid, eps: float = 1e-10
+    ) -> pp.compositional.FluidProperties:
+        """Returns a fluid property instance with trivial values for a given boundary.
+
+        Adds a small ``eps`` to viscosity and partial fractions to avoid a division by
+        zero when evaluating mobility terms, and the propagation of nan into the system.
+
+        These ``eps`` are cancled out by zero density values.
+
+        Parameters:
+            bg: A Boundary grid.
+            eps: ``default=1e-10``
+
+                Close-to-zero value for viscosity and partial fractions.
+
+        Returns:
+            An almost trivial fluid property structure.
+
+        """
+        ncomp = len(self.fluid.components)
+        nphase = len(self.fluid.phases)
+        phase_states = [phase.state for phase in self.fluid.phases]
+        n = bg.num_cells
+
+        bg_state = pp.compositional.initialize_fluid_properties(
+            n,
+            ncomp,
+            nphase,
+            phase_states,
+            with_derivatives=False,  # No diffs on bg.
         )
 
-        # Performing flash, asserting everything is successful, and storing results.
-        logger.info(
-            f"Computing equilibrium on boundary {bg.id} at t={self.time_manager.time}."
-        )
-        boundary_state, success, _ = self.flash.flash(
-            z=feed,
-            p=p,
-            T=T,
-            params=self.params.get("flash_params", None),
-        )
+        for j in range(nphase):
+            bg_state.phases[j].mu = np.ones(n) * eps
+            bg_state.phases[j].dmu = np.ones_like(bg_state.phases[j].dmu) * eps
+            bg_state.phases[j].x = np.ones((ncomp, n)) * eps
 
-        if not np.all(success == 0):
-            raise ValueError("Boundary flash did not succeed.")
-
-        self.boundary_flash_results[bg] = boundary_state
+        return bg_state
 
 
 class BoundaryConditionsCFLE(
@@ -295,20 +385,21 @@ class BoundaryConditionsCFLE(
 
         nt = self.time_step_indices.size
 
-        assert isinstance(phase.density, pp.ad.SurrogateFactory)
-        assert isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory)
-        assert isinstance(phase.viscosity, pp.ad.SurrogateFactory)
-        assert isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory)
-
         for bg, fluid_props in self.boundary_flash_results.items():
             j = self.fluid.phases.index(phase)
             phase_props = fluid_props.phases[j]
-            phase.density.update_boundary_values(phase_props.rho, bg, depth=nt)
-            phase.specific_enthalpy.update_boundary_values(phase_props.h, bg, depth=nt)
-            phase.viscosity.update_boundary_values(phase_props.mu, bg, depth=nt)
-            phase.thermal_conductivity.update_boundary_values(
-                phase_props.kappa, bg, depth=nt
-            )
+            if isinstance(phase.density, pp.ad.SurrogateFactory):
+                phase.density.update_boundary_values(phase_props.rho, bg, depth=nt)
+            if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                phase.specific_enthalpy.update_boundary_values(
+                    phase_props.h, bg, depth=nt
+                )
+            if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+                phase.viscosity.update_boundary_values(phase_props.mu, bg, depth=nt)
+            if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
+                phase.thermal_conductivity.update_boundary_values(
+                    phase_props.kappa, bg, depth=nt
+                )
 
     def bc_values_saturation(self, phase: pp.Phase, bg: pp.BoundaryGrid) -> np.ndarray:
         """Boundary condition for saturation values of a ``phase``.
@@ -544,7 +635,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                 + feed[self.fluid.reference_component_index :]
             )
 
-            # computing initial equilibrium
+            # Computing initial equilibrium.
             state, success, _ = self.flash.flash(
                 feed, p=p, T=T, params=self.params.get("flash_params", None)
             )
@@ -561,7 +652,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                 iterate_index=0,
             )
 
-            # setting initial values for all fractional variables and phase properties
+            # Setting initial values for all fractional variables and phase properties.
             for j, phase in enumerate(self.fluid.phases):
                 if self.has_independent_fraction(phase):
                     self.equation_system.set_variable_values(
@@ -592,7 +683,7 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                             iterate_index=0,
                         )
 
-                # Update values and derivatives for current iterate
+                # Update values and derivatives for current iterate.
                 # Extend derivatives from partial to extended fractions, in the case of
                 # unified equilibrium formulations.
                 cf.update_phase_properties(
@@ -604,27 +695,26 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                     use_extended_derivatives=has_unified_equilibrium,
                 )
 
-                # Appeasing mypy
-                assert isinstance(phase.density, pp.ad.SurrogateFactory)
-                assert isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory)
-                assert isinstance(phase.viscosity, pp.ad.SurrogateFactory)
-                assert isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory)
-                # progress iterates values to all indices
+                # Progress iterates values to all indices.
                 for _ in self.iterate_indices:
-                    phase.density.progress_iterate_values_on_grid(
-                        state.phases[j].rho, grid, depth=ni
-                    )
-                    phase.specific_enthalpy.progress_iterate_values_on_grid(
-                        state.phases[j].h, grid, depth=ni
-                    )
-                    phase.viscosity.progress_iterate_values_on_grid(
-                        state.phases[j].mu, grid, depth=ni
-                    )
-                    phase.thermal_conductivity.progress_iterate_values_on_grid(
-                        state.phases[j].kappa, grid, depth=ni
-                    )
+                    if isinstance(phase.density, pp.ad.SurrogateFactory):
+                        phase.density.progress_iterate_values_on_grid(
+                            state.phases[j].rho, grid, depth=ni
+                        )
+                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                        phase.specific_enthalpy.progress_iterate_values_on_grid(
+                            state.phases[j].h, grid, depth=ni
+                        )
+                    if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
+                        phase.viscosity.progress_iterate_values_on_grid(
+                            state.phases[j].mu, grid, depth=ni
+                        )
+                    if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
+                        phase.thermal_conductivity.progress_iterate_values_on_grid(
+                            state.phases[j].kappa, grid, depth=ni
+                        )
 
-                # fugacities are not covered by update_phase_properties
+                # Fugacities are not covered by update_phase_properties.
                 dphis = (
                     state.phases[j].dphis_ext
                     if has_unified_equilibrium
@@ -632,17 +722,21 @@ class InitialConditionsCFLE(cf.InitialConditionsCF):
                 )
                 for k, comp in enumerate(phase.components):
                     phi = phase.fugacity_coefficient_of[comp]
-                    assert isinstance(phi, pp.ad.SurrogateFactory)
-                    for _ in self.iterate_indices:
-                        phi.progress_iterate_values_on_grid(
-                            state.phases[j].phis[k], grid, depth=ni
-                        )
-                    phi.set_derivatives_on_grid(dphis[k], grid)
+                    if isinstance(phi, pp.ad.SurrogateFactory):
+                        for _ in self.iterate_indices:
+                            phi.progress_iterate_values_on_grid(
+                                state.phases[j].phis[k], grid, depth=ni
+                            )
+                        phi.set_derivatives_on_grid(dphis[k], grid)
 
-                # progress property values in time on subdomain
+                # Progress property values in time on subdomain.
                 for _ in self.time_step_indices:
-                    phase.density.progress_values_in_time([grid], depth=nt)
-                    phase.specific_enthalpy.progress_values_in_time([grid], depth=nt)
+                    if isinstance(phase.density, pp.ad.SurrogateFactory):
+                        phase.density.progress_values_in_time([grid], depth=nt)
+                    if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
+                        phase.specific_enthalpy.progress_values_in_time(
+                            [grid], depth=nt
+                        )
 
 
 class SolutionStrategyFlash(pp.PorePyModel):
@@ -906,7 +1000,7 @@ class SolutionStrategyFlash(pp.PorePyModel):
                 Note that if None, the flash computes the initial guess itself.
 
         Returns:
-            The equilibriated state of the fluid and an indicator where the flash was
+            The equilibrated state of the fluid and an indicator where the flash was
             successful (or not).
 
             For more information on the `success`-indicators, see respective flash
@@ -958,7 +1052,7 @@ class SolutionStrategyFlash(pp.PorePyModel):
             )
         else:
             raise NotImplementedError(
-                "Attempting to equilibriate fluid with uncovered equilibrium type"
+                "Attempting to equilibrate fluid with uncovered equilibrium type"
                 + f" {equilibrium_type}."
             )
 

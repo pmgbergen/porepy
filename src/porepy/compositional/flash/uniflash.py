@@ -621,9 +621,9 @@ class CompiledUnifiedFlash(Flash):
         )
         logger.debug(
             f"Success: {np.sum(success == 0)} / {NF};"
-            + f" Max iter reached: {np.sum(success == 1)};"
+            + f" Max iter: {np.sum(success == 1)};"
             + f" Diverged: {np.sum(success == 2)};"
-            + f" Other failures: {np.sum(success > 2)};"
+            + f" Failures: {np.sum(success > 2)};"
             + f" Iterations: {num_iter.max()} (max) "
             + f"{np.ceil(np.mean(num_iter)).astype(int)} (avg);"
         )
