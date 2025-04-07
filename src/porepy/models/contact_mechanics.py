@@ -74,7 +74,10 @@ class ContactMechanicsEquations(pp.BalanceEquation):
             fracture_eq_normal, fracture_subdomains, {"cells": 1}, is_nonlinear=True
         )
         self.equation_system.set_equation(
-            fracture_eq_tangential, fracture_subdomains, {"cells": self.nd - 1}, is_nonlinear=True
+            fracture_eq_tangential,
+            fracture_subdomains,
+            {"cells": self.nd - 1},
+            is_nonlinear=True,
         )
 
     def normal_fracture_deformation_equation(

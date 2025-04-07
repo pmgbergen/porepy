@@ -126,7 +126,7 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
     # them in a new class.
 
     # Identify the geometry class
-    geometry: Any = None
+    geometry: type
     if dim == 2:
         geometry = RectangularDomainThreeFractures
     elif dim == 3:
@@ -135,7 +135,7 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
         raise ValueError(f"Unknown dimension {dim}")
 
     # Identify the physics class
-    model_class: Any = None
+    model_class: type
     if model_type == "mass_balance":
         model_class = pp.SinglePhaseFlow
     elif model_type == "momentum_balance":
@@ -155,7 +155,7 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
         pass
 
     # Create an instance of the combined class
-    model = cast(pp.PorePyModel, Model(params))
+    model: pp.PorePyModel = Model(params)
 
     # Prepare the simulation
     # (create grids, variables, equations, discretize, etc.)

@@ -439,3 +439,23 @@ def test_check_convergence(
         nonlinear_increment, residual, np.zeros(1), nl_params
     )
     assert (converged, diverged) == expected
+
+
+@pytest.mark.parametrize(
+        'params', [
+            dict(model_name='mass_balance', num_fracs=0, is_nonlinear=True),
+            dict(model_name='mass_balance', num_fracs=1, is_nonlinear=True),
+            dict(model_name='momentum_balance', num_fracs=0, is_nonlinear=False),
+            dict(model_name='momentum_balance', num_fracs=1, is_nonlinear=True),
+            dict(model_name='mass_and_energy_balance', num_fracs=0, is_nonlinear=True),
+            dict(model_name='poromechanics', num_fracs=0, is_nonlinear=True),
+            dict(model_name='thermoporomechanics', num_fracs=0, is_nonlinear=True),
+        ]
+)
+def test_linear_or_nonlinear_model(params: dict):
+    model_name: str = params["model_name"]
+    num_fracs: int = params["num_fracs"]
+    is_nonlinear: bool = params["is_nonlinear"]
+
+    model = models.model(model_type=model_name, dim=2, num_fracs=num_fracs)
+    assert model._is_nonlinear_problem() == is_nonlinear

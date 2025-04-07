@@ -698,7 +698,21 @@ class SolutionStrategy(pp.PorePyModel):
             bool: True if the problem is nonlinear, False otherwise.
 
         """
-        return any(self.equation_system.equation_is_nonlinear.values())
+        # Some equations may be defined but have empty definition domains. We filter
+        # them out, as they should not contribute to the system nonlinearity.
+        equation_image_spaces = (
+            self.equation_system._equation_image_space_composition.items()
+        )
+        nonempty_definition_equations = [
+            eq_name
+            for eq_name, image_space in equation_image_spaces
+            if len(image_space) > 0
+        ]
+        # Check if any of the equations with nonempty definition domains is nonlinear.
+        return any(
+            self.equation_system.equation_is_nonlinear[eq]
+            for eq in nonempty_definition_equations
+        )
 
     def _is_time_dependent(self) -> bool:
         """Specifies whether the Model problem is time-dependent.
