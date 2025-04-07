@@ -277,11 +277,9 @@ class LocalElimination(EquationMixin):
                 defined and on which the equation should be introduces.
                 Used to call ``independent_quantity`` and ``dependencies``.
             equations_per_grid_entity: ``default={'cells':1}``
-
                 Argument for when adding above equation to the equation system and
                 creating a surrogate factory.
-            
-            is_nonlinear: A flag used to decide whether the eliminating equation is non-linear
+            is_nonlinear: Specifies whether the eliminating equation is non-linear.
 
         """
         if equations_per_grid_entity is None:
@@ -315,7 +313,7 @@ class LocalElimination(EquationMixin):
             local_equ,
             cast(list[pp.Grid] | list[pp.MortarGrid], non_boundaries),
             equations_per_grid_entity,
-            is_nonlinear
+            is_nonlinear,
         )
 
         self._add_local_elimination(
