@@ -442,17 +442,21 @@ def test_check_convergence(
 
 
 @pytest.mark.parametrize(
-        'params', [
-            dict(model_name='mass_balance', num_fracs=0, is_nonlinear=True),
-            dict(model_name='mass_balance', num_fracs=1, is_nonlinear=True),
-            dict(model_name='momentum_balance', num_fracs=0, is_nonlinear=False),
-            dict(model_name='momentum_balance', num_fracs=1, is_nonlinear=True),
-            dict(model_name='mass_and_energy_balance', num_fracs=0, is_nonlinear=True),
-            dict(model_name='poromechanics', num_fracs=0, is_nonlinear=True),
-            dict(model_name='thermoporomechanics', num_fracs=0, is_nonlinear=True),
-        ]
+    "params",
+    [
+        # Mass balance must be nonlinear, no matter with or without fractres.
+        dict(model_name="mass_balance", num_fracs=0, is_nonlinear=True),
+        dict(model_name="mass_balance", num_fracs=1, is_nonlinear=True),
+        # Momentum balance without fractures is linear.
+        dict(model_name="momentum_balance", num_fracs=0, is_nonlinear=False),
+        dict(model_name="momentum_balance", num_fracs=1, is_nonlinear=True),
+        dict(model_name="mass_and_energy_balance", num_fracs=0, is_nonlinear=True),
+        dict(model_name="poromechanics", num_fracs=0, is_nonlinear=True),
+        dict(model_name="thermoporomechanics", num_fracs=0, is_nonlinear=True),
+    ],
 )
 def test_linear_or_nonlinear_model(params: dict):
+    """Tests that the base models are properly tagged as linear or nonlinear."""
     model_name: str = params["model_name"]
     num_fracs: int = params["num_fracs"]
     is_nonlinear: bool = params["is_nonlinear"]

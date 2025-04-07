@@ -1518,3 +1518,30 @@ def test_schur_complement(eq_var_to_exclude):
     x_reconstructed = equation_system.expand_schur_complement_solution(x_schur)
 
     assert np.allclose(x_reconstructed, x_expected)
+
+
+@pytest.mark.parametrize("is_nonlinear", [True, False])
+def test_linear_or_nonlinear_equation(is_nonlinear: bool):
+    """Tests that the bookkeeping of linear/nonlinear equations works correctly.
+
+    Note that it does not really check if the equation is really linear/nonlinear, only
+    relies on what the user passed. So if this once changes, this test will fail.
+
+    """
+    model = EquationSystemMockModel()
+    subdomains = model.mdg.subdomains()
+    equation_system = model.equation_system
+
+    var = equation_system.create_variables(
+        "tmp_variable", dof_info={"cells": 1}, subdomains=subdomains
+    )
+    eq = var * 5 - 10
+    eq_name = "tmp_equation"
+    eq.set_name(eq_name)
+    equation_system.set_equation(
+        eq,
+        grids=subdomains,
+        equations_per_grid_entity={"cells": 1},
+        is_nonlinear=is_nonlinear,
+    )
+    assert equation_system.equation_is_nonlinear[eq_name] == is_nonlinear
