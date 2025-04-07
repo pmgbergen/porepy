@@ -663,6 +663,10 @@ class TerzaghiSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         if self.params.get("plot_results", False):
             self.plot_results()
 
+    def _is_nonlinear_problem(self) -> bool:
+        """The problem is linear."""
+        return False
+
 
 class TerzaghiModel(  # type: ignore[misc]
     PseudoOneDimensionalColumn,
@@ -692,6 +696,9 @@ class TerzaghiModel(  # type: ignore[misc]
           vertical column. Default is 20.
         - units (pp.Units): Object containing scaling of base magnitudes. No scaling
           applied by default.
+
+        The model is set to be linear, make sure to change this behavior if needed when
+        subclassing it.
 
         Accessed material constants:
 

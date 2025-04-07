@@ -1395,6 +1395,10 @@ class MandelSolutionStrategy(poromechanics.SolutionStrategyPoromechanics):
         if self.params.get("plot_results", False):
             self.plot_results()
 
+    def _is_nonlinear_problem(self) -> bool:
+        """The problem is linear."""
+        return False
+
 
 class MandelModel(  # type: ignore[misc]
     MandelGeometry,
@@ -1425,6 +1429,9 @@ class MandelModel(  # type: ignore[misc]
           2.0 * length_scaling.
         - units (pp.Units): Object containing scaling of base magnitudes. No scaling
           applied by default.
+
+    The model is set to be linear, make sure to change this behavior if needed when
+    subclassing it.
 
     Accessed material constants:
 
