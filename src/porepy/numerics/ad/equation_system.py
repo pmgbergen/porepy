@@ -169,7 +169,8 @@ class EquationSystem:
         """
 
         self._equation_is_nonlinear: dict[str, bool] = dict()
-        """TODO"""
+        """Contains a flag for every equation name (key) to indicate that the equation
+        is nonlinear."""
 
         self._variables: dict[int, Variable] = dict()
         """Dictionary mapping variable IDs to the atomic variables created and managed
@@ -321,7 +322,10 @@ class EquationSystem:
 
     @property
     def equation_is_nonlinear(self) -> dict[str, bool]:
-        """TODO"""
+        """Contains a flag for every equation name (key) to indicate that the equation
+        is nonlinear.
+
+        """
         return self._equation_is_nonlinear.copy()
 
     ### Variable management ------------------------------------------------------------
@@ -1103,7 +1107,8 @@ class EquationSystem:
                 operators are able to provide information on their image space.
                 The dictionary must contain the number of equations per grid entity
                 (cells, faces, nodes) for the operator.
-            is_nonlinear: TODO
+            is_nonlinear: Contains a flag for every equation name (key) to indicate that
+                the equation is nonlinear.
 
         Raises:
             ValueError: If the equation operator has a name already assigned to a
@@ -1139,7 +1144,7 @@ class EquationSystem:
             self._equation_image_size_info.update({name: equations_per_grid_entity})
             # Store the equation itself.
             self._equations.update({name: equation})
-            # TODO
+            # Store the linear/nonlinear flag.
             self._equation_is_nonlinear.update({name: is_nonlinear})
             return
 
@@ -1208,7 +1213,7 @@ class EquationSystem:
         self._equation_image_size_info.update({name: equations_per_grid_entity})
         # Store the equation itself.
         self._equations.update({name: equation})
-        # TODO
+        # Store the linear/nonlinear flag.
         self._equation_is_nonlinear.update({name: is_nonlinear})
 
     def remove_equation(self, name: str) -> Operator | None:
