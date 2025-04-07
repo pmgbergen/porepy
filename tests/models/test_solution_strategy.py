@@ -452,7 +452,9 @@ def test_check_convergence(
         dict(model_name="momentum_balance", num_fracs=1, is_nonlinear=True),
         dict(model_name="mass_and_energy_balance", num_fracs=0, is_nonlinear=True),
         dict(model_name="poromechanics", num_fracs=0, is_nonlinear=True),
+        # There was a bug here once #1350.
         dict(model_name="thermoporomechanics", num_fracs=0, is_nonlinear=True),
+        dict(model_name="thermoporomechanics", num_fracs=1, is_nonlinear=True),
     ],
 )
 def test_linear_or_nonlinear_model(params: dict):
