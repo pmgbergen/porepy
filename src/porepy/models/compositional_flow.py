@@ -203,7 +203,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
     p_elim = model._is_reference_phase_eliminated()
     c_elim = model._is_reference_component_eliminated()
     is_ff = is_fractional_flow(model)
-    et = compositional.get_equilibrium_type(model)
+    et = compositional.get_local_equilibrium_condition(model)
     schur = model.params.get("reduce_linear_system", False)
     darcy = model.params.get("rediscretize_darcy_flux", False)
     fourier = model.params.get("rediscretize_fourier_flux", False)
@@ -214,7 +214,7 @@ def log_cf_model_configuration(model: pp.PorePyModel) -> None:
 
     logger.info(
         f"Configuration of model {model}:\n"
-        + f"\tEquilibrium type: {et}\n"
+        + f"\tEquilibrium condition: {et}\n"
         + f"\tFractional flow: {is_ff}"
         + f"\tEliminating secondary block via Schur complement: {schur}"
         + f"\tRe-discretizing Darcy flux: {darcy}"

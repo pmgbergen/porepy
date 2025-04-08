@@ -24,7 +24,8 @@ from porepy.compositional.flash.solvers import DEFAULT_BRENT_PARAMS, brent
     ],
 )
 def test_brent(test_case: tuple[Callable[[float], float], float, float, float]) -> None:
-    """Tests the Brent method with compiled test functions and its default parameters."""
+    """Tests the Brent method with compiled test functions and its default
+    parameters."""
 
     params = numba.typed.Dict.empty(
         key_type=numba.types.unicode_type, value_type=numba.types.float64

@@ -42,7 +42,8 @@ def components() -> tuple[pp.Component, ...]:
 
 @pytest.fixture(scope="module")
 def eos(components) -> PR.PengRobinsonCompiler:
-    """The fixture for this series of tests is a 2-component mixture with water and CO2."""
+    """The fixture for this series of tests is a 2-component mixture with water and
+    CO2."""
 
     eos = PR.PengRobinsonCompiler(
         list(components),
