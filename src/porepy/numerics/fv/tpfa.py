@@ -253,7 +253,7 @@ class Tpfa(pp.FVElliptic):
         # Rows and cols are given by fi / ci, expanded to account for the vector source
         # having multiple dimensions.
         rows = np.tile(fi_periodic, (vector_source_dim, 1)).ravel("F")
-        cols = pp.fvutils.expand_indices_nd(ci_periodic, vector_source_dim)
+        cols = pp.array_operations.expand_indices_nd(ci_periodic, vector_source_dim)
 
         vector_source = sps.coo_matrix((vals, (rows, cols))).tocsr()
 
@@ -449,10 +449,10 @@ class DifferentiableTpfa:
             # (dimensions[0]). The latter assigns rows[indices[0]:indices[0] +
             # dimensions[0]] to the first face etc. The logic for the columns is the
             # same.
-            rows = pp.fvutils.expand_indices_nd(
+            rows = pp.array_operations.expand_indices_nd(
                 np.repeat(indices[0], repeat_row_inds), dimensions[0]
             )
-            cols = pp.fvutils.expand_indices_nd(
+            cols = pp.array_operations.expand_indices_nd(
                 np.repeat(indices[1], repeat_col_inds), dimensions[1]
             )
 
@@ -512,7 +512,7 @@ class DifferentiableTpfa:
             row_inds = np.repeat(np.arange(num_hf), vec_dim)
             # There are num_hf * vec_dim columns, each vec_dim-long block corresponding
             # to one half-face.
-            col_inds = pp.fvutils.expand_indices_nd(np.arange(num_hf), vec_dim)
+            col_inds = pp.array_operations.expand_indices_nd(np.arange(num_hf), vec_dim)
             # Fortran order to get the first vec_dim entries to correspond to the first
             # half-face, etc.
             vals = fc_cc.ravel("F")
@@ -572,7 +572,7 @@ class DifferentiableTpfa:
             # entries (ex: cell 0 has permeability entries 0, 1, 2, 3, 4, 5, 6, 7, 8,
             # so the indices belonging to cell 1 start at 9, etc.). This is achieved by
             # the call to expand_indices_nd.
-            col_inds = pp.fvutils.expand_indices_nd(ci, tensor_dim)
+            col_inds = pp.array_operations.expand_indices_nd(ci, tensor_dim)
             # Make vector_dim copies of each normal vector, ravelling in Fortran order
             # to get the right order of elements.
             repeat_fi = np.repeat(fi, vector_dim)

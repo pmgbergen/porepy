@@ -140,7 +140,7 @@ def test_partial_discretization_specified_nodes(
     assert faces_of_cell.size == active_faces.size
     assert np.all(np.sort(faces_of_cell) == np.sort(active_faces))
 
-    active_faces_nd = pp.fvutils.expand_indices_nd(active_faces, g.dim)
+    active_faces_nd = pp.array_operations.expand_indices_nd(active_faces, g.dim)
 
     # Compare vector matrices
     for partial, full in zip(

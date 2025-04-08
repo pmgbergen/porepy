@@ -286,7 +286,7 @@ def point_in_polyhedron(
         num_points += simplices.max() + 1
 
     # Uniquify points, and update triangulation
-    upoints, ia, ib = pp.utils.setmembership.uniquify_point_set(points, tol)
+    upoints, ia, ib = pp.array_operations.uniquify_point_set(points, tol)
     ut = ib[tri.astype(int)]
 
     # The in-polyhedra algorithm requires a very particular ordering of the vertexes

@@ -615,7 +615,9 @@ def compute_well_rock_matrix_intersections(
         second = sd_w_cn.indptr[sd_w_cells + 1]
 
         nodes_w.append(
-            sd_w_cn.indices[pp.utils.mcolon.mcolon(first, second)].reshape((-1, 2)).T
+            sd_w_cn.indices[pp.array_operations.expand_index_pointers(first, second)]
+            .reshape((-1, 2))
+            .T
         )
 
     # Operate on the rock matrix grid.
