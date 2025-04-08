@@ -333,7 +333,7 @@ def network_2d_from_csv(
         bbox = pp.domain.bounding_box_of_point_cloud(pts, overlap)
         domain = pp.Domain(bbox)
 
-    pts, _, old_2_new = pp.utils.setmembership.unique_columns_tol(pts, tol=tol)
+    pts, _, old_2_new = pp.array_operations.uniquify_point_set(pts, tol=tol)
 
     edges[:2] = old_2_new[edges[:2].astype(int)]
 
