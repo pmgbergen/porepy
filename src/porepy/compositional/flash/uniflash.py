@@ -566,8 +566,8 @@ class CompiledUnifiedFlash(Flash):
             z, p, T, h, v, initial_state
         )
         logger.debug(
-            f"{flash_type} flash target state parsed with {NF} points."
-            + f" Local problem size: {f_dim}."
+            f"{NF} {flash_type} flash target state(s) parsed; "
+            + f"Problem size: {f_dim}; Solver: {solver} ({mode});"
         )
         assert flash_type in self.SUPPORTED_FLASH_TYPES, (
             f"Unsupported flash type {flash_type}."
@@ -603,8 +603,6 @@ class CompiledUnifiedFlash(Flash):
         # Convert local solver params to numba-conform type
         solver_params["f_dim"] = f_dim
         self._convert_solver_params(solver_params)
-
-        logger.debug(f"Starting ({mode}) {solver} solver ..")
 
         start = time.time()
         results, success, num_iter = MULTI_SOLVERS[mode](

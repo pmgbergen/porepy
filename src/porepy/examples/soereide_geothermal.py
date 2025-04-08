@@ -29,12 +29,11 @@ from typing import Any, Callable, Literal, Optional, Sequence, cast, no_type_che
 import numpy as np
 import scipy.sparse as sps
 
-os.environ["NUMBA_DISABLE_JIT"] = "1"
+# os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
 from porepy.applications.test_utils.models import create_local_model_class
 from porepy.fracs.wells_3d import _add_interface
-
 
 
 logging.basicConfig(level=logging.INFO)
@@ -55,7 +54,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 fractional_flow: bool = False
 use_well_model: bool = False
-equilibrium_type: str = "unified-p-h"
+equilibrium_condition: str = "unified-p-h"
 
 
 class _FlowConfiguration(pp.PorePyModel):
@@ -75,6 +74,7 @@ class _FlowConfiguration(pp.PorePyModel):
     _T_IN: float = _T_INIT
     _T_OUT: float = _T_INIT
     _T_HEATED: float = _T_INIT + 20.0
+    # _T_HEATED: float = 620.0  # 650.
     _T_INJECTION: dict[int, float] = {0: _T_IN}
 
     _z_IN: dict[str, float] = {
@@ -152,6 +152,10 @@ class SolutionStrategy(pp.PorePyModel):
     def compute_residual_norm(
         self, residual: Optional[np.ndarray], reference_residual: np.ndarray
     ) -> float:
+        # matrix = [sd for sd in self.mdg.subdomains(dim=self.nd)]
+        # mbs = self.fluid_source(matrix)
+        # ebs = self.energy_source(matrix)
+        # cbc = self.component_source(self.fluid.components[1], matrix)
         if residual is None:
             return np.nan
         residual_norm = np.linalg.norm(residual)
@@ -189,33 +193,40 @@ class SolutionStrategy(pp.PorePyModel):
                     iterate_index=0,
                 )
 
-        for n, e  in self.equation_system.equations.items():
-            res = np.linalg.norm(self.equation_system.evaluate(e))
-            print(f'Res {n}: {res}')
+        # for n, e  in self.equation_system.equations.items():
+        #     res = np.linalg.norm(self.equation_system.evaluate(e))
+        #     print(f'Res {n}: {res}')
 
         for sd in self.mdg.subdomains(dim=0):
             p = self.equation_system.evaluate(self.pressure([sd]))
             T = self.equation_system.evaluate(self.temperature([sd]))
             h = self.equation_system.evaluate(self.enthalpy([sd]))
-            if 'injection_well' in sd.tags:
-                s = 'injection'
-                i = sd.tags['injection_well']
-            elif 'production_well' in sd.tags:
-                s = 'production'
-                i = sd.tags['production_well']
+            if "injection_well" in sd.tags:
+                s = "injection"
+                i = sd.tags["injection_well"]
+            elif "production_well" in sd.tags:
+                s = "production"
+                i = sd.tags["production_well"]
             print(f"{s} well {i}:\n\tp={p}\n\tT={T}\n\th={h}")
 
     def after_nonlinear_failure(self):
         self.exporter.write_pvd()
         super().after_nonlinear_failure()  # type:ignore
 
-    def get_fluid_state(
-        self, subdomains: Sequence[pp.Grid], state: Optional[np.ndarray] = None
+    def update_thermodynamic_properties_of_phases(self) -> None:
+        """Skipping subdomains tagged as production wells."""
+        for sd in self.mdg.subdomains():
+            if "production_well" in sd.tags:
+                continue
+            self.local_equilibrium(sd)  # type:ignore
+
+    def current_fluid_state(
+        self, subdomains: Sequence[pp.Grid] | pp.Grid
     ) -> pp.compositional.FluidProperties:
         """Method to pre-process the evaluated fractions. Normalizes the extended
         fractions where they violate the unity constraint."""
-        fluid_state: pp.compositional.FluidProperties = super().get_fluid_state(  # type:ignore
-            subdomains, state
+        fluid_state: pp.compositional.FluidProperties = super().current_fluid_state(  # type:ignore
+            subdomains
         )
 
         unity_tolerance = 0.05
@@ -253,13 +264,12 @@ class SolutionStrategy(pp.PorePyModel):
 
     def postprocess_flash(
         self,
-        subdomain: pp.Grid,
-        fluid_state: pp.compositional.FluidProperties,
-        success: np.ndarray,
+        sd: pp.Grid,
+        equilibrium_results: tuple[pp.compositional.FluidProperties, np.ndarray],
     ) -> pp.compositional.FluidProperties:
         """A post-processing where the flash is again attempted where not successful.
 
-        1. Where not successful, it re-attempts the flash from scratch, with
+        1. Where not successful, it attempts the flash from scratch, with
            initialization procedure.
            If the new attempt did not reach the desired precision (max iter), it
            treats it as success.
@@ -267,20 +277,24 @@ class SolutionStrategy(pp.PorePyModel):
            iterate.
 
         """
+        fluid_state, success = equilibrium_results
+
         failure = success > 0
-        equilibrium_type = str(pp.compositional.get_equilibrium_type(self))
+        equilibrium_condition = str(
+            pp.compositional.get_local_equilibrium_condition(self)
+        )
         if np.any(failure):
             logger.debug(
                 f"Flash from iterate state failed in {failure.sum()} cells on grid"
-                + f" {subdomain.id}. Performing full flash .."
+                + f" {sd.id}. Performing full flash .."
             )
             z = [
-                comp.fraction([subdomain]).value(self.equation_system)[failure]  # type:ignore[index]
+                comp.fraction([sd]).value(self.equation_system)[failure]  # type:ignore[index]
                 for comp in self.fluid.components
             ]
-            p = self.equation_system.evaluate(self.pressure([subdomain]))[failure]  # type:ignore[index]
-            h = self.equation_system.evaluate(self.enthalpy([subdomain]))[failure]  # type:ignore[index]
-            T = self.equation_system.evaluate(self.temperature([subdomain]))[failure]  # type:ignore[index]
+            p = self.equation_system.evaluate(self.pressure([sd]))[failure]  # type:ignore[index]
+            h = self.equation_system.evaluate(self.enthalpy([sd]))[failure]  # type:ignore[index]
+            T = self.equation_system.evaluate(self.temperature([sd]))[failure]  # type:ignore[index]
 
             # no initial guess, and this model uses only p-h flash.
             flash_kwargs: dict[str, Any] = {
@@ -289,9 +303,9 @@ class SolutionStrategy(pp.PorePyModel):
                 "params": self.params.get("flash_params"),
             }
 
-            if "p-h" in equilibrium_type:
+            if "p-h" in equilibrium_condition:
                 flash_kwargs["h"] = h
-            elif "p-T" in equilibrium_type:
+            elif "p-T" in equilibrium_condition:
                 flash_kwargs["T"] = T
 
             sub_state, sub_success, _ = self.flash.flash(**flash_kwargs)
@@ -304,9 +318,9 @@ class SolutionStrategy(pp.PorePyModel):
             if np.any(fallback):
                 logger.debug(
                     f"Full flash failed in {fallback.sum()} cells on grid "
-                    + f"{subdomain.id}. Falling back to previous iterate state."
+                    + f"{sd.id}. Falling back to previous iterate state."
                 )
-                sub_state = self.fall_back(subdomain, sub_state, failure, fallback)
+                sub_state = self.fall_back(sd, sub_state, failure, fallback)
                 sub_success[fallback] = 0
             # update parent state with sub state values
             success[failure] = sub_success
@@ -334,7 +348,7 @@ class SolutionStrategy(pp.PorePyModel):
                 fluid_state.phases[j].dphis[:, :, failure] = sub_state.phases[j].dphis
 
         # Parent method performs a check that everything is successful.
-        return super().postprocess_flash(subdomain, fluid_state, success)  # type:ignore
+        return super().postprocess_flash(sd, (fluid_state, success))  # type:ignore
 
     @no_type_check
     def fall_back(
@@ -348,16 +362,18 @@ class SolutionStrategy(pp.PorePyModel):
         grid."""
         sds = [grid]
         data = self.mdg.subdomain_data(grid)
-        equilibrium_type = str(pp.compositional.get_equilibrium_type(self))
-        if "T" not in equilibrium_type:
+        equilibrium_condition = str(
+            pp.compositional.get_local_equilibrium_condition(self)
+        )
+        if "T" not in equilibrium_condition:
             sub_state.T[fallback_idx] = pp.get_solution_values(
                 self.temperature_variable, data, iterate_index=0
             )[failed_idx][fallback_idx]
-        if "h" not in equilibrium_type:
+        if "h" not in equilibrium_condition:
             sub_state.h[fallback_idx] = pp.get_solution_values(
                 self.pressure_variable, data, iterate_index=0
             )[failed_idx][fallback_idx]
-        if "p" not in equilibrium_type:
+        if "p" not in equilibrium_condition:
             sub_state.p[fallback_idx] = pp.get_solution_values(
                 self.enthalpy_variable, data, iterate_index=0
             )[failed_idx][fallback_idx]
@@ -504,25 +520,37 @@ class PointWells2D(Geometry):
         _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
 
 
-class WellEquations2D(_FlowConfiguration):
-    """Augmentation of balance equations for domains of type :class:`PointWells2D`.
+class AdjustedWellModel2D(_FlowConfiguration):
+    """Adjustment of a 2D model which has wells modelled as point grids.
 
-    Balance equations are created as usual, with the exception in Point grids labeled as
-    injection and production points.
+    Two types of point grids are expected: ``'injection_well'`` and
+    ``'production_well'``.
 
-    At injection points:
+    In the injection well, mass is expected to enter the system (mass per time)
+    at a given temperature (fixed value).
 
-    - The pressure equation/fluid mass balance will have an additional source term with
-      source values taken from the model params (rates of injection/ Neumann-type well).
-    - Analogously the component mass balance.
-    - The energy equation will be replaced by a Dirichlet-type constraint
-      ``T - T_injection = 0`` for the temperature (defined T of injected fluid).
+    At the production well, a given pressure value is required.
 
-    At production points:
+    In injection wells, the energy balance is replaced by a simple constraint
+    ``T - T_injection = 0``.
+    In production wells, the fluid mass balance (pressure equation) is replaced by
+    ``p - p_production = 0``.
 
-    - The pressure equation/fluid mass balance will be replaced by a Dirichlet-type
-      constraint ``p - p_production = 0`` for the pressure (defined pressure at
-      production well).
+    In injection wells, a given inflow per fluid component is expected, which enter the
+    system as a source term in the respective point grid.
+
+    In production wells, all DOFs except pressure, and all equations are removed.
+    The outflow of mass and energy can be computed with respective well fluxes.
+    An exact composition of the fluid at the production well can be obtained from the
+    values in the matrix grid, using the cell which was used to construct the mortar
+    grid for the production well.
+
+    In this sense, production wells and their respective grids are only used to mimic
+    an internal, free-flow boundary.
+
+    Important:
+        This is a mixin modifying equations and variables. It must be mixed in
+        above all other variable and equation mixins.
 
     Note:
         In injection wells, only the injected mass is defined, not the injected energy.
@@ -532,11 +560,14 @@ class WellEquations2D(_FlowConfiguration):
 
     """
 
+    pressure_variable: str
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
 
     def _filter_wells(
-        self, subdomains: list[pp.Grid], well_type: Literal["production", "injection"]
+        self,
+        subdomains: Sequence[pp.Grid],
+        well_type: Literal["production", "injection"],
     ) -> tuple[list[pp.Grid], list[pp.Grid]]:
         """Helper method to return the partitioning of subdomains into wells of defined
         ``well_type`` and other grids.
@@ -557,6 +588,28 @@ class WellEquations2D(_FlowConfiguration):
         other_sds = [sd for sd in subdomains if sd not in wells]
         return wells, other_sds
 
+    # Adjusting variable creation
+    def create_variables(self) -> None:
+        """Removes all DOF except for pressure on the subdomains tagged as production
+        wells.
+
+        Note:
+            Seems strange to first create the DOFs, then remove them, but this is the
+            way of least resistance to do it, without messing with individual variable
+            mixins.
+
+        """
+        super().create_variables()  # type:ignore[safe-super]
+        production_wells, _ = self._filter_wells(self.mdg.subdomains(), "production")
+
+        redundant_variables = [
+            var
+            for var in self.equation_system.variables
+            if var.domain in production_wells and var.name != self.pressure_variable
+        ]
+        self.equation_system.remove_variables(redundant_variables)
+
+    # Adjusting PDEs
     def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Introduced the usual fluid mass balance equations but only on grids which
         are not production wells."""
@@ -567,8 +620,16 @@ class WellEquations2D(_FlowConfiguration):
         """Introduced the usual fluid mass balance equations but only on grids which
         are not production wells."""
         _, no_injection_wells = self._filter_wells(subdomains, "injection")
-        return super().energy_balance_equation(no_injection_wells)  # type:ignore[misc]
+        _, no_wells = self._filter_wells(no_injection_wells, "production")
+        return super().energy_balance_equation(no_wells)  # type:ignore[misc]
 
+    def component_mass_balance_equation(
+        self, component: pp.Component, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        _, no_producion_wells = self._filter_wells(subdomains, "production")
+        return super().component_mass_balance_equation(component, no_producion_wells)  # type:ignore[misc]
+
+    # Introducing pressure and temperature constraint at production and injection.
     def set_equations(self):
         """Introduces pressure and temperature constraints on production and injection
         wells respectively."""
@@ -705,9 +766,49 @@ class WellEquations2D(_FlowConfiguration):
                 np.ones(sd.num_cells)
                 * self._INJECTED_MASS[component.name][sd.tags["injection_well"]]
             )
-        return pp.ad.DenseArray(
-            np.hstack(injected_mass), f"injected_mass_density_{component.name}"
+
+        if injected_mass:
+            source = np.hstack(injected_mass)
+        else:
+            source = np.zeros((0,))
+
+        return pp.ad.DenseArray(source, f"injected_mass_density_{component.name}")
+
+    # Adjusting local equations.
+    def mass_constraint_for_component(
+        self, component: pp.FluidComponent, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.Operator:
+        _, no_production_wells = self._filter_wells(subdomains, "production")
+        return super().mass_constraint_for_component(component, no_production_wells)  # type:ignore[misc]
+
+    def isofugacity_constraint_for_component_in_phase(
+        self,
+        component: pp.FluidComponent,
+        phase: pp.Phase,
+        subdomains: Sequence[pp.Grid],
+    ) -> pp.ad.Operator:
+        _, no_production_wells = self._filter_wells(subdomains, "production")
+        return super().isofugacity_constraint_for_component_in_phase(  # type:ignore[misc]
+            component, phase, no_production_wells
         )
+
+    def complementarity_condition_for_phase(
+        self, phase: pp.Phase, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.Operator:
+        _, no_production_wells = self._filter_wells(subdomains, "production")
+        return super().complementarity_condition_for_phase(phase, no_production_wells)  # type:ignore[misc]
+
+    def mixture_enthalpy_constraint(
+        self, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.Operator:
+        _, no_production_wells = self._filter_wells(subdomains, "production")
+        return super().mixture_enthalpy_constraint(no_production_wells)  # type:ignore[misc]
+
+    def mass_constraint_for_phase(
+        self, phase: pp.Phase, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.Operator:
+        _, no_production_wells = self._filter_wells(subdomains, "production")
+        return super().mass_constraint_for_phase(phase, no_production_wells)  # type:ignore[misc]
 
 
 class InitialConditions(_FlowConfiguration):
@@ -725,17 +826,39 @@ class InitialConditions(_FlowConfiguration):
         T = np.ones(sd.num_cells)
         if sd.dim == 0 and "injection_well" in sd.tags:
             return T * self._T_INJECTION[sd.tags["injection_well"]]
+        elif sd.dim == 0 and "production_well" in sd.tags:
+            return np.zeros((0,))
         else:
             return T * self._T_INIT
 
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
-        return np.ones(sd.num_cells) * self._z_INIT[component.name]
+        if sd.dim == 0 and "production_well" in sd.tags:
+            return np.zeros((0,))
+        else:
+            return np.ones(sd.num_cells) * self._z_INIT[component.name]
+
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        if sd.dim == 0 and "production_well" in sd.tags:
+            return np.zeros((0,))
+        else:
+            return np.zeros(sd.num_cells)
+
+    def set_initial_values_phase_properties(self) -> None:
+        """Skips the initial flash on production wells."""
+
+        for sd in self.mdg.subdomains():
+            if "production_well" in sd.tags:
+                continue
+            # pressure, temperature and overall fractions
+            p = self.ic_values_pressure(sd)
+            T = self.ic_values_temperature(sd)
+            self.initial_equilibrium(sd, {"p": p, "T": T})  # type:ignore[attr-defined]
 
 
-class BoundaryConditionsNoFlux(pp.PorePyModel):
-    """Declares all faces to be Neumann and all boundary fluxes to be zero."""
+class BoundaryConditionsAllNeumann(pp.PorePyModel):
+    """Declares all faces to be Neumann."""
 
     def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return pp.BoundaryCondition(sd)
@@ -749,7 +872,7 @@ class BoundaryConditionsNoFlux(pp.PorePyModel):
     def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return pp.BoundaryCondition(sd)
 
-    def bc_type_flash(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_equilibrium(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return pp.BoundaryCondition(sd)
 
 
@@ -847,7 +970,7 @@ class BoundaryConditions(_FlowConfiguration):
     def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self.bc_type_fluid_flux(sd)
 
-    def bc_type_flash(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_equilibrium(self, sd: pp.Grid) -> pp.BoundaryCondition:
         """Flag the inflow and outflow faces for the flash."""
         return self.bc_type_fourier_flux(sd)
 
@@ -915,14 +1038,14 @@ class BoundaryConditions(_FlowConfiguration):
 
 model_class: type[pp.PorePyModel]
 
-if equilibrium_type == "unified-p-h" and fractional_flow:
+if equilibrium_condition == "unified-p-h" and fractional_flow:
     model_class = cfle.EnthalpyBasedCFFLETemplate  # type:ignore[type-abstract]
-elif equilibrium_type == "unified-p-h" and not fractional_flow:
+elif equilibrium_condition == "unified-p-h" and not fractional_flow:
     model_class = cfle.EnthalpyBasedCFLETemplate  # type:ignore[type-abstract]
 else:
     raise ValueError(
         "Unsupported base configuration: "
-        + f"{equilibrium_type}, "
+        + f"{equilibrium_condition}, "
         + f"fractiona_flow={fractional_flow},"
     )
 
@@ -935,7 +1058,7 @@ model_class = create_local_model_class(
 if use_well_model:
     model_class = create_local_model_class(
         model_class,
-        [PointWells2D, WellEquations2D, BoundaryConditionsNoFlux],  # type:ignore[type-abstract]
+        [PointWells2D, AdjustedWellModel2D, BoundaryConditionsAllNeumann],  # type:ignore[type-abstract]
     )
 else:
     model_class = create_local_model_class(
@@ -956,7 +1079,7 @@ times_to_export = [i * pp.DAY for i in range(31)] + [
     i * 30 * pp.DAY for i in range(2, 13)
 ]
 
-max_iterations = 50
+max_iterations = 30
 newton_tol = 1e-5
 newton_tol_increment = 1e-1
 
@@ -964,11 +1087,11 @@ flash_params = {
     "mode": "parallel",
     "solver": "npipm",
     "solver_params": {
-        "tolerance": 1e-8,
-        "max_iterations": 150,
+        "tolerance": 1e-4,  # 1e-8
+        "max_iterations": 80,  # 150
         "armijo_rho": 0.99,
         "armijo_kappa": 0.4,
-        "armijo_max_iterations": 50 if "p-T" in equilibrium_type else 30,
+        "armijo_max_iterations": 50 if "p-T" in equilibrium_condition else 30,
         "npipm_u1": 10,
         "npipm_u2": 10,
         "npipm_eta": 0.5,
@@ -997,7 +1120,7 @@ material_constants = {
 }
 
 params = {
-    "equilibrium_type": equilibrium_type,
+    "equilibrium_condition": equilibrium_condition,
     "has_time_dependent_boundary_equilibrium": False,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
@@ -1011,7 +1134,8 @@ params = {
     "material_constants": material_constants,
     "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 20/4, #5e-1,
+        # "cell_size": 20/4,
+        "cell_size": 5e-1,
         "cell_size_fracture": 5e-1,
     },
     "time_manager": time_manager,
@@ -1035,12 +1159,6 @@ compile_time += prep_sim_time
 
 model.primary_equations = model.get_primary_equations_cf()
 model.primary_variables = model.get_primary_variables_cf()
-
-sd = model.mdg.subdomains()[0]
-fd = model.darcy_flux([sd])
-ff = model.fluid_flux([sd])
-fc = model.component_flux(model.fluid.components[1], [sd])
-sides = model.domain_boundary_sides(sd)
 
 t_0 = time.time()
 pp.run_time_dependent_model(model, params)

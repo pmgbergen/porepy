@@ -5,8 +5,8 @@ Local equilibrium equations are single, cell-wise algebraic equations, introduci
 the thermodynamically consistent approach to modelling secondary expressions like
 phase densities and closing a CF model.
 
-Instances of :class:`UnifiedEquilibriumMixin` require the ``'equilibrium_type'`` model
-parameter to be *not* ``None``. This is to inform the remaining framework
+Instances of :class:`UnifiedEquilibriumMixin` require the ``'equilibrium_condition'``
+model parameter to be *not* ``None``. This is to inform the remaining framework
 that local equilibrium assumptions (instead of some constitutive laws) were introduced.
 
 """
@@ -97,8 +97,8 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
     if any of the following assumptions is violated:
 
     1. At least 2 components and 2 phases are modelled.
-    2. The model's ``params['equilibrium_type']`` is not None and contains the keyword
-       ``'unified'``.
+    2. The model's ``params['equilibrium_condition']`` is not None and contains the
+       keyword ``'unified'``.
     3. All phases have all components set in them (all extended partial fractions are
        defined and introduced).
 
@@ -118,7 +118,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
         return bool(self.params.get("normalize_state_constraints", True))
 
     def set_equations(self) -> None:
-        """The base class method without defined equilibrium type performs a model
+        """The base class method without defined equilibrium condition performs a model
         validation to ensure that the assumptions for the unified flash are fulfilled.
         """
         assert isinstance(self, EquationMixin)
@@ -129,7 +129,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
 
         if not pp.compositional.has_unified_equilibrium(self):
             raise CompositionalModellingError(
-                "Must define a `equilibrium_type` model parameter containing the"
+                "Must define a `equilibrium_condition` model parameter containing the"
                 + " keyword `unified` when using the Unified Equilibrium Mixin."
             )
 

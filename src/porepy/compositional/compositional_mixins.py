@@ -31,7 +31,7 @@ from .base import Component, ComponentLike, Compound, EquationOfState, Fluid, Ph
 from .utils import CompositionalModellingError
 
 __all__ = [
-    "get_equilibrium_type",
+    "get_local_equilibrium_condition",
     "has_unified_equilibrium",
     "CompositionalVariables",
     "FluidMixin",
@@ -61,22 +61,22 @@ def _get_surrogate_factory_as_property(
 
 
 # TODO move below two inquires once flash and CFLE are merged.
-def get_equilibrium_type(model: pp.PorePyModel) -> str | None:
+def get_local_equilibrium_condition(model: pp.PorePyModel) -> str | None:
     """
     Parameters:
         model: A PorePy model.
 
     Returns:
-        The local equilibrium type stored in ``model.params['equilibrium_type']`.
-        Defaults to None.
+        The local equilibrium condition stored in
+        ``model.params['equilibrium_condition']`. Defaults to None.
 
-        Expected equilibrium types are any combination of to state functions fixed at
-        equilibrium, e.g. ``'p-T'``, ``'p-h'``.
+        Expected equilibrium conditions are any combination of to state functions fixed
+        at equilibrium, e.g. ``'p-T'``, ``'p-h'``.
 
         Additional qualifiers also also allowed, e.g. ``'unified-p-h'``.
 
     """
-    et = model.params.get("equilibrium_type", None)
+    et = model.params.get("equilibrium_condition", None)
     if et is not None:
         return str(et)
     else:
@@ -89,11 +89,11 @@ def has_unified_equilibrium(model: pp.PorePyModel) -> bool:
         model: A PorePy model.
 
     Returns:
-        True, if the keyword ``'unified'`` is in ``model.params['equilibrium_type']``,
-        if given at all. Defaults to False.
+        True, if the keyword ``'unified'`` is in
+        ``model.params['equilibrium_condition']``, if given at all. Defaults to False.
 
     """
-    if "unified" in str(get_equilibrium_type(model)).lower():
+    if "unified" in str(get_local_equilibrium_condition(model)).lower():
         return True
     else:
         return False
@@ -162,9 +162,9 @@ class _MixtureDOFHandler(pp.PorePyModel):
         It is also guided by the flags ``'eliminate_reference_component'`` and
         ``'eliminate_reference_phase'``, which can be set in the model's :attr:`params`.
 
-        Finally, the ``'equilibrium_type'`` set in the model's :attr:`params` is used
-        to determine the independency of partial and extended fractions of components
-        in phases.
+        Finally, the ``'equilibrium_condition'`` set in the model's :attr:`params` is
+        used to determine the independency of partial and extended fractions of
+        components in phases.
 
     """
 
@@ -300,7 +300,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
 
         See also:
 
-            :func:`get_equilibrium_type`
+            :func:`get_local_equilibrium_condition`
 
         Paramters:
             component: Any component in the :attr:`fluid`.
@@ -361,7 +361,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
 
         See also:
 
-            :func:`get_equilibrium_type`
+            :func:`get_local_equilibrium_condition`
 
         Paramters:
             component: Any component in the :attr:`fluid`.
@@ -484,7 +484,7 @@ class _MixtureDOFHandler(pp.PorePyModel):
         """Names of independent phase :attr:`~porepy.compositional.base.Phase.fraction`
         variables created for this model."""
         names: list[str] = []
-        if get_equilibrium_type(self) is not None:
+        if get_local_equilibrium_condition(self) is not None:
             for phase in self.fluid.phases:
                 if self.has_independent_fraction(phase):
                     names.append(self._phase_fraction_variable(phase))
@@ -773,7 +773,7 @@ class CompositionalVariables(pp.VariableMixin, _MixtureDOFHandler):
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 return pp.ad.Scalar(1.0, "single_phase_fraction")
 
-        elif get_equilibrium_type(self) is None:
+        elif get_local_equilibrium_condition(self) is None:
 
             def fraction(domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
                 raise CompositionalModellingError(
@@ -1126,7 +1126,7 @@ class FluidMixin(pp.PorePyModel):
         - :meth:`fugacity_coefficient` to
           :attr:`~porepy.compositional.base.Phase.fugacity_coefficient_of`
           for each component in respective phase.
-          This is only done for mixtures with a defined equilibrium type
+          This is only done for mixtures with a defined equilibrium condition
 
         Customization is possible in respective methods by mixing-in.
 
@@ -1208,7 +1208,9 @@ class FluidMixin(pp.PorePyModel):
                     ) -> Sequence[Callable[[pp.GridLikeSequence], pp.ad.Variable]]:
 
                         dependencies = [self.pressure]
-                        if 'unified' in pp.get_equilibrium_type(self).lower():
+                        if 'unified' in pp.get_local_equilibrium_condition(
+                            self
+                        ).lower():
 
                             dependencies +=  [self.temperature] + [
                                 phase.extended_fraction_of[component]
@@ -1218,7 +1220,7 @@ class FluidMixin(pp.PorePyModel):
                                 )
                             ]
 
-                        elif pp.get_equilibrium_type(self):
+                        elif pp.get_local_equilibrium_condition(self):
 
                             dependencies += [self.temperature] + [
                                 phase.partial_fraction_of[component]
