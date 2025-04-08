@@ -266,9 +266,15 @@ class TetrahedralGrid(Grid):
         sort_ind = np.squeeze(np.argsort(face_nodes, axis=0))
         face_nodes_sorted = np.sort(face_nodes, axis=0)
 
+        # Now find the unique face-nodes, by comparing columns in the sorted array.
+        # Internal faces will be found twice, once  for ecah cell, while external faces
+        # only occur once. The second returned value gives the index of the cells which
+        # the face belongs to.
         face_nodes, cell_faces = np.unique(
             face_nodes_sorted, axis=1, return_inverse=True
         )
+        # Numpy may return cell-faces as a 2d array, so we need to flatten it.
+        cell_faces = cell_faces.ravel(order="F")
 
         num_faces = face_nodes.shape[1]
 
