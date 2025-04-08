@@ -2,67 +2,32 @@
 
 import copy
 import pathlib
+from typing import Sequence
 
 import numpy as np
 import pytest
 
 import porepy as pp
+from porepy.fracs.fracture_network_2d import FractureNetwork2d
+from porepy.fracs.fracture_network_3d import FractureNetwork3d
 from porepy.fracs.msh_2_grid import (
-    gmsh_element_types,
-    tag_grid,
     create_0d_grids,
     create_1d_grids,
     create_2d_grids,
     create_3d_grids,
+    gmsh_element_types,
+    tag_grid,
 )
 from porepy.fracs.simplex import _read_gmsh_file
+from porepy.grids.mdg_generation import _preprocess_simplex_args
 
 rng: np.random.Generator = np.random.default_rng(seed=42)
 dirname: pathlib.Path = pathlib.Path(__file__).parent
 
-filename: str = str(
-    dirname
-    / ".."
-    / ".."
-    / "src"
-    / "porepy"
-    / "applications"
-    / "md_grids"
-    / "gmsh_file_library"
-    / "benchmark_3d_case_3"
-    / "mesh30k_2.msh"
-)
-
 
 @pytest.fixture
-def simplex_grid(request: pytest.FixtureRequest) -> pp.Grid:
-    # TODO Add 1D and 0D grids to test for grids created by
-    # ``msh_2_grid.create_1d_grids`` and ``msh_2_grid.create_0d_grids``.
-    dims: tuple = request.param
-    bounding_box = {
-        "xmin": 0,
-        "xmax": request.param[0],
-        "ymin": 0,
-        "ymax": request.param[1],
-    }
-    if len(dims) == 3:
-        bounding_box.update({"zmin": 0, "zmax": dims[2]})
-    domain = pp.Domain(bounding_box)
-    fn = pp.create_fracture_network([], domain)
-    return pp.create_mdg("simplex", {"cell_size": 0.5}, fn).subdomains()[0]
-
-
-@pytest.fixture
-def cell_info_from_gmsh() -> dict[str, np.ndarray]:
-    """Import a gmsh file and return the cell information, which has all possible gmsh
-    element types as keys.
-
-    """
-    # TODO This is a temporary solution. The file should be in the test directory and
-    # doesn't need to include 30k cells.
-    pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
-
-    return cell_info
+def dims(request: pytest.FixtureRequest) -> tuple:
+    return request.param
 
 
 @pytest.fixture
@@ -71,17 +36,155 @@ def num_phys_names(request: pytest.FixtureRequest) -> int:
 
 
 @pytest.fixture
-def file_name() -> str:
-    return filename
-
-
-@pytest.fixture
 def phys_names(num_phys_names: int) -> dict[int, str]:
     return {i: f"phys_name_{i}" for i in range(num_phys_names)}
 
 
 @pytest.fixture
-def cell_info(num_phys_names: int, simplex_grid: pp.Grid) -> dict[str, np.ndarray]:
+def fracture_network(dims: tuple) -> pp.fracture_network:
+    if len(dims) == 2:
+        bounding_box = {
+            "xmin": 0,
+            "xmax": dims[0],
+            "ymin": 0,
+            "ymax": dims[1],
+        }
+        # Two intersecting line fractures
+        fractures = [
+            pp.LineFracture(np.array([[0, dims[0]], [dims[1] / 2, dims[1] / 2]])),
+            pp.LineFracture(np.array([[dims[0] / 2, dims[0] / 2], [0, dims[1]]])),
+        ]
+
+    if len(dims) == 3:
+        bounding_box = {
+            "xmin": 0,
+            "xmax": dims[0],
+            "ymin": 0,
+            "ymax": dims[1],
+            "zmin": 0,
+            "zmax": dims[2],
+        }
+        # Three intersecting plane fractures creating both a line fracture intersection
+        # and a point fracture intersection.
+        fractures = [
+            pp.PlaneFracture(
+                np.array(
+                    [
+                        [0, dims[0], dims[0], 0],
+                        [0, 0, dims[1], dims[1]],
+                        [dims[2] / 2, dims[2] / 2, dims[2] / 2, dims[2] / 2],
+                    ]
+                ),
+            ),
+            pp.PlaneFracture(
+                np.array(
+                    [
+                        [0, dims[0], dims[0], 0],
+                        [dims[1] / 2, dims[1] / 2, dims[1] / 2, dims[1] / 2],
+                        [0, 0, dims[2], dims[2]],
+                    ]
+                ),
+            ),
+            pp.PlaneFracture(
+                np.array(
+                    [
+                        [dims[0] / 2, dims[0] / 2, dims[0] / 2, dims[0] / 2],
+                        [0, dims[1], dims[1], 0],
+                        [0, 0, dims[2], dims[2]],
+                    ]
+                ),
+            ),
+        ]
+    domain = pp.Domain(bounding_box)
+    return pp.create_fracture_network(fractures, domain)
+
+
+@pytest.fixture
+def simplex_grids(fracture_network: pp.fracture_network) -> list[pp.Grid]:
+    mdg = pp.create_mdg("simplex", {"cell_size": 0.5}, fracture_network)
+    return mdg.subdomains()
+
+
+@pytest.fixture
+def create_gmsh_file(
+    fracture_network: pp.fracture_network, num_phys_names: int, tmp_path: pathlib.Path
+) -> str:
+    """Create a gmsh file with the given number of physical names."""
+    msh_file: pathlib.Path = tmp_path / "test.msh"
+
+    # Use functionality from pp.create_mdg and fracture_network.mesh to create a gmsh
+    # file from the fracture_network.
+
+    # The following are going to get shifted to extra_args by _preprocess_simplex_args.
+    kwargs: dict = {"file_name": str(msh_file), "write_geo": False}
+
+    # Without the if-else construction, _prepare_simplex_args fails.
+    if isinstance(fracture_network, FractureNetwork2d):
+        lower_level_args, extra_args, kwargs = _preprocess_simplex_args(
+            {"cell_size": 0.5}, kwargs, FractureNetwork2d.mesh
+        )
+    elif isinstance(fracture_network, FractureNetwork3d):
+        lower_level_args, extra_args, kwargs = _preprocess_simplex_args(
+            {"cell_size": 0.5}, kwargs, FractureNetwork3d.mesh
+        )
+
+    fracture_network.mesh(
+        lower_level_args,
+        *extra_args,
+        **kwargs,
+    )
+
+    # Add physical names.
+    # TODO Didn't manage this yet, it's tricky. Basically, we want to loop through all
+    # lines in the .msh file and assign different physical names to some of the cells,
+    # faces, lines, and vertices.
+    # TODO Also this takesa lot of time.
+    # with pathlib.Path(msh_file).open("r+") as f:
+    # data: list[str] = f.readlines()
+    # data_cp = []
+    # for line in data:
+    #     data_cp.append(line)
+    #     while line != "$PhysicalNames\n":
+    #         continue
+
+    # prev_num_phys_names = int(data[4][:-1])
+
+    # # Add physical names.
+    # for i in range(num_phys_names):
+    #     data.insert(5, f'0 1 "phys_name_{prev_num_phys_names + i}"\n')
+    # # Update the number of physical names.
+    # data[4] = f"{prev_num_phys_names + num_phys_names}\n"
+
+    # # Assign physical names to entities.
+    # for i in range(5, len(data)):
+    #     pass
+
+    # f.writelines(data)
+
+    return str(msh_file)
+
+
+@pytest.fixture
+def cell_info_from_gmsh(create_gmsh_file: pathlib.Path) -> dict[str, np.ndarray]:
+    """Import a gmsh file and return the cell information, which has all possible gmsh
+    element types as keys.
+
+    """
+    # TODO This is a temporary solution. The file should be in the test directory and
+    # doesn't need to include 30k cells.
+    _, __, cell_info, ___ = _read_gmsh_file(str(create_gmsh_file))
+    return cell_info
+
+
+@pytest.fixture
+def cell_info_from_mdg(
+    num_phys_names: int, simplex_grids: list[pp.Grid]
+) -> dict[str, np.ndarray]:
+    """Create a random cell_info dictionary for the given grid that assigns physical
+    names to each grid element.
+
+    """
+    simplex_grid = simplex_grids[0]
     dic: dict[str, np.ndarray] = {}
     for gmsh_element_type in gmsh_element_types:
         # Find the number of elements of the given type present in the grid.
@@ -104,12 +207,25 @@ def cell_info(num_phys_names: int, simplex_grid: pp.Grid) -> dict[str, np.ndarra
                 continue
 
         # Add random tags for the elements.
-        dic[gmsh_element_type] = rng.integers(0, num_phys_names, num_elements)
+        if num_phys_names > 0:
+            dic[gmsh_element_type] = rng.integers(0, num_phys_names, num_elements)
+        else:
+            continue
     return dic
 
 
-def test_gmsh_elements(cell_info_from_gmsh: dict[str, np.ndarray]) -> None:
-    """Assert that the list of gmsh elements is exhaustive.
+@pytest.mark.parametrize(
+    "num_phys_names", [1], indirect=True
+)  # This parameter is needed to create the gmsh file.
+@pytest.mark.parametrize("dims", [(2, 2, 2)], indirect=True)
+def test_gmsh_elements(
+    cell_info_from_gmsh: dict[str, np.ndarray],
+    dims,
+    num_phys_names,
+) -> None:
+    """Test whether ``msh_2_grid.gmsh_element_types`` is exhaustive, i.e., whether it
+    contains all element types that can possibly be present in a gmsh file relevant for
+    PorePy.
 
     TODO Might be removed after developing. This requires an gmsh file in the test
     directory which isn't super pretty. On the other hand, this acts as a reminder to
@@ -118,99 +234,120 @@ def test_gmsh_elements(cell_info_from_gmsh: dict[str, np.ndarray]) -> None:
 
     """
     gmsh_element_types_copy: list[str] = copy.copy(gmsh_element_types)
+
+    # Remove all elements types present in the gmsh file and check that nothing remains.
     for grid_element_type in cell_info_from_gmsh:
         gmsh_element_types_copy.remove(grid_element_type)
     assert len(gmsh_element_types_copy) == 0
 
 
-@pytest.mark.parametrize("simplex_grid", [(2, 2), (2, 2, 2)], indirect=True)
-@pytest.mark.parametrize("num_phys_names", [1, 5, 10], indirect=True)
+@pytest.mark.parametrize("dims", [(2, 2), (2, 2, 2)], indirect=True)
+@pytest.mark.parametrize("num_phys_names", [0, 1, 5, 10], indirect=True)
 def test_tag_grids(
-    simplex_grid: pp.Grid,
+    simplex_grids: list[pp.Grid],
     phys_names: dict[int, str],
-    cell_info: dict[str, np.ndarray],
+    cell_info_from_mdg: dict[str, np.ndarray],
+    dims,
+    num_phys_names,
 ) -> None:
-    """Assert that the tags are correctly assigned to the grid."""
-    tagged_grid: pp.Grid = tag_grid(simplex_grid, phys_names, cell_info)
-    for gmsh_element_type in cell_info:
-        for tag in np.unique(cell_info[gmsh_element_type]):
-            phys_ind = tag
-            phys_name = phys_names[tag].lower()
-            #        for phys_ind, phys_name in phys_names.items():
-            assert np.all(
-                tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
-                == (cell_info[gmsh_element_type] == phys_ind)
-            )
-
-
-def test_create_0d_grids(file_name: str):
-    pts, cells, cell_info, phys_names = _read_gmsh_file(file_name)
-
-    g_0d: list[pp.PointGrid] = create_0d_grids(pts, cells, phys_names, cell_info)
-    for g in g_0d:
-        tagged_grid = g
-        for gmsh_element_type in cell_info:
-            for tag in np.unique(cell_info[gmsh_element_type]):
-                phys_ind = tag
-                phys_name = phys_names[tag].lower()
-                #        for phys_ind, phys_name in phys_names.items():
+    """Test that ``tag_grids`` correctly assigns tags to the grid."""
+    for grid in simplex_grids:
+        tagged_grid: pp.Grid = tag_grid(grid, phys_names, cell_info_from_mdg)
+        for gmsh_element_type in cell_info_from_mdg:
+            for tag, phys_name in phys_names.items():
                 assert np.all(
-                    tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
-                    == (cell_info[gmsh_element_type] == phys_ind)
+                    tagged_grid.tags[f"{phys_name}_{gmsh_element_type}s"]
+                    == (cell_info_from_mdg[gmsh_element_type] == tag)
                 )
 
 
-def test_create_1d_grids():
-    pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
+@pytest.mark.parametrize("dims", [(2, 2), (2, 2, 2)], indirect=True)
+@pytest.mark.parametrize("num_phys_names", [0, 1, 10], indirect=True)
+class TestCreateNDGrid:
+    """Test that tags are correctly assigned for all ``create_nd_grid`` functions."""
 
-    # Create_1d_grids may return a tuple of grids. If so, we need to unpack it.
-    result = create_1d_grids(pts, cells, phys_names, cell_info)
-    g_1d = result[0] if isinstance(result, tuple) else result
+    def test_create_0d_grids(
+        self,
+        create_gmsh_file: str,
+        dims,
+        num_phys_names,
+    ) -> None:
+        pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
 
-    for g in g_1d:
-        tagged_grid = g
-        for gmsh_element_type in cell_info:
-            for tag in np.unique(cell_info[gmsh_element_type]):
-                phys_ind = tag
-                phys_name = phys_names[tag].lower()
-                #        for phys_ind, phys_name in phys_names.items():
-                assert np.all(
-                    tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
-                    == (cell_info[gmsh_element_type] == phys_ind)
-                )
+        g_0d: list[pp.PointGrid] = create_0d_grids(pts, cells, phys_names, cell_info)
+        for g in g_0d:
+            tagged_grid = g
+            for gmsh_element_type in cell_info:
+                for tag in np.unique(cell_info[gmsh_element_type]):
+                    phys_name = phys_names[tag].lower()
+                    assert np.all(
+                        tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
+                        == (cell_info[gmsh_element_type] == tag)
+                    )
 
+    def test_create_1d_grids(
+        self,
+        create_gmsh_file: str,
+        dims,
+        num_phys_names,
+    ) -> None:
+        pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
 
-def test_create_2d_grids():
-    pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
-    # this is tested in both values of is_embedded
-    g_2d = create_2d_grids(pts, cells, phys_names, cell_info, is_embedded=False)
+        g_1d = create_1d_grids(pts, cells, phys_names, cell_info)
 
-    for g in g_2d:
-        tagged_grid = g
-        for gmsh_element_type in cell_info:
-            for tag in np.unique(cell_info[gmsh_element_type]):
-                phys_ind = tag
-                phys_name = phys_names[tag].lower()
-                #        for phys_ind, phys_name in phys_names.items():
-                assert np.all(
-                    tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
-                    == (cell_info[gmsh_element_type] == phys_ind)
-                )
+        if isinstance(g_1d, tuple):
+            g_1d, _ = g_1d
 
+        for g in g_1d:
+            tagged_grid = g
+            for gmsh_element_type in cell_info:
+                for tag in np.unique(cell_info[gmsh_element_type]):
+                    phys_name = phys_names[tag].lower()
+                    assert np.all(
+                        tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
+                        == (cell_info[gmsh_element_type] == tag)
+                    )
 
-def test_create_3d_grids():
-    pts, cells, cell_info, phys_names = _read_gmsh_file(filename)
+    def test_create_2d_grids(
+        self,
+        create_gmsh_file: str,
+        dims,
+        num_phys_names: int,
+    ) -> None:
+        pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
+        # This is tested in both values of is_embedded
+        # Peter: I do not understand the comment above?
+        g_2d = create_2d_grids(pts, cells, phys_names, cell_info, is_embedded=False)
 
-    g_3d = create_3d_grids(pts, cells, phys_names, cell_info)
+        for g in g_2d:
+            tagged_grid = g
+            for gmsh_element_type in cell_info:
+                for tag in np.unique(cell_info[gmsh_element_type]):
+                    phys_name = phys_names[tag].lower()
+                    assert np.all(
+                        tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
+                        == (cell_info[gmsh_element_type] == tag)
+                    )
 
-    for g in g_3d:
-        tagged_grid = g
-        for gmsh_element_type in cell_info:
-            for tag in np.unique(cell_info[gmsh_element_type]):
-                phys_ind = tag
-                phys_name = phys_names[tag].lower()
-                #        for phys_ind, phys_name in phys_names.items():
-                assert np.all(
-                    tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
-                    == (cell_info[gmsh_element_type] == phys_ind)
-                )
+    def test_create_3d_grids(
+        self,
+        create_gmsh_file: str,
+        dims,
+        num_phys_names: int,
+    ) -> None:
+        if dims == (2, 2):
+            pytest.skip("3D grids are not created for 2D meshes.")
+
+        pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
+
+        g_3d = create_3d_grids(pts, cells, phys_names, cell_info)
+
+        for g in g_3d:
+            tagged_grid = g
+            for gmsh_element_type in cell_info:
+                for tag in np.unique(cell_info[gmsh_element_type]):
+                    phys_name = phys_names[tag].lower()
+                    assert np.all(
+                        tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
+                        == (cell_info[gmsh_element_type] == tag)
+                    )
