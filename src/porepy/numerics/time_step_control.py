@@ -383,6 +383,9 @@ class TimeManager:
         self.time_index: int = 0
 
         # Private attributes
+
+        # dt before a correction due to scheduled time was done.
+        self._dt_before_schedule_correction: Optional[int | float] = None
         # Number of times the solution has been recomputed
         self._recomp_num: int = 0
 
@@ -460,6 +463,16 @@ class TimeManager:
             Next time step if time < final_time. None, otherwise.
 
         """
+
+        # restore time step before schedule correction and proceed with it.
+        if self._dt_before_schedule_correction is not None:
+            if self._print_info:
+                print(
+                    "Restoring time step from before correction due to scheduled time: "
+                    + f"dt = {self.dt}."
+                )
+            self.dt = self._dt_before_schedule_correction
+            self._dt_before_schedule_correction = None
 
         # For bookkeeping reasons, save recomputation and iterations
         self._recomp_sol = recompute_solution
@@ -661,6 +674,7 @@ class TimeManager:
                     )
                 return
 
+            self._dt_before_schedule_correction = self.dt
             self.dt = schedule_time - self.time  # Correcting time step.
 
             if self._scheduled_idx < len(self.schedule) - 1:
