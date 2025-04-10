@@ -690,8 +690,31 @@ class SolutionStrategy(pp.PorePyModel):
         logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
 
         return np.atleast_1d(x)
-
+    
     def _is_nonlinear_problem(self) -> bool:
+        """Specifies whether the Model problem is nonlinear.
+
+        Returns:
+            bool: True if the problem is nonlinear, False otherwise.
+
+        """
+        # Some equations may be defined but have empty definition domains. We filter
+        # them out, as they should not contribute to the system nonlinearity.
+        equation_image_spaces = (
+            self.equation_system._equation_image_space_composition.items()
+        )
+        nonempty_definition_equations = [
+            eq_name
+            for eq_name, image_space in equation_image_spaces
+            if len(image_space) > 0
+        ]
+        # Check if any of the equations with nonempty definition domains is nonlinear.
+        return any(
+            self.equation_system.equation_is_nonlinear[eq]
+            for eq in nonempty_definition_equations
+        )
+
+    def _is_nonlinear_problem_old(self) -> bool:
         """Specifies whether the Model problem is nonlinear.
 
         Returns:
@@ -699,8 +722,12 @@ class SolutionStrategy(pp.PorePyModel):
             False otherwise.
         
         Note:
-            Equations defined on empty domains are ignored since they don't
+            1. Equations defined on empty domains are ignored since they don't
             contribute to the equation system's nonlinearity.
+
+            2. This method can be overriding should linearity be explicitly
+            required by model inheritting from other super model classes with 
+            some nonlinear model equations, inother to reduce size of copied code.
         """
         # Get all equations defined on non-empty domains
         active_equations = (
