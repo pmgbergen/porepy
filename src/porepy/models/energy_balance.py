@@ -1159,12 +1159,12 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         )
         # Compute offsets for the individual subdomains in the concatenated conductivity
         # tensor.
-        sd_start = np.cumsum([0] + [sd.num_cells for sd in subdomains])
+        subdomain_offsets = np.cumsum([0] + [sd.num_cells for sd in subdomains])
 
         for id, sd in enumerate(subdomains):
             data = self.mdg.subdomain_data(sd)
             # Extract the conductivity for the current subdomain.
-            loc_cells = np.arange(sd_start[id], sd_start[id + 1])
+            loc_cells = np.arange(subdomain_offsets[id], subdomain_offsets[id + 1])
             loc_conductivity = conductivity_all_cells.restrict_to_cells(loc_cells)
 
             pp.initialize_data(
