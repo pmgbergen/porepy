@@ -320,10 +320,10 @@ class ElastoplasticModel2d(
     pass
 
 
-# We set a high shear modulus to make the domain stiff (especially for shear), and a
-# low tangential fracture stiffness to make the fracture weak. This will make the
-# fracture deform significantly more than the surrounding domain. Still, the domain
-# will deform slightly, requiring a tolerance when comparing the results.
+# We set a high shear modulus to make the domain stiff (especially for shear), and a low
+# tangential fracture stiffness to make the fracture weak. This will make the fracture
+# deform significantly more than the surrounding domain. Still, the domain will deform
+# slightly, requiring a tolerance when comparing the results.
 solid_vals_elastoplastic = {
     "fracture_tangential_stiffness": 1e-5,
     "shear_modulus": 1e6,
@@ -660,7 +660,7 @@ def test_time_dependent_bc():
         "max_iterations": 30,
     }
 
-    # Create model and run simulation. The north displacement is 1, -0.5, 1.
+    # Create model and run simulation. The north displacement is [1, -0.5, 1].
     model = ElastoplasticModelTimeDependentBCs(params)
     pp.run_time_dependent_model(model, params)
     tols = [5e-2, 1e-10, 1e-3, 5e-2]
@@ -673,7 +673,8 @@ def test_time_dependent_bc():
         [0.086, -1.269, 0.086],
         tols,
     )
-    # Continue for one more time step. This time, the north displacement is 1, -0.5, 15.
+    # Continue for one more time step. This time, the north displacement is
+    # [1, -0.5, 15].
     model.time_manager = pp.TimeManager([1.0, 2.0], 1.0, True)
     params["prepare_simulation"] = False
 
@@ -683,7 +684,8 @@ def test_time_dependent_bc():
     u_p = [0.01726451, 0.0, 0.25888975]
     traction = u_e * 1e-1
     traction[1] = -1.26913265
-    # Same goes here. We expect -0.375, since the top coordinate is 0.375.
+    # Same goes here. We expect -0.375, since the top coordinate is 0.75 and we
+    # displace the top by 0.5 and have a linear displacement profile.
     u_top = [0.96536718, -0.375, 14.48052228]
     pp.run_time_dependent_model(model, params)
     verify_elastoplastic_deformation(
