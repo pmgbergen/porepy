@@ -854,7 +854,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
     """
     operator_to_SecondOrderTensor: Callable[
-        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
+        [list[pp.Grid], pp.ad.Operator, pp.number], pp.SecondOrderTensor
     ]
     """Function that returns a SecondOrderTensor provided a method returning
     permeability as a Operator. Normally provided by a mixin instance of
@@ -903,16 +903,32 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
         """
         super().set_discretization_parameters()
-        for sd, data in self.mdg.subdomains(return_data=True):
+        # Profiling indicated that for problems with many subdomains, evaluating the
+        # permeability for one subdomain at a time is a significant bottleneck. We
+        # therefore evaluate the permeability for all subdomains at
+        # once, and then assign the values to the individual subdomains.
+        subdomains = self.mdg.subdomains()
+        permeability_all_cells = self.operator_to_SecondOrderTensor(
+            subdomains, self.permeability(subdomains), self.solid.permeability
+        )
+
+        # Get the start indices of individual subdomains in the permeability array.
+        subdomain_offsets = np.cumsum([0] + [sd.num_cells for sd in subdomains])
+
+        for id, sd in enumerate(subdomains):
+            data = self.mdg.subdomain_data(sd)
+            # Indices of cells in the current subdomain, relative to ordering in the
+            # permeability array.
+            loc_cells = np.arange(subdomain_offsets[id], subdomain_offsets[id + 1])
+            loc_permeability = permeability_all_cells.restrict_to_cells(loc_cells)
+
             pp.initialize_data(
                 sd,
                 data,
                 self.darcy_keyword,
                 {
                     "bc": self.bc_type_darcy_flux(sd),
-                    "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd, self.permeability([sd]), self.solid.permeability
-                    ),
+                    "second_order_tensor": loc_permeability,
                     "ambient_dimension": self.nd,
                 },
             )
@@ -943,13 +959,38 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
         """
         # Update parameters *before* the discretization matrices are re-computed.
-        for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.equation_system.evaluate(self.darcy_flux([sd]))
+
+        # Evaluate the Darcy flux for all subdomains together, then distribute the
+        # computed values. For domains with many subdomains, this is significantly
+        # faster than evaluating the Darcy flux for each subdomain individually.
+        subdomains = self.mdg.subdomains()
+        darcy_flux = self.equation_system.evaluate(self.darcy_flux(subdomains))
+        # Compute offsets for the start of each subdomain in the darcy_flux array.
+        subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
+
+        for id, sd in enumerate(subdomains):
+            # Update the data dictionary with the Darcy flux for the current subdomain.
+            data = self.mdg.subdomain_data(sd)
+            vals = darcy_flux[subdomain_offsets[id] : subdomain_offsets[id + 1]]
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
 
-        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.equation_system.evaluate(self.interface_darcy_flux([intf]))
+        # Do an equivalent joint evaluation for the interfaces between fractures.
+        interfaces = self.mdg.interfaces(codim=1)
+        interface_darcy_flux = self.equation_system.evaluate(
+            self.interface_darcy_flux(interfaces)
+        )
+        interface_offsets = np.cumsum([0] + [intf.num_cells for intf in interfaces])
+
+        for id, intf in enumerate(interfaces):
+            # Update the data dictionary with the Darcy flux for the current interface.
+            data = self.mdg.interface_data(intf)
+            vals = interface_darcy_flux[
+                interface_offsets[id] : interface_offsets[id + 1]
+            ]
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+
+        # The well fluxes are so few that we evaluate them individually, instead of
+        # dealing with the slightly more complex code to evaluate them all at once.
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
             vals = self.equation_system.evaluate(self.well_flux([intf]))
             data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
