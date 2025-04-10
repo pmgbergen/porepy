@@ -913,13 +913,13 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         )
 
         # Get the start indices of individual subdomains in the permeability array.
-        sd_start = np.cumsum([0] + [sd.num_cells for sd in subdomains])
+        subdomain_offsets = np.cumsum([0] + [sd.num_cells for sd in subdomains])
 
         for id, sd in enumerate(subdomains):
             data = self.mdg.subdomain_data(sd)
             # Indices of cells in the current subdomain, relative to ordering in the
             # permeability array.
-            loc_cells = np.arange(sd_start[id], sd_start[id + 1])
+            loc_cells = np.arange(subdomain_offsets[id], subdomain_offsets[id + 1])
             loc_permeability = permeability_all_cells.restrict_to_cells(loc_cells)
 
             pp.initialize_data(
