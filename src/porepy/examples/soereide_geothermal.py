@@ -34,7 +34,7 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.test_utils.models import create_local_model_class
 from porepy.fracs.wells_3d import _add_interface
-
+from porepy.numerics.nonlinear.line_search import LineSearchNewtonSolver
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.DEBUG)
@@ -70,11 +70,13 @@ class _FlowConfiguration(pp.PorePyModel):
     _p_IN: float = _p_INIT
     _p_OUT: float = _p_INIT - 1e6
     _p_PRODUCTION: dict[int, float] = {0: _p_OUT}
+    # Atm at sea level + 2 km column of air, assuming an empty production pipe, would
+    # lead to 0.125 MPa bottom hole pressure.
 
     _T_IN: float = _T_INIT
     _T_OUT: float = _T_INIT
-    _T_HEATED: float = _T_INIT + 20.0
-    # _T_HEATED: float = 620.0  # 650.
+    # _T_HEATED: float = _T_INIT + 20.0
+    _T_HEATED: float = 640.0  # 650.
     _T_INJECTION: dict[int, float] = {0: _T_IN}
 
     _z_IN: dict[str, float] = {
@@ -91,7 +93,7 @@ class _FlowConfiguration(pp.PorePyModel):
     # Value obtained from a p-T flash with values defined above.
     # Divide by 3600 to obtain an injection of unit per hour
     # Multiplied by some number for how many units per hour
-    _TOTAL_INJECTED_MASS: float = 2 * 27430.998956110157 / (60 * 60)  # mol / m^3
+    _TOTAL_INJECTED_MASS: float = 10 * 27430.998956110157 / (60 * 60)  # mol / m^3
 
     _INJECTED_MASS: dict[str, dict[int, float]] = {
         "H2O": {0: _TOTAL_INJECTED_MASS * _z_IN["H2O"]},
@@ -149,6 +151,22 @@ class SolutionStrategy(pp.PorePyModel):
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     has_independent_fraction: Callable[[pp.Component | pp.Phase], bool]
+
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: Optional[np.ndarray],
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+        """Flags the time step as diverged, if there is a nan in the residual."""
+        status = super().check_convergence(  # type:ignore[misc]
+            nonlinear_increment, residual, reference_residual, nl_params
+        )
+        if residual is not None:
+            if np.any(np.isnan(residual)) and status == (False, False):
+                return (False, True)
+        return status
 
     def compute_residual_norm(
         self, residual: Optional[np.ndarray], reference_residual: np.ndarray
@@ -242,9 +260,9 @@ class SolutionStrategy(pp.PorePyModel):
 
         unity_tolerance = 0.05
 
-        sat_sum = np.sum(fluid_state.sat, axis=0)
-        if np.any(sat_sum > 1 + unity_tolerance):
-            raise ValueError("Saturations violate unity constraint")
+        # sat_sum = np.sum(fluid_state.sat, axis=0)
+        # if np.any(sat_sum > 1 + unity_tolerance):
+        #     raise ValueError("Saturations violate unity constraint")
         y_sum = np.sum(fluid_state.y, axis=0)
         idx = fluid_state.y < 0
         if np.any(idx):
@@ -1033,9 +1051,9 @@ times_to_export = [i * pp.DAY for i in range(31)] + [
     i * 30 * pp.DAY for i in range(2, 13)
 ]
 
-max_iterations = 17
-newton_tol = 1e-5
-newton_tol_increment = 1e-1
+max_iterations = 20
+newton_tol = 1.5e-4
+newton_tol_increment = 1e-6
 
 flash_params = {
     "mode": "parallel",
@@ -1057,9 +1075,9 @@ time_manager = pp.TimeManager(
     dt_init=0.5 * pp.DAY * t_scale,
     dt_min_max=(pp.MINUTE * t_scale, 30 * pp.DAY),
     iter_max=max_iterations,
-    iter_optimal_range=(5, 9),
-    iter_relax_factors=(0.7, 1.9),
-    recomp_factor=0.5,
+    iter_optimal_range=(6, 10),
+    iter_relax_factors=(0.7, 2.0),
+    recomp_factor=0.6,
     recomp_max=15,
     print_info=True,
     rtol=0.0,
@@ -1102,6 +1120,11 @@ params = {
     "linear_solver": "scipy_sparse",
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
+    "Global_line_search": False,
+    "nonlinear_solver": LineSearchNewtonSolver,
+    "residual_line_search_interval_size": 1e-1,
+    "residual_line_search_num_steps": 5,
+    "min_line_search_weight": 1e-10,
 }
 
 # Casting to the most complex model type for typing purposes.
