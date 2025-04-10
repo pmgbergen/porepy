@@ -96,6 +96,9 @@ class DataSavingMixin(pp.PorePyModel):
 
     def write_pvd_and_vtu(self) -> None:
         """Helper function for writing the .vtu and .pvd files and time information."""
+        self.time_manager.write_time_information(
+            Path(self.params["folder_name"]) / "times.json"
+        )
         self.exporter.write_vtu(self.data_to_export(), time_dependent=True)
         if self.restart_options.get("restart", False):
             # For a pvd file addressing all time steps (before and after restart
@@ -108,9 +111,6 @@ class DataSavingMixin(pp.PorePyModel):
             )
         else:
             self.exporter.write_pvd(np.array(self.time_manager.exported_times))
-        self.time_manager.write_time_information(
-            Path(self.params["folder_name"]) / "times.json"
-        )
 
     def data_to_export(self) -> list[DataInput]:
         """Return data to be exported.
