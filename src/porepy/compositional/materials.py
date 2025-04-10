@@ -455,7 +455,6 @@ class NumericalConstants(Constants):
             "characteristic_displacement": "m",
             "characteristic_contact_traction": "Pa",
             "open_state_tolerance": "-",
-            "contact_mechanics_scaling": "-",
         }
     )
 
@@ -464,9 +463,6 @@ class NumericalConstants(Constants):
 
     characteristic_displacement: number = 1.0
     """Characteristic displacement used for scaling of contact mechanics."""
-
-    contact_mechanics_scaling: number = 1e-1
-    """Safety scaling factor, making fractures softer than the matrix."""
 
     open_state_tolerance: number = 1e-10
     """Tolerance parameter for the tangential characteristic contact mechanics."""

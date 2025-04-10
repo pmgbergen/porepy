@@ -249,6 +249,7 @@ class ConstitutiveLawsContactMechanics(
     constitutive_laws.DisplacementJump,
     constitutive_laws.DimensionReduction,
     constitutive_laws.ElasticModuli,
+    constitutive_laws.CharacteristicTractionFromDisplacement,
     constitutive_laws.ElasticTangentialFractureDeformation,
 ):
     """Class for constitutive equations for contact mechanics."""
@@ -456,8 +457,11 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
     """
 
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic displacement of the problem. Normally defined in a mixin
-    instance of :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    """Characteristic displacement of the problem. Normally defined in a mixin 
+    instance of either 
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
+    or 
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -493,13 +497,7 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
             c_num: Numerical constant.
 
         """
-        # Interpretation (EK):
-        # The scaling factor should not be too large, otherwise the contact problem
-        # may be discretized wrongly. I therefore introduce a safety factor here; its
-        # value is somewhat arbitrary.
-        softening_factor = pp.ad.Scalar(self.numerical.contact_mechanics_scaling)
-
-        constant = softening_factor / self.characteristic_displacement(subdomains)
+        constant = pp.ad.Scalar(1.0) / self.characteristic_displacement(subdomains)
         constant.set_name("Contact_mechanics_numerical_constant")
         return constant
 
