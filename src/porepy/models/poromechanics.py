@@ -41,6 +41,7 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.ElasticModuli,
+    pp.constitutive_laws.CharacteristicTractionFromDisplacement,
     pp.constitutive_laws.ElasticTangentialFractureDeformation,
     pp.constitutive_laws.LinearElasticMechanicalStress,
     pp.constitutive_laws.ConstantSolidDensity,
