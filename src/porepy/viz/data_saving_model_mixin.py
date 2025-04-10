@@ -101,9 +101,11 @@ class DataSavingMixin(pp.PorePyModel):
             # For a pvd file addressing all time steps (before and after restart
             # time), resume based on restart input pvd file through append.
             pvd_file = self.restart_options["pvd_file"]
-            self.exporter.write_pvd(append=True, from_pvd_file=pvd_file)
+            self.exporter.write_pvd(
+                self.time_manager.exported_times, append=True, from_pvd_file=pvd_file
+            )
         else:
-            self.exporter.write_pvd()
+            self.exporter.write_pvd(self.time_manager.exported_times)
         self.time_manager.write_time_information(
             Path(self.params["folder_name"]) / "times.json"
         )
