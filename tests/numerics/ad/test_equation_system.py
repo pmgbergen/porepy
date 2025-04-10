@@ -1521,27 +1521,26 @@ def test_schur_complement(eq_var_to_exclude):
 
 
 @pytest.mark.parametrize("eq_types", [
-    [True, True, True],    # All nonlinear
-    [False, False, False],  # All linear
-    [False, True, False]    # Mixed
+    [True, True, True],    # All nonlinear => Nonlinear problem
+    [False, False, False],  # All linear => Linear problem
+    [False, True, False]    # Mixed => Nonlinear problem
 ])
 def test_linear_or_nonlinear_equations(eq_types):
 
-    """Test that the system correctly handles multiple equations with different
-    linearity types (all nonlinear, all linear, or mixed).
+    """Tests to ensure that the bookkeeping of equation system linearity/nonlinearity 
+    works correctly
 
-    Note: This verifies the bookkeeping of equation linearity flags, not the actual
-    mathematical linearity of the equations. The test depends on the explicit
-    `is_nonlinear` parameter passed to `set_equation()`, and will fail if this
-    interface changes.
+    Note: Tests do not determine the actual mathematical linearity/nonlinearity
+    of the equations. The tests depend on the explicit `is_nonlinear` parameter
+    passed to `set_equation()`, and will fail if this interface changes.
 
     """
 
-    model = EquationSystemMockModel()
-    subdomains = model.mdg.subdomains()
-    equation_system = pp.EquationSystem(model.mdg)
-    model_solution_strategy = pp.SolutionStrategy()
-
+    mdg, _ = square_with_orthogonal_fractures(
+        "cartesian", {"cell_size": 0.5}, [0, 1]
+    )
+    subdomains = mdg.subdomains()
+    equation_system = pp.EquationSystem(mdg)
     for i, is_nonlinear in enumerate(eq_types):
         var = equation_system.create_variables(
             f"var_{i}",
@@ -1559,6 +1558,7 @@ def test_linear_or_nonlinear_equations(eq_types):
         )
         # Verify individual equation nonlinearity
         assert equation_system.equation_is_nonlinear[eq_name] == is_nonlinear
+    model_solution_strategy = pp.SolutionStrategy()
     model_solution_strategy.equation_system = equation_system
     # Verify the full equation system nonlinear detection
     assert model_solution_strategy._is_nonlinear_problem() == any(eq_types)
