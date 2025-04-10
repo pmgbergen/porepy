@@ -2,7 +2,6 @@
 
 import copy
 import pathlib
-from typing import Sequence
 
 import numpy as np
 import pytest
@@ -215,6 +214,43 @@ def cell_info_from_mdg(
 
 
 @pytest.mark.parametrize(
+    "create_function, expected_grid_type",
+    [
+        (create_0d_grids, pp.PointGrid),
+        (create_1d_grids, pp.Grid),
+        (create_2d_grids, pp.Grid),
+        (create_3d_grids, pp.Grid),
+    ],
+)
+@pytest.mark.parametrize("dims", [(2, 2), (2, 2, 2)], indirect=True)
+@pytest.mark.parametrize("num_phys_names", [0, 1, 5], indirect=True)
+def test_create_grids(
+    create_function,
+    expected_grid_type,
+    create_gmsh_file: str,
+    dims,
+    num_phys_names,
+) -> None:
+    """Test that create_nd_grids functions produce grids with correct tags."""
+    pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
+
+    grids = create_function(pts, cells, phys_names, cell_info)
+
+    if isinstance(grids, tuple):
+        grids, _ = grids
+
+    for g in grids:
+        assert isinstance(g, expected_grid_type)
+        for gmsh_element_type in cell_info:
+            for tag in np.unique(cell_info[gmsh_element_type]):
+                phys_name = phys_names[tag].lower()
+                assert np.all(
+                    g.tags[f"{phys_name}_{gmsh_element_type}s"]
+                    == (cell_info[gmsh_element_type] == tag)
+                )
+
+
+@pytest.mark.parametrize(
     "num_phys_names", [1], indirect=True
 )  # This parameter is needed to create the gmsh file.
 @pytest.mark.parametrize("dims", [(2, 2, 2)], indirect=True)
@@ -235,7 +271,6 @@ def test_gmsh_elements(
     """
     gmsh_element_types_copy: list[str] = copy.copy(gmsh_element_types)
 
-    # Remove all elements types present in the gmsh file and check that nothing remains.
     for grid_element_type in cell_info_from_gmsh:
         gmsh_element_types_copy.remove(grid_element_type)
     assert len(gmsh_element_types_copy) == 0
@@ -250,7 +285,9 @@ def test_tag_grids(
     dims,
     num_phys_names,
 ) -> None:
-    """Test that ``tag_grids`` correctly assigns tags to the grid."""
+    """Test that ``tag_grids`` correctly assigns tags to the grid.
+
+    TODO: Check whether the unused parameters are needed. If not, remove them."""
     for grid in simplex_grids:
         tagged_grid: pp.Grid = tag_grid(grid, phys_names, cell_info_from_mdg)
         for gmsh_element_type in cell_info_from_mdg:
@@ -259,95 +296,3 @@ def test_tag_grids(
                     tagged_grid.tags[f"{phys_name}_{gmsh_element_type}s"]
                     == (cell_info_from_mdg[gmsh_element_type] == tag)
                 )
-
-
-@pytest.mark.parametrize("dims", [(2, 2), (2, 2, 2)], indirect=True)
-@pytest.mark.parametrize("num_phys_names", [0, 1, 10], indirect=True)
-class TestCreateNDGrid:
-    """Test that tags are correctly assigned for all ``create_nd_grid`` functions."""
-
-    def test_create_0d_grids(
-        self,
-        create_gmsh_file: str,
-        dims,
-        num_phys_names,
-    ) -> None:
-        pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
-
-        g_0d: list[pp.PointGrid] = create_0d_grids(pts, cells, phys_names, cell_info)
-        for g in g_0d:
-            tagged_grid = g
-            for gmsh_element_type in cell_info:
-                for tag in np.unique(cell_info[gmsh_element_type]):
-                    phys_name = phys_names[tag].lower()
-                    assert np.all(
-                        tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
-                        == (cell_info[gmsh_element_type] == tag)
-                    )
-
-    def test_create_1d_grids(
-        self,
-        create_gmsh_file: str,
-        dims,
-        num_phys_names,
-    ) -> None:
-        pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
-
-        g_1d = create_1d_grids(pts, cells, phys_names, cell_info)
-
-        if isinstance(g_1d, tuple):
-            g_1d, _ = g_1d
-
-        for g in g_1d:
-            tagged_grid = g
-            for gmsh_element_type in cell_info:
-                for tag in np.unique(cell_info[gmsh_element_type]):
-                    phys_name = phys_names[tag].lower()
-                    assert np.all(
-                        tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
-                        == (cell_info[gmsh_element_type] == tag)
-                    )
-
-    def test_create_2d_grids(
-        self,
-        create_gmsh_file: str,
-        dims,
-        num_phys_names: int,
-    ) -> None:
-        pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
-        # This is tested in both values of is_embedded
-        # Peter: I do not understand the comment above?
-        g_2d = create_2d_grids(pts, cells, phys_names, cell_info, is_embedded=False)
-
-        for g in g_2d:
-            tagged_grid = g
-            for gmsh_element_type in cell_info:
-                for tag in np.unique(cell_info[gmsh_element_type]):
-                    phys_name = phys_names[tag].lower()
-                    assert np.all(
-                        tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
-                        == (cell_info[gmsh_element_type] == tag)
-                    )
-
-    def test_create_3d_grids(
-        self,
-        create_gmsh_file: str,
-        dims,
-        num_phys_names: int,
-    ) -> None:
-        if dims == (2, 2):
-            pytest.skip("3D grids are not created for 2D meshes.")
-
-        pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
-
-        g_3d = create_3d_grids(pts, cells, phys_names, cell_info)
-
-        for g in g_3d:
-            tagged_grid = g
-            for gmsh_element_type in cell_info:
-                for tag in np.unique(cell_info[gmsh_element_type]):
-                    phys_name = phys_names[tag].lower()
-                    assert np.all(
-                        tagged_grid.tags[f"{phys_name.lower()}_{gmsh_element_type}s"]
-                        == (cell_info[gmsh_element_type] == tag)
-                    )
