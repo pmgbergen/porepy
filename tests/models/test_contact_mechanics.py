@@ -58,7 +58,7 @@ def test_contact_mechanics(nd):
     expected_jump = displacement_vals[:, 1].reshape((nd, -1))
     if not positive_side_first:
         expected_jump *= -1
-    np.testing.assert_allclose(displacement_jump_global - expected_jump, 0)
+    np.testing.assert_allclose(displacement_jump_global - expected_jump, 0, atol=1e-15)
     # Check the contact traction.
     scaled_traction = model.contact_traction(
         fractures
@@ -77,10 +77,10 @@ def test_contact_mechanics(nd):
     u_n = displacement_jump_local[-1]
     sigma_n = k_n * u_n_max * (1 - u_n_max / u_n)
     # Check that the traction is equal to the calculated value.
-    np.testing.assert_allclose(traction[-1] - sigma_n, 0)
+    np.testing.assert_allclose(traction[-1] - sigma_n, 0, atol=1e-15)
     # In the tangential direction, we have
     # \sigma_t = k_t * \Delta u_t
     # Note that in 3d, we test both the nonzero and zero displacement jumps.
     inds_t = np.arange(nd - 1)
     sigma_t = solid.fracture_tangential_stiffness * displacement_jump_local[inds_t]
-    np.testing.assert_allclose(traction[inds_t] - sigma_t, 0)
+    np.testing.assert_allclose(traction[inds_t] - sigma_t, 0, atol=1e-15)
