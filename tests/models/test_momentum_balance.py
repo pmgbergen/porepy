@@ -660,7 +660,7 @@ def test_time_dependent_bc():
         "max_iterations": 30,
     }
 
-    # Create model and run simulation. The north displacement is 1, -1, 1.
+    # Create model and run simulation. The north displacement is 1, -0.5, 1.
     model = ElastoplasticModelTimeDependentBCs(params)
     pp.run_time_dependent_model(model, params)
     tols = [5e-2, 1e-10, 1e-3, 5e-2]
@@ -673,17 +673,17 @@ def test_time_dependent_bc():
         [0.086, -1.269, 0.086],
         tols,
     )
-    # Continue for one more time step. This time, the north displacement is 1, -1, 2.
+    # Continue for one more time step. This time, the north displacement is 1, -0.5, 15.
     model.time_manager = pp.TimeManager([1.0, 2.0], 1.0, True)
     params["prepare_simulation"] = False
 
     # Fixed values from a previous run. Both normal value (u_y=0) and ratio of
-    # tangential displacements (1/50, see BC class) are correct.
+    # tangential displacements (1/15, see BC class) are correct.
     u_e = np.array([0.84420422, 0.0, 12.66319939])
     u_p = [0.01726451, 0.0, 0.25888975]
     traction = u_e * 1e-1
     traction[1] = -1.26913265
-    # Same goes here. We expect -0.75, since the top coordinate is 0.75.
+    # Same goes here. We expect -0.375, since the top coordinate is 0.375.
     u_top = [0.96536718, -0.375, 14.48052228]
     pp.run_time_dependent_model(model, params)
     verify_elastoplastic_deformation(
