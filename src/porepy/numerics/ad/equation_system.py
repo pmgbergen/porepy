@@ -1145,7 +1145,7 @@ class EquationSystem:
             # Store the equation itself.
             self._equations.update({name: equation})
             # Store the linear/nonlinear flag.
-            self._equation_is_nonlinear.update({name: is_nonlinear})
+            self._equation_is_nonlinear[name] = is_nonlinear
             return
 
         # We require that equations are defined either on a set of subdomains, or a set
@@ -1214,7 +1214,7 @@ class EquationSystem:
         # Store the equation itself.
         self._equations.update({name: equation})
         # Store the linear/nonlinear flag.
-        self._equation_is_nonlinear.update({name: is_nonlinear})
+        self._equation_is_nonlinear[name] = is_nonlinear
 
     def remove_equation(self, name: str) -> Operator | None:
         """Removes a previously set equation and all related information.
