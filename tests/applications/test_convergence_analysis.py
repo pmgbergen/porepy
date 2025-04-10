@@ -943,6 +943,7 @@ def test_l2_error(
     # Define true and approximated values.
     vec = 1 if is_scalar else grid.dim
     num_dof = grid.num_cells if is_cc else grid.num_faces
+    np.random.seed(42)
     true_array = np.random.random(num_dof * vec)
     approx_array = np.random.random(num_dof * vec)
     diff = true_array - approx_array
