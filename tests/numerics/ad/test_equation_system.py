@@ -1520,28 +1520,45 @@ def test_schur_complement(eq_var_to_exclude):
     assert np.allclose(x_reconstructed, x_expected)
 
 
-@pytest.mark.parametrize("is_nonlinear", [True, False])
-def test_linear_or_nonlinear_equation(is_nonlinear: bool):
-    """Tests that the bookkeeping of linear/nonlinear equations works correctly.
+@pytest.mark.parametrize("eq_types", [
+    [True, True, True],    # All nonlinear
+    [False, False, False],  # All linear
+    [False, True, False]    # Mixed
+])
+def test_linear_or_nonlinear_equations(eq_types):
 
-    Note that it does not really check if the equation is really linear/nonlinear, only
-    relies on what the user passed. So if this once changes, this test will fail.
+    """Test that the system correctly handles multiple equations with different
+    linearity types (all nonlinear, all linear, or mixed).
+
+    Note: This verifies the bookkeeping of equation linearity flags, not the actual
+    mathematical linearity of the equations. The test depends on the explicit
+    `is_nonlinear` parameter passed to `set_equation()`, and will fail if this
+    interface changes.
 
     """
+
     model = EquationSystemMockModel()
     subdomains = model.mdg.subdomains()
-    equation_system = model.equation_system
+    equation_system = pp.EquationSystem(model.mdg)
+    model_solution_strategy = pp.SolutionStrategy()
 
-    var = equation_system.create_variables(
-        "tmp_variable", dof_info={"cells": 1}, subdomains=subdomains
-    )
-    eq = var * 5 - 10
-    eq_name = "tmp_equation"
-    eq.set_name(eq_name)
-    equation_system.set_equation(
-        eq,
-        grids=subdomains,
-        equations_per_grid_entity={"cells": 1},
-        is_nonlinear=is_nonlinear,
-    )
-    assert equation_system.equation_is_nonlinear[eq_name] == is_nonlinear
+    for i, is_nonlinear in enumerate(eq_types):
+        var = equation_system.create_variables(
+            f"var_{i}",
+            dof_info={"cells": 1},
+            subdomains=subdomains
+        )
+        eq = var * (i+1) - 10
+        eq_name = f"eq_{i}"
+        eq.set_name(eq_name)
+        equation_system.set_equation(
+            eq,
+            grids=subdomains,
+            equations_per_grid_entity={"cells": 1},
+            is_nonlinear=is_nonlinear,
+        )
+        # Verify individual equation nonlinearity
+        assert equation_system.equation_is_nonlinear[eq_name] == is_nonlinear
+    model_solution_strategy.equation_system = equation_system
+    # Verify the full equation system nonlinear detection
+    assert model_solution_strategy._is_nonlinear_problem() == any(eq_types)
