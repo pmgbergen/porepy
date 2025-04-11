@@ -83,9 +83,14 @@ def test_export_chosen_times(times_to_export):
         ([0.0, 0.1, 0.2], [0.0, 0.1, 0.2]),
     ],
 )
-def test_compare_exported_times_and_unique_timesteps(times_to_export, expected_times):
-    """Test that exported times match the times in times.json and unique timesteps in
-    PVD."""
+def test_exported_times_consistency_with_files(times_to_export, expected_times):
+    """Verify consistency between exported times and visualization files.
+
+    The test ensures that:
+        * Exported times match the times listed in the `times.json` file.
+        * Exported times align with the timesteps in the `data.pvd` file.
+        * The correct number of visualization files are generated.
+    """
     folder_name = "viz_test_data_saving"
     time_steps = 10
     tf = 0.25
@@ -126,11 +131,11 @@ def test_compare_exported_times_and_unique_timesteps(times_to_export, expected_t
     tree = ET.parse(pvd_file)
     root = tree.getroot()
 
-    # Extract unique timesteps
+    # Extract unique timesteps.
     timesteps = set()
     for dataset in root.findall(".//DataSet"):
         timestep = dataset.get("timestep")
         timesteps.add(float(timestep))
 
-    # Compare unique timesteps with times.json
+    # Compare unique timesteps with times.json.
     assert np.allclose(sorted(timesteps), times_data["time"])
