@@ -1520,14 +1520,16 @@ def test_schur_complement(eq_var_to_exclude):
     assert np.allclose(x_reconstructed, x_expected)
 
 
-@pytest.mark.parametrize("eq_types", [
-    [True, True, True],    # All nonlinear => Nonlinear problem
-    [False, False, False],  # All linear => Linear problem
-    [False, True, False]    # Mixed => Nonlinear problem
-])
+@pytest.mark.parametrize(
+    "eq_types",
+    [
+        [True, True, True],  # All nonlinear => Nonlinear problem
+        [False, False, False],  # All linear => Linear problem
+        [False, True, False],  # Mixed => Nonlinear problem
+    ],
+)
 def test_linear_or_nonlinear_equations(eq_types):
-
-    """Tests to ensure that the bookkeeping of equation system linearity/nonlinearity 
+    """Tests to ensure that the bookkeeping of equation system linearity/nonlinearity
     works correctly
 
     Note: Tests do not determine the actual mathematical linearity/nonlinearity
@@ -1536,18 +1538,14 @@ def test_linear_or_nonlinear_equations(eq_types):
 
     """
 
-    mdg, _ = square_with_orthogonal_fractures(
-        "cartesian", {"cell_size": 0.5}, [0, 1]
-    )
+    mdg, _ = square_with_orthogonal_fractures("cartesian", {"cell_size": 0.5}, [0, 1])
     subdomains = mdg.subdomains()
     equation_system = pp.EquationSystem(mdg)
     for i, is_nonlinear in enumerate(eq_types):
         var = equation_system.create_variables(
-            f"var_{i}",
-            dof_info={"cells": 1},
-            subdomains=subdomains
+            f"var_{i}", dof_info={"cells": 1}, subdomains=subdomains
         )
-        eq = var * (i+1) - 10
+        eq = var * (i + 1) - 10
         eq_name = f"eq_{i}"
         eq.set_name(eq_name)
         equation_system.set_equation(
