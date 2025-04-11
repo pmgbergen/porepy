@@ -706,17 +706,17 @@ class SolutionStrategy(pp.PorePyModel):
             superclass models containing nonlinear equations. This approach
             avoids code duplication while maintaining clear linearity
             specifications.
+
         """
 
         # Get all equations defined on non-empty domains
         active_equations = (
-            eq_name for eq_name, image_space in
-            self.equation_system._equation_image_space_composition.items()
+            eq_name
+            for eq_name, image_space in self.equation_system._equation_image_space_composition.items()
             if image_space
         )
         return any(
-            self.equation_system.equation_is_nonlinear[eq]
-            for eq in active_equations
+            self.equation_system.equation_is_nonlinear[eq] for eq in active_equations
         )
 
     def _is_time_dependent(self) -> bool:
