@@ -712,7 +712,9 @@ class SolutionStrategy(pp.PorePyModel):
         # Get all equations defined on non-empty domains
         active_equations = (
             eq_name
-            for eq_name, image_space in self.equation_system._equation_image_space_composition.items()
+            for eq_name, image_space in (
+                self.equation_system._equation_image_space_composition.items()
+            )
             if image_space
         )
         return any(
