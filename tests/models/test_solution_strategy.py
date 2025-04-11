@@ -400,6 +400,9 @@ class CheckConvergenceTest(pp.SolutionStrategy):
         super().__init__(params)
         self.nonlinear_solver_statistics = pp.SolverStatistics()
 
+    def _is_nonlinear_problem(self) -> bool:
+        return True
+
 
 @pytest.fixture
 def check_convergence_test_model() -> CheckConvergenceTest:
