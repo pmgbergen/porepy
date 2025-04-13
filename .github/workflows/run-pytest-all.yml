@@ -67,4 +67,4 @@ jobs:
 
     - name: all tests
       if: ${{always()}}
-      run: pytest --run-skipped -m "not tutorials"
+      run: pytest --run-skipped -m "not tutorials" -n auto
