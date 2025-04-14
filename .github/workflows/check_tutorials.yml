@@ -77,4 +77,4 @@ jobs:
 
     - name: Check tutorials
       if: ${{always()}}
-      run: pytest tests -m tutorials -n auto
+      run: pytest tests -m tutorials -n auto -dist loadfile
