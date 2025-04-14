@@ -1555,7 +1555,7 @@ def test_linear_or_nonlinear_equations(eq_types):
             is_nonlinear=is_nonlinear,
         )
         # Verify individual equation nonlinearity.
-        assert equation_system.nonlinear_equation_map[eq_name] == is_nonlinear
+        assert equation_system.is_nonlinear_equation(eq_name) == is_nonlinear
     model_solution_strategy = pp.SolutionStrategy()
     model_solution_strategy.equation_system = equation_system
     # Verify the full equation system nonlinear detection.
