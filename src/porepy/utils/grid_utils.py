@@ -10,35 +10,34 @@ from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_dat
 def switch_sign_if_inwards_normal(
     g: pp.Grid, nd: int, faces: np.ndarray
 ) -> sps.dia_matrix:
-    """Construct a matrix that changes sign of quantities on faces with a
-    normal that points into the grid.
+    """Construct a matrix that changes sign of quantities on faces with a normal that
+    points into the grid.
 
     Parameters:
-        g: Grid.
-        nd: Number of quantities per face; this will for instance be the
-            number of components in a face-vector.
+        g: Grid. nd: Number of quantities per face; this will for instance be the number
+            of components in a face-vector.
         faces: Index for which faces to be considered. Should only contain boundary
             faces.
 
     Returns:
-        sps.dia_matrix: Diagonal matrix which switches the sign of faces if the
-            normal vector of the face points into the grid g. Faces not considered
-            will have a 0 diagonal term. If nd > 1, the first nd rows are associated
-            with the first face, then nd elements of the second face etc.
+        sps.dia_matrix: Diagonal matrix which switches the sign of faces if the normal
+        vector of the face points into the grid g. Faces not considered will have a 0
+        diagonal term. If nd > 1, the first nd rows are associated with the first face,
+        then nd elements of the second face etc.
 
     """
 
     faces = np.asarray(faces)
 
-    # Find out whether the boundary faces have outwards pointing normal vectors
+    # Find out whether the boundary faces have outwards pointing normal vectors.
     # Negative sign implies that the normal vector points inwards.
     sgn, _ = g.signs_and_cells_of_boundary_faces(faces)
 
     # Create vector with the sign in the places of faces under consideration,
-    # zeros otherwise
+    # zeros otherwise.
     sgn_mat = np.zeros(g.num_faces)
     sgn_mat[faces] = sgn
-    # Duplicate the numbers, the operator is intended for vector quantities
+    # Duplicate the numbers, the operator is intended for vector quantities.
     sgn_mat = np.tile(sgn_mat, (nd, 1)).ravel(order="F")
 
     # Create the diagonal matrix.
@@ -46,16 +45,15 @@ def switch_sign_if_inwards_normal(
 
 
 def star_shape_cell_centers(g: "pp.Grid", as_nan: bool = False) -> np.ndarray:
-    """
-    For a given grid compute the star shape center for each cell.
+    """For a given grid compute the star shape center for each cell.
 
     The algorithm computes the half space intersections of the spaces defined by the
     cell faces and the face normals. This is a wrapper method that operates on a grid.
 
     Parameters:
         g: the grid.
-    as_nan: Decide whether to return nan as the new center for cells which are not
-         star-shaped. Otherwise, an exception is raised (default behaviour).
+        as_nan: Decide whether to return nan as the new center for cells which are not
+            star-shaped. Otherwise, an exception is raised (default behaviour).
 
     Returns:
         Array containing the new cell centers.

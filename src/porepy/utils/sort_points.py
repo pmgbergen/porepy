@@ -72,11 +72,10 @@ def sort_point_pairs(
     # The starting point for the next line
     prev = sorted_lines[1, 0]
 
-    # The sorting algorithm: Loop over all places in sorted_line to be filled,
-    # for each of these, loop over all members in lines, check if the line is still
-    # a candidate, and if one of its points equals the current starting point.
-    # More efficient and more elegant approaches can surely be found, but this
-    # will do for now.
+    # The sorting algorithm: Loop over all places in sorted_line to be filled, for each
+    # of these, loop over all members in lines, check if the line is still a candidate,
+    # and if one of its points equals the current starting point. More efficient and
+    # more elegant approaches can surely be found, but this will do for now.
     for i in range(1, num_lines):  # The first line has already been found
         for j in range(0, num_lines):
             if not found[j] and lines[0, j] == prev:
@@ -103,24 +102,23 @@ def sort_point_pairs(
 def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
     """Function to sort multiple pairs of points to form circular chains.
 
-    The routine contains essentially the same functionality as sort_point_pairs,
-    but stripped down to the special case of circular chains. Differently to
-    sort_point_pairs, this variant sorts an arbitrary amount of independent
-    point pairs. The chains are restricted by the assumption that each contains
-    equally many line segments. Finally, this routine uses numba.
+    The routine contains essentially the same functionality as sort_point_pairs, but
+    stripped down to the special case of circular chains. Differently to
+    sort_point_pairs, this variant sorts an arbitrary amount of independent point pairs.
+    The chains are restricted by the assumption that each contains equally many line
+    segments. Finally, this routine uses numba.
 
     Parameters:
-        lines (np.ndarray): Array of size 2 * num_chains x num_lines_per_chain,
-            containing node indices. For each pair of two rows, each column
-            represents a line segment connectng the two nodes in the two entries
-            of this column.
+        lines: ``shape=(2 * num_chains, num_lines_per_chain)``, containing node indices.
+            For each pair of two rows, each column represents a line segment connecting
+            the two nodes in the two entries of this column.
 
     Returns:
         np.ndarray: Sorted version of lines, where for each chain, the collection
-            of l
+        of line segments is sorted in the order they are connected.
 
     Raises:
-        ImportError ifine segments has been potentially flipped and sorted.
+        ImportError if line segments have been potentially flipped and sorted.
     """
 
     try:
@@ -131,14 +129,14 @@ def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
     @numba.njit("i4[:,:](i4[:,:])", cache=True)
     def _function_to_compile(lines):
         """
-        Copy of pp.utils.sort_points.sort_point_pairs. This version is extended
-        to multiple chains. Each chain is implicitly assumed to be circular.
+        Copy of pp.utils.sort_points.sort_point_pairs. This version is extended to
+        multiple chains. Each chain is implicitly assumed to be circular.
         """
 
         # Retrieve number of chains and lines per chain from the shape.
-        # Implicitly expect that all chains have the same length
+        # Implicitly expect that all chains have the same length.
         num_chains, chain_length = lines.shape
-        # Since for each chain lines includes two rows, divide by two
+        # Since for each chain lines includes two rows, divide by two.
         num_chains = int(num_chains / 2)
 
         # Initialize array of sorted lines to be the final output
@@ -206,16 +204,14 @@ def sort_point_plane(
 ) -> np.ndarray:
     """Sort the points which lie on a plane.
 
-    The algorithm assumes a star-shaped disposition of the points with respect
-    the centre.
+    The algorithm assumes a star-shaped disposition of the points with respect to the
+    centre.
 
     Parameters:
         pts: np.ndarray, 3xn, the points.
         centre: np.ndarray, 3x1, the face centre.
-        normal: (optional) the normal of the plane, otherwise three points are
-            required.
-        tol:
-            Absolute tolerance used to identify active (non-constant) dimensions.
+        normal: (optional) the normal of the plane, otherwise three points are required.
+        tol: Absolute tolerance used to identify active (non-constant) dimensions.
 
     Returns:
         map_pts: np.array, 1xn, sorted point ids.
@@ -238,16 +234,16 @@ def sort_point_plane(
 def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     """Sort a set of triangles so that no edges occur twice with the same ordering.
 
-    For a planar triangulation, this will end up with all the triangles being
-    ordered CW or CCW. In cases where the triangulated surface(s) do not share
-    a common plane, methods based on geometry are at best cumbersome. This
-    approach should work also in those cases.
+    For a planar triangulation, this will end up with all the triangles being ordered CW
+    or CCW. In cases where the triangulated surface(s) do not share a common plane,
+    methods based on geometry are at best cumbersome. This approach should work also in
+    those cases.
 
     Parameters:
-        t (np.ndarray, 3 x n_tri): Triangulation to have vertexes ordered.
+        t: ``shape=(3, n_tri)`` Triangulation to have vertexes ordered.
 
     Returns:
-        np.ndarray, 3 x n_tri: With the vertexes ordered.
+        np.ndarray, shape=(3, n_tri): With the vertexes ordered.
 
     Example:
         >>> t = np.array([[0, 1, 2], [1, 2, 3]]).T
@@ -256,8 +252,8 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
 
     """
 
-    # Helper method to remove pairs from the queue if they already exist,
-    # add them if not
+    # Helper method to remove pairs from the queue if they already exist, add them if
+    # not.
     def update_queue(pair_0, pair_1):
         if pair_0 in queue:
             queue.remove(pair_0)
@@ -330,7 +326,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
                 t[hit_new_0, ti_new] = q[0]
                 t[hit_new_1, ti_new] = q[1]
         else:
-            # q1 before q0 in the sorted column, reverse in the other
+            # q1 before q0 in the sorted column, reverse in the other.
             if hit_new_1 - hit_new_0 or (hit_new_0 == 2 and hit_new_1 == 0):
                 t[hit_new_0, ti_new] = q[0]
                 t[hit_new_1, ti_new] = q[1]
@@ -338,10 +334,10 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
                 t[hit_new_0, ti_new] = q[1]
                 t[hit_new_1, ti_new] = q[0]
 
-        # Find the new pairs to be generated. This must be done in terms of
-        # the content in t[:, ti], not the indices represented by hit_0 and _1.
-        # The two pairs are formed by row hit_0 and hit_1, both combined with the
-        # third element. First, the latter must be identified
+        # Find the new pairs to be generated. This must be done in terms of the content
+        # in t[:, ti], not the indices represented by hit_0 and _1. The two pairs are
+        # formed by row hit_0 and hit_1, both combined with the third element. First,
+        # the latter must be identified
         if hit_new_0 + hit_new_1 == 1:
             # Existing pair in rows 0 and 1
             pair_0 = (t[1, ti_new], t[2, ti_new])
@@ -354,7 +350,7 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
             # Existing pair in rows 1 and 2
             pair_0 = (t[0, ti_new], t[1, ti_new])
             pair_1 = (t[2, ti_new], t[0, ti_new])
-        # Update the queue, either remove the pairs or add them
+        # Update the queue, either remove the pairs or add them.
         update_queue(pair_0, pair_1)
 
         # Bookkeeping
