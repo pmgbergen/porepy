@@ -717,7 +717,7 @@ class SolutionStrategy(pp.PorePyModel):
             if image_space
         )
         return any(
-            self.equation_system.nonlinear_equation_map[eq] for eq in active_equations
+            self.equation_system.is_nonlinear_equation(eq) for eq in active_equations
         )
 
     def _is_time_dependent(self) -> bool:

@@ -66,7 +66,7 @@ class MomentumBalanceEquations(pp.BalanceEquation):
             matrix_eq, matrix_subdomains, {"cells": self.nd}, is_nonlinear=False
         )
         self.equation_system.set_equation(
-            intf_eq, interfaces, {"cells": self.nd}, is_nonlinear=True
+            intf_eq, interfaces, {"cells": self.nd}, is_nonlinear=False
         )
 
     def momentum_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:

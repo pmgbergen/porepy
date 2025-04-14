@@ -320,13 +320,20 @@ class EquationSystem:
             domains.add(var.domain)
         return list(domains)
 
-    @property
-    def nonlinear_equation_map(self) -> dict[str, bool]:
-        """Contains a flag for every equation name (key) to indicate that the equation
-        is nonlinear.
+    def is_nonlinear_equation(self, equation_name: str) -> bool:
+        """Return a flag that indicates that the corresponding equation is nonlinear.
+
+        Parameters:
+            equation_name: Name of the tested equation.
+
+        Returns:
+            `True` if the equation is nonlinear, `False` otherwise.
+
+        Raises:
+            KeyError: if the equation with this name was not found.
 
         """
-        return self._nonlinear_equation_map.copy()
+        return self._nonlinear_equation_map[equation_name]
 
     ### Variable management ------------------------------------------------------------
 
