@@ -38,16 +38,16 @@ def sort_point_pairs(
     num_lines = lines.shape[1]
     sorted_lines = -np.ones(lines.shape, dtype=lines.dtype)
 
-    # Keep track of which lines have been found, which are still candidates
+    # Keep track of which lines have been found, which are still candidates.
     found = np.zeros(num_lines, dtype=bool)
 
-    # Initialize array of sorting indices
+    # Initialize array of sorting indices.
     sort_ind = np.zeros(num_lines, dtype=int)
 
-    # In the case of non-circular ordering ensure to start from the correct one
+    # In the case of non-circular ordering ensure to start from the correct one.
     if not is_circular:
         # The first segment must contain one of the endpoints, identified by a single
-        # occurrence in line
+        # occurrence in line.
         values = lines.ravel()
         count = np.bincount(values)
         one_occurrence = np.where(count == 1)[0]
@@ -63,13 +63,13 @@ def sort_point_pairs(
         found[hit] = True
         sort_ind[0] = hit
 
-        # No check for circularity here
+        # No check for circularity here.
         check_circular = False
     else:
-        # Start with the first line in input
+        # Start with the first line in input.
         sorted_lines[:, 0] = lines[:, 0]
         found[0] = True
-    # The starting point for the next line
+    # The starting point for the next line.
     prev = sorted_lines[1, 0]
 
     # The sorting algorithm: Loop over all places in sorted_line to be filled, for each
@@ -92,7 +92,7 @@ def sort_point_pairs(
                 prev = lines[0, j]
                 sort_ind[i] = j
                 break
-    # By now, we should have used all lines
+    # By now, we should have used all lines.
     assert np.all(found)
     if check_circular:
         assert sorted_lines[0, 0] == sorted_lines[1, -1]
@@ -139,22 +139,22 @@ def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
         # Since for each chain lines includes two rows, divide by two.
         num_chains = int(num_chains / 2)
 
-        # Initialize array of sorted lines to be the final output
+        # Initialize array of sorted lines to be the final output.
         sorted_lines = np.zeros((2 * num_chains, chain_length), dtype=np.int32)
-        # Fix the first line segment for each chain and identify
-        # it as in place regarding the sorting.
+        # Fix the first line segment for each chain and identify it as in place
+        # regarding the sorting.
         sorted_lines[:, 0] = lines[:, 0]
-        # Keep track of which lines have been fixed and which are still candidates
+        # Keep track of which lines have been fixed and which are still candidates.
         found = np.zeros(chain_length, dtype=np.int32)
         found[0] = 1
 
         # Loop over chains and consider each chain separately.
         for c in range(num_chains):
-            # Initialize found making any line segment aside of the first a candidate
+            # Initialize found making any line segment aside of the first a candidate.
             found[1:] = 0
 
-            # Define the end point of the previous and starting point for the next
-            # line segment
+            # Define the end point of the previous and starting point for the next line
+            # segment.
             prev = sorted_lines[2 * c + 1, 0]
 
             # The sorting algorithm: Loop over all positions in the chain to be set
@@ -166,33 +166,33 @@ def sort_multiple_point_pairs(lines: np.ndarray) -> np.ndarray:
             for i in range(1, chain_length):  # The first line has already been found.
                 for j in range(
                     1, chain_length
-                ):  # The first line has already been found
-                    # A candidate line segment with matching start and end point
-                    # in the first component of the point pair.
+                ):  # The first line has already been found.
+                    # A candidate line segment with matching start and end point in the
+                    # first component of the point pair.
                     if np.abs(found[j]) < 1e-6 and lines[2 * c, j] == prev:
-                        # Copy the segment to the right place
+                        # Copy the segment to the right place.
                         sorted_lines[2 * c : 2 * c + 2, i] = lines[2 * c : 2 * c + 2, j]
-                        # Mark as used
+                        # Mark as used.
                         found[j] = 1
-                        # Define the starting point for the next line segment
+                        # Define the starting point for the next line segment.
                         prev = lines[2 * c + 1, j]
                         break
-                    # A candidate line segment with matching start and end point
-                    # in the second component of the point pair.
+                    # A candidate line segment with matching start and end point in the
+                    # second component of the point pair.
                     elif np.abs(found[j]) < 1e-6 and lines[2 * c + 1, j] == prev:
-                        # Flip and copy the segment to the right place
+                        # Flip and copy the segment to the right place.
                         sorted_lines[2 * c, i] = lines[2 * c + 1, j]
                         sorted_lines[2 * c + 1, i] = lines[2 * c, j]
-                        # Mark as used
+                        # Mark as used.
                         found[j] = 1
-                        # Define the starting point for the next line segment
+                        # Define the starting point for the next line segment.
                         prev = lines[2 * c, j]
                         break
 
         # Return the sorted lines defining chains.
         return sorted_lines
 
-    # Run numba compiled function
+    # Run numba compiled function.
     return _function_to_compile(lines)
 
 
@@ -219,13 +219,13 @@ def sort_point_plane(
     """
     centre = centre.reshape((-1, 1))
     R = pp.map_geometry.project_plane_matrix(pts, normal)
-    # project points and center,  project to plane
+    # project points and center,  project to plane.
     delta = np.dot(R, pts - centre)
 
-    # Find active dimension in the projected system
+    # Find active dimension in the projected system.
     check = np.sum(np.abs(delta), axis=1)
     check /= np.sum(check)
-    # Dimensions where not all coordinates are equal
+    # Dimensions where not all coordinates are equal.
     active_dim = np.logical_not(np.isclose(check, 0, atol=tol, rtol=0))
 
     return np.argsort(np.arctan2(*delta[active_dim]))
@@ -270,11 +270,11 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
 
     nt = t.shape[1]
 
-    # Add all edges of the first triangle to the queue
+    # Add all edges of the first triangle to the queue.
     queue = [(t[0, 0], t[1, 0]), (t[1, 0], t[2, 0]), (t[2, 0], t[0, 0])]
 
-    # For safeguarding, we count the number of iterations. Maximum number
-    # is if all triangles are isolated.
+    # For safeguarding, we count the number of iterations. Maximum number is if all
+    # triangles are isolated.
     max_iter = nt * 3
     num_iter = 0
 
@@ -283,10 +283,10 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     is_ordered[0] = 1
 
     while len(queue) > 0:
-        # Pick an edge to be processed
+        # Pick an edge to be processed.
         q = queue.pop(0)
 
-        # Find the other occurrence of this edge
+        # Find the other occurrence of this edge.
         hit_new = np.logical_and.reduce(
             (
                 np.logical_not(is_ordered),
@@ -300,20 +300,20 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
         ind_old = np.where(hit_old > 0)[0]
         ind_new = np.where(hit_new > 0)[0]
 
-        # Check if the edge occurred at all among the non-processed triangles
+        # Check if the edge occurred at all among the non-processed triangles.
         if ind_new.size == 0:
             continue
-        # It should at most occur once among non-processed triangles
+        # It should at most occur once among non-processed triangles.
         elif ind_new.size > 1:
             raise ValueError("Edges should only occur twice")
 
-        # Find the triangle to be processed
+        # Find the triangle to be processed.
         ti_new = ind_new[0]
         ti_old = ind_old[0]
-        # Find row index of the first and second item of the pair q
+        # Find row index of the first and second item of the pair q.
         hit_new_0 = np.where(t[:, ti_new] == q[0])[0][0]
         hit_new_1 = np.where(t[:, ti_new] == q[1])[0][0]
-        # Find row index of the first and second item of the pair q
+        # Find row index of the first and second item of the pair q.
         hit_old_0 = np.where(t[:, ti_old] == q[0])[0][0]
         hit_old_1 = np.where(t[:, ti_old] == q[1])[0][0]
 
@@ -339,24 +339,24 @@ def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
         # formed by row hit_0 and hit_1, both combined with the third element. First,
         # the latter must be identified
         if hit_new_0 + hit_new_1 == 1:
-            # Existing pair in rows 0 and 1
+            # Existing pair in rows 0 and 1.
             pair_0 = (t[1, ti_new], t[2, ti_new])
             pair_1 = (t[2, ti_new], t[0, ti_new])
         elif hit_new_0 + hit_new_1 == 2:
-            # Existing pair in rows 0 and 2
+            # Existing pair in rows 0 and 2.
             pair_0 = (t[1, ti_new], t[2, ti_new])
             pair_1 = (t[0, ti_new], t[1, ti_new])
         else:  # sum is 3
-            # Existing pair in rows 1 and 2
+            # Existing pair in rows 1 and 2.
             pair_0 = (t[0, ti_new], t[1, ti_new])
             pair_1 = (t[2, ti_new], t[0, ti_new])
         # Update the queue, either remove the pairs or add them.
         update_queue(pair_0, pair_1)
 
-        # Bookkeeping
+        # Bookkeeping.
         is_ordered[ti_new] = 1
 
-        # Safeguarding
+        # Safeguarding.
         num_iter += 1
         if num_iter > max_iter:
             raise ValueError("Should not come here")
