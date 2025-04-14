@@ -6,6 +6,7 @@ The model relies heavily on functions in the computational geometry library.
 
 from __future__ import annotations
 
+import os
 import copy
 import csv
 import logging
@@ -287,7 +288,14 @@ class FractureNetwork3d(object):
 
         """
         if file_name is None:
-            file_name = "gmsh_frac_file.msh"
+            if "PYTEST_CURRENT_TEST" in os.environ:
+                # Generate a random file name, to allow tests to be run in parallel
+                # without conflicts.
+                file_name = f"gmsh_frac_file_{np.random.randint(1e8)}.msh"
+            else:
+                # Use a standard name for the file, so that it can be inspected after
+                # the run.
+                file_name = "gmsh_frac_file.msh"
 
         gmsh_repr = self.prepare_for_gmsh(
             mesh_args,

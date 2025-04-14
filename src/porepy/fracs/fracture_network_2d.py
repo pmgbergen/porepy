@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import copy
 import csv
 import logging
@@ -217,7 +218,15 @@ class FractureNetwork2d:
 
         """
         if file_name is None:
-            file_name = "gmsh_frac_file.msh"
+            if "PYTEST_CURRENT_TEST" in os.environ:
+                # Generate a random file name, to allow tests to be run in parallel
+                # without conflicts.
+                file_name = f"gmsh_frac_file_{np.random.randint(1e8)}.msh"
+            else:
+                # Use a standard name for the file, so that it can be inspected after
+                # the run.
+                file_name = "gmsh_frac_file.msh"
+
         # No constraints if not available.
         if constraints is None:
             constraints = np.empty(0, dtype=int)
