@@ -228,6 +228,8 @@ class Parameters(Dict):
                 the dictionary. This avoids assigning None to unset mandatory
                 parameters.
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
         values = []
         if defaults is None:
             defaults = [None] * len(parameters)
@@ -240,13 +242,6 @@ class Parameters(Dict):
                 val *= np.ones(n_vals)
             values.append(val)
         return values
-
-
-"""
-Utility methods for handling of dictionaries.
-TODO: Improve/add/remove methods based on experience with setting up problems using the
-new Parameters class.
-"""
 
 
 def initialize_default_data(
