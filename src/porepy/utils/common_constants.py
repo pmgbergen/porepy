@@ -22,10 +22,6 @@ Define unified keywords used throughout the software.
 # mortar grid.
 DISCRETIZATION = "discretization"
 
-# Used in data dictionary to identify discretization objects on couplings between grids
-# and mortar grids.
-COUPLING_DISCRETIZATION = "coupling_discretization"
-
 # Used in data dictionary to declare and keep track of primary variables.
 PRIMARY_VARIABLES = "primary_variables"
 
