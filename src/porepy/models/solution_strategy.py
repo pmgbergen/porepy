@@ -695,21 +695,20 @@ class SolutionStrategy(pp.PorePyModel):
         """Specifies whether the Model problem is nonlinear.
 
         Returns:
-            bool: True if at least one active equation is nonlinear,
-            False otherwise.
+            bool: True if at least one active equation is nonlinear, False otherwise.
+
         Note:
             1. Equations defined on empty domains are ignored since they don't
             contribute to the equation system's nonlinearity.
 
-            2. This method should be overridden when child models need to
-            explicitly declare linearity, particularly when inheriting from
-            superclass models containing nonlinear equations. This approach
-            avoids code duplication while maintaining clear linearity
-            specifications.
+            2. This method should be overridden when child models need to explicitly
+            declare linearity, particularly when inheriting from superclass models
+            containing nonlinear equations. This approach avoids code duplication while
+            maintaining clear linearity specifications.
 
         """
 
-        # Get all equations defined on non-empty domains
+        # Get all equations defined on non-empty domains.
         active_equations = (
             eq_name
             for eq_name, image_space in (

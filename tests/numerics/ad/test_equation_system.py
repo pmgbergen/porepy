@@ -1523,18 +1523,18 @@ def test_schur_complement(eq_var_to_exclude):
 @pytest.mark.parametrize(
     "eq_types",
     [
-        [True, True, True],  # All nonlinear => Nonlinear problem
-        [False, False, False],  # All linear => Linear problem
-        [False, True, False],  # Mixed => Nonlinear problem
+        [True, True, True],  # All nonlinear => Nonlinear problem.
+        [False, False, False],  # All linear => Linear problem.
+        [False, True, False],  # Mixed => Nonlinear problem.
     ],
 )
 def test_linear_or_nonlinear_equations(eq_types):
     """Tests to ensure that the bookkeeping of equation system linearity/nonlinearity
-    works correctly
+    works correctly.
 
-    Note: Tests do not determine the actual mathematical linearity/nonlinearity
-    of the equations. The tests depend on the explicit `is_nonlinear` parameter
-    passed to `set_equation()`, and will fail if this interface changes.
+    Note: Tests do not determine the actual mathematical linearity/nonlinearity of the
+    equations. The tests depend on the explicit `is_nonlinear` parameter passed to
+    `set_equation()`, and will fail if this interface changes.
 
     """
 
@@ -1554,9 +1554,9 @@ def test_linear_or_nonlinear_equations(eq_types):
             equations_per_grid_entity={"cells": 1},
             is_nonlinear=is_nonlinear,
         )
-        # Verify individual equation nonlinearity
+        # Verify individual equation nonlinearity.
         assert equation_system.equation_is_nonlinear[eq_name] == is_nonlinear
     model_solution_strategy = pp.SolutionStrategy()
     model_solution_strategy.equation_system = equation_system
-    # Verify the full equation system nonlinear detection
+    # Verify the full equation system nonlinear detection.
     assert model_solution_strategy._is_nonlinear_problem() == any(eq_types)
