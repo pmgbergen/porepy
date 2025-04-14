@@ -483,13 +483,14 @@ def create_embedded_line_grid(
     return g
 
 
-T = TypeVar("T", bound=pp.Grid)
+# T = TypeVar("T", bound=pp.Grid)
+
 
 def tag_grid(
-    sd: T,
+    sd: pp.Grid,
     phys_names: dict[int, str],
     cell_info: dict[str, np.ndarray],
-) -> T:
+) -> pp.Grid:
     """Translate gmsh tags to PorePy tags.
 
     This functions loops through all geometric elements of a gmsh grid and translates
