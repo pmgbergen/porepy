@@ -168,7 +168,7 @@ class EquationSystem:
 
         """
 
-        self._equation_is_nonlinear: dict[str, bool] = dict()
+        self._nonlinear_equation_map: dict[str, bool] = dict()
         """Contains a flag for every equation name (key) to indicate that the equation
         is nonlinear."""
 
@@ -321,12 +321,12 @@ class EquationSystem:
         return list(domains)
 
     @property
-    def equation_is_nonlinear(self) -> dict[str, bool]:
+    def nonlinear_equation_map(self) -> dict[str, bool]:
         """Contains a flag for every equation name (key) to indicate that the equation
         is nonlinear.
 
         """
-        return self._equation_is_nonlinear.copy()
+        return self._nonlinear_equation_map.copy()
 
     ### Variable management ------------------------------------------------------------
 
@@ -1136,6 +1136,9 @@ class EquationSystem:
                 "\n\nMake sure your equations are uniquely named."
             )
 
+        # Store the linear/nonlinear flag.
+        self._nonlinear_equation_map[name] = is_nonlinear
+
         # If no grids are specified, there is nothing to do
         if not grids:
             self._equation_image_space_composition.update({name: image_info})
@@ -1144,8 +1147,6 @@ class EquationSystem:
             self._equation_image_size_info.update({name: equations_per_grid_entity})
             # Store the equation itself.
             self._equations.update({name: equation})
-            # Store the linear/nonlinear flag.
-            self._equation_is_nonlinear[name] = is_nonlinear
             return
 
         # We require that equations are defined either on a set of subdomains, or a set
@@ -1213,8 +1214,6 @@ class EquationSystem:
         self._equation_image_size_info.update({name: equations_per_grid_entity})
         # Store the equation itself.
         self._equations.update({name: equation})
-        # Store the linear/nonlinear flag.
-        self._equation_is_nonlinear[name] = is_nonlinear
 
     def remove_equation(self, name: str) -> Operator | None:
         """Removes a previously set equation and all related information.
