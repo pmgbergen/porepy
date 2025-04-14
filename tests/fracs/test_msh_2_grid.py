@@ -234,6 +234,12 @@ def test_create_grids(
     """Test that create_nd_grids functions produce grids with correct tags."""
     pts, cells, cell_info, phys_names = _read_gmsh_file(create_gmsh_file)
 
+    if len(dims) == 2 and create_function.__name__ == "create_3d_grids":
+        # If the target geometry is 2d, we should not try to make a 3d grid (this will
+        # fail with a key error since the gmsh file contains no tetrahedra in this
+        # case).
+        return
+
     grids = create_function(pts, cells, phys_names, cell_info)
 
     if isinstance(grids, tuple):
