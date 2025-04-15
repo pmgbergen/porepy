@@ -14,8 +14,9 @@ def switch_sign_if_inwards_normal(
     points into the grid.
 
     Parameters:
-        g: Grid. nd: Number of quantities per face; this will for instance be the number
-            of components in a face-vector.
+        g: Grid.
+        nd: Number of quantities per face; this will for instance be the number of
+            components in a face-vector.
         faces: Index for which faces to be considered. Should only contain boundary
             faces.
 
