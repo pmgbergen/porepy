@@ -1104,7 +1104,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
     """
     operator_to_SecondOrderTensor: Callable[
-        [pp.Grid, pp.ad.Operator, pp.number], pp.SecondOrderTensor
+        [list[pp.Grid], pp.ad.Operator, pp.number], pp.SecondOrderTensor
     ]
     """Function that returns a SecondOrderTensor provided a method returning
     permeability as a Operator. Normally provided by a mixin instance of
@@ -1155,19 +1155,33 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
         interfaces (of codimension 1).
         """
         super().set_discretization_parameters()
-        for sd, data in self.mdg.subdomains(return_data=True):
+
+        # Do a join evaluation of the thermal conductivity for all subdomains, then
+        # distribute the values to individual subdomains.
+        subdomains = self.mdg.subdomains()
+        conductivity_all_cells = self.operator_to_SecondOrderTensor(
+            subdomains,
+            self.thermal_conductivity(subdomains),
+            # Fall back to thermal conductivity of reference component.
+            self.fluid.reference_component.thermal_conductivity,
+        )
+        # Compute offsets for the individual subdomains in the concatenated conductivity
+        # tensor.
+        subdomain_offsets = np.cumsum([0] + [sd.num_cells for sd in subdomains])
+
+        for id, sd in enumerate(subdomains):
+            data = self.mdg.subdomain_data(sd)
+            # Extract the conductivity for the current subdomain.
+            loc_cells = np.arange(subdomain_offsets[id], subdomain_offsets[id + 1])
+            loc_conductivity = conductivity_all_cells.restrict_to_cells(loc_cells)
+
             pp.initialize_data(
                 sd,
                 data,
                 self.fourier_keyword,
                 {
                     "bc": self.bc_type_fourier_flux(sd),
-                    "second_order_tensor": self.operator_to_SecondOrderTensor(
-                        sd,
-                        self.thermal_conductivity([sd]),
-                        # Fall back to thermal conductivity of reference component.
-                        self.fluid.reference_component.thermal_conductivity,
-                    ),
+                    "second_order_tensor": loc_conductivity,
                     "ambient_dimension": self.nd,
                 },
             )
@@ -1186,13 +1200,37 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
 
         """
         # Update parameters *before* the discretization matrices are re-computed.
-        for sd, data in self.mdg.subdomains(return_data=True):
-            vals = self.equation_system.evaluate(self.darcy_flux([sd]))
+
+        # Evaluate the Darcy flux for all subdomains together, then distribute the
+        # values to individual subdomains.
+        subdomains = self.mdg.subdomains()
+        darcy_flux = self.equation_system.evaluate(self.darcy_flux(subdomains))
+        # Compute offsets for the individual subdomains in the concatenated Darcy flux.
+        subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
+
+        for id, sd in enumerate(subdomains):
+            # Update the data dictionary with the Darcy flux for the current subdomain.
+            data = self.mdg.subdomain_data(sd)
+            vals = darcy_flux[subdomain_offsets[id] : subdomain_offsets[id + 1]]
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
 
-        for intf, data in self.mdg.interfaces(return_data=True, codim=1):
-            vals = self.equation_system.evaluate(self.interface_darcy_flux([intf]))
+        # Evaluate the Darcy flux for all interfaces together. Same procedure as for
+        # subdomains.
+        interfaces = self.mdg.interfaces(codim=1)
+        interface_darcy_flux = self.equation_system.evaluate(
+            self.interface_darcy_flux(interfaces)
+        )
+        interface_offsets = np.cumsum([0] + [intf.num_cells for intf in interfaces])
+
+        for id, intf in enumerate(interfaces):
+            # Update the data dictionary with the Darcy flux for the current interface.
+            data = self.mdg.interface_data(intf)
+            vals = interface_darcy_flux[
+                interface_offsets[id] : interface_offsets[id + 1]
+            ]
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
+
+        # The well fluxes are so few that we evaluate them one interface at a time.
         for intf, data in self.mdg.interfaces(return_data=True, codim=2):
             vals = self.equation_system.evaluate(self.well_flux([intf]))
             data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
