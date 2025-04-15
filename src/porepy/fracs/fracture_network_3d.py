@@ -2839,6 +2839,8 @@ class FractureNetwork3d(object):
 
         """
         # function to write a numpy matrix as string
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
 
         def to_file(p):
             return "\n\t\t".join(" ".join(map(str, x)) for x in p)
