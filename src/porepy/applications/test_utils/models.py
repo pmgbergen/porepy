@@ -119,7 +119,11 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
     """Model for tests."""
     # Suppress output for tests
     fracture_indices = [i for i in range(num_fracs)]
-    params = {"times_to_export": [], "fracture_indices": fracture_indices}
+    params = {
+        "times_to_export": [],
+        "fracture_indices": fracture_indices,
+        "cartesian": True,
+    }
 
     # To define the model we comine a geometry with a physics class.
     # First identify the two component classes from the user input, and then combine
