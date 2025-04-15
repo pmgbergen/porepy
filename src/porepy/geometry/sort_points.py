@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Any
 
 import numpy as np
 
@@ -255,7 +255,7 @@ def sort_points_on_line(
     nd, _ = pts.shape
 
     # Project into single coordinate
-    rot = project_line_matrix(pts)
+    rot = pp.map_geometry.project_line_matrix(pts)
     p = rot.dot(pts)
 
     # Isolate the active coordinates
