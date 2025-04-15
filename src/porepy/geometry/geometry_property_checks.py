@@ -296,9 +296,7 @@ def point_in_polyhedron(
     sorted_t = pp.sort_points.sort_triangle_edges(ut.T).T
 
     # Generate tester for points
-    test_object = pp.point_in_polyhedron_test.PointInPolyhedronTest(
-        upoints.T, sorted_t, tol
-    )
+    test_object = pp.point_in_polyhedron.PointInPolyhedron(upoints.T, sorted_t, tol)
 
     if test_points.size < 4:
         test_points = test_points.reshape((-1, 1))
