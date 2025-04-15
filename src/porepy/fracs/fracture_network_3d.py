@@ -19,7 +19,7 @@ from scipy.spatial import ConvexHull
 
 import porepy as pp
 from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter
-from porepy.utils import sort_points
+from porepy.geometry import sort_points
 
 from .gmsh_interface import Tags as GmshInterfaceTags
 
