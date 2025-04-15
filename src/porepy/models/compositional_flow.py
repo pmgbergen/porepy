@@ -1182,7 +1182,7 @@ class BoundaryConditionsPhaseProperties(pp.BoundaryConditionMixin):
                     kappa_bc = np.zeros(0)
                 else:
                     dep_vals = [
-                        d([bg]).value(self.equation_system)
+                        self.equation_system.evaluate(d([bg]))
                         for d in self.dependencies_of_phase_properties(phase)
                     ]
                     state = phase.compute_properties(
@@ -1466,7 +1466,7 @@ class InitialConditionsPhaseProperties(pp.InitialConditionMixin):
         for grid in subdomains:
             for phase in self.fluid.phases:
                 dep_vals = [
-                    d([grid]).value(self.equation_system)
+                    self.equation_system.evaluate(d([grid]))
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
 
@@ -1552,12 +1552,17 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
 
     """
 
-    def update_thermodynamic_properties_of_phases(self) -> None:
+    def update_thermodynamic_properties_of_phases(
+        self, state: Optional[np.ndarray] = None
+    ) -> None:
         """This method uses for each phase the underlying EoS to calculate
         new values and derivative values of phase properties and to update them
         them in the iterative sense, on all subdomains.
 
         It is called in :meth:`before_nonlinear_iteration`.
+
+        Parameters:
+            state: Global state to evaluate the dependencies of the phase properties.
 
         """
 
@@ -1569,7 +1574,7 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                 # Compute the values of variables/state functions on which the phase
                 # properties depend.
                 dep_vals = [
-                    d([grid]).value(self.equation_system)
+                    self.equation_system.evaluate(d([grid]), state=state)
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
                 # Compute phase properties using the phase EoS.

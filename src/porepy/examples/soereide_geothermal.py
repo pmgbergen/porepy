@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import time
 import warnings
 from typing import Any, Callable, Literal, Optional, Sequence, cast, no_type_check
@@ -35,6 +36,7 @@ import porepy as pp
 from porepy.applications.test_utils.models import create_local_model_class
 from porepy.fracs.wells_3d import _add_interface
 from porepy.numerics.nonlinear.line_search import LineSearchNewtonSolver
+from porepy.viz.solver_statistics import ExtendedSolverStatistics
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.DEBUG)
@@ -62,7 +64,7 @@ class _FlowConfiguration(pp.PorePyModel):
     for in- and outflow."""
 
     # Initial values.
-    _p_INIT: float = 19e6
+    _p_INIT: float = 20e6
     _T_INIT: float = 450.0
     _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
@@ -73,7 +75,7 @@ class _FlowConfiguration(pp.PorePyModel):
     # Atm at sea level + 2 km column of air, assuming an empty production pipe, would
     # lead to 0.125 MPa bottom hole pressure.
 
-    _T_IN: float = _T_INIT
+    _T_IN: float = 300.0
     _T_OUT: float = _T_INIT
     # _T_HEATED: float = _T_INIT + 20.0
     _T_HEATED: float = 640.0  # 650.
@@ -166,15 +168,21 @@ class SolutionStrategy(pp.PorePyModel):
         if residual is not None:
             if np.any(np.isnan(residual)) and status == (False, False):
                 return (False, True)
+
+        if isinstance(self.nonlinear_solver_statistics, ExtendedSolverStatistics):
+            res_per_equ = {}
+            for n, e in self.equation_system.equations.items():
+                res_per_equ[n] = np.linalg.norm(self.equation_system.evaluate(e))
+            self.nonlinear_solver_statistics.log_extended_error(
+                self.time_manager.time,
+                self.time_manager.dt,
+                **res_per_equ,
+            )
         return status
 
     def compute_residual_norm(
         self, residual: Optional[np.ndarray], reference_residual: np.ndarray
     ) -> float:
-        # matrix = [sd for sd in self.mdg.subdomains(dim=self.nd)]
-        # mbs = self.fluid_source(matrix)
-        # ebs = self.energy_source(matrix)
-        # cbc = self.component_source(self.fluid.components[1], matrix)
         if residual is None:
             return np.nan
         residual_norm = np.linalg.norm(residual)
@@ -212,10 +220,6 @@ class SolutionStrategy(pp.PorePyModel):
                     iterate_index=0,
                 )
 
-        # for n, e  in self.equation_system.equations.items():
-        #     res = np.linalg.norm(self.equation_system.evaluate(e))
-        #     print(f'Res {n}: {res}')
-
     def after_nonlinear_convergence(self):
         super().after_nonlinear_convergence()
 
@@ -237,25 +241,33 @@ class SolutionStrategy(pp.PorePyModel):
         self.exporter.write_pvd()
         super().after_nonlinear_failure()  # type:ignore
 
-    def update_thermodynamic_properties_of_phases(self) -> None:
+    def update_thermodynamic_properties_of_phases(
+        self, state: Optional[np.ndarray] = None
+    ) -> None:
         """Performing pT flash in injection wells, because T is fixed there."""
         for sd in self.mdg.subdomains():
             if "injection_well" in sd.tags:
                 equ_spec = {
-                    "p": self.equation_system.evaluate(self.pressure([sd])),
-                    "T": self.equation_system.evaluate(self.temperature([sd])),
+                    "p": self.equation_system.evaluate(
+                        self.pressure([sd]), state=state
+                    ),
+                    "T": self.equation_system.evaluate(
+                        self.temperature([sd]), state=state
+                    ),
                 }
-                self.local_equilibrium(sd, equ_spec)  # type:ignore
+                self.local_equilibrium(sd, state=state, equilibrium_specs=equ_spec)  # type:ignore
             else:
-                self.local_equilibrium(sd)  # type:ignore
+                self.local_equilibrium(sd, state=state)  # type:ignore
 
     def current_fluid_state(
-        self, subdomains: Sequence[pp.Grid] | pp.Grid
+        self,
+        subdomains: Sequence[pp.Grid] | pp.Grid,
+        state: Optional[np.ndarray] = None,
     ) -> pp.compositional.FluidProperties:
         """Method to pre-process the evaluated fractions. Normalizes the extended
         fractions where they violate the unity constraint."""
         fluid_state: pp.compositional.FluidProperties = super().current_fluid_state(  # type:ignore
-            subdomains
+            subdomains, state
         )
 
         unity_tolerance = 0.05
@@ -295,6 +307,7 @@ class SolutionStrategy(pp.PorePyModel):
         self,
         sd: pp.Grid,
         equilibrium_results: tuple[pp.compositional.FluidProperties, np.ndarray],
+        state: Optional[np.ndarray] = None,
     ) -> pp.compositional.FluidProperties:
         """A post-processing where the flash is again attempted where not successful.
 
@@ -318,12 +331,14 @@ class SolutionStrategy(pp.PorePyModel):
                 + f" {sd.id}. Performing full flash .."
             )
             z = [
-                comp.fraction([sd]).value(self.equation_system)[failure]  # type:ignore[index]
+                self.equation_system.evaluate(comp.fraction([sd]), state=state)[failure]  # type:ignore[index]
                 for comp in self.fluid.components
             ]
-            p = self.equation_system.evaluate(self.pressure([sd]))[failure]  # type:ignore[index]
-            h = self.equation_system.evaluate(self.enthalpy([sd]))[failure]  # type:ignore[index]
-            T = self.equation_system.evaluate(self.temperature([sd]))[failure]  # type:ignore[index]
+            p = self.equation_system.evaluate(self.pressure([sd]), state=state)[failure]  # type:ignore[index]
+            h = self.equation_system.evaluate(self.enthalpy([sd]), state=state)[failure]  # type:ignore[index]
+            T = self.equation_system.evaluate(self.temperature([sd]), state=state)[
+                failure
+            ]  # type:ignore[index]
 
             # no initial guess, and this model uses only p-h flash.
             flash_kwargs: dict[str, Any] = {
@@ -377,7 +392,7 @@ class SolutionStrategy(pp.PorePyModel):
                 fluid_state.phases[j].dphis[:, :, failure] = sub_state.phases[j].dphis
 
         # Parent method performs a check that everything is successful.
-        return super().postprocess_flash(sd, (fluid_state, success))  # type:ignore
+        return super().postprocess_flash(sd, (fluid_state, success), state=state)  # type:ignore
 
     @no_type_check
     def fall_back(
@@ -1008,6 +1023,35 @@ class BoundaryConditionsOnlyConduction(BoundaryConditions):
         return self.bc_type_fourier_flux(sd)
 
 
+class LineSearchWithPropertyEval(LineSearchNewtonSolver):
+    """Objective function must perform flash to update phase properties."""
+
+    def residual_objective_function(
+        self, model, dx: np.ndarray, weight: float
+    ) -> np.floating[Any]:
+        """Compute the objective function for the current iteration.
+
+        The objective function is the norm of the residual.
+
+        Parameters:
+            model: The model.
+            dx: The nonlinear iteration update.
+            weight: The relaxation factor.
+
+        Returns:
+            The objective function value.
+
+        """
+        x_0 = model.equation_system.get_variable_values(iterate_index=0)
+        state = x_0 + weight * dx
+        # model.update_thermodynamic_properties_of_phases(state)
+        cfle.cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
+            model, state
+        )
+        residual = model.equation_system.assemble(state=state, evaluate_jacobian=False)
+        return np.linalg.norm(residual)
+
+
 model_class: type[pp.PorePyModel]
 
 if equilibrium_condition == "unified-p-h" and fractional_flow:
@@ -1046,10 +1090,11 @@ if fractional_flow:
 
 
 # Numerical model parametrization
-t_scale = 1e0
+
 times_to_export = [i * pp.DAY for i in range(31)] + [
     i * 30 * pp.DAY for i in range(2, 13)
 ]
+# times_to_export = [i * pp.HOUR for i in np.arange(49)/2]
 
 max_iterations = 20
 newton_tol = 1.5e-4
@@ -1068,14 +1113,17 @@ flash_params = {
         "npipm_u2": 10,
         "npipm_eta": 0.5,
     },
+    "phase_property_params": [0.0],
 }
 
 time_manager = pp.TimeManager(
     schedule=times_to_export,
-    dt_init=0.5 * pp.DAY * t_scale,
-    dt_min_max=(pp.MINUTE * t_scale, 30 * pp.DAY),
+    dt_init=0.9 * pp.DAY,
+    dt_min_max=(pp.MINUTE, 30 * pp.DAY),
+    # dt_init=0.4 * pp.HOUR,
+    # dt_min_max=(pp.MINUTE, 0.5 * pp.HOUR),
     iter_max=max_iterations,
-    iter_optimal_range=(6, 10),
+    iter_optimal_range=(9, 15),
     iter_relax_factors=(0.7, 2.0),
     recomp_factor=0.6,
     recomp_max=15,
@@ -1097,10 +1145,9 @@ params = {
     "has_time_dependent_boundary_equilibrium": False,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
-    "normalize_state_constraints": True,
-    "use_semismooth_complementarity": True,
     "reduce_linear_system": False,
     "flash_params": flash_params,
+    "phase_property_params": [0.0],
     "fractional_flow": fractional_flow,
     "rediscretize_fourier_flux": fractional_flow,
     "rediscretize_darcy_flux": fractional_flow,
@@ -1108,7 +1155,8 @@ params = {
     "grid_type": "simplex",
     "meshing_arguments": {
         # "cell_size": 20/4,
-        "cell_size": 5e-1,
+        # "cell_size": 5e-1,
+        "cell_size": 2.0,
         "cell_size_fracture": 5e-1,
     },
     "time_manager": time_manager,
@@ -1120,11 +1168,21 @@ params = {
     "linear_solver": "scipy_sparse",
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
-    "Global_line_search": False,
-    "nonlinear_solver": LineSearchNewtonSolver,
-    "residual_line_search_interval_size": 1e-1,
-    "residual_line_search_num_steps": 5,
-    "min_line_search_weight": 1e-10,
+    "Global_line_search": True,
+    "nonlinear_solver": LineSearchWithPropertyEval,
+    "residual_line_search_interval_size": 5e-2,
+    "residual_line_search_num_steps": 3,
+    "min_line_search_weight": 1e-5,
+    "restart_options": {
+        "restart": False,
+        # "pvd_file": pathlib.Path('.\\visualization\\data.pvd').resolve(),
+        "is_mdg_pvd": False,
+        "vtu_files": None,
+        # "times_file": pathlib.Path('.\\visualization\\times.json').resolve(),
+        "time_index": -1,
+    },
+    "solver_statistics_file_name": "solver_statistic.json",
+    "nonlinear_solver_statistics": ExtendedSolverStatistics,
 }
 
 # Casting to the most complex model type for typing purposes.
@@ -1138,6 +1196,7 @@ compile_time += prep_sim_time
 model.primary_equations = model.get_primary_equations_cf()
 model.primary_variables = model.get_primary_variables_cf()
 
+logging.getLogger("porepy").setLevel(logging.INFO)
 t_0 = time.time()
 pp.run_time_dependent_model(model, params)
 sim_time = time.time() - t_0

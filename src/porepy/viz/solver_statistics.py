@@ -87,3 +87,73 @@ class SolverStatistics:
             # Save to file
             with self.path.open("w") as file:
                 json.dump(data, file, indent=4)
+
+
+@dataclass
+class ExtendedSolverStatistics(SolverStatistics):
+    """For tracking additional information such as time, time step size and
+    residual norm for individual equations."""
+
+    time: float = 0.0
+    """Time for which a non-linear loop is solved (previous time + current time step
+    size)."""
+    time_step_size: float = 0.0
+    """Time step size with which the solver is applied."""
+
+    residual_norms_per_equation: dict[str, list[float]] = field(default_factory=dict)
+    """List of residual norms per equation, with the equation name being the key."""
+
+    def log_extended_error(self, time: float, time_step_size: float, **kwargs):
+        """Logs the additional fields.
+
+        ``**kwargs`` is assumed to contain the residual norm per equation name.
+
+        """
+        self.time = time
+        self.time_step_size = time_step_size
+
+        for k, v in kwargs.items():
+            if k not in ["time", "time_step_size"]:
+                if k not in self.residual_norms_per_equation:
+                    self.residual_norms_per_equation[k] = []
+                self.residual_norms_per_equation[k].append(v)
+
+    def reset(self):
+        """Clears the additional feels of this extentended dataclass."""
+        super().reset()
+        self.time = 0.0
+        self.time_step_size = 0.0
+        self.residual_norms_per_equation.clear()
+
+    def save(self):
+        """Save the new fields at the last index of the stored data."""
+        super().save()
+        if self.path is not None:
+            # Check if object exists and append to it
+            if self.path.exists():
+                with self.path.open("r") as file:
+                    data = json.load(file)
+            else:
+                data = {}
+
+            # Append data to last entry
+            ind = len(data)
+            if str(ind) in data:
+                ind = str(ind)
+
+            new_data = {
+                "time": self.time,
+                "time_step_size": self.time_step_size,
+            }
+            for (
+                k,
+                v,
+            ) in self.residual_norms_per_equation.items():
+                new_data[k] = v
+
+            for k, v in new_data.items():
+                data[ind][k] = v
+
+            # Save to file
+            with self.path.open("w") as file:
+                json.dump(data, file, indent=4)

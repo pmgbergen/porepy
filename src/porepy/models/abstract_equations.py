@@ -381,8 +381,8 @@ class LocalElimination(EquationMixin):
             # critical!). Evaluate the primary variable (casting is necceary for mypy)
             # and store its value in X.
             X = [
-                prim_var(cast(list[pp.Grid] | list[pp.MortarGrid], [grid])).value(
-                    self.equation_system
+                self.equation_system.evaluate(
+                    prim_var(cast(list[pp.Grid] | list[pp.MortarGrid], [grid]))
                 )
                 for prim_var in expression._dependencies
             ]
@@ -433,7 +433,8 @@ class LocalElimination(EquationMixin):
                 if bg in bgs:
                     # Loop over dependencies, evaluate them and store their values in X.
                     X = [
-                        d([bg]).value(self.equation_system) for d in expr._dependencies
+                        self.equation_system.evaluate(d([bg]))
+                        for d in expr._dependencies
                     ]
                     # On the boundary we need only the values, not the derivatives.
                     bc_vals, _ = func(*X)
@@ -466,8 +467,8 @@ class LocalElimination(EquationMixin):
 
             for grid in domains:
                 X = [
-                    d(cast(list[pp.Grid] | list[pp.MortarGrid], [grid])).value(
-                        self.equation_system
+                    self.equation_system.evaluate(
+                        d(cast(list[pp.Grid] | list[pp.MortarGrid], [grid]))
                     )
                     for d in expr._dependencies
                 ]

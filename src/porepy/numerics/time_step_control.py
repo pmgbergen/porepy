@@ -478,6 +478,8 @@ class TimeManager:
                 )
             self.dt = self._dt_before_schedule_correction
             self._dt_before_schedule_correction = None
+            # Since, converged, reset counter.
+            self._recomp_num = 0
         else:
             # For bookkeeping reasons, save recomputation and iterations
             self._recomp_sol = recompute_solution
@@ -517,6 +519,10 @@ class TimeManager:
                 self._adaptation_based_on_iterations(iterations=self._iters)
             else:
                 self._adaptation_based_on_recomputation()
+                # If the solution must be recomputed, forget the potentially large time
+                # step before the schedule correction
+                if self._recomp_num > 2:
+                    self._dt_before_schedule_correction = None
 
         # Correct time step
         self._correction_based_on_dt_min()
