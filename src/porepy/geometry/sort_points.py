@@ -231,6 +231,43 @@ def sort_point_plane(
     return np.argsort(np.arctan2(*delta[active_dim]))
 
 
+def sort_points_on_line(
+    pts: np.ndarray[Any, np.dtype[np.float64]], tol: float = 1e-5
+) -> np.ndarray[Any, np.dtype[np.float64]]:
+    """Return the indexes of the point according to their position on a line.
+
+    Parameters:
+        pts: ``shape=(3, np)``
+
+            Array of points
+        tol: ``default=1e-5``
+
+            Tolerance used in check for point collinearity.
+
+    Returns:
+        The indexes of the points.
+
+    """
+    if pts.shape[1] == 1:
+        return np.array([0])
+    assert pp.geometry_property_checks.points_are_collinear(pts, tol)
+
+    nd, _ = pts.shape
+
+    # Project into single coordinate
+    rot = project_line_matrix(pts)
+    p = rot.dot(pts)
+
+    # Isolate the active coordinates
+    mean = np.mean(p, axis=1)
+    p -= mean.reshape((nd, 1))
+
+    dx = p.max(axis=1) - p.min(axis=1)
+    active_dim = np.where(dx > tol)[0]
+    assert active_dim.size == 1, "Points should be co-linear"
+    return np.argsort(p[active_dim])[0]
+
+
 def sort_triangle_edges(t: np.ndarray) -> np.ndarray:
     """Sort a set of triangles so that no edges occur twice with the same ordering.
 
