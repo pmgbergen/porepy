@@ -1156,7 +1156,7 @@ params = {
     "meshing_arguments": {
         # "cell_size": 20/4,
         # "cell_size": 5e-1,
-        "cell_size": 2.0,
+        "cell_size": 1.0,
         "cell_size_fracture": 5e-1,
     },
     "time_manager": time_manager,
