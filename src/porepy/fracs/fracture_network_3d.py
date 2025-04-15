@@ -19,7 +19,7 @@ from scipy.spatial import ConvexHull
 
 import porepy as pp
 from porepy.fracs.gmsh_interface import GmshData3d, GmshWriter
-from porepy.utils import sort_points
+from porepy.geometry import sort_points
 
 from .gmsh_interface import Tags as GmshInterfaceTags
 
@@ -2839,6 +2839,8 @@ class FractureNetwork3d(object):
 
         """
         # function to write a numpy matrix as string
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warnings.warn(msg, DeprecationWarning)
 
         def to_file(p):
             return "\n\t\t".join(" ".join(map(str, x)) for x in p)

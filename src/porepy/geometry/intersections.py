@@ -1590,7 +1590,7 @@ def segments_polyhedron(
     extra_pts.fill(np.empty((3, 0)))
     for face in poly:
         # the face vertices need to be sorted
-        sort_ind = pp.utils.sort_points.sort_point_plane(face, np.average(face, axis=1))
+        sort_ind = pp.sort_points.sort_point_plane(face, np.average(face, axis=1))
         # compute if the current face intersect the segments
         is_inside, pts = segments_polygon(start, end, face[:, sort_ind], tol=tol)
         for i in np.flatnonzero(is_inside):

@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 
 
-class PointInPolyhedronTest:
+class PointInPolyhedron:
     """This class implements a robust point in polyhedron test supporting non-convex
     polyhedra.
 
