@@ -365,7 +365,7 @@ def _extrude_2d(
         coord = g.nodes[:2, ni]
         # Sort the points.
         # IMPLEMENTATION NOTE: this probably assumes convexity of the 2d cell.
-        sort_ind = pp.utils.sort_points.sort_point_plane(
+        sort_ind = pp.sort_points.sort_point_plane(
             np.vstack((coord, np.zeros(coord.shape[1]))),
             g.cell_centers[:, idx].reshape((-1, 1)),
         )
