@@ -932,9 +932,20 @@ class EoSCompiler(EquationOfState):
 
         """
 
-        x = thermodynamic_input[-1]
+        # Partial fractions are passed individually.
+        if len(thermodynamic_input) == 2 + self._nc:
+            x = np.array(thermodynamic_input[-self._nc :])
+            thermodynamic_input = (thermodynamic_input[0], thermodynamic_input[1], x)
+        elif len(thermodynamic_input) == 3:
+            x = thermodynamic_input[-1]
+        else:
+            raise ValueError(
+                "Compiled EoS expects input in format (p, T, x_matrix) or "
+                "(p, T, x_1, .., x_n)."
+            )
+
         assert x.ndim == 2, (
-            "Last thermodynamic input expected to be  a 2D array (fractions)."
+            "Could not extract partial fractions as 2D array from thermodynamic input."
         )
 
         # NOTE: The vectorized functions expect fractions column-wise, while the

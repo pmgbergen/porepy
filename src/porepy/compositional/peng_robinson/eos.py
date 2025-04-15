@@ -1193,7 +1193,7 @@ class PengRobinsonCompiler(EoSCompiler):
         """Child method compiles essential functions from symbolic part before calling
         the parent class compiler"""
 
-        logger.info("Compiling Peng-Robinson EoS ..")
+        logger.info("Compiling symbolic Peng-Robinson EoS ..")
         start = time.time()
 
         B_c = nb.njit(
