@@ -826,7 +826,7 @@ def _plot_sd_3d(sd: pp.Grid, ax: mpl.axes.Axes, **kwargs) -> None:
             # Determine nodes formin a chain
             loc_f = slice(sd.face_nodes.indptr[f], sd.face_nodes.indptr[f + 1])
             ptsId = nodes_faces[loc_f]
-            mask = pp.utils.sort_points.sort_point_plane(
+            mask = pp.sort_points.sort_point_plane(
                 sd.nodes[:, ptsId], sd.face_centers[:, f], sd.face_normals[:, f]
             )
             pts = sd.nodes[:, ptsId[mask]]

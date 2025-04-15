@@ -559,14 +559,14 @@ def polygons_by_polyhedron(
                 # There should be exactly two loose ends, if not, this is really
                 # several polygons, and who knows how we ended up there.
                 assert np.sum(count == 1) == 2
-                sorted_pairs, _ = pp.utils.sort_points.sort_point_pairs(
+                sorted_pairs, _ = pp.sort_points.sort_point_pairs(
                     el, is_circular=False
                 )
                 inds = np.hstack((sorted_pairs[0], sorted_pairs[1, -1]))
                 # There is no check for hanging nodes her. EK is not sure if that is
                 # important or not.
             else:
-                sorted_pairs, _ = pp.utils.sort_points.sort_point_pairs(el)
+                sorted_pairs, _ = pp.sort_points.sort_point_pairs(el)
 
                 # Check for hanging nodes
                 hang_ind = pp.geometry_property_checks.polygon_hanging_nodes(

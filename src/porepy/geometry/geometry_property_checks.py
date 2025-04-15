@@ -293,7 +293,7 @@ def point_in_polyhedron(
     # in the triangulation. Fix this.
     # Note: We cannot do a standard CCW sorting here, since the polygons lie in
     # different planes, and projections to 2d may or may not rotate the polygon.
-    sorted_t = pp.utils.sort_points.sort_triangle_edges(ut.T).T
+    sorted_t = pp.sort_points.sort_triangle_edges(ut.T).T
 
     # Generate tester for points
     test_object = pp.point_in_polyhedron_test.PointInPolyhedronTest(

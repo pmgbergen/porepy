@@ -65,6 +65,7 @@ from porepy.geometry import (
     point_in_polyhedron_test,
     half_space,
     domain,
+    sort_points,
 )
 from porepy.geometry.domain import Domain
 
