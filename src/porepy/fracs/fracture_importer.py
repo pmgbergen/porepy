@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 import csv
 from typing import Optional, Union
 
@@ -443,6 +444,8 @@ def dfm_3d_from_fab(
         also the domain.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
 
     network = network_3d_from_fab(file_name, return_all=False, tol=tol)
     assert isinstance(network, FractureNetwork3d)
@@ -493,6 +496,8 @@ def network_3d_from_fab(
           fracture is on.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
 
     def read_keyword(line):
         # Read a single keyword, on the form  key = val
