@@ -742,28 +742,28 @@ def _plot_sd_2d(
     # Make mypy happy
     assert isinstance(cell_value, np.ndarray)
 
-    # Fetch mask defining which cells to plot
+    # Fetch mask defining which cells to plot.
     cells = kwargs.get("cells", np.ones(sd.num_cells, dtype=bool))
 
-    # Plot cells with coloring determined on the cell values
+    # Plot cells with coloring determined on the cell values.
     for c in np.arange(sd.num_cells):
         # Apply mask
         if not cells[c]:
             continue
-        # Determine the faces of the cell
+        # Determine the faces of the cell.
         loc_f = slice(sd.cell_faces.indptr[c], sd.cell_faces.indptr[c + 1])
         faces_loc = faces[loc_f]
-        # Determine the nodes of the fetched faces
+        # Determine the nodes of the fetched faces.
         loc_n = sd.face_nodes.indptr[faces_loc]
-        # Assign edges of the cell and sort them such that they form a circular chain
+        # Assign edges of the cell and sort them such that they form a circular chain.
         pts_pairs = np.array([nodes[loc_n], nodes[loc_n + 1]])
-        sorted_nodes, _ = pp.utils.sort_points.sort_point_pairs(pts_pairs)
+        sorted_nodes, _ = pp.geometry.sort_points.sort_point_pairs(pts_pairs)
         ordering = sorted_nodes[0, :]
         pts = sd.nodes[:, ordering]
 
-        # Distinguish between 2d and 3d (relevant if the ambient dimension is 3).
-        # In both cases, draw cells as polygons, fix the edge color, and color the
-        # cell (a face for a 3d polygon)
+        # Distinguish between 2d and 3d (relevant if the ambient dimension is 3). In
+        # both cases, draw cells as polygons, fix the edge color, and color the cell (a
+        # face for a 3d polygon).
         linewidth = kwargs.get("linewidth", 1)
         if kwargs.get("plot_2d", False):
             poly = PolyCollection([pts[:2].T], linewidth=linewidth)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import warnings
 import csv
+import warnings
 from typing import Optional, Union
 
 import gmsh
