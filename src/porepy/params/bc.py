@@ -116,8 +116,9 @@ class BoundaryCondition(AbstractBoundaryCondition):
             # Assign Dirichlet conditions on the left side of a subdomain; implicit
             # Neumann conditions on the rest
             sd = CartGrid([2, 2])
-            west_face = bc.face_on_side(sd, 'west')
-            bound_cond = BoundaryCondition(sd, faces=west_face, cond=['dir', 'dir'])
+            west_faces = sd.face_centers[0] < 1e-8
+            bound_cond = BoundaryCondition(sd, faces=west_faces, cond='dir')
+
         """
 
         self.num_faces: int = sd.num_faces
@@ -281,9 +282,9 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
             # Assign Dirichlet conditions on the left side of a grid; implicit
             # Neumann conditions on the rest
             sd = pp.CartGrid([2, 2])
-            west_face = pp.bc.face_on_side(sd, 'west')
+            west_faces = sd.face_centers[0] < 1e-8
             bound_cond = pp.BoundaryConditionVectorial(
-                sd, faces=west_face, cond=['dir', 'dir']
+                sd, faces=west_faces, cond='dir'
             )
 
         Example:
