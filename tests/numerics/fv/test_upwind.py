@@ -392,14 +392,6 @@ class TestMixedDimensionalUpwind:
         for intf, data in mdg.interfaces(return_data=True):
             sd_primary, sd_secondary = mdg.interface_to_subdomain_pair(intf)
             data[pp.PRIMARY_VARIABLES] = {"lambda_u": {"cells": 1}}
-            # Use the old Assembler-style specification of the coupling discretization
-            data[pp.COUPLING_DISCRETIZATION] = {
-                variable: {
-                    sd_primary: (variable, term),
-                    sd_secondary: (variable, term),
-                    intf: ("lambda_u", coupling_disc),
-                }
-            }
 
     """Helper function for adding a vector flux for faces."""
 

@@ -696,7 +696,7 @@ class ConformingFracturePropagation(FracturePropagation):
                 # Sort nodes clockwise (!) ASSUMPTION: This assumes that the new cell is
                 # star-shaped with respect to the local cell center. This should be
                 # okay.
-                map_to_sorted = pp.utils.sort_points.sort_point_plane(
+                map_to_sorted = pp.sort_points.sort_point_plane(
                     pts, sd_primary.face_centers[:, f]
                 )
                 sorted_nodes = local_nodes[map_to_sorted]

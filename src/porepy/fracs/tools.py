@@ -249,7 +249,7 @@ def determine_mesh_size(
             # points
             pts_frac_aug = np.vstack((pts_frac, np.zeros(pts_frac.shape[1])))
             pts_frac_id = pts_frac_id[
-                pp.map_geometry.sort_points_on_line(pts_frac_aug, tol)
+                pp.sort_points.sort_points_on_line(pts_frac_aug, tol)
             ]
             pts_frac_id = np.vstack((pts_frac_id[:-1], pts_frac_id[1:]))
             other_info = np.tile(
