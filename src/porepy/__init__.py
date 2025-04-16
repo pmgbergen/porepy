@@ -62,9 +62,10 @@ from porepy.geometry import (
     constrain_geometry,
     map_geometry,
     geometry_property_checks,
-    point_in_polyhedron_test,
+    point_in_polyhedron,
     half_space,
     domain,
+    sort_points,
 )
 from porepy.geometry.domain import Domain
 
