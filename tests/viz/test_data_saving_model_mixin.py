@@ -1,7 +1,10 @@
 """Tests of functionality found within data_saving_model_mixin.py.
 
 The following is covered:
-* Test that only the specified exported times are exported.
+
+- Test that only the specified exported times are exported.
+- Test that the physical times are exported, and that there is a match between the
+  specified schedule and all exported files.
 
 """
 
@@ -108,11 +111,8 @@ def test_exported_times_consistency_with_files(times_to_export, expected_times):
         "folder_name": folder_name,
     }
 
-    class ModelForTesting(pp.SinglePhaseFlow):
-        """"""
-
-    model = ModelForTesting(params)
-    pp.run_time_dependent_model(model, params)
+    model = pp.SinglePhaseFlow(params)
+    pp.run_time_dependent_model(model)
 
     # Read times.json to get time data.
     times_file = Path(folder_name) / "times.json"
