@@ -17,9 +17,8 @@ import porepy as pp
 
 
 class AbstractBoundaryCondition(ABC):
-    """
-    This is an abstract class that include the shared functionality of the
-    boundary conditions
+    """This is an abstract class that include the shared functionality of the boundary
+    conditions.
     """
 
     is_neu: np.ndarray
@@ -70,8 +69,8 @@ class BoundaryCondition(AbstractBoundaryCondition):
     """Class to store information on boundary conditions for problems of a single
     variable.
 
-    The BCs are specified by face number, and can have type Dirichlet, Neumann
-    or Robin. For details on default values etc. see constructor.
+    The BCs are specified by face number, and can have type Dirichlet, Neumann or Robin.
+    For details on default values etc. see constructor.
 
     Attributes:
         num_faces (int): Number of faces in the grid of the subdomain
@@ -139,11 +138,11 @@ class BoundaryCondition(AbstractBoundaryCondition):
         # By default, all faces are Neumann.
         self.is_neu[self.bf] = True
 
-        # Set robin weight
+        # Set Robin weight.
         self.robin_weight: np.ndarray = np.ones(sd.num_faces)
-        # Basis is mostly here to be consistent with vectorial. If changing the
-        # basis to -1 it should be possible to define inflow as positive, but this
-        # has not been tested
+        # Basis is mostly here to be consistent with vectorial. If changing the basis to
+        # -1 it should be possible to define inflow as positive, but this has not been
+        # tested.
         self.basis: np.ndarray = np.ones(sd.num_faces)
 
         if faces is not None:
@@ -224,19 +223,19 @@ class BoundaryConditionVectorial(AbstractBoundaryCondition):
     Class to store information on boundary conditions for problems with vector variables
     (e.g. momentum conservation).
 
-    The BCs are specified by face number and assigned to the single
-    component, and can have type Dirichlet, Neumann or Robin.
+    The BCs are specified by face number and assigned to the single component, and can
+    have type Dirichlet, Neumann or Robin.
 
     The Robin condition is defined by
         sigma*n + alpha * u = G
-    where alpha is defined by the attribute self.robin_weight
+    where alpha is defined by the attribute self.robin_weight.
 
-    The boundary conditions are applied in the basis given by the attribute
-    self.basis (defaults to the coordinate system). The basis is defined face-wise,
-    and the boundary condition should be given in the coordinates of these bases.
+    The boundary conditions are applied in the basis given by the attribute self.basis
+    (defaults to the coordinate system). The basis is defined face-wise, and the
+    boundary condition should be given in the coordinates of these bases.
 
-    For description of attributes, parameters and constructors,
-    refer to the above class BoundaryCondition.
+    For description of attributes, parameters and constructors, refer to the above class
+    BoundaryCondition.
 
     NOTE: sd.dim > 1 for the procedure to make sense
 
@@ -428,23 +427,19 @@ def face_on_side(
     It is assumed that the grid forms a box in 2d or 3d.
 
     The faces are specified by one of two type of keywords: (xmin / west),
-    (xmax / east), (ymin / south), (ymax / north), (zmin, bottom),
-    (zmax / top).
+    (xmax / east), (ymin / south), (ymax / north), (zmin, bottom), (zmax / top).
 
     Parameters:
-        sd (pp.Grid): Subdomain for which we want to find faces.
-        side (str, or list of str): Sides for which we want to find the
-            boundary faces.
-        tol (float): Geometric tolerance for deciding whether a face
-            lays on the boundary. Defaults to 1e-8.
+        sd: Subdomain for which we want to find faces.
+        side: Sides for which we want to find the boundary faces.
+        tol: Geometric tolerance for deciding whether a face lays on the boundary.
 
     Returns:
         list of arrays: Outer list has one element per element in side (same
-            ordering). Arrays contain global indices of faces laying on
-            that side.
+            ordering). Arrays contain global indices of faces laying on that side.
 
     Raises:
-        ValueError if not supported keyword is used to identify a boundary part
+        ValueError if not supported keyword is used to identify a boundary part.
     """
     if isinstance(side, str):
         side = [side]

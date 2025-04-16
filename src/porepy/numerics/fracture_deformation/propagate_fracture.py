@@ -566,7 +566,7 @@ def _update_connectivity_fracture_grid(
         if sd_secondary.dim == 2:
             # Sort nodes clockwise (!) ASSUMPTION: This assumes that the new cell is
             # star-shaped with respect to the local cell center. This should be okay.
-            map_to_sorted = pp.utils.sort_points.sort_point_plane(
+            map_to_sorted = pp.sort_points.sort_point_plane(
                 local_pts, local_cell_center
             )
             sorted_nodes_l = local_nodes_l[map_to_sorted]
