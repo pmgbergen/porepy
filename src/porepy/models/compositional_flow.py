@@ -179,6 +179,14 @@ def update_phase_properties(
                 props.dkappa_ext if use_extended_derivatives else props.dkappa, sd
             )
 
+    dphis = props.dphis_ext if use_extended_derivatives else props.dphis
+    for k, comp in enumerate(phase.components):
+        phi = phase.fugacity_coefficient_of[comp]
+        if isinstance(phi, pp.ad.SurrogateFactory):
+            phi.progress_iterate_values_on_grid(props.phis[k], sd, depth=depth)
+            if update_derivatives:
+                phi.set_derivatives_on_grid(dphis[k], sd)
+
 
 def is_fractional_flow(model: pp.PorePyModel) -> bool:
     """Checking the model parameters for the ``'fractional_flow'`` flag.
@@ -1578,13 +1586,13 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
                     for d in self.dependencies_of_phase_properties(phase)
                 ]
                 # Compute phase properties using the phase EoS.
-                phase_props = phase.compute_properties(
+                phase_state = phase.compute_properties(
                     *cast(list[np.ndarray], dep_vals),
                     params=self.params.get("phase_property_params", None),
                 )
 
                 # Set current iterate indices of values and derivatives.
-                update_phase_properties(grid, phase, phase_props, ni)
+                update_phase_properties(grid, phase, phase_state, ni)
 
     def before_nonlinear_iteration(self) -> None:
         """Overwrites parent methods to perform an update of phase properties before
