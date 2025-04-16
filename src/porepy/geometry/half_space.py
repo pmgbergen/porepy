@@ -1,5 +1,7 @@
 """This module contains functions for computations relating to half spaces."""
 
+import warnings
+
 import numpy as np
 from scipy.spatial import HalfspaceIntersection
 
@@ -168,6 +170,8 @@ def vertexes_of_convex_domain(A: np.ndarray, b: np.ndarray) -> np.ndarray:
         Vertexes of a convex domain.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
     import scipy.optimize as opt
 
     b = b.reshape((-1, 1))

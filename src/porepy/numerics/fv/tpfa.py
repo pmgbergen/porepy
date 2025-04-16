@@ -5,6 +5,7 @@ approximation scheme. The implementation resides in the class Tpfa.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Callable, Literal, Sequence
 
 import numpy as np
@@ -114,6 +115,11 @@ class Tpfa(pp.FVElliptic):
         # The periodic boundary is defined by a mapping from left faces to right
         # faces:
         if hasattr(sd, "periodic_face_map"):
+            msg = (
+                "This functionality is deprecated and will be removed "
+                "in a future version"
+            )
+            warnings.warn(msg, DeprecationWarning)
             fi_left = sd.periodic_face_map[0]
             fi_right = sd.periodic_face_map[1]
         else:
