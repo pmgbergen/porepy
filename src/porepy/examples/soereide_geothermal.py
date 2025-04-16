@@ -57,6 +57,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 fractional_flow: bool = False
 use_well_model: bool = True
 equilibrium_condition: str = "unified-p-h"
+use_schur_technique: bool = False
 
 
 class _FlowConfiguration(pp.PorePyModel):
@@ -68,29 +69,25 @@ class _FlowConfiguration(pp.PorePyModel):
     _T_INIT: float = 450.0
     _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
 
-    # In- and outflow values, as well as well values per well index
+    # In- and outflow values.
+    _T_HEATED: float = 640.0
     _p_IN: float = _p_INIT
-    _p_OUT: float = _p_INIT - 1e6
-    _p_PRODUCTION: dict[int, float] = {0: _p_OUT}
-    # Atm at sea level + 2 km column of air, assuming an empty production pipe, would
-    # lead to 0.125 MPa bottom hole pressure.
-
     _T_IN: float = 300.0
-    _T_OUT: float = _T_INIT
-    # _T_HEATED: float = _T_INIT + 20.0
-    _T_HEATED: float = 640.0  # 650.
-    _T_INJECTION: dict[int, float] = {0: _T_IN}
-
     _z_IN: dict[str, float] = {
         "H2O": _z_INIT["H2O"] - 0.095,
         "CO2": _z_INIT["CO2"] + 0.095,
     }
+    _p_OUT: float = _p_INIT - 1e6
+    _T_OUT: float = _T_INIT
     _z_OUT: dict[str, float] = {
         "H2O": _z_INIT["H2O"],
         "CO2": _z_INIT["CO2"],
     }
 
-    # Injected mass per component and per well index.
+    # Injection model configuration
+
+    _T_INJECTION: dict[int, float] = {0: _T_IN}
+    _p_PRODUCTION: dict[int, float] = {0: _p_OUT}
 
     # Value obtained from a p-T flash with values defined above.
     # Divide by 3600 to obtain an injection of unit per hour
@@ -141,6 +138,83 @@ class SoereideMixture(pp.PorePyModel):
         ]
 
 
+class AnalysisMixin(pp.PorePyModel):
+    """Storing some information for analysis purposes."""
+
+    @no_type_check
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: Optional[np.ndarray],
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+        """Flags the time step as diverged, if there is a nan in the residual."""
+
+        if isinstance(self.nonlinear_solver_statistics, ExtendedSolverStatistics):
+            res_norm_per_eq = {}
+            incr_norm_per_var = {}
+            condition_numbers = {}
+
+            var_names = set([var.name for var in self.equation_system.variables])
+
+            for n, e in self.equation_system.equations.items():
+                res_norm_per_eq[n] = np.linalg.norm(self.equation_system.evaluate(e))
+            for n in var_names:
+                v = nonlinear_increment[self.equation_system.dofs_of([n])]
+                incr_norm_per_var[n] = np.linalg.norm(v)
+
+            # A = self.linear_system[0]
+            # try:
+            #     condition_numbers["global"] = np.linalg.cond(A.todense())
+            # except np.linalg.LinAlgError:
+            #     condition_numbers["global"] = np.nan
+
+            # A, _ = self.equation_system.assemble(
+            #     equations=self.primary_equations, variables=self.primary_variables
+            # )
+            # try:
+            #     condition_numbers["block_pp"] = np.linalg.cond(A.todense())
+            # except np.linalg.LinAlgError:
+            #     condition_numbers["block_pp"] = np.nan
+            # A, _ = self.equation_system.assemble(
+            #     equations=self.secondary_equations, variables=self.secondary_variables
+            # )
+            # try:
+            #     condition_numbers["block_ss"] = np.linalg.cond(A.todense())
+            # except np.linalg.LinAlgError:
+            #     condition_numbers["block_ss"] = np.nan
+
+            self.nonlinear_solver_statistics.extended_log(
+                self.time_manager.time,
+                self.time_manager.dt,
+                res_norm_per_equation=res_norm_per_eq,
+                incr_norm_per_variable=incr_norm_per_var,
+                condition_numbers=condition_numbers,
+            )
+
+        return super().check_convergence(
+            nonlinear_increment, residual, reference_residual, nl_params
+        )
+
+    def after_nonlinear_convergence(self):
+        super().after_nonlinear_convergence()
+
+        for sd in self.mdg.subdomains(dim=0):
+            p = self.equation_system.evaluate(self.pressure([sd]))
+            T = self.equation_system.evaluate(self.temperature([sd]))
+            h = self.equation_system.evaluate(self.enthalpy([sd]))
+            if "injection_well" in sd.tags:
+                s = "injection"
+                i = sd.tags["injection_well"]
+            elif "production_well" in sd.tags:
+                s = "production"
+                i = sd.tags["production_well"]
+            else:
+                continue
+            print(f"{s} well {i}:\n\tp={p}\n\tT={T}\n\th={h}")
+
+
 class SolutionStrategy(pp.PorePyModel):
     """Provides some pre- and post-processing for flash methods."""
 
@@ -169,15 +243,6 @@ class SolutionStrategy(pp.PorePyModel):
             if np.any(np.isnan(residual)) and status == (False, False):
                 return (False, True)
 
-        if isinstance(self.nonlinear_solver_statistics, ExtendedSolverStatistics):
-            res_per_equ = {}
-            for n, e in self.equation_system.equations.items():
-                res_per_equ[n] = np.linalg.norm(self.equation_system.evaluate(e))
-            self.nonlinear_solver_statistics.log_extended_error(
-                self.time_manager.time,
-                self.time_manager.dt,
-                **res_per_equ,
-            )
         return status
 
     def compute_residual_norm(
@@ -211,31 +276,13 @@ class SolutionStrategy(pp.PorePyModel):
 
         z = pp.compositional.normalize_rows(z.T).T
 
-        for i, zc in enumerate(zip(z, self.fluid.components)):
-            z_i, comp = zc
+        for z_i, comp in zip(z, self.fluid.components):
             if self.has_independent_fraction(comp):
                 self.equation_system.set_variable_values(
                     z_i,
                     [comp.fraction(sds)],  # type:ignore[arg-type]
                     iterate_index=0,
                 )
-
-    def after_nonlinear_convergence(self):
-        super().after_nonlinear_convergence()
-
-        for sd in self.mdg.subdomains(dim=0):
-            p = self.equation_system.evaluate(self.pressure([sd]))
-            T = self.equation_system.evaluate(self.temperature([sd]))
-            h = self.equation_system.evaluate(self.enthalpy([sd]))
-            if "injection_well" in sd.tags:
-                s = "injection"
-                i = sd.tags["injection_well"]
-            elif "production_well" in sd.tags:
-                s = "production"
-                i = sd.tags["production_well"]
-            else:
-                continue
-            print(f"{s} well {i}:\n\tp={p}\n\tT={T}\n\th={h}")
 
     def after_nonlinear_failure(self):
         self.exporter.write_pvd()
@@ -877,7 +924,6 @@ class BoundaryConditions(_FlowConfiguration):
 
         inlet = np.zeros(sd.num_faces, dtype=bool)
         inlet[sides.west] = True
-        inlet &= sd.face_centers[1] >= 15.0
 
         return inlet
 
@@ -1088,6 +1134,8 @@ if fractional_flow:
         [pp.constitutive_laws.FouriersLawAd, pp.constitutive_laws.DarcysLawAd],  # type:ignore[type-abstract]
     )
 
+model_class = create_local_model_class(model_class, [AnalysisMixin])  # type:ignore[type-abstract]
+
 
 # Numerical model parametrization
 
@@ -1099,22 +1147,6 @@ times_to_export = [i * pp.DAY for i in range(31)] + [
 max_iterations = 20
 newton_tol = 1.5e-4
 newton_tol_increment = 1e-6
-
-flash_params = {
-    "mode": "parallel",
-    "solver": "npipm",
-    "solver_params": {
-        "tolerance": 1e-4,  # 1e-8
-        "max_iterations": 80,  # 150
-        "armijo_rho": 0.99,
-        "armijo_kappa": 0.4,
-        "armijo_max_iterations": 50 if "p-T" in equilibrium_condition else 30,
-        "npipm_u1": 10,
-        "npipm_u2": 10,
-        "npipm_eta": 0.5,
-    },
-    "phase_property_params": [0.0],
-}
 
 time_manager = pp.TimeManager(
     schedule=times_to_export,
@@ -1131,7 +1163,11 @@ time_manager = pp.TimeManager(
     rtol=0.0,
 )
 
-material_constants = {
+phase_property_params = {
+    "phase_property_params": [0.0],
+}
+
+material_params = {
     "solid": pp.SolidConstants(
         permeability=1e-13,
         porosity=0.2,
@@ -1140,39 +1176,23 @@ material_constants = {
     )
 }
 
-params = {
-    "equilibrium_condition": equilibrium_condition,
-    "has_time_dependent_boundary_equilibrium": False,
-    "eliminate_reference_phase": True,
-    "eliminate_reference_component": True,
-    "reduce_linear_system": False,
-    "flash_params": flash_params,
-    "phase_property_params": [0.0],
-    "fractional_flow": fractional_flow,
-    "rediscretize_fourier_flux": fractional_flow,
-    "rediscretize_darcy_flux": fractional_flow,
-    "material_constants": material_constants,
-    "grid_type": "simplex",
-    "meshing_arguments": {
-        # "cell_size": 20/4,
-        # "cell_size": 5e-1,
-        "cell_size": 1.0,
-        "cell_size_fracture": 5e-1,
+flash_params: dict[Any, Any] = {
+    "mode": "parallel",
+    "solver": "npipm",
+    "solver_params": {
+        "tolerance": 1e-8,  # 1e-8
+        "max_iterations": 80,  # 150
+        "armijo_rho": 0.99,
+        "armijo_kappa": 0.4,
+        "armijo_max_iterations": 50 if "p-T" in equilibrium_condition else 30,
+        "npipm_u1": 10,
+        "npipm_u2": 10,
+        "npipm_eta": 0.5,
     },
-    "time_manager": time_manager,
-    "times_to_export": times_to_export,
-    "max_iterations": max_iterations,
-    "nl_convergence_tol": newton_tol_increment,
-    "nl_convergence_tol_res": newton_tol,
-    "prepare_simulation": False,
-    "linear_solver": "scipy_sparse",
-    "compile": True,
-    "flash_compiler_args": ("p-T", "p-h"),
-    "Global_line_search": True,
-    "nonlinear_solver": LineSearchWithPropertyEval,
-    "residual_line_search_interval_size": 5e-2,
-    "residual_line_search_num_steps": 3,
-    "min_line_search_weight": 1e-5,
+}
+flash_params.update(phase_property_params)
+
+restart_params = {
     "restart_options": {
         "restart": False,
         # "pvd_file": pathlib.Path('.\\visualization\\data.pvd').resolve(),
@@ -1181,12 +1201,58 @@ params = {
         # "times_file": pathlib.Path('.\\visualization\\times.json').resolve(),
         "time_index": -1,
     },
-    "solver_statistics_file_name": "solver_statistic.json",
+}
+
+meshing_params = {
+    "grid_type": "simplex",
+    "meshing_arguments": {
+        # "cell_size": 20/4,
+        "cell_size": 5e-1,
+        # "cell_size": 1.0,
+        "cell_size_fracture": 5e-1,
+    },
+}
+
+solver_params = {
+    "max_iterations": max_iterations,
+    "nl_convergence_tol": newton_tol_increment,
+    "nl_convergence_tol_res": newton_tol,
+    "linear_solver": "scipy_sparse",
+    "Global_line_search": True,
+    "nonlinear_solver": LineSearchWithPropertyEval,
+    "residual_line_search_interval_size": 5e-2,
+    "residual_line_search_num_steps": 3,
+    "min_line_search_weight": 1e-5,
+    "solver_statistics_file_name": "solver_statistics.json",
     "nonlinear_solver_statistics": ExtendedSolverStatistics,
 }
 
+model_params = {
+    "equilibrium_condition": equilibrium_condition,
+    "has_time_dependent_boundary_equilibrium": False,
+    "eliminate_reference_phase": True,
+    "eliminate_reference_component": True,
+    "reduce_linear_system": use_schur_technique,
+    "flash_params": flash_params,
+    "phase_property_params": [0.0],
+    "fractional_flow": fractional_flow,
+    "rediscretize_fourier_flux": fractional_flow,
+    "rediscretize_darcy_flux": fractional_flow,
+    "material_constants": material_params,
+    "time_manager": time_manager,
+    "times_to_export": times_to_export,
+    "prepare_simulation": False,
+    "compile": True,
+    "flash_compiler_args": ("p-T", "p-h"),
+}
+
+model_params.update(phase_property_params)
+model_params.update(restart_params)
+model_params.update(meshing_params)
+model_params.update(solver_params)
+
 # Casting to the most complex model type for typing purposes.
-model = cast(cfle.EnthalpyBasedCFFLETemplate, model_class(params))
+model = cast(cfle.EnthalpyBasedCFFLETemplate, model_class(model_params))
 
 t_0 = time.time()
 model.prepare_simulation()
@@ -1198,7 +1264,7 @@ model.primary_variables = model.get_primary_variables_cf()
 
 logging.getLogger("porepy").setLevel(logging.INFO)
 t_0 = time.time()
-pp.run_time_dependent_model(model, params)
+pp.run_time_dependent_model(model, model_params)
 sim_time = time.time() - t_0
 
 print(f"Set-up time: {prep_sim_time} (s).")

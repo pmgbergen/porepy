@@ -811,21 +811,12 @@ class InitialConditionsEquilibrium(cf.InitialConditionsCF):
                     phase.thermal_conductivity.progress_iterate_values_on_grid(
                         state.phases[j].kappa, sd, depth=ni
                     )
-
-            # Fugacities are not covered by update_phase_properties.
-            dphis = (
-                state.phases[j].dphis_ext
-                if has_unified_equilibrium
-                else state.phases[j].dphis
-            )
-            for k, comp in enumerate(phase.components):
-                phi = phase.fugacity_coefficient_of[comp]
-                if isinstance(phi, pp.ad.SurrogateFactory):
-                    for _ in self.iterate_indices:
+                for k, comp in enumerate(phase.components):
+                    phi = phase.fugacity_coefficient_of[comp]
+                    if isinstance(phi, pp.ad.SurrogateFactory):
                         phi.progress_iterate_values_on_grid(
                             state.phases[j].phis[k], sd, depth=ni
                         )
-                    phi.set_derivatives_on_grid(dphis[k], sd)
 
             # Progress property values in time on subdomain.
             for _ in self.time_step_indices:
@@ -1168,16 +1159,6 @@ class SolutionStrategyEquilibrium(pp.PorePyModel):
                 update_derivatives=True,
                 use_extended_derivatives=has_unified_equilibrium,
             )
-
-            dphis = (
-                phase_state.dphis_ext if has_unified_equilibrium else phase_state.dphis
-            )
-
-            for k, comp in enumerate(phase.components):
-                phi = phase.fugacity_coefficient_of[comp]
-                assert isinstance(phi, pp.ad.SurrogateFactory)
-                phi.progress_iterate_values_on_grid(phase_state.phis[k], sd)
-                phi.set_derivatives_on_grid(dphis[k], sd)
 
         # Updating variables which are also unknowns in the equilibrium problem.
 
