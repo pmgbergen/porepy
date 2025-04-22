@@ -400,11 +400,6 @@ class TimeManager:
         self._recomp_sol: bool = False
         self._iters: Union[int, None] = None
 
-        # Once per schedule interval, a desparate time step relaxation is triggered to
-        # reach the next scheduled time, if dt approaches the admissible dt_min in the
-        # case of non-constant time stepping.
-        self._in_dispair: bool = False
-
         # Bookkeeping of saved time steps for restarting purposes.
         self.exported_dt: list[pp.number] = []
         """A list of time steps for the simulation states that were saved on disk with
@@ -509,13 +504,6 @@ class TimeManager:
 
             # Adapt time step
             if not self._recomp_sol:
-                # Last time step was successful.
-                # If about to pass into the next schedule interval, and previously
-                # in dispair, then we are not desparate anymore.
-                if self._is_about_to_hit_schedule and self._in_dispair:
-                    if self._print_info:
-                        print("Desparate shot succeeded.")
-                    self._in_dispair = False
                 self._adaptation_based_on_iterations(iterations=self._iters)
             else:
                 self._adaptation_based_on_recomputation()
@@ -679,19 +667,6 @@ class TimeManager:
     def _correction_based_on_schedule(self) -> None:
         """Correct time step if time + dt > scheduled_time."""
         schedule_time = self.schedule[self._scheduled_idx]
-
-        if (
-            not self._in_dispair
-            and not self.is_constant
-            and self.dt <= self.dt_min_max[0] * 1.3
-        ):
-            if self._print_info:
-                print(
-                    "\n! Triggering desparate shot at reaching next scheduled time in"
-                    + f" schedule interval {self._scheduled_idx}\n"
-                )
-            self._in_dispair = True
-            self.dt = schedule_time - self.time
 
         self._is_about_to_hit_schedule = False
 

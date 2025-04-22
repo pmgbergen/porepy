@@ -1936,7 +1936,7 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
                 self.primary_equations,
                 self.primary_variables,
                 inverter=lambda x: sps.csr_matrix(
-                    sps.linalg.spsolve(x, np.eye(x.shape[0]))
+                    sps.linalg.spsolve(x, sps.eye(x.shape[0], format='csc'))
                 ),
             )
             logger.debug(
