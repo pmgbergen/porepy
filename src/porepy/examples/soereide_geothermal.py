@@ -57,7 +57,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 fractional_flow: bool = False
 use_well_model: bool = True
 equilibrium_condition: str = "unified-p-h"
-use_schur_technique: bool = False
+use_schur_technique: bool = True
 
 
 class _FlowConfiguration(pp.PorePyModel):
@@ -732,7 +732,7 @@ class AdjustedWellModel2D(_FlowConfiguration):
         )
 
         pressure_constraint_production = self.pressure(subdomains) - p_production
-        pressure_constraint_production.set_name("production_pressure_constraints")
+        pressure_constraint_production.set_name("production_pressure_constraint")
         return pressure_constraint_production
 
     def temperature_constraint_at_injection_wells(
@@ -1072,6 +1072,59 @@ class BoundaryConditionsOnlyConduction(BoundaryConditions):
 class LineSearchWithPropertyEval(LineSearchNewtonSolver):
     """Objective function must perform flash to update phase properties."""
 
+    __dx_prev: np.ndarray | float = 0.0
+
+    __armijo_num_iter: int = 0
+
+    def iteration(self, model: pp.PorePyModel):
+        dx = super().iteration(model)
+        rho = float(self.params.get("armijo_linesearch_weight", 0.99))
+        N = float(self.params.get("armijo_linesearch_max_iterations", 50))
+
+        # if model.nonlinear_solver_statistics.num_iteration > 5:
+        if (
+            rho**self.__armijo_num_iter < rho ** (N / 2)
+            and model.nonlinear_solver_statistics.num_iteration > 4
+        ):
+            heavy_ball = (
+                1
+                / (1 + np.linalg.norm(self.__dx_prev))
+                * float(model.params.get("heavy_ball_momentum", 0.0))
+            )
+        else:
+            heavy_ball = 0.0
+
+        if heavy_ball > 0.0:
+            logger.info(f"Heavy ball momentum weight: {heavy_ball}")
+            dx += heavy_ball * self.__dx_prev
+
+        self.__dx_prev = dx
+        return dx
+
+    def nonlinear_line_search(self, model, dx) -> np.ndarray:
+        if not self.params.get("Global_line_search", False):
+            return np.ones_like(dx)
+
+        rho = float(self.params.get("armijo_linesearch_weight", 0.99))
+        kappa = float(self.params.get("armijo_linesearch_incline", 0.4))
+        N = int(self.params.get("armijo_linesearch_max_iterations", 50))
+
+        pot_0 = self.residual_objective_function(model, dx, 0.0)
+        rho_i = rho
+
+        for i in range(N):
+            self.__armijo_num_iter = i
+            rho_i = rho**i
+
+            pot_i = self.residual_objective_function(model, dx, rho_i)
+            if pot_i <= (1 - 2 * kappa * rho_i) * pot_0:
+                break
+
+        logger.info(
+            f"Global Armijo line search determined weight: {rho_i} ({self.__armijo_num_iter})"
+        )
+        return rho_i * np.ones_like(dx)
+
     def residual_objective_function(
         self, model, dx: np.ndarray, weight: float
     ) -> np.floating[Any]:
@@ -1098,6 +1151,7 @@ class LineSearchWithPropertyEval(LineSearchNewtonSolver):
         return np.linalg.norm(residual)
 
 
+# region Model class assembly
 model_class: type[pp.PorePyModel]
 
 if equilibrium_condition == "unified-p-h" and fractional_flow:
@@ -1135,7 +1189,7 @@ if fractional_flow:
     )
 
 model_class = create_local_model_class(model_class, [AnalysisMixin])  # type:ignore[type-abstract]
-
+# endregion
 
 # Numerical model parametrization
 
@@ -1150,7 +1204,7 @@ newton_tol_increment = 1e-6
 
 time_manager = pp.TimeManager(
     schedule=times_to_export,
-    dt_init=0.9 * pp.DAY,
+    dt_init=2 * pp.HOUR,
     dt_min_max=(pp.MINUTE, 30 * pp.DAY),
     # dt_init=0.4 * pp.HOUR,
     # dt_min_max=(pp.MINUTE, 0.5 * pp.HOUR),
@@ -1180,7 +1234,7 @@ flash_params: dict[Any, Any] = {
     "mode": "parallel",
     "solver": "npipm",
     "solver_params": {
-        "tolerance": 1e-8,  # 1e-8
+        "tolerance": 1e-8,
         "max_iterations": 80,  # 150
         "armijo_rho": 0.99,
         "armijo_kappa": 0.4,
@@ -1206,9 +1260,9 @@ restart_params = {
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        # "cell_size": 20/4,
-        "cell_size": 5e-1,
-        # "cell_size": 1.0,
+        # "cell_size": 20 / 4,
+        # "cell_size": 5e-1,
+        "cell_size": 1.0,
         "cell_size_fracture": 5e-1,
     },
 }
@@ -1218,11 +1272,15 @@ solver_params = {
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
     "linear_solver": "scipy_sparse",
-    "Global_line_search": True,
+    "Global_line_search": False,
     "nonlinear_solver": LineSearchWithPropertyEval,
     "residual_line_search_interval_size": 5e-2,
     "residual_line_search_num_steps": 3,
     "min_line_search_weight": 1e-5,
+    "armijo_linesearch_weight": 0.95,
+    "armijo_linesearch_incline": 0.1,
+    "armijo_linesearch_max_iterations": 30,
+    "heavy_ball_momentum": 0.0,
     "solver_statistics_file_name": "solver_statistics.json",
     "nonlinear_solver_statistics": ExtendedSolverStatistics,
 }
@@ -1234,7 +1292,6 @@ model_params = {
     "eliminate_reference_component": True,
     "reduce_linear_system": use_schur_technique,
     "flash_params": flash_params,
-    "phase_property_params": [0.0],
     "fractional_flow": fractional_flow,
     "rediscretize_fourier_flux": fractional_flow,
     "rediscretize_darcy_flux": fractional_flow,
@@ -1259,8 +1316,22 @@ model.prepare_simulation()
 prep_sim_time = time.time() - t_0
 compile_time += prep_sim_time
 
-model.primary_equations = model.get_primary_equations_cf()
-model.primary_variables = model.get_primary_variables_cf()
+primary_equations = model.get_primary_equations_cf()
+primary_equations += [
+    eq for eq in model.equation_system.equations.keys() if "flux" in eq
+]
+if use_well_model:
+    primary_equations += [
+        "production_pressure_constraint",
+        "injection_temperature_constraint",
+    ]
+primary_variables = model.get_primary_variables_cf()
+primary_variables += list(
+    set([v.name for v in model.equation_system.variables if "flux" in v.name])
+)
+
+model.primary_equations = primary_equations
+model.primary_variables = primary_variables
 
 logging.getLogger("porepy").setLevel(logging.INFO)
 t_0 = time.time()

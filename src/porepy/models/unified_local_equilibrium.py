@@ -180,7 +180,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
 
         equ = pp.ad.sum_operator_list([x * y for x, y in zip(x_ij, y_j)]) - z_i
 
-        equ.set_name(f"local_mass_constraint_{component.name}")
+        equ.set_name(f"local_component_mass_constraint_{component.name}")
         return equ
 
     def complementarity_condition_for_phase(
@@ -379,7 +379,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
         equ = phase.fraction(subdomains) * self.fluid.density(
             subdomains
         ) / phase.density(subdomains) - phase.saturation(subdomains)
-        equ.set_name(f"local_density_conservation_{phase.name}")
+        equ.set_name(f"local_phase_mass_constraint_{phase.name}")
         return equ
 
 
