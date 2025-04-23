@@ -57,7 +57,8 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 fractional_flow: bool = False
 use_well_model: bool = True
 equilibrium_condition: str = "unified-p-h"
-use_schur_technique: bool = False
+use_schur_technique: bool = True
+analysis_mode: bool = False
 
 
 class _FlowConfiguration(pp.PorePyModel):
@@ -1281,7 +1282,9 @@ if fractional_flow:
         [pp.constitutive_laws.FouriersLawAd, pp.constitutive_laws.DarcysLawAd],  # type:ignore[type-abstract]
     )
 
-model_class = create_local_model_class(model_class, [AnalysisMixin])  # type:ignore[type-abstract]
+if analysis_mode:
+    model_class = create_local_model_class(model_class, [AnalysisMixin])  # type:ignore[type-abstract]
+
 # endregion
 
 # Numerical model parametrization
