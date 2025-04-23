@@ -570,7 +570,7 @@ class SolutionStrategy(pp.PorePyModel):
             # no point grid. If there is a point grid, above permutation assembles the
             # blocks belonging to the point grid cells already fully, due to how AD is
             # implemented in PorePy. We then need a special column permutation, which
-            # permute only on the those grids which are not point grids.
+            # permutes only on the those grids which are not point grids.
             # Note that the subdomains are sorted by default ascending w.r.t. their
             # dimension. Point grids come last
             subdomains = self.mdg.subdomains()
