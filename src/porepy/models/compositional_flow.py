@@ -112,6 +112,7 @@ from functools import partial
 from typing import Callable, Optional, Sequence, cast
 
 import numpy as np
+import scipy.sparse as sps
 
 import porepy as pp
 import porepy.compositional as compositional
@@ -1928,23 +1929,35 @@ class SolutionStrategySchurComplement(pp.PorePyModel):
 
         if self.params.get("reduce_linear_system", False):
             t_0 = time.time()
-            import scipy.sparse as sps
-
-            # from pypardiso import spsolve  # type:ignore
 
             self.linear_system = self.equation_system.assemble_schur_complement_system(
                 self.primary_equations,
                 self.primary_variables,
-                inverter=lambda x: sps.csr_matrix(
-                    sps.linalg.spsolve(x, sps.eye(x.shape[0], format='csc'))
-                ),
+                inverter=self.schur_complement_inverter(),
             )
-            logger.debug(
+            logger.info(
                 f"Assembled reduced linear system in {time.time() - t_0:.2e} seconds."
             )
         else:
             assert isinstance(self, pp.SolutionStrategy)
             super().assemble_linear_system()  # type:ignore
+
+    def schur_complement_inverter(self) -> Callable[[sps.spmatrix], sps.spmatrix]:
+        """Returns the inverter for the secondary block in the Schur complement
+        reduction.
+
+        The inverter must take a sparse matrix and return its inverse.
+
+        """
+
+        # from pypardiso import spsolve  # type:ignore
+
+        def inverter(A: sps.spmatrix) -> sps.spmatrix:
+            return sps.csr_matrix(
+                sps.linalg.spsolve(A, sps.eye(A.shape[0], format="csc"))
+            )
+
+        return inverter
 
     def solve_linear_system(self) -> np.ndarray:
         """After calling the parent method, the global solution is calculated by Schur

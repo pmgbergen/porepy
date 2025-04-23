@@ -57,7 +57,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 fractional_flow: bool = False
 use_well_model: bool = True
 equilibrium_condition: str = "unified-p-h"
-use_schur_technique: bool = True
+use_schur_technique: bool = False
 
 
 class _FlowConfiguration(pp.PorePyModel):
@@ -227,6 +227,12 @@ class SolutionStrategy(pp.PorePyModel):
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     has_independent_fraction: Callable[[pp.Component | pp.Phase], bool]
+    secondary_variables: list[str]
+    secondary_equations: list[str]
+
+    _block_row_permutation: np.ndarray
+    _block_column_permutation: np.ndarray
+    _block_size: int
 
     def check_convergence(
         self,
@@ -531,6 +537,93 @@ class SolutionStrategy(pp.PorePyModel):
         )
 
         return sub_state
+
+    def schur_complement_inverter(self) -> Callable[[sps.spmatrix], sps.spmatrix]:
+        """Parallelized block diagonal inverter for local equilibrium equations,
+        assuming they are defined on all subdomains in each cell."""
+
+        # return super().schur_complement_inverter()
+        if not hasattr(self, "_block_permutation"):
+            # Local system size of p-h flash including saturations and phase mass
+            # constraints.
+            ncomp = self.fluid.num_components
+            nphase = self.fluid.num_phases
+            block_size: int = ncomp - 1 + ncomp * (nphase - 1) + nphase + 1 + nphase - 1
+            assert block_size == len(self.secondary_equations)
+            assert block_size == len(self.secondary_variables)
+            self._block_size = block_size
+
+            # Permutation of DOFs in porepy, assuming the order is equ1, equ2,...
+            # With an subdomain-minor order per variable.
+            N = self.mdg.num_subdomain_cells()
+            shift = np.kron(np.arange(block_size), np.ones(N))
+            stride = np.arange(N) * block_size
+            permutation = (np.kron(np.ones(block_size), stride) + shift).astype(
+                np.int32
+            )
+            identity = np.arange(N * block_size, dtype=np.int32)
+            assert np.allclose(np.sort(permutation), identity, rtol=0.0, atol=1e-16)
+
+            self._block_row_permutation = permutation
+
+            # Above permutation can be used for both column and blocks, if there is
+            # no point grid. If there is a point grid, above permutation assembles the
+            # blocks belonging to the point grid cells already fully, due to how AD is
+            # implemented in PorePy. We then need a special column permutation, which
+            # permute only on the those grids which are not point grids.
+            # Note that the subdomains are sorted by default ascending w.r.t. their
+            # dimension. Point grids come last
+            subdomains = self.mdg.subdomains()
+            if subdomains[-1].dim == 0:
+                non_point_grids = [g for g in subdomains if g.dim > 0]
+                sub_N = sum([g.num_cells for g in non_point_grids])
+                shift = np.kron(np.arange(block_size), np.ones(sub_N))
+                stride = np.arange(sub_N) * block_size
+                sub_permutation = (np.kron(np.ones(block_size), stride) + shift).astype(
+                    np.int32
+                )
+                sub_identity = np.arange(sub_N * block_size, dtype=np.int32)
+                assert np.allclose(
+                    np.sort(sub_permutation), sub_identity, rtol=0.0, atol=1e-16
+                )
+                permutation = np.arange(N * block_size, dtype=np.int32)
+                permutation[: sub_N * block_size] = sub_permutation
+                self._block_column_permutation = permutation
+
+        def inverter(A: sps.csr_matrix) -> sps.csr_matrix:
+            row_perm = pp.matrix_operations.ArraySlicer(
+                range_indices=self._block_row_permutation
+            )
+            inv_col_perm = pp.matrix_operations.ArraySlicer(
+                domain_indices=self._block_row_permutation
+            )
+            if hasattr(self, "_block_column_permutation"):
+                col_perm = pp.matrix_operations.ArraySlicer(
+                    range_indices=self._block_column_permutation
+                )
+                inv_row_perm = pp.matrix_operations.ArraySlicer(
+                    domain_indices=self._block_column_permutation
+                )
+            else:
+                col_perm = row_perm
+                inv_row_perm = inv_col_perm
+
+            A_block = col_perm @ (row_perm @ A).transpose()
+
+            # The local p-h flash system has a size of
+            inv_A_block = pp.matrix_operations.invert_diagonal_blocks(
+                A_block,
+                (np.ones(self.mdg.num_subdomain_cells()) * self._block_size).astype(
+                    np.int32
+                ),
+                method="numba",
+            )
+
+            inv_A = inv_col_perm @ (inv_row_perm @ inv_A_block).transpose()
+            inv_A.eliminate_zeros()
+            return inv_A
+
+        return inverter
 
 
 class Geometry(_FlowConfiguration):
@@ -1092,7 +1185,7 @@ class LineSearchWithPropertyEval(LineSearchNewtonSolver):
                 * float(model.params.get("heavy_ball_momentum", 0.0))
             )
         else:
-            heavy_ball = 0.0
+            heavy_ball = np.float64(0.0)
 
         if heavy_ball > 0.0:
             logger.info(f"Heavy ball momentum weight: {heavy_ball}")
@@ -1121,7 +1214,7 @@ class LineSearchWithPropertyEval(LineSearchNewtonSolver):
                 break
 
         logger.info(
-            f"Global Armijo line search determined weight: {rho_i} ({self.__armijo_num_iter})"
+            f"Armijo line search determined weight: {rho_i} ({self.__armijo_num_iter})"
         )
         return rho_i * np.ones_like(dx)
 
@@ -1261,8 +1354,9 @@ meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
         # "cell_size": 20 / 4,
-        # "cell_size": 5e-1,
-        "cell_size": 1.0,
+        # "cell_size": 10.0,
+        "cell_size": 5e-1,
+        # "cell_size": 1.0,
         "cell_size_fracture": 5e-1,
     },
 }
@@ -1272,6 +1366,7 @@ solver_params = {
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
     "linear_solver": "scipy_sparse",
+    # "linear_solver": "pypardiso",
     "Global_line_search": False,
     "nonlinear_solver": LineSearchWithPropertyEval,
     "residual_line_search_interval_size": 5e-2,
@@ -1316,22 +1411,23 @@ model.prepare_simulation()
 prep_sim_time = time.time() - t_0
 compile_time += prep_sim_time
 
-primary_equations = model.get_primary_equations_cf()
-primary_equations += [
-    eq for eq in model.equation_system.equations.keys() if "flux" in eq
-]
-if use_well_model:
+if use_schur_technique:
+    primary_equations = model.get_primary_equations_cf()
     primary_equations += [
-        "production_pressure_constraint",
-        "injection_temperature_constraint",
+        eq for eq in model.equation_system.equations.keys() if "flux" in eq
     ]
-primary_variables = model.get_primary_variables_cf()
-primary_variables += list(
-    set([v.name for v in model.equation_system.variables if "flux" in v.name])
-)
+    if use_well_model:
+        primary_equations += [
+            "production_pressure_constraint",
+            "injection_temperature_constraint",
+        ]
+    primary_variables = model.get_primary_variables_cf()
+    primary_variables += list(
+        set([v.name for v in model.equation_system.variables if "flux" in v.name])
+    )
 
-model.primary_equations = primary_equations
-model.primary_variables = primary_variables
+    model.primary_equations = primary_equations
+    model.primary_variables = primary_variables
 
 logging.getLogger("porepy").setLevel(logging.INFO)
 t_0 = time.time()
