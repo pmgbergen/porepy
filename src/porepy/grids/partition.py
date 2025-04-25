@@ -18,7 +18,7 @@ available methods.
 
 from __future__ import annotations
 
-import warnings
+from warnings import warn
 from typing import Optional
 
 import numpy as np
@@ -43,7 +43,7 @@ def partition_metis(g: pp.Grid, num_part: int) -> np.ndarray:
     try:
         import pymetis
     except ImportError:
-        warnings.warn("Could not import pymetis. Partitioning by metis will not work.")
+        warn("Could not import pymetis. Partitioning by metis will not work.")
         raise ImportError("Cannot partition by pymetis")
 
     # Connection map between cells
@@ -822,6 +822,8 @@ def partition_grid(
             Each element contains the global indices of the local nodes.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warn(msg, DeprecationWarning)
 
     sub_grid: list[pp.Grid] = []
     face_map_list: list[np.ndarray] = []
