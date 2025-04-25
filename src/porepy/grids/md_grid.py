@@ -9,6 +9,7 @@ from typing import Any, Callable, Iterable, Literal, Optional, Union, overload
 
 import numpy as np
 from scipy import sparse as sps
+from warnings import warn
 
 import porepy as pp
 from porepy.grids import mortar_grid
@@ -526,6 +527,9 @@ class MixedDimensionalGrid:
            sd: The subdomain to be removed.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warn(msg, DeprecationWarning)
+
         # Delete from the subdomain list.
         del self._subdomain_data[sd]
 
@@ -889,6 +893,9 @@ class MixedDimensionalGrid:
             The total number of mortar cells of the grid bucket.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warn(msg, DeprecationWarning)
+
         if cond is None:
             cond = lambda g: True
         return np.sum(  # type: ignore
