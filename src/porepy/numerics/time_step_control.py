@@ -653,7 +653,20 @@ class TimeManager:
             self._scheduled_idx += 1  # Increase index to catch next scheduled time.
 
             if np.isclose(self.time, schedule_time, rtol=self.rtol, atol=self.atol):
-                # Scheduled time will be reached within tol, no need for correction.
+                # Scheduled time will be reached within tol, no need for correction,
+                # unless the time step was just perfectly hit, and the upcoming
+                # time step will be overtaken by the previous dt. Check therefore
+                # also for next scheduled time.
+                if self._scheduled_idx < len(self.schedule) - 1:
+                    next_schedule_time = self.schedule[self._scheduled_idx]
+                    if self.time + self.dt > next_schedule_time:
+                        # We are not going to hit the next scheduled time.
+                        self.dt = next_schedule_time - self.time
+                        if self._print_info:
+                            print(
+                                f"Correcting time step to match next scheduled time."
+                                f" Next dt = {self.dt}."
+                            )
                 if self._print_info:
                     print(
                         f"Not correcting time step to match scheduled time. Next dt ="
