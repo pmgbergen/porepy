@@ -621,6 +621,8 @@ class SolutionStrategy(pp.PorePyModel):
             )
 
             inv_A = inv_col_perm @ (inv_row_perm @ inv_A_block).transpose()
+            treat_as_zero = np.abs(inv_A.data) <= 1e-11
+            inv_A.data[treat_as_zero] = 0.
             inv_A.eliminate_zeros()
             return inv_A
 
