@@ -509,7 +509,7 @@ class TimeManager:
                 self._adaptation_based_on_recomputation()
                 # If the solution must be recomputed, forget the potentially large time
                 # step before the schedule correction
-                if self._recomp_num > 2:
+                if self._recomp_num > 0:
                     self._dt_before_schedule_correction = None
 
         # Correct time step
