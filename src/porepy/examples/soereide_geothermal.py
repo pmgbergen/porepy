@@ -58,7 +58,7 @@ fractional_flow: bool = False
 use_well_model: bool = True
 equilibrium_condition: str = "unified-p-h"
 use_schur_technique: bool = True
-analysis_mode: bool = False
+analysis_mode: bool = True
 
 
 class _FlowConfiguration(pp.PorePyModel):
@@ -160,10 +160,12 @@ class AnalysisMixin(pp.PorePyModel):
             var_names = set([var.name for var in self.equation_system.variables])
 
             for n, e in self.equation_system.equations.items():
-                res_norm_per_eq[n] = np.linalg.norm(self.equation_system.evaluate(e))
+                res_norm_per_eq[n] = self.compute_residual_norm(
+                    self.equation_system.evaluate(e), reference_residual
+                )
             for n in var_names:
                 v = nonlinear_increment[self.equation_system.dofs_of([n])]
-                incr_norm_per_var[n] = np.linalg.norm(v)
+                incr_norm_per_var[n] = self.compute_residual_norm(v, reference_residual)
 
             # A = self.linear_system[0]
             # try:
@@ -221,6 +223,8 @@ class SolutionStrategy(pp.PorePyModel):
 
     flash: pp.compositional.Flash
 
+    compute_nonlinear_increment_norm: Callable[[np.ndarray], float]
+
     pressure_variable: str
     temperature_variable: str
     enthalpy_variable: str
@@ -247,8 +251,35 @@ class SolutionStrategy(pp.PorePyModel):
             nonlinear_increment, residual, reference_residual, nl_params
         )
         if residual is not None:
-            if np.any(np.isnan(residual)) and status == (False, False):
-                return (False, True)
+            if np.any(np.isnan(residual)):
+                status = (False, True)
+
+        # Convergence check for individual norms, if the global residual is not yet
+        # small enough.
+        tol = float(self.params["nl_convergence_tol_res"])
+        tol_inc = float(self.params["nl_convergence_tol"])
+        if status == (False, False):
+            status_per_eq = []
+            rn_per_eq = {}
+            for name, eq in self.equation_system.equations.items():
+                rn = self.compute_residual_norm(
+                    cast(np.ndarray, self.equation_system.evaluate(eq)),
+                    reference_residual,
+                )
+                rn_per_eq[name] = rn
+                if "isofugacity" in name:
+                    status_per_eq.append(rn < 1e-2)
+                else:
+                    status_per_eq.append(rn < tol)
+            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
+                nonlinear_increment
+            )
+            status = (
+                all(status_per_eq) and nonlinear_increment_norm < tol_inc,
+                False,
+            )
+            if status[0]:
+                logger.info(f"Converged with custom criteria. Residuals: {rn_per_eq}")
 
         return status
 
@@ -609,7 +640,7 @@ class SolutionStrategy(pp.PorePyModel):
                 col_perm = row_perm
                 inv_row_perm = inv_col_perm
 
-            A_block = col_perm @ (row_perm @ A).transpose()
+            A_block = (col_perm @ (row_perm @ A).transpose()).transpose()
 
             # The local p-h flash system has a size of
             inv_A_block = pp.matrix_operations.invert_diagonal_blocks(
@@ -620,9 +651,14 @@ class SolutionStrategy(pp.PorePyModel):
                 method="numba",
             )
 
-            inv_A = inv_col_perm @ (inv_row_perm @ inv_A_block).transpose()
-            treat_as_zero = np.abs(inv_A.data) <= 1e-11
-            inv_A.data[treat_as_zero] = 0.
+            inv_A = (
+                inv_col_perm @ (inv_row_perm @ inv_A_block).transpose()
+            ).transpose()
+            # Because the matrix has a condition number of order 5 to 6, and we use
+            # float64 (precision order -16), the last entries are useless, if not
+            # problematic.
+            treat_as_zero = np.abs(inv_A.data) < 1e-10
+            inv_A.data[treat_as_zero] = 0.0
             inv_A.eliminate_zeros()
             return inv_A
 
@@ -747,6 +783,9 @@ class AdjustedWellModel2D(_FlowConfiguration):
 
     """
 
+    compute_residual_norm: Callable[[Optional[np.ndarray], np.ndarray], float]
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+
     pressure_variable: str
     pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
@@ -780,7 +819,28 @@ class AdjustedWellModel2D(_FlowConfiguration):
         """Introduced the usual fluid mass balance equations but only on grids which
         are not production wells."""
         _, no_production_wells = self._filter_wells(subdomains, "production")
-        return super().mass_balance_equation(no_production_wells)  # type:ignore[misc]
+        eq: pp.ad.Operator = super().mass_balance_equation(no_production_wells)  # type:ignore[misc]
+        name = eq.name
+
+        volume_stabilization = self.fluid.density(
+            no_production_wells
+        ) * pp.ad.sum_operator_list(
+            [
+                phase.fraction(no_production_wells) / phase.density(no_production_wells)
+                for phase in self.fluid.phases
+            ],
+            "fluid_specific_volume",
+        ) - self.porosity(no_production_wells)
+
+        volume_stabilization = self.volume_integral(
+            volume_stabilization, no_production_wells, dim=1
+        )
+        volume_stabilization = pp.ad.time_derivatives.dt(
+            volume_stabilization, self.ad_time_step
+        )
+        eq = eq + volume_stabilization
+        eq.set_name(name)
+        return eq
 
     def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Introduced the usual fluid mass balance equations but only on grids which
@@ -1177,15 +1237,15 @@ class LineSearchWithPropertyEval(LineSearchNewtonSolver):
         rho = float(self.params.get("armijo_linesearch_weight", 0.99))
         N = float(self.params.get("armijo_linesearch_max_iterations", 50))
 
-        # if model.nonlinear_solver_statistics.num_iteration > 5:
         if (
             rho**self.__armijo_num_iter < rho ** (N / 2)
-            and model.nonlinear_solver_statistics.num_iteration > 4
+            and model.nonlinear_solver_statistics.num_iteration
+            > model.time_manager.iter_optimal_range[0]
         ):
             heavy_ball = (
                 1
                 / (1 + np.linalg.norm(self.__dx_prev))
-                * float(model.params.get("heavy_ball_momentum", 0.0))
+                * np.float64(model.params.get("heavy_ball_momentum", 0.0))
             )
         else:
             heavy_ball = np.float64(0.0)
@@ -1194,7 +1254,7 @@ class LineSearchWithPropertyEval(LineSearchNewtonSolver):
             logger.info(f"Heavy ball momentum weight: {heavy_ball}")
             dx += heavy_ball * self.__dx_prev
 
-        self.__dx_prev = dx
+        self.__dx_prev = dx.copy()
         return dx
 
     def nonlinear_line_search(self, model, dx) -> np.ndarray:
@@ -1244,7 +1304,7 @@ class LineSearchWithPropertyEval(LineSearchNewtonSolver):
             model, state
         )
         residual = model.equation_system.assemble(state=state, evaluate_jacobian=False)
-        return np.linalg.norm(residual)
+        return np.dot(residual, residual) / 2
 
 
 # region Model class assembly
@@ -1292,7 +1352,7 @@ if analysis_mode:
 # Numerical model parametrization
 
 times_to_export = [i * pp.DAY for i in range(31)] + [
-    i * 30 * pp.DAY for i in range(2, 13)
+    i * 15 * pp.DAY for i in range(3, 25)
 ]
 # times_to_export = [i * pp.HOUR for i in np.arange(49)/2]
 
@@ -1303,9 +1363,7 @@ newton_tol_increment = 1e-6
 time_manager = pp.TimeManager(
     schedule=times_to_export,
     dt_init=2 * pp.HOUR,
-    dt_min_max=(pp.MINUTE, 30 * pp.DAY),
-    # dt_init=0.4 * pp.HOUR,
-    # dt_min_max=(pp.MINUTE, 0.5 * pp.HOUR),
+    dt_min_max=(10.0 * pp.MINUTE, 30 * pp.DAY),
     iter_max=max_iterations,
     iter_optimal_range=(9, 15),
     iter_relax_factors=(0.7, 2.0),
@@ -1358,8 +1416,6 @@ restart_params = {
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        # "cell_size": 20 / 4,
-        # "cell_size": 10.0,
         "cell_size": 5e-1,
         # "cell_size": 1.0,
         "cell_size_fracture": 5e-1,
@@ -1372,15 +1428,15 @@ solver_params = {
     "nl_convergence_tol_res": newton_tol,
     "linear_solver": "scipy_sparse",
     # "linear_solver": "pypardiso",
-    "Global_line_search": False,
+    "Global_line_search": True,
     "nonlinear_solver": LineSearchWithPropertyEval,
     "residual_line_search_interval_size": 5e-2,
     "residual_line_search_num_steps": 3,
     "min_line_search_weight": 1e-5,
     "armijo_linesearch_weight": 0.95,
-    "armijo_linesearch_incline": 0.1,
-    "armijo_linesearch_max_iterations": 30,
-    "heavy_ball_momentum": 0.0,
+    "armijo_linesearch_incline": 0.3,
+    "armijo_linesearch_max_iterations": 15,
+    "heavy_ball_momentum": 0.4,
     "solver_statistics_file_name": "solver_statistics.json",
     "nonlinear_solver_statistics": ExtendedSolverStatistics,
 }
