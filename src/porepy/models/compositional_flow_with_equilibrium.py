@@ -266,7 +266,7 @@ class BoundaryConditionsEquilibrium(cf.BoundaryConditionsPhaseProperties):
 
             # Performing flash, asserting everything is successful.
             logger.info(
-                f"Computing flash on boundary {bg.id} at t={self.time_manager.time}."
+                f"Equilibration on boundary {bg.id} at t={self.time_manager.time:.3e}."
             )
             state, success, _ = self.flash.flash(
                 z=feed,
@@ -719,7 +719,7 @@ class InitialConditionsEquilibrium(cf.InitialConditionsCF):
         )
 
         # Computing initial equilibrium.
-        logger.info(f"Computing initial flash on grid {sd.id}.")
+        logger.info(f"Initial equilibration on grid {sd.id}.")
         state, success, _ = self.flash.flash(
             z=feed, **equilibrium_specs, params=self.params.get("flash_params", None)
         )
@@ -1085,7 +1085,7 @@ class SolutionStrategyEquilibrium(pp.PorePyModel):
         """
 
         logger.info(
-            f"Equilibration on grid {sd.id} at time={self.time_manager.time},"
+            f"Equilibration on grid {sd.id} at t={self.time_manager.time:.3e},"
             + f" iter={self.nonlinear_solver_statistics.num_iteration}."
         )
         start = time.time()
