@@ -25,6 +25,7 @@ import os
 import pathlib
 import time
 import warnings
+from collections import deque
 from typing import Any, Callable, Literal, Optional, Sequence, cast, no_type_check
 
 import numpy as np
@@ -35,8 +36,8 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.test_utils.models import create_local_model_class
 from porepy.fracs.wells_3d import _add_interface
-from porepy.numerics.nonlinear.line_search import LineSearchNewtonSolver
 from porepy.viz.solver_statistics import ExtendedSolverStatistics
+from porepy.numerics.solvers.andersonacceleration import AndersonAcceleration
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.DEBUG)
@@ -234,10 +235,21 @@ class SolutionStrategy(pp.PorePyModel):
     has_independent_fraction: Callable[[pp.Component | pp.Phase], bool]
     secondary_variables: list[str]
     secondary_equations: list[str]
+    fraction_in_phase_variables: list[str]
 
     _block_row_permutation: np.ndarray
     _block_column_permutation: np.ndarray
     _block_size: int
+
+    def __init__(self, params: dict | None = None):
+        super().__init__(params)  # type:ignore[safe-super]
+
+        self._last_residual_norms: deque[float] = deque(maxlen=4)
+        self._last_increment_norms: deque[float] = deque(maxlen=3)
+
+    def before_nonlinear_loop(self) -> None:
+        super().before_nonlinear_loop()  # type:ignore[misc]
+        self._last_residual_norms.clear()
 
     def check_convergence(
         self,
@@ -251,7 +263,7 @@ class SolutionStrategy(pp.PorePyModel):
             nonlinear_increment, residual, reference_residual, nl_params
         )
         if residual is not None:
-            if np.any(np.isnan(residual)):
+            if np.any(np.isnan(residual)) or np.any(np.isinf(residual)):
                 status = (False, True)
 
         # Convergence check for individual norms, if the global residual is not yet
@@ -266,20 +278,69 @@ class SolutionStrategy(pp.PorePyModel):
                     cast(np.ndarray, self.equation_system.evaluate(eq)),
                     reference_residual,
                 )
-                rn_per_eq[name] = rn
                 if "isofugacity" in name:
                     status_per_eq.append(rn < 1e-2)
+                    rn_per_eq[name] = rn
                 else:
                     status_per_eq.append(rn < tol)
-            nonlinear_increment_norm = self.compute_nonlinear_increment_norm(
-                nonlinear_increment
-            )
+
+            residuals_converged = all(status_per_eq)
+
+            status_per_var = []
+            rn_per_var = {}
+            partial_frac_vars = self.fraction_in_phase_variables
+            for var in self.equation_system.variables:
+                rn = self.compute_nonlinear_increment_norm(
+                    nonlinear_increment[self.equation_system.dofs_of([var])]
+                )
+                if var.name in partial_frac_vars:
+                    status_per_var.append(rn < 1e-2)
+                    rn_per_var[(var.name, var.domain.id)] = rn
+                else:
+                    status_per_var.append(rn < tol_inc)
+
+            increments_converged = all(status_per_var)
+
             status = (
-                all(status_per_eq) and nonlinear_increment_norm < tol_inc,
+                residuals_converged and increments_converged,
                 False,
             )
             if status[0]:
-                logger.info(f"Converged with custom criteria. Residuals: {rn_per_eq}")
+                print(
+                    "Converged with custom criteria.\n"
+                    + f"\tNon-satisfying residuals:\n{rn_per_eq}\n"
+                    + f"\tNon-satisfying Increments:\n{rn_per_var}\n"
+                )
+
+        self._last_residual_norms.append(
+            self.compute_residual_norm(residual, reference_residual)
+        )
+        self._last_increment_norms.append(
+            self.compute_nonlinear_increment_norm(nonlinear_increment)
+        )
+
+        if len(self._last_residual_norms) == self._last_residual_norms.maxlen:
+            residual_stationary = (
+                np.allclose(
+                    self._last_residual_norms,
+                    self._last_residual_norms[-1],
+                    rtol=0.0,
+                    atol=tol,
+                )
+                and tol != np.inf
+            )
+            increment_stationary = (
+                np.allclose(
+                    self._last_increment_norms,
+                    self._last_increment_norms[-1],
+                    rtol=0.0,
+                    atol=tol_inc,
+                )
+                and tol_inc != np.inf
+            )
+            if residual_stationary and increment_stationary and not status[0]:
+                print("Detected stationary point. Flagging as diverged.")
+                status = (False, True)
 
         return status
 
@@ -341,7 +402,7 @@ class SolutionStrategy(pp.PorePyModel):
                     ),
                 }
                 self.local_equilibrium(sd, state=state, equilibrium_specs=equ_spec)  # type:ignore
-            else:
+            elif self.nonlinear_solver_statistics.num_iteration % 3 == 0:
                 self.local_equilibrium(sd, state=state)  # type:ignore
 
     def current_fluid_state(
@@ -1225,83 +1286,96 @@ class BoundaryConditionsOnlyConduction(BoundaryConditions):
         return self.bc_type_fourier_flux(sd)
 
 
-class LineSearchWithPropertyEval(LineSearchNewtonSolver):
-    """Objective function must perform flash to update phase properties."""
+class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
+    """Newton solver with Armijo line search and Anderson acceleration.
 
-    __dx_prev: np.ndarray | float = 0.0
+    The residual objective function is tailored to models where phase properties are
+    assumed to be surrogate factories and require an update before evaluating the
+    objective function.
 
-    __armijo_num_iter: int = 0
+    """
+
+    def __init__(self, params: dict | None = None):
+        pp.NewtonSolver.__init__(self, params)
+        if params is None:
+            params = {}
+        depth = int(params.get("anderson_acceleration_depth", 3))
+        dimension = int(params["anderson_acceleration_dimension"])
+        constrain = params.get("anderson_acceleration_constrained", False)
+        reg_param = params.get("anderson_acceleration_regularization_parameter", 0.0)
+        AndersonAcceleration.__init__(
+            self,
+            dimension,
+            depth,
+            constrain_acceleration=constrain,
+            regularization_parameter=reg_param,
+        )
 
     def iteration(self, model: pp.PorePyModel):
-        dx = super().iteration(model)
-        rho = float(self.params.get("armijo_linesearch_weight", 0.99))
-        N = float(self.params.get("armijo_linesearch_max_iterations", 50))
+        """An iteration consists of performing the Newton step, obtaining the step size
+        from the line search, and then performing the Anderson acceleration based on
+        the iterates which are obtained using the step size."""
 
-        if (
-            rho**self.__armijo_num_iter < rho ** (N / 2)
-            and model.nonlinear_solver_statistics.num_iteration
-            > model.time_manager.iter_optimal_range[0]
-        ):
-            heavy_ball = (
-                1
-                / (1 + np.linalg.norm(self.__dx_prev))
-                * np.float64(model.params.get("heavy_ball_momentum", 0.0))
-            )
-        else:
-            heavy_ball = np.float64(0.0)
+        iteration = model.nonlinear_solver_statistics.num_iteration
 
-        if heavy_ball > 0.0:
-            logger.info(f"Heavy ball momentum weight: {heavy_ball}")
-            dx += heavy_ball * self.__dx_prev
+        dx = pp.NewtonSolver.iteration(self, model)
 
-        self.__dx_prev = dx.copy()
-        return dx
+        res_norm = np.linalg.norm(model.linear_system[1])
 
-    def nonlinear_line_search(self, model, dx) -> np.ndarray:
+        if self.params.get("Anderson_acceleration", False):
+            x = model.equation_system.get_variable_values(iterate_index=0)
+            x_temp = x + dx
+            if not (np.any(np.isnan(x_temp)) or np.any(np.isinf(x_temp))):
+                try:
+                    xp1 = self.apply(x_temp, dx.copy(), iteration)
+                    if res_norm < 10.0:
+                        dx = xp1 - x
+                except Exception:
+                    logger.warning(
+                        f"Resetting Anderson acceleration at"
+                        f" T={model.time_manager.time}; i={iteration} due to failure."
+                    )
+                    self.reset()
+        alpha = self.nonlinear_line_search(model, dx)
+        return alpha * dx
+
+    def nonlinear_line_search(
+        self, model: pp.PorePyModel, dx: np.ndarray
+    ) -> np.ndarray:
+        """Performs the Armijo line search."""
         if not self.params.get("Global_line_search", False):
             return np.ones_like(dx)
 
-        rho = float(self.params.get("armijo_linesearch_weight", 0.99))
-        kappa = float(self.params.get("armijo_linesearch_incline", 0.4))
-        N = int(self.params.get("armijo_linesearch_max_iterations", 50))
+        rho = float(self.params.get("armijo_line_search_weight", 0.9))
+        kappa = float(self.params.get("armijo_line_search_incline", 0.4))
+        N = int(self.params.get("armijo_line_search_max_iterations", 50))
 
         pot_0 = self.residual_objective_function(model, dx, 0.0)
         rho_i = rho
+        n = 0
 
         for i in range(N):
-            self.__armijo_num_iter = i
+            n = i
             rho_i = rho**i
 
             pot_i = self.residual_objective_function(model, dx, rho_i)
             if pot_i <= (1 - 2 * kappa * rho_i) * pot_0:
                 break
 
-        logger.info(
-            f"Armijo line search determined weight: {rho_i} ({self.__armijo_num_iter})"
-        )
+        logger.info(f"Armijo line search determined weight: {rho_i} ({n})")
         return rho_i * np.ones_like(dx)
 
     def residual_objective_function(
-        self, model, dx: np.ndarray, weight: float
+        self, model: pp.PorePyModel, dx: np.ndarray, weight: float
     ) -> np.floating[Any]:
-        """Compute the objective function for the current iteration.
-
-        The objective function is the norm of the residual.
-
-        Parameters:
-            model: The model.
-            dx: The nonlinear iteration update.
-            weight: The relaxation factor.
-
-        Returns:
-            The objective function value.
-
-        """
+        """The objective function to be minimized is the norm of the residual squared
+        and divided by 2."""
         x_0 = model.equation_system.get_variable_values(iterate_index=0)
         state = x_0 + weight * dx
         # model.update_thermodynamic_properties_of_phases(state)
         cfle.cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
-            model, state
+            model,  # type:ignore[arg-type]
+            state,
         )
         residual = model.equation_system.assemble(state=state, evaluate_jacobian=False)
         return np.dot(residual, residual) / 2
@@ -1349,24 +1423,23 @@ if analysis_mode:
 
 # endregion
 
-# Numerical model parametrization
+# Model parametrization
 
-times_to_export = [i * pp.DAY for i in range(31)] + [
+time_schedule = [i * pp.DAY for i in range(31)] + [
     i * 15 * pp.DAY for i in range(3, 25)
 ]
-# times_to_export = [i * pp.HOUR for i in np.arange(49)/2]
 
-max_iterations = 20
+max_iterations = 30
 newton_tol = 1.5e-4
 newton_tol_increment = 1e-6
 
 time_manager = pp.TimeManager(
-    schedule=times_to_export,
+    schedule=time_schedule,
     dt_init=2 * pp.HOUR,
-    dt_min_max=(10.0 * pp.MINUTE, 30 * pp.DAY),
+    dt_min_max=(10.0 * pp.MINUTE, 15 * pp.DAY),
     iter_max=max_iterations,
-    iter_optimal_range=(9, 15),
-    iter_relax_factors=(0.7, 2.0),
+    iter_optimal_range=(12, 24),
+    iter_relax_factors=(0.8, 2.0),
     recomp_factor=0.6,
     recomp_max=15,
     print_info=True,
@@ -1427,16 +1500,15 @@ solver_params = {
     "nl_convergence_tol": newton_tol_increment,
     "nl_convergence_tol_res": newton_tol,
     "linear_solver": "scipy_sparse",
-    # "linear_solver": "pypardiso",
     "Global_line_search": True,
-    "nonlinear_solver": LineSearchWithPropertyEval,
-    "residual_line_search_interval_size": 5e-2,
-    "residual_line_search_num_steps": 3,
-    "min_line_search_weight": 1e-5,
-    "armijo_linesearch_weight": 0.95,
-    "armijo_linesearch_incline": 0.3,
-    "armijo_linesearch_max_iterations": 15,
-    "heavy_ball_momentum": 0.4,
+    "nonlinear_solver": NewtonAndersonArmijoSolver,
+    "armijo_line_search_weight": 0.95,
+    "armijo_line_search_incline": 0.2,
+    "armijo_line_search_max_iterations": 10,
+    "Anderson_acceleration": True,
+    "anderson_acceleration_depth": 3,
+    "anderson_acceleration_constrained": False,
+    "anderson_acceleration_regularization_parameter": 1e-3,
     "solver_statistics_file_name": "solver_statistics.json",
     "nonlinear_solver_statistics": ExtendedSolverStatistics,
 }
@@ -1453,7 +1525,7 @@ model_params = {
     "rediscretize_darcy_flux": fractional_flow,
     "material_constants": material_params,
     "time_manager": time_manager,
-    "times_to_export": times_to_export,
+    "times_to_export": time_schedule,
     "prepare_simulation": False,
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
@@ -1471,6 +1543,7 @@ t_0 = time.time()
 model.prepare_simulation()
 prep_sim_time = time.time() - t_0
 compile_time += prep_sim_time
+model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
 if use_schur_technique:
     primary_equations = model.get_primary_equations_cf()
