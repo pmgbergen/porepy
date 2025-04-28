@@ -36,8 +36,8 @@ import scipy.sparse as sps
 import porepy as pp
 from porepy.applications.test_utils.models import create_local_model_class
 from porepy.fracs.wells_3d import _add_interface
-from porepy.viz.solver_statistics import ExtendedSolverStatistics
 from porepy.numerics.solvers.andersonacceleration import AndersonAcceleration
+from porepy.viz.solver_statistics import ExtendedSolverStatistics
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.DEBUG)
@@ -1505,7 +1505,7 @@ solver_params = {
     "armijo_line_search_weight": 0.95,
     "armijo_line_search_incline": 0.2,
     "armijo_line_search_max_iterations": 10,
-    "Anderson_acceleration": True,
+    "Anderson_acceleration": False,
     "anderson_acceleration_depth": 3,
     "anderson_acceleration_constrained": False,
     "anderson_acceleration_regularization_parameter": 1e-3,
