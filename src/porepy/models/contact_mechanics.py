@@ -564,8 +564,14 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         return characteristic
 
     def _is_nonlinear_problem(self) -> bool:
-        """The contact mechanics problem is nonlinear."""
-        return True
+        """The contact mechanics problem is nonlinear, but it may happen that this
+        method is called from a model with no fractures. In this case, we fall back to
+        the default.
+
+        """
+        if self.mdg.dim_min() < self.nd:
+            return True
+        return super()._is_nonlinear_problem()
 
 
 class ContactMechanics(

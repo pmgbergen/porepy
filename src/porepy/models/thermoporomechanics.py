@@ -201,6 +201,10 @@ class SolutionStrategyThermoporomechanics(
             self.fourier_flux_discretization(self.mdg.subdomains()).flux(),
         )
 
+    def _is_nonlinear_problem(self) -> bool:
+        """The thermoporomechanics model is nonlinear."""
+        return True
+
 
 # Note that we ignore a mypy error here. There are some inconsistencies in the method
 # definitions of the mixins, related to the enforcement of keyword-only arguments. The
