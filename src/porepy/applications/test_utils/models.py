@@ -117,9 +117,9 @@ class ContactMechanicsTester(ContactMechanics):
 
 def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
     """Model for tests."""
-    # Suppress output for tests.
     fracture_indices = [i for i in range(num_fracs)]
     params = {
+        # Suppress output for tests.
         "times_to_export": [],
         "fracture_indices": fracture_indices,
         "cartesian": True,
