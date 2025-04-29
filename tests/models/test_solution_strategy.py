@@ -455,7 +455,7 @@ def test_check_convergence(
         # There was a bug here once #1350.
         dict(model_name="thermoporomechanics", num_fracs=0, is_nonlinear=True),
         dict(model_name="thermoporomechanics", num_fracs=1, is_nonlinear=True),
-        dict(model_name='contact_mechanics', num_fracs=1, is_nonlinear=True),
+        dict(model_name="contact_mechanics", num_fracs=1, is_nonlinear=True),
     ],
 )
 def test_linear_or_nonlinear_model(params: dict):
