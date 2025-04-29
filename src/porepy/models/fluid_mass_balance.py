@@ -993,10 +993,13 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             ]
             update_dicts(vals, data)
 
-        # The well fluxes are so few that we evaluate them individually, instead of
-        # dealing with the slightly more complex code to evaluate them all at once.
-        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.equation_system.evaluate(self.well_flux([intf]))
+        wells = self.mdg.interfaces(codim=2)
+        well_darcy_flux = self.equation_system.evaluate(self.well_flux(wells))
+        well_offsets = np.cumsum([0] + [intf.num_cells for intf in wells])
+        for id, intf in enumerate(wells):
+            # Update the data dictionary with the Darcy flux for the current interface.
+            data = self.mdg.interface_data(intf)
+            vals = well_darcy_flux[well_offsets[id] : well_offsets[id + 1]]
             update_dicts(vals, data)
 
         super().before_nonlinear_iteration()
