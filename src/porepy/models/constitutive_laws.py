@@ -481,7 +481,8 @@ class SecondOrderTensorUtils(pp.PorePyModel):
         """Isotropic permeability [m^2].
 
         Parameters:
-            permeability: Permeability, scalar per cell.
+            subdomains: Subdomains where the permeability is defined.
+            permeability: Permeability operator, scalar per cell.
 
         Returns:
             3d isotropic permeability, with nonzero values on the diagonal and zero
@@ -502,14 +503,14 @@ class SecondOrderTensorUtils(pp.PorePyModel):
 
     def operator_to_SecondOrderTensor(
         self,
-        sd: pp.Grid,
+        subdomains: list[pp.Grid],
         operator: pp.ad.Operator,
         fallback_value: number,
     ) -> pp.SecondOrderTensor:
         """Convert Ad operator to PorePy tensor representation.
 
         Parameters:
-            sd: Subdomain where the operator is defined.
+            subdomains: Subdomains where the operator is defined.
             operator: Operator to convert.
 
         Returns:
@@ -517,24 +518,25 @@ class SecondOrderTensorUtils(pp.PorePyModel):
 
         """
         # Evaluate as 9 x num_cells array
-        volume = self.equation_system.evaluate(self.specific_volume([sd]))
+        volume = self.equation_system.evaluate(self.specific_volume(subdomains))
         try:
-            permeability = self.equation_system.evaluate(operator)
+            tensor = self.equation_system.evaluate(operator)
         except KeyError:
-            # If the permeability depends on an not yet computed discretization matrix,
+            # If the tensor depends on an not yet computed discretization matrix,
             # fall back on reference value.
-            permeability = fallback_value * np.ones(sd.num_cells) * volume
-            return pp.SecondOrderTensor(permeability)
+            num_cells = sum(sd.num_cells for sd in subdomains)
+            tensor = fallback_value * np.ones(num_cells) * volume
+            return pp.SecondOrderTensor(tensor)
 
-        if not isinstance(permeability, np.ndarray):
+        if not isinstance(tensor, np.ndarray):
             # Raise error rather than cast for verbosity of function which is not
             # directly exposed to the user, but depends on a frequently user-defined
             # quantity (the tensor being converted).
             raise ValueError(
-                f"Operator {operator.name} has type {type(permeability)}, "
+                f"Operator {operator.name} has type {type(tensor)}, "
                 f"expected numpy array for conversion to SecondOrderTensor."
             )
-        val = permeability.reshape(9, -1, order="F")
+        val = tensor.reshape(9, -1, order="F")
         # SecondOrderTensor's constructor expects up to six entries: kxx, kyy, kzz,
         # kxy, kxz, kyz. These correspond to entries 0, 4, 8, 1, 2, 5 in the 9 x
         # num_cells array.
@@ -3290,16 +3292,23 @@ class ElasticModuli(pp.PorePyModel):
         mu = self.solid.shear_modulus * np.ones(subdomain.num_cells)
         return pp.FourthOrderTensor(mu, lmbda)
 
+
+class CharacteristicTractionFromDisplacement(pp.PorePyModel):
+    """Mixin that fetches the characteristic displacement from the solid constants and
+    computes the characteristic contact traction as a function of the characteristic
+    displacement. If the inverse relationship is wanted, i.e., u_char=u_char(t_char),
+    use the mixin CharacteristicDisplacementFromTraction instead."""
+
+    youngs_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Young's modulus. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+
+    """
+
     def characteristic_contact_traction(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Characteristic traction [Pa].
-
-        The value is computed from the solid constants and the characteristic
-        displacement. Inversion of this relationship, i.e., u_char=u_char(t_char), can
-        be done in a mixin overriding the characteristic sizes. This may be beneficial
-        if the characteristic traction is easier to estimate than the characteristic
-        displacement, e.g. if the driving force is a Neumann condition.
 
         Parameters:
             subdomains: List of subdomains where the characteristic traction is defined.
@@ -3316,9 +3325,6 @@ class ElasticModuli(pp.PorePyModel):
 
     def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Characteristic displacement [m].
-
-        The value is fetched from the solid constants. See also the method
-        :meth:`characteristic_contact_traction` and its documentation.
 
         Parameters:
             subdomains: List of subdomains where the characteristic displacement is
