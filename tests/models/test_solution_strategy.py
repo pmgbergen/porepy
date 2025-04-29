@@ -444,7 +444,7 @@ def test_check_convergence(
 @pytest.mark.parametrize(
     "params",
     [
-        # Mass balance must be nonlinear, no matter with or without fractres.
+        # Mass balance must be nonlinear, no matter with or without fractures.
         dict(model_name="mass_balance", num_fracs=0, is_nonlinear=True),
         dict(model_name="mass_balance", num_fracs=1, is_nonlinear=True),
         # Momentum balance without fractures is linear.
