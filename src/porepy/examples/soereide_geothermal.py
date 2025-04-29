@@ -1489,8 +1489,9 @@ restart_params = {
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 5e-1,
-        # "cell_size": 1.0,
+        # "cell_size": 5e-1,  # 18,464 cells
+        "cell_size": 2.5e-1,  # 73,748 cells
+        # "cell_size": 1e-1,  # 462,340 cells
         "cell_size_fracture": 5e-1,
     },
 }
