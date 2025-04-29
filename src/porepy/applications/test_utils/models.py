@@ -150,6 +150,8 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
         model_class = pp.Poromechanics
     elif model_type == "thermoporomechanics":
         model_class = pp.Thermoporomechanics
+    elif model_type == 'contact_mechanics':
+        model_class = pp.ContactMechanics
     else:
         # To add a new model, insert an elif clause here, and a new class above.
         raise ValueError(f"Unknown model type {model_type}")
