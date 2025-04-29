@@ -1005,7 +1005,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         super().before_nonlinear_iteration()
 
     def darcy_flux_keywords(self) -> list[str]:
-        """Return the keywords for twhich the Darcy flux discretization is stored.
+        """Return the keywords for which the Darcy flux discretization is stored.
 
         Returns:
             List of keywords for the Darcy flux discretization. This class adds
