@@ -1186,48 +1186,15 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 },
             )
 
-    def before_nonlinear_iteration(self):
-        """Evaluate Darcy flux (super) and copy to the enthalpy flux keyword, to be used
-        in upstream weighting.
+    def darcy_flux_keywords(self) -> list[str]:
+        """Return the keywords for twhich the Darcy flux discretization is stored.
+
+        Returns:
+            List of keywords for the Darcy flux discretization. This class adds
+            :attr:`enthalpy_keyword`.
 
         """
-        # Update parameters *before* the discretization matrices are re-computed.
-
-        # Evaluate the Darcy flux for all subdomains together, then distribute the
-        # values to individual subdomains.
-        subdomains = self.mdg.subdomains()
-        darcy_flux = self.equation_system.evaluate(self.darcy_flux(subdomains))
-        # Compute offsets for the individual subdomains in the concatenated Darcy flux.
-        subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
-
-        for id, sd in enumerate(subdomains):
-            # Update the data dictionary with the Darcy flux for the current subdomain.
-            data = self.mdg.subdomain_data(sd)
-            vals = darcy_flux[subdomain_offsets[id] : subdomain_offsets[id + 1]]
-            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
-
-        # Evaluate the Darcy flux for all interfaces together. Same procedure as for
-        # subdomains.
-        interfaces = self.mdg.interfaces(codim=1)
-        interface_darcy_flux = self.equation_system.evaluate(
-            self.interface_darcy_flux(interfaces)
-        )
-        interface_offsets = np.cumsum([0] + [intf.num_cells for intf in interfaces])
-
-        for id, intf in enumerate(interfaces):
-            # Update the data dictionary with the Darcy flux for the current interface.
-            data = self.mdg.interface_data(intf)
-            vals = interface_darcy_flux[
-                interface_offsets[id] : interface_offsets[id + 1]
-            ]
-            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
-
-        # The well fluxes are so few that we evaluate them one interface at a time.
-        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.equation_system.evaluate(self.well_flux([intf]))
-            data[pp.PARAMETERS][self.enthalpy_keyword].update({"darcy_flux": vals})
-
-        super().before_nonlinear_iteration()
+        return super().darcy_flux_keywords() + [self.enthalpy_keyword]
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""
