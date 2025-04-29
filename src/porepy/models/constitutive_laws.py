@@ -602,8 +602,7 @@ class MassWeightedPermeability(ConstantPermeability):
     an isotropic contribution to the otherwise constant, absolute permeability tensor.
 
     To be used in combination with :class:`~porepy.models.compositional_flow.
-    MassicPressureEquations` in the fractional flow setting, and
-    :class:`DarcysLawAd`.
+    MassicPressureEquations` in the fractional flow setting, and :class:`DarcysLawAd`.
 
     Important:
         This implementation is as of now not compatible with absolute permeabilities
@@ -929,8 +928,8 @@ class DarcysLaw(pp.PorePyModel):
         Note:
             The fluid mobility is not included in the Darcy flux. This is because we
             discretize it with an upstream scheme. This means that the fluid mobility
-            may have to be included when using the flux in a transport equation.
-            The units of the Darcy flux are [m^2 Pa / s].
+            may have to be included when using the flux in a transport equation. The
+            units of the Darcy flux are [m^2 Pa / s].
 
         Parameters:
             domains: List of domains where the Darcy flux is defined.
@@ -2639,9 +2638,8 @@ class EnthalpyFromTemperature(FluidEnthalpyFromTemperature):
     reference temperature, for both fluid and solid."""
 
     enthalpy_keyword: str
-    """Keyword used to identify the enthalpy flux discretization. Normally"
-     set by an instance of
-    :class:`~porepy.models.fluid_mass_balance.SolutionStrategyEnergyBalance`.
+    """Keyword used to identify the enthalpy flux discretization. Normally set by an
+    instance of :class:`~porepy.models.energy_balance.SolutionStrategyEnergyBalance`.
 
     """
 
@@ -2754,7 +2752,6 @@ class GravityForce(pp.PorePyModel):
 
         # Gravity acts along the last coordinate direction (z in 3d, y in 2d).
         e_n = self.e_i(grids, i=self.nd - 1, dim=self.nd)
-        # e_n is a matrix, thus we need @ for it.
         gravity = Scalar(-1) * e_n @ (rho * gravity)
         gravity.set_name("gravity_force")
         return gravity
@@ -2819,7 +2816,8 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Characteristic contact traction. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement` or
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
 
@@ -2872,18 +2870,18 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
             if sd.dim != self.nd:
                 raise ValueError("Subdomain must be of co-dimension 0.")
 
-        # No need to facilitate changing of stress discretization, only one is
-        # available at the moment.
+        # No need to facilitate changing of stress discretization, only one is available
+        # at the moment.
         discr = self.stress_discretization(domains)
-        # Fractures in the domain
+        # Fractures in the domain.
         interfaces = self.subdomains_to_interfaces(domains, [1])
 
         # Boundary conditions on external boundaries
         boundary_operator = self.combine_boundary_operators_mechanical_stress(domains)
         proj = pp.ad.MortarProjections(self.mdg, domains, interfaces, dim=self.nd)
-        # The stress in the subdomanis is the sum of the stress in the subdomain,
-        # the stress on the external boundaries, and the stress on the interfaces.
-        # The latter is found by projecting the displacement on the interfaces to the
+        # The stress in the subdomanis is the sum of the stress in the subdomain, the
+        # stress on the external boundaries, and the stress on the interfaces. The
+        # latter is found by projecting the displacement on the interfaces to the
         # subdomains, and let these act as Dirichlet boundary conditions on the
         # subdomains.
         stress = (
@@ -2953,12 +2951,12 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
         mortar_projection = pp.ad.MortarProjections(
             self.mdg, subdomains, interfaces, self.nd
         )
-        # Spelled out, the stress on the interface is found by mapping the
-        # contact traction (a primary variable) from local to global coordinates (note
-        # the transpose), prolonging the traction from the fracture subdomains to all
+        # Spelled out, the stress on the interface is found by mapping the contact
+        # traction (a primary variable) from local to global coordinates (note the
+        # transpose), prolonging the traction from the fracture subdomains to all
         # subdomains (the domain of definition for the mortar projections), projecting
-        # to the interface, and switching the sign of the traction depending on the
-        # sign of the mortar sides.
+        # to the interface, and switching the sign of the traction depending on the sign
+        # of the mortar sides.
         nondim_traction = (
             mortar_projection.sign_of_mortar_sides()
             @ mortar_projection.secondary_to_mortar_int()
@@ -3013,8 +3011,9 @@ class PressureStress(LinearElasticMechanicalStress):
 
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic contact traction. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    """Characteristic contact traction. Normally defined in a mixin instance of either
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement` or
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
     darcy_keyword: str
@@ -3058,8 +3057,8 @@ class PressureStress(LinearElasticMechanicalStress):
     def fracture_stress(self, interfaces: list[pp.MortarGrid]) -> pp.ad.Operator:
         """Fracture stress on interfaces.
 
-        The fracture stress is composed of the stress from the contact traction, and
-        the stress from the fluid pressure inside the fracture.
+        The fracture stress is composed of the stress from the contact traction, and the
+        stress from the fluid pressure inside the fracture.
 
         Parameters:
             interfaces: List of interfaces where the stress is defined.
@@ -3092,13 +3091,13 @@ class PressureStress(LinearElasticMechanicalStress):
             Pressure stress operator.
 
         """
-        # All subdomains of the interfaces
+        # All subdomains of the interfaces.
         subdomains = self.interfaces_to_subdomains(interfaces)
         mortar_projection = pp.ad.MortarProjections(self.mdg, subdomains, interfaces)
 
         # Consistent sign of the normal vectors.
-        # Note the unitary scaling here, we will scale the pressure with the area
-        # of the interface (equivalently face area in the matrix subdomains) elsewhere.
+        # Note the unitary scaling here, we will scale the pressure with the area of the
+        # interface (equivalently face area in the matrix subdomains) elsewhere.
         outwards_normal = self.outwards_internal_boundary_normals(
             interfaces, unitary=True
         )
@@ -3334,6 +3333,54 @@ class ElasticModuli(pp.PorePyModel):
         return u_char
 
 
+class CharacteristicDisplacementFromTraction(pp.PorePyModel):
+    """Mixin that fetches the characteristic traction from the solid constants and
+    computes the characteristic displacement as a function of the characteristic contact
+    traction. If the inverse relationship is wanted, i.e., t_char=t_char(u_char), use
+    the mixin CharacteristicTractionFromDisplacement instead."""
+
+    youngs_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
+    """Young's modulus. Normally defined in a mixin instance of
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+
+    """
+
+    def characteristic_contact_traction(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Characteristic traction [Pa].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic traction is defined.
+
+        Returns:
+            Scalar operator representing the characteristic traction.
+
+        """
+        t_char = Scalar(self.numerical.characteristic_contact_traction)
+        t_char.set_name("characteristic_contact_traction")
+        return t_char
+
+    def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Characteristic displacement [m].
+
+        Parameters:
+            subdomains: List of subdomains where the characteristic displacement is
+                defined.
+
+        Returns:
+            Scalar operator representing the characteristic displacement.
+
+        """
+        size = Scalar(np.max(self.domain.side_lengths()))
+        strain = self.characteristic_contact_traction(subdomains) / self.youngs_modulus(
+            subdomains
+        )
+        u_char = size * strain
+        u_char.set_name("characteristic_displacement")
+        return u_char
+
+
 class CoulombFrictionBound(pp.PorePyModel):
     """Friction bound for fracture deformation.
 
@@ -3466,8 +3513,9 @@ class BartonBandis(pp.PorePyModel):
 
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic contact traction. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
+    """Characteristic contact traction. Normally defined in a mixin instance of either
+    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement` or
+    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
 
     """
 
@@ -3484,7 +3532,7 @@ class BartonBandis(pp.PorePyModel):
         maximum_elastic_fracture_opening. If its value is zero, the Barton-Bandis model
         is void, and the method returns a hard-coded pp.ad.Scalar(0) to avoid zero
         division. Otherwise, an operator which implements the Barton-Bandis model is
-        returned. The special treatment ammounts to a continuous extension in the limit
+        returned. The special treatment amounts to a continuous extension in the limit
         of zero maximum fracture opening.
 
         The implementation is based on the paper
@@ -3522,7 +3570,7 @@ class BartonBandis(pp.PorePyModel):
         nd_vec_to_normal = self.normal_component(subdomains)
 
         # The scaled effective contact traction [-]. The papers by Barton and Bandis
-        # assumes positive traction in contact, thus we need to switch the sign.
+        # assume positive traction in contact, thus we need to switch the sign.
         contact_traction = Scalar(-1) * self.contact_traction(subdomains)
 
         # Normal component of the traction.
@@ -3684,8 +3732,8 @@ class ElasticTangentialFractureDeformation(pp.PorePyModel):
 
         stiffness = self.fracture_tangential_stiffness(subdomains)
         # Retrieve the *unscaled* stiffness value for the check below.
-        # need cast for convert_units. By implementation of stiffness, it can only be a
-        # number
+        # We need cast for convert_units. By implementation of stiffness, it can only be
+        # a number.
         stiffness_value = self.units.convert_units(
             cast(pp.number, self.equation_system.evaluate(stiffness)),
             "Pa*m^-1",
@@ -3988,13 +4036,13 @@ class PoroMechanicsPorosity(pp.PorePyModel):
     r"""Porosity for poromechanical models.
 
     Note:
-        For legacy reasons, the discretization matrices for the
-        :math:`\nabla \cdot \mathbf{u}` and consistency terms include a volume
-        integral. That factor is counteracted in :meth:`displacement_divergence` and
-        :meth:`_mpsa_consistency`, respectively. This ensure that the returned
-        operators correspond to intensive quantities and are compatible with the rest
-        of this class. The assumption is that the porosity will be integrated over
-        cell volumes later before entering the equation.
+        For legacy reasons, the discretization matrices for the :math:`\nabla \cdot
+        \mathbf{u}` and consistency terms include a volume integral. That factor is
+        counteracted in :meth:`displacement_divergence` and :meth:`_mpsa_consistency`,
+        respectively. This ensure that the returned operators correspond to intensive
+        quantities and are compatible with the rest of this class. The assumption is
+        that the porosity will be integrated over cell volumes later before entering the
+        equation.
 
     """
 
@@ -4021,7 +4069,6 @@ class PoroMechanicsPorosity(pp.PorePyModel):
 
     """
     displacement: Callable[[pp.SubdomainsOrBoundaries], pp.ad.MixedDimensionalVariable]
-
     """Displacement variable. Normally defined in a mixin instance of
     :class:`~porepy.models.momentum_balance.VariablesMomentumBalance`.
 
@@ -4136,7 +4183,7 @@ class PoroMechanicsPorosity(pp.PorePyModel):
 
         """
 
-        # Retrieve material parameters
+        # Retrieve material parameters.
         alpha = self.biot_coefficient(subdomains)
         phi_ref = self.reference_porosity(subdomains)
         bulk_modulus = self.bulk_modulus(subdomains)
@@ -4162,12 +4209,12 @@ class PoroMechanicsPorosity(pp.PorePyModel):
             subdomains: List of subdomains where the porosity is defined.
 
         Returns:
-            Cell-wise contribution of the divergence of the displacement to the
-            matrix porosity. Scaling with Biot's coefficient is already included.
+            Cell-wise contribution of the divergence of the displacement to the matrix
+            porosity. Scaling with Biot's coefficient is already included.
 
         """
-        # Implementation note: Scaling of the displacement divergence with Biot's
-        # tensor (in the form of a double dot product) is already included in the
+        # Implementation note: Scaling of the displacement divergence with Biot's tensor
+        # (in the form of a double dot product) is already included in the
         # discretization of the displacement divergence. Therefore, no additional
         # scaling is needed here.
         div_u_contribution = self.displacement_divergence(subdomains)
@@ -4282,8 +4329,8 @@ class BiotPoroMechanicsPorosity(pp.PorePyModel):
     """Porosity for poromechanical models following classical Biot's theory.
 
     The porosity is defined such that, after the chain rule is applied to the
-    accumulation term, the classical conservation equation from the Biot
-    equations is recovered.
+    accumulation term, the classical conservation equation from the Biot equations is
+    recovered.
 
     Note that we assume constant fluid density and constant specific storage.
 
@@ -4378,8 +4425,6 @@ class ThermoPoroMechanicsPorosity(PoroMechanicsPorosity):
         phi_ref = self.reference_porosity(subdomains)
         beta = self.solid_thermal_expansion_coefficient(subdomains)
         alpha = self.biot_coefficient(subdomains)
-        # TODO: Figure out why * is needed here, but not in
-        # porosity_change_from_pressure.
         phi = Scalar(-1) * (alpha - phi_ref) * beta * dtemperature
         phi.set_name("Porosity change from temperature")
         return phi
