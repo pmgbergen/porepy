@@ -589,6 +589,14 @@ else:
 
             """
 
+        def _is_nonlinear_problem(self) -> bool:
+            """Specifies whether the Model problem is nonlinear.
+
+            Returns:
+                bool: True if the problem is nonlinear, False otherwise.
+
+            """
+
         def _is_reference_phase_eliminated(self) -> bool:
             """Returns True if ``params['eliminate_reference_phase'] == True`.
             Defaults to True."""
