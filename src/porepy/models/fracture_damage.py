@@ -147,9 +147,7 @@ class DamageHistoryEquation(pp.PorePyModel):
         fractures = self.mdg.subdomains(dim=self.nd - 1)
         eq = self.damage_history_equation(fractures)
         eq.set_name(self.damage_history_equation_name)
-        self.equation_system.set_equation(
-            eq, fractures, {"cells": 1}, is_nonlinear=True
-        )
+        self.equation_system.set_equation(eq, fractures, {"cells": 1})
 
     def before_nonlinear_loop(self):
         """Reset the damage history equation to include new term from previous time

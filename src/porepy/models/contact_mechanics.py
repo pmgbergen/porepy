@@ -71,13 +71,10 @@ class ContactMechanicsEquations(pp.BalanceEquation):
             fracture_subdomains
         )
         self.equation_system.set_equation(
-            fracture_eq_normal, fracture_subdomains, {"cells": 1}, is_nonlinear=True
+            fracture_eq_normal, fracture_subdomains, {"cells": 1}
         )
         self.equation_system.set_equation(
-            fracture_eq_tangential,
-            fracture_subdomains,
-            {"cells": self.nd - 1},
-            is_nonlinear=True,
+            fracture_eq_tangential, fracture_subdomains, {"cells": self.nd - 1}
         )
 
     def normal_fracture_deformation_equation(
@@ -252,7 +249,6 @@ class ConstitutiveLawsContactMechanics(
     constitutive_laws.DisplacementJump,
     constitutive_laws.DimensionReduction,
     constitutive_laws.ElasticModuli,
-    constitutive_laws.CharacteristicTractionFromDisplacement,
     constitutive_laws.ElasticTangentialFractureDeformation,
 ):
     """Class for constitutive equations for contact mechanics."""
@@ -460,11 +456,8 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
     """
 
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic displacement of the problem. Normally defined in a mixin 
-    instance of either 
-    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or 
-    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
+    """Characteristic displacement of the problem. Normally defined in a mixin
+    instance of :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     friction_bound: Callable[[list[pp.Grid]], pp.ad.Operator]
@@ -500,7 +493,13 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
             c_num: Numerical constant.
 
         """
-        constant = pp.ad.Scalar(1.0) / self.characteristic_displacement(subdomains)
+        # Interpretation (EK):
+        # The scaling factor should not be too large, otherwise the contact problem
+        # may be discretized wrongly. I therefore introduce a safety factor here; its
+        # value is somewhat arbitrary.
+        softening_factor = pp.ad.Scalar(self.numerical.contact_mechanics_scaling)
+
+        constant = softening_factor / self.characteristic_displacement(subdomains)
         constant.set_name("Contact_mechanics_numerical_constant")
         return constant
 
@@ -565,6 +564,10 @@ class SolutionStrategyContactMechanics(pp.SolutionStrategy):
         characteristic: pp.ad.Operator = scalar_to_tangential @ f_characteristic(b_p)
         characteristic.set_name("characteristic_function_of_b_p")
         return characteristic
+
+    def _is_nonlinear_problem(self) -> bool:
+        """The contact mechanics problem is nonlinear."""
+        return True
 
 
 class ContactMechanics(

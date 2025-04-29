@@ -168,10 +168,6 @@ class EquationSystem:
 
         """
 
-        self._nonlinear_equation_map: dict[str, bool] = dict()
-        """Contains a flag for every equation name (key) to indicate that the equation
-        is nonlinear."""
-
         self._variables: dict[int, Variable] = dict()
         """Dictionary mapping variable IDs to the atomic variables created and managed
         by this instance.
@@ -319,21 +315,6 @@ class EquationSystem:
         for var in self.variables:
             domains.add(var.domain)
         return list(domains)
-
-    def is_nonlinear_equation(self, equation_name: str) -> bool:
-        """Return a flag that indicates that the corresponding equation is nonlinear.
-
-        Parameters:
-            equation_name: Name of the tested equation.
-
-        Returns:
-            `True` if the equation is nonlinear, `False` otherwise.
-
-        Raises:
-            KeyError: if the equation with this name was not found.
-
-        """
-        return self._nonlinear_equation_map[equation_name]
 
     ### Variable management ------------------------------------------------------------
 
@@ -1087,7 +1068,6 @@ class EquationSystem:
         equation: Operator,
         grids: DomainList,
         equations_per_grid_entity: dict[GridEntity, int],
-        is_nonlinear: bool,
     ) -> None:
         """Sets an equation using the passed operator and uses its name as an
         identifier.
@@ -1114,8 +1094,6 @@ class EquationSystem:
                 operators are able to provide information on their image space.
                 The dictionary must contain the number of equations per grid entity
                 (cells, faces, nodes) for the operator.
-            is_nonlinear: Contains a flag for every equation name (key) to indicate that
-                the equation is nonlinear.
 
         Raises:
             ValueError: If the equation operator has a name already assigned to a
@@ -1142,9 +1120,6 @@ class EquationSystem:
                 f"\n{self._equations[name]}"
                 "\n\nMake sure your equations are uniquely named."
             )
-
-        # Store the linear/nonlinear flag.
-        self._nonlinear_equation_map[name] = is_nonlinear
 
         # If no grids are specified, there is nothing to do
         if not grids:

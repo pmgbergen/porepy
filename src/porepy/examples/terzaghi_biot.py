@@ -697,9 +697,6 @@ class TerzaghiModel(  # type: ignore[misc]
         - units (pp.Units): Object containing scaling of base magnitudes. No scaling
           applied by default.
 
-        The model is set to be linear, make sure to change this behavior if needed when
-        subclassing it.
-
         Accessed material constants:
 
         - solid:

@@ -481,8 +481,7 @@ class SecondOrderTensorUtils(pp.PorePyModel):
         """Isotropic permeability [m^2].
 
         Parameters:
-            subdomains: Subdomains where the permeability is defined.
-            permeability: Permeability operator, scalar per cell.
+            permeability: Permeability, scalar per cell.
 
         Returns:
             3d isotropic permeability, with nonzero values on the diagonal and zero
@@ -503,14 +502,14 @@ class SecondOrderTensorUtils(pp.PorePyModel):
 
     def operator_to_SecondOrderTensor(
         self,
-        subdomains: list[pp.Grid],
+        sd: pp.Grid,
         operator: pp.ad.Operator,
         fallback_value: number,
     ) -> pp.SecondOrderTensor:
         """Convert Ad operator to PorePy tensor representation.
 
         Parameters:
-            subdomains: Subdomains where the operator is defined.
+            sd: Subdomain where the operator is defined.
             operator: Operator to convert.
 
         Returns:
@@ -518,25 +517,24 @@ class SecondOrderTensorUtils(pp.PorePyModel):
 
         """
         # Evaluate as 9 x num_cells array
-        volume = self.equation_system.evaluate(self.specific_volume(subdomains))
+        volume = self.equation_system.evaluate(self.specific_volume([sd]))
         try:
-            tensor = self.equation_system.evaluate(operator)
+            permeability = self.equation_system.evaluate(operator)
         except KeyError:
-            # If the tensor depends on an not yet computed discretization matrix,
+            # If the permeability depends on an not yet computed discretization matrix,
             # fall back on reference value.
-            num_cells = sum(sd.num_cells for sd in subdomains)
-            tensor = fallback_value * np.ones(num_cells) * volume
-            return pp.SecondOrderTensor(tensor)
+            permeability = fallback_value * np.ones(sd.num_cells) * volume
+            return pp.SecondOrderTensor(permeability)
 
-        if not isinstance(tensor, np.ndarray):
+        if not isinstance(permeability, np.ndarray):
             # Raise error rather than cast for verbosity of function which is not
             # directly exposed to the user, but depends on a frequently user-defined
             # quantity (the tensor being converted).
             raise ValueError(
-                f"Operator {operator.name} has type {type(tensor)}, "
+                f"Operator {operator.name} has type {type(permeability)}, "
                 f"expected numpy array for conversion to SecondOrderTensor."
             )
-        val = tensor.reshape(9, -1, order="F")
+        val = permeability.reshape(9, -1, order="F")
         # SecondOrderTensor's constructor expects up to six entries: kxx, kyy, kzz,
         # kxy, kxz, kyz. These correspond to entries 0, 4, 8, 1, 2, 5 in the 9 x
         # num_cells array.
@@ -2821,10 +2819,7 @@ class LinearElasticMechanicalStress(pp.PorePyModel):
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Characteristic contact traction. Normally defined in a mixin instance of
-    either 
-    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or 
-    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
 
@@ -3019,10 +3014,7 @@ class PressureStress(LinearElasticMechanicalStress):
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Characteristic contact traction. Normally defined in a mixin instance of
-    either 
-    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or 
-    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
     darcy_keyword: str
@@ -3299,23 +3291,16 @@ class ElasticModuli(pp.PorePyModel):
         mu = self.solid.shear_modulus * np.ones(subdomain.num_cells)
         return pp.FourthOrderTensor(mu, lmbda)
 
-
-class CharacteristicTractionFromDisplacement(pp.PorePyModel):
-    """Mixin that fetches the characteristic displacement from the solid constants and
-    computes the characteristic contact traction as a function of the characteristic
-    displacement. If the inverse relationship is wanted, i.e., u_char=u_char(t_char),
-    use the mixin CharacteristicDisplacementFromTraction instead."""
-
-    youngs_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Young's modulus. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
-
-    """
-
     def characteristic_contact_traction(
         self, subdomains: list[pp.Grid]
     ) -> pp.ad.Operator:
         """Characteristic traction [Pa].
+
+        The value is computed from the solid constants and the characteristic
+        displacement. Inversion of this relationship, i.e., u_char=u_char(t_char), can
+        be done in a mixin overriding the characteristic sizes. This may be beneficial
+        if the characteristic traction is easier to estimate than the characteristic
+        displacement, e.g. if the driving force is a Neumann condition.
 
         Parameters:
             subdomains: List of subdomains where the characteristic traction is defined.
@@ -3333,6 +3318,9 @@ class CharacteristicTractionFromDisplacement(pp.PorePyModel):
     def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Characteristic displacement [m].
 
+        The value is fetched from the solid constants. See also the method
+        :meth:`characteristic_contact_traction` and its documentation.
+
         Parameters:
             subdomains: List of subdomains where the characteristic displacement is
                 defined.
@@ -3342,54 +3330,6 @@ class CharacteristicTractionFromDisplacement(pp.PorePyModel):
 
         """
         u_char = Scalar(self.numerical.characteristic_displacement)
-        u_char.set_name("characteristic_displacement")
-        return u_char
-
-
-class CharacteristicDisplacementFromTraction(pp.PorePyModel):
-    """Mixin that fetches the characteristic traction from the solid constants and
-    computes the characteristic displacement as a function of the characteristic contact
-    traction. If the inverse relationship is wanted, i.e., t_char=t_char(u_char),
-    use the mixin CharacteristicTractionFromDisplacement instead."""
-
-    youngs_modulus: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Young's modulus. Normally defined in a mixin instance of
-    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
-
-    """
-
-    def characteristic_contact_traction(
-        self, subdomains: list[pp.Grid]
-    ) -> pp.ad.Operator:
-        """Characteristic traction [Pa].
-
-        Parameters:
-            subdomains: List of subdomains where the characteristic traction is defined.
-
-        Returns:
-            Scalar operator representing the characteristic traction.
-
-        """
-        t_char = Scalar(self.numerical.characteristic_contact_traction)
-        t_char.set_name("characteristic_contact_traction")
-        return t_char
-
-    def characteristic_displacement(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
-        """Characteristic displacement [m].
-
-        Parameters:
-            subdomains: List of subdomains where the characteristic displacement is
-                defined.
-
-        Returns:
-            Scalar operator representing the characteristic displacement.
-
-        """
-        size = Scalar(np.max(self.domain.side_lengths()))
-        strain = self.characteristic_contact_traction(subdomains) / self.youngs_modulus(
-            subdomains
-        )
-        u_char = size * strain
         u_char.set_name("characteristic_displacement")
         return u_char
 
@@ -3527,10 +3467,7 @@ class BartonBandis(pp.PorePyModel):
     """
     characteristic_contact_traction: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Characteristic contact traction. Normally defined in a mixin instance of
-    either 
-    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or 
-    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
+    :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
 

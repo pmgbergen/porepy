@@ -790,8 +790,4 @@ class ManuIncompFlowModel2d(  # type: ignore[misc]
 ):
     """
     Mixer class for the 2d incompressible flow model with a single fracture.
-
-    The model is set to be linear, make sure to change this behavior if needed when
-    subclassing it.
-
     """

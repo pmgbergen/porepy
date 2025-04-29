@@ -63,11 +63,9 @@ class MomentumBalanceEquations(pp.BalanceEquation):
         matrix_eq = self.momentum_balance_equation(matrix_subdomains)
         intf_eq = self.interface_force_balance_equation(interfaces)
         self.equation_system.set_equation(
-            matrix_eq, matrix_subdomains, {"cells": self.nd}, is_nonlinear=False
+            matrix_eq, matrix_subdomains, {"cells": self.nd}
         )
-        self.equation_system.set_equation(
-            intf_eq, interfaces, {"cells": self.nd}, is_nonlinear=False
-        )
+        self.equation_system.set_equation(intf_eq, interfaces, {"cells": self.nd})
 
     def momentum_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
         """Momentum balance equation in the matrix.
@@ -347,11 +345,8 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
 
     """
     characteristic_displacement: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Characteristic displacement of the problem. Normally defined in a mixin 
-    instance of either 
-    :class:`~porepy.models.constitutive_laws.CharacteristicTractionFromDisplacement`
-    or 
-    :class:`~porepy.models.constitutive_laws.CharacteristicDisplacementFromTraction`.
+    """Characteristic displacement of the problem. Normally defined in a mixin
+    instance of :class:`~porepy.models.constitutive_laws.ElasticModuli`.
 
     """
 
@@ -388,6 +383,13 @@ class SolutionStrategyMomentumBalance(pp.SolutionStrategy):
                         "fourth_order_tensor": self.stiffness_tensor(sd),
                     },
                 )
+
+    def _is_nonlinear_problem(self) -> bool:
+        """
+        If there is no fracture, the problem is usually linear. Overwrite this function
+        if e.g. parameter nonlinearities are included.
+        """
+        return self.mdg.dim_min() < self.nd
 
 
 class BoundaryConditionsMomentumBalance(pp.BoundaryConditionMixin):

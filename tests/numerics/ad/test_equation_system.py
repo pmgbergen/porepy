@@ -484,13 +484,11 @@ class EquationSystemMockModel:
             self.eq_all_subdomains,
             grids=subdomains,
             equations_per_grid_entity=dof_all_subdomains,
-            is_nonlinear=True,
         )
         equation_system.set_equation(
             self.eq_single_subdomain,
             grids=[sd_top],
             equations_per_grid_entity=dof_single_subdomain,
-            is_nonlinear=True,
         )
 
         # Define equations on the interfaces
@@ -508,13 +506,11 @@ class EquationSystemMockModel:
             self.eq_all_interfaces,
             grids=interfaces,
             equations_per_grid_entity=dof_all_interfaces,
-            is_nonlinear=True,
         )
         equation_system.set_equation(
             self.eq_single_interface,
             grids=[intf_top],
             equations_per_grid_entity=dof_single_interface,
-            is_nonlinear=True,
         )
         self.eq_inds = np.array(
             [
@@ -531,10 +527,7 @@ class EquationSystemMockModel:
             self.eq_combined = self.sd_top_variable * (proj @ self.sd_variable)
             self.eq_combined.set_name("eq_combined")
             equation_system.set_equation(
-                self.eq_combined,
-                grids=[sd_top],
-                equations_per_grid_entity=dof_combined,
-                is_nonlinear=True,
+                self.eq_combined, grids=[sd_top], equations_per_grid_entity=dof_combined
             )
             self.eq_inds = np.append(self.eq_inds, mdg.subdomains()[0].num_cells)
 
@@ -933,7 +926,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
             model.eq_all_subdomains,
             grids=model.subdomains,
             equations_per_grid_entity=dof_info_subdomain,
-            is_nonlinear=True,
         )
 
     # Now remove all equations.
@@ -950,7 +942,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         model.eq_single_subdomain,
         grids=[model.sd_top],
         equations_per_grid_entity=dof_info_subdomain,
-        is_nonlinear=True,
     )
 
     # Check that the equation size has been set correctly
@@ -965,7 +956,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         model.eq_all_subdomains,
         grids=model.subdomains,
         equations_per_grid_entity=dof_info_subdomain,
-        is_nonlinear=True,
     )
     offset = 0
     for sd in model.subdomains:
@@ -983,7 +973,6 @@ def test_set_remove_equations(model: EquationSystemMockModel):
         model.eq_all_interfaces,
         grids=model.interfaces[::-1],
         equations_per_grid_entity=dof_info_interface,
-        is_nonlinear=True,
     )
     offset = 0
     for intf in model.interfaces:
@@ -1518,45 +1507,3 @@ def test_schur_complement(eq_var_to_exclude):
     x_reconstructed = equation_system.expand_schur_complement_solution(x_schur)
 
     assert np.allclose(x_reconstructed, x_expected)
-
-
-@pytest.mark.parametrize(
-    "eq_types",
-    [
-        [True, True, True],  # All nonlinear => Nonlinear problem.
-        [False, False, False],  # All linear => Linear problem.
-        [False, True, False],  # Mixed => Nonlinear problem.
-    ],
-)
-def test_linear_or_nonlinear_equations(eq_types):
-    """Tests to ensure that the bookkeeping of equation system linearity/nonlinearity
-    works correctly.
-
-    Note: Tests do not determine the actual mathematical linearity/nonlinearity of the
-    equations. The tests depend on the explicit `is_nonlinear` parameter passed to
-    `set_equation()`, and will fail if this interface changes.
-
-    """
-
-    mdg, _ = square_with_orthogonal_fractures("cartesian", {"cell_size": 0.5}, [0, 1])
-    subdomains = mdg.subdomains()
-    equation_system = pp.EquationSystem(mdg)
-    for i, is_nonlinear in enumerate(eq_types):
-        var = equation_system.create_variables(
-            f"var_{i}", dof_info={"cells": 1}, subdomains=subdomains
-        )
-        eq = var * (i + 1) - 10
-        eq_name = f"eq_{i}"
-        eq.set_name(eq_name)
-        equation_system.set_equation(
-            eq,
-            grids=subdomains,
-            equations_per_grid_entity={"cells": 1},
-            is_nonlinear=is_nonlinear,
-        )
-        # Verify individual equation nonlinearity.
-        assert equation_system.is_nonlinear_equation(eq_name) == is_nonlinear
-    model_solution_strategy = pp.SolutionStrategy()
-    model_solution_strategy.equation_system = equation_system
-    # Verify the full equation system nonlinear detection.
-    assert model_solution_strategy._is_nonlinear_problem() == any(eq_types)

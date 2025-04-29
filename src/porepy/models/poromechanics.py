@@ -41,7 +41,6 @@ class ConstitutiveLawsPoromechanics(
     pp.constitutive_laws.ConstantViscosity,
     # Mechanical subproblem
     pp.constitutive_laws.ElasticModuli,
-    pp.constitutive_laws.CharacteristicTractionFromDisplacement,
     pp.constitutive_laws.ElasticTangentialFractureDeformation,
     pp.constitutive_laws.LinearElasticMechanicalStress,
     pp.constitutive_laws.ConstantSolidDensity,
@@ -150,6 +149,10 @@ class SolutionStrategyPoromechanics(
             data[pp.PARAMETERS][self.stress_keyword]["scalar_vector_mappings"] = (
                 scalar_vector_mappings
             )
+
+    def _is_nonlinear_problem(self) -> bool:
+        """The coupled problem is nonlinear."""
+        return True
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""

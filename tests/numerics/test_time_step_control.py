@@ -812,6 +812,9 @@ class DynamicTimeStepTestCaseModel(SinglePhaseFlow):
 
         self.num_nonlinear_iters += 1
 
+    def _is_nonlinear_problem(self):
+        return True
+
     def check_convergence(
         self,
         nonlinear_increment: np.ndarray,
