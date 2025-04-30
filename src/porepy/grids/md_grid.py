@@ -527,8 +527,6 @@ class MixedDimensionalGrid:
            sd: The subdomain to be removed.
 
         """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warn(msg, DeprecationWarning)
 
         # Delete from the subdomain list.
         del self._subdomain_data[sd]
@@ -893,8 +891,6 @@ class MixedDimensionalGrid:
             The total number of mortar cells of the grid bucket.
 
         """
-        msg = "This functionality is deprecated and will be removed in a future version"
-        warn(msg, DeprecationWarning)
 
         if cond is None:
             cond = lambda g: True
