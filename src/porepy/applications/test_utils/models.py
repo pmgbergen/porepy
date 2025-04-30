@@ -117,16 +117,20 @@ class ContactMechanicsTester(ContactMechanics):
 
 def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
     """Model for tests."""
-    # Suppress output for tests
     fracture_indices = [i for i in range(num_fracs)]
-    params = {"times_to_export": [], "fracture_indices": fracture_indices}
+    params = {
+        # Suppress output for tests.
+        "times_to_export": [],
+        "fracture_indices": fracture_indices,
+        "cartesian": True,
+    }
 
     # To define the model we comine a geometry with a physics class.
     # First identify the two component classes from the user input, and then combine
     # them in a new class.
 
-    # Identify the geometry class
-    geometry: Any = None
+    # Identify the geometry class.
+    geometry: type
     if dim == 2:
         geometry = RectangularDomainThreeFractures
     elif dim == 3:
@@ -134,8 +138,8 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
     else:
         raise ValueError(f"Unknown dimension {dim}")
 
-    # Identify the physics class
-    model_class: Any = None
+    # Identify the physics class.
+    model_class: type
     if model_type == "mass_balance":
         model_class = pp.SinglePhaseFlow
     elif model_type == "momentum_balance":
@@ -146,19 +150,20 @@ def model(model_type: str, dim: int, num_fracs: int = 1) -> pp.PorePyModel:
         model_class = pp.Poromechanics
     elif model_type == "thermoporomechanics":
         model_class = pp.Thermoporomechanics
+    elif model_type == "contact_mechanics":
+        model_class = pp.ContactMechanics
     else:
         # To add a new model, insert an elif clause here, and a new class above.
         raise ValueError(f"Unknown model type {model_type}")
 
-    # Combine the two classes
+    # Combine the two classes.
     class Model(geometry, model_class):
         pass
 
-    # Create an instance of the combined class
-    model = cast(pp.PorePyModel, Model(params))
+    # Create an instance of the combined class.
+    model: pp.PorePyModel = Model(params)
 
-    # Prepare the simulation
-    # (create grids, variables, equations, discretize, etc.)
+    # Prepare the simulation (create grids, variables, equations, discretize, etc.)
     model.prepare_simulation()
     return model
 
