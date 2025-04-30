@@ -137,8 +137,6 @@ def reorder_partition(
         The subdivision stored in a contiguous way.
 
     """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warnings.warn(msg, DeprecationWarning)
 
     if isinstance(subdiv, dict):
         for _, (_, partition) in subdiv.items():

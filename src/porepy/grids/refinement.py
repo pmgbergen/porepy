@@ -52,8 +52,6 @@ def distort_grid_1d(
          The grid, but with distorted nodes.
 
     """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warn(msg, DeprecationWarning)
 
     if fixed_nodes is None:
         fixed_nodes = np.array([0, g.num_nodes - 1], dtype=int)
@@ -254,8 +252,6 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarra
             Mapping from new to old cells.
 
     """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warn(msg, DeprecationWarning)
 
     # g needs to have face centers
     if not hasattr(g, "face_centers"):
@@ -332,8 +328,6 @@ def remesh_1d(g_old: pp.Grid, num_nodes: int, tol: float = 1e-6) -> pp.Grid:
         The new grid that covers the same domain as g_old.
 
     """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warn(msg, DeprecationWarning)
 
     # Create equi-spaced nodes covering the same domain as the old grid
     theta = np.linspace(0, 1, num_nodes)
@@ -405,8 +399,6 @@ def mdg_refinement(
             Refinement mode. ``'nested'`` corresponds to refinement by splitting.
 
     """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warn(msg, DeprecationWarning)
 
     # Check that both md-grids have the same dimension.
     assert mdg_ref.dim_max() == mdg.dim_max()
@@ -469,8 +461,6 @@ def structured_refinement(
         Column major sparse matrix mapping from coarse to fine cells.
 
     """
-    msg = "This functionality is deprecated and will be removed in a future version"
-    warn(msg, DeprecationWarning)
 
     # This method creates a mapping from fine to coarse cells by creating a matrix 'M'
     # where the rows represent the fine cells while the columns represent the coarse
@@ -614,9 +604,6 @@ class GridSequenceIterator:
 
     """
 
-    msg = "GridSequenceIterator is deprecated and will be removed in a future version"
-    warn(msg, DeprecationWarning)
-
     def __init__(self, factory: GridSequenceFactory) -> None:
         self._factory = factory
         """The factory instance passed at instantiation."""
@@ -689,9 +676,6 @@ class GridSequenceFactory(abc.ABC):
             if not available.
 
     """
-
-    msg = "GridSequenceFactory is deprecated and will be removed in a future version"
-    warn(msg, DeprecationWarning)
 
     def __init__(self, network: pp.fracture_network, params: dict) -> None:
         self._network = network.copy()
