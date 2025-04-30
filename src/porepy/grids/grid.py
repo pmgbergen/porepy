@@ -770,7 +770,6 @@ class Grid:
             all faces tagged as either fractures, domain boundary or tip.
 
         """
-        tags
         return self._indices(tags.all_face_tags(self.tags))
 
     def get_all_boundary_nodes(self) -> np.ndarray:
