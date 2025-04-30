@@ -9,7 +9,6 @@ from typing import Any, Callable, Iterable, Literal, Optional, Union, overload
 
 import numpy as np
 from scipy import sparse as sps
-from warnings import warn
 
 import porepy as pp
 from porepy.grids import mortar_grid
