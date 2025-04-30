@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import copy
 import itertools
-from warnings import warn
 from itertools import count
 from typing import Any, Optional, Union
+from warnings import warn
 
 import numpy as np
 from scipy import sparse as sps

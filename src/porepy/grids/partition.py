@@ -18,8 +18,8 @@ available methods.
 
 from __future__ import annotations
 
-from warnings import warn
 from typing import Optional
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
