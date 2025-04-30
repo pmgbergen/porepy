@@ -464,8 +464,42 @@ class TimeManager:
 
         """
 
-        # restore time step before schedule correction and proceed with it.
-        if self._dt_before_schedule_correction is not None and not recompute_solution:
+        # For bookkeeping reasons, save recomputation and iterations
+        self._recomp_sol = recompute_solution
+        self._iters = iterations
+
+        # If converged/no recomputation required, reset counter.
+        if not self._recomp_sol:
+            self._recomp_num = 0
+        # If not converged/recomputation required, forget the time step before schedule
+        # correction.
+        else:
+            self._dt_before_schedule_correction = None
+
+        # First, check if we reach final simulation time with a valid solution
+        if not recompute_solution and self.final_time_reached():
+            return None
+
+        # If the time step is constant, always return that value
+        if self.is_constant:
+            # Some sanity checks
+            if self._iters is not None:
+                msg = (
+                    f"iterations '{self._iters}' has no effect if time step is "
+                    "constant."
+                )
+                warnings.warn(msg)
+            if self._recomp_sol:
+                msg = (
+                    "recompute_solution=True has no effect if time step is"
+                    + " constant."
+                )
+                warnings.warn(msg)
+
+            return self.dt_init
+
+        # Restore time step before schedule correction and proceed with it.
+        if self._dt_before_schedule_correction is not None:
             if self._print_info:
                 print(
                     "Restoring time step from before correction due to scheduled time: "
@@ -473,44 +507,12 @@ class TimeManager:
                 )
             self.dt = self._dt_before_schedule_correction
             self._dt_before_schedule_correction = None
-            # Since, converged, reset counter.
-            self._recomp_num = 0
+        # Else, adapt time step.
         else:
-            # For bookkeeping reasons, save recomputation and iterations
-            self._recomp_sol = recompute_solution
-            self._iters = iterations
-
-            # First, check if we reach final simulation time with a valid solution
-            if not recompute_solution and self.final_time_reached():
-                return None
-
-            # If the time step is constant, always return that value
-            if self.is_constant:
-                # Some sanity checks
-                if self._iters is not None:
-                    msg = (
-                        f"iterations '{self._iters}' has no effect if time step is "
-                        "constant."
-                    )
-                    warnings.warn(msg)
-                if self._recomp_sol:
-                    msg = (
-                        "recompute_solution=True has no effect if time step is"
-                        + " constant."
-                    )
-                    warnings.warn(msg)
-
-                return self.dt_init
-
-            # Adapt time step
             if not self._recomp_sol:
                 self._adaptation_based_on_iterations(iterations=self._iters)
             else:
                 self._adaptation_based_on_recomputation()
-                # If the solution must be recomputed, forget the potentially large time
-                # step before the schedule correction
-                if self._recomp_num > 0:
-                    self._dt_before_schedule_correction = None
 
         # Correct time step
         self._correction_based_on_dt_min()
@@ -554,9 +556,6 @@ class TimeManager:
                 " False was given, the algorithm will adapt the time step anyways."
             )
             warnings.warn(msg)
-
-        # Make sure to reset the recomputation counter
-        self._recomp_num = 0
 
         # Proceed to determine the next time step using the following criteria: (C1) If
         #     the number of iterations is less than the lower endpoint of the optimal
