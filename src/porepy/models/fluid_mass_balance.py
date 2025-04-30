@@ -959,6 +959,12 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         keywords in self.darcy_flux_keywords().
 
         """
+
+        def update_dicts(vals: np.ndarray, data: dict) -> None:
+            """Update the data dictionary with the Darcy flux values."""
+            for key in self.darcy_flux_keywords():
+                data[pp.PARAMETERS][key].update({"darcy_flux": vals})
+
         # Evaluate the Darcy flux for all subdomains together, then distribute the
         # computed values. For domains with many subdomains, this is significantly
         # faster than evaluating the Darcy flux for each subdomain individually.
@@ -966,11 +972,6 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         darcy_flux = self.equation_system.evaluate(self.darcy_flux(subdomains))
         # Compute offsets for the start of each subdomain in the darcy_flux array.
         subdomain_offsets = np.cumsum([0] + [sd.num_faces for sd in subdomains])
-
-        def update_dicts(vals: np.ndarray, data: dict) -> None:
-            """Update the data dictionary with the Darcy flux values."""
-            for key in self.darcy_flux_keywords():
-                data[pp.PARAMETERS][key].update({"darcy_flux": vals})
 
         for id, sd in enumerate(subdomains):
             # Update the data dictionary with the Darcy flux for the current subdomain.
