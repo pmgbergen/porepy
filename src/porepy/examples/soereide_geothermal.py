@@ -270,6 +270,11 @@ class SolutionStrategy(pp.PorePyModel):
         # small enough.
         tol = float(self.params["nl_convergence_tol_res"])
         tol_inc = float(self.params["nl_convergence_tol"])
+        # Relaxed tolerance for partial fractions and isofugacity constraints.
+        # Saying variations have to drop below 1% (not significant enough to change the
+        # state)
+        # This relaxed criteria is only applied on cells, where a phase dissapears
+        # entirely.
         if status == (False, False):
             status_per_eq = []
             rn_per_eq = {}
@@ -416,11 +421,6 @@ class SolutionStrategy(pp.PorePyModel):
             subdomains, state
         )
 
-        unity_tolerance = 0.05
-
-        # sat_sum = np.sum(fluid_state.sat, axis=0)
-        # if np.any(sat_sum > 1 + unity_tolerance):
-        #     raise ValueError("Saturations violate unity constraint")
         y_sum = np.sum(fluid_state.y, axis=0)
         idx = fluid_state.y < 0
         if np.any(idx):
@@ -1426,11 +1426,11 @@ if analysis_mode:
 # Model parametrization
 
 time_schedule = [i * pp.DAY for i in range(31)] + [
-    i * 15 * pp.DAY for i in range(3, 25)
+    i * 15 * pp.DAY for i in range(3, 49)
 ]
 
 max_iterations = 30
-newton_tol = 1.5e-4
+newton_tol = 1e-5
 newton_tol_increment = 1e-6
 
 time_manager = pp.TimeManager(
@@ -1489,8 +1489,8 @@ restart_params = {
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        # "cell_size": 5e-1,  # 18,464 cells
-        "cell_size": 2.5e-1,  # 73,748 cells
+        "cell_size": 5e-1,  # 18,464 cells
+        # "cell_size": 2.5e-1,  # 73,748 cells
         # "cell_size": 1e-1,  # 462,340 cells
         "cell_size_fracture": 5e-1,
     },
