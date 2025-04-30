@@ -452,7 +452,7 @@ class Grid:
         if not is_oriented:
             # The assumptions underlying the computation for general cells is broken.
             # Fall back to a legacy implementation which is only valid for convex cells.
-            warnings.warn(
+            warn(
                 "Orientations in face_nodes and cell_faces are inconsistent. "
                 "Fall back on an implementation that assumes all cells are convex."
             )
