@@ -388,10 +388,6 @@ class SolutionStrategy(pp.PorePyModel):
                     iterate_index=0,
                 )
 
-    def after_nonlinear_failure(self):
-        self.exporter.write_pvd()
-        super().after_nonlinear_failure()  # type:ignore
-
     def update_thermodynamic_properties_of_phases(
         self, state: Optional[np.ndarray] = None
     ) -> None:

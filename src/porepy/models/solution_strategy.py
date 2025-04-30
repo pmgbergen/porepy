@@ -474,7 +474,7 @@ class SolutionStrategy(pp.PorePyModel):
 
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
-        self.save_data_time_step()
+        # self.save_data_time_step()
         if not self._is_nonlinear_problem():
             raise ValueError("Failed to solve linear system for the linear problem.")
 
