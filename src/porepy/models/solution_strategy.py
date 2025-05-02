@@ -727,7 +727,7 @@ class SolutionStrategy(pp.PorePyModel):
         """
         self.update_all_boundary_conditions()
 
-    def darcy_flux_keywords(self) -> list[str]:
+    def darcy_flux_storage_keywords(self) -> list[str]:
         """Return the keywords for which the Darcy flux values are stored.
 
         Returns:

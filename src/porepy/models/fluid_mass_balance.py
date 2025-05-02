@@ -956,13 +956,13 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
         """Evaluate Darcy flux for each subdomain and interface and store in the data
         dictionary for use in upstream weighting. The Darcy flux is evaluated for all
         subdomains and interfaces and distributed to the parameter dictionaries for all
-        keywords in self.darcy_flux_keywords().
+        keywords in self.darcy_flux_storage_keywords().
 
         """
 
         def update_dicts(vals: np.ndarray, data: dict) -> None:
             """Update the data dictionary with the Darcy flux values."""
-            for key in self.darcy_flux_keywords():
+            for key in self.darcy_flux_storage_keywords():
                 data[pp.PARAMETERS][key].update({"darcy_flux": vals})
 
         # Evaluate the Darcy flux for all subdomains together, then distribute the
@@ -1005,15 +1005,15 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
 
         super().before_nonlinear_iteration()
 
-    def darcy_flux_keywords(self) -> list[str]:
-        """Return the keywords for which the Darcy flux discretization is stored.
+    def darcy_flux_storage_keywords(self) -> list[str]:
+        """Return the keywords for which the Darcy flux values are stored.
 
         Returns:
-            List of keywords for the Darcy flux discretization. This class adds
+            List of keywords for the Darcy flux values. This class adds
             :attr:`mobility_keyword`.
 
         """
-        return super().darcy_flux_keywords() + [self.mobility_keyword]
+        return super().darcy_flux_storage_keywords() + [self.mobility_keyword]
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""
