@@ -48,12 +48,12 @@ jobs:
 
     # Cache pip dependencies
     # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      id: cache
-      with:
-        path: ${{ env.pythonLocation }}
-        key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
+    # - name: Cache dependencies
+    #   uses: actions/cache@v4
+    #   id: cache
+    #   with:
+    #     path: ${{ env.pythonLocation }}
+    #     key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
 
     - name: Install external libraries
       run: |
@@ -65,7 +65,7 @@ jobs:
     - name: Upgrade pip
       run: |
         pip cache purge
-        python -m pip install pip==25.0.1
+        python -m pip install -U pip
         pip --version
 
     # Install the requirements, including the extras needed for testing, and PorePy
