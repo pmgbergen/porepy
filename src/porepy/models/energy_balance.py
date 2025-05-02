@@ -1187,10 +1187,10 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
             )
 
     def darcy_flux_keywords(self) -> list[str]:
-        """Return the keywords for which the Darcy flux discretization is stored.
+        """Return the keywords for which the Darcy flux values are stored.
 
         Returns:
-            List of keywords for the Darcy flux discretization. This class adds
+            List of keywords for the Darcy flux values. This class adds
             :attr:`enthalpy_keyword`.
 
         """
