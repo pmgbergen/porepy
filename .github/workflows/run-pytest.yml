@@ -65,7 +65,7 @@ jobs:
     - name: Upgrade pip
       run: |
         pip cache purge
-        python -m ensurepip --upgrade && python -m pip install --force-reinstall pip==25.0.1
+        python -m pip install pip==25.0.1
         pip --version
 
     # Install the requirements, including the extras needed for testing, and PorePy
