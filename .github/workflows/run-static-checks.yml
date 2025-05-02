@@ -84,7 +84,7 @@ jobs:
           
     # Make sure pip is up to date.
     - name: Upgrade pip
-      run: run: python -m ensurepip --upgrade && python -m pip install --force-reinstall pip
+      run: python -m ensurepip --upgrade && python -m pip install --force-reinstall pip
     # Install the dependencies, which is needed to make mypy happy. Unravelling of the
     # second command: The expression in the angular brackets is a python command that
     # fetches the dependencies section in pyproject.toml; this is then made available to
