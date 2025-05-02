@@ -1186,7 +1186,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
                 },
             )
 
-    def darcy_flux_keywords(self) -> list[str]:
+    def darcy_flux_storage_keywords(self) -> list[str]:
         """Return the keywords for which the Darcy flux values are stored.
 
         Returns:
@@ -1194,7 +1194,7 @@ class SolutionStrategyEnergyBalance(pp.SolutionStrategy):
             :attr:`enthalpy_keyword`.
 
         """
-        return super().darcy_flux_keywords() + [self.enthalpy_keyword]
+        return super().darcy_flux_storage_keywords() + [self.enthalpy_keyword]
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""
