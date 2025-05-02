@@ -63,13 +63,14 @@ jobs:
 
     # Make sure pip is up to date.
     - name: Upgrade pip
-      run: python -m ensurepip --upgrade && python -m pip install --force-reinstall pip
+      run: |
+        python -m ensurepip --upgrade && python -m pip install --force-reinstall pip==25.0.1
+        pip --version
 
     # Install the requirements, including the extras needed for testing, and PorePy
     # itself.
     - name: Install requirements and PorePy
       run: |
-        pip install -U pip
         pip install .[testing]
         pip freeze
 
