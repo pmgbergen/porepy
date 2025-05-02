@@ -953,12 +953,17 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             )
 
     def before_nonlinear_iteration(self):
-        """
-        Evaluate Darcy flux for each subdomain and interface and store in the data
-        dictionary for use in upstream weighting.
+        """Evaluate Darcy flux for each subdomain and interface and store in the data
+        dictionary for use in upstream weighting. The Darcy flux is evaluated for all
+        subdomains and interfaces and distributed to the parameter dictionaries for all
+        keywords in self.darcy_flux_storage_keywords().
 
         """
-        # Update parameters *before* the discretization matrices are re-computed.
+
+        def update_dicts(vals: np.ndarray, data: dict) -> None:
+            """Update the data dictionary with the Darcy flux values."""
+            for key in self.darcy_flux_storage_keywords():
+                data[pp.PARAMETERS][key].update({"darcy_flux": vals})
 
         # Evaluate the Darcy flux for all subdomains together, then distribute the
         # computed values. For domains with many subdomains, this is significantly
@@ -972,7 +977,7 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             # Update the data dictionary with the Darcy flux for the current subdomain.
             data = self.mdg.subdomain_data(sd)
             vals = darcy_flux[subdomain_offsets[id] : subdomain_offsets[id + 1]]
-            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+            update_dicts(vals, data)
 
         # Do an equivalent joint evaluation for the interfaces between fractures.
         interfaces = self.mdg.interfaces(codim=1)
@@ -987,15 +992,28 @@ class SolutionStrategySinglePhaseFlow(pp.SolutionStrategy):
             vals = interface_darcy_flux[
                 interface_offsets[id] : interface_offsets[id + 1]
             ]
-            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+            update_dicts(vals, data)
 
-        # The well fluxes are so few that we evaluate them individually, instead of
-        # dealing with the slightly more complex code to evaluate them all at once.
-        for intf, data in self.mdg.interfaces(return_data=True, codim=2):
-            vals = self.equation_system.evaluate(self.well_flux([intf]))
-            data[pp.PARAMETERS][self.mobility_keyword].update({"darcy_flux": vals})
+        wells = self.mdg.interfaces(codim=2)
+        well_darcy_flux = self.equation_system.evaluate(self.well_flux(wells))
+        well_offsets = np.cumsum([0] + [intf.num_cells for intf in wells])
+        for id, intf in enumerate(wells):
+            # Update the data dictionary with the Darcy flux for the current interface.
+            data = self.mdg.interface_data(intf)
+            vals = well_darcy_flux[well_offsets[id] : well_offsets[id + 1]]
+            update_dicts(vals, data)
 
         super().before_nonlinear_iteration()
+
+    def darcy_flux_storage_keywords(self) -> list[str]:
+        """Return the keywords for which the Darcy flux values are stored.
+
+        Returns:
+            List of keywords for the Darcy flux values. This class adds
+            :attr:`mobility_keyword`.
+
+        """
+        return super().darcy_flux_storage_keywords() + [self.mobility_keyword]
 
     def set_nonlinear_discretizations(self) -> None:
         """Collect discretizations for nonlinear terms."""
