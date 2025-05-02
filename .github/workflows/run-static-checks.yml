@@ -59,32 +59,36 @@ jobs:
 
     
     - name: Setup Python ${{ matrix.python-version}}
-    uses: actions/setup-python@v5
-    with:
-      # Version range or exact version of a Python version to use, using SemVer's version range syntax.
-      python-version: ${{ matrix.python-version}}
-      architecture: x64
-      cache: 'pip'
-      
+      uses: actions/setup-python@v5
+      with:
+        # Version range or exact version of a Python version to use, using SemVer's version range syntax.
+        python-version: ${{ matrix.python-version}}
+        architecture: x64
+        cache: 'pip'
+        
       # Cache pip dependencies
     # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
     - name: Cache dependencies
-    uses: actions/cache@v4
+      uses: actions/cache@v4
       id: cache
       with:
         path: ${{ env.pythonLocation }}
         key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
 
-        - name: Cache mypy
-        uses: actions/cache@v4
-        id: cache-mypy
-        with:
-          path: mypy-cache-${{ matrix.python-version}}
-          key: ${{ runner.os }}-mypy
+    - name: Cache mypy
+      uses: actions/cache@v4
+      id: cache-mypy
+      with:
+        path: mypy-cache-${{ matrix.python-version}}
+        key: ${{ runner.os }}-mypy
           
     # Make sure pip is up to date.
     - name: Upgrade pip
-      run: python -m ensurepip --upgrade && python -m pip install --force-reinstall pip
+      run: |
+        pip cache purge
+        python -m pip install pip==25.0.1
+        pip --version
+
     # Install the dependencies, which is needed to make mypy happy. Unravelling of the
     # second command: The expression in the angular brackets is a python command that
     # fetches the dependencies section in pyproject.toml; this is then made available to
