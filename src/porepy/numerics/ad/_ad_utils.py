@@ -27,6 +27,7 @@ Classes:
 
 from __future__ import annotations
 
+import warnings
 from abc import ABCMeta
 from typing import Any, Optional
 
@@ -43,6 +44,8 @@ from .forward_mode import AdArray
 def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
     """Concatenates a sequence of AD arrays into a single AD Array along a specified
     axis."""
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
     vals = [var.val for var in ad_arrays]
     jacs = np.array([var.jac for var in ad_arrays])
 
