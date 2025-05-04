@@ -727,6 +727,15 @@ class SolutionStrategy(pp.PorePyModel):
         """
         self.update_all_boundary_conditions()
 
+    def darcy_flux_storage_keywords(self) -> list[str]:
+        """Return the keywords for which the Darcy flux values are stored.
+
+        Returns:
+            List of keywords for the Darcy flux values.
+
+        """
+        return []
+
 
 class ContactIndicators(pp.PorePyModel):
     """Class for computing contact indicators used for tailored line search.
