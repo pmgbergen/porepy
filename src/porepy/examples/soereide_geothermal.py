@@ -955,6 +955,7 @@ class AdjustedWellModel2D(_FlowConfiguration):
         _, no_production_wells = self._filter_wells(subdomains, "production")
         eq: pp.ad.Operator = super().mass_balance_equation(no_production_wells)  # type:ignore[misc]
         name = eq.name
+        return eq
 
         volume_stabilization = self.fluid.density(
             no_production_wells
@@ -1561,8 +1562,8 @@ restart_params = {
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        # "cell_size": 5e-1,  # 18,464 cells
-        "cell_size": 2.5e-1,  # 73,748 cells
+        "cell_size": 5e-1,  # 18,464 cells
+        # "cell_size": 2.5e-1,  # 73,748 cells
         # "cell_size": 1e-1,  # 462,340 cells
         "cell_size_fracture": 5e-1,
     },
@@ -1577,7 +1578,7 @@ solver_params = {
     "nonlinear_solver": NewtonAndersonArmijoSolver,
     "armijo_line_search_weight": 0.95,
     "armijo_line_search_incline": 0.2,
-    "armijo_line_search_max_iterations": 30,
+    "armijo_line_search_max_iterations": 10,
     "Anderson_acceleration": False,
     "anderson_acceleration_depth": 3,
     "anderson_acceleration_constrained": False,
