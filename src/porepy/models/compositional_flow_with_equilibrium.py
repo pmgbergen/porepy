@@ -701,8 +701,6 @@ class InitialConditionsEquilibrium(cf.InitialConditionsCF):
             "Equilibrium must be defined in terms of 2 state functions."
         )
 
-        nt = self.time_step_indices.size
-        ni = self.iterate_indices.size
         has_unified_equilibrium = pp.compositional.has_unified_equilibrium(self)
 
         # IC values for potentially dependent component are never called directly.
@@ -788,42 +786,11 @@ class InitialConditionsEquilibrium(cf.InitialConditionsCF):
                 sd,
                 phase,
                 state.phases[j],
-                ni,
+                0,
                 update_derivatives=True,
                 use_extended_derivatives=has_unified_equilibrium,
+                update_fugacities=True,
             )
-
-            # Progress iterates values to all indices.
-            for _ in self.iterate_indices:
-                if isinstance(phase.density, pp.ad.SurrogateFactory):
-                    phase.density.progress_iterate_values_on_grid(
-                        state.phases[j].rho, sd, depth=ni
-                    )
-                if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                    phase.specific_enthalpy.progress_iterate_values_on_grid(
-                        state.phases[j].h, sd, depth=ni
-                    )
-                if isinstance(phase.viscosity, pp.ad.SurrogateFactory):
-                    phase.viscosity.progress_iterate_values_on_grid(
-                        state.phases[j].mu, sd, depth=ni
-                    )
-                if isinstance(phase.thermal_conductivity, pp.ad.SurrogateFactory):
-                    phase.thermal_conductivity.progress_iterate_values_on_grid(
-                        state.phases[j].kappa, sd, depth=ni
-                    )
-                for k, comp in enumerate(phase.components):
-                    phi = phase.fugacity_coefficient_of[comp]
-                    if isinstance(phi, pp.ad.SurrogateFactory):
-                        phi.progress_iterate_values_on_grid(
-                            state.phases[j].phis[k], sd, depth=ni
-                        )
-
-            # Progress property values in time on subdomain.
-            for _ in self.time_step_indices:
-                if isinstance(phase.density, pp.ad.SurrogateFactory):
-                    phase.density.progress_values_in_time([sd], depth=nt)
-                if isinstance(phase.specific_enthalpy, pp.ad.SurrogateFactory):
-                    phase.specific_enthalpy.progress_values_in_time([sd], depth=nt)
 
 
 class SolutionStrategyEquilibrium(pp.PorePyModel):
@@ -1156,12 +1123,11 @@ class SolutionStrategyEquilibrium(pp.PorePyModel):
                 phase,
                 phase_state,
                 0,
-                update_derivatives=True,
                 use_extended_derivatives=has_unified_equilibrium,
+                update_fugacities=True,
             )
 
         # Updating variables which are also unknowns in the equilibrium problem.
-
         if update_secondary_variables:
             for j, phase in enumerate(self.fluid.phases):
                 if self.has_independent_fraction(phase):

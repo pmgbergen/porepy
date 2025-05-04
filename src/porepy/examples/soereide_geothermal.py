@@ -45,6 +45,7 @@ logging.getLogger("porepy").setLevel(logging.DEBUG)
 t_0 = time.time()
 import porepy.compositional.peng_robinson as pr
 import porepy.models.compositional_flow_with_equilibrium as cfle
+import porepy.models.compositional_flow as cf
 
 compile_time = time.time() - t_0
 
@@ -236,6 +237,11 @@ class SolutionStrategy(pp.PorePyModel):
     secondary_variables: list[str]
     secondary_equations: list[str]
     fraction_in_phase_variables: list[str]
+    phase_fraction_variables: list[str]
+    isofugacity_constraint_for_component_in_phase: Callable[
+        [pp.Component, pp.Phase, Sequence[pp.Grid]],
+        pp.ad.Operator,
+    ]
 
     _block_row_permutation: np.ndarray
     _block_column_permutation: np.ndarray
@@ -244,12 +250,13 @@ class SolutionStrategy(pp.PorePyModel):
     def __init__(self, params: dict | None = None):
         super().__init__(params)  # type:ignore[safe-super]
 
-        self._last_residual_norms: deque[float] = deque(maxlen=4)
-        self._last_increment_norms: deque[float] = deque(maxlen=3)
+        self._residual_norm_history: deque[float] = deque(maxlen=4)
+        self._increment_norm_history: deque[float] = deque(maxlen=3)
 
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()  # type:ignore[misc]
-        self._last_residual_norms.clear()
+        self._residual_norm_history.clear()
+        self._increment_norm_history.clear()
 
     def check_convergence(
         self,
@@ -268,76 +275,141 @@ class SolutionStrategy(pp.PorePyModel):
 
         # Convergence check for individual norms, if the global residual is not yet
         # small enough.
-        tol = float(self.params["nl_convergence_tol_res"])
+        tol_res = float(self.params["nl_convergence_tol_res"])
         tol_inc = float(self.params["nl_convergence_tol"])
+        # Relaxed tolerance for quantities loosing their physical meaning in the unified
+        # setting when a phase dissappears.
         # Relaxed tolerance for partial fractions and isofugacity constraints.
         # Saying variations have to drop below 1% (not significant enough to change the
         # state)
-        # This relaxed criteria is only applied on cells, where a phase dissapears
-        # entirely.
+        tol_relaxed = 1e-2
+
         if status == (False, False):
-            status_per_eq = []
-            rn_per_eq = {}
+            residuals_converged: list[bool] = []
+            increments_converged: list[bool] = []
+
+            # First, perform standard check for all equations except isofugacity
+            # constraints, and all variables except partial fractions
             for name, eq in self.equation_system.equations.items():
                 rn = self.compute_residual_norm(
                     cast(np.ndarray, self.equation_system.evaluate(eq)),
                     reference_residual,
                 )
-                if "isofugacity" in name:
-                    status_per_eq.append(rn < 1e-2)
-                    rn_per_eq[name] = rn
+                if "isofugacity" not in name:
+                    residuals_converged.append(rn < tol_res)
                 else:
-                    status_per_eq.append(rn < tol)
+                    residuals_converged.append(rn < tol_relaxed)
 
-            residuals_converged = all(status_per_eq)
-
-            status_per_var = []
-            rn_per_var = {}
             partial_frac_vars = self.fraction_in_phase_variables
             for var in self.equation_system.variables:
                 rn = self.compute_nonlinear_increment_norm(
                     nonlinear_increment[self.equation_system.dofs_of([var])]
                 )
-                if var.name in partial_frac_vars:
-                    status_per_var.append(rn < 1e-2)
-                    rn_per_var[(var.name, var.domain.id)] = rn
+                if var.name not in partial_frac_vars:
+                    increments_converged.append(rn < tol_inc)
                 else:
-                    status_per_var.append(rn < tol_inc)
+                    increments_converged.append(rn < tol_relaxed)
 
-            increments_converged = all(status_per_var)
+            # # Second, we loop over the phases and perform a relaxed convergence check
+            # # where a phase disapeared. This relaxed check is applied to extended
+            # # partial fractions and isoguacity constrains on cells, where a phase
+            # # fraction is near zero.
+            # rphase = self.fluid.reference_phase
+            # subdomains = self.mdg.subdomains()
+            # eps = 1e-10
+            # rphase_gone = cast(
+            #     np.ndarray,
+            #     self.equation_system.evaluate(rphase.fraction(subdomains)) < eps,
+            # )
+            # independent_phase = [p for p in self.fluid.phases if p != rphase]
+            # # Convergence check for increment of extended fractions in reference phase
+            # for comp in rphase:
+            #     x_inc = nonlinear_increment[
+            #         np.sort(
+            #             self.equation_system.dofs_of(
+            #                 [rphase.extended_fraction_of[comp](subdomains)]
+            #             )
+            #         )
+            #     ]
+
+            #     increments_converged.append(
+            #         self.compute_nonlinear_increment_norm(x_inc[rphase_gone])
+            #         < tol_relaxed
+            #         and self.compute_nonlinear_increment_norm(x_inc[~rphase_gone])
+            #         < tol_inc
+            #     )
+
+            # for iphase in independent_phase:
+            #     iphase_gone = cast(
+            #         np.ndarray,
+            #         self.equation_system.evaluate(iphase.fraction(subdomains)) < eps,
+            #     )
+            #     # Convergence check for extended fraction in independent phase.
+            #     for comp in iphase:
+            #         x_inc = nonlinear_increment[
+            #             np.sort(
+            #                 self.equation_system.dofs_of(
+            #                     [iphase.extended_fraction_of[comp](subdomains)]
+            #                 )
+            #             )
+            #         ]
+
+            #         increments_converged.append(
+            #             self.compute_nonlinear_increment_norm(x_inc[iphase_gone])
+            #             < tol_relaxed
+            #             and self.compute_nonlinear_increment_norm(x_inc[~iphase_gone])
+            #             < tol_inc
+            #         )
+
+            #         # Checking residual norm of isofugacity constraint.
+            #         if comp not in rphase.components:
+            #             continue
+
+            #         res = cast(
+            #             np.ndarray,
+            #             self.equation_system.evaluate(
+            #                 self.isofugacity_constraint_for_component_in_phase(
+            #                     comp, iphase, subdomains
+            #                 )
+            #             ),
+            #         )
+            #         gone = iphase_gone | rphase_gone
+            #         residuals_converged.append(
+            #             self.compute_residual_norm(res[gone], reference_residual)
+            #             < tol_relaxed
+            #             and self.compute_residual_norm(res[~gone], reference_residual)
+            #             < tol_res
+            #         )
 
             status = (
-                residuals_converged and increments_converged,
+                all(residuals_converged) and all(increments_converged),
                 False,
             )
             if status[0]:
-                print(
-                    "Converged with custom criteria.\n"
-                    + f"\tNon-satisfying residuals:\n{rn_per_eq}\n"
-                    + f"\tNon-satisfying Increments:\n{rn_per_var}\n"
-                )
+                print("\nConverged with relaxed, unified CF criteria.\n")
 
-        self._last_residual_norms.append(
+        # Keeping residual/ increment norm history and checking for stationary points.
+        self._residual_norm_history.append(
             self.compute_residual_norm(residual, reference_residual)
         )
-        self._last_increment_norms.append(
+        self._increment_norm_history.append(
             self.compute_nonlinear_increment_norm(nonlinear_increment)
         )
 
-        if len(self._last_residual_norms) == self._last_residual_norms.maxlen:
+        if len(self._residual_norm_history) == self._residual_norm_history.maxlen:
             residual_stationary = (
                 np.allclose(
-                    self._last_residual_norms,
-                    self._last_residual_norms[-1],
+                    self._residual_norm_history,
+                    self._residual_norm_history[-1],
                     rtol=0.0,
-                    atol=tol,
+                    atol=tol_res,
                 )
-                and tol != np.inf
+                and tol_res != np.inf
             )
             increment_stationary = (
                 np.allclose(
-                    self._last_increment_norms,
-                    self._last_increment_norms[-1],
+                    self._increment_norm_history,
+                    self._increment_norm_history[-1],
                     rtol=0.0,
                     atol=tol_inc,
                 )
@@ -405,6 +477,11 @@ class SolutionStrategy(pp.PorePyModel):
                 self.local_equilibrium(sd, state=state, equilibrium_specs=equ_spec)  # type:ignore
             elif self.nonlinear_solver_statistics.num_iteration % 3 == 0:
                 self.local_equilibrium(sd, state=state)  # type:ignore
+            else:
+                cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
+                    self,  # type:ignore[arg-type]
+                    state,
+                )
 
     def current_fluid_state(
         self,
@@ -1278,7 +1355,6 @@ class BoundaryConditionsOnlyConduction(BoundaryConditions):
         return pp.BoundaryCondition(sd)
 
     def bc_type_equilibrium(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        # return pp.BoundaryCondition(sd)
         return self.bc_type_fourier_flux(sd)
 
 
@@ -1369,7 +1445,7 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
         x_0 = model.equation_system.get_variable_values(iterate_index=0)
         state = x_0 + weight * dx
         # model.update_thermodynamic_properties_of_phases(state)
-        cfle.cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
+        cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
             model,  # type:ignore[arg-type]
             state,
         )
@@ -1421,9 +1497,10 @@ if analysis_mode:
 
 # Model parametrization
 
-time_schedule = [i * pp.DAY for i in range(31)] + [
-    i * 15 * pp.DAY for i in range(3, 49)
-]
+# time_schedule = [i * pp.DAY for i in range(31)] + [
+#     i * 15 * pp.DAY for i in range(3, 49)
+# ]
+time_schedule = [i * 30 * pp.DAY for i in range(25)]
 
 max_iterations = 30
 newton_tol = 1e-5
@@ -1431,8 +1508,8 @@ newton_tol_increment = 1e-6
 
 time_manager = pp.TimeManager(
     schedule=time_schedule,
-    dt_init=2 * pp.HOUR,
-    dt_min_max=(10.0 * pp.MINUTE, 15 * pp.DAY),
+    dt_init=10 * pp.MINUTE,
+    dt_min_max=(pp.MINUTE, 30 * pp.DAY),
     iter_max=max_iterations,
     iter_optimal_range=(12, 24),
     iter_relax_factors=(0.8, 2.0),
@@ -1474,19 +1551,18 @@ flash_params.update(phase_property_params)
 restart_params = {
     "restart_options": {
         "restart": False,
-        # "pvd_file": pathlib.Path('.\\visualization\\data.pvd').resolve(),
+        "pvd_file": pathlib.Path(".\\visualization\\data.pvd").resolve(),
         "is_mdg_pvd": False,
         "vtu_files": None,
-        # "times_file": pathlib.Path('.\\visualization\\times.json').resolve(),
-        "time_index": -1,
+        "times_file": pathlib.Path(".\\visualization\\times.json").resolve(),
     },
 }
 
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 5e-1,  # 18,464 cells
-        # "cell_size": 2.5e-1,  # 73,748 cells
+        # "cell_size": 5e-1,  # 18,464 cells
+        "cell_size": 2.5e-1,  # 73,748 cells
         # "cell_size": 1e-1,  # 462,340 cells
         "cell_size_fracture": 5e-1,
     },
@@ -1501,7 +1577,7 @@ solver_params = {
     "nonlinear_solver": NewtonAndersonArmijoSolver,
     "armijo_line_search_weight": 0.95,
     "armijo_line_search_incline": 0.2,
-    "armijo_line_search_max_iterations": 10,
+    "armijo_line_search_max_iterations": 30,
     "Anderson_acceleration": False,
     "anderson_acceleration_depth": 3,
     "anderson_acceleration_constrained": False,
@@ -1522,7 +1598,7 @@ model_params = {
     "rediscretize_darcy_flux": fractional_flow,
     "material_constants": material_params,
     "time_manager": time_manager,
-    "times_to_export": time_schedule,
+    # "times_to_export": time_schedule,
     "prepare_simulation": False,
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
