@@ -6,8 +6,8 @@ different lower-level mdg generation.
 from __future__ import annotations
 
 import inspect
-import warnings
 from typing import Callable, Literal, Optional, Union, get_args
+from warnings import warn
 
 import numpy as np
 
@@ -415,7 +415,7 @@ def _validate_args(
             # user on purpose use the domain to get rid of some fractures.
             # Giving a warning seems like a fair compromise between raising an
             # error and doing nothing.
-            warnings.warn(f"Found {sz} fractures outside the domain boundary")
+            warn(f"Found {sz} fractures outside the domain boundary")
 
     if grid_type == "simplex":
         _validate_simplex_meshing_args_values(meshing_args)
@@ -541,7 +541,7 @@ def _preprocess_cartesian_args(
     if cell_size_x is not None:
         n_x = round((xmax - xmin) / cell_size_x)
         if np.abs((xmax - xmin)) - cell_size_x < 0.0:
-            warnings.warn(
+            warn(
                 "In the x-direction, cell_size_x is greater than the domain. The domain"
                 " size is used instead."
             )
@@ -552,7 +552,7 @@ def _preprocess_cartesian_args(
     if cell_size_y is not None:
         n_y = round((ymax - ymin) / cell_size_y)
         if np.abs((ymax - ymin)) - cell_size_y < 0.0:
-            warnings.warn(
+            warn(
                 "In the y-direction, cell_size_y is greater than the domain. The domain"
                 " size is used instead."
             )
@@ -566,7 +566,7 @@ def _preprocess_cartesian_args(
 
         n_z = round((zmax - zmin) / cell_size_z)
         if np.abs((zmax - zmin)) - cell_size_z < 0.0:
-            warnings.warn(
+            warn(
                 "In the z-direction, cell_size_z is greater than the domain. The domain"
                 " size is used instead."
             )
@@ -619,7 +619,7 @@ def _preprocess_tensor_grid_args(
     if cell_size is not None:
         n_x = round((xmax - xmin) / cell_size) + 1
         if np.abs((xmax - xmin)) - cell_size < 0.0:
-            warnings.warn(
+            warn(
                 "In the x-direction, cell_size is greater than the domain. The domain "
                 "size is used instead."
             )
@@ -627,7 +627,7 @@ def _preprocess_tensor_grid_args(
 
         n_y = round((ymax - ymin) / cell_size) + 1
         if np.abs((ymax - ymin)) - cell_size < 0.0:
-            warnings.warn(
+            warn(
                 "In the y-direction, cell_size is greater than the domain. The domain "
                 "size is used instead."
             )
@@ -642,7 +642,7 @@ def _preprocess_tensor_grid_args(
 
             n_z = round((zmax - zmin) / cell_size) + 1
             if np.abs((zmax - zmin)) - cell_size < 0.0:
-                warnings.warn(
+                warn(
                     "In the z-direction, cell_size is greater than the domain. The "
                     "domain size is used instead."
                 )

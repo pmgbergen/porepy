@@ -526,6 +526,7 @@ class MixedDimensionalGrid:
            sd: The subdomain to be removed.
 
         """
+
         # Delete from the subdomain list.
         del self._subdomain_data[sd]
 
@@ -889,6 +890,7 @@ class MixedDimensionalGrid:
             The total number of mortar cells of the grid bucket.
 
         """
+
         if cond is None:
             cond = lambda g: True
         return np.sum(  # type: ignore
