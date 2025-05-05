@@ -137,6 +137,7 @@ def reorder_partition(
         The subdivision stored in a contiguous way.
 
     """
+
     if isinstance(subdiv, dict):
         for _, (_, partition) in subdiv.items():
             old_ids = np.unique(partition)

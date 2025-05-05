@@ -9,6 +9,7 @@ functions found in the `Matlab Reservoir Simulation Toolbox (MRST)
 """
 
 from typing import Optional
+from warnings import warn
 
 import numpy as np
 import scipy.sparse as sps
@@ -123,6 +124,8 @@ class TriangleGrid(Grid):
             An array with ``shape=(num_cells, 3)``, representing the cell-to-node map.
 
         """
+        msg = "This functionality is deprecated and will be removed in a future version"
+        warn(msg, DeprecationWarning)
 
         # Absolute value needed since cellFaces can be negative
         cn = self.face_nodes * np.abs(self.cell_faces) * sps.eye(self.num_cells)
