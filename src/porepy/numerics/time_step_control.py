@@ -491,6 +491,11 @@ class TimeManager:
             self._adaptation_based_on_recomputation()
 
         # Correct time step
+        if hasattr(self, "prev_dt"):
+            self.dt = self.prev_dt
+            del self.prev_dt
+            print(f"Jump back to previous time step size: {self.dt}.")
+
         self._correction_based_on_dt_min()
         self._correction_based_on_dt_max()
         self._correction_based_on_schedule()
@@ -661,6 +666,7 @@ class TimeManager:
                     next_schedule_time = self.schedule[self._scheduled_idx]
                     if self.time + self.dt > next_schedule_time:
                         # We are not going to hit the next scheduled time.
+                        self.prev_dt = self.dt
                         self.dt = next_schedule_time - self.time
                         if self._print_info:
                             print(
@@ -674,6 +680,7 @@ class TimeManager:
                     )
                 return
 
+            self.prev_dt = self.dt
             self.dt = schedule_time - self.time  # Correcting time step.
 
             if self._scheduled_idx < len(self.schedule) - 1:
