@@ -312,7 +312,8 @@ def create_elliptic_fracture(
         center = center.reshape((-1, 1))
 
     # First, populate polygon in the xy-plane
-    angs = np.linspace(0, 2 * np.pi, num_points + 1, endpoint=True)[:-1]
+    np.random.seed(0)
+    angs = np.linspace(0, 2 * np.pi, num_points + 1, endpoint=True)[:-1] + np.random.rand()
     x = major_axis * np.cos(angs)
     y = minor_axis * np.sin(angs)
     z = np.zeros_like(angs)
