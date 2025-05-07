@@ -16,6 +16,7 @@ def gas_saturation_func(
 
     nc = len(thermodynamic_dependencies[0])
     vals = 0.5 * np.ones_like(z_NaCl)
+    vals = np.clip(vals, 1.0e-16, 1.0)
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     return vals, diffs
@@ -45,6 +46,7 @@ def H2O_liq_func(
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.array(1 - z_NaCl)
+    vals = np.clip(vals, 1.0e-16, 1.0)
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     diffs[2, :] = -1.0
@@ -59,6 +61,7 @@ def NaCl_liq_func(
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.array(z_NaCl)
+    vals = np.clip(vals, 1.0e-16, 1.0)
     # row-wise storage of derivatives, (4, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     diffs[2, :] = +1.0
@@ -73,6 +76,7 @@ def H2O_gas_func(
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.array(1 - z_NaCl)
+    vals = np.clip(vals, 1.0e-16, 1.0)
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     diffs[2, :] = -1.0
@@ -87,6 +91,7 @@ def NaCl_gas_func(
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.array(z_NaCl)
+    vals = np.clip(vals, 1.0e-16, 1.0)
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     diffs[2, :] = +1.0

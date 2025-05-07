@@ -504,6 +504,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
     ]
     """See :class:`~porepy.models.fluid_property_library.FluidBuoyancy`."""
 
+    set_bouyancy_discretization_parameters: Callable[[], None]
+    """See :class:`~porepy.models.fluid_property_library.set_bouyancy_discretization_parameters`."""
+
     bc_type_fluid_flux: Callable[[pp.Grid], pp.BoundaryCondition]
     """See :class:`~porepy.models.fluid_mass_balance.BoundaryConditionsSinglePhaseFlow`.
     """
@@ -545,6 +548,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
             if self.has_independent_fraction(component):
                 sd_eq = self.component_mass_balance_equation(component, subdomains)
                 self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
+
+    def set_discretization_parameters(self) -> None:
+        super().set_discretization_parameters()
+        self.set_bouyancy_discretization_parameters()
+
 
     def component_mass_balance_equation(
         self, component: pp.Component, subdomains: list[pp.Grid]

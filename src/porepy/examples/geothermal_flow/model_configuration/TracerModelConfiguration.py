@@ -6,7 +6,7 @@ import numpy as np
 
 import porepy as pp
 import porepy.compositional as ppc
-from porepy.models.compositional_flow import CompositionalFlowTemplate
+from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate
 
 from .constitutive_description.TracerConstitutiveDescription import (
     FluidMixture,
@@ -88,7 +88,7 @@ class TracerFlowModel(  # type:ignore[misc]
     InitialConditions,
     BoundaryConditions,
     SecondaryEquations,
-    CompositionalFlowTemplate,
+    CompositionalFractionalFlowTemplate,
 ):
     def relative_permeability(
         self, phase: pp.Phase, domains: pp.SubdomainsOrBoundaries

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 from typing import Callable, Sequence, cast, Union, Literal
 import numpy as np
-
+from itertools import combinations
 import porepy as pp
 
 __all__ = [
@@ -589,22 +589,21 @@ class FluidBuoyancy(pp.PorePyModel):
 
         # This construction implies that for each component pair, there is a pair of upwinding objects
         b_fluxes = []
-        for component_eta in self.fluid.components:
-            if component_eta == component_xi:
-                continue
-            rho_xi = self.component_density(component_xi, domains)
-            rho_eta = self.component_density(component_eta, domains)
+        for pairs in self.component_pairs_for(component_xi):
+            xi, eta = pairs
+            rho_xi = self.component_density(xi, domains)
+            rho_eta = self.component_density(eta, domains)
             w_flux_xi_eta = self.density_driven_flux(domains, rho_xi - rho_eta) # well-defined flux on facets
-            f_xi = self.fractional_component_mass_mobility(component_xi, domains)
-            f_eta = self.fractional_component_mass_mobility(component_eta, domains)
+            f_xi = self.fractional_component_mass_mobility(xi, domains)
+            f_eta = self.fractional_component_mass_mobility(eta, domains)
 
             # Verify that the domains are subdomains.
             if not all(isinstance(d, pp.Grid) for d in domains):
                 raise ValueError("domains must consist entirely of subdomains.")
             domains = cast(list[pp.Grid], domains)
 
-            discr_xi = self.upward_component_discretization(component_xi, domains)
-            discr_eta = self.downward_component_discretization(component_eta, domains)
+            discr_xi = self.upward_component_discretization(xi, domains)
+            discr_eta = self.downward_component_discretization(eta, domains)
 
             # TODO: Fixed dimensional implementation. Needs md-part
             f_xi_upwind: pp.ad.Operator = discr_xi.upwind() @ f_xi # well-defined fraction flow on facets
@@ -617,13 +616,54 @@ class FluidBuoyancy(pp.PorePyModel):
         b_flux.set_name("component_buoyancy_" + component_xi.name)
         return b_flux
 
+    def component_pairs_for(self, component_xi: pp.Component):
+        combination_by_pairs = list(combinations(self.fluid.components, 2))
+        selected_pairs = []
+        for pairs in combination_by_pairs:
+            idx = pairs.index(component_xi)
+            if idx == 0:
+                component_xi, component_eta = pairs
+            elif idx == 1:
+                component_eta, component_xi = pairs
+            else:
+                continue
+            selected_pairs.append((component_xi, component_eta))
+        return selected_pairs
+
+    def set_bouyancy_discretization_parameters(self):
+        for component_xi in self.fluid.components:
+            if self.fluid.reference_component.name == component_xi:
+                continue
+            for pairs in self.component_pairs_for(component_xi):
+                xi, eta = pairs
+                for sd, data in self.mdg.subdomains(return_data=True):
+                    pp.initialize_data(
+                        sd,
+                        data,
+                        self.upward_key(xi),
+                        {
+                            "bc": self.bc_type_fluid_flux(sd),
+                        },
+                    )
+                    pp.initialize_data(
+                        sd,
+                        data,
+                        self.downward_key(eta),
+                        {
+                            "bc": self.bc_type_fluid_flux(sd),
+                        },
+                    )
+                    vals = np.zeros(sd.num_faces)
+                    data[pp.PARAMETERS][self.upward_key(xi)].update({self.upward_flux_array_key(xi): vals})
+                    data[pp.PARAMETERS][self.downward_key(eta)].update({self.downward_flux_array_key(eta): vals})
+
     def update_buoyancy_discretizations(self):
 
-        for eta in self.fluid.components:
-            for xi in self.fluid.components:
-                if eta == xi:
-                    continue
-
+        for component_xi in self.fluid.components:
+            if self.fluid.reference_component.name == component_xi:
+                continue
+            for pairs in self.component_pairs_for(component_xi):
+                xi, eta = pairs
                 for sd, data in self.mdg.subdomains(return_data=True):
                     # Computing buoyancy flux and updating it in the mobility
                     rho_xi = self.component_density(component_xi, [sd])
