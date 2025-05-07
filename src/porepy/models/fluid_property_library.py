@@ -28,7 +28,7 @@ Note:
 
 from __future__ import annotations
 
-from typing import Callable, Sequence, cast, Union
+from typing import Callable, Sequence, cast, Union, Literal
 import numpy as np
 
 import porepy as pp
@@ -38,6 +38,7 @@ __all__ = [
     "FluidDensityFromTemperature",
     "FluidDensityFromPressureAndTemperature",
     "FluidMobility",
+    "FluidBuoyancy",
     "ConstantViscosity",
     "ConstantFluidThermalConductivity",
     "FluidEnthalpyFromTemperature",
@@ -517,7 +518,7 @@ class FluidBuoyancy(pp.PorePyModel):
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         scaling = 1.0e-6
         g_constant = pp.GRAVITY_ACCELERATION
-        val = self.fluid.convert_units(g_constant, "m*s^-2") * scaling
+        val = self.units.convert_units(g_constant, "m*s^-2") * scaling
         size = np.sum([g.num_cells for g in subdomains]).astype(int)
         gravity_field = pp.wrap_as_dense_ad_array(val, size=size)
         gravity_field.set_name("gravity_field")
@@ -526,18 +527,24 @@ class FluidBuoyancy(pp.PorePyModel):
     def gravity_force(
             self,
             subdomains: Union[list[pp.Grid], list[pp.MortarGrid]],
+            material: Literal["fluid", "solid"],
     ) -> pp.ad.Operator:
 
-        fractionally_weighted_rho = self.fractionally_weighted_density(subdomains)
+        if material == "fluid":
+            fractionally_weighted_rho = self.fractionally_weighted_density(subdomains)
+            # Keeping the following line for quantitative verification purposes
+            # fractionally_weighted_rho = np.sum(overall_rho.value(self.equation_system) * subdomains[0].cell_volumes) / np.sum(subdomains[0].cell_volumes)
 
-        # Keeping the following line for quantitative verification purposes
-        # fractionally_weighted_rho = np.sum(overall_rho.value(self.equation_system) * subdomains[0].cell_volumes) / np.sum(subdomains[0].cell_volumes)
+            # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
+            e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
+            overall_gravity_flux = pp.ad.Scalar(-1) * e_n @ (fractionally_weighted_rho * self.gravity_field(subdomains))
+            overall_gravity_flux.set_name("overall gravity flux")
+            return overall_gravity_flux
+        elif material == "solid":
+            raise ValueError(f"Unsupported gravity in combination with compositional flow '{material}'.")
+        else:
+            raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
-        # Gravity acts along the last coordinate direction (z in 3d, y in 2d)
-        e_n = self.e_i(subdomains, i=self.nd - 1, dim=self.nd)
-        overall_gravity_flux = pp.ad.Scalar(-1) * e_n @ (fractionally_weighted_rho * self.gravity_field(subdomains))
-        overall_gravity_flux.set_name("overall gravity flux")
-        return overall_gravity_flux
 
     def density_driven_flux(self,
             subdomains: pp.SubdomainsOrBoundaries,
@@ -559,7 +566,6 @@ class FluidBuoyancy(pp.PorePyModel):
         self, component: pp.Component, domains: pp.SubdomainsOrBoundaries
     ) -> pp.ad.Operator:
 
-        # TODO: this may need and extra phase.density(domains) factor
         name = f"component_density_{component.name}"
         component_density = pp.ad.sum_operator_list(
             [
@@ -581,7 +587,7 @@ class FluidBuoyancy(pp.PorePyModel):
 
     def component_buoyancy(self, component_xi: pp.Component, domains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
 
-        # This construction implies that for each component pair there is a pair of upwinding objects
+        # This construction implies that for each component pair, there is a pair of upwinding objects
         b_fluxes = []
         for component_eta in self.fluid.components:
             if component_eta == component_xi:
@@ -623,23 +629,23 @@ class FluidBuoyancy(pp.PorePyModel):
                     rho_xi = self.component_density(component_xi, [sd])
                     rho_eta = self.component_density(component_eta, [sd])
                     vals = self.density_driven_flux([sd], rho_xi - rho_eta).value(self.equation_system)
-                    data[pp.PARAMETERS][self.downward_key(eta)].update({self.downward_flux_array_key(eta): -vals})
                     data[pp.PARAMETERS][self.upward_key(xi)].update({self.upward_flux_array_key(xi): +vals})
+                    data[pp.PARAMETERS][self.downward_key(eta)].update({self.downward_flux_array_key(eta): -vals})
 
                 for intf, data in self.mdg.interfaces(return_data=True, codim=1):
                     assert False # case not implemented yet
                     # Computing the darcy flux in fractures (given by variable)
                     vals = self.density_driven_flux([intf],pp.ad.Scalar(-1.0)).value(self.equation_system)
-                    data[pp.PARAMETERS][self.downward_keyword()].update({"downward_w_flux": -vals})
-                    data[pp.PARAMETERS][self.upward_keyword()].update({"upward_w_flux": +vals})
+                    data[pp.PARAMETERS][self.upward_key(xi)].update({self.upward_flux_array_key(xi): +vals})
+                    data[pp.PARAMETERS][self.downward_key(eta)].update({self.downward_flux_array_key(eta): -vals})
 
                 for intf, data in self.mdg.interfaces(return_data=True, codim=2):
+                    # TODO: This functionality is out of the research scope
                     assert False  # case not implemented yet
                     # Computing the darcy flux in wells (given by variable)
                     vals = self.density_driven_flux([intf],pp.ad.Scalar(-1.0)).value(self.equation_system)
-                    data[pp.PARAMETERS][self.downward_keyword()].update({"downward_w_flux": -vals})
-                    data[pp.PARAMETERS][self.upward_keyword()].update({"upward_w_flux": +vals})
-
+                    data[pp.PARAMETERS][self.upward_keyword(xi)].update({self.upward_flux_array_key(xi): +vals})
+                    data[pp.PARAMETERS][self.downward_keyword(eta)].update({self.downward_flux_array_key(eta): -vals})
 
 class ConstantViscosity(pp.PorePyModel):
     """Constant viscosity for a single-phase fluid."""

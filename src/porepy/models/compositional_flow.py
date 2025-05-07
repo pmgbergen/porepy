@@ -563,12 +563,11 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
         accumulation = self.volume_integral(
             self.component_mass(component, subdomains), subdomains, dim=1
         )
-        flux = self.component_flux(component, subdomains)
-        buoyancy_flux = self.component_buoyancy(component, subdomains)
+        flux = self.component_flux(component, subdomains) + self.component_buoyancy(component, subdomains)
         source = self.component_source(component, subdomains)
 
         # Feed the terms to the general balance equation method.
-        eq = self.balance_equation(subdomains, accumulation, flux + buoyancy_flux, source, dim=1)
+        eq = self.balance_equation(subdomains, accumulation, flux, source, dim=1)
         eq.set_name(self._mass_balance_equation_name(component))
         return eq
 
@@ -937,6 +936,7 @@ class ConstitutiveLawsCF(
     ConstitutiveLawsSolidSkeletonCF,
     pp.constitutive_laws.ThermalConductivityCF,
     pp.constitutive_laws.FluidMobility,
+    pp.constitutive_laws.FluidBuoyancy,
     # Contains the Upwind for the enthalpy flux, otherwise not required.
     # TODO Consider putting discretizations strictly outside of classes providing
     # heuristics for thermodynamic properties.
