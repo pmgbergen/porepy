@@ -289,3 +289,47 @@ class SimpleGeometryVertical(Geometry):
         inlet_facets = find_facets(self._inlet_centre)
         outlet_facets = find_facets(self._outlet_centre)
         return inlet_facets, outlet_facets
+
+class SimpleGeometryHayekVertical(Geometry):
+    """A class to represent a simple 1D geometry for a simulation domain.
+    The start of domain serve as inlet and end of domain serves as the outlet
+    """
+
+    _dist_from_ref_point: float = 0.05
+    _inlet_centre: np.ndarray = np.array([0.05, 0.0,  0.0])
+    _outlet_centre: np.ndarray = np.array([0.05, 7.0, 0.0])
+
+    def set_domain(self) -> None:
+        x_length = self.units.convert_units(0.1, "m")
+        y_length = self.units.convert_units(7.0, "m")
+        box: dict[str, pp.number] = {"xmax": x_length, "ymax": y_length}
+        self._domain = pp.Domain(box)
+
+    def grid_type(self) -> str:
+        return self.params.get("grid_type", "cartesian")
+
+    def meshing_arguments(self) -> dict:
+        cell_size = self.units.convert_units(0.1, "m")
+        cell_size_y = self.units.convert_units(0.1, "m")
+        mesh_args: dict[str, float] = {"cell_size": cell_size, "cell_size_y": cell_size_y}
+        return mesh_args
+
+    def get_inlet_outlet_sides(self, sd: pp.Grid | pp.BoundaryGrid) -> np.ndarray:
+        if isinstance(sd, pp.Grid):
+            face_centers = sd.face_centers.T
+        elif isinstance(sd, pp.BoundaryGrid):
+            face_centers = sd.cell_centers.T
+        else:
+            raise ValueError("Type not expected.")
+        boundary_faces = self.domain_boundary_sides(sd)
+        bf_indices = boundary_faces.all_bf
+
+        def find_facets(center: np.ndarray) -> np.ndarray:
+            logical = Geometry.harvest_sphere_members(
+                center, self._dist_from_ref_point, face_centers[bf_indices]
+            )
+            return bf_indices[logical]
+
+        inlet_facets = find_facets(self._inlet_centre)
+        outlet_facets = find_facets(self._outlet_centre)
+        return inlet_facets, outlet_facets
