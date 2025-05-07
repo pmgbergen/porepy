@@ -154,7 +154,11 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
             raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
         # Keeping the following line for quantitative verification purposes
-        # rho_avg = np.sum(overall_rho.value(self.equation_system) * subdomains[0].cell_volumes) / np.sum(subdomains[0].cell_volumes)
+        # rho_avg = np.sum(
+        # overall_rho.value(self.equation_system)
+        # * subdomains[0].cell_volumes)
+        # / np.sum(subdomains[0].cell_volumes
+        # )
 
         scaling = 1.0e-6
         g_constant = pp.GRAVITY_ACCELERATION

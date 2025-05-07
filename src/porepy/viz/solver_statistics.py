@@ -87,3 +87,91 @@ class SolverStatistics:
             # Save to file
             with self.path.open("w") as file:
                 json.dump(data, file, indent=4)
+
+
+@dataclass
+class ExtendedSolverStatistics(SolverStatistics):
+    """For tracking additional information."""
+
+    time: float = 0.0
+    """Time for which a non-linear loop is solved (previous time + current time step
+    size)."""
+    time_step_size: float = 0.0
+    """Time step size with which the solver is applied."""
+
+    residual_norms_per_equation: dict[str, list[float]] = field(default_factory=dict)
+    """Dict of residual norms per equation, with the equation name as key."""
+
+    increment_norms_per_variable: dict[str, list[float]] = field(default_factory=dict)
+    """Dict of residual norms per nonlinear increment, with the variable name as key."""
+
+    condition_numbers: dict[str, list[float]] = field(default_factory=dict)
+    """Dict of condition numbers for the system or some subsystem, with some name as
+    key."""
+
+    def extended_log(
+        self,
+        time: float,
+        time_step_size: float,
+        res_norm_per_equation: dict[str, float],
+        incr_norm_per_variable: dict[str, float],
+        condition_numbers: dict[str, float],
+    ) -> None:
+        """Logs the additional fields."""
+        self.time = time
+        self.time_step_size = time_step_size
+
+        for k, v in res_norm_per_equation.items():
+            if k not in self.residual_norms_per_equation:
+                self.residual_norms_per_equation[k] = []
+            self.residual_norms_per_equation[k].append(v)
+
+        for k, v in incr_norm_per_variable.items():
+            if k not in self.increment_norms_per_variable:
+                self.increment_norms_per_variable[k] = []
+            self.increment_norms_per_variable[k].append(v)
+
+        for k, v in condition_numbers.items():
+            if k not in self.condition_numbers:
+                self.condition_numbers[k] = []
+            self.condition_numbers[k].append(v)
+
+    def reset(self):
+        """Clears the additional feels of this extentended dataclass."""
+        super().reset()
+        self.time = 0.0
+        self.time_step_size = 0.0
+        self.residual_norms_per_equation.clear()
+        self.increment_norms_per_variable.clear()
+        self.condition_numbers.clear()
+
+    def save(self):
+        """Save the new fields at the last index of the stored data."""
+        super().save()
+        if self.path is not None:
+            # Check if object exists and append to it
+            if self.path.exists():
+                with self.path.open("r") as file:
+                    data = json.load(file)
+            else:
+                data = {}
+
+            # Append data to last entry
+            ind = len(data)
+            if str(ind) in data:
+                ind = str(ind)
+
+            new_data = {
+                "time": self.time,
+                "time_step_size": self.time_step_size,
+            }
+            new_data.update(self.residual_norms_per_equation)
+            new_data.update(self.increment_norms_per_variable)
+            new_data.update(self.condition_numbers)
+
+            for k, v in new_data.items():
+                data[ind][k] = v
+
+            # Save to file
+            with self.path.open("w") as file:
+                json.dump(data, file, indent=4)

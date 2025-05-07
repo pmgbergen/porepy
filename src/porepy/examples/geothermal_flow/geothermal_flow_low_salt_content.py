@@ -10,33 +10,33 @@ import porepy as pp
 # Figure 4 single with low pressure (lP) condition
 # Figure 4 single with moderate pressure (mP) condition
 # Figure 4 single with high pressure (hP) condition
-from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (
+from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (  # noqa: E501
     BC_single_phase_high_pressure as BC_hP,
 )
-from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (
+from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (  # noqa: E501
     BC_single_phase_low_pressure as BC_lP,
 )
-from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (
+from porepy.examples.geothermal_flow.model_configuration.bc_description.bc_market import (  # noqa: E501
     BC_single_phase_moderate_pressure as BC_mP,
 )
-from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (
+from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (  # noqa: E501
     DriesnerBrineFlowModel as FlowModel,
 )
 
 # geometry description horizontal case
-from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (
+from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
     SimpleGeometryHorizontal as ModelGeometryH,
 )
-from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (
+from porepy.examples.geothermal_flow.model_configuration.geometry_description.geometry_market import (  # noqa: E501
     SimpleGeometryVertical as ModelGeometryV,
 )
-from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (
+from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
     IC_single_phase_high_pressure as IC_hP,
 )
-from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (
+from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
     IC_single_phase_low_pressure as IC_lP,
 )
-from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (
+from porepy.examples.geothermal_flow.model_configuration.ic_description.ic_market import (  # noqa: E501
     IC_single_phase_moderate_pressure as IC_mP,
 )
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler

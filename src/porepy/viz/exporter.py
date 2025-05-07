@@ -551,8 +551,8 @@ class Exporter:
             data: subdomain and interface data, prescribed through strings, or tuples
                 of subdomains/interfaces, keys and values. If not provided, only
                 geometrical information is exported.
-            data_pt: point subdomain and interface data, prescribed through strings, or tuples
-                of subdomains/interfaces, keys and values. If not provided only
+            data_pt: point subdomain and interface data, prescribed through strings, or
+                tuples of subdomains/interfaces, keys and values. If not provided only
                 geometrical infos are exported.
 
                 NOTE: The user has to make sure that each unique key has associated
@@ -601,8 +601,8 @@ class Exporter:
             data: subdomain and interface data, prescribed through strings, or tuples
                 of subdomains/interfaces, keys and values. If not provided only
                 geometrical infos are exported.
-            data_pt: point subdomain and interface data, prescribed through strings, or tuples
-                of subdomains/interfaces, keys and values. If not provided only
+            data_pt: point subdomain and interface data, prescribed through strings, or
+                tuples of subdomains/interfaces, keys and values. If not provided only
                 geometrical infos are exported.
 
                 NOTE: The user has to make sure that each unique key has associated
@@ -707,8 +707,8 @@ class Exporter:
                 subdomain_data[key_sd] = value.copy()
             for key_intf, value in self._constant_interface_data.items():
                 interface_data[key_intf] = value.copy()
-            # Append constant subdomain and interface data point to the standard containers
-            # for subdomain and interface data.
+            # Append constant subdomain and interface data point to the standard
+            # containers for subdomain and interface data.
             for key_sd, value in self._constant_subdomain_data_pt.items():
                 subdomain_data_pt[key_sd] = value.copy()
             for key_intf, value in self._constant_interface_data_pt.items():
@@ -920,9 +920,10 @@ class Exporter:
 
         Parameters:
             data: data provided by the user in the form of strings and/or tuples of
-            subdomains/interfaces.
+                subdomains/interfaces.
             num_entities: type of data that should be processed: cell type by using
-                the (default) flag "num_cells" and node type by using the flag "num_nodes".
+                the (default) flag "num_cells" and node type by using the flag
+                "num_nodes".
 
         Returns:
             Subdomain and interface data decomposed and brought into unified format.
@@ -1586,7 +1587,8 @@ class Exporter:
         # Collect unique keys, and for unique sorting, sort by alphabet
         keys = list(set([key for _, key in data]))
         keys.sort()
-        # Collect unique keys for the point data, and for unique sorting, sort by alphabet
+        # Collect unique keys for the point data, and for unique sorting, sort
+        # alphabetically.
         keys_pt = list(set([key for _, key in data_pt]))
         keys_pt.sort()
 
@@ -2002,9 +2004,7 @@ class Exporter:
                     # Sort faces for each cell such that they form a chain. Use a
                     # function compiled with Numba. This step is the bottleneck of
                     # this routine.
-                    cfn = pp.utils.sort_points.sort_multiple_point_pairs(cfn).astype(
-                        int
-                    )
+                    cfn = pp.sort_points.sort_multiple_point_pairs(cfn).astype(int)
 
                     # For each cell pick the sorted nodes such that they form a chain
                     # and thereby define the connectivity, i.e., skip every second row.

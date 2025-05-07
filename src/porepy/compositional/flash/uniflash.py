@@ -16,7 +16,6 @@ References:
     [1]: `Ben Gharbia et al. (2021) <https://doi.org/10.1051/m2an/2021075>`_
     [2]: `Vu et al. (2021) <https://doi.org/10.1016/j.matcom.2021.07.015>`_
 
-
 """
 
 from __future__ import annotations
@@ -165,11 +164,10 @@ class CompiledUnifiedFlash(Flash):
         results: np.ndarray,
         flash_type: str,
         fluid_state: pp.compositional.FluidProperties,
+        phase_property_params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> pp.compositional.FluidProperties:
         """Helper function to fill a fluid state with the equilibrium results from the
-        flash and evaluate all fluid properties using the values at equilibrium.
-
-        """
+        flash and evaluate all fluid properties using the values at equilibrium."""
         nphase = self.params["num_phases"]
         ncomp = self.params["num_components"]
 
@@ -190,7 +188,11 @@ class CompiledUnifiedFlash(Flash):
         for j in range(nphase):
             fluid_state.phases.append(
                 self._eos.compute_phase_properties(
-                    self._phasestates[j], fluid_state.p, fluid_state.T, x[j, :, :]
+                    self._phasestates[j],
+                    fluid_state.p,
+                    fluid_state.T,
+                    x[j, :, :],
+                    params=phase_property_params,
                 )
             )
 
@@ -203,8 +205,8 @@ class CompiledUnifiedFlash(Flash):
         return fluid_state
 
     def _convert_solver_params(self, solver_params: dict[str, float]) -> None:
-        """Helper method to convert the solver parameters dictionary into a numba-conformal
-        type."""
+        """Helper method to convert the solver parameters dictionary into a
+        numba-conformal type."""
 
         if not hasattr(self, "_nb_solver_params"):
             d = numba.typed.Dict.empty(
@@ -273,12 +275,13 @@ class CompiledUnifiedFlash(Flash):
                 z = gen_arg[3]
                 p = gen_arg[4]
                 T = gen_arg[5]
+                params = gen_arg[8]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
                 phis = np.empty(npnc, dtype=np.float64)
                 for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
+                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
 
                 res_1 = mass_conservation_res(x, y, z)
@@ -295,14 +298,15 @@ class CompiledUnifiedFlash(Flash):
                 y = gen_arg[2]
                 p = gen_arg[4]
                 T = gen_arg[5]
+                params = gen_arg[8]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
                 phis = np.empty(npnc, dtype=np.float64)
                 dphis = np.empty((nphase, ncomp, 2 + ncomp), dtype=np.float64)
                 for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
-                    pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
+                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
+                    pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     for i in range(ncomp):
@@ -333,13 +337,14 @@ class CompiledUnifiedFlash(Flash):
                 p = gen_arg[4]
                 T = gen_arg[5]
                 h_target = gen_arg[7]
+                params = gen_arg[8]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
                 phis = np.empty(npnc, dtype=np.float64)
                 h = np.empty(nphase, dtype=np.float64)
                 for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
+                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     h[j] = h_c(pre_res_j, p, T, xn[j])
 
@@ -362,6 +367,7 @@ class CompiledUnifiedFlash(Flash):
                 p = gen_arg[4]
                 T = gen_arg[5]
                 h_target = gen_arg[7]
+                params = gen_arg[8]
 
                 # EoS specific computations
                 xn = normalize_rows(x)
@@ -370,8 +376,8 @@ class CompiledUnifiedFlash(Flash):
                 hs = np.empty(nphase, dtype=np.float64)
                 dhs = np.empty((nphase, 2 + ncomp), dtype=np.float64)
                 for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
-                    pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
+                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
+                    pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     for i in range(ncomp):
@@ -409,7 +415,7 @@ class CompiledUnifiedFlash(Flash):
 
             @numba.njit(numba.f8[:](numba.f8[:]))
             def F_vh(X_gen: np.ndarray) -> np.ndarray:
-                s, x, y, z, p, T, v_target, h_target, _ = parse_generic_arg(
+                s, x, y, z, p, T, v_target, h_target, params = parse_generic_arg(
                     X_gen, npnc, "v-h"
                 )
 
@@ -419,7 +425,7 @@ class CompiledUnifiedFlash(Flash):
                 hs = np.empty(nphase, dtype=np.float64)
                 rhos = np.empty(nphase, dtype=np.float64)
                 for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
+                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     hs[j] = h_c(pre_res_j, p, T, xn[j])
                     rhos[j] = rho_c(pre_res_j, p, T, xn[j])
@@ -440,7 +446,7 @@ class CompiledUnifiedFlash(Flash):
 
             @numba.njit(numba.f8[:, :](numba.f8[:]))
             def DF_vh(X_gen: np.ndarray) -> np.ndarray:
-                s, x, y, _, p, T, v_target, h_target, _ = parse_generic_arg(
+                s, x, y, _, p, T, v_target, h_target, params = parse_generic_arg(
                     X_gen, npnc, "v-h"
                 )
 
@@ -453,8 +459,8 @@ class CompiledUnifiedFlash(Flash):
                 rhos = np.empty(nphase, dtype=np.float64)
                 drhos = np.empty((nphase, 2 + ncomp), dtype=np.float64)
                 for j in range(nphase):
-                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
-                    pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
+                    pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
+                    pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j], params)
                     phis[j] = phis_c(pre_res_j, p, T, xn[j])
                     d_phi_j = dphis_c(pre_res_j, pre_jac_j, p, T, xn[j])
                     for i in range(ncomp):
@@ -516,17 +522,22 @@ class CompiledUnifiedFlash(Flash):
         - ``'mode'``: Mode of solving the equilibrium problems for multiple state
           definitions given by vectorized input.
 
-          - ``'serial'``: A classical loop over state defintions (row-wise).
+          - ``'sequential'``: A classical loop over state defintions (row-wise).
           - ``'parallel'``: A parallelized loop, intended for larger amounts of
             problems.
 
-            Defaults to ``'serial'``.
+            Defaults to ``'sequential'``.
         - ``'solver'``: selected solver (see
           :data:`~porepy.compositional.flash.solvers.SOLVERS`)
         - ``'solver_params'``: Custom solver parameters for single run. Otherwise the
           instance- :attr:`solver_params` are used.
-        - ``'gen_arg_params'``: A sequence of numpy of arrays to be added as parameters
-          to the generic flash argument.
+        - ``'gen_arg_params'``: A sequence of arrays to be added as parameters
+          to the generic flash argument. Can also contain floats, which will be
+          broadcasted into the vectorized argument.
+        - ``'phase_property_params'``: A sequence of arrays or floats to be used when
+          calling :meth:`~porepy.compositional.eos_compiler.EoSCompiler.
+          compute_phase_properties` after the flash is performed to evaluate dependent
+          state functions and fluid properties.
 
         Raises:
             NotImplementedError: If an unsupported combination or insufficient number of
@@ -535,9 +546,9 @@ class CompiledUnifiedFlash(Flash):
         """
 
         if params is None:
-            params = {"mode": "serial", "solver": "npipm"}
+            params = {"mode": "sequential", "solver": "npipm"}
 
-        mode = params.get("mode", "serial")
+        mode = params.get("mode", "sequential")
         assert mode in MULTI_SOLVERS, f"Unsupported mode {mode}."
         solver = params.get("solver", "npipm")
         assert solver in SOLVERS, f"Unsupported solver {solver}."
@@ -555,8 +566,8 @@ class CompiledUnifiedFlash(Flash):
             z, p, T, h, v, initial_state
         )
         logger.debug(
-            f"{flash_type} flash target state parsed with {NF} points."
-            + f" Local size problem size: {f_dim}."
+            f"{NF} {flash_type} flash target state(s) parsed; "
+            + f"Problem size: {f_dim}; Solver: {solver} ({mode});"
         )
         assert flash_type in self.SUPPORTED_FLASH_TYPES, (
             f"Unsupported flash type {flash_type}."
@@ -593,8 +604,6 @@ class CompiledUnifiedFlash(Flash):
         solver_params["f_dim"] = f_dim
         self._convert_solver_params(solver_params)
 
-        logger.debug(f"Starting ({mode}) {solver} solver ..")
-
         start = time.time()
         results, success, num_iter = MULTI_SOLVERS[mode](
             X0,
@@ -610,13 +619,20 @@ class CompiledUnifiedFlash(Flash):
         )
         logger.debug(
             f"Success: {np.sum(success == 0)} / {NF};"
-            + f" Max iter reached: {np.sum(success == 1)};"
+            + f" Max iter: {np.sum(success == 1)};"
             + f" Diverged: {np.sum(success == 2)};"
-            + f" Other failures: {np.sum(success > 2)};"
+            + f" Failures: {np.sum(success > 2)};"
+            + f" Iterations: {num_iter.max()} (max) "
+            + f"{np.ceil(np.mean(num_iter)).astype(int)} (avg);"
         )
 
         return (
-            self._parse_and_complete_results(results, flash_type, fluid_state),
+            self._parse_and_complete_results(
+                results,
+                flash_type,
+                fluid_state,
+                phase_property_params=params.get("phase_property_params", None),
+            ),
             success,
             num_iter,
         )

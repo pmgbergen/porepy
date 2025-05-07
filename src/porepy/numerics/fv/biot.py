@@ -259,14 +259,14 @@ class Biot(pp.Mpsa):
         In addition, the following parameters are optional:
             Related to coupling terms:
                 scalar_vector_mapping (dictionary): Coupling terms (think generalization
-                    of Biot's coefficient). On the form {key_1: alpha_1, key_2: alpha_2}.
-                    The keys are used to identify the coupling term, and the values are
-                    either floats or SecondOrderTensor objects. If a float is given, the
-                    float is expanded to a SecondOrderTensor with the same value in all
-                    cells. The discretization will produce coupling terms (see class
-                    documentation), stored as a dictionary among the discretization
-                    matrices. The keys in the dictionary are the same as the keys in the
-                    scalar_vector_mapping dictionary, on the form
+                    of Biot's coefficient). On the form {key_1: alpha_1, key_2:
+                    alpha_2}.The keys are used to identify the coupling term, and the
+                    values are either floats or SecondOrderTensor objects. If a float is
+                    given, the float is expanded to a SecondOrderTensor with the same
+                    value in all cells. The discretization will produce coupling terms
+                    (see class documentation), stored as a dictionary among the
+                    discretization matrices. The keys in the dictionary are the same as
+                    the keys in the scalar_vector_mapping dictionary, on the form
 
                     data[pp.DISCRETIZATION_MATRICES][self.keyword]['scalar_gradient']
                         = {key_1: matrix_1, key_2: matrix_2}
@@ -647,7 +647,9 @@ class Biot(pp.Mpsa):
 
         if update:
             # The faces to be updated are given by active_faces
-            update_face_ind = pp.fvutils.expand_indices_nd(active_faces, sd.dim)
+            update_face_ind = pp.array_operations.expand_indices_nd(
+                active_faces, sd.dim
+            )
 
             matrices_m[self.stress_matrix_key][update_face_ind] = stress[
                 update_face_ind
@@ -779,8 +781,8 @@ class Biot(pp.Mpsa):
             bound_stress = hf2f * bound_stress * hf2f.T
             stress = hf2f * stress
             rhs_bound = rhs_bound * hf2f.T
-            # hf2f sums the values, but here we need an average.
-            # For now, use simple average, although area weighted values may be more accurate
+            # hf2f sums the values, but here we need an average. For now, use simple
+            # average, although area weighted values may be more accurate.
             num_subfaces = hf2f.sum(axis=1).A.ravel()
             scaling = sps.dia_matrix(
                 (1.0 / num_subfaces, 0), shape=(hf2f.shape[0], hf2f.shape[0])
@@ -1012,9 +1014,9 @@ class Biot(pp.Mpsa):
         # faces. Note that this mapping acts on nAlpha_grad, not unique_nAlpha_grad,
         # that is a row contains only the force on one side of the face.
         vals = np.ones(num_subfno_unique * nd)
-        rows = pp.fvutils.expand_indices_nd(subcell_topology.subfno_unique, nd)
-        cols = pp.fvutils.expand_indices_incr(
-            subcell_topology.unique_subfno, nd, num_subhfno
+        rows = pp.array_operations.expand_indices_nd(subcell_topology.subfno_unique, nd)
+        cols = pp.array_operations.expand_indices_add_increment(
+            x=subcell_topology.unique_subfno, n=nd, increment=num_subhfno
         )
         map_unique_subfno = sps.coo_matrix(
             (vals, (rows, cols)), shape=(num_subfno_unique * nd, num_subhfno * nd)
@@ -1035,7 +1037,7 @@ class Biot(pp.Mpsa):
         """
         rows = np.tile(np.arange(nf), ((nd, 1))).reshape((1, nd * nf), order="F")[0]
 
-        cols = pp.fvutils.expand_indices_nd(np.arange(nf), nd)
+        cols = pp.array_operations.expand_indices_nd(np.arange(nf), nd)
         vals = np.ones(nf * nd)
         return sps.coo_matrix((vals, (rows, cols))).tocsr()
 
@@ -1063,10 +1065,11 @@ class Biot(pp.Mpsa):
         col += incr.astype("int32")
 
         # Distribute the values of the alpha tensor to the subcells by using
-        # cell_node_blocks. For 2d grids, also drop the z-components of the alpha tensor.
-        # NOTE: This assumes that for a 2d grid, the grid is located in the xy-plane.
-        # This is a tacit assumption throughout the Biot and Mpsa implementations (but
-        # not mpfa, see the use of a rotation matrix in that module).
+        # cell_node_blocks. For 2d grids, also drop the z-components of the alpha
+        # tensor. NOTE: This assumes that for a 2d grid, the grid is located in the
+        # xy-plane. This is a tacit assumption throughout the Biot and Mpsa
+        # implementations (but not mpfa, see the use of a rotation matrix in that
+        # module).
         subcell_alpha_values = alpha.values[:nd, :nd, cell_node_blocks[0]]
 
         # Reorder the elements of the subcell_alpha_values (which is a 3-tensor), so

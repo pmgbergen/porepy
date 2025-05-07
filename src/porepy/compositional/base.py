@@ -48,7 +48,7 @@ Important:
 
 from __future__ import annotations
 
-from typing import Generator, Generic, Sequence, TypeVar
+from typing import Generator, Generic, Optional, Sequence, TypeVar
 
 import numpy as np
 
@@ -370,7 +370,10 @@ class EquationOfState:
             raise CompositionalModellingError("Cannot create an EoS with no components")
 
     def compute_phase_properties(
-        self, phase_state: PhysicalState, *thermodynamic_input: np.ndarray
+        self,
+        phase_state: PhysicalState,
+        *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> PhaseProperties:
         """Method to compute the properties of a phase based any
         thermodynamic input and a given physical state.
@@ -393,6 +396,8 @@ class EquationOfState:
             phase_state: The physical phase state for which to compute values.
             *thermodynamic_input: Vectors with consistent shape ``(N,)`` representing
                 any combination of thermodynamic input variables.
+            params: A sequence of arrays or float containing parameters for the
+                evaluation.
 
         Returns:
             A datastructure containing all relevant phase properties and their
@@ -667,11 +672,17 @@ class Phase(Generic[ComponentLike]):
         :meth:`reference_component_index`."""
         return self.components[self.reference_component_index]
 
-    def compute_properties(self, *thermodynamic_input: np.ndarray) -> PhaseProperties:
+    def compute_properties(
+        self,
+        *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
+    ) -> PhaseProperties:
         """Shortcut to compute the properties calling
         :meth:`EquationOfState.compute_phase_state` of :attr:`eos` with :attr:`state` as
         argument."""
-        return self.eos.compute_phase_properties(self.state, *thermodynamic_input)
+        return self.eos.compute_phase_properties(
+            self.state, *thermodynamic_input, params=params
+        )
 
 
 PhaseLike = TypeVar("PhaseLike", bound=Phase, covariant=True)
@@ -920,7 +931,8 @@ class Fluid(Generic[ComponentLike, PhaseLike]):
 
     @property
     def reference_phase(self) -> PhaseLike:
-        """Returns the reference phase as designated by :meth:`reference_phase_index`."""
+        """Returns the reference phase as designated by
+        :meth:`reference_phase_index`."""
         return self._phases[self.reference_phase_index]
 
     @property

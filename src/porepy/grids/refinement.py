@@ -11,6 +11,7 @@ import abc
 import logging
 from pathlib import Path
 from typing import Literal, Optional
+from warnings import warn
 
 import gmsh
 import numpy as np
@@ -51,6 +52,7 @@ def distort_grid_1d(
          The grid, but with distorted nodes.
 
     """
+
     if fixed_nodes is None:
         fixed_nodes = np.array([0, g.num_nodes - 1], dtype=int)
     else:
@@ -250,6 +252,7 @@ def refine_triangle_grid(g: pp.TriangleGrid) -> tuple[pp.TriangleGrid, np.ndarra
             Mapping from new to old cells.
 
     """
+
     # g needs to have face centers
     if not hasattr(g, "face_centers"):
         g.compute_geometry()
@@ -458,6 +461,7 @@ def structured_refinement(
         Column major sparse matrix mapping from coarse to fine cells.
 
     """
+
     # This method creates a mapping from fine to coarse cells by creating a matrix 'M'
     # where the rows represent the fine cells while the columns represent the coarse
     # cells. In practice this means that for an array 'p', of known values on a coarse

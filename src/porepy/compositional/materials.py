@@ -424,6 +424,26 @@ class SolidConstants(Constants):
 
 
 @dataclass(kw_only=True, eq=False)
+class FractureDamageSolidConstants(SolidConstants):
+    """Solid parameters for fracture damage models."""
+
+    # NOTE this makes a deep copy of the solid constants dict.
+    SI_units: ClassVar[dict[str, str]] = dict(**SolidConstants.SI_units)
+    SI_units.update(
+        {
+            "initial_dilation_damage": "-",
+            "initial_friction_damage": "-",
+            "dilation_damage_decay": "-",
+            "friction_damage_decay": "-",
+        }
+    )
+    initial_friction_damage: float = 1.0
+    friction_damage_decay: float = 0.0
+    initial_dilation_damage: float = 1.0
+    dilation_damage_decay: float = 0.0
+
+
+@dataclass(kw_only=True, eq=False)
 class NumericalConstants(Constants):
     """Data class containing numerical method parameters,
     including characteristic sizes.
@@ -435,7 +455,6 @@ class NumericalConstants(Constants):
             "characteristic_displacement": "m",
             "characteristic_contact_traction": "Pa",
             "open_state_tolerance": "-",
-            "contact_mechanics_scaling": "-",
         }
     )
 
@@ -444,9 +463,6 @@ class NumericalConstants(Constants):
 
     characteristic_displacement: number = 1.0
     """Characteristic displacement used for scaling of contact mechanics."""
-
-    contact_mechanics_scaling: number = 1e-1
-    """Safety scaling factor, making fractures softer than the matrix."""
 
     open_state_tolerance: number = 1e-10
     """Tolerance parameter for the tangential characteristic contact mechanics."""
@@ -536,8 +552,8 @@ def load_fluid_constants(names: list[str], package: str) -> list[FluidComponent]
         mm = float(mw_loader(cas))
         v_crit = float(vc_loader(cas)) / mm
 
-        # Ignoring arg-type. If None, conversion will fail and alert the user that chosen
-        # database is incomplete.
+        # Ignoring arg-type. If None, conversion will fail and alert the user that
+        # chosen database is incomplete.
         species.append(
             FluidComponent(
                 name=name,

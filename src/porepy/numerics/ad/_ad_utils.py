@@ -27,6 +27,7 @@ Classes:
 
 from __future__ import annotations
 
+import warnings
 from abc import ABCMeta
 from typing import Any, Optional
 
@@ -41,7 +42,10 @@ from .forward_mode import AdArray
 
 
 def concatenate_ad_arrays(ad_arrays: list[AdArray], axis=0):
-    """Concatenates a sequence of AD arrays into a single AD Array along a specified axis."""
+    """Concatenates a sequence of AD arrays into a single AD Array along a specified
+    axis."""
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
     vals = [var.val for var in ad_arrays]
     jacs = np.array([var.jac for var in ad_arrays])
 
@@ -237,9 +241,8 @@ def uniquify_discretization_list(
         key = (cls, param_keyword)
 
         if key in cls_key_covered:
-            # If this has been encountered before, we add subdomains not earlier associated
-            # with this discretization to the existing list.
-            # of subdomains.
+            # If this has been encountered before, we add subdomains not earlier
+            # associated with this discretization to the existing list. of subdomains.
             # Map from discretization class to Ad discretization
             d = cls_obj_map[cls]
             for g in discr.subdomains:
@@ -249,7 +252,8 @@ def uniquify_discretization_list(
                 if e not in unique_discr_grids[d]:
                     unique_discr_grids[d].append(e)
         else:
-            # Take note we have now encountered this discretization and parameter keyword.
+            # Take note we have now encountered this discretization and parameter
+            # keyword.
             cls_obj_map[cls] = discr._discr
             cls_key_covered.append(key)
 
@@ -272,7 +276,8 @@ def discretize_from_list(
     discretization.
     """
     for discr in discretizations:
-        # discr is a discretization (on node or interface in the MixedDimensionalGrid sense)
+        # discr is a discretization (on node or interface in the MixedDimensionalGrid
+        # sense)
 
         # Loop over all subdomains (or MixedDimensionalGrid edges), do discretization.
         for grid in discretizations[discr]:

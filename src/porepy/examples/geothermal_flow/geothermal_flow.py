@@ -5,7 +5,8 @@ The model relies on pressure (P), specific fluid mixture enthalpy (H), and NaCl 
 composition (z_NaCl) as primary variables.
 
 Equilibrium calculations are included in the correlations. As a result, they contain
-expressions for saturation, partial fractions, and temperature based on primary variables.
+expressions for saturation, partial fractions, and temperature based on primary
+variables.
 
 The correlations are interpolated with VTK using a standalone object (VTKSampler). Two
 instances of that object provide functions and their gradients within the product spaces
@@ -21,7 +22,7 @@ from typing import cast
 import numpy as np
 
 import porepy as pp
-from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (
+from porepy.examples.geothermal_flow.model_configuration.DriesnerModelConfiguration import (  # noqa: E501
     DriesnerBrineFlowModel as FlowModel,
 )
 from porepy.examples.geothermal_flow.vtk_sampler import VTKSampler
@@ -71,7 +72,7 @@ class GeothermalFlowModel(FlowModel):
 
 
 # Instance of the computational model
-model = GeothermalFlowModel(params)
+model = GeothermalFlowModel(params)  # type:ignore[abstract]
 
 parametric_space_ref_level = 2
 file_name_prefix = (

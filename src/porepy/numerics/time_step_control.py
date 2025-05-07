@@ -383,6 +383,9 @@ class TimeManager:
         self.time_index: int = 0
 
         # Private attributes
+
+        # dt before a correction due to scheduled time was done.
+        self._dt_before_schedule_correction: Optional[int | float] = None
         # Number of times the solution has been recomputed
         self._recomp_num: int = 0
 
@@ -465,6 +468,14 @@ class TimeManager:
         self._recomp_sol = recompute_solution
         self._iters = iterations
 
+        # If converged/no recomputation required, reset counter.
+        if not self._recomp_sol:
+            self._recomp_num = 0
+        # If not converged/recomputation required, forget the time step before schedule
+        # correction.
+        else:
+            self._dt_before_schedule_correction = None
+
         # First, check if we reach final simulation time with a valid solution
         if not recompute_solution and self.final_time_reached():
             return None
@@ -479,16 +490,29 @@ class TimeManager:
                 )
                 warnings.warn(msg)
             if self._recomp_sol:
-                msg = "recompute_solution=True has no effect if time step is constant."
+                msg = (
+                    "recompute_solution=True has no effect if time step is"
+                    + " constant."
+                )
                 warnings.warn(msg)
 
             return self.dt_init
 
-        # Adapt time step
-        if not self._recomp_sol:
-            self._adaptation_based_on_iterations(iterations=self._iters)
+        # Restore time step before schedule correction and proceed with it.
+        if self._dt_before_schedule_correction is not None:
+            if self._print_info:
+                print(
+                    "Restoring time step from before correction due to scheduled time: "
+                    + f"dt = {self._dt_before_schedule_correction}."
+                )
+            self.dt = self._dt_before_schedule_correction
+            self._dt_before_schedule_correction = None
+        # Else, adapt time step.
         else:
-            self._adaptation_based_on_recomputation()
+            if not self._recomp_sol:
+                self._adaptation_based_on_iterations(iterations=self._iters)
+            else:
+                self._adaptation_based_on_recomputation()
 
         # Correct time step
         self._correction_based_on_dt_min()
@@ -532,9 +556,6 @@ class TimeManager:
                 " False was given, the algorithm will adapt the time step anyways."
             )
             warnings.warn(msg)
-
-        # Make sure to reset the recomputation counter
-        self._recomp_num = 0
 
         # Proceed to determine the next time step using the following criteria: (C1) If
         #     the number of iterations is less than the lower endpoint of the optimal
@@ -661,6 +682,7 @@ class TimeManager:
                     )
                 return
 
+            self._dt_before_schedule_correction = self.dt
             self.dt = schedule_time - self.time  # Correcting time step.
 
             if self._scheduled_idx < len(self.schedule) - 1:

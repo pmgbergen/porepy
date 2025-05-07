@@ -5,8 +5,8 @@ Local equilibrium equations are single, cell-wise algebraic equations, introduci
 the thermodynamically consistent approach to modelling secondary expressions like
 phase densities and closing a CF model.
 
-Instances of :class:`UnifiedEquilibriumMixin` require the ``'equilibrium_type'`` model
-parameter to be *not* ``None``. This is to inform the remaining framework
+Instances of :class:`UnifiedEquilibriumMixin` require the ``'equilibrium_condition'``
+model parameter to be *not* ``None``. This is to inform the remaining framework
 that local equilibrium assumptions (instead of some constitutive laws) were introduced.
 
 """
@@ -37,10 +37,7 @@ class EnthalpyTemperatureRelation(EquationMixin):
 
     .. math::
 
-        \tilde{h} = \sum_j y_j h_j  - h = (\sum_j y_j h_j) / h - 1= 0~,
-
-    where the user can pass ``params['normalize_state_constraints']`` to determine which
-    form should be used.
+        \tilde{h} = \sum_j y_j h_j  - h = (\sum_j y_j h_j) / h - 1= 0~.
 
     Additionally, a float ``params['relaxation_enthalpy_constraint']`` can be passed to
     introduce a temporal relaxation
@@ -66,12 +63,9 @@ class EnthalpyTemperatureRelation(EquationMixin):
 
         subdomains = self.mdg.subdomains()
 
-        h_mix = self.fluid.specific_enthalpy(subdomains)
-        h_target = self.enthalpy(subdomains)
-        if self.params.get("normalize_state_constraints", True):
-            equ = h_mix / h_target - pp.ad.Scalar(1.0)
-        else:
-            equ = h_mix - h_target
+        equ = self.fluid.specific_enthalpy(subdomains) / self.enthalpy(
+            subdomains
+        ) - pp.ad.Scalar(1.0)
 
         relaxation_parameter = self.params.get("relaxation_enthalpy_constraint", None)
         if relaxation_parameter is not None:
@@ -97,8 +91,8 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
     if any of the following assumptions is violated:
 
     1. At least 2 components and 2 phases are modelled.
-    2. The model's ``params['equilibrium_type']`` is not None and contains the keyword
-       ``'unified'``.
+    2. The model's ``params['equilibrium_condition']`` is not None and contains the
+       keyword ``'unified'``.
     3. All phases have all components set in them (all extended partial fractions are
        defined and introduced).
 
@@ -111,14 +105,8 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
     volume: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     """See :class:`~porepy.models.compositional_flow.SolidSkeletonCF`."""
 
-    @property
-    def _normalize_constraints(self) -> bool:
-        """Returns the flags set in model parameters indicating whether local
-        constraints should be normalized (non-dimensional equations)."""
-        return bool(self.params.get("normalize_state_constraints", True))
-
     def set_equations(self) -> None:
-        """The base class method without defined equilibrium type performs a model
+        """The base class method without defined equilibrium condition performs a model
         validation to ensure that the assumptions for the unified flash are fulfilled.
         """
         assert isinstance(self, EquationMixin)
@@ -129,7 +117,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
 
         if not pp.compositional.has_unified_equilibrium(self):
             raise CompositionalModellingError(
-                "Must define a `equilibrium_type` model parameter containing the"
+                "Must define a `equilibrium_condition` model parameter containing the"
                 + " keyword `unified` when using the Unified Equilibrium Mixin."
             )
 
@@ -192,7 +180,7 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
 
         equ = pp.ad.sum_operator_list([x * y for x, y in zip(x_ij, y_j)]) - z_i
 
-        equ.set_name(f"local_mass_constraint_{component.name}")
+        equ.set_name(f"local_component_mass_constraint_{component.name}")
         return equ
 
     def complementarity_condition_for_phase(
@@ -217,10 +205,8 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
             subdomains: A list of subdomains on which to define the equation.
 
         Returns:
-            The left-hand side of above equation. If the semi-smooth form is
-            requested by the solution strategy, then the :math:`\\min\\{\\}` operator is
-            used. The semi-smooth form can be requested via
-            ``params['use_semismooth_complementarity']`` and defaults to True.
+            The left-hand side of above equation. The :math:`\\min\\{\\}` operator is
+            used by default (semi-smooth form).
 
         """
 
@@ -231,12 +217,8 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
         minimum = lambda x, y: pp.ad.maximum(-x, -y)
         ssmin = pp.ad.Function(minimum, "semi-smooth-minimum")
 
-        if self.params.get("use_semismooth_complementarity", True):
-            equ = ssmin(phase.fraction(subdomains), unity)
-            equ.set_name(f"semismooth_complementary_condition_{phase.name}")
-        else:
-            equ = phase.fraction(subdomains) * unity
-            equ.set_name(f"complementary_condition_{phase.name}")
+        equ = ssmin(phase.fraction(subdomains), unity)
+        equ.set_name(f"semismooth_complementary_condition_{phase.name}")
         return equ
 
     def isofugacity_constraint_for_component_in_phase(
@@ -321,14 +303,9 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
             returned.
 
         """
-        h_mix = self.fluid.specific_enthalpy(subdomains)
-        h_target = self.enthalpy(subdomains)
-
-        if self._normalize_constraints:
-            equ = h_mix / h_target - pp.ad.Scalar(1.0)
-        else:
-            equ = h_mix - h_target
-
+        equ = self.fluid.specific_enthalpy(subdomains) / self.enthalpy(
+            subdomains
+        ) - pp.ad.Scalar(1.0)
         equ.set_name("local_fluid_enthalpy_constraint")
         return equ
 
@@ -354,12 +331,9 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
             returned.
 
         """
-        if self._normalize_constraints:
-            equ = self.volume(subdomains) * self.fluid.density(
-                subdomains
-            ) - pp.ad.Scalar(1.0)
-        else:
-            equ = self.volume(subdomains) - self.fluid.specific_volume(subdomains)
+        equ = self.volume(subdomains) * self.fluid.density(subdomains) - pp.ad.Scalar(
+            1.0
+        )
         equ.set_name("local_fluid_volume_constraint")
         return equ
 
@@ -402,15 +376,10 @@ class UnifiedPhaseEquilibriumEquations(pp.PorePyModel):
             it returns the normalized form.
 
         """
-        if self._normalize_constraints:
-            equ = phase.fraction(subdomains) * self.fluid.density(
-                subdomains
-            ) / phase.density(subdomains) - phase.saturation(subdomains)
-        else:
-            equ = phase.fraction(subdomains) * self.fluid.density(
-                subdomains
-            ) - phase.saturation(subdomains) * phase.density(subdomains)
-        equ.set_name(f"local_density_conservation_{phase.name}")
+        equ = phase.fraction(subdomains) * self.fluid.density(
+            subdomains
+        ) / phase.density(subdomains) - phase.saturation(subdomains)
+        equ.set_name(f"local_phase_mass_constraint_{phase.name}")
         return equ
 
 

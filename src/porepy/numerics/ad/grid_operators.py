@@ -188,7 +188,8 @@ class SubdomainProjections:
         """Construct prolongation from subdomain to global face quantities.
 
         Parameters:
-            subdomains: One or several subdomains to which the prolongation should apply.
+            subdomains: One or several subdomains to which the prolongation should
+                apply.
 
         Raises:
             ValueError: If subdomains is not a list.
@@ -652,8 +653,8 @@ class MortarProjections:
                 projection method in the MortarGrid class.
             to_mortar: If True, the projection is from subdomains to mortar grids. If
                 False, the projection is from mortar grids to subdomains.
-            is_primary: If True, the projection is to or from primary grids. If False, the
-                projection is to or from secondary grids.
+            is_primary: If True, the projection is to or from primary grids. If False,
+                the projection is to or from secondary grids.
             name: Name of the operator.
 
         Raises:
@@ -981,7 +982,7 @@ def _cell_projections(
     cell_offset = 0
 
     for sd in subdomains:
-        cell_ind = cell_offset + pp.fvutils.expand_indices_nd(
+        cell_ind = cell_offset + pp.array_operations.expand_indices_nd(
             np.arange(sd.num_cells), dim
         )
         cell_sz = sd.num_cells * dim
@@ -1021,7 +1022,7 @@ def _face_projections(
     face_offset = 0
 
     for sd in subdomains:
-        face_ind = face_offset + pp.fvutils.expand_indices_nd(
+        face_ind = face_offset + pp.array_operations.expand_indices_nd(
             np.arange(sd.num_faces), dim
         )
         face_sz = sd.num_faces * dim

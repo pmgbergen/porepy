@@ -22,34 +22,95 @@ from __future__ import annotations
 
 import logging
 import os
+import pathlib
 import time
 import warnings
+from collections import deque
+from typing import Any, Callable, Literal, Optional, Sequence, cast, no_type_check
+
+import numpy as np
+import scipy.sparse as sps
 
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
-compile_time = 0.0
+import porepy as pp
+from porepy.applications.test_utils.models import create_local_model_class
+from porepy.fracs.wells_3d import _add_interface
+from porepy.numerics.solvers.andersonacceleration import AndersonAcceleration
+from porepy.viz.solver_statistics import ExtendedSolverStatistics
+
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("porepy").setLevel(logging.DEBUG)
 
-from typing import Any, Callable, Optional, Sequence, no_type_check
-
-import numpy as np
-
-import porepy as pp
-
 t_0 = time.time()
 import porepy.compositional.peng_robinson as pr
-
-compile_time += time.time() - t_0
-
 import porepy.models.compositional_flow_with_equilibrium as cfle
+import porepy.models.compositional_flow as cf
+
+compile_time = time.time() - t_0
+
 
 logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
+# region Mathematical model configuration for flow & transport
 
-class SoereideMixture:
+fractional_flow: bool = False
+use_well_model: bool = True
+equilibrium_condition: str = "unified-p-h"
+use_schur_technique: bool = True
+analysis_mode: bool = True
+
+
+class _FlowConfiguration(pp.PorePyModel):
+    """Helper class to bundle the configuration of pressure, temperature and mass
+    for in- and outflow."""
+
+    # Initial values.
+    _p_INIT: float = 20e6
+    _T_INIT: float = 450.0
+    _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
+
+    # In- and outflow values.
+    _T_HEATED: float = 640.0
+    _p_IN: float = _p_INIT
+    _T_IN: float = 300.0
+    _z_IN: dict[str, float] = {
+        "H2O": _z_INIT["H2O"] - 0.095,
+        "CO2": _z_INIT["CO2"] + 0.095,
+    }
+    _p_OUT: float = _p_INIT - 1e6
+    _T_OUT: float = _T_INIT
+    _z_OUT: dict[str, float] = {
+        "H2O": _z_INIT["H2O"],
+        "CO2": _z_INIT["CO2"],
+    }
+
+    # Injection model configuration
+
+    _T_INJECTION: dict[int, float] = {0: _T_IN}
+    _p_PRODUCTION: dict[int, float] = {0: _p_OUT}
+
+    # Value obtained from a p-T flash with values defined above.
+    # Divide by 3600 to obtain an injection of unit per hour
+    # Multiplied by some number for how many units per hour
+    _TOTAL_INJECTED_MASS: float = 10 * 27430.998956110157 / (60 * 60)  # mol / m^3
+
+    _INJECTED_MASS: dict[str, dict[int, float]] = {
+        "H2O": {0: _TOTAL_INJECTED_MASS * _z_IN["H2O"]},
+        "CO2": {0: _TOTAL_INJECTED_MASS * _z_IN["CO2"]},
+    }
+
+    # Coordinates of injection and production wells in meters
+    _INJECTION_POINTS: list[np.ndarray] = [np.array([15.0, 10.0])]
+    _PRODUCTION_POINTS: list[np.ndarray] = [np.array([85.0, 10.0])]
+
+
+# endregion
+
+
+class SoereideMixture(pp.PorePyModel):
     """Model fluid using the Soereide mixture, a Peng-Robinson based EoS for
     NaCl brine with CO2, H2S and N2."""
 
@@ -80,10 +141,91 @@ class SoereideMixture:
         ]
 
 
+class AnalysisMixin(pp.PorePyModel):
+    """Storing some information for analysis purposes."""
+
+    @no_type_check
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: Optional[np.ndarray],
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+        """Flags the time step as diverged, if there is a nan in the residual."""
+
+        if isinstance(self.nonlinear_solver_statistics, ExtendedSolverStatistics):
+            res_norm_per_eq = {}
+            incr_norm_per_var = {}
+            condition_numbers = {}
+
+            var_names = set([var.name for var in self.equation_system.variables])
+
+            for n, e in self.equation_system.equations.items():
+                res_norm_per_eq[n] = self.compute_residual_norm(
+                    self.equation_system.evaluate(e), reference_residual
+                )
+            for n in var_names:
+                v = nonlinear_increment[self.equation_system.dofs_of([n])]
+                incr_norm_per_var[n] = self.compute_residual_norm(v, reference_residual)
+
+            # A = self.linear_system[0]
+            # try:
+            #     condition_numbers["global"] = np.linalg.cond(A.todense())
+            # except np.linalg.LinAlgError:
+            #     condition_numbers["global"] = np.nan
+
+            # A, _ = self.equation_system.assemble(
+            #     equations=self.primary_equations, variables=self.primary_variables
+            # )
+            # try:
+            #     condition_numbers["block_pp"] = np.linalg.cond(A.todense())
+            # except np.linalg.LinAlgError:
+            #     condition_numbers["block_pp"] = np.nan
+            # A, _ = self.equation_system.assemble(
+            #     equations=self.secondary_equations, variables=self.secondary_variables
+            # )
+            # try:
+            #     condition_numbers["block_ss"] = np.linalg.cond(A.todense())
+            # except np.linalg.LinAlgError:
+            #     condition_numbers["block_ss"] = np.nan
+
+            self.nonlinear_solver_statistics.extended_log(
+                self.time_manager.time,
+                self.time_manager.dt,
+                res_norm_per_equation=res_norm_per_eq,
+                incr_norm_per_variable=incr_norm_per_var,
+                condition_numbers=condition_numbers,
+            )
+
+        return super().check_convergence(
+            nonlinear_increment, residual, reference_residual, nl_params
+        )
+
+    def after_nonlinear_convergence(self):
+        super().after_nonlinear_convergence()
+
+        for sd in self.mdg.subdomains(dim=0):
+            p = self.equation_system.evaluate(self.pressure([sd]))
+            T = self.equation_system.evaluate(self.temperature([sd]))
+            h = self.equation_system.evaluate(self.enthalpy([sd]))
+            if "injection_well" in sd.tags:
+                s = "injection"
+                i = sd.tags["injection_well"]
+            elif "production_well" in sd.tags:
+                s = "production"
+                i = sd.tags["production_well"]
+            else:
+                continue
+            print(f"{s} well {i}:\n\tp={p}\n\tT={T}\n\th={h}")
+
+
 class SolutionStrategy(pp.PorePyModel):
     """Provides some pre- and post-processing for flash methods."""
 
     flash: pp.compositional.Flash
+
+    compute_nonlinear_increment_norm: Callable[[np.ndarray], float]
 
     pressure_variable: str
     temperature_variable: str
@@ -92,6 +234,192 @@ class SolutionStrategy(pp.PorePyModel):
     enthalpy: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
     has_independent_fraction: Callable[[pp.Component | pp.Phase], bool]
+    secondary_variables: list[str]
+    secondary_equations: list[str]
+    fraction_in_phase_variables: list[str]
+    phase_fraction_variables: list[str]
+    isofugacity_constraint_for_component_in_phase: Callable[
+        [pp.Component, pp.Phase, Sequence[pp.Grid]],
+        pp.ad.Operator,
+    ]
+
+    _block_row_permutation: np.ndarray
+    _block_column_permutation: np.ndarray
+    _block_size: int
+
+    def __init__(self, params: dict | None = None):
+        super().__init__(params)  # type:ignore[safe-super]
+
+        self._residual_norm_history: deque[float] = deque(maxlen=4)
+        self._increment_norm_history: deque[float] = deque(maxlen=3)
+
+    def before_nonlinear_loop(self) -> None:
+        super().before_nonlinear_loop()  # type:ignore[misc]
+        self._residual_norm_history.clear()
+        self._increment_norm_history.clear()
+
+    def check_convergence(
+        self,
+        nonlinear_increment: np.ndarray,
+        residual: Optional[np.ndarray],
+        reference_residual: np.ndarray,
+        nl_params: dict[str, Any],
+    ) -> tuple[bool, bool]:
+        """Flags the time step as diverged, if there is a nan in the residual."""
+        status = super().check_convergence(  # type:ignore[misc]
+            nonlinear_increment, residual, reference_residual, nl_params
+        )
+        if residual is not None:
+            if np.any(np.isnan(residual)) or np.any(np.isinf(residual)):
+                status = (False, True)
+
+        # Convergence check for individual norms, if the global residual is not yet
+        # small enough.
+        tol_res = float(self.params["nl_convergence_tol_res"])
+        tol_inc = float(self.params["nl_convergence_tol"])
+        # Relaxed tolerance for quantities loosing their physical meaning in the unified
+        # setting when a phase dissappears.
+        # Relaxed tolerance for partial fractions and isofugacity constraints.
+        # Saying variations have to drop below 1% (not significant enough to change the
+        # state)
+        tol_relaxed = 1e-2
+
+        if status == (False, False):
+            residuals_converged: list[bool] = []
+            increments_converged: list[bool] = []
+
+            # First, perform standard check for all equations except isofugacity
+            # constraints, and all variables except partial fractions
+            for name, eq in self.equation_system.equations.items():
+                rn = self.compute_residual_norm(
+                    cast(np.ndarray, self.equation_system.evaluate(eq)),
+                    reference_residual,
+                )
+                if "isofugacity" not in name:
+                    residuals_converged.append(rn < tol_res)
+                else:
+                    residuals_converged.append(rn < tol_relaxed)
+
+            partial_frac_vars = self.fraction_in_phase_variables
+            for var in self.equation_system.variables:
+                rn = self.compute_nonlinear_increment_norm(
+                    nonlinear_increment[self.equation_system.dofs_of([var])]
+                )
+                if var.name not in partial_frac_vars:
+                    increments_converged.append(rn < tol_inc)
+                else:
+                    increments_converged.append(rn < tol_relaxed)
+
+            # # Second, we loop over the phases and perform a relaxed convergence check
+            # # where a phase disapeared. This relaxed check is applied to extended
+            # # partial fractions and isoguacity constrains on cells, where a phase
+            # # fraction is near zero.
+            # rphase = self.fluid.reference_phase
+            # subdomains = self.mdg.subdomains()
+            # eps = 1e-10
+            # rphase_gone = cast(
+            #     np.ndarray,
+            #     self.equation_system.evaluate(rphase.fraction(subdomains)) < eps,
+            # )
+            # independent_phase = [p for p in self.fluid.phases if p != rphase]
+            # # Convergence check for increment of extended fractions in reference phase
+            # for comp in rphase:
+            #     x_inc = nonlinear_increment[
+            #         np.sort(
+            #             self.equation_system.dofs_of(
+            #                 [rphase.extended_fraction_of[comp](subdomains)]
+            #             )
+            #         )
+            #     ]
+
+            #     increments_converged.append(
+            #         self.compute_nonlinear_increment_norm(x_inc[rphase_gone])
+            #         < tol_relaxed
+            #         and self.compute_nonlinear_increment_norm(x_inc[~rphase_gone])
+            #         < tol_inc
+            #     )
+
+            # for iphase in independent_phase:
+            #     iphase_gone = cast(
+            #         np.ndarray,
+            #         self.equation_system.evaluate(iphase.fraction(subdomains)) < eps,
+            #     )
+            #     # Convergence check for extended fraction in independent phase.
+            #     for comp in iphase:
+            #         x_inc = nonlinear_increment[
+            #             np.sort(
+            #                 self.equation_system.dofs_of(
+            #                     [iphase.extended_fraction_of[comp](subdomains)]
+            #                 )
+            #             )
+            #         ]
+
+            #         increments_converged.append(
+            #             self.compute_nonlinear_increment_norm(x_inc[iphase_gone])
+            #             < tol_relaxed
+            #             and self.compute_nonlinear_increment_norm(x_inc[~iphase_gone])
+            #             < tol_inc
+            #         )
+
+            #         # Checking residual norm of isofugacity constraint.
+            #         if comp not in rphase.components:
+            #             continue
+
+            #         res = cast(
+            #             np.ndarray,
+            #             self.equation_system.evaluate(
+            #                 self.isofugacity_constraint_for_component_in_phase(
+            #                     comp, iphase, subdomains
+            #                 )
+            #             ),
+            #         )
+            #         gone = iphase_gone | rphase_gone
+            #         residuals_converged.append(
+            #             self.compute_residual_norm(res[gone], reference_residual)
+            #             < tol_relaxed
+            #             and self.compute_residual_norm(res[~gone], reference_residual)
+            #             < tol_res
+            #         )
+
+            status = (
+                all(residuals_converged) and all(increments_converged),
+                False,
+            )
+            if status[0]:
+                print("\nConverged with relaxed, unified CF criteria.\n")
+
+        # Keeping residual/ increment norm history and checking for stationary points.
+        self._residual_norm_history.append(
+            self.compute_residual_norm(residual, reference_residual)
+        )
+        self._increment_norm_history.append(
+            self.compute_nonlinear_increment_norm(nonlinear_increment)
+        )
+
+        if len(self._residual_norm_history) == self._residual_norm_history.maxlen:
+            residual_stationary = (
+                np.allclose(
+                    self._residual_norm_history,
+                    self._residual_norm_history[-1],
+                    rtol=0.0,
+                    atol=tol_res,
+                )
+                and tol_res != np.inf
+            )
+            increment_stationary = (
+                np.allclose(
+                    self._increment_norm_history,
+                    self._increment_norm_history[-1],
+                    rtol=0.0,
+                    atol=tol_inc,
+                )
+                and tol_inc != np.inf
+            )
+            if residual_stationary and increment_stationary and not status[0]:
+                print("Detected stationary point. Flagging as diverged.")
+                status = (False, True)
+
+        return status
 
     def compute_residual_norm(
         self, residual: Optional[np.ndarray], reference_residual: np.ndarray
@@ -124,8 +452,7 @@ class SolutionStrategy(pp.PorePyModel):
 
         z = pp.compositional.normalize_rows(z.T).T
 
-        for i, zc in enumerate(zip(z, self.fluid.components)):
-            z_i, comp = zc
+        for z_i, comp in zip(z, self.fluid.components):
             if self.has_independent_fraction(comp):
                 self.equation_system.set_variable_values(
                     z_i,
@@ -133,36 +460,40 @@ class SolutionStrategy(pp.PorePyModel):
                     iterate_index=0,
                 )
 
-    def after_nonlinear_failure(self):
-        self.exporter.write_pvd()
-        super().after_nonlinear_failure()  # type:ignore
+    def update_thermodynamic_properties_of_phases(
+        self, state: Optional[np.ndarray] = None
+    ) -> None:
+        """Performing pT flash in injection wells, because T is fixed there."""
+        for sd in self.mdg.subdomains():
+            if "injection_well" in sd.tags:
+                equ_spec = {
+                    "p": self.equation_system.evaluate(
+                        self.pressure([sd]), state=state
+                    ),
+                    "T": self.equation_system.evaluate(
+                        self.temperature([sd]), state=state
+                    ),
+                }
+                self.local_equilibrium(sd, state=state, equilibrium_specs=equ_spec)  # type:ignore
+            elif self.nonlinear_solver_statistics.num_iteration % 3 == 0:
+                self.local_equilibrium(sd, state=state)  # type:ignore
+            else:
+                cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
+                    self,  # type:ignore[arg-type]
+                    state,
+                )
 
-    def get_fluid_state(
-        self, subdomains: Sequence[pp.Grid], state: Optional[np.ndarray] = None
+    def current_fluid_state(
+        self,
+        subdomains: Sequence[pp.Grid] | pp.Grid,
+        state: Optional[np.ndarray] = None,
     ) -> pp.compositional.FluidProperties:
         """Method to pre-process the evaluated fractions. Normalizes the extended
         fractions where they violate the unity constraint."""
-        fluid_state: pp.compositional.FluidProperties = super().get_fluid_state(  # type:ignore
+        fluid_state: pp.compositional.FluidProperties = super().current_fluid_state(  # type:ignore
             subdomains, state
         )
 
-        # sanity checks
-        # p = self.equation_system.get_variable_values(
-        #     [self.pressure_variable], iterate_index=0
-        # )
-        # T = self.equation_system.get_variable_values(
-        #     [self.temperature_variable], iterate_index=0
-        # )
-        # if np.any(p <= 0.0):
-        #     raise ValueError("Pressure diverged to negative values.")
-        # if np.any(T <= 0):
-        #     raise ValueError("Temperature diverged to negative values.")
-
-        unity_tolerance = 0.05
-
-        sat_sum = np.sum(fluid_state.sat, axis=0)
-        if np.any(sat_sum > 1 + unity_tolerance):
-            raise ValueError("Saturations violate unity constraint")
         y_sum = np.sum(fluid_state.y, axis=0)
         idx = fluid_state.y < 0
         if np.any(idx):
@@ -177,13 +508,6 @@ class SolutionStrategy(pp.PorePyModel):
                 fluid_state.y[:, idx].T
             ).T
 
-        # if np.any(y_sum > 1 + unity_tolerance):
-        #     raise ValueError("Phase fractions violate unity constraint")
-        # if np.any(fluid_state.y < 0 - unity_tolerance) or np.any(
-        #     fluid_state.y > 1 + unity_tolerance
-        # ):
-        #     raise ValueError("Phase fractions out of bound.")
-
         for phase in fluid_state.phases:
             x_sum = phase.x.sum(axis=0)
             idx = x_sum > 1.0
@@ -195,26 +519,18 @@ class SolutionStrategy(pp.PorePyModel):
             idx = phase.x > 1.0
             if np.any(idx):
                 phase.x[idx] = 1.0
-            # if np.any(x_sum > 1 + unity_tolerance):
-            #     raise ValueError(
-            #         f"Extended fractions in phase {j} violate unity constraint."
-            #     )
-            # if np.any(phase.x < 0 - unity_tolerance) or np.any(
-            #     phase.x > 1 + unity_tolerance
-            # ):
-            #     raise ValueError(f"Extended fractions in phase {j} out of bound.")
 
         return fluid_state
 
     def postprocess_flash(
         self,
-        subdomain: pp.Grid,
-        fluid_state: pp.compositional.FluidProperties,
-        success: np.ndarray,
+        sd: pp.Grid,
+        equilibrium_results: tuple[pp.compositional.FluidProperties, np.ndarray],
+        state: Optional[np.ndarray] = None,
     ) -> pp.compositional.FluidProperties:
-        """A post-processing where the flash is again attempted where not succesful.
+        """A post-processing where the flash is again attempted where not successful.
 
-        1. Where not successful, it re-attempts the flash from scratch, with
+        1. Where not successful, it attempts the flash from scratch, with
            initialization procedure.
            If the new attempt did not reach the desired precision (max iter), it
            treats it as success.
@@ -222,20 +538,26 @@ class SolutionStrategy(pp.PorePyModel):
            iterate.
 
         """
+        fluid_state, success = equilibrium_results
+
         failure = success > 0
-        equilibrium_type = str(pp.compositional.get_equilibrium_type(self))
+        equilibrium_condition = str(
+            pp.compositional.get_local_equilibrium_condition(self)
+        )
         if np.any(failure):
-            logger.warning(
+            logger.debug(
                 f"Flash from iterate state failed in {failure.sum()} cells on grid"
-                + f" {subdomain.id}. Performing full flash .."
+                + f" {sd.id}. Performing full flash .."
             )
             z = [
-                comp.fraction([subdomain]).value(self.equation_system)[failure]  # type:ignore[index]
+                self.equation_system.evaluate(comp.fraction([sd]), state=state)[failure]  # type:ignore[index]
                 for comp in self.fluid.components
             ]
-            p = self.equation_system.evaluate(self.pressure([subdomain]))[failure]  # type:ignore[index]
-            h = self.equation_system.evaluate(self.enthalpy([subdomain]))[failure]  # type:ignore[index]
-            T = self.equation_system.evaluate(self.temperature([subdomain]))[failure]  # type:ignore[index]
+            p = self.equation_system.evaluate(self.pressure([sd]), state=state)[failure]  # type:ignore[index]
+            h = self.equation_system.evaluate(self.enthalpy([sd]), state=state)[failure]  # type:ignore[index]
+            T = self.equation_system.evaluate(self.temperature([sd]), state=state)[
+                failure
+            ]  # type:ignore[index]
 
             # no initial guess, and this model uses only p-h flash.
             flash_kwargs: dict[str, Any] = {
@@ -244,9 +566,9 @@ class SolutionStrategy(pp.PorePyModel):
                 "params": self.params.get("flash_params"),
             }
 
-            if "p-h" in equilibrium_type:
+            if "p-h" in equilibrium_condition:
                 flash_kwargs["h"] = h
-            elif "p-T" in equilibrium_type:
+            elif "p-T" in equilibrium_condition:
                 flash_kwargs["T"] = T
 
             sub_state, sub_success, _ = self.flash.flash(**flash_kwargs)
@@ -257,11 +579,11 @@ class SolutionStrategy(pp.PorePyModel):
             sub_success[max_iter_reached] = 0
             # fall back to previous iter values
             if np.any(fallback):
-                logger.warning(
-                    f"Full flash failed in {fallback.sum()} cells on grid {subdomain.id}."
-                    + " Falling back to previous iterate state."
+                logger.debug(
+                    f"Full flash failed in {fallback.sum()} cells on grid "
+                    + f"{sd.id}. Falling back to previous iterate state."
                 )
-                sub_state = self.fall_back(subdomain, sub_state, failure, fallback)
+                sub_state = self.fall_back(sd, sub_state, failure, fallback)
                 sub_success[fallback] = 0
             # update parent state with sub state values
             success[failure] = sub_success
@@ -289,7 +611,7 @@ class SolutionStrategy(pp.PorePyModel):
                 fluid_state.phases[j].dphis[:, :, failure] = sub_state.phases[j].dphis
 
         # Parent method performs a check that everything is successful.
-        return super().postprocess_flash(subdomain, fluid_state, success)  # type:ignore
+        return super().postprocess_flash(sd, (fluid_state, success), state=state)  # type:ignore
 
     @no_type_check
     def fall_back(
@@ -303,16 +625,18 @@ class SolutionStrategy(pp.PorePyModel):
         grid."""
         sds = [grid]
         data = self.mdg.subdomain_data(grid)
-        equilibrium_type = str(pp.compositional.get_equilibrium_type(self))
-        if "T" not in equilibrium_type:
+        equilibrium_condition = str(
+            pp.compositional.get_local_equilibrium_condition(self)
+        )
+        if "T" not in equilibrium_condition:
             sub_state.T[fallback_idx] = pp.get_solution_values(
                 self.temperature_variable, data, iterate_index=0
             )[failed_idx][fallback_idx]
-        if "h" not in equilibrium_type:
+        if "h" not in equilibrium_condition:
             sub_state.h[fallback_idx] = pp.get_solution_values(
                 self.pressure_variable, data, iterate_index=0
             )[failed_idx][fallback_idx]
-        if "p" not in equilibrium_type:
+        if "p" not in equilibrium_condition:
             sub_state.p[fallback_idx] = pp.get_solution_values(
                 self.enthalpy_variable, data, iterate_index=0
             )[failed_idx][fallback_idx]
@@ -380,8 +704,104 @@ class SolutionStrategy(pp.PorePyModel):
 
         return sub_state
 
+    def schur_complement_inverter(self) -> Callable[[sps.spmatrix], sps.spmatrix]:
+        """Parallelized block diagonal inverter for local equilibrium equations,
+        assuming they are defined on all subdomains in each cell."""
 
-class Geometry(pp.PorePyModel):
+        # return super().schur_complement_inverter()
+        if not hasattr(self, "_block_permutation"):
+            # Local system size of p-h flash including saturations and phase mass
+            # constraints.
+            ncomp = self.fluid.num_components
+            nphase = self.fluid.num_phases
+            block_size: int = ncomp - 1 + ncomp * (nphase - 1) + nphase + 1 + nphase - 1
+            assert block_size == len(self.secondary_equations)
+            assert block_size == len(self.secondary_variables)
+            self._block_size = block_size
+
+            # Permutation of DOFs in porepy, assuming the order is equ1, equ2,...
+            # With an subdomain-minor order per variable.
+            N = self.mdg.num_subdomain_cells()
+            shift = np.kron(np.arange(block_size), np.ones(N))
+            stride = np.arange(N) * block_size
+            permutation = (np.kron(np.ones(block_size), stride) + shift).astype(
+                np.int32
+            )
+            identity = np.arange(N * block_size, dtype=np.int32)
+            assert np.allclose(np.sort(permutation), identity, rtol=0.0, atol=1e-16)
+
+            self._block_row_permutation = permutation
+
+            # Above permutation can be used for both column and blocks, if there is
+            # no point grid. If there is a point grid, above permutation assembles the
+            # blocks belonging to the point grid cells already fully, due to how AD is
+            # implemented in PorePy. We then need a special column permutation, which
+            # permutes only on the those grids which are not point grids.
+            # Note that the subdomains are sorted by default ascending w.r.t. their
+            # dimension. Point grids come last
+            subdomains = self.mdg.subdomains()
+            if subdomains[-1].dim == 0:
+                non_point_grids = [g for g in subdomains if g.dim > 0]
+                sub_N = sum([g.num_cells for g in non_point_grids])
+                shift = np.kron(np.arange(block_size), np.ones(sub_N))
+                stride = np.arange(sub_N) * block_size
+                sub_permutation = (np.kron(np.ones(block_size), stride) + shift).astype(
+                    np.int32
+                )
+                sub_identity = np.arange(sub_N * block_size, dtype=np.int32)
+                assert np.allclose(
+                    np.sort(sub_permutation), sub_identity, rtol=0.0, atol=1e-16
+                )
+                permutation = np.arange(N * block_size, dtype=np.int32)
+                permutation[: sub_N * block_size] = sub_permutation
+                self._block_column_permutation = permutation
+
+        def inverter(A: sps.csr_matrix) -> sps.csr_matrix:
+            row_perm = pp.matrix_operations.ArraySlicer(
+                range_indices=self._block_row_permutation
+            )
+            inv_col_perm = pp.matrix_operations.ArraySlicer(
+                domain_indices=self._block_row_permutation
+            )
+            if hasattr(self, "_block_column_permutation"):
+                col_perm = pp.matrix_operations.ArraySlicer(
+                    range_indices=self._block_column_permutation
+                )
+                inv_row_perm = pp.matrix_operations.ArraySlicer(
+                    domain_indices=self._block_column_permutation
+                )
+            else:
+                col_perm = row_perm
+                inv_row_perm = inv_col_perm
+
+            A_block = (col_perm @ (row_perm @ A).transpose()).transpose()
+
+            # The local p-h flash system has a size of
+            inv_A_block = pp.matrix_operations.invert_diagonal_blocks(
+                A_block,
+                (np.ones(self.mdg.num_subdomain_cells()) * self._block_size).astype(
+                    np.int32
+                ),
+                method="numba",
+            )
+
+            inv_A = (
+                inv_col_perm @ (inv_row_perm @ inv_A_block).transpose()
+            ).transpose()
+            # Because the matrix has a condition number of order 5 to 6, and we use
+            # float64 (precision order -16), the last entries are useless, if not
+            # problematic.
+            treat_as_zero = np.abs(inv_A.data) < 1e-10
+            inv_A.data[treat_as_zero] = 0.0
+            inv_A.eliminate_zeros()
+            return inv_A
+
+        return inverter
+
+
+class Geometry(_FlowConfiguration):
+    """2D matrix representing a rectangular domain."""
+
     def set_domain(self) -> None:
         self._domain = pp.Domain(
             {
@@ -392,41 +812,371 @@ class Geometry(pp.PorePyModel):
             }
         )
 
-    # def set_fractures(self) -> None:
-    #     """Setting a diagonal fracture"""
-    #     frac_1_points = self.solid.convert_units(
-    #         np.array([[1., 9.], [1., 4.]]), "m"
-    #     )
-    #     frac_1 = pp.LineFracture(frac_1_points)
-    #     self._fractures = [frac_1]
+
+class PointWells2D(Geometry):
+    """2D matrix with point grids as injection and production points.
+
+    Alternative for the ``WellNetwork3d`` in 2d.
+
+    """
+
+    def set_geometry(self):
+        super().set_geometry()
+
+        for i, injection_point in enumerate(self._INJECTION_POINTS):
+            self._add_well(injection_point, i, "injection")
+
+        for i, production_point in enumerate(self._PRODUCTION_POINTS):
+            self._add_well(production_point, i, "production")
+
+    def _add_well(
+        self,
+        point: np.ndarray,
+        well_index: int,
+        well_type: Literal["injection", "production"],
+    ) -> None:
+        """Helper method to construct a well in 2D as a PointGrid and add respective
+        interface.
+
+        Parameters:
+            point: Point in space representing well.
+            well_index: Assigned number for well of type ``well_type``.
+            well_type: Label to add a tag to the point grid labelng as injector or
+            producer.
+
+        """
+        matrix = self.mdg.subdomains(dim=self.nd)[0]
+        assert isinstance(point, np.ndarray)
+        p: np.ndarray
+        if point.shape == (2,):
+            p = np.zeros(3)
+            p[:2] = point
+        elif point.shape == (3,):
+            p = point
+        else:
+            raise ValueError(
+                f"Point for well {(well_type, well_index)} must be 1D array of length "
+                + "2 or 3."
+            )
+
+        sd_0d = pp.PointGrid(self.units.convert_units(p, "m"))
+        # Tag for processing of equations.
+        sd_0d.tags[f"{well_type}_well"] = well_index
+        sd_0d.compute_geometry()
+
+        self.mdg.add_subdomains(sd_0d)
+
+        # Motivated by wells_3d.py#L828
+        cell_matrix = matrix.closest_cell(sd_0d.cell_centers)
+        cell_well = np.array([0], dtype=int)
+        cell_cell_map = sps.coo_matrix(
+            (np.ones(1, dtype=bool), (cell_well, cell_matrix)),
+            shape=(sd_0d.num_cells, matrix.num_cells),
+        )
+
+        _add_interface(0, matrix, sd_0d, self.mdg, cell_cell_map)
 
 
-class InitialConditions(pp.PorePyModel):
-    """Define initial pressure, temperature and compositions."""
+class AdjustedWellModel2D(_FlowConfiguration):
+    """Adjustment of a 2D model which has wells modelled as point grids.
 
-    _p_IN: float
-    _p_OUT: float
+    Two types of point grids are expected: ``'injection_well'`` and
+    ``'production_well'``.
 
-    _p_INIT: float = 20e6
-    _T_INIT: float = 450.0
-    _z_INIT: dict[str, float] = {"H2O": 0.995, "CO2": 0.005}
+    In the injection well, mass is expected to enter the system (mass per time)
+    at a given temperature (fixed value).
 
+    At the production well, a given pressure value is required.
+
+    In injection wells, the energy balance is replaced by a simple constraint
+    ``T - T_injection = 0``.
+    In production wells, the fluid mass balance (pressure equation) is replaced by
+    ``p - p_production = 0``.
+
+    In injection wells, a given inflow per fluid component is expected, which enter the
+    system as a source term in the respective point grid.
+
+    In production wells, all DOFs except pressure, and all equations are removed.
+    The outflow of mass and energy can be computed with respective well fluxes.
+    An exact composition of the fluid at the production well can be obtained from the
+    values in the matrix grid, using the cell which was used to construct the mortar
+    grid for the production well.
+
+    In this sense, production wells and their respective grids are only used to mimic
+    an internal, free-flow boundary.
+
+    Important:
+        This is a mixin modifying equations and variables. It must be mixed in
+        above all other variable and equation mixins.
+
+    Note:
+        In injection wells, only the injected mass is defined, not the injected energy.
+        This is due to the energy balance equation being replaced by an temperature
+        constraint. This can cause trouble if there is temporarily some backflow in
+        the production wells due to pressure drop around the wells. TODO
+
+    """
+
+    compute_residual_norm: Callable[[Optional[np.ndarray], np.ndarray], float]
+    porosity: Callable[[list[pp.Grid]], pp.ad.Operator]
+
+    pressure_variable: str
+    pressure: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+    temperature: Callable[[pp.SubdomainsOrBoundaries], pp.ad.Operator]
+
+    def _filter_wells(
+        self,
+        subdomains: Sequence[pp.Grid],
+        well_type: Literal["production", "injection"],
+    ) -> tuple[list[pp.Grid], list[pp.Grid]]:
+        """Helper method to return the partitioning of subdomains into wells of defined
+        ``well_type`` and other grids.
+
+        Parameters:
+            subdomains: A list of subdomains.
+            well_type: Well type to filter out (injector or producer).
+
+        Returns:
+            A 2-tuple containing
+
+            1. All 0D grids tagged as wells of type ``well_type``.
+            2. All other grids found in ``subdomains``.
+
+        """
+        tag = f"{well_type}_well"
+        wells = [sd for sd in subdomains if sd.dim == 0 and tag in sd.tags]
+        other_sds = [sd for sd in subdomains if sd not in wells]
+        return wells, other_sds
+
+    # Adjusting PDEs
+    def mass_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Introduced the usual fluid mass balance equations but only on grids which
+        are not production wells."""
+        _, no_production_wells = self._filter_wells(subdomains, "production")
+        eq: pp.ad.Operator = super().mass_balance_equation(no_production_wells)  # type:ignore[misc]
+        name = eq.name
+        return eq
+
+        volume_stabilization = self.fluid.density(
+            no_production_wells
+        ) * pp.ad.sum_operator_list(
+            [
+                phase.fraction(no_production_wells) / phase.density(no_production_wells)
+                for phase in self.fluid.phases
+            ],
+            "fluid_specific_volume",
+        ) - self.porosity(no_production_wells)
+
+        volume_stabilization = self.volume_integral(
+            volume_stabilization, no_production_wells, dim=1
+        )
+        volume_stabilization = pp.ad.time_derivatives.dt(
+            volume_stabilization, self.ad_time_step
+        )
+        eq = eq + volume_stabilization
+        eq.set_name(name)
+        return eq
+
+    def energy_balance_equation(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Introduced the usual fluid mass balance equations but only on grids which
+        are not production wells."""
+        _, no_injection_wells = self._filter_wells(subdomains, "injection")
+        return super().energy_balance_equation(no_injection_wells)  # type:ignore[misc]
+
+    # Introducing pressure and temperature constraint at production and injection.
+    def set_equations(self):
+        """Introduces pressure and temperature constraints on production and injection
+        wells respectively."""
+        super().set_equations()
+
+        subdomains = self.mdg.subdomains()
+        injection_wells, _ = self._filter_wells(subdomains, "injection")
+        production_wells, _ = self._filter_wells(subdomains, "production")
+
+        p_constraint = self.pressure_constraint_at_production_wells(production_wells)
+        self.equation_system.set_equation(p_constraint, production_wells, {"cells": 1})
+        T_constraint = self.temperature_constraint_at_injection_wells(injection_wells)
+        self.equation_system.set_equation(T_constraint, injection_wells, {"cells": 1})
+
+    def pressure_constraint_at_production_wells(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Returns an constraint of form :math:`p - p_p=0` which replaces the
+        pressure equation in production wells.
+
+        Parameters:
+            subdomains: A list of grids (tagged as production wells).
+
+        Returns:
+            The left-hand side of above equation.
+
+        """
+        p_production = pp.wrap_as_dense_ad_array(
+            np.hstack(
+                [
+                    np.ones(sd.num_cells)
+                    * self._p_PRODUCTION[sd.tags["production_well"]]
+                    for sd in subdomains
+                ]
+            ),
+            name="production_pressure",
+        )
+
+        pressure_constraint_production = self.pressure(subdomains) - p_production
+        pressure_constraint_production.set_name("production_pressure_constraint")
+        return pressure_constraint_production
+
+    def temperature_constraint_at_injection_wells(
+        self, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Analogous to :meth:`pressure_constraint_at_production_wells`, but for
+        temperature at production wells."""
+        T_injection = pp.wrap_as_dense_ad_array(
+            np.hstack(
+                [
+                    np.ones(sd.num_cells) * self._T_INJECTION[sd.tags["injection_well"]]
+                    for sd in subdomains
+                ]
+            ),
+            name="injection_temperature",
+        )
+
+        temperature_constraint_injection = self.temperature(subdomains) - T_injection
+        temperature_constraint_injection.set_name("injection_temperature_constraint")
+        return temperature_constraint_injection
+
+    def fluid_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Augments the source term in the pressure equation to account for the mass
+        injected through injection wells."""
+        source: pp.ad.Operator = super().fluid_source(subdomains)  # type:ignore[misc]
+
+        injection_wells, _ = self._filter_wells(subdomains, "injection")
+
+        subdomain_projections = pp.ad.SubdomainProjections(self.mdg.subdomains())
+
+        injected_mass: pp.ad.Operator = pp.ad.sum_operator_list(
+            [
+                self.volume_integral(
+                    self.injected_component_mass(comp, injection_wells),
+                    injection_wells,
+                    1,
+                )
+                for comp in self.fluid.components
+            ],
+            "total_injected_fluid_mass",
+        )
+
+        source += subdomain_projections.cell_restriction(subdomains) @ (
+            subdomain_projections.cell_prolongation(injection_wells) @ injected_mass
+        )
+
+        return source
+
+    def component_source(
+        self, component: pp.Component, subdomains: list[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Adjusted source term for a component's mass balance equation to account
+        for the injected mass in the injection wells, and removing all mass in the
+        production wells."""
+        source: pp.ad.Operator = super().component_source(component, subdomains)  # type:ignore[misc]
+
+        injection_wells, _ = self._filter_wells(subdomains, "injection")
+
+        subdomain_projections = pp.ad.SubdomainProjections(self.mdg.subdomains())
+
+        injected_mass = self.volume_integral(
+            self.injected_component_mass(component, injection_wells),
+            injection_wells,
+            1,
+        )
+
+        source += subdomain_projections.cell_restriction(subdomains) @ (
+            subdomain_projections.cell_prolongation(injection_wells) @ injected_mass
+        )
+
+        # Removing source term in production well, mimicing outflow of mass.
+        production_wells, _ = self._filter_wells(subdomains, "production")
+        source -= subdomain_projections.cell_prolongation(production_wells) @ (
+            subdomain_projections.cell_restriction(production_wells) @ source
+        )
+
+        return source
+
+    def energy_source(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Adjusted energy source term removing all energy in the production wells."""
+        source = super().energy_source(subdomains)  # type:ignore[misc]
+
+        # Removing source term in production well, mimicing outflow of energy.
+        production_wells, _ = self._filter_wells(subdomains, "production")
+        _, no_injection_wells = self._filter_wells(subdomains, "injection")
+        subdomain_projections = pp.ad.SubdomainProjections(no_injection_wells)
+        source -= subdomain_projections.cell_prolongation(production_wells) @ (
+            subdomain_projections.cell_restriction(production_wells) @ source
+        )
+        return source
+
+    def injected_component_mass(
+        self, component: pp.Component, subdomains: Sequence[pp.Grid]
+    ) -> pp.ad.Operator:
+        """Returns the injected mass of a fluid component in [kg m^-3 s^-1] (or moles).
+
+        This is used as a source term on balance equations in injection wells. Note that
+        the volume integral is not performed here, but in the respective method
+        assembling the source term for a balance equation.
+
+        Parameters:
+            component: A fluid component.
+            subdomains: A list of grids (grids tagged as ``'injection_wells'``)
+
+        Returns:
+            The source term wrapped as a dens AD array.
+        """
+        injected_mass: list[np.ndarray] = []
+        for sd in subdomains:
+            assert "injection_well" in sd.tags, (
+                f"Grid {sd.id} not tagged as injection well."
+            )
+            injected_mass.append(
+                np.ones(sd.num_cells)
+                * self._INJECTED_MASS[component.name][sd.tags["injection_well"]]
+            )
+
+        if injected_mass:
+            source = np.hstack(injected_mass)
+        else:
+            source = np.zeros((0,))
+
+        return pp.ad.DenseArray(source, f"injected_mass_density_{component.name}")
+
+
+class InitialConditions(_FlowConfiguration):
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         # f = lambda x: self._p_IN + x /10 * (self._p_OUT - self._p_IN)
         # vals = np.array(list(map(f, sd.cell_centers[0])))
         # return vals
-        return np.ones(sd.num_cells) * self._p_INIT
+        p = np.ones(sd.num_cells)
+        if sd.dim == 0 and "production_well" in sd.tags:
+            return p * self._p_PRODUCTION[sd.tags["production_well"]]
+        else:
+            return p * self._p_INIT
 
     def ic_values_temperature(self, sd: pp.Grid) -> np.ndarray:
-        return np.ones(sd.num_cells) * self._T_INIT
+        T = np.ones(sd.num_cells)
+        if sd.dim == 0 and "injection_well" in sd.tags:
+            return T * self._T_INJECTION[sd.tags["injection_well"]]
+        else:
+            return T * self._T_INIT
 
     def ic_values_overall_fraction(
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         return np.ones(sd.num_cells) * self._z_INIT[component.name]
 
+    def ic_values_enthalpy(self, sd: pp.Grid) -> np.ndarray:
+        return np.zeros(sd.num_cells)
 
-class BoundaryConditions(pp.PorePyModel):
+
+class BoundaryConditions(_FlowConfiguration):
     """Boundary conditions defining a ``left to right`` flow in the matrix (2D)
 
     Mass flux:
@@ -442,26 +1192,6 @@ class BoundaryConditions(pp.PorePyModel):
     Trivial Neumann conditions for fractures.
 
     """
-
-    _p_INIT: float
-    _T_INIT: float
-    _z_INIT: dict[str, float]
-
-    _p_IN: float = InitialConditions._p_INIT
-    _p_OUT: float = InitialConditions._p_INIT - 1e6
-
-    _T_IN: float = InitialConditions._T_INIT
-    _T_OUT: float = InitialConditions._T_INIT
-    _T_HEATED: float = InitialConditions._T_INIT + 20.0
-
-    _z_IN: dict[str, float] = {
-        "H2O": InitialConditions._z_INIT["H2O"] - 0.095,
-        "CO2": InitialConditions._z_INIT["CO2"] + 0.095,
-    }
-    _z_OUT: dict[str, float] = {
-        "H2O": InitialConditions._z_INIT["H2O"],
-        "CO2": InitialConditions._z_INIT["CO2"],
-    }
 
     def _central_stripe(self, sd: pp.Grid) -> tuple[float, float]:
         """Returns the left and right boundary of the central, vertical stripe of the
@@ -485,7 +1215,6 @@ class BoundaryConditions(pp.PorePyModel):
 
         inlet = np.zeros(sd.num_faces, dtype=bool)
         inlet[sides.west] = True
-        inlet &= sd.face_centers[1] >= 15.0
 
         return inlet
 
@@ -530,15 +1259,19 @@ class BoundaryConditions(pp.PorePyModel):
         else:
             return pp.BoundaryCondition(sd)
 
-    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
         return self.bc_type_darcy_flux(sd)
         # if sd.dim == 2:
         #     return pp.BoundaryCondition(sd, self._inlet_faces(sd), "dir")
         # else:
         #     return pp.BoundaryCondition(sd)
 
-    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
-        return self.bc_type_enthalpy_flux(sd)
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_fluid_flux(sd)
+
+    def bc_type_equilibrium(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        """Flag the inflow and outflow faces for the flash."""
+        return self.bc_type_fourier_flux(sd)
 
     def bc_values_pressure(self, boundary_grid: pp.BoundaryGrid) -> np.ndarray:
         sd = boundary_grid.parent
@@ -602,73 +1335,196 @@ class BoundaryConditions(pp.PorePyModel):
         return vals
 
 
-fractional_flow: bool = False
+class BoundaryConditionsOnlyConduction(BoundaryConditions):
+    """Declares all faces to be Neumann, except the heated boundary."""
+
+    def bc_type_fourier_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        if sd.dim == 2:
+            heated = self._heated_faces(sd)
+            return pp.BoundaryCondition(sd, heated, "dir")
+        # In fractures we set trivial NBC
+        else:
+            return pp.BoundaryCondition(sd)
+
+    def bc_type_darcy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd)
+
+    def bc_type_enthalpy_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd)
+
+    def bc_type_fluid_flux(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return pp.BoundaryCondition(sd)
+
+    def bc_type_equilibrium(self, sd: pp.Grid) -> pp.BoundaryCondition:
+        return self.bc_type_fourier_flux(sd)
 
 
-if fractional_flow:
+class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
+    """Newton solver with Armijo line search and Anderson acceleration.
 
-    class GeothermalFlow(  # type:ignore[misc]
-        pp.constitutive_laws.DarcysLawAd,
-        pp.constitutive_laws.FouriersLawAd,
-        Geometry,
-        SoereideMixture,
-        SolutionStrategy,
-        InitialConditions,
-        BoundaryConditions,
-        cfle.EnthalpyBasedCFFLETemplate,
-    ): ...
+    The residual objective function is tailored to models where phase properties are
+    assumed to be surrogate factories and require an update before evaluating the
+    objective function.
+
+    """
+
+    def __init__(self, params: dict | None = None):
+        pp.NewtonSolver.__init__(self, params)
+        if params is None:
+            params = {}
+        depth = int(params.get("anderson_acceleration_depth", 3))
+        dimension = int(params["anderson_acceleration_dimension"])
+        constrain = params.get("anderson_acceleration_constrained", False)
+        reg_param = params.get("anderson_acceleration_regularization_parameter", 0.0)
+        AndersonAcceleration.__init__(
+            self,
+            dimension,
+            depth,
+            constrain_acceleration=constrain,
+            regularization_parameter=reg_param,
+        )
+
+    def iteration(self, model: pp.PorePyModel):
+        """An iteration consists of performing the Newton step, obtaining the step size
+        from the line search, and then performing the Anderson acceleration based on
+        the iterates which are obtained using the step size."""
+
+        iteration = model.nonlinear_solver_statistics.num_iteration
+
+        dx = pp.NewtonSolver.iteration(self, model)
+
+        res_norm = np.linalg.norm(model.linear_system[1])
+
+        if self.params.get("Anderson_acceleration", False):
+            x = model.equation_system.get_variable_values(iterate_index=0)
+            x_temp = x + dx
+            if not (np.any(np.isnan(x_temp)) or np.any(np.isinf(x_temp))):
+                try:
+                    xp1 = self.apply(x_temp, dx.copy(), iteration)
+                    if res_norm < 10.0:
+                        dx = xp1 - x
+                except Exception:
+                    logger.warning(
+                        f"Resetting Anderson acceleration at"
+                        f" T={model.time_manager.time}; i={iteration} due to failure."
+                    )
+                    self.reset()
+        alpha = self.nonlinear_line_search(model, dx)
+        return alpha * dx
+
+    def nonlinear_line_search(
+        self, model: pp.PorePyModel, dx: np.ndarray
+    ) -> np.ndarray:
+        """Performs the Armijo line search."""
+        if not self.params.get("Global_line_search", False):
+            return np.ones_like(dx)
+
+        rho = float(self.params.get("armijo_line_search_weight", 0.9))
+        kappa = float(self.params.get("armijo_line_search_incline", 0.4))
+        N = int(self.params.get("armijo_line_search_max_iterations", 50))
+
+        pot_0 = self.residual_objective_function(model, dx, 0.0)
+        rho_i = rho
+        n = 0
+
+        for i in range(N):
+            n = i
+            rho_i = rho**i
+
+            pot_i = self.residual_objective_function(model, dx, rho_i)
+            if pot_i <= (1 - 2 * kappa * rho_i) * pot_0:
+                break
+
+        logger.info(f"Armijo line search determined weight: {rho_i} ({n})")
+        return rho_i * np.ones_like(dx)
+
+    def residual_objective_function(
+        self, model: pp.PorePyModel, dx: np.ndarray, weight: float
+    ) -> np.floating[Any]:
+        """The objective function to be minimized is the norm of the residual squared
+        and divided by 2."""
+        x_0 = model.equation_system.get_variable_values(iterate_index=0)
+        state = x_0 + weight * dx
+        # model.update_thermodynamic_properties_of_phases(state)
+        cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
+            model,  # type:ignore[arg-type]
+            state,
+        )
+        residual = model.equation_system.assemble(state=state, evaluate_jacobian=False)
+        return np.dot(residual, residual) / 2
+
+
+# region Model class assembly
+model_class: type[pp.PorePyModel]
+
+if equilibrium_condition == "unified-p-h" and fractional_flow:
+    model_class = cfle.EnthalpyBasedCFFLETemplate  # type:ignore[type-abstract]
+elif equilibrium_condition == "unified-p-h" and not fractional_flow:
+    model_class = cfle.EnthalpyBasedCFLETemplate  # type:ignore[type-abstract]
 else:
-
-    class GeothermalFlow(  # type:ignore[misc,no-redef]
-        Geometry,
-        SoereideMixture,
-        SolutionStrategy,
-        InitialConditions,
-        BoundaryConditions,
-        cfle.EnthalpyBasedCFLETemplate,
-    ): ...
+    raise ValueError(
+        "Unsupported base configuration: "
+        + f"{equilibrium_condition}, "
+        + f"fractiona_flow={fractional_flow},"
+    )
 
 
-# Model parametrization
-t_scale = 1e0
-times_to_export = [i * pp.YEAR for i in range(20)] + [
-    i * pp.YEAR for i in range(20, 510, 10)
-]
-
-max_iterations = 50
-newton_tol = 1e-5
-newton_tol_increment = 1e-1
-
-equilibrium_type: str = "unified-p-h"
-
-flash_params = {
-    "mode": "parallel",
-    "solver": "npipm",
-    "solver_params": {
-        "tolerance": 1e-8,
-        "max_iterations": 150,
-        "armijo_rho": 0.99,
-        "armijo_kappa": 0.4,
-        "armijo_max_iterations": 50 if "p-T" in equilibrium_type else 30,
-        "npipm_u1": 10,
-        "npipm_u2": 10,
-        "npipm_eta": 0.5,
-    },
-}
-
-time_manager = pp.TimeManager(
-    schedule=times_to_export,
-    dt_init=0.9 * pp.YEAR * t_scale,
-    dt_min_max=(pp.MINUTE * t_scale, 10 * pp.YEAR),
-    iter_max=max_iterations,
-    iter_optimal_range=(5, 9),
-    iter_relax_factors=(0.7, 1.8),
-    recomp_factor=0.5,
-    recomp_max=15,
-    print_info=True,
+model_class = create_local_model_class(
+    model_class,
+    [InitialConditions, SolutionStrategy, SoereideMixture],  # type:ignore[type-abstract]
 )
 
-material_constants = {
+if use_well_model:
+    model_class = create_local_model_class(
+        model_class,
+        [PointWells2D, AdjustedWellModel2D, BoundaryConditionsOnlyConduction],  # type:ignore[type-abstract]
+    )
+else:
+    model_class = create_local_model_class(
+        model_class,
+        [Geometry, BoundaryConditions],  # type:ignore[type-abstract]
+    )
+
+if fractional_flow:
+    model_class = create_local_model_class(
+        model_class,
+        [pp.constitutive_laws.FouriersLawAd, pp.constitutive_laws.DarcysLawAd],  # type:ignore[type-abstract]
+    )
+
+if analysis_mode:
+    model_class = create_local_model_class(model_class, [AnalysisMixin])  # type:ignore[type-abstract]
+
+# endregion
+
+# Model parametrization
+
+# time_schedule = [i * pp.DAY for i in range(31)] + [
+#     i * 15 * pp.DAY for i in range(3, 49)
+# ]
+time_schedule = [i * 30 * pp.DAY for i in range(25)]
+
+max_iterations = 30
+newton_tol = 1e-5
+newton_tol_increment = 1e-6
+
+time_manager = pp.TimeManager(
+    schedule=time_schedule,
+    dt_init=10 * pp.MINUTE,
+    dt_min_max=(pp.MINUTE, 30 * pp.DAY),
+    iter_max=max_iterations,
+    iter_optimal_range=(12, 24),
+    iter_relax_factors=(0.8, 2.0),
+    recomp_factor=0.6,
+    recomp_max=15,
+    print_info=True,
+    rtol=0.0,
+)
+
+phase_property_params = {
+    "phase_property_params": [0.0],
+}
+
+material_params = {
     "solid": pp.SolidConstants(
         permeability=1e-13,
         porosity=0.2,
@@ -677,49 +1533,115 @@ material_constants = {
     )
 }
 
-params = {
-    "equilibrium_type": equilibrium_type,
+flash_params: dict[Any, Any] = {
+    "mode": "parallel",
+    "solver": "npipm",
+    "solver_params": {
+        "tolerance": 1e-8,
+        "max_iterations": 80,  # 150
+        "armijo_rho": 0.99,
+        "armijo_kappa": 0.4,
+        "armijo_max_iterations": 50 if "p-T" in equilibrium_condition else 30,
+        "npipm_u1": 10,
+        "npipm_u2": 10,
+        "npipm_eta": 0.5,
+    },
+}
+flash_params.update(phase_property_params)
+
+restart_params = {
+    "restart_options": {
+        "restart": False,
+        "pvd_file": pathlib.Path(".\\visualization\\data.pvd").resolve(),
+        "is_mdg_pvd": False,
+        "vtu_files": None,
+        "times_file": pathlib.Path(".\\visualization\\times.json").resolve(),
+    },
+}
+
+meshing_params = {
+    "grid_type": "simplex",
+    "meshing_arguments": {
+        "cell_size": 5e-1,  # 18,464 cells
+        # "cell_size": 2.5e-1,  # 73,748 cells
+        # "cell_size": 1e-1,  # 462,340 cells
+        "cell_size_fracture": 5e-1,
+    },
+}
+
+solver_params = {
+    "max_iterations": max_iterations,
+    "nl_convergence_tol": newton_tol_increment,
+    "nl_convergence_tol_res": newton_tol,
+    "linear_solver": "scipy_sparse",
+    "Global_line_search": True,
+    "nonlinear_solver": NewtonAndersonArmijoSolver,
+    "armijo_line_search_weight": 0.95,
+    "armijo_line_search_incline": 0.2,
+    "armijo_line_search_max_iterations": 10,
+    "Anderson_acceleration": False,
+    "anderson_acceleration_depth": 3,
+    "anderson_acceleration_constrained": False,
+    "anderson_acceleration_regularization_parameter": 1e-3,
+    "solver_statistics_file_name": "solver_statistics.json",
+    "nonlinear_solver_statistics": ExtendedSolverStatistics,
+}
+
+model_params = {
+    "equilibrium_condition": equilibrium_condition,
     "has_time_dependent_boundary_equilibrium": False,
     "eliminate_reference_phase": True,
     "eliminate_reference_component": True,
-    "normalize_state_constraints": True,
-    "use_semismooth_complementarity": True,
-    "reduce_linear_system": False,
+    "reduce_linear_system": use_schur_technique,
     "flash_params": flash_params,
     "fractional_flow": fractional_flow,
     "rediscretize_fourier_flux": fractional_flow,
     "rediscretize_darcy_flux": fractional_flow,
-    "material_constants": material_constants,
-    "grid_type": "simplex",
-    "meshing_arguments": {
-        "cell_size": 5e-1,
-        "cell_size_fracture": 5e-1,
-    },
+    "material_constants": material_params,
     "time_manager": time_manager,
-    # "times_to_export": times_to_export,
-    "max_iterations": max_iterations,
-    "nl_convergence_tol": newton_tol_increment,
-    "nl_convergence_tol_res": newton_tol,
+    # "times_to_export": time_schedule,
     "prepare_simulation": False,
-    "linear_solver": "scipy_sparse",
     "compile": True,
     "flash_compiler_args": ("p-T", "p-h"),
 }
 
-model = GeothermalFlow(params)
+model_params.update(phase_property_params)
+model_params.update(restart_params)
+model_params.update(meshing_params)
+model_params.update(solver_params)
+
+# Casting to the most complex model type for typing purposes.
+model = cast(cfle.EnthalpyBasedCFFLETemplate, model_class(model_params))
 
 t_0 = time.time()
 model.prepare_simulation()
 prep_sim_time = time.time() - t_0
 compile_time += prep_sim_time
+model_params["anderson_acceleration_dimension"] = model.equation_system.num_dofs()
 
-model.primary_equations = model.get_primary_equations_cf()
-model.primary_variables = model.get_primary_variables_cf()
+if use_schur_technique:
+    primary_equations = model.get_primary_equations_cf()
+    primary_equations += [
+        eq for eq in model.equation_system.equations.keys() if "flux" in eq
+    ]
+    if use_well_model:
+        primary_equations += [
+            "production_pressure_constraint",
+            "injection_temperature_constraint",
+        ]
+    primary_variables = model.get_primary_variables_cf()
+    primary_variables += list(
+        set([v.name for v in model.equation_system.variables if "flux" in v.name])
+    )
 
+    model.primary_equations = primary_equations
+    model.primary_variables = primary_variables
+
+logging.getLogger("porepy").setLevel(logging.INFO)
 t_0 = time.time()
-pp.run_time_dependent_model(model, params)
+pp.run_time_dependent_model(model, model_params)
 sim_time = time.time() - t_0
 
 print(f"Set-up time: {prep_sim_time} (s).")
 print(f"Approximate compilation time: {compile_time} (s).")
-print(f"Simulation run time: {sim_time} (s).")
+print(f"Simulation run time: {sim_time / 60.0} (min).")

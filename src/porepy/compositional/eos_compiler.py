@@ -6,7 +6,7 @@ from __future__ import annotations
 import abc
 import logging
 from functools import partial
-from typing import Callable, Literal, Sequence, TypeAlias, TypedDict, cast
+from typing import Callable, Literal, Optional, Sequence, TypeAlias, TypedDict, cast
 
 import numba as nb
 import numpy as np
@@ -96,9 +96,9 @@ class PropertyFunctionDict(TypedDict, total=False):
 # They are completely meaningless and need to return something corresponding to the
 # annotated return type. They also use every argument somehow, in case mypy ever
 # complains.
-@cfunc(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:]), cache=True)
+@cfunc(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]), cache=True)
 def prearg_template_func(
-    phase_State: int, p: float, T: float, xn: np.ndarray
+    phase_State: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
 ) -> np.ndarray:
     """Template c-func for the pre-argument, both for property values and derivative
     values.
@@ -108,6 +108,7 @@ def prearg_template_func(
         p: Pressure value.
         T: Temperature value.
         xn: 1D array containing normalized fractions.
+        params: 1D array containing parameters stored in the generic argument.
 
     Returns:
         Some 1D array.
@@ -220,16 +221,24 @@ def fugacity_coeff_derivative_template_func(
 # signatures. This ensures maximum efficiency when importing and executing the code
 # continuously.
 @nb.njit(
-    nb.f8[:, :](typeof(prearg_template_func), nb.i1, nb.f8[:], nb.f8[:], nb.f8[:, :]),
+    nb.f8[:, :](
+        typeof(prearg_template_func),
+        nb.i1,
+        nb.f8[:],
+        nb.f8[:],
+        nb.f8[:, :],
+        nb.f8[:, :],
+    ),
     parallel=NUMBA_PARALLEL,
     cache=True,
 )
 def _evaluate_vectorized_prearg_func(
-    prearg_func: Callable[[int, float, float, np.ndarray], np.ndarray],
+    prearg_func: Callable[[int, float, float, np.ndarray, np.ndarray], np.ndarray],
     phase_state: int,
     p: np.ndarray,
     T: np.ndarray,
     xn: np.ndarray,
+    params: np.ndarray,
 ) -> np.ndarray:
     """Parallelized evaluation of some pre-argument function.
 
@@ -243,9 +252,12 @@ def _evaluate_vectorized_prearg_func(
         T: ``shape=(N,)``
 
             Temperature values.
-        xn: ``shape(N, num_components)``
+        xn: ``shape=(N, num_components)``
 
             (Normalized) partial fractions.
+        params: ``shape=(N, num_params)``
+
+            Parameters for the pre-argument functions.
 
     Returns:
         An array of shape ``(N, M)``, where each row represents an evaluation of
@@ -253,11 +265,11 @@ def _evaluate_vectorized_prearg_func(
 
     """
     N = p.shape[0]
-    prearg_0 = prearg_func(phase_state, p[0], T[0], xn[0])
+    prearg_0 = prearg_func(phase_state, p[0], T[0], xn[0], params[0])
     prearg = np.empty((N, prearg_0.shape[0]))
     prearg[0] = prearg_0
     for i in nb.prange(1, N):
-        prearg[i] = prearg_func(phase_state, p[i], T[i], xn[i])
+        prearg[i] = prearg_func(phase_state, p[i], T[i], xn[i], params[i])
     return prearg
 
 
@@ -513,6 +525,7 @@ class EoSCompiler(EquationOfState):
     1. an integer representing a phase :attr:`~porepy.compositional.base.Phase.state`
     2. Two scalar arguments representing pressure and temperature.
     3. A vector argument representing partial fractions.
+    4. A vector argument containing parameters.
 
     There are two ``prearg`` computations: One for property values, one for the
     derivatives.
@@ -584,9 +597,8 @@ class EoSCompiler(EquationOfState):
         for the evaluation of thermodynamic properties.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(phasetype: int, *args: float, x: np.ndarray)``
-            returning a 1D array.
+            A NJIT-ed function with signature as in
+            :func:`prearg_template_func`.
 
         """
         pass
@@ -597,10 +609,8 @@ class EoSCompiler(EquationOfState):
         for the evaluation of derivatives of thermodynamic properties.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(phasetype: int, *args: float, x: np.ndarray)``
-            returning a 1D array.
-
+            A NJIT-ed function with signature as in
+            :func:`prearg_template_func`.
         """
         pass
 
@@ -609,9 +619,8 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the fugacity coefficients.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of fugacity coefficients with ``shape=(num_comp,)``.
+            A NJIT-ed function with signature as in
+            :func:`fugacity_coeff_template_func`.
 
         """
         pass
@@ -627,11 +636,8 @@ class EoSCompiler(EquationOfState):
         I.e. the return value must be an array with ``shape=(num_comp, m + num_comp)``.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of fugacity coefficients with
-            ``shape=(num_comp, 2 + num_comp)``., where containing the derivatives w.r.t. the
-            arguments and fractions.
+            A NJIT-ed function with signature as in
+            :func:`fugacity_coeff_derivative_template_func`.
 
         """
         pass
@@ -641,9 +647,8 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the specific molar enthalpy.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an enthalpy value.
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
 
         """
         pass
@@ -654,11 +659,8 @@ class EoSCompiler(EquationOfState):
         enthalpy function for a phase.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of the enthalpy with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
-            fractions.
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
 
         """
         pass
@@ -668,9 +670,8 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the density.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning a density value.
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
 
         """
         pass
@@ -681,11 +682,8 @@ class EoSCompiler(EquationOfState):
         density function for a phase.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of the density with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
-            fractions.
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
 
         """
         pass
@@ -695,9 +693,8 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the dynamic molar viscosity.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning a viscosity value.
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
 
         """
         pass
@@ -708,11 +705,8 @@ class EoSCompiler(EquationOfState):
         viscosity function for a phase.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of the viscosity with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
-            fractions.
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
 
         """
         pass
@@ -722,9 +716,8 @@ class EoSCompiler(EquationOfState):
         """Abstract assembler for compiled computations of the thermal conductivity.
 
         Returns:
-            A NJIT-ed with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning a conductivity value.
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
 
         """
         pass
@@ -735,11 +728,8 @@ class EoSCompiler(EquationOfState):
         conductivity function for a phase.
 
         Returns:
-            A NJIT-ed function taking with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of the conductivity with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
-            fractions.
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
 
         """
         pass
@@ -755,9 +745,8 @@ class EoSCompiler(EquationOfState):
             compiled and stored in :attr:`funcs`.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, *args: float, x: np.ndarray)``
-            and returning a density value.
+            A NJIT-ed function with signature as in
+            :func:`property_template_func`.
 
         """
         rho_c = self.funcs.get("rho", None)
@@ -782,18 +771,16 @@ class EoSCompiler(EquationOfState):
 
         Volume is expressed as the reciprocal of density.
         Hence the computations utilize :meth:`get_density_function`,
-        :meth:`get_density_derivative_function` and the chain-rule to compute the derivatives.
+        :meth:`get_density_derivative_function` and the chain-rule to compute the
+        derivatives.
 
         Note:
             This function is compiled faster, if the density function and its
             deritvative have already been compiled and stored in :attr:`funcs`.
 
         Returns:
-            A NJIT-ed function with signature
-            ``(prearg_val: np.ndarray, prearg_jac: np.ndarray, *args: float, x: np.ndarray)``
-            and returning an array of derivatives of the volume with
-            ``shape=(2 + num_comp,)``., containing the derivatives w.r.t. the arguments and
-            fractions.
+            A NJIT-ed function with signature as in
+            :func:`property_derivative_template_func`.
 
         """
         rho_c = self.funcs.get("rho", None)
@@ -910,6 +897,7 @@ class EoSCompiler(EquationOfState):
         self,
         phase_state: PhysicalState,
         *thermodynamic_input: np.ndarray,
+        params: Optional[Sequence[np.ndarray | float]] = None,
     ) -> PhaseProperties:
         """This method must only be called after the vectorized computations have been
         compiled (see :meth:`compile`).
@@ -935,6 +923,8 @@ class EoSCompiler(EquationOfState):
 
                 Partial fractions per component (row-wise). Note that extended partial
                 fractions must be normalized before passing them as arguments.
+            params: Parameters to be passed to the pre-argument functions. If not
+                provided, a zero array will be passed.
 
         Returns:
             A complete datastructure containing values for thermodynamic phase
@@ -942,9 +932,20 @@ class EoSCompiler(EquationOfState):
 
         """
 
-        x = thermodynamic_input[-1]
+        # Partial fractions are passed individually.
+        if len(thermodynamic_input) == 2 + self._nc:
+            x = np.array(thermodynamic_input[-self._nc :])
+            thermodynamic_input = (thermodynamic_input[0], thermodynamic_input[1], x)
+        elif len(thermodynamic_input) == 3:
+            x = thermodynamic_input[-1]
+        else:
+            raise ValueError(
+                "Compiled EoS expects input in format (p, T, x_matrix) or "
+                "(p, T, x_1, .., x_n)."
+            )
+
         assert x.ndim == 2, (
-            "Last thermodynamic input expected to be  a 2D array (fractions)."
+            "Could not extract partial fractions as 2D array from thermodynamic input."
         )
 
         # NOTE: The vectorized functions expect fractions column-wise, while the
@@ -957,8 +958,24 @@ class EoSCompiler(EquationOfState):
 
         thermodynamic_input = tuple([_ for _ in thermodynamic_input[:-1]] + [x_norm])
 
-        prearg_val = self.gufuncs["prearg_val"](phase_state.value, *thermodynamic_input)
-        prearg_jac = self.gufuncs["prearg_jac"](phase_state.value, *thermodynamic_input)
+        # Inferring shape of parameter array.
+        if params is None:
+            # NOTE explicitly set second axis to zero, for the so that the vectorized
+            # evaluation will pass arrays with shape (0,) to the pre-argument functions.
+            # Otherwise a float will be passed, which is not accepted by the signature
+            # of the pre-argument functions.
+            params_array = np.zeros((x_norm.shape[0], 0))
+        else:
+            params_array = np.zeros((x_norm.shape[0], len(params)))
+            for i, param in enumerate(params):
+                params_array[:, i] = param
+
+        prearg_val = self.gufuncs["prearg_val"](
+            phase_state.value, *thermodynamic_input, params_array
+        )
+        prearg_jac = self.gufuncs["prearg_jac"](
+            phase_state.value, *thermodynamic_input, params_array
+        )
 
         props = {}
         k: PropertyFunctionNames

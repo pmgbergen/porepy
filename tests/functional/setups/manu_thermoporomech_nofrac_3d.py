@@ -9,8 +9,8 @@ To define the manufactured solution, we introduce the auxiliary function
 .. math::
     f(x, y, z, t) = t * x * (1 - x) * (x - 1 / 2) * sin(2 * pi * y) * sin(2 * pi * z)
 
-Define the characteristic function $$\\chi$$, which is 1 if $$x > 0.5$$, $$y > 0.5$$, $$z
-> 0.5$$, and 0 otherwise. Also, define a heterogeneity factor $$\kappa$$. The exact
+Define the characteristic function $$\\chi$$, which is 1 if $$x > 0.5$$, $$y > 0.5$$,
+$$z > 0.5$$, and 0 otherwise. Also, define a heterogeneity factor $$\kappa$$. The exact
 solutions for the primary variables pressure, displacement, and temperature are then
 defined as
 
@@ -945,8 +945,8 @@ class ManuThermoPoroMechSolutionStrategy3d(
     def set_discretization_parameters(self) -> None:
         """Set parameters for the subproblems and the combined problem.
 
-        The parent class' definitions of permeability, stiffness parameters, and the Biot
-        and thermal stress tensors are owerwritten.
+        The parent class' definitions of permeability, stiffness parameters, and the
+        Biot and thermal stress tensors are owerwritten.
         """
         super().set_discretization_parameters()
 

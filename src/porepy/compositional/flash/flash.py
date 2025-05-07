@@ -101,7 +101,7 @@ class Flash(abc.ABC):
 
             1. The fluid state consisting of feed fractions and equilibrium state.
                If ``initial_state`` is not none, it includes the values.
-            2. A string denoting the equilibrium type.
+            2. A string denoting the equilibrium condition.
             3. A number denoting the size of the locall equilibrium problem (dofs).
             4. A number denoting the size of the input after broadcasting.
 

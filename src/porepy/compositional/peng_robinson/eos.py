@@ -155,7 +155,8 @@ discriminant: Callable[[_T, _T], _T] = nb.njit(
     ],
     **_NUMBA_STATIC_COMPILE_KWARGS,
 )(eos_symbolic.discriminant)
-"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.discriminant`.
+"""NJIT-ed version of :func:`~porepy.compositional.peng_robinson.eos_symbolic.
+discriminant`.
 
 Signature: ``(float64, float64) -> float64``. Accepts vectorized input.
 
@@ -200,9 +201,8 @@ def _get_root_case(A: float, B: float, eps: float) -> int:
     **_NUMBA_STATIC_COMPILE_KWARGS,
 )
 def get_root_case(A: np.ndarray, B: np.ndarray, eps: float) -> np.ndarray:
-    """A piece-wise constant function dependent on non-dimensional cohesion and covolume,
-    representing the number of roots of the characteristic polynomial in terms of
-    cohesion and covolume.
+    """A piece-wise constant function dependent on non-dimensional cohesion and
+    covolume, representing the number of roots of the characteristic polynomial.
 
     Function with signature ``(float64, float64, float64) -> int8``.
     Can be called with vectorized input for ``A,B``.
@@ -627,8 +627,8 @@ def is_extended_root(
     If True, an extension procedure was applied, i.e. the compressibility factor
     is not an actual root of the characteristic polynomial.
 
-    Numpy-universal function with signature ``(float64, float64, int8, float64) -> int8``.
-    Can be called with vectorized input for ``A,B``.
+    Numpy-universal function with signature ``(float64, float64, int8, float64) ->
+    int8``. Can be called with vectorized input for ``A,B``.
 
     Note:
         Argument ``gaslike`` must be also vectorized, if ``A`` and ``B`` are vectorized.
@@ -639,7 +639,8 @@ def is_extended_root(
         A: Non-dimensional cohesion.
         B: Non-dimensional covolume.
         gaslike: 1 if a gas-like root is assumed, 0 otherwise.
-        eps: Numerical zero, used to determine the root case (see :data:`get_root_case`).
+        eps: Numerical zero, used to determine the root case (see
+            :data:`get_root_case`).
 
     Returns:
         1, if the root is an extended root of the polynomial, 0 if it is an actual root.
@@ -1092,10 +1093,10 @@ def _compile_extended_thd_function_derivatives(
     return inner
 
 
-def _compile_volume_derivative(
+def _compile_density_derivative(
     dv: Callable[[float, float, float], list[float]],
 ) -> Callable[[float, float, float], np.ndarray]:
-    """Helper function to compile the gradient of the specific volume.
+    """Helper function to compile the gradient of the density.
 
     Required to wrap the result in an array.
 
@@ -1117,6 +1118,15 @@ def _compile_volume_derivative(
 class PengRobinsonCompiler(EoSCompiler):
     """Class providing compiled computations of thermodynamic quantities for the
     Peng-Robinson EoS.
+
+    The parameter array for the pre-argument function can have up to 3 entries
+    (see also :attr:`params`):
+
+    1. ``'smoothing_multiphase'`` : Portion of 2-phase region used for smoothing roots
+       near phase borders
+    2. ``'smoothing_extensions'``: Portion of A-B space around lines bordering different
+       extension procedures.
+    3. ``'eps'``: Numerical tolerance to determine zero (root case computation).
 
     Parameters:
         components: A list of ``num_comp`` component instances.
@@ -1168,50 +1178,65 @@ class PengRobinsonCompiler(EoSCompiler):
         """Symbolic representation of the EoS, providing expressions and derivatives
         for properties, which are turned into functions and compiled."""
 
+    # NOTE: The two _get_cohesion* methods are only abstracted for the Soereide
+    # extension because of the varying signature. Abstraction of other compilations of
+    # symbolic functions can be done analogously once required.
+    def _get_cohesion(self) -> ScalarFunction:
+        """Abstraction of compilation of non-dimensional cohesion."""
+        return nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.A_func)
+
+    def _get_cohesion_derivatives(self) -> VectorFunction:
+        """Abstraction of compilation of non-dimensional cohesion derivatives."""
+        return _compile_thd_function_derivatives(self.symbolic.grad_pTx_A_func)
+
     def compile(self) -> None:
         """Child method compiles essential functions from symbolic part before calling
         the parent class compiler"""
 
-        logger.info("Compiling Peng-Robinson EoS ..")
+        logger.info("Compiling symbolic Peng-Robinson EoS ..")
         start = time.time()
 
         B_c = nb.njit(
             nb.f8(nb.f8, nb.f8, nb.f8[:]),
             fastmath=NUMBA_FAST_MATH,
-        )(self.symbolic.B_f)
+        )(self.symbolic.B_func)
         logger.debug("Compiling symbolic functions 1/12")
-        dB_c = _compile_thd_function_derivatives(self.symbolic.dB_f)
+        dB_c = _compile_thd_function_derivatives(self.symbolic.grad_pTx_B_func)
         logger.debug("Compiling symbolic functions 2/12")
 
-        A_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.A_f)
+        A_c = self._get_cohesion()
         logger.debug("Compiling symbolic functions 3/12")
-        dA_c = _compile_thd_function_derivatives(self.symbolic.dA_f)
+        dA_c = self._get_cohesion_derivatives()
         logger.debug("Compiling symbolic functions 4/12")
 
-        phi_c = _compile_fugacities(self.symbolic.phi_f)
+        phi_c = _compile_fugacities(self.symbolic.phis_func)
         logger.debug("Compiling symbolic functions 5/12")
         dphi_c = nb.njit(nb.f8[:, :](nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
-            self.symbolic.dphi_f
+            self.symbolic.jac_phis_func
         )
         logger.debug("Compiling symbolic functions 6/12")
 
         h_dep_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:], nb.f8, nb.f8, nb.f8))(
-            self.symbolic.h_dep_f
+            self.symbolic.h_departure_func
         )
         logger.debug("Compiling symbolic functions 7/12")
-        h_ideal_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.h_ideal_f)
+        h_ideal_c = nb.njit(nb.f8(nb.f8, nb.f8, nb.f8[:]))(self.symbolic.h_ideal_func)
         logger.debug("Compiling symbolic functions 8/12")
-        dh_dep_c = _compile_extended_thd_function_derivatives(self.symbolic.dh_dep_f)
+        dh_dep_c = _compile_extended_thd_function_derivatives(
+            self.symbolic.grad_pTxABZ_h_departure_func
+        )
         logger.debug("Compiling symbolic functions 9/12")
-        dh_ideal_c = _compile_thd_function_derivatives(self.symbolic.dh_ideal_f)
+        dh_ideal_c = _compile_thd_function_derivatives(
+            self.symbolic.grad_pTx_h_ideal_func
+        )
         logger.debug("Compiling symbolic functions 10/12")
 
         rho_c = nb.njit(
             nb.f8(nb.f8, nb.f8, nb.f8),
             fastmath=NUMBA_FAST_MATH,
-        )(self.symbolic.rho_f)
+        )(self.symbolic.rho_func)
         logger.debug("Compiling symbolic functions 11/12")
-        drho_c = _compile_volume_derivative(self.symbolic.drho_f)
+        drho_c = _compile_density_derivative(self.symbolic.grad_pTZ_rho_func)
         logger.debug("Compiling symbolic functions 12/12")
 
         self._cfuncs.update(
@@ -1246,17 +1271,30 @@ class PengRobinsonCompiler(EoSCompiler):
         s_m = self.params["smoothing_multiphase"]
         s_e = self.params["smoothing_extension"]
 
-        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:]))
+        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
         def prearg_val_c(
-            phasetype: int, p: float, T: float, xn: np.ndarray
+            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
             prearg = np.empty((3,), dtype=np.float64)
             A = A_c(p, T, xn)
             B = B_c(p, T, xn)
 
+            # Choose default parameters, and then parse given parameters.
+            # Can only be done this way because params are a sub-array of the generic
+            # argument.
+            s_m_ = s_m
+            s_e_ = s_e
+            eps_ = eps
+            if params.size >= 1:
+                s_m_ = params[0]
+            if params.size >= 2:
+                s_e_ = params[1]
+            if params.size >= 3:
+                eps_ = params[2]
+
             prearg[0] = A_c(p, T, xn)
             prearg[1] = B_c(p, T, xn)
-            prearg[2] = _Z_from_AB(A, B, phasetype, eps, s_e, s_m)
+            prearg[2] = _Z_from_AB(A, B, phasetype, eps_, s_e_, s_m_)
 
             return prearg
 
@@ -1274,20 +1312,30 @@ class PengRobinsonCompiler(EoSCompiler):
         s_m = self.params["smoothing_multiphase"]
         s_e = self.params["smoothing_extension"]
 
-        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:]))
+        @nb.njit(nb.f8[:](nb.i1, nb.f8, nb.f8, nb.f8[:], nb.f8[:]))
         def prearg_jac_c(
-            phasetype: int, p: float, T: float, xn: np.ndarray
+            phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
             # the pre-arg for the jacobian contains the derivatives of A, B, Z
             # w.r.t. p, T, and fractions.
             prearg = np.empty((3 * d,), dtype=np.float64)
+
+            s_m_ = s_m
+            s_e_ = s_e
+            eps_ = eps
+            if params.size >= 1:
+                s_m_ = params[0]
+            if params.size >= 2:
+                s_e_ = params[1]
+            if params.size >= 3:
+                eps_ = params[2]
 
             A = A_c(p, T, xn)
             B = B_c(p, T, xn)
 
             dA = dA_c(p, T, xn)
             dB = dB_c(p, T, xn)
-            dZ_ = _dZ_dAB(A, B, phasetype, eps, s_e, s_m)
+            dZ_ = _dZ_dAB(A, B, phasetype, eps_, s_e_, s_m_)
             dZ = dZ_[0] * dA + dZ_[1] * dB
 
             prearg[0:d] = dA
@@ -1412,7 +1460,7 @@ class PengRobinsonCompiler(EoSCompiler):
     def get_viscosity_function(self) -> ScalarFunction:
         @nb.njit(nb.f8(nb.f8[:], nb.f8, nb.f8, nb.f8[:]))
         def mu_c(prearg: np.ndarray, p: float, T: float, xn: np.ndarray) -> float:
-            return 1.0
+            return 1e-3
 
         return mu_c
 

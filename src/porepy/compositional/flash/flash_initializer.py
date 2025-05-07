@@ -131,14 +131,17 @@ def _rr_potential(z: np.ndarray, y: np.ndarray, K: np.ndarray) -> float:
 # region General routines and helper methods
 
 
-@cfunc(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :]), cache=True)
-def get_K_values_template_func(p: float, T: float, x: np.ndarray) -> np.ndarray:
+@cfunc(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :], numba.f8[:]), cache=True)
+def get_K_values_template_func(
+    p: float, T: float, x: np.ndarray, params: np.ndarray
+) -> np.ndarray:
     """Template c-function for K-value computations.
 
     Parameters:
         p: Pressure.
         T: Temperature.
         x: 2D array containing row-wise extended partial fractions per phase.
+        params: 1D array containing the parameters stored in the generic argument.
 
     Returns:
         K-values w.r.t. to the reference phase (first row in ``x``).
@@ -176,7 +179,7 @@ def update_state_template_func(
     cache=NUMBA_CACHE,
 )
 def fractions_from_rr(
-    get_K_values: Callable[[float, float, np.ndarray], np.ndarray],
+    get_K_values: Callable[[float, float, np.ndarray, np.ndarray], np.ndarray],
     X_gen: np.ndarray,
     params: dict[str, float],
     flash_type: str,
@@ -227,7 +230,7 @@ def fractions_from_rr(
                 np.exp(5.37 * (1 + omegas) * (1 - T_crits / T)) * p_crits / p + 1e-10
             )
     else:
-        K = get_K_values(p, T, x)
+        K = get_K_values(p, T, x, x_p)
 
     # Starting iterations using Rachford Rice.
     for n in range(N1):
@@ -311,7 +314,7 @@ def fractions_from_rr(
 
         # update K-values if another iteration comes
         if n < N1 - 1:
-            K = get_K_values(p, T, x)
+            K = get_K_values(p, T, x, x_p)
 
     return assemble_generic_arg(s, x, y, z, p, T, s1, s2, x_p, flash_type)
 
@@ -326,7 +329,7 @@ def fractions_from_rr(
     cache=NUMBA_CACHE,
 )
 def rachford_rice_initializer(
-    get_K_values: Callable[[float, float, np.ndarray], np.ndarray],
+    get_K_values: Callable[[float, float, np.ndarray, np.ndarray], np.ndarray],
     X_gen: np.ndarray,
     params: dict[str, float],
 ) -> np.ndarray:
@@ -363,7 +366,7 @@ def rachford_rice_initializer(
     cache=NUMBA_CACHE,
 )
 def nested_initializer(
-    get_K_values: Callable[[float, float, np.ndarray], np.ndarray],
+    get_K_values: Callable[[float, float, np.ndarray, np.ndarray], np.ndarray],
     update_state_func: Callable[[np.ndarray, dict[str, float]], np.ndarray],
     flash_type: str,
     X_gen: np.ndarray,
@@ -586,16 +589,18 @@ class FlashInitializer:
         logger.info(f"Compiling {args} flash initialization routines ..")
         start = time.time()
 
-        @numba.njit(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :]))
-        def get_K_values(p: float, T: float, x: np.ndarray) -> np.ndarray:
+        @numba.njit(numba.f8[:, :](numba.f8, numba.f8, numba.f8[:, :], numba.f8[:]))
+        def get_K_values(
+            p: float, T: float, x: np.ndarray, params: np.ndarray
+        ) -> np.ndarray:
             """See :func:`get_K_values_template_func`."""
             nphase, ncomp = x.shape
             K = np.empty((nphase - 1, ncomp), dtype=np.float64)
             xn = normalize_rows(x)
-            pre_0 = prearg_val_c(phasestates[0], p, T, xn[0])
+            pre_0 = prearg_val_c(phasestates[0], p, T, xn[0], params)
             phi_0 = phi_c(pre_0, p, T, xn[0])
             for j in range(1, nphase):
-                pre_j = prearg_val_c(phasestates[j], p, T, xn[j])
+                pre_j = prearg_val_c(phasestates[j], p, T, xn[j], params)
                 phi_j = phi_c(pre_j, p, T, xn[j])
                 # Binding K-values away from zero
                 K[j - 1, :] = phi_0 / phi_j + 1e-10
@@ -643,10 +648,10 @@ class FlashInitializer:
 
                 for _ in range(N2):
                     for j in range(nphase):
-                        pre_res_j = prearg_val_c(phasestates[j], p, T, xn[j])
-                        pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
-                        hs[j] = h_c(pre_res_j, p, T, xn[j])
-                        dh_dTs[j] = d_h_c(pre_res_j, pre_jac_j, p, T, xn[j])[1]
+                        pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
+                        pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j], x_p)
+                        hs[j] = h_c(pre_val_j, p, T, xn[j])
+                        dh_dTs[j] = d_h_c(pre_val_j, pre_jac_j, p, T, xn[j])[1]
 
                     h_mix = (hs * y).sum()
                     h_constr_res = 1 - h_mix / s2
@@ -680,8 +685,8 @@ class FlashInitializer:
             def update_pT_guess(
                 X_gen: np.ndarray, params: dict[str, float]
             ) -> np.ndarray:
-                """Helper function to update p-T guess for v-h flash by solving respective
-                equations using Newton and some corrections."""
+                """Helper function to update p-T guess for v-h flash by solving
+                respective equations using Newton and some corrections."""
 
                 # Parsing parameters
                 N2 = int(params["N2"])
@@ -762,11 +767,12 @@ class FlashInitializer:
                 drhos = np.empty((nphase, 2 + ncomp))
 
                 for _ in range(N2):
-                    # Assembling volume and enthalpy constraints with derivatives for s-p-T
+                    # Assembling volume and enthalpy constraints with derivatives for
+                    # s-p-T.
 
                     for j in range(nphase):
-                        pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j])
-                        pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j])
+                        pre_val_j = prearg_val_c(phasestates[j], p, T, xn[j], x_p)
+                        pre_jac_j = prearg_jac_c(phasestates[j], p, T, xn[j], x_p)
                         rhos[j] = rho_c(pre_val_j, p, T, xn[j])
                         hs[j] = h_c(pre_jac_j, p, T, xn[j])
                         dhs[j] = d_h_c(pre_val_j, pre_jac_j, p, T, xn[j])
@@ -807,7 +813,7 @@ class FlashInitializer:
                         # give preferance to pressure update if gas present and volume
                         # too large
                         if y_g > 1e-3 and v_mix > s1:
-                            # volume contraction only by positive p update, not negative T
+                            # volume contraction only by positive p update, not neg. T
                             if dT < 0.0:
                                 dT = 0.0
                             # unfeasible update (should compress if v_mix bigger than v)
@@ -846,7 +852,9 @@ class FlashInitializer:
                     # NOTE accessing the gufuncs directly require the fractions
                     # column-wise.
                     xn = normalize_rows(x_j.T)
-                    pre = self._eos.gufuncs["prearg_val"](phasestates[j], p, T, xn)
+                    pre = self._eos.gufuncs["prearg_val"](
+                        phasestates[j], p, T, xn, x_p.T
+                    )
                     rhos[j] = self._eos.gufuncs["rho"](pre, p, T, xn)
                 s = compute_saturations(y, rhos)
 

@@ -131,7 +131,7 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
         # function is the l2 norm of the residual, the relative residual criterion here
         # is consistent with the relative residual criterion used in check_convergence
         # in :class:`~porepy.models.solution_strategy.SolutionStrategy`.
-        relative_residual = f_1 / np.linalg.norm(dx.size)
+        relative_residual = f_1  #  / np.linalg.norm(dx.size)
         if relative_residual < self.params["nl_convergence_tol_res"]:
             # The objective function is sufficiently small at the full nonlinear step.
             # This means that the nonlinear step is a minimum of the objective function.
@@ -156,7 +156,9 @@ class LineSearchNewtonSolver(pp.NewtonSolver):
             f_b=f_1,
         )
         # Safeguard against zero weights.
-        return np.maximum(alpha, self.min_line_search_weight) * np.ones_like(dx)
+        weight = np.maximum(alpha, self.min_line_search_weight)
+        logger.info(f"Global Line search determined weight: {weight}")
+        return weight * np.ones_like(dx)
 
     def recursive_weight_from_sampling(
         self,
@@ -681,8 +683,9 @@ class ConstraintLineSearch:
 
                 else:
                     logger.info(
-                        f"Relaxation factor {weight} is too large for {sum(active_inds)}"
-                        + " indices. Reducing constraint violation tolerance."
+                        f"Relaxation factor {weight} is too large for "
+                        + f"{sum(active_inds)} indices. Reducing constraint violation "
+                        + "tolerance."
                     )
 
             f_0_v = f_0 - violation

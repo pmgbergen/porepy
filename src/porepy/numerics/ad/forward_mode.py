@@ -93,10 +93,16 @@ class AdArray:
         self.jac: sps.spmatrix = jac.astype(float)
         """The Jacobian matrix of the AdArray, stored as a sparse matrix."""
 
-    def __repr__(self) -> str:
+    def __str__(self) -> str:
         s = f"Ad array of size {self.val.size}\n"
         s += f"Jacobian is of size {self.jac.shape} and has {self.jac.data.size}"
-        s += " elements"
+        s += " elements."
+        return s
+
+    def __repr__(self) -> str:
+        s = f"Ad array of size {self.val.size}\n"
+        s += f"Value: {self.val}\n"
+        s += f"Jacobian: {self.jac}"
         return s
 
     def __getitem__(self, key: slice | np._ArrayLikeInt) -> AdArray:
@@ -427,16 +433,16 @@ class AdArray:
                 raise ValueError(
                     "Only 1d numpy arrays can be raised to the power of an AdArray."
                 )
-            # This is an exponent with different coefficients for each element
-            # in self.val. Numpy appears to be using dtype instead of values to determine
-            # the output type. Consequently, the multiplicative inverse / negative integer
-            # powers of a numpy's integer array lead to a float array raising a value
-            # error. As an example compare 1/np.array([1,2,3]) and np.array([1,2,3])**-1.
-            # As a workaround, we convert it to a float.
+            # This is an exponent with different coefficients for each element in
+            # self.val. Numpy appears to be using dtype instead of values to determine
+            # the output type. Consequently, the multiplicative inverse / negative
+            # integer powers of a numpy's integer array lead to a float array raising a
+            # value error. As an example compare 1/np.array([1,2,3]) and
+            # np.array([1,2,3])**-1. As a workaround, we convert it to a float.
             new_val = other.astype(float) ** self.val
-            # The Jacobian will have its columns scaled with the values in other,
-            # again in array-form. Achieve this by left-multiplying with other,
-            # represented as a diagonal matrix.
+            # The Jacobian will have its columns scaled with the values in other, again
+            # in array-form. Achieve this by left-multiplying with other, represented as
+            # a diagonal matrix.
             new_jac = self._diagvec_mul_jac((other**self.val) * np.log(other))
             return AdArray(new_val, new_jac)
 
