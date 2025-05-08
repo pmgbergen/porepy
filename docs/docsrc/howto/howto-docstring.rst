@@ -126,13 +126,61 @@ docstrings to provide a uniform appearance.
 Acronyms are formatted with inline literals using \`\`x\`\`.
 These include (among others):
 
-- ``sd`` : single SubDomain
-- ``mdg`` : MixedDimensionalGrid
-- ``p``, ``T``, ``u``,... : names of common physical variables
-- ``num_dofs`` : number of degrees of freedom
-- ``nd`` : ambient dimension of a ``mdg``, corresponding to the highest dimension of subdomains
-- ``num_points`` : number of points
-- ``num_cells`` : number of cells
+
+
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 20 65
+
+   * - Name
+     - Type
+     - Definition
+   * - intf
+     - pp.MortarGrid
+     - Grid representing an interface
+   * - mdg
+     - pp.MixedDimensionalGrid
+     - Mixed-dimensional grid
+   * - p
+     - E.g. pp.ad.Variable
+     - Abbreviation for pressure
+   * - primary, secondary
+     - None
+     - Pre- or suffix identifying the two subdomains of an interface. Unless the two subdomains have the same dimension, sd_primary.dim > sd_secondary.dim.
+   * - sd
+     - pp.Grid
+     - Grid representing a subdomain
+   * - T
+     - E.g. pp.ad.Variable
+     - Abbreviation for temperature
+   * - u
+     - E.g. pp.ad.Variable
+     - Abbreviation for displacement
+   * - a
+     - E.g. np.ndarray
+     - Aperture
+   * - sv
+     - np.ndarray
+     - Specific volume, usually satisfying sv = a^(nd – sd.dim)
+   * - nd
+     - int
+     - The ambient dimension of a domain, usually corresponding to the highest dimension of any subdomain in a mixed-dimensional grid (3 or 2).
+   * - data
+     - dict
+     - Dictionary containing data related to a subdomain or interface, including parameters and solution vectors. Sometimes pre or suffixed with e.g. “sd” or “secondary”.
+   * - AD
+     - str
+     - Documentation of automatic differentiation.
+   * - num_dofs
+     - int
+     - Number of degrees of freedom
+   * - num_points
+     - int
+     - Number of points
+   * - num_cells
+     - int
+     - Number of cells
 
 .. rubric:: Google style directives
 
