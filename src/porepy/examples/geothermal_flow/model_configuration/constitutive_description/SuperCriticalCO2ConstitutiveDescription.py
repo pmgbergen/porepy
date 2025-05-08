@@ -376,10 +376,14 @@ class SecondaryEquations(LocalElimination):
     """See :class:`~porepy.compositional.compositional_mixins._MixtureDOFHandler`."""
 
     def set_equations(self) -> None:
+        super().set_equations()
         subdomains = self.mdg.subdomains()
 
         matrix = self.mdg.subdomains(dim=self.mdg.dim_max())[0]
-        matrix_boundary = [self.mdg.subdomain_to_boundary_grid(matrix)]
+        matrix_boundary = cast(
+            pp.BoundaryGrid, self.mdg.subdomain_to_boundary_grid(matrix)
+        )
+        subdomains_and_matrix = subdomains + [matrix_boundary]
 
         ### Providing constitutive law for gas saturation based on correlation
         rphase = self.fluid.reference_phase  # liquid phase
@@ -393,9 +397,7 @@ class SecondaryEquations(LocalElimination):
                     phase
                 ),  # callables giving primary variables on subdoains
                 gas_saturation_func,  # numerical function implementing correlation
-                subdomains
-                + matrix_boundary,  # all subdomains on which to eliminate s_gas
-                # dofs = {'cells': 1},  # default value
+                subdomains_and_matrix,  # all subdomains on which to eliminate s_gas
             )
 
         ### Providing constitutive laws for partial fractions based on correlations
@@ -406,7 +408,7 @@ class SecondaryEquations(LocalElimination):
                         phase.partial_fraction_of[comp],
                         self.dependencies_of_phase_properties(phase),
                         chi_functions_map[comp.name + "_" + phase.name],
-                        subdomains + matrix_boundary,
+                        subdomains_and_matrix,
                     )
 
         ### Provide constitutive law for temperature
@@ -414,5 +416,5 @@ class SecondaryEquations(LocalElimination):
             self.temperature,
             self.dependencies_of_phase_properties(rphase),  # since same for all.
             temperature_func,
-            subdomains + matrix_boundary,
+            subdomains_and_matrix,
         )
