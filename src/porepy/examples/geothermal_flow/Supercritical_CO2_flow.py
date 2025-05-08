@@ -34,8 +34,8 @@ from porepy.examples.geothermal_flow.model_configuration.SuperCriticalCO2ModelCo
 
 day = 86400
 t_scale = 1.0
-tf = 3.4 * day
-dt = 0.1 * day
+tf = 0.34 * day
+dt = 0.01 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -62,7 +62,7 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-6,
+    "nl_convergence_tol_res": 1.0e-8,
     "max_iterations": 50,
 }
 
@@ -118,7 +118,7 @@ f_xi = model.fractional_component_mass_mobility(components[1],model.mdg.subdomai
 f_eta = model.fractional_component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
 
 flux_c1 = model.component_flux(components[1],model.mdg.subdomains()).value(model.equation_system)
-flux_buoyancy_c0 = model.component_buoyancy(components[0],model.mdg.subdomains()).value(model.equation_system)
+# flux_buoyancy_c0 = model.component_buoyancy(components[0],model.mdg.subdomains()).value(model.equation_system)
 flux_buoyancy_c1 = model.component_buoyancy(components[1],model.mdg.subdomains()).value(model.equation_system)
 
 # Retrieve the grid and boundary information

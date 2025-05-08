@@ -127,7 +127,7 @@ class LiquidLikeCorrelations(pp.compositional.EquationOfState):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (997.42) * np.ones(nc)
+        vals = (716.7) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs

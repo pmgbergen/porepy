@@ -632,8 +632,8 @@ class FluidBuoyancy(pp.PorePyModel):
 
     def set_bouyancy_discretization_parameters(self):
         for component_xi in self.fluid.components:
-            if self.fluid.reference_component.name == component_xi:
-                continue
+            # if self.fluid.reference_component.name == component_xi:
+            #     continue
             for pairs in self.component_pairs_for(component_xi):
                 xi, eta = pairs
                 for sd, data in self.mdg.subdomains(return_data=True):
@@ -660,15 +660,15 @@ class FluidBuoyancy(pp.PorePyModel):
     def update_buoyancy_discretizations(self):
 
         for component_xi in self.fluid.components:
-            if self.fluid.reference_component.name == component_xi:
-                continue
+            # if self.fluid.reference_component.name == component_xi:
+            #     continue
             for pairs in self.component_pairs_for(component_xi):
                 xi, eta = pairs
                 for sd, data in self.mdg.subdomains(return_data=True):
                     # Computing buoyancy flux and updating it in the mobility
-                    rho_xi = self.component_density(component_xi, [sd])
-                    rho_eta = self.component_density(component_eta, [sd])
-                    vals = self.density_driven_flux([sd], rho_xi - rho_eta).value(self.equation_system)
+                    rho_xi = self.component_density(xi, [sd])
+                    rho_eta = self.component_density(eta, [sd])
+                    vals = self.equation_system.evaluate(self.density_driven_flux([sd], rho_xi - rho_eta))
                     data[pp.PARAMETERS][self.upward_key(xi)].update({self.upward_flux_array_key(xi): +vals})
                     data[pp.PARAMETERS][self.downward_key(eta)].update({self.downward_flux_array_key(eta): -vals})
 

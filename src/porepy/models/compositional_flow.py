@@ -1685,6 +1685,8 @@ class SolutionStrategyPhaseProperties(pp.PorePyModel):
         )
         super().before_nonlinear_iteration()  # type:ignore[safe-super]
 
+
+
     def after_nonlinear_convergence(self) -> None:
         """Progresses phase properties in time, if they are surrogate factories.
 
@@ -1738,6 +1740,8 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
     """See :class:`~porepy.models.constitutive_laws.FouriersLaw`."""
     darcy_flux_discretization: Callable[[list[pp.Grid]], pp.ad.MpfaAd]
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
+    update_buoyancy_discretizations: Callable[[], None]
+    """See :class:`~porepy.models.fluid_property_library.update_buoyancy_discretizations`."""
 
     def __init__(self, params: Optional[dict] = None) -> None:
         assert isinstance(self, pp.SolutionStrategy), (
@@ -1813,6 +1817,7 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
             "This is a mixin. Require SolutionStrategy as base."
         )
         super().before_nonlinear_iteration()  # type:ignore[safe-super]
+        self.update_buoyancy_discretizations()
 
 
 class SolutionStrategySchurComplement(pp.PorePyModel):

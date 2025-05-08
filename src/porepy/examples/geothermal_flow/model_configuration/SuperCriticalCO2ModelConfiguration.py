@@ -5,7 +5,7 @@ from typing import Callable
 import numpy as np
 
 import porepy as pp
-from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate
+from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate as FlowTemplate
 
 from .constitutive_description.SuperCriticalCO2ConstitutiveDescription import (
     FluidMixture,
@@ -85,7 +85,7 @@ class SuperCriticalCO2FlowModel(
     InitialConditions,
     BoundaryConditions,
     SecondaryEquations,
-    CompositionalFractionalFlowTemplate,
+    FlowTemplate,
 ):
 
     # def relative_permeability(self, saturation: pp.ad.Operator) -> pp.ad.Operator:
