@@ -128,6 +128,12 @@ class SolutionStrategy(pp.PorePyModel):
         to construct.
         """
 
+        self._primary_variables: list[str] = []
+        """See :meth:`primary_variables`."""
+
+        self._primary_equations: list[str] = []
+        """See :meth:`primary_equations`."""
+
         self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
@@ -251,6 +257,106 @@ class SolutionStrategy(pp.PorePyModel):
 
         """
         return np.array([0])
+
+    @property
+    def primary_equations(self) -> list[str]:
+        """Names of the primary equations.
+
+        They define the row-block which does not contain the sub-matrix which is to be
+        inverted for the Schur complement.
+
+        Parameters:
+            names: List of equation names to be set as primary equations.
+
+        Raises:
+            ValueError: If any name is not known to the model's equation system or the
+                given names are not unique.
+
+        Returns:
+            The names of the equations (currently) defined as primary equations.
+
+        """
+        return self._primary_equations
+
+    @primary_equations.setter
+    def primary_equations(self, names: list[str]) -> None:
+        known_equations = list(self.equation_system.equations.keys())
+        for n in names:
+            if n not in known_equations:
+                raise ValueError(f"Equation {n} unknown to the equation system.")
+        if len(set(names)) != len(names):
+            raise ValueError("Primary equation names must be unique.")
+        # Shallow copy for safety, and keep order of equation system.
+        self._primary_equations = [n for n in known_equations if n in names]
+
+    @property
+    def primary_variables(self) -> list[str]:
+        """Names of the primary variables.
+
+        They define the column-block which does not contain the sub-matrix which is to
+        be inverted for the Schur complement.
+
+        Parameters:
+            names: List of variable names to be set as primary variables.
+
+        Raises:
+            ValueError: If any name is not known to the model's equation system or the
+                given names are not unique.
+
+        Returns:
+            The names of the variables (currently) defined as primary variables.
+
+        """
+        return self._primary_variables
+
+    @primary_variables.setter
+    def primary_variables(self, names: list[str]) -> None:
+        known_variables = list(set(v.name for v in self.equation_system.variables))
+        for n in names:
+            if n not in known_variables:
+                raise ValueError(f"Variable {n} unknown to the equation system.")
+        if len(set(names)) != len(names):
+            raise ValueError("Primary variables names must be unique.")
+        # Shallow copy for safety
+        self._primary_variables = [n for n in names]
+
+    @property
+    def secondary_equations(self) -> list[str]:
+        """The list of equation names indirectly defined as secondary.
+
+        They are given as the complement of :meth:`primary_equations` within all
+        equations found in the equation system.
+
+        Note:
+            Due to usage of Python's ``set``- operations, the resulting list may or may
+            not be in the order the equations were added to the model.
+
+        Returns:
+            A list of equation names defining the rows of the sub-matrix to be
+            inverted for the Schur complement.
+
+        """
+        all_equations = set([n for n in self.equation_system.equations.keys()])
+        return list(all_equations.difference(set(self.primary_equations)))
+
+    @property
+    def secondary_variables(self) -> list[str]:
+        """The list of variable (names) indirectly defined as secondary.
+
+        They are given as the complement of :meth:`primary_variables` within all
+        variables found in the equation system.
+
+        Note:
+            Due to usage of Python's ``set``- operations, the resulting list may or may
+            not be in the order the variables were created in the final model.
+
+        Returns:
+            A list of variable names defining the columns of the sub-matrix to be
+            inverted for the Schur complement.
+
+        """
+        all_variables = set([var.name for var in self.equation_system.variables])
+        return list(all_variables.difference(set(self.primary_variables)))
 
     def reset_state_from_file(self) -> None:
         """Reset states but through a restart from file.
