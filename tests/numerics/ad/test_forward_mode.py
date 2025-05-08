@@ -12,8 +12,24 @@ import numpy as np
 import pytest
 import scipy.sparse as sps
 
+from porepy.applications.test_utils.arrays import compare_arrays, compare_matrices
 from porepy.numerics.ad import functions as af
 from porepy.numerics.ad.forward_mode import AdArray, initAdArrays
+
+
+@pytest.fixture(params=[sps.csc_matrix, sps.csc_array])
+def create_csc(request) -> type[sps.csc_matrix] | type[sps.csc_array]:
+    return request.param
+
+
+@pytest.fixture(params=[sps.csr_matrix, sps.csr_array])
+def create_csr(request) -> type[sps.csr_matrix] | type[sps.csr_array]:
+    return request.param
+
+
+@pytest.fixture(params=[sps.diags, sps.diags_array])
+def create_diags(request):
+    return request.param
 
 
 def test_quadratic_function():
@@ -32,9 +48,9 @@ def test_vector_quadratic():
     assert np.all(z.val == val) and np.sum(z.jac != J) == 0
 
 
-def test_mapping_m_to_n():
+def test_mapping_m_to_n(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
     x, y = initAdArrays([np.array([1, 1, 3]), np.array([2, 3])])
-    A = sps.csc_matrix(np.array([[1, 2, 1], [2, 3, 4]]))
+    A = create_csc(np.array([[1, 2, 1], [2, 3, 4]]))
 
     z = y * (A @ x)
     val = np.array([12, 51])
@@ -76,24 +92,24 @@ def test_mul_scal_ad_var_init():
     assert b.val == 2 and np.all(b.jac.toarray() == [0, 1])
 
 
-def test_mul_sps_advar_init():
+def test_mul_sps_advar_init(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
     x = initAdArrays([np.array([1, 2, 3])])[0]
-    A = sps.csc_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    A = create_csc(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
 
     f = A @ x
     assert np.all(f.val == [14, 32, 50])
     assert np.all((f.jac == A).toarray())
 
 
-def test_advar_init_diff_len():
+def test_advar_init_diff_len(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
     a, b = initAdArrays([np.array([1, 2, 3]), np.array([1, 2])])
-    A = sps.csc_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
-    B = sps.csc_matrix(np.array([[1, 2], [4, 5]]))
+    A = create_csc(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    B = create_csc(np.array([[1, 2], [4, 5]]))
 
     f = A @ a
     g = B @ b
-    zero_32 = sps.csc_matrix((3, 2))
-    zero_23 = sps.csc_matrix((2, 3))
+    zero_32 = create_csc((3, 2))
+    zero_23 = create_csc((2, 3))
 
     jac_f = sps.hstack((A, zero_32))
     jac_g = sps.hstack((zero_23, B))
@@ -112,8 +128,8 @@ def test_advar_init_cross_jacobi():
     assert np.all((z.jac.toarray() == J))
 
 
-def test_advar_mul_vec():
-    x = AdArray(np.array([1, 2, 3]), sps.diags([3, 2, 1]))
+def test_advar_mul_vec(create_diags):
+    x = AdArray(np.array([1, 2, 3]), create_diags([3, 2, 1]))
     A = np.array([1, 3, 10])
     f = x * A
     sol = np.array([1, 6, 30])
@@ -123,10 +139,10 @@ def test_advar_mul_vec():
     assert np.all(x.val == np.array([1, 2, 3])) and np.all(x.jac == np.diag([3, 2, 1]))
 
 
-def test_advar_m_mul_vec_n():
-    x = AdArray(np.array([1, 2, 3]), sps.diags([3, 2, 1]))
+def test_advar_m_mul_vec_n(create_csc, create_diags):
+    x = AdArray(np.array([1, 2, 3]), create_diags([3, 2, 1]))
     vec = np.array([1, 2])
-    R = sps.csc_matrix(np.array([[1, 0, 1], [0, 1, 0]]))
+    R = create_csc(np.array([[1, 0, 1], [0, 1, 0]]))
     y = R @ x
     z = y * vec
     Jy = np.array([[3, 0, 1], [0, 2, 0]])
@@ -137,37 +153,41 @@ def test_advar_m_mul_vec_n():
     assert np.sum(z.jac.toarray() - Jz) == 0
 
 
-def test_mul_sps_advar():
-    J = sps.csc_matrix(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]]))
+def test_mul_sps_advar(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
+    J = create_csc(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]]))
     x = AdArray(np.array([1, 2, 3]), J)
-    A = sps.csc_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    A = create_csc(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
     f = A @ x
 
     assert np.all(f.val == [14, 32, 50])
-    assert np.all(f.jac == A * J.toarray())
+    assert np.all(f.jac == A @ J.toarray())
 
 
-def test_mul_advar_vectors():
-    Ja = sps.csc_matrix(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]]))
-    Jb = sps.csc_matrix(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
+def test_mul_advar_vectors(create_csc: type[sps.csc_matrix] | type[sps.csc_array]):
+    Ja = create_csc(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]]))
+    Jb = create_csc(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))
     a = AdArray(np.array([1, 2, 3]), Ja)
     b = AdArray(np.array([1, 1, 1]), Jb)
-    A = sps.csc_matrix(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
+    A = create_csc(np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]]))
 
     f = A @ a + b
 
     assert np.all(f.val == [15, 33, 51])
-    assert np.sum(f.jac.toarray() != A * Ja + Jb) == 0
-    assert (
-        np.sum(Ja != sps.csc_matrix(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]]))) == 0
-    )
-    assert (
-        np.sum(Jb != sps.csc_matrix(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]))) == 0
-    )
+    assert compare_matrices(f.jac, A @ Ja + Jb)
+    # Asterix stands for element-wise multiplication for sparrays and matrix
+    # multiplication for spmatrix.
+    if create_csc is sps.csc_matrix:
+        assert compare_matrices(f.jac, A * Ja + Jb)
+    elif create_csc is sps.csc_array:
+        assert not compare_matrices(f.jac, A * Ja + Jb)
+    else:
+        raise ValueError(create_csc)
+    assert compare_matrices(Ja, create_csc(np.array([[1, 3, 1], [5, 0, 0], [5, 1, 2]])))
+    assert compare_matrices(Jb, create_csc(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])))
 
 
-def test_copy_scalar():
-    a = AdArray(np.array([1]), sps.csr_matrix([[0]]))
+def test_copy_scalar(create_csr: type[sps.csr_matrix] | type[sps.csr_array]):
+    a = AdArray(np.array([1]), create_csr([[0]]))
     b = a.copy()
     assert a.val == b.val
     assert a.jac == b.jac
@@ -177,26 +197,26 @@ def test_copy_scalar():
     assert b.jac == 0
 
 
-def test_copy_vector():
-    a = AdArray(np.ones(3), sps.csr_matrix(np.diag(np.ones((3)))))
+def test_copy_vector(create_csr: type[sps.csr_matrix] | type[sps.csr_array]):
+    a = AdArray(np.ones(3), create_csr(np.diag(np.ones((3)))))
     b = a.copy()
     assert np.allclose(a.val, b.val)
     assert np.allclose(a.jac.toarray(), b.jac.toarray())
     a.val[0] = 3
     a.jac[2] = 4
     assert np.allclose(b.val, np.ones(3))
-    assert np.allclose(b.jac.toarray(), sps.csr_matrix(np.diag(np.ones((3)))).toarray())
+    assert np.allclose(b.jac.toarray(), create_csr(np.diag(np.ones((3)))).toarray())
 
 
-def test_exp_scalar_times_ad_var():
+def test_exp_scalar_times_ad_var(create_csc, create_diags):
     val = np.array([1, 2, 3])
-    J = sps.diags(np.array([1, 1, 1]))
+    J = create_diags(np.array([1, 1, 1]))
     a, _, _ = initAdArrays([val, val, val])
     c = 2.0
     b = af.exp(c * a)
 
-    zero = sps.csc_matrix((3, 3))
-    jac = sps.hstack([c * sps.diags(np.exp(c * val)) * J, zero, zero])
+    zero = create_csc((3, 3))
+    jac = sps.hstack([c * create_diags(np.exp(c * val)) * J, zero, zero])
     jac_a = sps.hstack([J, zero, zero])
     assert np.allclose(b.val, np.exp(c * val)) and np.allclose(
         b.jac.toarray(), jac.toarray()
@@ -212,11 +232,13 @@ def test_exp_scalar_times_ad_var():
         (np.array([0, 2, 4, 6, 8], dtype=int), np.array([1, 3, 5, 7, 9], dtype=int)),
     ],
 )
-def test_get_set_slice_ad_var(index, index_c):
+def test_get_set_slice_ad_var(
+    index, index_c, create_csr: type[sps.csr_matrix] | type[sps.csr_array]
+):
     a = initAdArrays([np.arange(10)])[0]
 
     val = np.arange(10)
-    jac = sps.csr_matrix(np.eye(10))
+    jac = create_csr(np.eye(10))
 
     assert np.all(val == a.val)
     assert np.all(jac == a.jac.toarray())
@@ -225,38 +247,51 @@ def test_get_set_slice_ad_var(index, index_c):
         target_val = np.array([val[index]])
     else:
         target_val = val[index]
-    target_jac = jac[index].toarray()
+    target_jac = jac[index]
 
     # Testing slicing
     a_slice = a[index]
 
-    assert a_slice.val.shape == target_val.shape
-    assert a_slice.jac.shape == target_jac.shape
-    assert np.all(a_slice.val == target_val)
-    assert np.all(a_slice.jac == target_jac)
+    # `initAdArrays` is used in the core of the AD parser, and it works only with the
+    # spmatrices, not sparrays. Their slicing behavior is different: spmatrix does not
+    # flatten the result, while sparray does. Some parts of the code may rely on this
+    # assumption. This code will signalize if this assumption ever breaks.
+    if isinstance(index, int):
+        assert len(a_slice.jac.shape) == 2
+        # Manually unraveling it for the sparrays to make the test consistent.
+        target_jac = target_jac.reshape(1, 10)
+
+    assert compare_arrays(a_slice.val, target_val)
+    assert compare_matrices(a_slice.jac, target_jac)
 
     # testing setting values with slicing
 
     b = a[index] * 10.0
-    assert np.all(b.val == val[index] * 10.0)
-    assert np.all(b.jac.toarray() == jac[index] * 10.0)
+    assert compare_arrays(b.val, val[index] * 10.0)
+    # Edge case, it is known that the test will fail, since sparrays flatten the slice.
+    # This condition signalize if the behavior in `initAdArrays` is changed.
+    if isinstance(jac, sps.csr_array) and isinstance(index, int):
+        with pytest.raises(AssertionError):
+            assert compare_matrices(b.jac, jac[index] * 10.0)
+    else:
+        assert compare_matrices(b.jac, jac[index] * 10.0)
 
     # setting an AD array should set val and jacobian row-wise
     a_copy = a.copy()
     a[index] = b
-    assert np.all(a[index].val == b.val)
-    assert np.all(a[index].jac.toarray() == b.jac.toarray())
+    assert compare_arrays(a[index].val, b.val)
+    assert compare_matrices(a[index].jac, b.jac)
     # complement should not be affected
-    assert np.all(a[index_c].val == a_copy[index_c].val)
-    assert np.all(a[index_c].jac.toarray() == a_copy[index_c].jac.toarray())
+    assert compare_arrays(a[index_c].val, a_copy[index_c].val)
+    assert compare_matrices(a[index_c].jac, a_copy[index_c].jac)
 
     # setting a numpy array should only modify the values of the ad array
     b = target_val * 10.0
     a = a_copy.copy()
     a[index] = b
-    assert np.all(a[index].val == b)
-    assert np.all(a[index_c].val == a_copy[index_c].val)
-    assert np.all(a.jac.toarray() == a_copy.jac.toarray())
+    assert compare_arrays(a[index].val, b)
+    assert compare_arrays(a[index_c].val, a_copy[index_c].val)
+    assert compare_matrices(a.jac, a_copy.jac)
 
 
 @pytest.mark.parametrize("N", [1, 3])
@@ -272,9 +307,14 @@ def test_get_set_slice_ad_var(index, index_c):
         AdArray(np.ones(1), sps.csr_matrix(np.eye(1))),
         AdArray(np.ones(2), sps.csr_matrix(np.eye(2))),
         AdArray(np.ones(3), sps.csr_matrix(np.eye(3))),
+        AdArray(np.ones(1), sps.csr_array(np.eye(1))),
+        AdArray(np.ones(2), sps.csr_array(np.eye(2))),
+        AdArray(np.ones(3), sps.csr_array(np.eye(3))),
     ],
 )
-def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | AdArray):
+def test_logical_operation(
+    N: int, logical_op: str, other: int | np.ndarray | AdArray, create_csr
+):
     """Logical operations on Ad arrays are implemented such that they operate only on
     values, making them completely equivalent to what numpy does. This test is based
     onthat premise: Logical operations on AdArrays should yield results identical to
@@ -286,7 +326,7 @@ def test_logical_operation(N: int, logical_op: str, other: int | np.ndarray | Ad
     """
 
     val = np.arange(N)
-    jac = sps.csr_matrix(np.eye(N))
+    jac = create_csr(np.eye(N))
     # Ignore ad not being accessed, it is used in the exec statement.
     ad = AdArray(val, jac)  # noqa: F841
 
