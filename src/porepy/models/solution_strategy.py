@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import time
 import warnings
-from functools import partial
+from functools import cached_property, partial
 from typing import Any, Callable, Optional, cast
 
 import numpy as np
@@ -760,13 +760,36 @@ class SolutionStrategy(pp.PorePyModel):
                 "Primary row block for Schur technique not defined."
             )
             self.linear_system = self.equation_system.assemble_schur_complement_system(
-                self.primary_equations, self.primary_variables
+                self.primary_equations,
+                self.primary_variables,
+                inverter=self.schur_complement_inverter,
             )
         else:
             self.linear_system = self.equation_system.assemble()
 
         t_1 = time.time()
         logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
+
+    @cached_property
+    def schur_complement_inverter(self) -> Callable[[sps.spmatrix], sps.spmatrix]:
+        """Returns the inverter for the secondary block in the Schur complement
+        reduction.
+
+        The inverter must take a sparse matrix and return its inverse.
+
+        The base implements an efficient inverter for block diagonal matrix,
+        assuming :meth:`secondary_variables` and :meth:`secondary_equations` denote
+        a permuted but local sub-system.
+
+        """
+
+        def fall_back_inverter(A: sps.spmatrix) -> sps.spmatrix:
+            """Fall-back inverter using sparse super LU."""
+            return sps.csr_matrix(
+                sps.linalg.spsolve(A, sps.eye(A.shape[0], format="csc"))
+            )
+
+        return fall_back_inverter
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
