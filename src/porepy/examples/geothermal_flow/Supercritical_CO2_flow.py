@@ -34,8 +34,8 @@ from porepy.examples.geothermal_flow.model_configuration.SuperCriticalCO2ModelCo
 
 day = 86400
 t_scale = 1.0
-tf = 0.34 * day
-dt = 0.01 * day
+tf = 0.1 * day
+dt = 0.05 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -78,6 +78,9 @@ class SuperCriticalCO2FlowModel(FlowModel):
 
     def after_simulation(self):
         self.exporter.write_pvd()
+
+    def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
+        return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
 
 
 model = SuperCriticalCO2FlowModel(params)

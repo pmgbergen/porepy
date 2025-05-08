@@ -550,8 +550,9 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
                 self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
 
     def set_discretization_parameters(self) -> None:
-        super().set_discretization_parameters()
         self.set_bouyancy_discretization_parameters()
+        super().set_discretization_parameters()
+
 
 
     def component_mass_balance_equation(
