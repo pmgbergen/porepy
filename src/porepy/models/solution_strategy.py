@@ -781,6 +781,14 @@ class SolutionStrategy(pp.PorePyModel):
         assuming :meth:`secondary_variables` and :meth:`secondary_equations` denote
         a permuted but local sub-system.
 
+        Note:
+            The permutation to block-diagonal form assumes no order violation in
+            variable and equation definition is introduced when compared to the DOF
+            order of the equation system and grid order in the mixed-dimensional grid.
+
+            Mixed-dimensional variables and equations must all be defined on the grids
+            as returned by ``mdg.subdomains()`` or ``mdg.interfaces()``.
+
         """
 
         def fall_back_inverter(A: sps.spmatrix) -> sps.spmatrix:
