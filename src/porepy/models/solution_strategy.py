@@ -740,10 +740,33 @@ class SolutionStrategy(pp.PorePyModel):
 
         The linear system is defined by the current state of the model.
 
+        If ``params['reducue_linear_system']`` is True, the :meth:`primary_variables`
+        and :meth:`primary_equations` are used to perform a Schur complement technique.
+
+        See Also:
+            :meth:`~porepy.numerics.ad.equation_system.EquationSystem.
+            assemble_schur_complement_system`
+
+            :meth:`~porepy.numerics.ad.equation_system.EquationSystem.assemble`
+
         """
         t_0 = time.time()
-        self.linear_system = self.equation_system.assemble()
-        logger.debug(f"Assembled linear system in {time.time() - t_0:.2e} seconds.")
+
+        if self.params.get("reduce_linear_system", False):
+            assert self.primary_variables, (
+                "Primary column block for Schur technique not found."
+            )
+            assert self.primary_equations, (
+                "Primary row block for Schur technique not defined."
+            )
+            self.linear_system = self.equation_system.assemble_schur_complement_system(
+                self.primary_equations, self.primary_variables
+            )
+        else:
+            self.linear_system = self.equation_system.assemble()
+
+        t_1 = time.time()
+        logger.debug(f"Assembled linear system in {t_1 - t_0:.2e} seconds.")
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
@@ -795,7 +818,11 @@ class SolutionStrategy(pp.PorePyModel):
             )
         logger.info(f"Solved linear system in {time.time() - t_0:.2e} seconds.")
 
-        return np.atleast_1d(x)
+        x = np.atleast_1d(x)
+        if self.params.get("reduce_linear_system", False):
+            x = self.equation_system.expand_schur_complement_solution(x)
+
+        return x
 
     def _is_nonlinear_problem(self) -> bool:
         """Specifies whether the Model problem is nonlinear.
