@@ -24,17 +24,16 @@ def project_flux(
     mortar_key: str = "mortar_solution",
 ) -> None:
     """
-    Save in the grid bucket a piece-wise vector representation of the flux
-    for each grid.
+    Save in the md-grid a piece-wise vector representation of the flux for each grid.
 
-    Parameters
-    ---------
-    mdg: the grid bucket
-    discr: discretization class
-    flux: identifier of the flux, already split, in the grid bucket
-    P0_flux: identifier of the reconstructed flux which will be added to the grid bucket.
-    mortar_key (optional): identifier of the mortar variable, already split, in the
-        grid bucket. The default value is "mortar_solution".
+    Parameters:
+        mdg: the md-grid
+        discr: discretization class
+        flux: identifier of the flux, already split, in the md-grid
+        P0_flux: identifier of the reconstructed flux which will be added to the
+            md-grid.
+        mortar_key: identifier of the mortar variable, already split, in the md-grid.
+            The default value is "mortar_solution".
 
     """
 
@@ -52,14 +51,13 @@ def project_flux(
             sign = sps.diags(sd.cell_faces.data[indices], 0)
 
             for intf in mdg.subdomain_to_interfaces(sd):
-                # do not consider the contribution from the mortar grid when the latter is
-                # of the same dimension or codim > 1 (e.g., wells)
+                # do not consider the contribution from the mortar grid when the latter
+                # is of the same dimension or codim > 1 (e.g., wells)
                 if intf.dim == sd.dim or intf.codim > 1:
                     continue
 
                 data_intf = mdg.interface_data(intf)
-                # project the mortar variable back to the higher dimensional
-                # problem
+                # project the mortar variable back to the higher dimensional problem
                 # edge_flux += sign * g_m.mortar_to_primary_int() *
                 # d_e[pp.TIME_STEP_SOLUTIONS][mortar_key][0]
                 mortar_values = pp.get_solution_values(
@@ -76,8 +74,8 @@ def project_flux(
 
 class DualElliptic(Discretization):
     """Parent class for methods based on the mixed variational form of the
-    elliptic equation. The class should not be used by itself, but provides a
-    sheared implementation of central methods.
+    elliptic equation. The class should not be used by itself, but provides a shared
+    implementation of central methods.
 
     Known subclasses that can be used for actual discretization are MVEM and RT0.
 
@@ -88,7 +86,8 @@ class DualElliptic(Discretization):
         self.keyword = keyword
         self.name = name
 
-        # Keywords used to identify individual terms in the discretization matrix dictionary
+        # Keywords used to identify individual terms in the discretization matrix
+        # dictionary.
         # Discretization of H_div mass matrix
         self.mass_matrix_key = "mass"
         # Discretization of divergence matrix
@@ -403,22 +402,20 @@ class DualElliptic(Discretization):
         the node and the mortar grid on the relevant edge.
 
         Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
-            cc (block matrix, 3x3): Block matrix for the coupling condition.
+            g: Grid which the condition should be imposed on.
+            data: Data dictionary for the node in the mixed-dimensional grid.
+            data_edge: Data dictionary for the edge in the mixed-dimensional grid.
+            cc: (block matrix, 3x3) Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 primary and secondary side; the third belongs to the edge variable.
                 The discretization of the relevant term is done in-place in cc.
-            matrix (block matrix 3x3): Discretization matrix for the edge and
-                the two adjacent nodes.
-            rhs (block_array 3x1): Right hand side contribution for the edge and
-                the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
-                Should be either 1 or 2.
-            use_secondary_proj (boolean): If True, the secondary side projection operator is
+            matrix: (block matrix 3x3) Discretization matrix for the edge and the two
+                adjacent nodes.
+            rhs: (block_array 3x1) Right hand side contribution for the edge and the two
+                adjacent nodes.
+            self_ind: Index in cc and matrix associated with this node. Should be either
+                1 or 2.
+            use_secondary_proj: If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
@@ -520,11 +517,9 @@ class DualElliptic(Discretization):
         the node and the mortar grid on the relevant edge.
 
         Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
+            g: Grid which the condition should be imposed on.
+            data: Data dictionary for the node in the mixed-dimensional grid.
+            data_edge: Data dictionary for the edge in the mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 primary and secondary side; the third belongs to the edge variable.
@@ -533,9 +528,9 @@ class DualElliptic(Discretization):
                 the two adjacent nodes.
             rhs (block_array 3x1): Right hand side contribution for the edge and
                 the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
+            self_ind: Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_secondary_proj (boolean): If True, the secondary side projection operator is
+            use_secondary_proj: If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
@@ -569,11 +564,9 @@ class DualElliptic(Discretization):
         For details, see self.assemble_int_bound_pressure_trace()
 
         Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data (dictionary): Data dictionary for the node in the
-                mixed-dimensional grid.
-            data_edge (dictionary): Data dictionary for the edge in the
-                mixed-dimensional grid.
+            g: Grid which the condition should be imposed on.
+            data: Data dictionary for the node in the mixed-dimensional grid.
+            data_edge: Data dictionary for the edge in the mixed-dimensional grid.
             cc (block matrix, 3x3): Block matrix for the coupling condition.
                 The first and second rows and columns are identified with the
                 primary and secondary side; the third belongs to the edge variable.
@@ -582,9 +575,9 @@ class DualElliptic(Discretization):
                 the two adjacent nodes.
             rhs (block_array 3x1): Right hand side contribution for the edge and
                 the two adjacent nodes.
-            self_ind (int): Index in cc and matrix associated with this node.
+            self_ind: Index in cc and matrix associated with this node.
                 Should be either 1 or 2.
-            use_secondary_proj (boolean): If True, the secondary side projection operator is
+            use_secondary_proj: If True, the secondary side projection operator is
                 used. Needed for periodic boundary conditions.
 
         """
@@ -607,21 +600,20 @@ class DualElliptic(Discretization):
         No contribution for this method.
 
         Parameters:
-            g (Grid): Grid which the condition should be imposed on.
-            data_grid (dictionary): Data dictionary for the node in the
+            g: Grid which the condition should be imposed on.
+            data_grid: Data dictionary for the node in the mixed-dimensional grid.
+            data_primary_edge: Data dictionary for the primary edge in the
                 mixed-dimensional grid.
-            data_primary_edge (dictionary): Data dictionary for the primary edge in the
+            data_secondary_edge: Data dictionary for the secondary edge in the
                 mixed-dimensional grid.
-            data_secondary_edge (dictionary): Data dictionary for the secondary edge in the
-                mixed-dimensional grid.
-            cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block represents
-                coupling between variables on this interface. Index 0, 1 and 2
-                represent the primary grid, the primary and secondary interface,
+            cc (block matrix, 3x3): Block matrix of size 3 x 3, whwere each block
+                represents coupling between variables on this interface. Index 0, 1 and
+                2 represent the primary grid, the primary and secondary interface,
                 respectively.
             matrix (block matrix 3x3): Discretization matrix for the edge and
                 the two adjacent nodes.
-            rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right hand
-                side of this coupling. Index 0, 1 and 2 represent the primary grid,
+            rhs (block_array 3x1): Block matrix of size 3 x 1, representing the right
+                hand side of this coupling. Index 0, 1 and 2 represent the primary grid,
                 the primary and secondary interface, respectively.
 
         """

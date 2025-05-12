@@ -286,19 +286,17 @@ def point_in_polyhedron(
         num_points += simplices.max() + 1
 
     # Uniquify points, and update triangulation
-    upoints, ia, ib = pp.utils.setmembership.uniquify_point_set(points, tol)
+    upoints, ia, ib = pp.array_operations.uniquify_point_set(points, tol)
     ut = ib[tri.astype(int)]
 
     # The in-polyhedra algorithm requires a very particular ordering of the vertexes
     # in the triangulation. Fix this.
     # Note: We cannot do a standard CCW sorting here, since the polygons lie in
     # different planes, and projections to 2d may or may not rotate the polygon.
-    sorted_t = pp.utils.sort_points.sort_triangle_edges(ut.T).T
+    sorted_t = pp.sort_points.sort_triangle_edges(ut.T).T
 
     # Generate tester for points
-    test_object = pp.point_in_polyhedron_test.PointInPolyhedronTest(
-        upoints.T, sorted_t, tol
-    )
+    test_object = pp.point_in_polyhedron.PointInPolyhedron(upoints.T, sorted_t, tol)
 
     if test_points.size < 4:
         test_points = test_points.reshape((-1, 1))

@@ -56,6 +56,7 @@ jobs:
     steps:
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
     - uses: actions/checkout@v4
+
     
     - name: Setup Python ${{ matrix.python-version}}
       uses: actions/setup-python@v5
@@ -64,15 +65,15 @@ jobs:
         python-version: ${{ matrix.python-version}}
         architecture: x64
         cache: 'pip'
-
-    # Cache pip dependencies
+        
+      # Cache pip dependencies
     # Source: https://github.com/actions/cache/blob/main/examples.md#python---pip
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      id: cache
-      with:
-        path: ${{ env.pythonLocation }}
-        key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
+    # - name: Cache dependencies
+    #   uses: actions/cache@v4
+    #   id: cache
+    #   with:
+    #     path: ${{ env.pythonLocation }}
+    #     key: ${{ env.pythonLocation }}-${{ hashFiles('pyproject.toml') }}
 
     - name: Cache mypy
       uses: actions/cache@v4
@@ -80,6 +81,13 @@ jobs:
       with:
         path: mypy-cache-${{ matrix.python-version}}
         key: ${{ runner.os }}-mypy
+          
+    # Make sure pip is up to date.
+    - name: Upgrade pip
+      run: |
+        pip cache purge
+        python -m pip install -U pip
+        pip --version
 
     # Install the dependencies, which is needed to make mypy happy. Unravelling of the
     # second command: The expression in the angular brackets is a python command that

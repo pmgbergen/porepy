@@ -61,8 +61,8 @@ def test_subdomain_projections(mdg, scalar):
         row_cell = np.arange(nc * dim)
         data_face = np.ones(nf * dim)
         row_face = np.arange(nf * dim)
-        col_cell = pp.fvutils.expand_indices_nd(cell_inds, dim)
-        col_face = pp.fvutils.expand_indices_nd(face_inds, dim)
+        col_cell = pp.array_operations.expand_indices_nd(cell_inds, dim)
+        col_face = pp.array_operations.expand_indices_nd(face_inds, dim)
         return row_cell, col_cell, data_cell, row_face, col_face, data_face
 
     # Test projections to and from an empty list of subdomains.
@@ -387,7 +387,8 @@ def test_mortar_projections(mdg, scalar, non_matching):
 @pytest.mark.parametrize("scalar", [True, False])
 def test_boundary_grid_projection(mdg: pp.MixedDimensionalGrid, scalar: bool):
     """Three main functionalities being tested:
-    1) That we can create a boundary projection operator with the correct size and items.
+    1) That we can create a boundary projection operator with the correct size and
+        items.
     2) Specifically that the top-dimensional grid and one of the fracture grids
        contribute to the boundary projection operator, while the third has a projection
        matrix with zero rows.

@@ -580,9 +580,9 @@ class PoromechanicalTestDiffTpfa(
 
     def ic_values_pressure(self, sd) -> np.ndarray:
         if sd.dim == 1:
-            # Set the pressure variable in the 1d domain: The pressure is 2 in the leftmost
-            # fracture cell, 0 in the rightmost fracture cell. This should give a flux
-            # pointing to the right.
+            # Set the pressure variable in the 1d domain: The pressure is 2 in the
+            # leftmost fracture cell, 0 in the rightmost fracture cell. This should give
+            # a flux pointing to the right.
             if np.diff(sd.cell_centers[0])[0] > 0:
                 p = np.array([2, 0])
             else:
@@ -695,8 +695,8 @@ def test_derivatives_darcy_flux_potential_trace(base_discr: str):
     dk1_du3 = (u_m[3] - u_m[1] + resid_ap) ** 2 / 4
     dk1_du1 = -((u_m[3] - u_m[1] + resid_ap) ** 2) / 4
 
-    # Calculate the transmissibility. First, get the distance between the cell center and
-    # the face center (will be equal on the two sides of the face).
+    # Calculate the transmissibility. First, get the distance between the cell center
+    # and the face center (will be equal on the two sides of the face).
     dist = np.abs(sd_1d.face_centers[0, 1] - sd_1d.cell_centers[0, 0])
 
     # Half transmissibility

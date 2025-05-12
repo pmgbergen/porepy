@@ -25,7 +25,7 @@ def plot_fractures(
 
     The function is primarily intended for data exploration.
 
-    Args:
+    Parameters:
         pts (np.ndarray, dims 2 x npt): Coordinates of the fracture endpoints.
         edges (np.ndarray, dims 2 x n_edges): Indices of fracture start and
             endpoints.
@@ -35,32 +35,34 @@ def plot_fractures(
             (e.g. by fracture family). If provided, different colors will be
             asign to the different families. Defaults to all fractures being
             black.
-        ax (matplotlib.axes.Axes, optional): If not given an axis, an axis will be created.
+        ax (matplotlib.axes.Axes, optional): If not given an axis, an axis will be
+            created.
         kwargs (optional): Keyword arguments passed on to matplotlib.
-            fig_id: figure id
+            fig_id: figure id.
             dpi:
-            plot: Boolean flag determining whether the plot is drawn to canvas
+            plot: Boolean flag determining whether the plot is drawn to canvas.
             domain: Boolean flag determining whether the domain shall be plotted in red
-                (or white)
-            line_style: style of drawing lines
-            pts_coord: Boolean flag determining whether the point coordinates are plotted
-            axis_equal: Boolean flag determining whether both axes are treated equally
-            axis: Boolean flag determining whether the axes are conforming with domain
-            save: Boolean flag determining whether the figure is saved
+                (or white).
+            line_style: style of drawing lines.
+            pts_coord: Boolean flag determining whether the point coordinates are
+                plotted.
+            axis_equal: Boolean flag determining whether both axes are treated equally.
+            axis: Boolean flag determining whether the axes are conforming with domain.
+            save: Boolean flag determining whether the figure is saved.
 
     Returns:
-        matplotlib.axes.Axes: The axis the fractures are plotted in
+        matplotlib.axes.Axes: The axis the fractures are plotted in.
 
     Raises:
-        ValueError if axis and figure id are provided both
-        ValueError if keywords dpi and ax are provided both
+        ValueError if axis and figure id are provided both.
+        ValueError if keywords dpi and ax are provided both.
 
     """
-    # If not provided, determine the domain as bounding box
+    # If not provided, determine the domain as bounding box.
     if domain is None:
         domain = pp.Domain(pp.domain.bounding_box_of_point_cloud(pts))
 
-    # If no axis is provided, construct one
+    # If no axis is provided, construct one.
     if ax is None:
         plt.figure(kwargs.get("fig_id", 1), dpi=kwargs.get("dpi", 100))
         ax = plt.axes()
@@ -73,9 +75,8 @@ def plot_fractures(
             raise ValueError("Cannot give both keyword argument 'dpi' and 'ax'")
         do_plot = kwargs.get("plot", False)
 
-    # Assign a color to each tag. We define these by RBG-values (simplest
-    # option in pyplot).
-    # For the moment, some RBG values are hard coded, do something more
+    # Assign a color to each tag. We define these by RBG-values (simplest option in
+    # pyplot). For the moment, some RBG values are hard coded, do something more
     # intelligent if necessary.
     if colortag is None:
         tagmap = np.zeros(edges.shape[1], dtype="int")
@@ -113,13 +114,13 @@ def plot_fractures(
         else:
             col = plt.get_cmap("tab20")(np.mod(utag, 20))
 
-    # Fix the domain color
+    # Fix the domain color.
     if kwargs.get("domain", True):
         domain_color = "red"
     else:
         domain_color = "white"
 
-    # Plot the domain
+    # Plot the domain.
     ax.plot(
         [
             domain.bounding_box["xmin"],
@@ -139,8 +140,8 @@ def plot_fractures(
         color=domain_color,
     )
 
-    # Simple for-loop to draw one fracture after another. Not fancy, but it
-    # serves its purpose.
+    # Simple for-loop to draw one fracture after another. Not fancy, but it serves its
+    # purpose.
     line_style = kwargs.get("line_style", "o-")
     for i in range(edges.shape[1]):
         ax.plot(
@@ -150,14 +151,14 @@ def plot_fractures(
             color=col[tagmap[i]],
         )
 
-    # Add point coordinates to the plot
+    # Add point coordinates to the plot.
     if kwargs.get("pts_coord", False):
         for i in range(pts.shape[1]):
             ax.text(
                 pts[0, i], pts[1, i], "(" + str(pts[0, i]) + ", " + str(pts[1, i]) + ")"
             )
 
-    # Set options for axes
+    # Set options for axes.
     if kwargs.get("axis_equal", True):
         ax.axis("equal")
         ax.set_aspect("equal", adjustable="box")
@@ -174,7 +175,7 @@ def plot_fractures(
     else:
         ax.axis("off")
 
-    # Finally set axis
+    # Finally set axis.
     if do_plot:
         plt.show()
     if kwargs.get("save", None) is not None:
@@ -191,17 +192,16 @@ def plot_wells(
 
     The function is primarily intended for data exploration.
 
-    Args:
-        d (pp.Domain): Two-dimensional domain specification.
-        w (np.ndarray, dims 2 x npt): Coordinates of the wells.
-        colortag (np.ndarray, dim n_w, optional): Colorcoding for wells.
-            If provided, different colors will be asign to the different wells.
-            Defaults to all wells being black.
+    Parameters:
+        d: Two-dimensional domain specification.
+        w: shape=(dims 2, npt) Coordinates of the wells.
+        colortag: Colorcoding for wells. If provided, different colors will be assigned
+            to the different wells. Defaults to all wells being black.
         kwargs: Keyword arguments passed on to matplotlib.
-            plot: Boolean flag determining wether the figure is plotted
+            plot: Boolean flag determining wether the figure is plotted.
 
     Raises:
-        NotImplementedError if more than 6 colors are requested
+        NotImplementedError if more than 6 colors are requested.
 
     """
 
@@ -255,6 +255,6 @@ def plot_wells(
     for i, well in enumerate(w.T):
         plt.plot(*well, "o", color=col[tagmap[i]])
 
-    # Finally draw the plot
+    # Finally draw the plot.
     if kwargs.get("plot", True):
         plt.show()

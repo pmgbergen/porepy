@@ -943,6 +943,7 @@ def test_l2_error(
     # Define true and approximated values.
     vec = 1 if is_scalar else grid.dim
     num_dof = grid.num_cells if is_cc else grid.num_faces
+    np.random.seed(42)
     true_array = np.random.random(num_dof * vec)
     approx_array = np.random.random(num_dof * vec)
     diff = true_array - approx_array
@@ -1031,7 +1032,8 @@ def test_l2_error_not_implemented_error(grids: list[pp.Grid, pp.MortarGrid]) -> 
 @pytest.mark.parametrize("weight_is_scalar", [True, False])
 @pytest.mark.parametrize("p", [np.inf, 1, 2, 3, 4, 1.5])
 def test_lp_norm(p: pp.number, weight_is_scalar: bool) -> None:
-    """Test the Lp norm with various values for p, and either scalar or vectorial weight."""
+    """Test the Lp norm with various values for p, and either scalar or vectorial
+    weight."""
 
     # Simple test with 1 value for weights,
     weight_ = 3.0

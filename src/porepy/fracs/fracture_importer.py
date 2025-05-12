@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import warnings
 from typing import Optional, Union
 
 import gmsh
@@ -333,7 +334,7 @@ def network_2d_from_csv(
         bbox = pp.domain.bounding_box_of_point_cloud(pts, overlap)
         domain = pp.Domain(bbox)
 
-    pts, _, old_2_new = pp.utils.setmembership.unique_columns_tol(pts, tol=tol)
+    pts, _, old_2_new = pp.array_operations.uniquify_point_set(pts, tol=tol)
 
     edges[:2] = old_2_new[edges[:2].astype(int)]
 
@@ -443,6 +444,8 @@ def dfm_3d_from_fab(
         also the domain.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
 
     network = network_3d_from_fab(file_name, return_all=False, tol=tol)
     assert isinstance(network, FractureNetwork3d)
@@ -493,6 +496,8 @@ def network_3d_from_fab(
           fracture is on.
 
     """
+    msg = "This functionality is deprecated and will be removed in a future version"
+    warnings.warn(msg, DeprecationWarning)
 
     def read_keyword(line):
         # Read a single keyword, on the form  key = val

@@ -18,7 +18,6 @@ from typing_extensions import Literal
 import porepy as pp
 from porepy.grids.structured import TensorGrid
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils.setmembership import ismember_rows, unique_columns_tol
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +62,10 @@ def match_1d(
     # Cell-node relation between grids - we know there are two nodes per cell
     cell_nodes_new = new_g.cell_nodes()
     cell_nodes_old = old_g.cell_nodes()
-    nodes_new = pp.utils.mcolon.mcolon(
+    nodes_new = pp.array_operations.expand_index_pointers(
         cell_nodes_new.indptr[0:-1], cell_nodes_new.indptr[1:]
     )
-    nodes_old = pp.utils.mcolon.mcolon(
+    nodes_old = pp.array_operations.expand_index_pointers(
         cell_nodes_old.indptr[0:-1], cell_nodes_old.indptr[1:]
     )
 
@@ -297,7 +296,7 @@ def match_grids_along_1d_mortar(
         if f.size != fi.size:
             raise ValueError("We assume fi are boundary faces")
 
-        ismem, ind_map = ismember_rows(fi, fi[f], sort=False)
+        ismem, ind_map = pp.array_operations.ismember_columns(fi, fi[f], sort=False)
         if not np.all(ismem):
             raise ValueError
 
@@ -308,9 +307,9 @@ def match_grids_along_1d_mortar(
         # and we verify that the nodes are indeed colinear
         if not pp.geometry_property_checks.points_are_collinear(nodes, tol=tol):
             raise ValueError("Nodes are not colinear")
-        sort_ind = pp.map_geometry.sort_points_on_line(nodes, tol=tol)
+        sort_ind = pp.sort_points.sort_points_on_line(nodes, tol=tol)
         n = nodes[:, sort_ind]
-        unique_nodes, _, _ = unique_columns_tol(n, tol=tol)
+        unique_nodes, _, _ = pp.array_operations.uniquify_point_set(n, tol=tol)
         g = TensorGrid(np.arange(unique_nodes.shape[1]))
         g.nodes = unique_nodes
         g.compute_geometry()
@@ -348,7 +347,7 @@ def match_grids_along_1d_mortar(
         cn = g_1d.cell_nodes().indices.reshape((2, g_1d.num_cells), order="F")
 
         # Find cell index of each face
-        ismem, ind = ismember_rows(fn_loc, cn)
+        ismem, ind = pp.array_operations.ismember_columns(fn_loc, cn)
         # Quality check, the grids should be conforming
         if not np.all(ismem):
             raise ValueError

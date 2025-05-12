@@ -74,7 +74,8 @@ class Mpsa(Discretization):
 
         """
         self.keyword = keyword
-        """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'."""
+        """Keyword used to identify the parameter dictionary. Defaults to 'mechanics'.
+        """
         self.stress_matrix_key = "stress"
         """Keyword used to identify the discretization matrix for the stress. Defaults
         to 'stress'."""
@@ -379,7 +380,7 @@ class Mpsa(Discretization):
         )
 
         if update:
-            update_ind = pp.fvutils.expand_indices_nd(active_faces, sd.dim)
+            update_ind = pp.array_operations.expand_indices_nd(active_faces, sd.dim)
             matrix_dictionary[self.stress_matrix_key][update_ind] = stress_glob[
                 update_ind
             ]
@@ -1184,9 +1185,9 @@ class Mpsa(Discretization):
         For a subcell Ks associated with cell K and node s, the displacement at a point
         x is given by
             U_Ks + G_Ks (x - x_k),
-        x_K is the cell center of cell k. The point at which we evaluate the displacement
-        is given by eta, which is equivalent to the continuity points in mpsa.
-        For an internal subface we will obtain two values for the displacement,
+        x_K is the cell center of cell k. The point at which we evaluate the
+        displacement is given by eta, which is equivalent to the continuity points in
+        mpsa. For an internal subface we will obtain two values for the displacement,
         one for each of the cells associated with the subface. The displacement given
         here is the average of the two. Note that at the continuity points the two
         displacements will by construction be equal.
@@ -1636,7 +1637,9 @@ class Mpsa(Discretization):
 
             # Distribute (relevant parts of) Hook's law on subcells This will be nd
             # rows, thus cell ci is associated with indices ci*nd+np.arange(nd)
-            sub_cell_ind = pp.fvutils.expand_indices_nd(cell_node_blocks[0], nd)
+            sub_cell_ind = pp.array_operations.expand_indices_nd(
+                cell_node_blocks[0], nd
+            )
             sym_vals = sym_dim[sub_cell_ind]
             asym_vals = asym_dim[sub_cell_ind]
 

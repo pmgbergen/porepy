@@ -212,7 +212,7 @@ def test_remove_variables(variable_to_be_removed):
     correctly stored in the EquationSystem.
 
     Parameters:
-        variable_to_be_removed (str): The name of the variable to be removed. If None, no
+        variable_to_be_removed: The name of the variable to be removed. If None, no
             variable is removed.
     """
     mdg, _ = square_with_orthogonal_fractures("cartesian", {"cell_size": 0.5}, [1])
@@ -387,14 +387,14 @@ def test_variable_tags():
 
 class EquationSystemMockModel:
     """Class to set up a EquationSystem with a combination of variables
-    and equations, designed to make it convenient to test critical functionality
-    of the EquationSystem.
+    and equations, designed to make it convenient to test critical functionality of the
+    EquationSystem.
 
-    The model is intended for testing advanced functionality, like assembly of equations,
-    construction of subsystems of equations etc. The below model is in itself a test of
-    basic functionality, like creation of variables and equations.
-    TODO: We should have dedicated tests for variable creation, to make sure we cover
-    all options.
+    The model is intended for testing advanced functionality, like assembly of
+    equations, construction of subsystems of equations etc. The below model is in itself
+    a test of basic functionality, like creation of variables and equations. TODO: We
+    should have dedicated tests for variable creation, to make sure we cover all
+    options.
     """
 
     def __init__(self, square_system=False):
@@ -1391,10 +1391,10 @@ def test_extract_subsystem(model: EquationSystemMockModel, equation_variables):
     [
         [["eq_single_interface"], ["w"]],  # Single equation, variable on one interface
         [["eq_all_interfaces"], ["y"]],  # Multiple interfaces
-        [  # Set of equations and variable on all subdomains. NOTE: This will be modified
-            # so that the equation and variable are partly included among the primary
-            # quantities, but only on one subdomani. See
-            # 'if eq_to_exclude[0] == "eq_all_subdomains"' below.
+        [  # Set of equations and variable on all subdomains. NOTE: This will be
+            # modified so that the equation and variable are partly included among the
+            # primary quantities, but only on one subdomani. See 'if eq_to_exclude[0] ==
+            # "eq_all_subdomains"' below.
             ["eq_all_subdomains"],
             ["x"],
         ],

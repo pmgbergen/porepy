@@ -2,10 +2,10 @@
 Mass matrix classes for a discretization of a L2-mass bilinear form with constant test
 and trial functions for mixed methods (e.g. RT0, MVEM).
 
-The discretization takes into account cell volumes and the mass_weight given in
-the parameters (the mass weight can again incorporate porosity, time step,
-apertures etc),  so that the mass matrix (shape (sd.num_faces + sd.num_cells)^2)
-has the following diagonal for the cell_dof:
+The discretization takes into account cell volumes and the mass_weight given in the
+parameters (the mass weight can again incorporate porosity, time step, apertures etc),
+so that the mass matrix (shape (sd.num_faces + sd.num_cells)^2) has the following
+diagonal for the cell_dof:
 
     sd.cell_volumes * mass_weight
 
@@ -36,9 +36,8 @@ class MixedMassMatrix:
         """Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
-        Paramemeters:
-            keyword (str): Identifier of all information used for this
-                discretization.
+        Parameters:
+            keyword: Identifier of all information used for this discretization.
         """
         self.keyword = keyword
 
@@ -69,21 +68,20 @@ class MixedMassMatrix:
         self, sd: pp.Grid, data: dict
     ) -> tuple[sps.spmatrix, np.ndarray]:
         """Return the matrix and right-hand side (null) for a discretization of a
-        L2-mass bilinear form with constant test and trial functions. Also
-        discretize the necessary operators if the data dictionary does not contain
-        a mass matrix.
+        L2-mass bilinear form with constant test and trial functions. Also discretize
+        the necessary operators if the data dictionary does not contain a mass matrix.
 
-        Args:
-            sd (pp.Grid) : grid, or a subclass, with geometry fields computed.
-            data (dict): dictionary to store the data.
+        Parameters:
+            sd : grid, or a subclass, with geometry fields computed.
+            data: dictionary to store the data.
 
         Returns:
             matrix (sparse dia, self.ndof x self.ndof): Mass matrix obtained from the
                 discretization.
             rhs (array, self.ndof): zero right-hand side.
 
-        The names of data in the input dictionary (data) are given in the documentation of
-        discretize, see there.
+        The names of data in the input dictionary (data) are given in the documentation
+        of discretize, see there.
         """
         return self.assemble_matrix(sd, data), self.assemble_rhs(sd, data)
 
@@ -91,9 +89,9 @@ class MixedMassMatrix:
         """Return the matrix for a discretization of a L2-mass bilinear form with
         constant test and trial functions.
 
-        Args:
-            sd (pp.Grid): Computational grid, with geometry fields computed.
-            data (dictionary): With data stored.
+        Parameters:
+            sd: Computational grid, with geometry fields computed.
+            data: With data stored.
 
         Returns:
             scipy.sparse.csr_matrix (self.ndof x self.ndof): System matrix of this
@@ -107,7 +105,7 @@ class MixedMassMatrix:
         """Return the (null) right-hand side for a discretization of a L2-mass bilinear
         form with constant test and trial functions.
 
-        Args:
+        Parameters:
             sd (pp.Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
@@ -141,7 +139,7 @@ class MixedMassMatrix:
                 obtained from the discretization.
             bound_mass: all zero np.ndarray (self.ndof)
 
-        Args:
+        Parameters:
             sd (pp.Grid) : A grid with geometry fields computed.
             data (dict): dictionary to store the data.
 
@@ -158,8 +156,8 @@ class MixedMassMatrix:
 
 
 class MixedInvMassMatrix:
-    """Class that provides the discretization of an inverse L2-mass bilinear form with constant
-    test and trial functions for mixed methods (e.g. RT0, MVEM).
+    """Class that provides the discretization of an inverse L2-mass bilinear form with
+    constant test and trial functions for mixed methods (e.g. RT0, MVEM).
     """
 
     def __init__(self, keyword: str = "flow") -> None:
@@ -167,9 +165,8 @@ class MixedInvMassMatrix:
         Set the discretization, with the keyword used for storing various
         information associated with the discretization.
 
-        Paramemeters:
-            keyword (str): Identifier of all information used for this
-                discretization.
+        Parameters:
+            keyword: Identifier of all information used for this discretization.
         """
         self.keyword = keyword
 
@@ -186,7 +183,7 @@ class MixedInvMassMatrix:
     def ndof(self, sd: pp.Grid):
         """Return the number of degrees of freedom associated to the method.
 
-        Args:
+        Parameters:
             sd (pp.Grid): A grid.
 
         Returns:
@@ -202,7 +199,7 @@ class MixedInvMassMatrix:
         discretization of a L2-mass bilinear form with constant test and trial
         functions.
 
-        Args:
+        Parameters:
             g : grid, or a subclass, with geometry fields computed.
             data: dictionary to store the data.
 
@@ -221,7 +218,7 @@ class MixedInvMassMatrix:
         operators if the data dictionary does not contain a discrete inverse mass
         matrix.
 
-        Args:
+        Parameters:
             g (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
@@ -239,7 +236,7 @@ class MixedInvMassMatrix:
         the necessary operators if the data dictionary does not contain a discretization
         of the boundary term.
 
-        Args:
+        Parameters:
             g (Grid): Computational grid, with geometry fields computed.
             data (dictionary): With data stored.
 
@@ -272,7 +269,7 @@ class MixedInvMassMatrix:
                 obtained from the discretization.
             bound_mass: all zero np.ndarray (self.ndof)
 
-        Args:
+        Parameters:
             sd (pp.Grid) : grid, or a subclass, with geometry fields computed.
             data (dict): dictionary to store the data.
 

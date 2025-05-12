@@ -62,9 +62,10 @@ from porepy.geometry import (
     constrain_geometry,
     map_geometry,
     geometry_property_checks,
-    point_in_polyhedron_test,
+    point_in_polyhedron,
     half_space,
     domain,
+    sort_points,
 )
 from porepy.geometry.domain import Domain
 
@@ -214,6 +215,7 @@ from porepy.models import (
     poromechanics,
     mass_and_energy_balance,
     thermoporomechanics,
+    fracture_damage,
 )
 
 # need to import compositional flow after mass_and_energy
@@ -223,6 +225,7 @@ from porepy.models import compositional_flow
 from porepy.models.fluid_mass_balance import SinglePhaseFlow
 from porepy.models.momentum_balance import MomentumBalance
 from porepy.models.poromechanics import Poromechanics
+from porepy.models.contact_mechanics import ContactMechanics
 from porepy.models.thermoporomechanics import Thermoporomechanics
 from porepy.models.mass_and_energy_balance import MassAndEnergyBalance
 from porepy.models.compositional_flow import (

@@ -9,9 +9,8 @@ from scipy import sparse as sps
 
 import porepy as pp
 from porepy.numerics.linalg.matrix_operations import sparse_array_to_row_col_data
-from porepy.utils import setmembership, tags
+from porepy.utils import tags
 from porepy.utils.graph import Graph
-from porepy.utils.mcolon import mcolon
 
 
 def split_fractures(
@@ -92,10 +91,10 @@ def split_fractures(
 
         secondary_to_primary_nodes = []
         for sd in low_dim_neigh:
-            # Enforce 64 bit to comply with ismember_rows. Was np.int32
+            # Enforce 64 bit to comply with ismember_columns. Was np.int32
             source = np.atleast_2d(sd.global_point_ind).astype(np.int64)
             target = np.atleast_2d(sd_primary.global_point_ind).astype(np.int64)
-            _, mapping = setmembership.ismember_rows(source, target)
+            _, mapping = pp.array_operations.ismember_columns(source, target)
             secondary_to_primary_nodes.append(mapping)
 
         split_nodes(sd_primary, low_dim_neigh, secondary_to_primary_nodes, offset)
@@ -362,7 +361,9 @@ def _duplicate_specific_faces(sd: pp.Grid, frac_id: np.ndarray) -> np.ndarray:
     # manipulating the CSC-format of the matrix Nodes of the target faces
     node_start = sd.face_nodes.indptr[frac_id]
     node_end = sd.face_nodes.indptr[frac_id + 1]
-    nodes = sd.face_nodes.indices[mcolon(node_start, node_end)]
+    nodes = sd.face_nodes.indices[
+        pp.array_operations.expand_index_pointers(node_start, node_end)
+    ]
 
     # Start point for the new columns. They will be appended to the matrix, thus the
     # offset of the previous size of gh.face_nodes

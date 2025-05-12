@@ -89,7 +89,8 @@ def generate_mdg(case: int):
 
 
 def retrieve_md_targets_cells_and_angles(case: int):
-    """Retrieves mgd, target cells, and angles involved in the propagation for each case."""
+    """Retrieves mgd, target cells, and angles involved in the propagation for each
+    case."""
 
     mdg = generate_mdg(case)
     if case == 1:
@@ -550,7 +551,8 @@ class MockPropagationModel(pp.ConformingFracturePropagation):
         cell_map = d["cell_index_map"]
         n_new = cell_map.shape[0] - cell_map.shape[1]
 
-        # Fill the new values with an arbitrary number for instance 42, because of course
+        # Fill the new values with an arbitrary number for instance 42, because of
+        # course.
         vals = np.full(n_new * cell_dof, 42)
         return vals
 
@@ -796,8 +798,8 @@ class TestVariableMappingInitializationUnderPropagation:
         self._verify(mdg, split_faces)
 
     def test_two_fractures_propagate_both(self):
-        # Domain with 5x3 cells, with two fractures.
-        # Both fractures are initially one face long, and will be propagated in two steps
+        # Domain with 5x3 cells, with two fractures. Both fractures are initially one
+        # face long, and will be propagated in two steps
 
         frac = [np.array([[1, 2], [1, 1]]), np.array([[2, 3], [2, 2]])]
         mdg = pp.meshing.cart_grid(frac, [5, 3])
@@ -1091,17 +1093,17 @@ def _check_equivalent_md_grids(md_grids, decimals=12):
             face_centers = np.round(face_centers, decimals)
             for i in range(1, num_md_grids):
                 assert np.all(
-                    pp.utils.setmembership.ismember_rows(
+                    pp.array_operations.ismember_columns(
                         cell_centers[0], cell_centers[i]
                     )[0]
                 )
                 assert np.all(
-                    pp.utils.setmembership.ismember_rows(
+                    pp.array_operations.ismember_columns(
                         face_centers[0], face_centers[i]
                     )[0]
                 )
                 assert np.all(
-                    pp.utils.setmembership.ismember_rows(nodes[0], nodes[i])[0]
+                    pp.array_operations.ismember_columns(nodes[0], nodes[i])[0]
                 )
 
             # Now we know all nodes, faces and cells are in all grids, we map them
@@ -1166,7 +1168,7 @@ def _make_maps(g0, g1, n_digits=8, offset=0.11):
         offset: Weight determining how far the fracture neighbour nodes and faces
             are shifted (normally away from fracture) to ensure unique coordinates.
     """
-    cell_map = pp.utils.setmembership.ismember_rows(
+    cell_map = pp.array_operations.ismember_columns(
         np.around(g0.cell_centers, n_digits),
         np.around(g1.cell_centers, n_digits),
         sort=False,
@@ -1195,11 +1197,11 @@ def _make_maps(g0, g1, n_digits=8, offset=0.11):
         for i, node in enumerate(un):
             n1[:, node] += offset * np.mean(fn1[:, fid1[inv == i]], axis=1)
 
-    face_map = pp.utils.setmembership.ismember_rows(
+    face_map = pp.array_operations.ismember_columns(
         np.around(fc0, n_digits), np.around(fc1, n_digits), sort=False
     )[1]
 
-    node_map = pp.utils.setmembership.ismember_rows(
+    node_map = pp.array_operations.ismember_columns(
         np.around(n0, n_digits), np.around(n1, n_digits), sort=False
     )[1]
     return cell_map, face_map, node_map

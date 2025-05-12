@@ -117,6 +117,17 @@ class SolutionStrategy(pp.PorePyModel):
         """A list of results collected by the data saving mixin in
         :meth:`~porepy.viz.data_saving_model_mixin.DataSavingMixin.collect_data`."""
 
+        self._operator_cache: dict[Any, pp.ad.Operator] = {}
+        """Cache for storing the result of methods that return Ad operators. This is
+        used to avoid re-construction of the same operator multiple times, but does not
+        affect evaluation of the operator.
+
+        An operator is added to the cache by adding the decorator @pp.ad.cache_operator
+        to the method that returns the operator. It is considered good practice to use
+        the cache sparingly, and only for operators that have been shown to be expensive
+        to construct.
+        """
+
         self.set_solver_statistics()
 
     def prepare_simulation(self) -> None:
@@ -448,15 +459,18 @@ class SolutionStrategy(pp.PorePyModel):
             self.time_manager.compute_time_step(
                 iterations=self.nonlinear_solver_statistics.num_iteration
             )
+        self.update_solution(solution)
 
+        self.convergence_status = True
+        self.save_data_time_step()
+
+    def update_solution(self, solution: np.ndarray) -> None:
         self.equation_system.shift_time_step_values(
             max_index=len(self.time_step_indices)
         )
         self.equation_system.set_variable_values(
             values=solution, time_step_index=0, additive=False
         )
-        self.convergence_status = True
-        self.save_data_time_step()
 
     def after_nonlinear_failure(self) -> None:
         """Method to be called if the non-linear solver fails to converge."""
@@ -713,6 +727,15 @@ class SolutionStrategy(pp.PorePyModel):
         """
         self.update_all_boundary_conditions()
 
+    def darcy_flux_storage_keywords(self) -> list[str]:
+        """Return the keywords for which the Darcy flux values are stored.
+
+        Returns:
+            List of keywords for the Darcy flux values.
+
+        """
+        return []
+
 
 class ContactIndicators(pp.PorePyModel):
     """Class for computing contact indicators used for tailored line search.
@@ -735,9 +758,6 @@ class ContactIndicators(pp.PorePyModel):
 
     contact_mechanics_numerical_constant: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Contact mechanics numerical constant."""
-
-    displacement_jump: Callable[[list[pp.Grid]], pp.ad.Operator]
-    """Displacement jump operator."""
 
     fracture_gap: Callable[[list[pp.Grid]], pp.ad.Operator]
     """Fracture gap operator."""
