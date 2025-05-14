@@ -1099,12 +1099,13 @@ class SolutionStrategyEquilibrium(pp.PorePyModel):
                 ]
             )
 
-        result_state, success, _ = self.flash.flash(
+        result_state, success, num_iter = self.flash.flash(
             z=cast(Sequence[np.ndarray], feed),
             **equilibrium_specs,
             initial_state=initial_state,
             params=self.params.get("flash_params", None),
         )
+        self._num_flash_iter: np.ndarray = num_iter
 
         fluid_state = self.postprocess_flash(sd, (result_state, success), state=state)
 

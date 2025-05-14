@@ -34,6 +34,7 @@ import scipy.sparse as sps
 # os.environ["NUMBA_DISABLE_JIT"] = "1"
 
 import porepy as pp
+from porepy.applications.material_values.solid_values import basalt
 from porepy.applications.test_utils.models import create_local_model_class
 from porepy.fracs.wells_3d import _add_interface
 from porepy.numerics.solvers.andersonacceleration import AndersonAcceleration
@@ -44,8 +45,8 @@ logging.getLogger("porepy").setLevel(logging.DEBUG)
 
 t_0 = time.time()
 import porepy.compositional.peng_robinson as pr
-import porepy.models.compositional_flow_with_equilibrium as cfle
 import porepy.models.compositional_flow as cf
+import porepy.models.compositional_flow_with_equilibrium as cfle
 
 compile_time = time.time() - t_0
 
@@ -60,7 +61,7 @@ fractional_flow: bool = False
 use_well_model: bool = True
 equilibrium_condition: str = "unified-p-h"
 use_schur_technique: bool = True
-analysis_mode: bool = True
+analysis_mode: bool = False
 
 
 class _FlowConfiguration(pp.PorePyModel):
@@ -76,10 +77,8 @@ class _FlowConfiguration(pp.PorePyModel):
     _T_HEATED: float = 640.0
     _p_IN: float = _p_INIT
     _T_IN: float = 300.0
-    _z_IN: dict[str, float] = {
-        "H2O": _z_INIT["H2O"] - 0.095,
-        "CO2": _z_INIT["CO2"] + 0.095,
-    }
+    _z_IN: dict[str, float] = {"H2O": 0.9, "CO2": 0.1}
+
     _p_OUT: float = _p_INIT - 1e6
     _T_OUT: float = _T_INIT
     _z_OUT: dict[str, float] = {
@@ -96,6 +95,7 @@ class _FlowConfiguration(pp.PorePyModel):
     # Divide by 3600 to obtain an injection of unit per hour
     # Multiplied by some number for how many units per hour
     _TOTAL_INJECTED_MASS: float = 10 * 27430.998956110157 / (60 * 60)  # mol / m^3
+    # _TOTAL_INJECTED_MASS: float = 10 * 21202.860945350567 / (60 * 60)  # mol / m^3
 
     _INJECTED_MASS: dict[str, dict[int, float]] = {
         "H2O": {0: _TOTAL_INJECTED_MASS * _z_IN["H2O"]},
@@ -247,16 +247,36 @@ class SolutionStrategy(pp.PorePyModel):
     _block_column_permutation: np.ndarray
     _block_size: int
 
+    _num_flash_iter: np.ndarray
+
     def __init__(self, params: dict | None = None):
         super().__init__(params)  # type:ignore[safe-super]
 
         self._residual_norm_history: deque[float] = deque(maxlen=4)
         self._increment_norm_history: deque[float] = deque(maxlen=3)
 
+        self._cum_flash_iter_per_grid: dict[pp.Grid, list[np.ndarray]] = {}
+        self._global_iter_per_time: dict[float, tuple[int, ...]] = {}
+
+    def data_to_export(self):
+        data: list = super().data_to_export()
+
+        for sd in self.mdg.subdomains():
+            if sd in self._cum_flash_iter_per_grid:
+                ni = self._cum_flash_iter_per_grid[sd]
+                n = np.array(sum(ni), dtype=int)
+            else:
+                n = np.zeros(sd.num_cells, dtype=int)
+
+            data.append((sd, "cumulative flash iterations", n))
+
+        return data
+
     def before_nonlinear_loop(self) -> None:
         super().before_nonlinear_loop()  # type:ignore[misc]
         self._residual_norm_history.clear()
         self._increment_norm_history.clear()
+        model.nonlinear_solver_statistics.num_iteration_armijo = 0
 
     def check_convergence(
         self,
@@ -460,11 +480,27 @@ class SolutionStrategy(pp.PorePyModel):
                     iterate_index=0,
                 )
 
+    def after_nonlinear_convergence(self):
+        super().after_nonlinear_convergence()
+        global_flash_iter = 0
+        for ni in self._cum_flash_iter_per_grid.values():
+            n = sum(ni).sum()
+            global_flash_iter += int(n)
+        self._global_iter_per_time[self.time_manager.time] = (
+            self.nonlinear_solver_statistics.num_iteration,
+            model.nonlinear_solver_statistics.num_iteration_armijo,
+            global_flash_iter,
+        )
+        self._cum_flash_iter_per_grid.clear()
+
     def update_thermodynamic_properties_of_phases(
         self, state: Optional[np.ndarray] = None
     ) -> None:
         """Performing pT flash in injection wells, because T is fixed there."""
+        stride = int(self.params["flash_params"].get("global_iteration_stride", 3))
         for sd in self.mdg.subdomains():
+            if sd not in self._cum_flash_iter_per_grid:
+                self._cum_flash_iter_per_grid[sd] = []
             if "injection_well" in sd.tags:
                 equ_spec = {
                     "p": self.equation_system.evaluate(
@@ -475,8 +511,10 @@ class SolutionStrategy(pp.PorePyModel):
                     ),
                 }
                 self.local_equilibrium(sd, state=state, equilibrium_specs=equ_spec)  # type:ignore
-            elif self.nonlinear_solver_statistics.num_iteration % 3 == 0:
+                self._cum_flash_iter_per_grid[sd].append(self._num_flash_iter)
+            elif self.nonlinear_solver_statistics.num_iteration % stride == 0:
                 self.local_equilibrium(sd, state=state)  # type:ignore
+                self._cum_flash_iter_per_grid[sd].append(self._num_flash_iter)
             else:
                 cf.SolutionStrategyPhaseProperties.update_thermodynamic_properties_of_phases(
                     self,  # type:ignore[arg-type]
@@ -571,7 +609,11 @@ class SolutionStrategy(pp.PorePyModel):
             elif "p-T" in equilibrium_condition:
                 flash_kwargs["T"] = T
 
-            sub_state, sub_success, _ = self.flash.flash(**flash_kwargs)
+            sub_state, sub_success, num_iter = self.flash.flash(**flash_kwargs)
+
+            ni = np.zeros_like(success)
+            ni[failure] = num_iter
+            self._num_flash_iter += ni
 
             fallback = sub_success > 1
             max_iter_reached = sub_success == 1
@@ -1435,6 +1477,7 @@ class NewtonAndersonArmijoSolver(pp.NewtonSolver, AndersonAcceleration):
             if pot_i <= (1 - 2 * kappa * rho_i) * pot_0:
                 break
 
+        model.nonlinear_solver_statistics.num_iteration_armijo += n
         logger.info(f"Armijo line search determined weight: {rho_i} ({n})")
         return rho_i * np.ones_like(dx)
 
@@ -1524,14 +1567,9 @@ phase_property_params = {
     "phase_property_params": [0.0],
 }
 
-material_params = {
-    "solid": pp.SolidConstants(
-        permeability=1e-13,
-        porosity=0.2,
-        thermal_conductivity=1.6736,
-        specific_heat_capacity=3.0,
-    )
-}
+basalt_ = basalt.copy()
+basalt_["permeability"] = 1e-13
+material_params = {"solid": pp.SolidConstants(**basalt_)}  # type:ignore[arg-type]
 
 flash_params: dict[Any, Any] = {
     "mode": "parallel",
@@ -1546,6 +1584,7 @@ flash_params: dict[Any, Any] = {
         "npipm_u2": 10,
         "npipm_eta": 0.5,
     },
+    "global_iteration_stride": 3,
 }
 flash_params.update(phase_property_params)
 
@@ -1562,8 +1601,9 @@ restart_params = {
 meshing_params = {
     "grid_type": "simplex",
     "meshing_arguments": {
-        "cell_size": 5e-1,  # 18,464 cells
-        # "cell_size": 2.5e-1,  # 73,748 cells
+        # "cell_size": 1.,  # 4636 cells
+        # "cell_size": 5e-1,  # 18,464 cells
+        "cell_size": 2.5e-1,  # 73,748 cells
         # "cell_size": 1e-1,  # 462,340 cells
         "cell_size_fracture": 5e-1,
     },
@@ -1645,3 +1685,83 @@ sim_time = time.time() - t_0
 print(f"Set-up time: {prep_sim_time} (s).")
 print(f"Approximate compilation time: {compile_time} (s).")
 print(f"Simulation run time: {sim_time / 60.0} (min).")
+
+import matplotlib.pyplot as plt
+import json
+
+fig, ax1 = plt.subplots()
+
+times = []
+newton_iter = []
+cum_armijo_iter = []
+cum_flash_iter = []
+for t, N in model._global_iter_per_time.items():
+    times.append(t)
+    n, a, f = N
+    newton_iter.append(n)
+    cum_armijo_iter.append(a)
+    cum_flash_iter.append(f)
+
+times = np.array(times, dtype=float)
+newton_iter = np.array(newton_iter, dtype=int)
+cum_armijo_iter = np.array(cum_armijo_iter, dtype=int)
+cum_flash_iter = np.array(cum_flash_iter, dtype=int)
+
+img1 = ax1.plot(
+    times,
+    newton_iter,
+    "k-",
+    times,
+    cum_armijo_iter,
+    "b-",
+)
+ax1.set_xscale("log")
+ax1.set_xlabel("Time [s]")
+ax1.set_ylabel("Global iterations")
+
+color = "tab:red"
+ax2 = ax1.twinx()
+ax2.set_ylabel("Local iterations", color=color)
+img2 = ax2.plot(
+    times,
+    cum_flash_iter,
+    "r--",
+)
+ax2.tick_params(axis="y", labelcolor=color)
+
+ax1.legend(img1 + img2, ["Newton", "Line Search (cum.)", "Flash (cum.)"])
+
+fig.tight_layout()
+fig.savefig(pathlib.Path(".\\visualization\\num_iter.png").resolve(), format="png")
+
+
+times_file = pathlib.Path("./visualization/times.json").resolve().open("r")
+times_data = json.load(times_file)
+TIMES = times_data["time"]
+DT = times_data["dt"]
+nT = len(DT)
+assert nT == len(TIMES)
+Tidx = np.arange(nT)
+
+print(f"smalles time step: {np.min(DT) / 3600} hours")
+print(f"largest time step: {np.max(DT) / (3600 * 24)} days")
+print(f"end time: {np.max(TIMES) / (3600 * 24 * 365)} years")
+
+fig, ax1 = plt.subplots()
+
+color = "tab:red"
+ax1.set_xlabel("time step index")
+ax1.set_ylabel("time (s)", color=color)
+ax1.plot(Tidx, TIMES, color=color)
+ax1.tick_params(axis="y", labelcolor=color)
+ax1.set_yscale("log")
+
+ax2 = ax1.twinx()
+color = "tab:blue"
+ax2.set_ylabel("dt (s)", color=color)
+ax2.plot(Tidx, DT, color=color)
+ax2.tick_params(axis="y", labelcolor=color)
+ax2.set_yscale("log")
+
+fig.tight_layout()
+fig.savefig(pathlib.Path(".\\visualization\\time_progress.png").resolve(), format="png")
