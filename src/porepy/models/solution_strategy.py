@@ -797,7 +797,94 @@ class SolutionStrategy(pp.PorePyModel):
                 sps.linalg.spsolve(A, sps.eye(A.shape[0], format="csc"))
             )
 
-        return fall_back_inverter
+        if not hasattr(self, "_block_permutation"):
+            # Local system size of p-h flash including saturations and phase mass
+            # constraints.
+            ncomp = self.fluid.num_components
+            nphase = self.fluid.num_phases
+            block_size: int = ncomp - 1 + ncomp * (nphase - 1) + nphase + 1 + nphase - 1
+            assert block_size == len(self.secondary_equations)
+            assert block_size == len(self.secondary_variables)
+            self._block_size = block_size
+
+            # Permutation of DOFs in porepy, assuming the order is equ1, equ2,...
+            # With an subdomain-minor order per variable.
+            N = self.mdg.num_subdomain_cells()
+            shift = np.kron(np.arange(block_size), np.ones(N))
+            stride = np.arange(N) * block_size
+            permutation = (np.kron(np.ones(block_size), stride) + shift).astype(
+                np.int32
+            )
+            identity = np.arange(N * block_size, dtype=np.int32)
+            assert np.allclose(np.sort(permutation), identity, rtol=0.0, atol=1e-16)
+
+            self._block_row_permutation = permutation
+
+            # Above permutation can be used for both column and blocks, if there is
+            # no point grid. If there is a point grid, above permutation assembles the
+            # blocks belonging to the point grid cells already fully, due to how AD is
+            # implemented in PorePy. We then need a special column permutation, which
+            # permutes only on the those grids which are not point grids.
+            # Note that the subdomains are sorted by default ascending w.r.t. their
+            # dimension. Point grids come last
+            subdomains = self.mdg.subdomains()
+            if subdomains[-1].dim == 0:
+                non_point_grids = [g for g in subdomains if g.dim > 0]
+                sub_N = sum([g.num_cells for g in non_point_grids])
+                shift = np.kron(np.arange(block_size), np.ones(sub_N))
+                stride = np.arange(sub_N) * block_size
+                sub_permutation = (np.kron(np.ones(block_size), stride) + shift).astype(
+                    np.int32
+                )
+                sub_identity = np.arange(sub_N * block_size, dtype=np.int32)
+                assert np.allclose(
+                    np.sort(sub_permutation), sub_identity, rtol=0.0, atol=1e-16
+                )
+                permutation = np.arange(N * block_size, dtype=np.int32)
+                permutation[: sub_N * block_size] = sub_permutation
+                self._block_column_permutation = permutation
+
+        def inverter(A: sps.csr_matrix) -> sps.csr_matrix:
+            row_perm = pp.matrix_operations.ArraySlicer(
+                range_indices=self._block_row_permutation
+            )
+            inv_col_perm = pp.matrix_operations.ArraySlicer(
+                domain_indices=self._block_row_permutation
+            )
+            if hasattr(self, "_block_column_permutation"):
+                col_perm = pp.matrix_operations.ArraySlicer(
+                    range_indices=self._block_column_permutation
+                )
+                inv_row_perm = pp.matrix_operations.ArraySlicer(
+                    domain_indices=self._block_column_permutation
+                )
+            else:
+                col_perm = row_perm
+                inv_row_perm = inv_col_perm
+
+            A_block = (col_perm @ (row_perm @ A).transpose()).transpose()
+
+            # The local p-h flash system has a size of
+            inv_A_block = pp.matrix_operations.invert_diagonal_blocks(
+                A_block,
+                (np.ones(self.mdg.num_subdomain_cells()) * self._block_size).astype(
+                    np.int32
+                ),
+                method="numba",
+            )
+
+            inv_A = (
+                inv_col_perm @ (inv_row_perm @ inv_A_block).transpose()
+            ).transpose()
+            # Because the matrix has a condition number of order 5 to 6, and we use
+            # float64 (precision order -16), the last entries are useless, if not
+            # problematic.
+            treat_as_zero = np.abs(inv_A.data) < 1e-10
+            inv_A.data[treat_as_zero] = 0.0
+            inv_A.eliminate_zeros()
+            return inv_A
+
+        return inverter
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
