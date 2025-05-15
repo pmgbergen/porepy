@@ -277,6 +277,7 @@ class SolutionStrategy(pp.PorePyModel):
         self._residual_norm_history.clear()
         self._increment_norm_history.clear()
         model.nonlinear_solver_statistics.num_iteration_armijo = 0
+        self._cum_flash_iter_per_grid.clear()
 
     def check_convergence(
         self,
@@ -491,7 +492,6 @@ class SolutionStrategy(pp.PorePyModel):
             model.nonlinear_solver_statistics.num_iteration_armijo,
             global_flash_iter,
         )
-        self._cum_flash_iter_per_grid.clear()
 
     def update_thermodynamic_properties_of_phases(
         self, state: Optional[np.ndarray] = None
