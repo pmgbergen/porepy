@@ -115,8 +115,7 @@ PorePy style
 
 As mentioned above, the PorePy style is Google Style with minor changes. These changes involve
 the developer team's principles of good code and aesthetics. They also involve the project's 
-style guide, especially naming conventions. For more information check out the
-official PorePy User Manual. Some general rules are provided below. 
+style guide, especially naming conventions. Some general rules are provided below. 
 Examples of acceptable documentation are provided in the subsections after.
 
 .. rubric:: Naming conventions
