@@ -6,8 +6,12 @@ import numpy as np
 
 import porepy as pp
 from porepy.models.compositional_flow import CompositionalFractionalFlowTemplate as FlowTemplate
+from tests.compositional.test_materials import subdomains
 
 from .constitutive_description.SuperCriticalCO2ConstitutiveDescription import (
+gas_saturation_func,
+CO2_gas_func,
+CO2_liq_func,
     FluidMixture,
     SecondaryEquations,
 )
@@ -59,6 +63,34 @@ class BoundaryConditions(pp.PorePyModel):
 
 class InitialConditions(pp.PorePyModel):
     """See parent class how to set up BC. Default is all zero and Dirichlet."""
+
+    def initial_condition(self) -> None:
+        super().initial_condition()
+
+        # set the values to be the custom functions
+        subdomains = self.mdg.subdomains()
+        CO2 = self.fluid.components[1]
+        z_v = self.ic_values_overall_fraction(CO2,subdomains[0])
+        x_CO2_liq_v = np.zeros_like(z_v)
+        x_CO2_gas_v = np.ones_like(z_v)
+
+        liq, gas = self.fluid.phases
+        s_gas = gas.saturation(subdomains)
+        x_CO2_liq = liq.partial_fraction_of[CO2](subdomains)
+        x_CO2_gas = gas.partial_fraction_of[CO2](subdomains)
+
+        self.equation_system.set_variable_values(z_v, [s_gas], 0, 0)
+        self.equation_system.set_variable_values(x_CO2_liq_v, [x_CO2_liq], 0, 0)
+        self.equation_system.set_variable_values(x_CO2_gas_v, [x_CO2_gas], 0, 0)
+
+
+        # values: np.ndarray,
+        # variables: Optional[VariableList] = None,
+
+        # time_step_index: Optional[int] = None, -> 0
+        # iterate_index: Optional[int] = None, -> 0
+        # additive: bool = False,
+
 
     def ic_values_pressure(self, sd: pp.Grid) -> np.ndarray:
         p_init = 10.0

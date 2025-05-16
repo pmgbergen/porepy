@@ -138,7 +138,7 @@ class LiquidLikeCorrelations(pp.compositional.EquationOfState):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (5.98e-4) * np.ones(nc) * 1.0e-6
+        vals = (1.0e-3) * np.ones(nc) * 1.0e-6
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -233,7 +233,7 @@ class GasLikeCorrelations(pp.compositional.EquationOfState):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (1000.0) * np.ones(nc)
+        vals = (800.0) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -244,7 +244,7 @@ class GasLikeCorrelations(pp.compositional.EquationOfState):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (5.98e-4) * np.ones(nc) * 1.0e-6
+        vals = (1.0e-3) * np.ones(nc) * 1.0e-6
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -403,7 +403,9 @@ class SecondaryEquations(LocalElimination):
         ### Providing constitutive laws for partial fractions based on correlations
         for phase in self.fluid.phases:
             for comp in phase:
-                if self.has_independent_partial_fraction(comp, phase):
+                check = self.has_independent_partial_fraction(comp, phase)
+                if check:
+                    print("component-phase has independent fraction: ", (comp.name, phase.name))
                     self.eliminate_locally(
                         phase.partial_fraction_of[comp],
                         self.dependencies_of_phase_properties(phase),

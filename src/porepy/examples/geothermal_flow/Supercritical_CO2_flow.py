@@ -116,8 +116,8 @@ print("Mixed-dimensional grid employed: ", model.mdg)
 
 components = list(model.fluid.components)
 
-l_xi = model.component_mass_mobility(components[1],model.mdg.subdomains()).value(model.equation_system)
-l_eta = model.component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
+l_xi = model.component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
+l_eta = model.component_mass_mobility(components[1],model.mdg.subdomains()).value(model.equation_system)
 
 rho_overall = model.fractionally_weighted_density(model.mdg.subdomains()).value(model.equation_system)
 rho_xi = model.component_density(components[0],model.mdg.subdomains()).value(model.equation_system)
