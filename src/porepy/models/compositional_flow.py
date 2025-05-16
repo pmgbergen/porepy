@@ -1816,7 +1816,7 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
 
         """
         super().before_nonlinear_iteration()
-        self.update_buoyancy_discretizations()
+
         self.rediscretize_fluxes()
         assert isinstance(self, pp.SolutionStrategy), (
             "This is a mixin. Require SolutionStrategy as base."

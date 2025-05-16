@@ -480,7 +480,6 @@ class FluidBuoyancy(pp.PorePyModel):
     darcy_flux_discretization: Callable[[list[pp.Grid]],pp.ad.MpfaA] # because it contains the div(w(rho)) term
     """See :class:`~porepy.models.constitutive_laws.DarcysLaw`."""
 
-
     def upward_key(self, xi: pp.Component) -> str:
         return 'upward_dir_' + xi.name
 
@@ -619,7 +618,7 @@ class FluidBuoyancy(pp.PorePyModel):
             f_xi_upwind: pp.ad.Operator = discr_xi.upwind() @ f_xi # well-defined fraction flow on facets
             f_eta_upwind: pp.ad.Operator = discr_eta.upwind() @ f_eta # well-defined fraction flow on facets
 
-            b_flux_xi_eta = w_flux_xi_eta * (f_xi_upwind * f_eta_upwind)
+            b_flux_xi_eta = (f_xi_upwind * f_eta_upwind) * w_flux_xi_eta
             b_fluxes.append(b_flux_xi_eta)
 
         b_flux = pp.ad.sum_operator_list(b_fluxes) # sum all buoyancy terms w.t. component_xi

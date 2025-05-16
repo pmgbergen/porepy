@@ -34,7 +34,7 @@ from porepy.examples.geothermal_flow.model_configuration.SuperCriticalCO2ModelCo
 
 day = 86400
 t_scale = 1.0
-tf = 0.1 * day
+tf = 0.01 * day
 dt = 0.01 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
@@ -80,26 +80,10 @@ class SuperCriticalCO2FlowModel(FlowModel):
     def after_simulation(self):
         self.exporter.write_pvd()
 
-    # def set_nonlinear_discretizations(self) -> None:
-    #
-    #     super().set_nonlinear_discretizations()  # type:ignore[safe-super]
-    #
-    #     # bouyancy_discrs = self.bouyancy_discrezations(self.mdg.subdomains())
-    #     # [self.add_nonlinear_discretization(bouyancy_discrs) for discr in bouyancy_discrs]
-    #
-    #     # self.add_nonlinear_discretization(
-    #     #     self.interface_mobility_discretization(self.mdg.interfaces()).flux(),
-    #     # )
-    #
-    #     if self.params.get("rediscretize_fourier_flux", False):
-    #         self.add_nonlinear_flux_discretization(
-    #             self.fourier_flux_discretization(self.mdg.subdomains()).flux()
-    #         )
-    #     if self.params.get("rediscretize_darcy_flux", False):
-    #         self.add_nonlinear_flux_discretization(
-    #             self.darcy_flux_discretization(self.mdg.subdomains()).flux()
-    #         )
-
+    def before_nonlinear_iteration(self) -> None:
+        super().before_nonlinear_iteration()
+        self.rediscretize_fluxes()
+        self.update_buoyancy_discretizations()
 
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
@@ -126,9 +110,6 @@ rho_eta = model.component_density(components[1],model.mdg.subdomains()).value(mo
 f_xi = model.fractional_component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
 f_eta = model.fractional_component_mass_mobility(components[1],model.mdg.subdomains()).value(model.equation_system)
 
-# flux_c1 = model.component_flux(components[1],model.mdg.subdomains()).value(model.equation_system)
-# flux_buoyancy_c1 = model.component_buoyancy(components[1],model.mdg.subdomains()).value(model.equation_system)
-
 # print geometry
 model.exporter.write_vtu()
 tb = time.time()
@@ -139,12 +120,24 @@ print("Total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid information: ", model.mdg)
 
 
+l_xi = model.component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
+l_eta = model.component_mass_mobility(components[1],model.mdg.subdomains()).value(model.equation_system)
+
+rho_overall = model.fractionally_weighted_density(model.mdg.subdomains()).value(model.equation_system)
+rho_xi = model.component_density(components[0],model.mdg.subdomains()).value(model.equation_system)
+rho_eta = model.component_density(components[1],model.mdg.subdomains()).value(model.equation_system)
+
+f_xi = model.fractional_component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
+f_eta = model.fractional_component_mass_mobility(components[1],model.mdg.subdomains()).value(model.equation_system)
+
 f_xi = model.fractional_component_mass_mobility(components[1],model.mdg.subdomains()).value(model.equation_system)
 f_eta = model.fractional_component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
 
-flux_c1 = model.component_flux(components[1],model.mdg.subdomains()).value(model.equation_system)
-# flux_buoyancy_c0 = model.component_buoyancy(components[0],model.mdg.subdomains()).value(model.equation_system)
-flux_buoyancy_c1 = model.component_buoyancy(components[1],model.mdg.subdomains()).value(model.equation_system)
+flux_buoyancy_c0 = model.component_buoyancy(components[0],model.mdg.subdomains())
+flux_buoyancy_c1 = model.component_buoyancy(components[1],model.mdg.subdomains())
+are_reciprocal_Q = np.all(np.isclose(model.equation_system.evaluate(flux_buoyancy_c0) + model.equation_system.evaluate(flux_buoyancy_c1),0.0))
+print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
+
 
 # Retrieve the grid and boundary information
 grid = model.mdg.subdomains()[0]
