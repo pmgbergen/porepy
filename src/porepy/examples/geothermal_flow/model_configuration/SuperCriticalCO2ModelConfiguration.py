@@ -72,7 +72,7 @@ class InitialConditions(pp.PorePyModel):
         self, component: pp.Component, sd: pp.Grid
     ) -> np.ndarray:
         xc = sd.cell_centers.T
-        z = np.where((xc[:,1] >= 2.0) & (xc[:,1] <= 4.0), 0.7, 0)
+        z = np.where((xc[:,1] >= 2.0) & (xc[:,1] <= 4.0), 0.7, 0.0)
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:

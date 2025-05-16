@@ -550,9 +550,8 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
                 self.equation_system.set_equation(sd_eq, subdomains, {"cells": 1})
 
     def set_discretization_parameters(self) -> None:
-        self.set_bouyancy_discretization_parameters()
+        self.set_buoyancy_discretization_parameters()
         super().set_discretization_parameters()
-
 
 
     def component_mass_balance_equation(
@@ -1778,6 +1777,9 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
 
         subdomains = self.mdg.subdomains()
 
+        buoyancy_discrs = self.buoyancy_discrezations(self.mdg.subdomains())
+        [self.add_nonlinear_discretization(discr) for discr in buoyancy_discrs]
+
         if self.params.get("rediscretize_fourier_flux", False):
             self.add_nonlinear_flux_discretization(
                 self.fourier_flux_discretization(subdomains).flux()
@@ -1813,12 +1815,13 @@ class SolutionStrategyNonlinearMPFA(pp.PorePyModel):
         the super-call and the fluxes must be re-discretized before that.
 
         """
+        self.update_buoyancy_discretizations()
         self.rediscretize_fluxes()
         assert isinstance(self, pp.SolutionStrategy), (
             "This is a mixin. Require SolutionStrategy as base."
         )
         super().before_nonlinear_iteration()  # type:ignore[safe-super]
-        self.update_buoyancy_discretizations()
+
 
 
 class SolutionStrategySchurComplement(pp.PorePyModel):

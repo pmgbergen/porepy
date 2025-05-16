@@ -515,6 +515,15 @@ class FluidBuoyancy(pp.PorePyModel):
     ) -> pp.ad.UpwindCouplingAd:
         return pp.ad.UpwindCouplingAd(self.downward_key(), interfaces)
 
+    def buoyancy_discrezations(self, subdomains: pp.SubdomainsOrBoundaries):
+        buoyancy_discrs = []
+        for component_xi in self.fluid.components:
+            for pairs in self.component_pairs_for(component_xi):
+                xi, eta = pairs
+                buoyancy_discrs.append(self.upward_component_discretization(xi, subdomains).upwind())
+                buoyancy_discrs.append(self.downward_component_discretization(eta, subdomains).upwind())
+        return buoyancy_discrs
+
     def gravity_field(self, subdomains: pp.SubdomainsOrBoundaries) -> pp.ad.Operator:
         scaling = 1.0e-6
         g_constant = pp.GRAVITY_ACCELERATION
@@ -570,6 +579,7 @@ class FluidBuoyancy(pp.PorePyModel):
         component_density = pp.ad.sum_operator_list(
             [
                 phase.partial_fraction_of[component](domains)
+                * phase.density(domains)
                 * self.phase_mobility(phase, domains)
                 * phase.density(domains)
                 for phase in self.fluid.phases
@@ -630,10 +640,8 @@ class FluidBuoyancy(pp.PorePyModel):
             selected_pairs.append((component_xi, component_eta))
         return selected_pairs
 
-    def set_bouyancy_discretization_parameters(self):
+    def set_buoyancy_discretization_parameters(self):
         for component_xi in self.fluid.components:
-            # if self.fluid.reference_component.name == component_xi:
-            #     continue
             for pairs in self.component_pairs_for(component_xi):
                 xi, eta = pairs
                 for sd, data in self.mdg.subdomains(return_data=True):
@@ -660,8 +668,6 @@ class FluidBuoyancy(pp.PorePyModel):
     def update_buoyancy_discretizations(self):
 
         for component_xi in self.fluid.components:
-            # if self.fluid.reference_component.name == component_xi:
-            #     continue
             for pairs in self.component_pairs_for(component_xi):
                 xi, eta = pairs
                 for sd, data in self.mdg.subdomains(return_data=True):

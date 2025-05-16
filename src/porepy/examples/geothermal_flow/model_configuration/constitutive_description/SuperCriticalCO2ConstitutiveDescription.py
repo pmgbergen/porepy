@@ -17,7 +17,7 @@ def gas_saturation_func(
 
     nc = len(thermodynamic_dependencies[0])
     vals = z_CO2
-    vals = np.clip(vals, 1.0e-16, 1.0)
+    vals = np.clip(vals, 1.0e-16, 1.0-1.0e-16)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -49,7 +49,7 @@ def H2O_liq_func(
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.ones_like(z_CO2)
-    vals = np.clip(vals, 1.0e-16, 1.0)
+    vals = np.clip(vals, 1.0e-16, 1.0-1.0e-16)
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
     return vals, diffs
@@ -63,7 +63,7 @@ def CO2_liq_func(
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.zeros_like(z_CO2)
-    vals = np.clip(vals, 1.0e-16, 1.0)
+    vals = np.clip(vals, 1.0e-16, 1.0-1.0e-16)
 
     # row-wise storage of derivatives, (4, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -78,7 +78,7 @@ def H2O_gas_func(
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.zeros_like(z_CO2)
-    vals = np.clip(vals, 1.0e-16, 1.0)
+    vals = np.clip(vals, 1.0e-16, 1.0-1.0e-16)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -93,7 +93,7 @@ def CO2_gas_func(
 
     nc = len(thermodynamic_dependencies[0])
     vals = np.ones_like(z_CO2)
-    vals = np.clip(vals, 1.0e-16, 1.0)
+    vals = np.clip(vals, 1.0e-16, 1.0-1.0e-16)
 
     # row-wise storage of derivatives, (3, nc) array
     diffs = np.zeros((len(thermodynamic_dependencies), nc))
@@ -127,7 +127,7 @@ class LiquidLikeCorrelations(pp.compositional.EquationOfState):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (916.7) * np.ones(nc)
+        vals = (1000.0) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs
@@ -233,7 +233,7 @@ class GasLikeCorrelations(pp.compositional.EquationOfState):
     ) -> tuple[np.ndarray, np.ndarray]:
 
         nc = len(thermodynamic_dependencies[0])
-        vals = (916.7) * np.ones(nc)
+        vals = (1000.0) * np.ones(nc)
         # row-wise storage of derivatives, (4, nc) array
         diffs = np.zeros((len(thermodynamic_dependencies), nc))
         return vals, diffs

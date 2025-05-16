@@ -35,7 +35,7 @@ from porepy.examples.geothermal_flow.model_configuration.SuperCriticalCO2ModelCo
 day = 86400
 t_scale = 1.0
 tf = 0.1 * day
-dt = 0.05 * day
+dt = 0.01 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -54,6 +54,7 @@ solid_constants = pp.SolidConstants(
 material_constants = {"solid": solid_constants}
 params = {
     "rediscretize_darcy_flux": True,
+    "rediscretize_fourier_flux": True,
     "fractional_flow": True,
     "material_constants": material_constants,
     "eliminate_reference_phase": True,  # s_liq eliminated, default is True
@@ -79,6 +80,27 @@ class SuperCriticalCO2FlowModel(FlowModel):
     def after_simulation(self):
         self.exporter.write_pvd()
 
+    # def set_nonlinear_discretizations(self) -> None:
+    #
+    #     super().set_nonlinear_discretizations()  # type:ignore[safe-super]
+    #
+    #     # bouyancy_discrs = self.bouyancy_discrezations(self.mdg.subdomains())
+    #     # [self.add_nonlinear_discretization(bouyancy_discrs) for discr in bouyancy_discrs]
+    #
+    #     # self.add_nonlinear_discretization(
+    #     #     self.interface_mobility_discretization(self.mdg.interfaces()).flux(),
+    #     # )
+    #
+    #     if self.params.get("rediscretize_fourier_flux", False):
+    #         self.add_nonlinear_flux_discretization(
+    #             self.fourier_flux_discretization(self.mdg.subdomains()).flux()
+    #         )
+    #     if self.params.get("rediscretize_darcy_flux", False):
+    #         self.add_nonlinear_flux_discretization(
+    #             self.darcy_flux_discretization(self.mdg.subdomains()).flux()
+    #         )
+
+
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
 
@@ -98,11 +120,11 @@ l_xi = model.component_mass_mobility(components[1],model.mdg.subdomains()).value
 l_eta = model.component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
 
 rho_overall = model.fractionally_weighted_density(model.mdg.subdomains()).value(model.equation_system)
-rho_xi = model.component_density(components[1],model.mdg.subdomains()).value(model.equation_system)
-rho_eta = model.component_density(components[0],model.mdg.subdomains()).value(model.equation_system)
+rho_xi = model.component_density(components[0],model.mdg.subdomains()).value(model.equation_system)
+rho_eta = model.component_density(components[1],model.mdg.subdomains()).value(model.equation_system)
 
-f_xi = model.fractional_component_mass_mobility(components[1],model.mdg.subdomains()).value(model.equation_system)
-f_eta = model.fractional_component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
+f_xi = model.fractional_component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
+f_eta = model.fractional_component_mass_mobility(components[1],model.mdg.subdomains()).value(model.equation_system)
 
 # flux_c1 = model.component_flux(components[1],model.mdg.subdomains()).value(model.equation_system)
 # flux_buoyancy_c1 = model.component_buoyancy(components[1],model.mdg.subdomains()).value(model.equation_system)
