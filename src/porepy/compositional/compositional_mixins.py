@@ -1024,8 +1024,25 @@ class FluidMixin(pp.PorePyModel):
         components: list[pp.FluidComponent] = [c for c in self.get_components()]
 
         for config in self.get_phase_configuration(components):
-            eos, type_, name = config
-            phases.append(Phase(eos, type_, name))
+            # Configuration of phase with EoS.
+            if len(config) == 3:
+                phase_state, name, eos = config
+                assert isinstance(eos, EquationOfState), (
+                    f"Expecting an instance of `EquationOfState`, got {type(eos)}."
+                )
+            # Configuration of phase without EoS.
+            elif len(config) == 2:
+                phase_state, name = config
+                eos = None
+
+            assert phase_state in PhysicalState, (
+                f"Expecting a valid `PhysicalState`, got {phase_state}."
+            )
+            assert isinstance(name, str), (
+                f"Expecting a string as name for phase, got {type(name)}."
+            )
+
+            phases.append(Phase(phase_state, name, eos=eos))
 
         self.set_components_in_phases(components, phases)
 
@@ -1055,12 +1072,14 @@ class FluidMixin(pp.PorePyModel):
 
     def get_phase_configuration(
         self, components: Sequence[ComponentLike]
-    ) -> Sequence[tuple[EquationOfState, PhysicalState, str]]:
+    ) -> Sequence[
+        tuple[PhysicalState, str] | tuple[PhysicalState, str, EquationOfState]
+    ]:
         """Method to return a configuration of modelled phases.
 
-        The default implementation returns a liquid-like phase with an abstract EoS
-        instance (to be used in the standard set-up with heuristic fluid properties
-        implemented for 1-phase fluids).
+        The default implementation returns a liquid-like phase named ``'liquid'``
+        (to be used in the standard set-up with heuristic fluid properties implemented
+        for 1-phase fluids).
 
         Parameters:
             components: The list of components modelled by :meth:`get_components`.
@@ -1071,18 +1090,21 @@ class FluidMixin(pp.PorePyModel):
                     The user can use only a single EoS instance for all phases f.e.
 
         Returns:
-            A sequence of 3-tuples containing
+            A sequence of 2-tuples or 3-tuples containing
 
-            1. An instance of an EoS.
-            2. The phase state.
-            3. A name for the phase.
+            1. The phase state.
+            2. A name for the phase.
+            3. (optional) An instance of an EoS.
 
             Each tuple will be used to create a phase in the fluid mixture.
             For more information on the required return values see
             :class:`~porepy.compositional.base.Phase`.
 
+            Phase configurations which do not return an EoS are assumed to use
+            heuristics.
+
         """
-        return [(EquationOfState(components), PhysicalState.liquid, "liquid")]
+        return [(PhysicalState.liquid, "liquid")]
 
     def set_components_in_phases(
         self, components: Sequence[Component], phases: Sequence[Phase]
