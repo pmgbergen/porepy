@@ -87,7 +87,22 @@ class EquationsThermoporomechanics(
     pp.contact_mechanics.ContactMechanicsEquations,
 ):
     """Combines energy, mass and momentum balance equations and
-    contact mechanics equations."""
+    contact mechanics equations. Adaptation is made to the body
+    force taking into account solid and fluid."""
+
+    def body_force(self, subdomains: list[pp.Grid]) -> pp.ad.Operator:
+        """Body force integrated over the subdomain cells.
+
+        Parameters:
+            subdomains: List of subdomains where the body force is defined.
+
+        Returns:
+            Operator for the body force [kg*m*s^-2].
+
+        """
+        return self.volume_integral(
+            self.gravity_force(subdomains, "bulk"), subdomains, dim=self.nd
+        )
 
 
 class VariablesThermoporomechanics(

@@ -488,7 +488,7 @@ class TestTimeControl:
         assert time_manager._recomp_sol and (msg in str(excinfo.value))
 
     def test_recompute_solution_false_by_default(self):
-        """ "Checks if recompute solution is False by default"""
+        """Checks if recompute solution is False by default"""
         time_manager = pp.TimeManager([0, 1], 0.1)
         time_manager.compute_time_step(iterations=3)
         assert not time_manager._recomp_sol
