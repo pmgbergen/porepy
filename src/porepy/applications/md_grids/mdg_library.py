@@ -249,17 +249,17 @@ def seven_fractures_one_L_intersection(
 
 
 def benchmark_regular_2d(
-    meshing_args: dict, is_coarse: bool = False, **meshing_kwargs
+    meshing_args: dict, **meshing_kwargs
 ) -> tuple[pp.MixedDimensionalGrid, FractureNetwork2d]:
     """
-    Create a grid bucket for a domain containing the network introduced as example 2 of
-    Berre et al. 2018: Benchmarks for single-phase flow in fractured porous media.
+    Create a MixedDimensionalGrid for a domain containing the network introduced as
+    example 2 of Berre et al. 2018: Benchmarks for single-phase flow in fractured porous
+    media.
 
     Parameters:
         meshing_args: Dictionary containing at least "mesh_size_frac". If the optional
             values of "mesh_size_bound" and "mesh_size_min" are not provided, these are
             set by utils.set_mesh_sizes.
-        is_coarse: If True, coarsen the grid by volume.
         **meshing_kwargs: Keyword arguments for meshing as used by
             :meth:`~porepy.grids.mdg_generation.create_mdg`.
 
@@ -281,8 +281,6 @@ def benchmark_regular_2d(
     )
     mdg = pp.create_mdg("simplex", meshing_args, fracture_network, **meshing_kwargs)
 
-    if is_coarse:
-        pp.coarsening.coarsen(mdg, "by_volume")
     return mdg, fracture_network
 
 
