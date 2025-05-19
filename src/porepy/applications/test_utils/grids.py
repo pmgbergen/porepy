@@ -1,4 +1,16 @@
-"""Helper methods to compare grids."""
+"""Helper methods to compare grids.
+
+Content:
+    - compare_grids: Compare two grids for equality of topology and geometry.
+    - compare_mortar_grids: Compare two mortar grids for equality by comparing their
+        cell numbers, as well as the geometry and topology of the side grids.
+    - compare_md_grids: Compare two mixed-dimensional grids for equality by comparing
+        their subdomains and interfaces (grids and mortar grids).
+    - polytop_grid_2d: Create a hard-coded 2D polytopal grid with 4 cells on the unit
+        square.
+    - polytop_grid_3d: Create a hard-coded 3D polytopal grid with 5 cells on the unit
+        cube.
+"""
 
 import numpy as np
 import scipy.sparse as sps
