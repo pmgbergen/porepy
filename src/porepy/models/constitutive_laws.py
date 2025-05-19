@@ -2725,17 +2725,21 @@ class GravityForce(pp.PorePyModel):
     """Callable returning the solid density on some subdomains.
     See e.g.,:class:`ConstantSolidDensity`."""
 
+    porosity: Callable[[list[pp.Grid] | list[pp.MortarGrid]], pp.ad.Operator]
+    """Callable returning the porosity. See e.g.,:class:`ConstantPorosity`."""
+
     def gravity_force(
         self,
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
-        material: Literal["fluid", "solid"],
+        material: Literal["fluid", "solid", "bulk"],
     ) -> pp.ad.Operator:
         """Gravity force term on either subdomains or interfaces.
 
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
                 defined.
-            material: Name of the material. Could be either "fluid" or "solid".
+            material: Name of the material. Could be either "fluid", "solid", or
+                "bulk".
 
         Returns:
             Cell-wise nd-vector representing the gravity force [kg*s^-2*m^-2].
@@ -2749,6 +2753,11 @@ class GravityForce(pp.PorePyModel):
             rho = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
         elif material == "solid":
             rho = self.solid_density(grids)
+        elif material == "bulk":
+            phi = self.porosity(grids)
+            rho_f = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))
+            rho_s = self.solid_density(grids)
+            rho = phi * rho_f + (pp.ad.Scalar(1.0) - phi) * rho_s
         else:
             raise ValueError(f"Unsupported gravity force for material '{material}'.")
 
@@ -2769,14 +2778,14 @@ class ZeroGravityForce(pp.PorePyModel):
     def gravity_force(
         self,
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
-        material: Literal["fluid", "solid"],
+        material: Literal["fluid", "solid", "bulk"],
     ) -> pp.ad.Operator:
         """Gravity force term on either subdomains or interfaces.
 
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
                 defined.
-            material: Name of the material. Could be either "fluid" or "solid".
+            material: Name of the material. Could be either "fluid", "solid", or "bulk".
 
         Returns:
             Cell-wise nd-vector representing the gravity force.
