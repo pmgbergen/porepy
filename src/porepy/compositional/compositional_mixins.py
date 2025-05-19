@@ -1107,22 +1107,25 @@ class FluidMixin(pp.PorePyModel):
         components: list[pp.FluidComponent] = [c for c in self.get_components()]
 
         for config in self.get_phase_configuration(components):
+            # Configuration of phase with EoS.
             if len(config) == 3:
-                eos, phase_state, name = config
-            # If no EoS is given by the user, use the base EoS as a dummy.
+                phase_state, name, eos = config
+                assert isinstance(eos, EquationOfState), (
+                    f"Expecting an instance of `EquationOfState`, got {type(eos)}."
+                )
+            # Configuration of phase without EoS.
             elif len(config) == 2:
                 phase_state, name = config
-                eos = EquationOfState(components)
-            assert isinstance(eos, EquationOfState), (
-                f"Expecting an instance of `EquationOfState`, got {type(eos)}."
-            )
+                eos = None
+
             assert phase_state in PhysicalState, (
                 f"Expecting a valid `PhysicalState`, got {phase_state}."
             )
             assert isinstance(name, str), (
                 f"Expecting a string as name for phase, got {type(name)}."
             )
-            phases.append(Phase(eos, phase_state, name))
+
+            phases.append(Phase(phase_state, name, eos=eos))
 
         self.set_components_in_phases(components, phases)
 
@@ -1153,7 +1156,7 @@ class FluidMixin(pp.PorePyModel):
     def get_phase_configuration(
         self, components: Sequence[ComponentLike]
     ) -> Sequence[
-        tuple[EquationOfState, PhysicalState, str] | tuple[PhysicalState, str]
+        tuple[PhysicalState, str] | tuple[PhysicalState, str, EquationOfState]
     ]:
         """Method to return a configuration of modelled phases.
 
@@ -1170,11 +1173,11 @@ class FluidMixin(pp.PorePyModel):
                     The user can use only a single EoS instance for all phases f.e.
 
         Returns:
-            A sequence of 3-tuples or 2-tuples containing
+            A sequence of 2-tuples or 3-tuples containing
 
-            1. (optional) An instance of an EoS.
-            2. The phase state.
-            3. A name for the phase.
+            1. The phase state.
+            2. A name for the phase.
+            3. (optional) An instance of an EoS.
 
             Each tuple will be used to create a phase in the fluid mixture.
             For more information on the required return values see
