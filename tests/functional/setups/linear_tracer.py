@@ -649,7 +649,7 @@ class TracerFluid_3p(TracerFluid_1p):
         """Returns configs for 3 phases with same dummy EoS."""
         eos = TrivialEoS(components)
         state = pp.compositional.PhysicalState.liquid
-        return [(eos, state, "1"), (eos, state, "2"), (eos, state, "3")]
+        return [(state, "1", eos), (state, "2", eos), (state, "3", eos)]
 
     def dependencies_of_phase_properties(
         self, phase: pp.Phase
