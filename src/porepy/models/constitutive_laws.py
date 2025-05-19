@@ -2785,7 +2785,7 @@ class ZeroGravityForce(pp.PorePyModel):
         Parameters:
             grids: List of subdomain or interface grids where the vector source is
                 defined.
-            material: Name of the material. Could be either "fluid", "solid", "bulk".
+            material: Name of the material. Could be either "fluid", "solid", or "bulk".
 
         Returns:
             Cell-wise nd-vector representing the gravity force.
