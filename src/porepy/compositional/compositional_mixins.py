@@ -256,8 +256,9 @@ class _MixtureDOFHandler(pp.PorePyModel):
             True, if the ``tracer`` is in the compound``, False otherwise.
 
         """
-        if compound not in list(self.fluid.components):
-            raise ValueError(f"Compound {compound} not in fluid mixture.")
+        # if compound not in self.fluid.components:
+        #     raise ValueError(f"Compound {compound} not in fluid mixture.")
+
         if tracer in compound.active_tracers:
             return True
         else:
