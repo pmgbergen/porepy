@@ -78,7 +78,7 @@ class Exporter:
             export_constants_separately (boolean): controlling whether
                 constant data is exported in separate files, which may be of
                 interest when exporting large data sets (in particular of constant
-                data) for many time steps (default True); note, however, that the
+                data) for many time steps (default False); note, however, that the
                 mesh is exported to each vtu file, which may also require
                 significant amount of storage.
 
