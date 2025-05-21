@@ -142,7 +142,7 @@ class Exporter:
         """Flag controlling whether data is stored in binary format."""
 
         self._export_constants_separately: bool = kwargs.pop(
-            "export_constants_separately", True
+            "export_constants_separately", False
         )
         """Flag controlling whether constant data is exported to a separate file."""
 
