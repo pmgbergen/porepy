@@ -145,7 +145,6 @@ def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain)
         sd,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     save.write_vtu(
         [("dummy_scalar", dummy_scalar), ("dummy_vector", dummy_vector)],
@@ -175,7 +174,6 @@ def test_import_state_from_vtu_single_subdomains(
         sd,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
 
     # Define keys (here corresponding to all data stored in the vtu file to pass the
@@ -293,7 +291,6 @@ def test_mdg(setup: ExporterTestSetup):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     save.write_vtu(
         ["dummy_scalar", "dummy_vector", "unique_dummy_scalar"],
@@ -336,7 +333,6 @@ def test_import_from_pvd_mdg(setup: ExporterTestSetup, case: int):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
 
     # Assume the following has been run for a previous simulation
@@ -417,7 +413,6 @@ def test_import_state_from_vtu_mdg(setup: ExporterTestSetup, addendum: str):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     # Define keys (here corresponding to all data stored in the vtu file to pass the
     # test).
@@ -528,7 +523,6 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         mdg,
         setup.file_name,
         setup.folder,
-        export_constants_separately=False,
     )
     save.write_vtu(
         [
