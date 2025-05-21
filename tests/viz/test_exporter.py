@@ -569,6 +569,7 @@ def test_constant_data(setup: ExporterTestSetup):
         g,
         setup.file_name,
         setup.folder,
+        export_constants_separately=True,
     )
     # Add additional constant data (cell centers)
     save.add_constant_data([(g, "cc", g.cell_centers)], data_pt=[("x", g.nodes[0, :])])
