@@ -525,7 +525,7 @@ def test_linear_or_nonlinear_model(params: dict):
                 dtype=np.float64,
             ),
             block_sizes=[2, 2],
-            row_perm=[2, 3, 0, 1],
+            row_perm=[0, 1, 2, 3],
             col_perm=[2, 3, 0, 1],
         ),
     ]
