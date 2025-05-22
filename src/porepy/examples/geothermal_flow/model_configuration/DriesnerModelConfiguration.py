@@ -144,7 +144,7 @@ class DriesnerBrineFlowModel(  # type:ignore[misc]
     def gravity_force(
         self,
         grids: Union[list[pp.Grid], list[pp.MortarGrid]],
-        material: Literal["fluid", "solid"],
+        material: Literal["fluid", "solid", "bulk"],
     ) -> pp.ad.Operator:
         if material == "fluid":
             rho = self.fluid.density(cast(pp.SubdomainsOrBoundaries, grids))

@@ -166,8 +166,8 @@ te = time.time()
 print("Elapsed time prepare simulation: ", te - tb)
 print("Simulation prepared for total number of DoF: ", model.equation_system.num_dofs())
 print("Mixed-dimensional grid employed: ", model.mdg)
-model.primary_equations = model.get_primary_equations_cf()
-model.primary_variables = model.get_primary_variables_cf()
+model.primary_equations = pp.compositional_flow.get_primary_equations_cf(model)
+model.primary_variables = pp.compositional_flow.get_primary_variables_cf(model)
 
 # print geometry
 model.exporter.write_vtu()
