@@ -159,9 +159,6 @@ These include (among others):
    * - a
      - E.g. np.ndarray
      - Aperture
-   * - sv
-     - np.ndarray
-     - Specific volume, usually satisfying sv = a^(nd – sd.dim)
    * - nd
      - int
      - The ambient dimension of a domain, usually corresponding to the highest dimension of any subdomain in a mixed-dimensional grid (3 or 2).
