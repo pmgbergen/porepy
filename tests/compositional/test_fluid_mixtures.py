@@ -145,7 +145,7 @@ def test_mixture_contexts(
             if has_gas:
                 has_more_gas = True
             has_gas = True
-        phases.append(compositional.Phase(eos, t, name))
+        phases.append(compositional.Phase(t, name, eos=eos))
         phases[-1].components = [h2o] + components  # to avoid errors
 
     phasenames = [phase.name for phase in phases]
@@ -209,8 +209,8 @@ def test_mixture_member_assignment(
     # dummy EoS for completeness
     eos = compositional.EquationOfState([comp1, comp2])
     phases = [
-        (eos, compositional.PhysicalState.liquid, "L"),
-        (eos, compositional.PhysicalState.gas, "G"),
+        (compositional.PhysicalState.liquid, "L", eos),
+        (compositional.PhysicalState.gas, "G", eos),
     ]
 
     model: MockModel = get_mock_model(
@@ -482,7 +482,7 @@ def test_singular_mixtures(species, phase_names, equilibrium_condition):
     hash(components[0])
 
     eos = compositional.EquationOfState(components)
-    phases = [(eos, compositional.PhysicalState.liquid, name) for name in phase_names]
+    phases = [(compositional.PhysicalState.liquid, name, eos) for name in phase_names]
 
     model: MockModel = get_mock_model(components, phases, True, equilibrium_condition)
 

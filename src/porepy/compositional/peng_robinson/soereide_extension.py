@@ -2,8 +2,17 @@
 NaCl and forming a brine.
 
 One of the components passed to :class:`PengRobinsonSoereideCompiler` must be named
-``'brine'`` and it will be treated like water.
+``'brine'`` and it will be treated like water (see :class:`NaClBrine`).
 The other supported components are optional.
+
+References:
+    [1] Ingolf Søreide, Curtis H. Whitson,
+        Peng-Robinson predictions for hydrocarbons, CO2, N2, and H2 S with pure water
+        and NaCI brine,
+        Fluid Phase Equilibria,
+        Volume 77,
+        1992,
+        https://doi.org/10.1016/0378-3812(92)85105-H
 
 Note:
     The modifications herein for water with salt hold for temperature ranges 15-325 deg
@@ -13,6 +22,7 @@ Note:
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Callable, Literal, Optional, Sequence
 
 import numba as nb
@@ -22,13 +32,34 @@ import sympy as sp
 import porepy as pp
 
 from .._core import NUMBA_FAST_MATH
+from ..base import Compound
+from ..materials import FluidComponent
 from . import eos, eos_symbolic
 from .utils import thd_function_type
 
 __all__ = [
+    "NaClBrine",
     "PengRobinsonSoereideSymbolic",
     "PengRobinsonSoereideCompiler",
 ]
+
+
+class NaClBrine(FluidComponent, Compound):
+    """(Fluid-) compound consiting of water and NaCl as an active tracer.
+
+    Uses :func:`~porepy.compositional.load_fluid_constants` to obtain parameters for the
+    2 chemical species.
+    """
+
+    def __init__(self):
+        h2o, nacl = pp.compositional.load_fluid_constants(["H2O", "NaCl"], "chemicals")
+        h2o_vals = asdict(h2o)
+        h2o_vals["name"] = "brine"
+        del h2o_vals["constants_in_SI"]
+        del h2o_vals["_initialized"]
+        super().__init__(**h2o_vals)
+
+        self.active_tracers = [nacl]
 
 
 class PengRobinsonSoereideSymbolic(eos_symbolic.PengRobinsonSymbolic):
@@ -201,7 +232,13 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
             components, ideal_enthalpies
         )
 
-        self.params["salinity"] = 0.0
+        # If salinity is not provided, set default value to zero.
+        if params is not None:
+            s = params.get("salinity", 0.0)
+        else:
+            s = 0.0
+
+        self.params["salinity"] = float(s)
         """The EoS has an additional parameter ``'salinity'`` which represents the
         molality of NaCl in the brine. Defaults to zero."""
 
@@ -235,11 +272,6 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
             phasetype: int, p: float, T: float, xn: np.ndarray, params: np.ndarray
         ) -> np.ndarray:
             prearg = np.empty((3,), dtype=np.float64)
-
-            if params.size == 0:
-                raise ValueError(
-                    "Pre-argument function expects at least 1 parameter: salinity"
-                )
 
             s_m_ = s_m
             s_e_ = s_e
@@ -287,11 +319,6 @@ class PengRobinsonSoereideCompiler(eos.PengRobinsonCompiler):
             # the pre-arg for the jacobian contains the derivatives of A, B, Z
             # w.r.t. p, T, and fractions.
             prearg = np.empty((3 * d,), dtype=np.float64)
-
-            if params.size == 0:
-                raise ValueError(
-                    "Pre-argument function expects at least 1 parameter: salinity"
-                )
 
             s_m_ = s_m
             s_e_ = s_e

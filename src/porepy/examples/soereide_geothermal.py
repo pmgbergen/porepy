@@ -1686,8 +1686,9 @@ print(f"Set-up time: {prep_sim_time} (s).")
 print(f"Approximate compilation time: {compile_time} (s).")
 print(f"Simulation run time: {sim_time / 60.0} (min).")
 
-import matplotlib.pyplot as plt
 import json
+
+import matplotlib.pyplot as plt
 
 fig, ax1 = plt.subplots()
 
