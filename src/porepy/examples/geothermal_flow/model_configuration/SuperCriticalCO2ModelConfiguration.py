@@ -51,14 +51,10 @@ class BoundaryConditions(pp.PorePyModel):
     ) -> np.ndarray:
         inlet_idx, _ = self.get_inlet_outlet_sides(boundary_grid)
         z_inlet = 0.0
-        if component.name == "H2O":
-            z_H2O = np.ones(boundary_grid.num_cells)
-            z_H2O[inlet_idx] = 1 - z_inlet
-            return z_H2O
-        else:
-            z_NaCl = np.zeros(boundary_grid.num_cells)
-            z_NaCl[inlet_idx] = z_inlet
-            return z_NaCl
+        z_CO2 = np.zeros(boundary_grid.num_cells)
+        z_CO2[inlet_idx] = z_inlet
+        return z_CO2
+
 
 
 class InitialConditions(pp.PorePyModel):
@@ -71,8 +67,8 @@ class InitialConditions(pp.PorePyModel):
         subdomains = self.mdg.subdomains()
         CO2 = self.fluid.components[1]
         z_v = self.ic_values_overall_fraction(CO2,subdomains[0])
-        x_CO2_liq_v = np.zeros_like(z_v)
-        x_CO2_gas_v = np.ones_like(z_v)
+        x_CO2_liq_v = np.clip(np.zeros_like(z_v), 1.0e-16, 1.0-1.0e-16)
+        x_CO2_gas_v = np.clip(np.ones_like(z_v), 1.0e-16, 1.0-1.0e-16)
 
         liq, gas = self.fluid.phases
         s_gas = gas.saturation(subdomains)
@@ -105,6 +101,7 @@ class InitialConditions(pp.PorePyModel):
     ) -> np.ndarray:
         xc = sd.cell_centers.T
         z = np.where((xc[:,1] >= 2.0) & (xc[:,1] <= 4.0), 0.7, 0.0)
+        z = np.where((xc[:, 1] >= 5.0) & (xc[:, 1] <= 7.0), 0.8, 0.0)
         if component.name == "H2O":
             return (1 - z) * np.ones(sd.num_cells)
         else:

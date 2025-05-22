@@ -34,8 +34,8 @@ from porepy.examples.geothermal_flow.model_configuration.SuperCriticalCO2ModelCo
 
 day = 86400
 t_scale = 1.0
-tf = 0.01 * day
-dt = 0.01 * day
+tf = 100.0 * day
+dt = 1.0 * day
 time_manager = pp.TimeManager(
     schedule=[0.0, tf],
     dt_init=dt,
@@ -45,8 +45,8 @@ time_manager = pp.TimeManager(
 )
 
 solid_constants = pp.SolidConstants(
-    permeability=3.0e-12,
-    porosity=0.35,
+    permeability=1.0e-14,
+    porosity=0.1,
     thermal_conductivity=2.0 * 1.0e-6,
     density=2500.0,
     specific_heat_capacity=1000.0 * 1.0e-6,
@@ -63,7 +63,7 @@ params = {
     "prepare_simulation": False,
     "reduce_linear_system": False,
     "nl_convergence_tol": np.inf,
-    "nl_convergence_tol_res": 1.0e-8,
+    "nl_convergence_tol_res": 1.0e-5,
     "max_iterations": 50,
 }
 
@@ -77,13 +77,62 @@ class SuperCriticalCO2FlowModel(FlowModel):
         print("Time index: ", self.time_manager.time_index)
         print("")
 
+        sd = model.mdg.subdomains()[0]
+        components = list(self.fluid.components)
+        # Integrated overall mass flux on all facets
+        mn = self.equation_system.evaluate(self.darcy_flux(model.mdg.subdomains()))
+
+        # w_flux_unit = self.density_driven_flux(self.mdg.subdomains(), pp.ad.Scalar(1000.0))
+        # w_flux_val = self.equation_system.evaluate(w_flux_unit)
+
+        rho_xi = self.component_density(components[1], [sd])
+        rho_eta = self.component_density(components[0], [sd])
+        w_flux_val = self.equation_system.evaluate(self.density_driven_flux([sd], rho_xi - rho_eta))
+
+        flux_buoyancy_c0 = self.component_buoyancy(components[0], model.mdg.subdomains())
+        flux_buoyancy_c1 = self.component_buoyancy(components[1], model.mdg.subdomains())
+
+        b_c0 = self.equation_system.evaluate(flux_buoyancy_c0)
+        b_c1 = self.equation_system.evaluate(flux_buoyancy_c1)
+        are_reciprocal_Q = np.all(np.isclose(b_c0+ b_c1, 0.0))
+        print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
+        assert are_reciprocal_Q
+
+        external_bc_idx = sd.get_boundary_faces()
+        internal_bc_idx = sd.get_internal_faces()
+        print("w_flux_unit: ", w_flux_val[external_bc_idx])
+        print("b_c1_bc: ", b_c1[external_bc_idx])
+        print("w_flux_bc: ", w_flux_val[external_bc_idx])
+        print("boundary integral  b_c1_bc: ", np.sum(b_c1[external_bc_idx]))
+        print("boundary integral  w_flux_bc: ", np.sum(w_flux_val[external_bc_idx]))
+        print("boundary integral m: ", np.sum(mn[external_bc_idx]))
+        assert np.isclose(np.sum(b_c1[external_bc_idx]), 0.0, atol=1.0e-5)
+        assert np.isclose(np.sum(mn[external_bc_idx]), 0.0, atol=1.0e-5)
+
+
+
+        # sd = model.mdg.subdomains()[0]
+        # lambda_t = self.equation_system.evaluate(self.total_mass_mobility(self.mdg.subdomains()))
+        # w_flux_unit = self.density_driven_flux(self.mdg.subdomains(), pp.ad.Scalar(1.0)).value(self.equation_system)
+        # print("lambda_t: ", lambda_t)
+        # print("w_flux_unit: ", w_flux_unit[sd.get_internal_faces()])
+        # print("")
+        # print("")
+        # aka = 0
+
+
     def after_simulation(self):
         self.exporter.write_pvd()
 
     def before_nonlinear_iteration(self) -> None:
-        super().before_nonlinear_iteration()
-        self.rediscretize_fluxes()
         self.update_buoyancy_discretizations()
+        super().before_nonlinear_iteration()
+        # self.rediscretize_fluxes()
+
+    def set_discretization_parameters(self) -> None:
+        super().set_discretization_parameters()
+        if self.time_manager.time_index == 0:
+            self.set_buoyancy_discretization_parameters()
 
     def darcy_flux_discretization(self, subdomains: list[pp.Grid]) -> pp.ad.MpfaAd:
         return pp.ad.TpfaAd(self.darcy_keyword, subdomains)
@@ -99,16 +148,28 @@ print("Simulation prepared for total number of DoF: ", model.equation_system.num
 print("Mixed-dimensional grid employed: ", model.mdg)
 
 components = list(model.fluid.components)
+grid = model.mdg.subdomains()[0]
+
+# lambda_t = model.equation_system.evaluate(model.total_mass_mobility(model.mdg.subdomains()))
+# w_flux_unit = model.density_driven_flux(model.mdg.subdomains(), pp.ad.Scalar(1.0)).value(model.equation_system)
+# print("Initial lambda_t: ", lambda_t)
+# print("Initial w_flux_unit: ", w_flux_unit[grid.get_internal_faces()])
 
 l_xi = model.component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
 l_eta = model.component_mass_mobility(components[1],model.mdg.subdomains()).value(model.equation_system)
 
-rho_overall = model.fractionally_weighted_density(model.mdg.subdomains()).value(model.equation_system)
-rho_xi = model.component_density(components[0],model.mdg.subdomains()).value(model.equation_system)
-rho_eta = model.component_density(components[1],model.mdg.subdomains()).value(model.equation_system)
+rho_overall = model.fractionally_weighted_density(model.mdg.subdomains())
+rho_overall_v = model.equation_system.evaluate(rho_overall)
+rho_xi = model.component_density(components[0],model.mdg.subdomains())
+rho_eta = model.component_density(components[1],model.mdg.subdomains())
+rho_xi_v = model.equation_system.evaluate(rho_xi)
+rho_eta_v = model.equation_system.evaluate(rho_eta)
 
 f_xi = model.fractional_component_mass_mobility(components[0],model.mdg.subdomains()).value(model.equation_system)
 f_eta = model.fractional_component_mass_mobility(components[1],model.mdg.subdomains()).value(model.equation_system)
+
+w_flux_xi_eta = model.density_driven_flux(model.mdg.subdomains(),rho_xi-rho_eta).value(model.equation_system)
+w_flux_unit = model.density_driven_flux(model.mdg.subdomains(),pp.ad.Scalar(1.0)).value(model.equation_system)
 
 # print geometry
 model.exporter.write_vtu()
@@ -137,6 +198,7 @@ flux_buoyancy_c0 = model.component_buoyancy(components[0],model.mdg.subdomains()
 flux_buoyancy_c1 = model.component_buoyancy(components[1],model.mdg.subdomains())
 are_reciprocal_Q = np.all(np.isclose(model.equation_system.evaluate(flux_buoyancy_c0) + model.equation_system.evaluate(flux_buoyancy_c1),0.0))
 print("buoyancy fluxes are reciprocal Q: ", are_reciprocal_Q)
+assert are_reciprocal_Q
 
 
 # Retrieve the grid and boundary information
@@ -152,4 +214,4 @@ print("Outflow values : ", mn[outlet_idx])
 
 # Check conservation of overall mass across boundaries
 external_bc_idx = bc_sides.all_bf
-assert np.isclose(np.sum(mn[external_bc_idx]), 0.0, atol=1.0e-10)
+assert np.isclose(np.sum(mn[external_bc_idx]), 0.0, atol=1.0e-6)

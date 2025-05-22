@@ -551,7 +551,6 @@ class ComponentMassBalanceEquations(pp.BalanceEquation):
 
     def set_discretization_parameters(self) -> None:
         super().set_discretization_parameters()
-        self.set_buoyancy_discretization_parameters()
 
 
     def component_mass_balance_equation(
