@@ -512,6 +512,22 @@ def test_linear_or_nonlinear_model(params: dict):
             row_perm=[0, 1, 2, 4, 3, 5],
             col_perm=[0, 1, 2, 4, 3, 5],
         ),
+        dict(
+            A=sps.csr_matrix(
+                np.array(
+                    [
+                        [0, 0, 1, 1],
+                        [0, 0, 0, 1],
+                        [1, 1, 0, 0],
+                        [0, 1, 0, 0],
+                    ]
+                ),
+                dtype=np.float64,
+            ),
+            block_sizes=[2, 2],
+            row_perm=[2, 3, 0, 1],
+            col_perm=[2, 3, 0, 1],
+        ),
     ]
 )
 def non_block_diag_matrix(request) -> dict[str, Any]:
