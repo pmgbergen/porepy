@@ -75,12 +75,11 @@ class Exporter:
                 (default True).
             binary (boolean): controlling whether data is stored in binary format
                 (default True).
-            export_constants_separately (boolean): controlling whether
-                constant data is exported in separate files, which may be of
-                interest when exporting large data sets (in particular of constant
-                data) for many time steps (default False); note, however, that the
-                mesh is exported to each vtu file, which may also require
-                significant amount of storage.
+            export_constants_separately (boolean): controlling whether constant data is
+                exported in separate files, which may be of interest when exporting
+                large data sets (in particular of constant data) for many time steps
+                (default False); note, however, that the mesh is exported to each vtu
+                file, which may also require significant amount of storage.
 
     Raises:
         TypeError: If grid has other type than :class:`~pp.grids.grid.Grid` or
@@ -159,9 +158,7 @@ class Exporter:
             raise TypeError(msg.format(kwargs.popitem()[0]))
 
         # Generate infrastructure for storing fixed-dimensional grids in meshio format.
-        # Include all but the 0-d grids
-
-        self._dims = np.unique([sd.dim for sd in self._mdg.subdomains() if sd.dim > 0])
+        self._dims = np.unique([sd.dim for sd in self._mdg.subdomains()])
         """Array of dimensions of all present subdomains."""
 
         self.meshio_geom: MD_Meshio_Geom = dict()
@@ -323,7 +320,7 @@ class Exporter:
         mixed-dimensional grid is split in the usual way etc.
 
         Parameters:
-            vtu_files: path(s) to vtu file(s)
+            vtu_files: path(s) to vtu file(s).
             keys: keywords addressing cell data to be transferred. If 'None', the
                 mixed-dimensional grid is checked for keywords corresponding to primary
                 variables identified through pp.TIME_STEP_SOLUTIONS.
@@ -491,7 +488,7 @@ class Exporter:
                 offset = 0
                 if is_subdomain_data:
                     for sd, sd_data in self._mdg.subdomains(dim=dim, return_data=True):
-                        num_dofs = getattr(sd, num_entities)
+                        num_dofs = self._num_dofs(sd, num_entities)
                         values = _from_vector_format(
                             value[offset : offset + num_dofs], num_dofs
                         )
@@ -505,7 +502,7 @@ class Exporter:
                     for intf, intf_data in self._mdg.interfaces(
                         dim=dim, return_data=True, codim=1
                     ):
-                        num_dofs = getattr(intf, num_entities)
+                        num_dofs = self._num_dofs(intf, num_entities)
                         values = _from_vector_format(
                             value[offset : offset + num_dofs], num_dofs
                         )
@@ -1025,7 +1022,7 @@ class Exporter:
                             name=key, data=grid_data, time_step_index=0
                         )
                         value: np.ndarray = _to_vector_format(
-                            data_to_convert, getattr(grid, num_entities)
+                            data_to_convert, self._num_dofs(grid, num_entities)
                         )
 
                         # Add data point in correct format to the collection
@@ -1124,7 +1121,7 @@ class Exporter:
                         name=key, data=sd_data, time_step_index=0
                     )
                     value = _to_vector_format(
-                        data_to_convert, getattr(sd, num_entities)
+                        data_to_convert, self._num_dofs(sd, num_entities)
                     )
 
                     # Add data point in correct format to collection
@@ -1206,7 +1203,7 @@ class Exporter:
                         name=key, data=intf_data, time_step_index=0
                     )
                     value = _to_vector_format(
-                        data_to_convert, getattr(intf, num_entities)
+                        data_to_convert, self._num_dofs(intf, num_entities)
                     )
 
                     # Add data point in correct format to collection
@@ -1257,7 +1254,7 @@ class Exporter:
                 # Interpret (sd, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
                 sd = data_pt[0]
                 key = data_pt[1]
-                value = _to_vector_format(data_pt[2], getattr(sd, num_entities))
+                value = _to_vector_format(data_pt[2], self._num_dofs(sd, num_entities))
 
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
@@ -1309,7 +1306,9 @@ class Exporter:
                 # Interpret (intf, key, value) = (data_pt[0], data_pt[1], data_pt[2]);
                 intf = data_pt[0]
                 key = data_pt[1]
-                value = _to_vector_format(data_pt[2], getattr(intf, num_entities))
+                value = _to_vector_format(
+                    data_pt[2], self._num_dofs(intf, num_entities)
+                )
 
                 # Add data point in correct format to collection
                 interface_data[(intf, key)] = value
@@ -1370,7 +1369,7 @@ class Exporter:
                 # Fetch remaining ingredients required to define subdomain data element
                 sd = subdomains[0]
                 key = data[0]
-                value = _to_vector_format(data[1], getattr(sd, num_entities))
+                value = _to_vector_format(data[1], self._num_dofs(sd, num_entities))
 
                 # Add data point in correct format to collection
                 subdomain_data[(sd, key)] = value
@@ -1470,8 +1469,9 @@ class Exporter:
             self._constant_subdomain_data[(sd, "mortar_side")] = (
                 pp.grids.mortar_grid.MortarSides.NONE_SIDE.value * ones
             )
+
             self._constant_subdomain_data_pt[(sd, "node_id")] = np.arange(
-                sd.num_nodes, dtype=int
+                self._num_dofs(sd, "num_nodes"), dtype=int
             )
 
         # Define constant interface data related to the mesh
@@ -1542,13 +1542,14 @@ class Exporter:
                 self._constant_interface_data_pt[(intf, "node_id")] = np.hstack(
                     (
                         self._constant_interface_data_pt[(intf, "node_id")],
-                        np.arange(grid.num_nodes, dtype=int) + side_grid_num_nodes,
+                        np.arange(self._num_dofs(grid, "num_nodes"), dtype=int)
+                        + side_grid_num_nodes,
                     )
                 )
 
                 # Update offset
                 side_grid_num_cells += grid.num_cells
-                side_grid_num_nodes += grid.num_nodes
+                side_grid_num_nodes += self._num_dofs(grid, "num_nodes")
 
     def _export_data_vtu(
         self,
@@ -1779,7 +1780,7 @@ class Exporter:
 
         """
         if dim == 0:
-            return None
+            return self._export_grid_0d(grids)
         elif dim == 1:
             return self._export_grid_1d(grids)
         elif dim == 2:
@@ -1788,6 +1789,76 @@ class Exporter:
             return self._export_grid_3d(grids)
         else:
             raise ValueError(f"Unknown dimension {dim}")
+
+    def _export_grid_0d(self, grids: Iterable[pp.Grid]) -> Meshio_Geom:
+        """Export the geometrical data for 0d PorePy grids to meshio.
+
+        The method collects all points from the input grids and represents them as
+        vertex-type cells in the meshio format. Each point in the grid becomes a vertex
+        cell with appropriate connectivity and cell IDs.
+
+            grids: Iterable of 0d PorePy grids to be exported.
+
+            Meshio_Geom: A named tuple containing:
+                - Points coordinates (scaled by self._length_scale)
+                - Cell blocks representing vertices
+                - Cell IDs for each vertex
+
+        Notes:
+            - Points from all grids are concatenated into a single array
+            - Each point becomes a "vertex" type cell in meshio format
+            - Node and cell offsets are tracked to maintain proper connectivity
+
+        Parameters:
+            grids: 0d grids.
+
+        Returns:
+            Meshio_Geom: Points, 0d cells (as vertices), and cell ids in meshio format.
+        """
+        # In 0d, each cell is a point (vertex)
+        cell_type = "vertex"
+        # Dictionary storing cell->nodes connectivity information. Each vertex has a
+        #  trivial connectivity to itself.
+        cell_to_nodes: dict[str, np.ndarray] = {cell_type: np.empty((0, 1), dtype=int)}
+        # Dictionary collecting all cell ids for each cell type. Since each cell is a
+        # vertex, the list of cell ids is trivial.
+        cell_id: dict[str, list[int]] = {cell_type: []}
+        # In 0d, each point to be exported corresponds to a cell, as implemented in
+        # the num_dofs method.
+        num_pts = sum(self._num_dofs(grid, "num_nodes") for grid in grids)
+        # Data structure for storing node coordinates of all 0d grids.
+        # Each point is represented as a vertex cell in meshio format.
+        meshio_pts = np.empty((num_pts, 3))
+        nodes_offset = 0
+        cell_offset = 0
+        # Loop over all 0d grids.
+        for grid in grids:
+            # Store scaled node coordinates.
+            sl = slice(nodes_offset, nodes_offset + 1)
+            # 0d Grids don't have nodes, only cells. The cell centers are used as
+            # coordinates for the vertices.
+            meshio_pts[sl, :] = grid.cell_centers.T * self._length_scale
+            # Assign trivial cell-to-node connectivity for 0d cells.
+            cn_indices = np.atleast_2d([0]).astype(np.int32)
+            # Add to previous connectivity information.
+            cell_to_nodes[cell_type] = np.vstack(
+                (cell_to_nodes[cell_type], cn_indices + nodes_offset)
+            )
+            # Update offsets.
+            cell_id[cell_type] += (np.arange(grid.num_cells) + cell_offset).tolist()
+            nodes_offset += 1
+            cell_offset += grid.num_cells
+        # Construct the meshio data structure.
+        # For each cell_type, store the connectivity pattern cell_to_nodes for the
+        # corresponding cells with ids from cell_id.
+        meshio_cell_block = meshio.CellBlock(
+            cell_type, cell_to_nodes[cell_type].astype(int)
+        )
+        # Convert cell_id to numpy array for meshio compatibility.
+        meshio_cells = [meshio_cell_block]
+        meshio_cell_id = [np.array(cell_id[cell_type])]
+        # Return final meshio data: points, cell (connectivity), cell ids.
+        return Meshio_Geom(meshio_pts, meshio_cells, meshio_cell_id)
 
     def _export_grid_1d(self, grids: Iterable[pp.Grid]) -> Meshio_Geom:
         """Export the geometrical data (point coordinates) and connectivity information
@@ -2431,10 +2502,10 @@ class Exporter:
                 # cells. Here, we make use of the fact that grid.face_nodes provides
                 # nodes ordered wrt. the right-hand rule.
 
-                # Fetch cells with n faces
+                # Fetch cells with n faces.
                 cells = g_cell_map[cell_type]
 
-                # Store shortcuts to cell-face and face-node information
+                # Store shortcuts to cell-face and face-node information.
                 cf_indptr = grid.cell_faces.indptr
                 cf_indices = grid.cell_faces.indices
                 fn_indptr = grid.face_nodes.indptr
@@ -2482,7 +2553,7 @@ class Exporter:
         """Interface to meshio for exporting cell data.
 
         Parameters:
-            fields: fields which shall be exported
+            fields: fields which shall be exported.
             file_name: name of final file of export.
             meshio_geom: Namedtuple of points, connectivity information, and cell ids in
                 meshio format (for a single dimension).
@@ -2503,10 +2574,10 @@ class Exporter:
             assert field.values is not None
 
             # For each field create a sub-vector for each geometrically uniform group
-            # of cells
+            # of cells.
             cell_data[field.name] = list()
 
-            # Fill up the data
+            # Fill up the data.
             for ids in meshio_geom.cell_ids:
                 if field.values.ndim == 1:
                     cell_data[field.name].append(field.values[ids])
@@ -2521,7 +2592,7 @@ class Exporter:
             assert field.values is not None
 
             # For each field create a sub-vector for each geometrically uniform group
-            # of cells
+            # of cells.
             point_data[field.name] = list()
 
             if field.values.ndim == 1:
@@ -2531,7 +2602,7 @@ class Exporter:
             else:
                 raise ValueError("Data values have wrong dimension")
 
-        # Create the meshio object
+        # Create the meshio object.
         meshio_grid_to_export = meshio.Mesh(
             meshio_geom.pts,
             meshio_geom.connectivity,
@@ -2603,3 +2674,20 @@ class Exporter:
 
         # Combine prefix and extensions to define the complete name
         return file_name + dim_extension + time_extension + extension
+
+    def _num_dofs(self, grid: pp.Grid | pp.MortarGrid, num_entities: str) -> int:
+        """Determine the number of degrees of freedom for a grid.
+
+        Parameters:
+            grid: Grid for which the number of dofs is determined.
+
+        Returns:
+            Number of dofs.
+
+        """
+        if grid.dim == 0 and num_entities == "num_nodes":
+            # 0D grids don't have nodes in PorePy. However, for the purposes of
+            # exporting, we need to create a node for each cell.
+            return grid.num_cells
+        else:
+            return getattr(grid, num_entities)

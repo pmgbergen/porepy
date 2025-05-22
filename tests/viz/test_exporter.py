@@ -129,6 +129,13 @@ def subdomain(request: pytest.FixtureRequest) -> SingleSubdomain:
     return subdomain
 
 
+def num_nodes(g: pp.Grid | pp.MortarGrid) -> int:
+    """Return the number of nodes in a grid."""
+    if g.dim == 0:
+        return g.num_cells
+    return g.num_nodes
+
+
 def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain):
     """Test of the Exporter for single subdomains of different dimensionality and
     different grid type. Exporting of scalar and vectorial data is tested.
@@ -137,9 +144,9 @@ def test_single_subdomains(setup: ExporterTestSetup, subdomain: SingleSubdomain)
     sd = subdomain.grid
     # Define data
     dummy_scalar = np.ones(sd.num_cells) * sd.dim
-    dummy_scalar_pt = np.ones(sd.num_nodes) * sd.dim
+    dummy_scalar_pt = np.ones(num_nodes(sd)) * sd.dim
     dummy_vector = np.ones((3, sd.num_cells)) * sd.dim
-    dummy_vector_pt = np.ones((3, sd.num_nodes)) * sd.dim
+    dummy_vector_pt = np.ones((3, num_nodes(sd))) * sd.dim
     # Export data
     save = pp.Exporter(
         sd,
@@ -228,7 +235,7 @@ def test_mdg(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_scalar_pt",
-            values=np.ones(sd.num_nodes) * sd.dim,
+            values=np.ones(num_nodes(sd)) * sd.dim,
             data=sd_data,
             time_step_index=0,
         )
@@ -241,7 +248,7 @@ def test_mdg(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_vector_pt",
-            values=np.ones((3, sd.num_nodes)) * sd.dim,
+            values=np.ones((3, num_nodes(sd))) * sd.dim,
             data=sd_data,
             time_step_index=0,
         )
@@ -255,7 +262,7 @@ def test_mdg(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_scalar_pt",
-            values=np.zeros(intf.num_nodes),
+            values=np.zeros(num_nodes(intf)),
             data=intf_data,
             time_step_index=0,
         )
@@ -268,7 +275,7 @@ def test_mdg(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_vector_pt",
-            values=np.ones((3, intf.num_nodes)) * sd.dim,
+            values=np.ones((3, num_nodes(intf))) * sd.dim,
             data=intf_data,
             time_step_index=0,
         )
@@ -281,7 +288,7 @@ def test_mdg(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="unique_dummy_scalar_pt",
-            values=np.zeros(intf.num_nodes),
+            values=np.zeros(num_nodes(intf)),
             data=intf_data,
             time_step_index=0,
         )
@@ -468,7 +475,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_scalar_pt",
-            values=np.ones(sd.num_nodes) * sd.dim,
+            values=np.ones(num_nodes(sd)) * sd.dim,
             data=sd_data,
             time_step_index=0,
         )
@@ -481,7 +488,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_vector_pt",
-            values=np.ones((3, sd.num_nodes)) * sd.dim,
+            values=np.ones((3, num_nodes(sd))) * sd.dim,
             data=sd_data,
             time_step_index=0,
         )
@@ -495,7 +502,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="dummy_scalar_pt",
-            values=np.zeros(intf.num_nodes),
+            values=np.zeros(num_nodes(intf)),
             data=intf_data,
             time_step_index=0,
         )
@@ -508,7 +515,7 @@ def test_mdg_data_selection(setup: ExporterTestSetup):
         )
         pp.set_solution_values(
             name="unique_dummy_scalar_pt",
-            values=np.zeros(intf.num_nodes),
+            values=np.zeros(num_nodes(intf)),
             data=intf_data,
             time_step_index=0,
         )
@@ -559,10 +566,10 @@ def test_constant_data(setup: ExporterTestSetup):
 
     # Define data
     dummy_scalar = np.ones(g.num_cells) * g.dim
-    dummy_scalar_pt = np.ones(g.num_nodes) * g.dim
+    dummy_scalar_pt = np.ones(num_nodes(g)) * g.dim
 
     dummy_vector = np.ones((3, g.num_cells)) * g.dim
-    dummy_vector_pt = np.ones((3, g.num_nodes)) * g.dim
+    dummy_vector_pt = np.ones((3, num_nodes(g))) * g.dim
 
     # Export data
     save = pp.Exporter(
