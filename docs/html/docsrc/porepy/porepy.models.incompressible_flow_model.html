@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.incompressible_flow_model module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.incompressible_flow_model.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.incompressible_flow_model.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.models.html">porepy.models package</a></li>
       <li class="breadcrumb-item active">porepy.models.incompressible_flow_model module</li>
@@ -275,11 +275,11 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.models.incompressible_flow_model">
-<span id="porepy-models-incompressible-flow-model-module"></span><h1>porepy.models.incompressible_flow_model module<a class="headerlink" href="#module-porepy.models.incompressible_flow_model" title="Permalink to this heading"></a></h1>
+<span id="porepy-models-incompressible-flow-model-module"></span><h1>porepy.models.incompressible_flow_model module<a class="headerlink" href="#module-porepy.models.incompressible_flow_model" title="Link to this heading"></a></h1>
 <p>This module contains an implementation of a base model for incompressible flow problems.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.incompressible_flow_model.IncompressibleFlow">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">IncompressibleFlow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">IncompressibleFlow</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.models.abstract_model.html#porepy.models.abstract_model.AbstractModel" title="porepy.models.abstract_model.AbstractModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractModel</span></code></a></p>
 <p>This is a shell class for single-phase incompressible flow problems.</p>
 <p>This class is intended to provide a standardized setup, with all discretizations
@@ -320,22 +320,22 @@ linear_solver (str): Specification of linear solver. Only known permissible</p>
 <p>All attributes are given natural values at initialization of the class.</p>
 <p>The implementation assumes use of AD.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><em>Dict</em><em>]</em>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><em>Dict</em><em>]</em>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.incompressible_flow_model.IncompressibleFlow.after_newton_convergence">
-<span class="sig-name descname"><span class="pre">after_newton_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">errors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iteration_counter</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow.after_newton_convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow.after_newton_convergence" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">after_newton_convergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">errors</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">iteration_counter</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow.after_newton_convergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow.after_newton_convergence" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>solution</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>errors</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
-<li><p><strong>iteration_counter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>solution</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>errors</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
+<li><p><strong>iteration_counter</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -343,13 +343,13 @@ linear_solver (str): Specification of linear solver. Only known permissible</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.incompressible_flow_model.IncompressibleFlow.after_newton_iteration">
-<span class="sig-name descname"><span class="pre">after_newton_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution_vector</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow.after_newton_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow.after_newton_iteration" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">after_newton_iteration</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">solution_vector</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow.after_newton_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow.after_newton_iteration" title="Link to this definition"></a></dt>
 <dd><p>Scatters the solution vector for current iterate.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>solution_vector</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>) – solution vector for the current iterate.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -357,19 +357,19 @@ linear_solver (str): Specification of linear solver. Only known permissible</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.incompressible_flow_model.IncompressibleFlow.after_simulation">
-<span class="sig-name descname"><span class="pre">after_simulation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow.after_simulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow.after_simulation" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">after_simulation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow.after_simulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow.after_simulation" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.incompressible_flow_model.IncompressibleFlow.before_newton_loop">
-<span class="sig-name descname"><span class="pre">before_newton_loop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow.before_newton_loop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow.before_newton_loop" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">before_newton_loop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow.before_newton_loop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow.before_newton_loop" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.incompressible_flow_model.IncompressibleFlow.prepare_simulation">
-<span class="sig-name descname"><span class="pre">prepare_simulation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow.prepare_simulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow.prepare_simulation" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">prepare_simulation</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/incompressible_flow_model.html#IncompressibleFlow.prepare_simulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.incompressible_flow_model.IncompressibleFlow.prepare_simulation" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>

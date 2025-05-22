@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.md_grid &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/md_grid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/md_grid.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.grids.md_grid</li>
       <li class="wy-breadcrumbs-aside">
@@ -275,41 +275,43 @@
 <span class="sd">intersections along with a surrounding matrix in the form of a mixed-dimensional grid.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">overload</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span><span class="p">,</span> <span class="n">overload</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">sparse</span> <span class="k">as</span> <span class="n">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">sparse</span> <span class="k">as</span> <span class="n">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">from</span> <span class="nn">porepy.grids</span> <span class="kn">import</span> <span class="n">mortar_grid</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.grids</span><span class="w"> </span><span class="kn">import</span> <span class="n">mortar_grid</span>
 
 
-<div class="viewcode-block" id="MixedDimensionalGrid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid">[docs]</a><span class="k">class</span> <span class="nc">MixedDimensionalGrid</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Container for the hierarchy of grids formed by fractures and their intersections</span>
+<div class="viewcode-block" id="MixedDimensionalGrid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MixedDimensionalGrid</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Container for the hierarchy of grids formed by fractures and their intersections</span>
 <span class="sd">    along with a surrounding matrix.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;Mixed-dimensional grid&quot;</span>
-        <span class="sd">&quot;&quot;&quot;Name of the md-grid, initiated as ``&#39;Mixed-dimensional grid&#39;``.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Name of the md-grid, initiated as ``&#39;Mixed-dimensional grid&#39;``.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="sd">&quot;&quot;&quot;Dictionary storing data associated with subdomains.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary storing data associated with subdomains.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_interface_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="sd">&quot;&quot;&quot;Dictionary storing data associated with interfaces.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary storing data associated with interfaces.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_interface_to_subdomains</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="sd">&quot;&quot;&quot;Dictionary storing the mapping from interfaces to the adjacent subdomains.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary storing the mapping from interfaces to the adjacent subdomains.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_boundary_grids</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryGrid</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-        <span class="sd">&quot;&quot;&quot;Dictionary storing the boundary grids associated with subdomains.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dictionary storing the boundary grids associated with subdomains.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__contains__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parameters:</span>
 <span class="sd">            key: Object to be tested.</span>
 
@@ -330,7 +332,7 @@
 
     <span class="c1"># --------- Iterators -------------------------</span>
     <span class="nd">@overload</span>
-    <span class="k">def</span> <span class="nf">subdomains</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomains</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">return_data</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="kc">False</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]:</span>
         <span class="c1"># Method signature intended to define type hint.</span>
@@ -344,17 +346,19 @@
         <span class="o">...</span>
 
     <span class="nd">@overload</span>
-    <span class="k">def</span> <span class="nf">subdomains</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomains</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">return_data</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="kc">True</span><span class="p">],</span> <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]:</span>
         <span class="c1"># Method signature intended to define type hint.</span>
         <span class="c1"># https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/</span>
         <span class="o">...</span>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.subdomains"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.subdomains">[docs]</a>    <span class="k">def</span> <span class="nf">subdomains</span><span class="p">(</span>
+<div class="viewcode-block" id="MixedDimensionalGrid.subdomains">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.subdomains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomains</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">return_data</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]]:</span>
-        <span class="sd">&quot;&quot;&quot;Get a sorted list of subdomains in the mixed-dimensional grid.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a sorted list of subdomains in the mixed-dimensional grid.</span>
 
 <span class="sd">        Optionally, the subdomains can be filtered by dimension. Also, the data</span>
 <span class="sd">        dictionary belonging to the subdomain can be returned.</span>
@@ -390,8 +394,9 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[</span><span class="n">subdomains</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sort_ind</span><span class="p">]</span></div>
 
+
     <span class="nd">@overload</span>
-    <span class="k">def</span> <span class="nf">interfaces</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interfaces</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">return_data</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="kc">False</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]:</span>
         <span class="c1"># Method signature intended to define type hint.</span>
@@ -399,17 +404,19 @@
         <span class="o">...</span>
 
     <span class="nd">@overload</span>
-    <span class="k">def</span> <span class="nf">interfaces</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interfaces</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">return_data</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="kc">True</span><span class="p">],</span> <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]:</span>
         <span class="c1"># Method signature intended to define type hint.</span>
         <span class="c1"># https://adamj.eu/tech/2021/05/29/python-type-hints-how-to-use-overload/</span>
         <span class="o">...</span>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.interfaces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.interfaces">[docs]</a>    <span class="k">def</span> <span class="nf">interfaces</span><span class="p">(</span>
+<div class="viewcode-block" id="MixedDimensionalGrid.interfaces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.interfaces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interfaces</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">return_data</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]]:</span>
-        <span class="sd">&quot;&quot;&quot;Get a sorted list of interfaces in the mixed-dimensional grid.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a sorted list of interfaces in the mixed-dimensional grid.</span>
 
 <span class="sd">        Optionally, the interfaces can be filtered on dimension. Also, the data</span>
 <span class="sd">        dictionary belonging to the interfaces can be returned.</span>
@@ -445,8 +452,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="p">[</span><span class="n">interfaces</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sort_ind</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.boundaries"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.boundaries">[docs]</a>    <span class="k">def</span> <span class="nf">boundaries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">BoundaryGrid</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Get a sorted list of boundary grids in the mixed-dimensional grid.</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.boundaries">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.boundaries">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">boundaries</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">BoundaryGrid</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a sorted list of boundary grids in the mixed-dimensional grid.</span>
 
 <span class="sd">        Optionally, the boundary grids can be filtered by dimension.</span>
 
@@ -475,12 +485,15 @@
         <span class="n">sort_ind</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">argsort_grids</span><span class="p">(</span><span class="n">boundaries</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">boundaries</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">sort_ind</span><span class="p">]</span></div>
 
+
     <span class="c1"># ---------- Navigate within the graph --------</span>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.interface_to_subdomain_pair"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.interface_to_subdomain_pair">[docs]</a>    <span class="k">def</span> <span class="nf">interface_to_subdomain_pair</span><span class="p">(</span>
+<div class="viewcode-block" id="MixedDimensionalGrid.interface_to_subdomain_pair">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.interface_to_subdomain_pair">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interface_to_subdomain_pair</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Obtain the subdomains of an interface.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain the subdomains of an interface.</span>
 
 <span class="sd">        The subdomains will be given in descending order with respect to their</span>
 <span class="sd">        dimension. If the interface is between grids of the same dimension, ascending</span>
@@ -502,10 +515,13 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_subdomain_tuple</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.subdomain_pair_to_interface"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_pair_to_interface">[docs]</a>    <span class="k">def</span> <span class="nf">subdomain_pair_to_interface</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.subdomain_pair_to_interface">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_pair_to_interface">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomain_pair_to_interface</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd_pair</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get an interface from a pair of subdomains.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get an interface from a pair of subdomains.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            sd_pair: Pair of subdomains. Should exist in the mixed-dimensional grid.</span>
@@ -527,8 +543,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;Unknown subdomain pair&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.subdomain_to_interfaces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_to_interfaces">[docs]</a>    <span class="k">def</span> <span class="nf">subdomain_to_interfaces</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Iterator over the interfaces of a specific subdomain.</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.subdomain_to_interfaces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_to_interfaces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomain_to_interfaces</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Iterator over the interfaces of a specific subdomain.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            sd: A subdomain in the mixed-dimensional grid.</span>
@@ -545,8 +564,11 @@
                 <span class="n">interfaces</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">intf</span><span class="p">)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_interfaces</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.subdomain_to_boundary_grid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_to_boundary_grid">[docs]</a>    <span class="k">def</span> <span class="nf">subdomain_to_boundary_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryGrid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the boundary grid associated with a subdomain.</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.subdomain_to_boundary_grid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_to_boundary_grid">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomain_to_boundary_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryGrid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the boundary grid associated with a subdomain.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd: A subdomain in the mixed-dimensional grid.</span>
@@ -557,10 +579,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_boundary_grids</span><span class="p">[</span><span class="n">sd</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.neighboring_subdomains"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.neighboring_subdomains">[docs]</a>    <span class="k">def</span> <span class="nf">neighboring_subdomains</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.neighboring_subdomains">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.neighboring_subdomains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">neighboring_subdomains</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">only_higher</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">only_lower</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Get the subdomain neighbors of a subdomain (going through interfaces).</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the subdomain neighbors of a subdomain (going through interfaces).</span>
 
 <span class="sd">        Optionally, return only neighbors corresponding to higher or lower</span>
 <span class="sd">        dimension. At most one of only_higher and only_lower can be True.</span>
@@ -599,10 +624,13 @@
             <span class="n">neigh</span> <span class="o">=</span> <span class="p">[</span><span class="n">sd_n</span> <span class="k">for</span> <span class="n">sd_n</span> <span class="ow">in</span> <span class="n">neigh</span> <span class="k">if</span> <span class="n">sd_n</span><span class="o">.</span><span class="n">dim</span> <span class="o">&lt;</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span><span class="p">]</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">sort_subdomains</span><span class="p">(</span><span class="n">neigh</span><span class="p">)</span></div>
 
+
     <span class="c1"># ------------ Getters for subdomain and interface properties</span>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.subdomain_data"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_data">[docs]</a>    <span class="k">def</span> <span class="nf">subdomain_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Getter for the subdomain data dictionary.</span>
+<div class="viewcode-block" id="MixedDimensionalGrid.subdomain_data">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.subdomain_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">subdomain_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Getter for the subdomain data dictionary.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            sd: The subdomain grid.</span>
@@ -613,8 +641,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">[</span><span class="n">sd</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.interface_data"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.interface_data">[docs]</a>    <span class="k">def</span> <span class="nf">interface_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Getter for the interface data dictionary.</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.interface_data">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.interface_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">interface_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Getter for the interface data dictionary.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            intf: The mortar grid associated with the interface.</span>
@@ -625,10 +656,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface_data</span><span class="p">[</span><span class="n">intf</span><span class="p">]</span></div>
 
+
     <span class="c1"># ------------ Add new subdomains and interfaces ----------</span>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.add_subdomains"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.add_subdomains">[docs]</a>    <span class="k">def</span> <span class="nf">add_subdomains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_subdomains</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Add new subdomains to the mixed-dimensional grid.</span>
+<div class="viewcode-block" id="MixedDimensionalGrid.add_subdomains">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.add_subdomains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_subdomains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_subdomains</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add new subdomains to the mixed-dimensional grid.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            new_subdomains: The subdomains to be added. None of these should have been</span>
@@ -650,13 +684,16 @@
             <span class="c1"># Add the grid to the dictionary of subdomains with an empty data dictionary.</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">[</span><span class="n">sd</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.add_interface"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.add_interface">[docs]</a>    <span class="k">def</span> <span class="nf">add_interface</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.add_interface">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.add_interface">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_interface</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span>
         <span class="n">sd_pair</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
         <span class="n">primary_secondary_map</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Add an interface to the mixed-dimensional grid.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add an interface to the mixed-dimensional grid.</span>
 
 <span class="sd">        Note:</span>
 <span class="sd">            If the grids have different dimensions, the coupling will be defined with</span>
@@ -707,10 +744,13 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_interface_to_subdomains</span><span class="p">[</span><span class="n">intf</span><span class="p">]</span> <span class="o">=</span> <span class="n">sd_pair</span></div>
 
+
     <span class="c1"># --------- Remove and update subdomains</span>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.remove_subdomain"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.remove_subdomain">[docs]</a>    <span class="k">def</span> <span class="nf">remove_subdomain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Remove a subdomain and related interfaces from the mixed-dimensional grid.</span>
+<div class="viewcode-block" id="MixedDimensionalGrid.remove_subdomain">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.remove_subdomain">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">remove_subdomain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove a subdomain and related interfaces from the mixed-dimensional grid.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">           sd: The subdomain to be removed.</span>
@@ -731,10 +771,13 @@
             <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface_data</span><span class="p">[</span><span class="n">intf</span><span class="p">]</span>
             <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface_to_subdomains</span><span class="p">[</span><span class="n">intf</span><span class="p">]</span></div>
 
+
     <span class="c1"># ---------- Functionality related to ordering of subdomains</span>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.sort_subdomains"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomains">[docs]</a>    <span class="k">def</span> <span class="nf">sort_subdomains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Sort subdomains.</span>
+<div class="viewcode-block" id="MixedDimensionalGrid.sort_subdomains">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sort_subdomains</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sort subdomains.</span>
 
 <span class="sd">        Sorting by descending subdomain dimension and increasing node ID, see</span>
 <span class="sd">        :meth:`argsort_grids`.</span>
@@ -751,10 +794,13 @@
         <span class="n">sorted_subdomains</span> <span class="o">=</span> <span class="p">[</span><span class="n">subdomains</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">inds</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">sorted_subdomains</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.sort_subdomain_tuple"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomain_tuple">[docs]</a>    <span class="k">def</span> <span class="nf">sort_subdomain_tuple</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.sort_subdomain_tuple">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.sort_subdomain_tuple">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sort_subdomain_tuple</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Sort two subdomains.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sort two subdomains.</span>
 
 <span class="sd">        Sorting by descending subdomain dimension and increasing node ID, see</span>
 <span class="sd">        :meth:`argsort_grids`.</span>
@@ -771,8 +817,11 @@
         <span class="n">inds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">argsort_grids</span><span class="p">(</span><span class="n">subdomains</span><span class="p">)</span>
         <span class="k">return</span> <span class="p">(</span><span class="n">subdomains</span><span class="p">[</span><span class="n">inds</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">subdomains</span><span class="p">[</span><span class="n">inds</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.sort_interfaces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.sort_interfaces">[docs]</a>    <span class="k">def</span> <span class="nf">sort_interfaces</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Sort interfaces.</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.sort_interfaces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.sort_interfaces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">sort_interfaces</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sort interfaces.</span>
 
 <span class="sd">        Sorting by descending interface dimension and increasing MortarGrid ID,</span>
 <span class="sd">        see :meth:`argsort_grids`.</span>
@@ -788,10 +837,13 @@
         <span class="n">sorted_interfaces</span> <span class="o">=</span> <span class="p">[</span><span class="n">interfaces</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">inds</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">sorted_interfaces</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.argsort_grids"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids">[docs]</a>    <span class="k">def</span> <span class="nf">argsort_grids</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.argsort_grids">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.argsort_grids">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">argsort_grids</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">grids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return indices that would sort the subdomains or interfaces.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return indices that would sort the subdomains or interfaces.</span>
 
 <span class="sd">        Sorting is done according to two criteria:</span>
 
@@ -834,10 +886,13 @@
             <span class="n">sort_inds_all</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sorted_inds_dim</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">sort_inds_all</span><span class="p">)</span></div>
 
+
     <span class="c1"># ------------- Miscellaneous functions ---------</span>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.compute_geometry"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.compute_geometry">[docs]</a>    <span class="k">def</span> <span class="nf">compute_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute geometric quantities for each contained grid.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="MixedDimensionalGrid.compute_geometry">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.compute_geometry">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute geometric quantities for each contained grid.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">():</span>
             <span class="n">sd</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span>
             <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -847,8 +902,11 @@
         <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">():</span>
             <span class="n">intf</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.copy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MixedDimensionalGrid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Make a shallow copy of the mixed-dimensional grid. The underlying subdomain</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.copy">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MixedDimensionalGrid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Make a shallow copy of the mixed-dimensional grid. The underlying subdomain</span>
 <span class="sd">        and interface grids are not copied.</span>
 
 <span class="sd">        Returns:</span>
@@ -861,7 +919,10 @@
         <span class="n">mdg_copy</span><span class="o">.</span><span class="n">_interface_to_subdomains</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_interface_to_subdomains</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">mdg_copy</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.replace_subdomains_and_interfaces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.replace_subdomains_and_interfaces">[docs]</a>    <span class="k">def</span> <span class="nf">replace_subdomains_and_interfaces</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.replace_subdomains_and_interfaces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.replace_subdomains_and_interfaces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">replace_subdomains_and_interfaces</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">intf_map</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span>
@@ -872,7 +933,7 @@
         <span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Replace grids and/or mortar grids in the mixed-dimensional grid.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Replace grids and/or mortar grids in the mixed-dimensional grid.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            sd_map: ``default=None``</span>
@@ -946,12 +1007,15 @@
                 <span class="c1"># subdomains by node number</span>
                 <span class="k">del</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">[</span><span class="n">sd_old</span><span class="p">]</span></div>
 
+
     <span class="c1"># ---- Methods for getting information on the bucket, or its components ----</span>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.diameter"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.diameter">[docs]</a>    <span class="k">def</span> <span class="nf">diameter</span><span class="p">(</span>
+<div class="viewcode-block" id="MixedDimensionalGrid.diameter">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.diameter">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">diameter</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">cond</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]],</span> <span class="nb">bool</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute the cell diameter (mesh size) of the mixed-dimensional grid.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the cell diameter (mesh size) of the mixed-dimensional grid.</span>
 
 <span class="sd">        A function can be passed to filter subdomains and/or interfaces.</span>
 
@@ -972,8 +1036,11 @@
 
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">((</span><span class="n">diam_g</span><span class="p">,</span> <span class="n">diam_mg</span><span class="p">)))</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.dim_min"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.dim_min">[docs]</a>    <span class="k">def</span> <span class="nf">dim_min</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the minimal dimension represented in the mixed-dimensional grid.</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.dim_min">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.dim_min">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dim_min</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the minimal dimension represented in the mixed-dimensional grid.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Minimum dimension of the grids present in the hierarchy.</span>
@@ -983,8 +1050,11 @@
         <span class="c1"># lead to a recursion error.</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">([</span><span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="o">.</span><span class="n">keys</span><span class="p">()])</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.dim_max"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.dim_max">[docs]</a>    <span class="k">def</span> <span class="nf">dim_max</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the maximal dimension represented in the grid.</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.dim_max">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.dim_max">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dim_max</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the maximal dimension represented in the grid.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Maximum dimension of the grids present in the hierarchy.</span>
@@ -994,10 +1064,13 @@
         <span class="c1"># lead to a recursion error.</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">([</span><span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="o">.</span><span class="n">keys</span><span class="p">()])</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.num_subdomain_cells"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.num_subdomain_cells">[docs]</a>    <span class="k">def</span> <span class="nf">num_subdomain_cells</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.num_subdomain_cells">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.num_subdomain_cells">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_subdomain_cells</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">cond</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute the total number of subdomain cells of the mixed-dimensional grid.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the total number of subdomain cells of the mixed-dimensional grid.</span>
 
 <span class="sd">        A function can be passed to filter subdomains.</span>
 
@@ -1016,10 +1089,13 @@
             <span class="p">[</span><span class="n">grid</span><span class="o">.</span><span class="n">num_cells</span> <span class="k">for</span> <span class="n">grid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">()</span> <span class="k">if</span> <span class="n">cond</span><span class="p">(</span><span class="n">grid</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.num_interface_cells"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.num_interface_cells">[docs]</a>    <span class="k">def</span> <span class="nf">num_interface_cells</span><span class="p">(</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.num_interface_cells">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.num_interface_cells">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_interface_cells</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">cond</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span> <span class="nb">bool</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute the total number of mortar cells of the mixed-dimensional grid.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the total number of mortar cells of the mixed-dimensional grid.</span>
 
 <span class="sd">        A function can be passed to filter interfaces.</span>
 
@@ -1039,24 +1115,31 @@
             <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.num_subdomains"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.num_subdomains">[docs]</a>    <span class="k">def</span> <span class="nf">num_subdomains</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.num_subdomains">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.num_subdomains">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_subdomains</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            Total number of subdomains in the mixed-dimensional grid.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_data</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="MixedDimensionalGrid.num_interfaces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.num_interfaces">[docs]</a>    <span class="k">def</span> <span class="nf">num_interfaces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="MixedDimensionalGrid.num_interfaces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid.num_interfaces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_interfaces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            Total number of interfaces in the mixed-dimensional grid.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_interface_data</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;A simplified string representation of the mixed-dimensional grid,</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A simplified string representation of the mixed-dimensional grid,</span>
 <span class="sd">        including information about dimensions, number of subdomains and interfaces.&quot;&quot;&quot;</span>
 
         <span class="n">max_dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dim_max</span><span class="p">())</span>
@@ -1099,12 +1182,12 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;A string representation of the mixed-dimensional grid, including information</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A string representation of the mixed-dimensional grid, including information</span>
 <span class="sd">        about dimension, involved grids and their topological information.&quot;&quot;&quot;</span>
 
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;Mixed-dimensional grid containing </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_subdomains</span><span class="p">()</span> <span class="si">}</span><span class="s2"> grids and &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Mixed-dimensional grid containing </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_subdomains</span><span class="p">()</span><span class="w"> </span><span class="si">}</span><span class="s2"> grids and &quot;</span>
             <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_interfaces</span><span class="p">()</span><span class="si">}</span><span class="s2"> interfaces.</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;Maximum dimension present: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim_max</span><span class="p">()</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;Minimum dimension present: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dim_min</span><span class="p">()</span><span class="si">}</span><span class="s2"> </span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -1132,6 +1215,7 @@
                 <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">s</span></div>
+
 </pre></div>
 
            </div>

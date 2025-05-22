@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.fv.mpfa &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fv/mpfa.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fv/mpfa.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.fv.mpfa</li>
       <li class="wy-breadcrumbs-aside">
@@ -271,85 +271,93 @@
            <div itemprop="articleBody">
              
   <h1>Source code for porepy.numerics.fv.mpfa</h1><div class="highlight"><pre>
-<span></span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Implementation of the multi-point flux approximation O-method.</span>
+<span></span><span class="sd">&quot;&quot;&quot;Implementation of the multi-point flux approximation O-method.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="Mpfa"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.Mpfa">[docs]</a><span class="k">class</span> <span class="nc">Mpfa</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">FVElliptic</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="Mpfa">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.Mpfa">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Mpfa</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">FVElliptic</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Mpfa</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Mpfa.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.Mpfa.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Return the number of degrees of freedom associated to the method.</span>
-<span class="sd">        In this case number of cells (pressure dof).</span>
+<div class="viewcode-block" id="Mpfa.ndof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.Mpfa.ndof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            sd (pp.Grid): A grid.</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd: A grid.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            int: the number of degrees of freedom.</span>
+<span class="sd">            The number of degrees of freedom.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span></div>
 
-<div class="viewcode-block" id="Mpfa.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.Mpfa.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Discretize the second order elliptic equation using multi-point flux</span>
+
+<div class="viewcode-block" id="Mpfa.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.Mpfa.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize the second order elliptic equation using multi-point flux</span>
 <span class="sd">        approximation.</span>
 
-<span class="sd">        The method computes fluxes over faces in terms of pressures defined at the</span>
-<span class="sd">        cell centers.</span>
+<span class="sd">        The method computes fluxes over faces in terms of pressures defined at the cell</span>
+<span class="sd">        centers.</span>
 
 <span class="sd">        We assume the following two sub-dictionaries to be present in the data</span>
 <span class="sd">        dictionary:</span>
 <span class="sd">            parameter_dictionary, storing all parameters.</span>
-<span class="sd">                Stored in data[pp.PARAMETERS][self.keyword].</span>
+<span class="sd">                Stored in ``data[pp.PARAMETERS][self.keyword]``.</span>
 <span class="sd">            matrix_dictionary, for storage of discretization matrices.</span>
-<span class="sd">                Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]</span>
+<span class="sd">                Stored in ``data[pp.DISCRETIZATION_MATRICES][self.keyword]``</span>
 
 <span class="sd">        parameter_dictionary contains the entries:</span>
-<span class="sd">            second_order_tensor: (SecondOrderTensor) Permeability defined</span>
-<span class="sd">                cell-wise. This is the effective permeability; any scaling of</span>
-<span class="sd">                the permeability (such as with fracture apertures) should be</span>
+<span class="sd">            - second_order_tensor (``class:~porepy.params.tensor.SecondOrderTensor``):</span>
+<span class="sd">                Permeability defined cell-wise. This is the effective permeability; any</span>
+<span class="sd">                scaling of the permeability (such as with fracture apertures) should be</span>
 <span class="sd">                included in the permeability.</span>
-<span class="sd">            bc: (BoundaryCondition) boundary conditions</span>
-<span class="sd">            ambient_dimension: (int) Optional. Ambient dimension, used in the</span>
+<span class="sd">            - bc (``class:~porepy.params.bc.BoundaryCondition``): boundary conditions.</span>
+<span class="sd">            - ambient_dimension (``int``): Optional. Ambient dimension, used in the</span>
 <span class="sd">                discretization of vector source terms. Defaults to the dimension of the</span>
 <span class="sd">                grid.</span>
-<span class="sd">            mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of</span>
-<span class="sd">                pressure continuity point. If not given, porepy tries to set an optimal</span>
-<span class="sd">                value.</span>
-<span class="sd">            mpfa_inverter (str): Optional. Inverter to apply for local problems.</span>
-<span class="sd">                Can take values &#39;numba&#39; (default), &#39;cython&#39; or &#39;python&#39;.</span>
+<span class="sd">            - mpfa_eta (``float``): Optional. Range [0, 1). Location of pressure</span>
+<span class="sd">                continuity point. If not given, porepy tries to set an optimal value.</span>
+<span class="sd">            - mpfa_inverter (``str``): Optional. Inverter to apply for local problems.</span>
+<span class="sd">                Can take values &#39;numba&#39; (default), or &#39;python&#39;.</span>
 
 <span class="sd">        matrix_dictionary will be updated with the following entries:</span>
-<span class="sd">            flux: sps.csc_matrix (sd.num_faces, sd.num_cells)</span>
+<span class="sd">            - ``flux: sps.csc_matrix (sd.num_faces, sd.num_cells)``</span>
 <span class="sd">                flux discretization, cell center contribution</span>
-<span class="sd">            bound_flux: sps.csc_matrix (sd.num_faces, sd.num_faces)</span>
+<span class="sd">            - ``bound_flux: ps.csc_matrix (sd.num_faces, sd.num_faces)``</span>
 <span class="sd">                flux discretization, face contribution</span>
-<span class="sd">            bound_pressure_cell: sps.csc_matrix (sd.num_faces, sd.num_cells)</span>
+<span class="sd">            - ``bound_pressure_cell: sps.csc_matrix (sd.num_faces, sd.num_cells)``</span>
 <span class="sd">                Operator for reconstructing the pressure trace. Cell center contribution</span>
-<span class="sd">            bound_pressure_face: sps.csc_matrix (sd.num_faces, sd.num_faces)</span>
+<span class="sd">            - ``bound_pressure_face: sps.csc_matrix (sd.num_faces, sd.num_faces)``</span>
 <span class="sd">                Operator for reconstructing the pressure trace. Face contribution</span>
-<span class="sd">            vector_source: sps.csc_matrix (sd.num_faces, sd.num_cells*dim)</span>
+<span class="sd">            - ``vector_source: sps.csc_matrix (sd.num_faces, sd.num_cells * dim)``</span>
 <span class="sd">                Discretization of the flux due to vector source term, cell center</span>
 <span class="sd">                contribution.</span>
 
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd: The grid to be discretized.</span>
+<span class="sd">            data: The dictionary containing relevant information. See above for a</span>
+<span class="sd">                description of required fields and storage of computed values.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">parameter_dictionary</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
-        <span class="n">matrix_dictionary</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
-        <span class="c1"># Extract parameters</span>
+        <span class="n">parameter_dictionary</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
+        <span class="n">matrix_dictionary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span>
+        <span class="p">]</span>
         <span class="c1"># Dimension for vector source term field. Defaults to the same as the grid.</span>
         <span class="c1"># For grids embedded in a higher dimension, this must be set to the ambient</span>
         <span class="c1"># dimension.</span>
@@ -381,8 +389,10 @@
         <span class="n">k</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">SecondOrderTensor</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="p">[</span><span class="s2">&quot;second_order_tensor&quot;</span><span class="p">]</span>
         <span class="n">bnd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="p">[</span><span class="s2">&quot;bc&quot;</span><span class="p">]</span>
 
-        <span class="n">eta</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mpfa_eta&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-        <span class="n">inverter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mpfa_inverter&quot;</span><span class="p">,</span> <span class="s2">&quot;numba&quot;</span><span class="p">)</span>
+        <span class="n">eta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mpfa_eta&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">inverter</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;numba&quot;</span><span class="p">,</span> <span class="s2">&quot;python&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">&quot;mpfa_inverter&quot;</span><span class="p">,</span> <span class="s2">&quot;numba&quot;</span>
+        <span class="p">)</span>
 
         <span class="n">max_memory</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_memory&quot;</span><span class="p">,</span> <span class="mf">1e9</span><span class="p">)</span>
 
@@ -399,16 +409,16 @@
         <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">active_cells</span><span class="o">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">:</span>
-            <span class="c1"># Extract a grid, and get global indices of its active faces and nodes</span>
+            <span class="c1"># Extract a grid, and get global indices of its active faces and nodes.</span>
             <span class="n">active_grid</span><span class="p">,</span> <span class="n">extracted_faces</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">partition</span><span class="o">.</span><span class="n">extract_subgrid</span><span class="p">(</span>
                 <span class="n">sd</span><span class="p">,</span> <span class="n">active_cells</span>
             <span class="p">)</span>
-            <span class="c1"># Constitutive law and boundary condition for the active grid</span>
+            <span class="c1"># Constitutive law and boundary condition for the active grid.</span>
             <span class="n">active_constit</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">SecondOrderTensor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constit_for_subgrid</span><span class="p">(</span>
                 <span class="n">k</span><span class="p">,</span> <span class="n">active_cells</span>
             <span class="p">)</span>
 
-            <span class="c1"># Extract the relevant part of the boundary condition</span>
+            <span class="c1"># Extract the relevant part of the boundary condition.</span>
             <span class="n">active_bound</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bc_for_subgrid</span><span class="p">(</span>
                 <span class="n">bnd</span><span class="p">,</span> <span class="n">active_grid</span><span class="p">,</span> <span class="n">extracted_faces</span><span class="p">,</span> <span class="n">sd</span>
             <span class="p">)</span>
@@ -419,14 +429,14 @@
             <span class="n">active_constit</span> <span class="o">=</span> <span class="n">k</span>
             <span class="n">active_bound</span> <span class="o">=</span> <span class="n">bnd</span>
 
-        <span class="c1"># Empty matrices for stress, bound_stress and boundary displacement</span>
-        <span class="c1"># reconstruction.</span>
-        <span class="c1"># Will be expanded as we go.</span>
-        <span class="c1"># Implementation note: It should be relatively straightforward to</span>
-        <span class="c1"># estimate the memory need of stress (face_nodes -&gt; node_cells -&gt; unique).</span>
-        <span class="c1"># bookkeeping</span>
+        <span class="c1"># Bookkeeping.</span>
         <span class="n">nf</span> <span class="o">=</span> <span class="n">active_grid</span><span class="o">.</span><span class="n">num_faces</span>
         <span class="n">nc</span> <span class="o">=</span> <span class="n">active_grid</span><span class="o">.</span><span class="n">num_cells</span>
+
+        <span class="c1"># Empty matrices for flux, bound_flux and boundary pressure reconstruction. Will</span>
+        <span class="c1"># be expanded as we go.</span>
+        <span class="c1"># Implementation note: It should be relatively straightforward to</span>
+        <span class="c1"># estimate the memory need of pressures (face_nodes -&gt; node_cells -&gt; unique).</span>
         <span class="n">active_flux</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">nf</span><span class="p">,</span> <span class="n">nc</span><span class="p">))</span>
         <span class="n">active_bound_flux</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">nf</span><span class="p">,</span> <span class="n">nf</span><span class="p">))</span>
         <span class="n">active_bound_pressure_cell</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">nf</span><span class="p">,</span> <span class="n">nc</span><span class="p">))</span>
@@ -436,8 +446,8 @@
         <span class="c1"># local and global discretization matrices. The variable cell_vector_dim is used</span>
         <span class="c1"># at various places below.</span>
         <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="c1"># In the 2d case, the discretization is done in 2d. This is compensated</span>
-            <span class="c1"># for by the rotation towards the end of this function.</span>
+            <span class="c1"># In the 2d case, the discretization is done in 2d. This is compensated for</span>
+            <span class="c1"># by the rotation towards the end of this function.</span>
             <span class="n">cell_vector_dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># Else, the discretization of the vector source is in vector_source_dim.</span>
@@ -448,11 +458,11 @@
         <span class="n">active_vector_source</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">nf</span><span class="p">,</span> <span class="n">nc</span> <span class="o">*</span> <span class="n">cell_vector_dim</span><span class="p">))</span>
         <span class="n">active_bound_pressure_vector_source</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">nf</span><span class="p">,</span> <span class="n">nc</span> <span class="o">*</span> <span class="n">cell_vector_dim</span><span class="p">))</span>
 
-        <span class="c1"># Find an estimate of the peak memory need</span>
+        <span class="c1"># Find an estimate of the peak memory need.</span>
         <span class="n">peak_memory_estimate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_estimate_peak_memory</span><span class="p">(</span><span class="n">active_grid</span><span class="p">)</span>
 
         <span class="c1"># Loop over all partition regions, construct local problems, and transfer</span>
-        <span class="c1"># discretization to the entire active grid</span>
+        <span class="c1"># discretization to the entire active grid.</span>
         <span class="k">for</span> <span class="n">reg_i</span><span class="p">,</span> <span class="p">(</span><span class="n">sub_sd</span><span class="p">,</span> <span class="n">faces_in_subgrid</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">l2g_cells</span><span class="p">,</span> <span class="n">l2g_faces</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
             <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">subproblems</span><span class="p">(</span><span class="n">active_grid</span><span class="p">,</span> <span class="n">max_memory</span><span class="p">,</span> <span class="n">peak_memory_estimate</span><span class="p">)</span>
         <span class="p">):</span>
@@ -462,9 +472,8 @@
                 <span class="n">active_constit</span><span class="p">,</span> <span class="n">l2g_cells</span>
             <span class="p">)</span>
 
-            <span class="c1"># Boundary conditions are slightly more complex. Find local faces</span>
-            <span class="c1"># that are on the global boundary.</span>
-            <span class="c1"># Then transfer boundary condition on those faces.</span>
+            <span class="c1"># Boundary conditions are slightly more complex. Find local faces that are</span>
+            <span class="c1"># on the global boundary. Then transfer boundary condition on those faces.</span>
             <span class="n">loc_bnd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_bc_for_subgrid</span><span class="p">(</span>
                 <span class="n">active_bound</span><span class="p">,</span> <span class="n">sub_sd</span><span class="p">,</span> <span class="n">l2g_faces</span><span class="p">,</span> <span class="n">active_grid</span>
             <span class="p">)</span>
@@ -483,7 +492,6 @@
             <span class="n">eliminate_face</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
                 <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">in1d</span><span class="p">(</span><span class="n">l2g_faces</span><span class="p">,</span> <span class="n">faces_in_subgrid</span><span class="p">))</span>
             <span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-
             <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">remove_nonlocal_contribution</span><span class="p">(</span><span class="n">eliminate_face</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="n">discr_fields</span><span class="p">)</span>
 
             <span class="c1"># Split the discretization.</span>
@@ -497,7 +505,6 @@
             <span class="p">)</span> <span class="o">=</span> <span class="n">discr_fields</span>
 
             <span class="c1"># Next, transfer discretization matrices from the local to the active grid</span>
-
             <span class="k">if</span> <span class="p">(</span>
                 <span class="n">sub_sd</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">==</span> <span class="n">active_grid</span><span class="o">.</span><span class="n">num_cells</span>
                 <span class="ow">and</span> <span class="n">sub_sd</span><span class="o">.</span><span class="n">num_faces</span> <span class="o">==</span> <span class="n">active_grid</span><span class="o">.</span><span class="n">num_faces</span>
@@ -526,7 +533,7 @@
                     <span class="n">face_map</span> <span class="o">*</span> <span class="n">loc_bound_pressure_face</span> <span class="o">*</span> <span class="n">face_map</span><span class="o">.</span><span class="n">transpose</span><span class="p">()</span>
                 <span class="p">)</span>
                 <span class="c1"># The vector source is a field of dimension vector_source_dim, and must</span>
-                <span class="c1"># be mapped accordingly</span>
+                <span class="c1"># be mapped accordingly.</span>
                 <span class="n">_</span><span class="p">,</span> <span class="n">cell_map_vec</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">map_subgrid_to_grid</span><span class="p">(</span>
                     <span class="n">active_grid</span><span class="p">,</span>
                     <span class="n">l2g_faces</span><span class="p">,</span>
@@ -540,8 +547,7 @@
                 <span class="p">)</span>
 
         <span class="c1"># We have reached the end of the discretization, what remains is to map the</span>
-        <span class="c1"># discretization back from the active grid to the entire grid</span>
-
+        <span class="c1"># discretization back from the active grid to the entire grid.</span>
         <span class="k">if</span> <span class="p">(</span>
             <span class="n">active_grid</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">==</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span>
             <span class="ow">and</span> <span class="n">active_grid</span><span class="o">.</span><span class="n">num_faces</span> <span class="o">==</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span>
@@ -578,19 +584,18 @@
                 <span class="n">face_map</span> <span class="o">*</span> <span class="n">active_bound_pressure_vector_source</span> <span class="o">*</span> <span class="n">cell_map_vec</span>
             <span class="p">)</span>
 
-        <span class="c1"># The vector source term was computed in the natural coordinates of the grid.</span>
-        <span class="c1"># If the grid is embedded in a higher dimension, the source term will have the</span>
-        <span class="c1"># size of that dimensions, and the discretization matrix should be adjusted</span>
+        <span class="c1"># The vector source term was computed in the natural coordinates of the grid. If</span>
+        <span class="c1"># the grid is embedded in a higher dimension, the source term will have the size</span>
+        <span class="c1"># of that dimensions, and the discretization matrix should be adjusted</span>
         <span class="c1"># accordingly. The dimension of the vector source term is given by the parameter</span>
         <span class="c1"># vector_source_dim.</span>
         <span class="c1"># If the dimension of the grid is 3 (i.e. the maximum possible) or 0 (no vectors</span>
         <span class="c1"># are possible), there is no need for adjustment. Likewise, if sd.dim == 1, the</span>
-        <span class="c1"># discretization was done with tpfa, and the vector_source matrix is already</span>
-        <span class="c1"># in the full coordinates.</span>
+        <span class="c1"># discretization was done with tpfa, and the vector_source matrix is already in</span>
+        <span class="c1"># the full coordinates.</span>
 
-        <span class="c1"># What is left is to fix the projection if sd.dim == 2.</span>
-        <span class="c1"># This is the part of the code that requires the special sd.dim == 2 when</span>
-        <span class="c1"># cell_vector_dim is set above.</span>
+        <span class="c1"># What is left is to fix the projection if sd.dim == 2. This is the part of the</span>
+        <span class="c1"># code that requires the special sd.dim == 2 when cell_vector_dim is set above.</span>
         <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
             <span class="c1"># Use the same mapping of the geometry as was done in</span>
             <span class="c1"># self._flux_discretization(). This mapping is deterministic, thus the</span>
@@ -603,13 +608,13 @@
             <span class="c1"># grid. The simplest way to do this is to expand R[dim] via sps.block_diags,</span>
             <span class="c1"># however this scales poorly with the number of blocks. Instead, use the</span>
             <span class="c1"># existing workaround to create a csr matrix based on R, and then pick out</span>
-            <span class="c1"># the right parts of that one</span>
+            <span class="c1"># the right parts of that one.</span>
             <span class="n">full_rot_mat</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">csr_matrix_from_blocks</span><span class="p">(</span>
                 <span class="c1"># Replicate R with the right ordering of data elements</span>
                 <span class="n">np</span><span class="o">.</span><span class="n">tile</span><span class="p">(</span><span class="n">R</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span>
                 <span class="c1"># size of the blocks - this will always be the dimension of the rotation</span>
-                <span class="c1"># matrix, that is, 3 - due to the grid coordinates being 3d</span>
-                <span class="c1"># If the ambient dimension really is 2, this is adjusted below</span>
+                <span class="c1"># matrix, that is, 3 - due to the grid coordinates being 3d. If the</span>
+                <span class="c1"># ambient dimension really is 2, this is adjusted below.</span>
                 <span class="mi">3</span><span class="p">,</span>
                 <span class="c1"># Number of blocks</span>
                 <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">,</span>
@@ -618,7 +623,7 @@
             <span class="n">dim_expanded</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">dim</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span>
                 <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
             <span class="p">)</span> <span class="o">+</span> <span class="n">vector_source_dim</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span><span class="p">))</span>
-            <span class="c1"># Dump the irrelevant rows of the global rotation matrix</span>
+            <span class="c1"># Dump the irrelevant rows of the global rotation matrix.</span>
             <span class="n">glob_R</span> <span class="o">=</span> <span class="n">full_rot_mat</span><span class="p">[</span><span class="n">dim_expanded</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)]</span>
 
             <span class="c1"># If the grid is truly 2d, we also need to dump the irrelevant columns of</span>
@@ -677,8 +682,11 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">bound_pressure_vector_source_matrix_key</span>
             <span class="p">]</span> <span class="o">=</span> <span class="n">bound_pressure_vector_source_glob</span></div>
 
-<div class="viewcode-block" id="Mpfa.update_discretization"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.Mpfa.update_discretization">[docs]</a>    <span class="k">def</span> <span class="nf">update_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Update discretization.</span>
+
+<div class="viewcode-block" id="Mpfa.update_discretization">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.Mpfa.update_discretization">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update discretization.</span>
 
 <span class="sd">        The updates can generally come as a combination of two forms:</span>
 <span class="sd">            1) The discretization on part of the grid should be recomputed.</span>
@@ -694,12 +702,11 @@
 
 <span class="sd">            modified_cells, modified_faces</span>
 
-
-<span class="sd">        define cells, faces and nodes that have been modified (either parameters,</span>
+<span class="sd">        These define cells, faces and nodes that have been modified (either parameters,</span>
 <span class="sd">        geometry or topology), and should be rediscretized. It is up to the</span>
 <span class="sd">        discretization method to implement the change necessary by this modification.</span>
-<span class="sd">        Note that depending on the computational stencil of the discretization method,</span>
-<span class="sd">        a grid quantity may be rediscretized even if it is not marked as modified.</span>
+<span class="sd">        Note that depending on the computational stencil of the discretization method, a</span>
+<span class="sd">        grid quantity may be rediscretized even if it is not marked as modified.</span>
 
 <span class="sd">        The dictionary data[&#39;update_discretization&#39;] should further have keys:</span>
 
@@ -714,8 +721,8 @@
 <span class="sd">        necessary to provide this information.</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">            g (pp.Grid): Grid to be rediscretized.</span>
-<span class="sd">            data (dictionary): With discretization parameters.</span>
+<span class="sd">            g: Grid to be rediscretized.</span>
+<span class="sd">            data: With discretization parameters. See above for more information.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Discretizations to be interpreted as scalar right quantities</span>
@@ -760,24 +767,37 @@
             <span class="n">vector_cell_right</span><span class="o">=</span><span class="n">vector_cell_right</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_flux_discretization</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">bnd</span><span class="p">,</span> <span class="n">inverter</span><span class="p">,</span> <span class="n">ambient_dimension</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">eta</span><span class="o">=</span><span class="kc">None</span>
-    <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_flux_discretization</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">k</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">SecondOrderTensor</span><span class="p">,</span>
+        <span class="n">bnd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">,</span>
+        <span class="n">inverter</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="s2">&quot;numba&quot;</span><span class="p">],</span>
+        <span class="n">ambient_dimension</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">eta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
+        <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+        <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+        <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+        <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+        <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+        <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
+    <span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Actual implementation of the MPFA O-method. To calculate MPFA on a grid</span>
-<span class="sd">        directly, either call this method, or, to respect the privacy of this</span>
-<span class="sd">        method, the main mpfa method with no memory constraints.</span>
+<span class="sd">        directly, either call this method, or, to respect the privacy of this method,</span>
+<span class="sd">        the main mpfa method with no memory constraints.</span>
 
 <span class="sd">        Method properties and implementation details.</span>
 
-<span class="sd">        The pressure is discretized as a linear function on sub-cells (see</span>
-<span class="sd">        reference paper). In this implementation, the pressure is represented by</span>
-<span class="sd">        its cell center value and the sub-cell gradients (this is in contrast to</span>
-<span class="sd">        most papers, which use auxiliary pressures on the faces; the current</span>
-<span class="sd">        formulation is equivalent, but somewhat easier to implement).</span>
-<span class="sd">        The method will give continuous fluxes over the faces, and pressure</span>
-<span class="sd">        continuity for certain points (controlled by the parameter eta). This can</span>
-<span class="sd">        be expressed as a linear system on the form</span>
+<span class="sd">        The pressure is discretized as a linear function on sub-cells (see reference</span>
+<span class="sd">        paper). In this implementation, the pressure is represented by its cell center</span>
+<span class="sd">        value and the sub-cell gradients (this is in contrast to most papers, which use</span>
+<span class="sd">        auxiliary pressures on the faces; the current formulation is equivalent, but</span>
+<span class="sd">        somewhat easier to implement). The method will give continuous fluxes over the</span>
+<span class="sd">        faces, and pressure continuity for certain points (controlled by the parameter</span>
+<span class="sd">        eta). This can be expressed as a linear system on the form</span>
 
 <span class="sd">            (i)    A * grad_p              = 0</span>
 <span class="sd">            (ii)   Ar * grad_p + Cr * p_cc = 0</span>
@@ -786,21 +806,57 @@
 
 <span class="sd">        Here, the first equation represents flux continuity, and involves only the</span>
 <span class="sd">        pressure gradients (grad_p). The second equation gives the Robin conditions,</span>
-<span class="sd">        relating flux to the pressure. The third equation gives pressure continuity</span>
-<span class="sd">        over interior faces, thus B will contain distances between cell centers and the</span>
-<span class="sd">        face continuity points, while C consists of +- 1 (depending on which side</span>
-<span class="sd">        the cell is relative to the face normal vector). The fourth equation</span>
-<span class="sd">        enforces the pressure to be unity in one cell at a time. Thus (i)-(iv) can</span>
-<span class="sd">        be inverted to express the pressure gradients in terms of the cell</span>
-<span class="sd">        center variables, that is, we can compute the basis functions on the</span>
-<span class="sd">        sub-cells. Because of the method construction (again see reference paper),</span>
-<span class="sd">        the basis function of a cell c will be non-zero on all sub-cells sharing</span>
-<span class="sd">        a vertex with c. Finally, the fluxes as functions of cell center values are</span>
-<span class="sd">        computed by insertion into Darcy&#39;s law (which is essentially half of A from</span>
-<span class="sd">        (i), that is, only consider contribution from one side of the face.</span>
-<span class="sd">        Boundary values can be incorporated with appropriate modifications -</span>
-<span class="sd">        Neumann conditions will have a non-zero right hand side for (i), while</span>
-<span class="sd">        Dirichlet gives a right hand side for (iii).</span>
+<span class="sd">        relating flux to the pressure. The third equation gives pressure continuity over</span>
+<span class="sd">        interior faces, thus B will contain distances between cell centers and the face</span>
+<span class="sd">        continuity points, while C consists of +- 1 (depending on which side the cell is</span>
+<span class="sd">        relative to the face normal vector). The fourth equation enforces the pressure</span>
+<span class="sd">        to be unity in one cell at a time. Thus (i)-(iv) can be inverted to express the</span>
+<span class="sd">        pressure gradients in terms of the cell center variables, that is, we can</span>
+<span class="sd">        compute the basis functions on the sub-cells. Because of the method construction</span>
+<span class="sd">        (again see reference paper), the basis function of a cell c will be non-zero on</span>
+<span class="sd">        all sub-cells sharing a vertex with c. Finally, the fluxes as functions of cell</span>
+<span class="sd">        center values are computed by insertion into Darcy&#39;s law (which is essentially</span>
+<span class="sd">        half of A from (i), that is, only consider contribution from one side of the</span>
+<span class="sd">        face. Boundary values can be incorporated with appropriate modifications -</span>
+<span class="sd">        Neumann conditions will have a non-zero right hand side for (i), while Dirichlet</span>
+<span class="sd">        gives a right hand side for (iii).</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd: The grid to be discretized. k: Permeability tensor. bnd: Boundary</span>
+<span class="sd">            condition for the problem. inverter: Which method to use for inverting the</span>
+<span class="sd">            local linear system in mpfa. ambient_dimension: Dimension of the full</span>
+<span class="sd">            computational domain. Defaults to</span>
+<span class="sd">                the dimension of ``sd``.</span>
+<span class="sd">            eta: Location of the Mpfa continuity point. If not provided, it will be set</span>
+<span class="sd">                to what is considered the best value for the given grid.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            A tuple of 6 elements</span>
+
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces, sd.num_cells))``</span>
+
+<span class="sd">                Flux discretization matrix.</span>
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces, sd.num_faces))``</span>
+
+<span class="sd">                Boundary condition discretization matrix.</span>
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces, sd.num_cells))``</span>
+
+<span class="sd">                Matrix for cell-center potential contribution to face potential</span>
+<span class="sd">                reconstruction.</span>
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces, sd.num_faces))``</span>
+
+<span class="sd">                Matrix for boundary condition contribution to face potential</span>
+<span class="sd">                reconstruction.</span>
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces,</span>
+<span class="sd">                                                 ambient_dimension * sd.num_cells))``</span>
+
+<span class="sd">                Matrix for vector source term potential contribution to face fluxes.</span>
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces,</span>
+<span class="sd">                                                 ambient_dimension * sd.num_cells))``</span>
+
+<span class="sd">                Matrix for vector source term contribution to face potential</span>
+<span class="sd">                reconstruction.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">if</span> <span class="n">eta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -808,9 +864,8 @@
         <span class="k">if</span> <span class="n">ambient_dimension</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">ambient_dimension</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span>
 
-        <span class="c1"># The method reduces to the more efficient TPFA in one dimension, so that</span>
-        <span class="c1"># method may be called. In 0D, there is no internal discretization to be</span>
-        <span class="c1"># done.</span>
+        <span class="c1"># The method reduces to the more efficient TPFA in one dimension, so that method</span>
+        <span class="c1"># may be called. In 0D, there is no internal discretization to be done.</span>
         <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">discr</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Tpfa</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">)</span>
             <span class="n">params</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Parameters</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
@@ -818,7 +873,7 @@
             <span class="n">params</span><span class="p">[</span><span class="s2">&quot;second_order_tensor&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">k</span>
             <span class="n">params</span><span class="p">[</span><span class="s2">&quot;ambient_dimension&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">ambient_dimension</span>
 
-            <span class="n">d</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">d</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">:</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">:</span> <span class="n">params</span><span class="p">},</span>
                 <span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">:</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">:</span> <span class="p">{}},</span>
             <span class="p">}</span>
@@ -844,19 +899,18 @@
                 <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="nb">max</span><span class="p">(</span><span class="n">ambient_dimension</span><span class="p">,</span> <span class="mi">1</span><span class="p">))),</span>
             <span class="p">)</span>
 
-        <span class="c1"># The grid coordinates are always three-dimensional, even if the grid is</span>
-        <span class="c1"># really 2D. This means that there is not a 1-1 relation between the number</span>
-        <span class="c1"># of coordinates of a point / vector and the real dimension. This again</span>
-        <span class="c1"># violates some assumptions tacitly made in the discretization (in</span>
-        <span class="c1"># particular that the number of faces of a cell that meets in a vertex</span>
-        <span class="c1"># equals the grid dimension, and that this can be used to construct an</span>
-        <span class="c1"># index of local variables in the discretization). These issues should be</span>
-        <span class="c1"># possible to overcome, but for the moment, we simply force 2D grids to be</span>
-        <span class="c1"># proper 2D.</span>
+        <span class="c1"># The grid coordinates are always three-dimensional, even if the grid is really</span>
+        <span class="c1"># 2D. This means that there is not a 1-1 relation between the number of</span>
+        <span class="c1"># coordinates of a point / vector and the real dimension. This again violates</span>
+        <span class="c1"># some assumptions tacitly made in the discretization (in particular that the</span>
+        <span class="c1"># number of faces of a cell that meets in a vertex equals the grid dimension,</span>
+        <span class="c1"># and that this can be used to construct an index of local variables in the</span>
+        <span class="c1"># discretization). These issues should be possible to overcome, but for the</span>
+        <span class="c1"># moment, we simply force 2D grids to be proper 2D.</span>
 
         <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-            <span class="c1"># Rotate the grid into the xy plane and delete third dimension. First</span>
-            <span class="c1"># make a copy to avoid alterations to the input grid</span>
+            <span class="c1"># Rotate the grid into the xy plane and delete third dimension. First make a</span>
+            <span class="c1"># copy to avoid alterations to the input grid</span>
             <span class="n">sd</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
             <span class="p">(</span>
                 <span class="n">cell_centers</span><span class="p">,</span>
@@ -878,8 +932,7 @@
             <span class="n">k</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">k</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
         <span class="c1"># Define subcell topology, that is, the local numbering of faces, subfaces,</span>
-        <span class="c1"># sub-cells and nodes. This numbering is used throughout the</span>
-        <span class="c1"># discretization.</span>
+        <span class="c1"># sub-cells and nodes. This numbering is used throughout the discretization.</span>
         <span class="n">subcell_topology</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">SubcellTopology</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
 
         <span class="c1"># Below, the boundary conditions should be defined on the subfaces.</span>
@@ -892,9 +945,9 @@
             <span class="n">subcell_bnd</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">boundary_to_sub_boundary</span><span class="p">(</span><span class="n">bnd</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">)</span>
             <span class="n">subface_rhs</span> <span class="o">=</span> <span class="kc">False</span>
 
-        <span class="c1"># The normal vectors used in the product are simply the face normals</span>
-        <span class="c1"># (with areas downscaled to account for subfaces). The sign of</span>
-        <span class="c1"># nk_grad_all coincides with the direction of the normal vector.</span>
+        <span class="c1"># The normal vectors used in the product are simply the face normals (with areas</span>
+        <span class="c1"># downscaled to account for subfaces). The sign of nk_grad_all coincides with</span>
+        <span class="c1"># the direction of the normal vector.</span>
         <span class="p">(</span>
             <span class="n">nk_grad_all</span><span class="p">,</span>
             <span class="n">cell_node_blocks</span><span class="p">,</span>
@@ -902,63 +955,58 @@
         <span class="p">)</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">scalar_tensor_vector_prod</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">)</span>
 
         <span class="c1">## Contribution from subcell gradients to local system.</span>
-        <span class="c1"># The pressure at a subface continuity point is given by the subcell</span>
-        <span class="c1"># pressure plus a deviation computed as the distance</span>
-        <span class="c1"># from cell center to continuity point times the (by construction constant)</span>
+        <span class="c1"># The pressure at a subface continuity point is given by the subcell pressure</span>
+        <span class="c1"># plus a deviation computed as the distance from cell center to continuity point</span>
+        <span class="c1"># times the (by construction constant)</span>
 
         <span class="c1"># Contribution from subcell gradient to pressure continuity condition.</span>
         <span class="c1"># The operation consists of two parts:</span>
-        <span class="c1"># 1) The cell-face distances from subcells that share a subface</span>
-        <span class="c1">#    are paired (put on the same row).</span>
-        <span class="c1"># 2) The sign of the distance is changed for those subcells where the</span>
-        <span class="c1">#    subface normal vector points into the cell. This happens both on</span>
-        <span class="c1">#    interior subfaces, and on faces on the boundary.</span>
-        <span class="c1"># NOTE: The second operation is reversed for Robin boundary conditions,</span>
-        <span class="c1">#       see below.</span>
+        <span class="c1"># 1) The cell-face distances from subcells that share a subface are paired (put</span>
+        <span class="c1">#    on the same row).</span>
+        <span class="c1"># 2) The sign of the distance is changed for those subcells where the subface</span>
+        <span class="c1">#    normal vector points into the cell. This happens both on interior subfaces,</span>
+        <span class="c1">#    and on faces on the boundary.</span>
+        <span class="c1"># NOTE: The second operation is reversed for Robin boundary conditions, see</span>
+        <span class="c1">#       below.</span>
         <span class="n">pr_cont_grad_paired</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">compute_dist_face_cell</span><span class="p">(</span>
             <span class="n">sd</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">,</span> <span class="n">eta</span>
         <span class="p">)</span>
 
-        <span class="c1"># Discretized Darcy&#39;s law: The flux over a subface is given by the</span>
-        <span class="c1"># area weighted normal vector, multiplied with the subcell permeability,</span>
-        <span class="c1"># and expressed in terms of the subcell gradient (to be computed)</span>
-        <span class="c1"># For interior subfaces, Darcy&#39;s law is only computed for one adjacent</span>
-        <span class="c1"># subcell.</span>
+        <span class="c1"># Discretized Darcy&#39;s law: The flux over a subface is given by the area weighted</span>
+        <span class="c1"># normal vector, multiplied with the subcell permeability, and expressed in</span>
+        <span class="c1"># terms of the subcell gradient (to be computed). For interior subfaces, Darcy&#39;s</span>
+        <span class="c1"># law is only computed for one adjacent subcell.</span>
         <span class="c1"># Minus sign to get flow from high to low potential.</span>
         <span class="n">darcy</span> <span class="o">=</span> <span class="o">-</span><span class="n">nk_grad_all</span><span class="p">[</span><span class="n">subcell_topology</span><span class="o">.</span><span class="n">unique_subfno</span><span class="p">]</span>
 
-        <span class="c1"># Pair fluxes over subfaces, that is, enforce conservation.</span>
-        <span class="c1"># The operation consists of two parts:</span>
-        <span class="c1"># 1) The expression nK computed from subcells that share a subface</span>
-        <span class="c1">#    is paired (put on the same row). That is, the number of rows in</span>
-        <span class="c1">#    nk_grad is reduced.</span>
-        <span class="c1"># 2) The sign of the nK products is changed for those subcells where the</span>
-        <span class="c1">#    subface normal vector points into the cell. This happens both on</span>
-        <span class="c1">#    interior subfaces, and on faces on the boundary.</span>
+        <span class="c1"># Pair fluxes over subfaces, that is, enforce conservation. The operation</span>
+        <span class="c1"># consists of two parts:</span>
+        <span class="c1"># 1) The expression nK computed from subcells that share a subface is paired</span>
+        <span class="c1">#    (put on the same row). That is, the number of rows in nk_grad is reduced.</span>
+        <span class="c1"># 2) The sign of the nK products is changed for those subcells where the subface</span>
+        <span class="c1">#    normal vector points into the cell. This happens both on interior subfaces,</span>
+        <span class="c1">#    and on faces on the boundary.</span>
         <span class="n">nk_grad_paired</span> <span class="o">=</span> <span class="n">subcell_topology</span><span class="o">.</span><span class="n">pair_over_subfaces</span><span class="p">(</span><span class="n">nk_grad_all</span><span class="p">)</span>
 
         <span class="c1">## Contribution from cell center potentials to local systems.</span>
 
-        <span class="c1"># Cell center pressure contribution to flux continuity on subfaces:</span>
-        <span class="c1"># There is no contribution (fluxes are driven by gradients only).</span>
-        <span class="c1"># Construct a zero matrix of the right size, that is, a mapping from</span>
-        <span class="c1"># cells to subfaces.</span>
+        <span class="c1"># Cell center pressure contribution to flux continuity on subfaces: There is no</span>
+        <span class="c1"># contribution (fluxes are driven by gradients only). Construct a zero matrix of</span>
+        <span class="c1"># the right size, that is, a mapping from cells to subfaces.</span>
         <span class="n">nk_cell</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
             <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">))),</span>
             <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">subcell_topology</span><span class="o">.</span><span class="n">num_subfno</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="o">.</span><span class="n">num_cno</span><span class="p">),</span>
         <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
 
-        <span class="c1"># Cell center pressure contribution to pressure continuity on subfaces:</span>
-        <span class="c1"># The contributions will be unity. For (sub)cells where the subface normal vector</span>
-        <span class="c1"># points inwards, the contribution is -1, that is, we do the same</span>
-        <span class="c1"># modification as for nk_grad_paired.</span>
+        <span class="c1"># Cell center pressure contribution to pressure continuity on subfaces: The</span>
+        <span class="c1"># contributions will be unity. For (sub)cells where the subface normal vector</span>
+        <span class="c1"># points inwards, the contribution is -1, that is, we do the same modification</span>
+        <span class="c1"># as for nk_grad_paired.</span>
 
-        <span class="c1"># Recover the sign of the subface normal vectors relative to</span>
-        <span class="c1"># subcells (positive if normal vector points out of subcell).</span>
-        <span class="c1"># The information can be obtained from sd.cell_faces, which doubles as a</span>
-        <span class="c1"># discrete divergence operator.</span>
-        <span class="c1"># The .A suffix is necessary to get a numpy array, instead of a scipy</span>
-        <span class="c1"># matrix.</span>
+        <span class="c1"># Recover the sign of the subface normal vectors relative to subcells (positive</span>
+        <span class="c1"># if normal vector points out of subcell). The information can be obtained from</span>
+        <span class="c1"># sd.cell_faces, which doubles as a discrete divergence operator. The .A suffix</span>
+        <span class="c1"># is necessary to get a numpy array, instead of a scipy matrix.</span>
         <span class="n">sgn</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">[</span><span class="n">subcell_topology</span><span class="o">.</span><span class="n">fno</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="o">.</span><span class="n">cno</span><span class="p">]</span><span class="o">.</span><span class="n">A</span>
         <span class="c1"># Then insert the signs into a matrix that maps cells to subfaces</span>
         <span class="n">pr_cont_cell_all</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
@@ -976,25 +1024,23 @@
         <span class="c1">#</span>
         <span class="c1">#   f + subcell_bnd.robin_weight * pressure_face * subface_area = something.</span>
         <span class="c1">#</span>
-        <span class="c1"># The scaling is important here: The f is a flux integrated over the</span>
-        <span class="c1"># half face, thus the scaling with the subface area is necessary.</span>
+        <span class="c1"># The scaling is important here: The f is a flux integrated over the half face,</span>
+        <span class="c1"># thus the scaling with the subface area is necessary.</span>
         <span class="c1">#</span>
         <span class="c1"># The pressure at face (pressure trace) is reconstructed from the cell center</span>
         <span class="c1"># pressure plus a deviation given by the cell-face distance times the subcell</span>
-        <span class="c1"># gradient. For the local system, these terms contribute to cell center</span>
-        <span class="c1"># and gradient terms, respectively.</span>
+        <span class="c1"># gradient. For the local system, these terms contribute to cell center and</span>
+        <span class="c1"># gradient terms, respectively.</span>
         <span class="c1">#</span>
-        <span class="c1"># NOTE: In this implementation, the computation of the subface pressure</span>
-        <span class="c1"># replaces the already discretized pressure continuity condition (the</span>
-        <span class="c1"># relevant rows are modified). As part of the modification, the change</span>
-        <span class="c1"># of sign in pr_cont_grad_paired and pr_cont_cell_all is reversed.</span>
-        <span class="c1"># That is, the cell pressure is scaled by a positive number, while</span>
-        <span class="c1"># the gradient is multiplied with the vector from cell center to</span>
-        <span class="c1"># face continuity point.</span>
+        <span class="c1"># NOTE: In this implementation, the computation of the subface pressure replaces</span>
+        <span class="c1"># the already discretized pressure continuity condition (the relevant rows are</span>
+        <span class="c1"># modified). As part of the modification, the change of sign in</span>
+        <span class="c1"># pr_cont_grad_paired and pr_cont_cell_all is reversed. That is, the cell</span>
+        <span class="c1"># pressure is scaled by a positive number, while the gradient is multiplied with</span>
+        <span class="c1"># the vector from cell center to face continuity point.</span>
 
-        <span class="c1"># Compute the sign of the subcells relative to the normal vector of the</span>
-        <span class="c1"># subface. The sign is scaled by the Robin weight, and the area of the</span>
-        <span class="c1"># subface.</span>
+        <span class="c1"># Compute the sign of the subcells relative to the normal vector of the subface.</span>
+        <span class="c1"># The sign is scaled by the Robin weight, and the area of the subface.</span>
         <span class="c1"># The conditions for subfaces not on a Robin boundary will be eliminated</span>
         <span class="c1"># below (in computation of pr_cont_grad).</span>
         <span class="n">num_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indptr</span><span class="p">)</span>
@@ -1004,7 +1050,7 @@
             <span class="o">*</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_areas</span><span class="p">[</span><span class="n">subcell_topology</span><span class="o">.</span><span class="n">fno_unique</span><span class="p">]</span>
             <span class="o">/</span> <span class="n">num_nodes</span><span class="p">[</span><span class="n">subcell_topology</span><span class="o">.</span><span class="n">fno_unique</span><span class="p">]</span>
         <span class="p">)</span>
-        <span class="c1"># pair_over_subfaces flips the sign so we flip it back</span>
+        <span class="c1"># pair_over_subfaces flips the sign so we flip it back.</span>
         <span class="c1"># Contribution from cell centers.</span>
         <span class="n">pr_trace_grad_all</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">sgn_scaled_by_subface_area</span><span class="p">)</span> <span class="o">*</span> <span class="n">pr_cont_grad_paired</span>
         <span class="c1"># Contribution from gradient.</span>
@@ -1029,13 +1075,12 @@
         <span class="p">)</span>
 
         <span class="c1"># If the grid has a periodic boundary, the left faces are topologically</span>
-        <span class="c1"># connected to the right faces. This is included in the SubcellTopology</span>
-        <span class="c1"># class by merging the right faces with the left faces. This means that</span>
-        <span class="c1"># hf2f is a mapping from topological unique half faces to topological unique</span>
-        <span class="c1"># faces. However, we want the discretization to be</span>
-        <span class="c1"># applied to the topology of g (where the left and right faces are different).</span>
-        <span class="c1"># We therefore map the left faces of the SubcellTopology to the right</span>
-        <span class="c1"># faces of the grid:</span>
+        <span class="c1"># connected to the right faces. This is included in the SubcellTopology class by</span>
+        <span class="c1"># merging the right faces with the left faces. This means that hf2f is a mapping</span>
+        <span class="c1"># from topological unique half faces to topological unique faces. However, we</span>
+        <span class="c1"># want the discretization to be applied to the topology of g (where the left and</span>
+        <span class="c1"># right faces are different). We therefore map the left faces of the</span>
+        <span class="c1"># SubcellTopology to the right faces of the grid:</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="s2">&quot;periodic_face_map&quot;</span><span class="p">):</span>
             <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
             <span class="c1"># The left faces should be mapped to the right faces</span>
@@ -1048,23 +1093,25 @@
             <span class="c1"># Update hf2f so that it maps to the faces of sd.</span>
             <span class="n">hf2f</span> <span class="o">=</span> <span class="n">periodic2face</span> <span class="o">*</span> <span class="n">hf2f</span>
 
-        <span class="c1"># The boundary faces will have either a Dirichlet or Neumann condition, or</span>
-        <span class="c1"># Robin condition</span>
-        <span class="c1"># Obtain mappings to exclude boundary faces.</span>
+        <span class="c1"># The boundary faces will have either a Dirichlet or Neumann condition, or Robin</span>
+        <span class="c1"># condition. Obtain mappings to exclude boundary faces.</span>
         <span class="n">bound_exclusion</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">ExcludeBoundaries</span><span class="p">(</span>
             <span class="n">subcell_topology</span><span class="p">,</span> <span class="n">subcell_bnd</span><span class="p">,</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span>
         <span class="p">)</span>
 
-        <span class="c1"># No flux conditions for Dirichlet and Robin boundary faces</span>
+        <span class="c1"># No flux conditions for Dirichlet and Robin boundary faces.</span>
         <span class="n">nk_grad_n</span> <span class="o">=</span> <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">exclude_robin_dirichlet</span><span class="p">(</span><span class="n">nk_grad_paired</span><span class="p">)</span>
         <span class="n">nk_cell</span> <span class="o">=</span> <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">exclude_robin_dirichlet</span><span class="p">(</span><span class="n">nk_cell</span><span class="p">)</span>
 
-        <span class="c1"># Robin condition is only applied to Robin boundary faces</span>
+        <span class="c1"># Robin condition is only applied to Robin boundary faces.</span>
         <span class="k">if</span> <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">any_rob</span><span class="p">:</span>
             <span class="n">nk_grad_r</span> <span class="o">=</span> <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">keep_robin</span><span class="p">(</span><span class="n">nk_grad_paired</span><span class="p">)</span>
             <span class="n">pr_trace_grad</span> <span class="o">=</span> <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">keep_robin</span><span class="p">(</span><span class="n">pr_trace_grad_all</span><span class="p">)</span>
             <span class="n">pr_trace_cell</span> <span class="o">=</span> <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">keep_robin</span><span class="p">(</span><span class="n">pr_trace_cell_all</span><span class="p">)</span>
+
         <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Make empty variables, just to have something to fill in the matrix (see</span>
+            <span class="c1"># usage below).</span>
             <span class="n">nk_grad_r</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">nk_grad_paired</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
             <span class="n">pr_trace_grad</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">pr_trace_grad_all</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
             <span class="n">pr_trace_cell</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="n">pr_trace_cell_all</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
@@ -1073,10 +1120,9 @@
         <span class="n">pr_cont_grad</span> <span class="o">=</span> <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">exclude_neumann_robin</span><span class="p">(</span><span class="n">pr_cont_grad_paired</span><span class="p">)</span>
         <span class="n">pr_cont_cell</span> <span class="o">=</span> <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">exclude_neumann_robin</span><span class="p">(</span><span class="n">pr_cont_cell_all</span><span class="p">)</span>
 
-        <span class="c1"># The discretization is now in a sense complete: We have discretized</span>
-        <span class="c1"># the flux and pressure continuity equations, with the necessary</span>
-        <span class="c1"># adjustments for boundary conditions. The resulting linear system</span>
-        <span class="c1"># takes the form</span>
+        <span class="c1"># The discretization is now in a sense complete: We have discretized the flux</span>
+        <span class="c1"># and pressure continuity equations, with the necessary adjustments for boundary</span>
+        <span class="c1"># conditions. The resulting linear system takes the form</span>
         <span class="c1">#</span>
         <span class="c1">#  (nk_grad_n                , nk_cell  )</span>
         <span class="c1">#  (nk_grad_r - pr_trace_grad, -pr_trace_cell) (subcell_grad)    = RHS</span>
@@ -1085,26 +1131,24 @@
         <span class="c1"># The first equation enforces flux continuity (with nk_cell=0)</span>
         <span class="c1"># The second equation enforces Robin boundary conditions</span>
         <span class="c1"># The third equation enforces pressure continuity.</span>
-        <span class="c1"># RHS is detailed below, this enforces calculation of the discrete</span>
-        <span class="c1"># basis function.</span>
+        <span class="c1"># RHS is detailed below, this enforces calculation of the discrete basis</span>
+        <span class="c1"># function.</span>
         <span class="c1">#</span>
-        <span class="c1"># The next step is to compute the subcell gradients as a function of</span>
-        <span class="c1"># the ultimate degrees of freedom in the discretization scheme, that is</span>
-        <span class="c1"># cell center pressures and boundary conditions. For cell center</span>
-        <span class="c1"># pressures, assign a unit pressure in one cell center at a time</span>
-        <span class="c1"># while assigning zero pressures in other cells (this is implemented</span>
-        <span class="c1"># as moving the second column in the above matrix to the right hand side).</span>
-        <span class="c1"># When solving for subcell_grad, this gives the gradients, in effect,</span>
-        <span class="c1"># the boundary conditions.</span>
+        <span class="c1"># The next step is to compute the subcell gradients as a function of the</span>
+        <span class="c1"># ultimate degrees of freedom in the discretization scheme, that is cell center</span>
+        <span class="c1"># pressures and boundary conditions. For cell center pressures, assign a unit</span>
+        <span class="c1"># pressure in one cell center at a time while assigning zero pressures in other</span>
+        <span class="c1"># cells (this is implemented as moving the second column in the above matrix to</span>
+        <span class="c1"># the right hand side). When solving for subcell_grad, this gives the gradients,</span>
+        <span class="c1"># in effect, the boundary conditions.</span>
         <span class="c1">#</span>
         <span class="c1"># Implementation of boundary conditions need special mentioning:</span>
         <span class="c1"># First, the rows corresponding to boundary subfaces are modified:</span>
         <span class="c1">#</span>
-        <span class="c1">#  i) On Neumann subfaces, only the first block row is kept, second and</span>
-        <span class="c1">#     third row are eliminated (there is no Robin or pressure continuity</span>
-        <span class="c1">#     condition).</span>
-        <span class="c1">#  ii) Robin conditions have dedicated rows, these subfaces are eliminated</span>
-        <span class="c1">#      from the first and third row.</span>
+        <span class="c1">#  i) On Neumann subfaces, only the first block row is kept, second and third</span>
+        <span class="c1">#     row are eliminated (there is no Robin or pressure continuity condition).</span>
+        <span class="c1">#  ii) Robin conditions have dedicated rows, these subfaces are eliminated from</span>
+        <span class="c1">#      the first and third row.</span>
         <span class="c1">#  iii) For Dirichlet subfaces, only the third block row is kept.</span>
         <span class="c1">#</span>
         <span class="c1"># As an implementation note, the fastest approach found is to explicitly</span>
@@ -1114,27 +1158,46 @@
         <span class="c1">#  (nk_grad_r - pr_trace_grad)</span>
         <span class="c1">#  (pr_cont_grad)</span>
         <span class="c1">#</span>
-        <span class="c1"># The calculation exploits the block diagonal structure of the matrix</span>
-        <span class="c1"># (after a permutation that gathers all columns and rows associated</span>
-        <span class="c1"># with a single vertex, that is, an interaction region). Fast inverses</span>
-        <span class="c1"># can then be used. After inversion, subscale gradients can be found</span>
-        <span class="c1"># for any right hand side by a matrix-vector product.</span>
+        <span class="c1"># The calculation exploits the block diagonal structure of the matrix (after a</span>
+        <span class="c1"># permutation that gathers all columns and rows associated with a single vertex,</span>
+        <span class="c1"># that is, an interaction region). Fast inverses can then be used. After</span>
+        <span class="c1"># inversion, subscale gradients can be found for any right hand side by a</span>
+        <span class="c1"># matrix-vector product.</span>
 
         <span class="c1"># System of equations for the subcell gradient variables. On block diagonal</span>
         <span class="c1"># form.</span>
-        <span class="n">grad_eqs</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">nk_grad_n</span><span class="p">,</span> <span class="n">nk_grad_r</span> <span class="o">-</span> <span class="n">pr_trace_grad</span><span class="p">,</span> <span class="n">pr_cont_grad</span><span class="p">])</span>
-
         <span class="n">num_nk_cell</span> <span class="o">=</span> <span class="n">nk_cell</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">num_nk_rob</span> <span class="o">=</span> <span class="n">nk_grad_r</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">num_pr_cont_grad</span> <span class="o">=</span> <span class="n">pr_cont_grad</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 
+        <span class="c1"># Assemble and scale the full system.</span>
+        <span class="n">grad_eqs</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">nk_grad_n</span><span class="p">,</span> <span class="n">nk_grad_r</span> <span class="o">-</span> <span class="n">pr_trace_grad</span><span class="p">,</span> <span class="n">pr_cont_grad</span><span class="p">))</span>
+
+        <span class="c1"># To lower the condition number of the local linear systems, the equations that</span>
+        <span class="c1"># represents flux and pressure continuity, as well as the Robin condition (which</span>
+        <span class="c1"># is a combination) should have ideally have similar scaling. This is in general</span>
+        <span class="c1"># not possible (for instance, anisotropic permeabilities almost inevitably leads</span>
+        <span class="c1"># to some rows having elements that differ significantly in size). Nevertheless,</span>
+        <span class="c1"># we try to achieve reasonably conditioned local problems. A simple approach has</span>
+        <span class="c1"># turned out to give reasonable results: For all continuity conditions compute</span>
+        <span class="c1"># the sum of the absolute values of non-zero elements and scale the entire row</span>
+        <span class="c1"># with the inverse of the sum value. This is equivalent to diagonal left</span>
+        <span class="c1"># preconditioner for the system. In order not to modify the solution, we will</span>
+        <span class="c1"># also need to left precondition the right-hand side.</span>
+        <span class="c1">#</span>
+        <span class="c1"># IMPLEMENTATION NOTE: Experimentation with more advanced scalings turned out</span>
+        <span class="c1"># not to give better results than the simple row sum approach.</span>
+        <span class="n">full_scaling</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">diagonal_scaling_matrix</span><span class="p">(</span><span class="n">grad_eqs</span><span class="p">)</span>
+
+        <span class="c1"># Scale the matrix before inversion.</span>
+        <span class="n">grad_eqs</span> <span class="o">=</span> <span class="n">full_scaling</span> <span class="o">*</span> <span class="n">grad_eqs</span>
+
         <span class="k">del</span> <span class="n">nk_grad_n</span><span class="p">,</span> <span class="n">nk_grad_r</span><span class="p">,</span> <span class="n">pr_trace_grad</span>
 
-        <span class="c1"># So far, the local numbering has been based on the numbering scheme</span>
-        <span class="c1"># implemented in SubcellTopology (which treats one cell at a time). For</span>
-        <span class="c1"># efficient inversion (below), it is desirable to get the system over to a</span>
-        <span class="c1"># block-diagonal structure, with one block centered around each vertex.</span>
-        <span class="c1"># Obtain the necessary mappings.</span>
+        <span class="c1"># So far, the local numbering has been based on the numbering scheme implemented</span>
+        <span class="c1"># in SubcellTopology (which treats one cell at a time). For efficient inversion</span>
+        <span class="c1"># (below), it is desirable to get the system over to a block-diagonal structure,</span>
+        <span class="c1"># with one block centered around each vertex. Obtain the necessary mappings.</span>
         <span class="n">rows2blk_diag</span><span class="p">,</span> <span class="n">cols2blk_diag</span><span class="p">,</span> <span class="n">size_of_blocks</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_block_diagonal_structure</span><span class="p">(</span>
             <span class="n">sub_cell_index</span><span class="p">,</span>
             <span class="n">cell_node_blocks</span><span class="p">,</span>
@@ -1142,56 +1205,62 @@
             <span class="n">bound_exclusion</span><span class="p">,</span>
         <span class="p">)</span>
 
-        <span class="c1"># Re-organize system into a block-diagonal form</span>
+        <span class="c1"># Re-organize system into a block-diagonal form.</span>
         <span class="n">grad</span> <span class="o">=</span> <span class="n">rows2blk_diag</span> <span class="o">*</span> <span class="n">grad_eqs</span> <span class="o">*</span> <span class="n">cols2blk_diag</span>
 
         <span class="k">del</span> <span class="n">grad_eqs</span>
-        <span class="c1"># Invert the system, and map back to the original form</span>
+        <span class="c1"># Invert the system, and map back to the original form. Also right multiply with</span>
+        <span class="c1"># the diagonal scaling matrix. Since we will multiply igrad with various right</span>
+        <span class="c1"># hand side matrices to construct the discretizations, this is equivalent with</span>
+        <span class="c1"># scaling the right hand side terms.</span>
         <span class="n">igrad</span> <span class="o">=</span> <span class="p">(</span>
             <span class="n">cols2blk_diag</span>
             <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">matrix_operations</span><span class="o">.</span><span class="n">invert_diagonal_blocks</span><span class="p">(</span>
                 <span class="n">grad</span><span class="p">,</span> <span class="n">size_of_blocks</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="n">inverter</span>
             <span class="p">)</span>
             <span class="o">*</span> <span class="n">rows2blk_diag</span>
-        <span class="p">)</span>
+        <span class="p">)</span> <span class="o">*</span> <span class="n">full_scaling</span>
 
         <span class="k">del</span> <span class="n">grad</span><span class="p">,</span> <span class="n">cols2blk_diag</span><span class="p">,</span> <span class="n">rows2blk_diag</span>
 
-        <span class="c1"># Technical note: The elements in igrad are organized as follows:</span>
-        <span class="c1"># The fields subcell_topology.cno and .nno will together identify Nd</span>
-        <span class="c1"># placements in igrad that are associated with the same cell and the same</span>
-        <span class="c1"># node, that is, they belong to the same subcell. These placements are used</span>
-        <span class="c1"># to store the discrete gradient of that cell, with the first item</span>
-        <span class="c1"># representing the x-component etc.</span>
-        <span class="c1"># As an example, to find the gradient in the subcell of cell ci, associated</span>
-        <span class="c1"># with node ni, first find the indexes of subcell_topology.cno and .nno</span>
-        <span class="c1"># that contain ci and ni, respectively. The first of these indexes give the</span>
-        <span class="c1"># row of the x-component of the gradient, the second the y-component etc.</span>
+        <span class="c1"># Technical note: The elements in igrad are organized as follows: The fields</span>
+        <span class="c1"># subcell_topology.cno and .nno will together identify Nd placements in igrad</span>
+        <span class="c1"># that are associated with the same cell and the same node, that is, they belong</span>
+        <span class="c1"># to the same subcell. These placements are used to store the discrete gradient</span>
+        <span class="c1"># of that cell, with the first item representing the x-component etc.</span>
+        <span class="c1"># As an example, to find the gradient in the subcell of cell ci, associated with</span>
+        <span class="c1"># node ni, first find the indexes of subcell_topology.cno and .nno that contain</span>
+        <span class="c1"># ci and ni, respectively. The first of these indexes give the row of the</span>
+        <span class="c1"># x-component of the gradient, the second the y-component etc.</span>
         <span class="c1">#</span>
-        <span class="c1"># The columns of igrad correspond to the ordering of the equations in</span>
-        <span class="c1"># grad; as recovered in _block_diagonal_structure. In practice, the first</span>
-        <span class="c1"># columns correspond to unit pressures assigned to faces (as used for</span>
-        <span class="c1"># boundary conditions or to discretize discontinuities over internal faces,</span>
-        <span class="c1"># say, to represent heterogeneous gravity), while the latter group</span>
-        <span class="c1"># gives gradients induced by cell center pressures.</span>
+        <span class="c1"># The columns of igrad correspond to the ordering of the equations in grad; as</span>
+        <span class="c1"># recovered in _block_diagonal_structure. In practice, the first columns</span>
+        <span class="c1"># correspond to unit pressures assigned to faces (as used for boundary</span>
+        <span class="c1"># conditions or to discretize discontinuities over internal faces, say, to</span>
+        <span class="c1"># represent heterogeneous gravity), while the latter group gives gradients</span>
+        <span class="c1"># induced by cell center pressures.</span>
         <span class="c1">#</span>
-        <span class="c1"># ASSUMPTIONS: 1) Each cell has exactly Nd faces meeting in a</span>
-        <span class="c1"># vertex; or else, there would not be an exact match between the</span>
-        <span class="c1"># number of equal (nno-cno) pairs and the number of components in the</span>
-        <span class="c1"># gradient. This assumption is always okay in 2d, in 3d it rules out cells</span>
-        <span class="c1"># shaped as pyramids, in which case mpfa is not defined without making</span>
-        <span class="c1"># further specifications of the method.</span>
-        <span class="c1"># 2) The number of components in the gradient is equal to the spatial</span>
-        <span class="c1"># dimension of the grid, as defined in sd.dim. Thus 2d grids embedded in 3d</span>
-        <span class="c1"># will run into trouble, unless the grid is first projected down to its</span>
-        <span class="c1"># natural plane. This can be fixed by a more general implementation, but</span>
-        <span class="c1"># it would require quite deep changes to the code.</span>
+        <span class="c1"># ASSUMPTIONS: 1) Each cell has exactly Nd faces meeting in a vertex; or else,</span>
+        <span class="c1"># there would not be an exact match between the number of equal (nno-cno) pairs</span>
+        <span class="c1"># and the number of components in the gradient. This assumption is always okay</span>
+        <span class="c1"># in 2d, in 3d it rules out cells shaped as pyramids, in which case mpfa is not</span>
+        <span class="c1"># defined without making further specifications of the method.</span>
+        <span class="c1"># 2) The number of components in the gradient is equal to the spatial dimension</span>
+        <span class="c1"># of the grid, as defined in sd.dim. Thus 2d grids embedded in 3d will run into</span>
+        <span class="c1"># trouble, unless the grid is first projected down to its natural plane. This</span>
+        <span class="c1"># can be fixed by a more general implementation, but it would require quite deep</span>
+        <span class="c1"># changes to the code.</span>
 
-        <span class="c1"># Flux discretization:</span>
-        <span class="c1"># Negative in front of sps.vstack comes from moving the cell center</span>
-        <span class="c1"># unknown in the discretized sytsem to the right hand side.</span>
-        <span class="c1"># The negative in front of pr_trace_cell comes from the grad_eqs</span>
-        <span class="n">rhs_cells</span> <span class="o">=</span> <span class="o">-</span><span class="n">sps</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">nk_cell</span><span class="p">,</span> <span class="o">-</span><span class="n">pr_trace_cell</span><span class="p">,</span> <span class="n">pr_cont_cell</span><span class="p">])</span>
+        <span class="c1"># Flux discretization: Negative in front of sps.vstack comes from moving the</span>
+        <span class="c1"># cell center unknown in the discretized sytsem to the right hand side. The</span>
+        <span class="c1"># negative in front of pr_trace_cell comes from the grad_eqs</span>
+        <span class="n">rhs_cells</span> <span class="o">=</span> <span class="o">-</span><span class="n">sps</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span>
+            <span class="p">(</span>
+                <span class="n">nk_cell</span><span class="p">,</span>
+                <span class="o">-</span><span class="n">pr_trace_cell</span><span class="p">,</span>
+                <span class="n">pr_cont_cell</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
         <span class="c1"># Compute matrix-matrix product, this is used in several steps below</span>
         <span class="n">darcy_igrad</span> <span class="o">=</span> <span class="n">darcy</span> <span class="o">*</span> <span class="n">igrad</span>
 
@@ -1224,19 +1293,18 @@
         <span class="n">area_mat</span> <span class="o">=</span> <span class="n">hf2f</span> <span class="o">*</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">hf2f</span><span class="o">.</span><span class="n">T</span> <span class="o">*</span> <span class="n">area_scaling</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">subface_rhs</span><span class="p">:</span>
             <span class="c1"># In this case we set the value at a face, thus, we need to distribute the</span>
-            <span class="c1"># face values to the subfaces. We do this by an area-weighted average. The flux</span>
-            <span class="c1"># will in this case be integrated over the faces, that is:</span>
-            <span class="c1"># flux *\cdot * normal * face_area</span>
+            <span class="c1"># face values to the subfaces. We do this by an area-weighted average. The</span>
+            <span class="c1"># flux will in this case be integrated over the faces, that is:</span>
+            <span class="c1">#   flux *\cdot * normal * face_area</span>
             <span class="n">bound_flux</span> <span class="o">=</span> <span class="n">hf2f</span> <span class="o">*</span> <span class="n">bound_flux</span> <span class="o">*</span> <span class="n">hf2f</span><span class="o">.</span><span class="n">T</span>
             <span class="n">flux</span> <span class="o">=</span> <span class="n">hf2f</span> <span class="o">*</span> <span class="n">flux</span>
             <span class="n">pressure_trace_bound</span> <span class="o">=</span> <span class="n">area_mat</span> <span class="o">*</span> <span class="n">pressure_trace_bound</span> <span class="o">*</span> <span class="n">hf2f</span><span class="o">.</span><span class="n">T</span>
             <span class="n">pressure_trace_cell</span> <span class="o">=</span> <span class="n">area_mat</span> <span class="o">*</span> <span class="n">pressure_trace_cell</span>
 
-        <span class="c1"># Also discretize vector source terms for Darcy&#39;s law.</span>
-        <span class="c1"># discr_div_vector_source is the discretised vector source, which is interpreted</span>
-        <span class="c1"># as a force on a subface due to imbalance in cell-center vector sources.</span>
-        <span class="c1"># This term is computed on a sub-cell basis</span>
-        <span class="c1"># and has dimensions (num_subfaces, num_subcells * nd)</span>
+        <span class="c1"># Also discretize vector source terms for Darcy&#39;s law. discr_div_vector_source</span>
+        <span class="c1"># is the discretised vector source, which is interpreted as a force on a subface</span>
+        <span class="c1"># due to imbalance in cell-center vector sources. This term is computed on a</span>
+        <span class="c1"># sub-cell basis and has dimensions (num_subfaces, num_subcells * nd)</span>
         <span class="n">discr_vector_source</span><span class="p">,</span> <span class="n">vector_source_bound</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretize_vector_source</span><span class="p">(</span>
             <span class="n">sd</span><span class="p">,</span>
             <span class="n">subcell_topology</span><span class="p">,</span>
@@ -1264,7 +1332,7 @@
             <span class="n">bound_pressure_vector_source</span><span class="p">,</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_discretize_vector_source</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_discretize_vector_source</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">subcell_topology</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">SubcellTopology</span><span class="p">,</span>
@@ -1274,15 +1342,15 @@
         <span class="n">nk_grad_all</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
         <span class="n">nk_grad_paired</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Consistent discretization of the divergence of the vector source term</span>
-<span class="sd">        in MPFA-O method. An example of a vector source is the gravitational</span>
-<span class="sd">        forces in Darcy&#39;s law.</span>
-<span class="sd">        For more details, see Starnoni et al (2020), Consistent discretization</span>
-<span class="sd">        of flow for inhomogeneoug gravitational fields, WRR.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Consistent discretization of the divergence of the vector source term</span>
+<span class="sd">        in MPFA-O method.</span>
+
+<span class="sd">        An example of a vector source is the gravitational forces in Darcy&#39;s law. For</span>
+<span class="sd">        more details, see Starnoni et al (2020), Consistent discretization of flow for</span>
+<span class="sd">        inhomogeneoug gravitational fields, WRR.</span>
 
 <span class="sd">        Parameters:</span>
-<span class="sd">            g (core.grids.grid): grid to be discretized</span>
+<span class="sd">            g: grid to be discretized</span>
 <span class="sd">            subcell_topology: Wrapper class for numbering of subcell faces, cells</span>
 <span class="sd">                etc.</span>
 <span class="sd">            bound_exclusion: Object that can eliminate faces related to boundary</span>
@@ -1295,52 +1363,59 @@
 <span class="sd">            nk_grad_paired: nK products after pairing</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            scipy.sparse.csr_matrix (shape num_subfaces, num_subcells * nd):</span>
-<span class="sd">            discretization of the vector source term, interpreted as a force on a subface</span>
-<span class="sd">            due to imbalance in cell-center vector sources</span>
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces,</span>
+<span class="sd">                                                 ambient_dimension * sd.num_cells))``</span>
 
-<span class="sd">        Method properties and implementation details.</span>
-<span class="sd">        Basis functions, namely &#39;flux&#39; and &#39;bound_flux&#39;, for the pressure</span>
-<span class="sd">        discretization are obtained as in standard MPFA-O method.</span>
-<span class="sd">        Vector source is represented as forces in the cells.</span>
-<span class="sd">        However, jumps in vector sources over a cell face act as flux</span>
-<span class="sd">        imbalance, and thus induce additional pressure gradients in the sub-cells.</span>
-<span class="sd">        An additional system is set up, which applies non-zero conditions to the</span>
-<span class="sd">        flux continuity equation. This can be expressed as a linear system on the form</span>
-<span class="sd">            (i)   A * grad_p            = I</span>
-<span class="sd">            (ii)  B * grad_p + C * p_cc = 0</span>
-<span class="sd">            (iii) 0            D * p_cc = 0</span>
-<span class="sd">        Thus (i)-(iii) can be inverted to express the additional pressure gradients</span>
-<span class="sd">        due to imbalance in vector sources as in terms of the cell center variables.</span>
-<span class="sd">        Thus we can compute the basis functions &#39;vector_source_jumps&#39; on the sub-cells.</span>
-<span class="sd">        To ensure flux continuity, as soon as a convention is chosen for what side</span>
-<span class="sd">        the flux evaluation should be considered on, an additional term, called</span>
-<span class="sd">        &#39;vector_source_faces&#39;, is added to the full flux. This latter term represents the</span>
-<span class="sd">        flux due to cell-center vector source acting on the face from the chosen side.</span>
-<span class="sd">        The pair subfno_unique-unique_subfno gives the side convention.</span>
-<span class="sd">        The full flux on the face is therefore given by</span>
+<span class="sd">                Matrix for vector source term potential contribution to face fluxes.</span>
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces,</span>
+<span class="sd">                                                 ambient_dimension * sd.num_cells))``</span>
 
-<span class="sd">        q = flux * p + bound_flux * p_b</span>
-<span class="sd">            + (vector_source_jumps + vector_source_faces) * vector_source</span>
+<span class="sd">                Matrix for vector source term contribution to face potential</span>
+<span class="sd">                reconstruction.</span>
 
-<span class="sd">        Output: vector_source = vector_source_jumps + vector_source_faces</span>
-
-<span class="sd">        The strategy is as follows.</span>
-<span class="sd">        1. assemble r.h.s. for the new linear system, needed for the term</span>
-<span class="sd">            &#39;vector_source_jumps&#39;</span>
-<span class="sd">        2. compute term &#39;vector_source_faces&#39;</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Method properties and implementation details.</span>
+        <span class="c1"># Basis functions, namely &#39;flux&#39; and &#39;bound_flux&#39;, for the pressure</span>
+        <span class="c1"># discretization are obtained as in standard MPFA-O method. Vector source is</span>
+        <span class="c1"># represented as forces in the cells. However, jumps in vector sources over a</span>
+        <span class="c1"># cell face act as flux imbalance, and thus induce additional pressure gradients</span>
+        <span class="c1"># in the sub-cells. An additional system is set up, which applies non-zero</span>
+        <span class="c1"># conditions to the flux continuity equation. This can be expressed as a linear</span>
+        <span class="c1"># system on the form:</span>
+        <span class="c1">#</span>
+        <span class="c1">#     (i)   A * grad_p            = I</span>
+        <span class="c1">#     (ii)  B * grad_p + C * p_cc = 0</span>
+        <span class="c1">#     (iii) 0            D * p_cc = 0</span>
+        <span class="c1">#</span>
+        <span class="c1"># Thus (i)-(iii) can be inverted to express the additional pressure gradients</span>
+        <span class="c1"># due to imbalance in vector sources as in terms of the cell center variables.</span>
+        <span class="c1"># Thus we can compute the basis functions &#39;vector_source_jumps&#39; on the</span>
+        <span class="c1"># sub-cells. To ensure flux continuity, as soon as a convention is chosen for</span>
+        <span class="c1"># what side the flux evaluation should be considered on, an additional term,</span>
+        <span class="c1"># called &#39;vector_source_faces&#39;, is added to the full flux. This latter term</span>
+        <span class="c1"># represents the flux due to cell-center vector source acting on the face from</span>
+        <span class="c1"># the chosen side. The pair subfno_unique-unique_subfno gives the side</span>
+        <span class="c1"># convention. The full flux on the face is therefore given by</span>
+        <span class="c1">#</span>
+        <span class="c1"># q = flux * p + bound_flux * p_b</span>
+        <span class="c1">#     + (vector_source_jumps + vector_source_faces) * vector_source</span>
+        <span class="c1">#</span>
+        <span class="c1"># Output: vector_source = vector_source_jumps + vector_source_faces</span>
+
+        <span class="c1"># The strategy is as follows.</span>
+        <span class="c1"># 1. assemble r.h.s. for the new linear system, needed for the term</span>
+        <span class="c1">#     &#39;vector_source_jumps&#39;</span>
+        <span class="c1"># 2. compute term &#39;vector_source_faces&#39;</span>
 
         <span class="n">num_subfno</span> <span class="o">=</span> <span class="n">subcell_topology</span><span class="o">.</span><span class="n">num_subfno</span>
         <span class="n">num_subfno_unique</span> <span class="o">=</span> <span class="n">subcell_topology</span><span class="o">.</span><span class="n">subfno_unique</span><span class="o">.</span><span class="n">size</span>
 
         <span class="c1"># Step 1</span>
-        <span class="c1"># The vector source term in the flux continuity equation is discretized</span>
-        <span class="c1"># as a force on the faces. The right hand side is thus formed of the</span>
-        <span class="c1"># unit vector.</span>
+        <span class="c1"># The vector source term in the flux continuity equation is discretized as a</span>
+        <span class="c1"># force on the faces. The right hand side is thus formed of the unit vector.</span>
 
         <span class="c1"># Construct a mapping from all subfaces to those with flux conditions, that is,</span>
-        <span class="c1"># all but Dirichlet boundary faces</span>
+        <span class="c1"># all but Dirichlet boundary faces.</span>
         <span class="c1"># Identity matrix, one row per subface</span>
         <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_subfno_unique</span><span class="p">)</span>
         <span class="n">I_subfno</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">dia_matrix</span><span class="p">(</span>
@@ -1368,9 +1443,8 @@
         <span class="c1"># Size of the pressure continuity system</span>
         <span class="n">num_zeros</span> <span class="o">=</span> <span class="n">num_subfno</span> <span class="o">-</span> <span class="n">num_dir_subface</span>
         <span class="c1"># Expand the flux_eq_map with zeros in the rows corresponding to the pressure</span>
-        <span class="c1"># contiuity equations</span>
-        <span class="c1"># This should really be renamed, but resize only works in place, and vstack or</span>
-        <span class="c1"># similar takes much more time</span>
+        <span class="c1"># contiuity equations This should really be renamed, but resize only works in</span>
+        <span class="c1"># place, and vstack or similar takes much more time</span>
         <span class="n">new_shape</span> <span class="o">=</span> <span class="p">(</span><span class="n">flux_eq_map</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">num_zeros</span><span class="p">,</span> <span class="n">flux_eq_map</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
         <span class="n">flux_eq_map</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">new_shape</span><span class="p">)</span>
         <span class="c1"># Right hand side term is multiplied with -1</span>
@@ -1394,9 +1468,8 @@
 
         <span class="c1"># Step 2</span>
 
-        <span class="c1"># mapping from subface to unique subface for scalar problems.</span>
-        <span class="c1"># This mapping gives the convention from which side</span>
-        <span class="c1"># the force should be evaluated on.</span>
+        <span class="c1"># Mapping from subface to unique subface for scalar problems. This mapping gives</span>
+        <span class="c1"># the convention from which side the force should be evaluated on.</span>
         <span class="n">map_unique_subfno</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
             <span class="p">(</span>
                 <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_subfno_unique</span><span class="p">),</span>
@@ -1410,15 +1483,21 @@
 
         <span class="k">return</span> <span class="p">(</span><span class="n">vector_source_jumps</span> <span class="o">+</span> <span class="n">vector_source_faces</span><span class="p">,</span> <span class="n">vector_source_bound</span><span class="p">)</span>
 
-    <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    The functions below are helper functions, which are not really necessary to</span>
 <span class="sd">    understand in detail to use the method. They also tend to be less well</span>
 <span class="sd">    documented.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_estimate_peak_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Rough estimate of peak memory need</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_estimate_peak_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute a rough estimate of peak memory need for the discretization.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            sd: The grid to be discretized</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            The estimated peak memory need.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">nd</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span>
         <span class="k">if</span> <span class="n">nd</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -1430,20 +1509,20 @@
         <span class="c1"># pressure gradients, and one per cell (cell center pressure)</span>
         <span class="n">num_grad_unknowns</span> <span class="o">=</span> <span class="n">nd</span> <span class="o">*</span> <span class="n">num_cell_nodes</span>
 
-        <span class="c1"># The most expensive field is the storage of igrad, which is block diagonal</span>
-        <span class="c1"># with num_grad_unknowns sized blocks</span>
+        <span class="c1"># The most expensive field is the storage of igrad, which is block diagonal with</span>
+        <span class="c1"># num_grad_unknowns sized blocks</span>
         <span class="n">igrad_size</span> <span class="o">=</span> <span class="n">num_grad_unknowns</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
 
-        <span class="c1"># The discretization of Darcy&#39;s law will require nd (that is, a gradient)</span>
-        <span class="c1"># per sub-face.</span>
+        <span class="c1"># The discretization of Darcy&#39;s law will require nd (that is, a gradient) per</span>
+        <span class="c1"># sub-face.</span>
         <span class="n">num_sub_face</span> <span class="o">=</span> <span class="n">sd</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
         <span class="n">darcy_size</span> <span class="o">=</span> <span class="n">nd</span> <span class="o">*</span> <span class="n">num_sub_face</span>
 
         <span class="c1"># Balancing of fluxes will require 2*nd (gradient on both sides) fields per</span>
         <span class="c1"># sub-face</span>
         <span class="n">nk_grad_size</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">nd</span> <span class="o">*</span> <span class="n">num_sub_face</span>
-        <span class="c1"># Similarly, pressure continuity requires 2 * (nd+1) (gradient on both</span>
-        <span class="c1"># sides, and cell center pressures) numbers</span>
+        <span class="c1"># Similarly, pressure continuity requires 2 * (nd+1) (gradient on both sides,</span>
+        <span class="c1"># and cell center pressures) numbers</span>
         <span class="n">pr_cont_size</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">nd</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">num_sub_face</span>
 
         <span class="n">total_size</span> <span class="o">=</span> <span class="n">igrad_size</span> <span class="o">+</span> <span class="n">darcy_size</span> <span class="o">+</span> <span class="n">nk_grad_size</span> <span class="o">+</span> <span class="n">pr_cont_size</span>
@@ -1452,27 +1531,35 @@
         <span class="c1"># between local and block ordering etc.</span>
         <span class="k">return</span> <span class="n">total_size</span>
 
-    <span class="k">def</span> <span class="nf">_block_diagonal_structure</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">sub_cell_index</span><span class="p">,</span> <span class="n">cell_node_blocks</span><span class="p">,</span> <span class="n">nno</span><span class="p">,</span> <span class="n">bound_exclusion</span>
-    <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Define matrices to turn linear system into block-diagonal form</span>
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        sub_cell_index</span>
-<span class="sd">        cell_node_blocks: pairs of cell and node pairs, which defines sub-cells</span>
-<span class="sd">        nno node numbers associated with balance equations</span>
-<span class="sd">        exclude_dirichlet mapping to remove rows associated with flux boundary</span>
-<span class="sd">        exclude_neumann mapping to remove rows associated with pressure boundary</span>
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        rows2blk_diag transform rows of linear system to block-diagonal form</span>
-<span class="sd">        cols2blk_diag transform columns of linear system to block-diagonal form</span>
-<span class="sd">        size_of_blocks number of equations in each block</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_block_diagonal_structure</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sub_cell_index</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">cell_node_blocks</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">nno</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">bound_exclusion</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">ExcludeBoundaries</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define matrices to turn linear system into block-diagonal form.</span>
 
-        <span class="c1"># Stack node numbers of equations on top of each other, and sort them to</span>
-        <span class="c1"># get block-structure. First eliminate node numbers at the boundary, where</span>
-        <span class="c1"># the equations are either of flux, pressure continuity or robin</span>
+<span class="sd">        Parameters</span>
+<span class="sd">            sub_cell_index: Index of all subcells.</span>
+<span class="sd">            cell_node_blocks: Pairs of cell and node pairs, which defines sub-cells.</span>
+<span class="sd">            nno: Node numbers associated with balance equations</span>
+<span class="sd">            bound_exclusion: Object to eliminate faces associated with different types</span>
+<span class="sd">                of boundary conditions.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: Transform rows of linear system to</span>
+<span class="sd">                block-diagonal form.</span>
+
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: Transform colmns of linear system to</span>
+<span class="sd">                block-diagonal form.</span>
+
+<span class="sd">            np.ndarray: Number of equations in each block.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Stack node numbers of equations on top of each other, and sort them to get</span>
+        <span class="c1"># block-structure. First eliminate node numbers at the boundary, where the</span>
+        <span class="c1"># equations are either of flux, pressure continuity or Robin</span>
         <span class="n">nno_flux</span> <span class="o">=</span> <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">exclude_robin_dirichlet</span><span class="p">(</span><span class="n">nno</span><span class="p">)</span>
         <span class="n">nno_pressure</span> <span class="o">=</span> <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">exclude_neumann_robin</span><span class="p">(</span><span class="n">nno</span><span class="p">)</span>
         <span class="c1"># we have now eliminated all nodes related to robin, we therefore add them</span>
@@ -1487,9 +1574,9 @@
             <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">sorted_nodes_rows</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">sorted_ind</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">sorted_ind</span><span class="p">))</span>
         <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
 
-        <span class="c1"># cell_node_blocks[1] contains the node numbers associated with each</span>
-        <span class="c1"># sub-cell gradient (and so column of the local linear systems). A sort</span>
-        <span class="c1"># of these will give a block-diagonal structure</span>
+        <span class="c1"># cell_node_blocks[1] contains the node numbers associated with each sub-cell</span>
+        <span class="c1"># gradient (and so column of the local linear systems). A sort of these will</span>
+        <span class="c1"># give a block-diagonal structure</span>
         <span class="n">sorted_nodes_cols</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">cell_node_blocks</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
         <span class="n">subcind_nodes</span> <span class="o">=</span> <span class="n">sub_cell_index</span><span class="p">[::,</span> <span class="n">sorted_nodes_cols</span><span class="p">]</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
         <span class="n">cols2blk_diag</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
@@ -1501,38 +1588,44 @@
 
         <span class="k">return</span> <span class="n">rows2blk_diag</span><span class="p">,</span> <span class="n">cols2blk_diag</span><span class="p">,</span> <span class="n">size_of_blocks</span>
 
-    <span class="k">def</span> <span class="nf">_create_bound_rhs</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_bound_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">bnd</span><span class="p">,</span>
-        <span class="n">bound_exclusion</span><span class="p">,</span>
-        <span class="n">subcell_topology</span><span class="p">,</span>
-        <span class="n">sgn</span><span class="p">,</span>
-        <span class="n">sd</span><span class="p">,</span>
-        <span class="n">num_flux</span><span class="p">,</span>
-        <span class="n">num_rob</span><span class="p">,</span>
-        <span class="n">num_pr</span><span class="p">,</span>
-        <span class="n">subface_rhs</span><span class="p">,</span>
-    <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Define rhs matrix to get basis functions for incorporates boundary</span>
-<span class="sd">        conditions</span>
-<span class="sd">        Parameters</span>
-<span class="sd">        ----------</span>
-<span class="sd">        bnd</span>
-<span class="sd">        exclude_dirichlet</span>
-<span class="sd">        exclude_neumann</span>
-<span class="sd">        fno</span>
-<span class="sd">        sgn : +-1, defining here and there of the faces</span>
-<span class="sd">        g : grid</span>
-<span class="sd">        num_flux : number of equations for flux continuity</span>
-<span class="sd">        num_pr: number of equations for pressure continuity</span>
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        rhs_bound: Matrix that can be multiplied with inverse block matrix to get</span>
-<span class="sd">                   basis functions for boundary values</span>
+        <span class="n">bnd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">,</span>
+        <span class="n">bound_exclusion</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">ExcludeBoundaries</span><span class="p">,</span>
+        <span class="n">subcell_topology</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">SubcellTopology</span><span class="p">,</span>
+        <span class="n">sgn</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+        <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
+        <span class="n">num_flux</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_rob</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">num_pr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">subface_rhs</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Define rhs matrix to get basis functions for incorporates boundary</span>
+<span class="sd">        conditions.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            bnd: Boundary condition object.</span>
+<span class="sd">            bound_exclusion: Object to eliminate faces associated with different types</span>
+<span class="sd">                of boundary conditions.</span>
+<span class="sd">            subcell_topology: Object that carries information on the subcell topology.</span>
+<span class="sd">            sgn: Sign of subfaces, used to define the direction of fluxes.</span>
+<span class="sd">            sd: Grid to be discretized.</span>
+<span class="sd">            num_flux: Number of equations for flux continuity.</span>
+<span class="sd">            num_rob: Number of equations for Robin conditions.</span>
+<span class="sd">            num_pr: Number of equations for pressure continuity.</span>
+<span class="sd">            subface_rhs: If True, the rhs will be defined on subfaces. Otherwise, it</span>
+<span class="sd">                will be defined on faces.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            :obj:`~scipy.sparse.spmatrix`: ``(shape=(sd.num_faces, sd.num_faces))``</span>
+
+<span class="sd">                    Matrix that can be multiplied with inverse block matrix to get basis</span>
+<span class="sd">                    functions for boundary values. If subface_rhs is True, the matrix will</span>
+<span class="sd">                    have ``subcell_topology.num_subfno_unique`` faces.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="c1"># For primal-like discretizations like the MPFA, internal boundaries</span>
-        <span class="c1"># are handled by assigning Neumann conditions.</span>
+        <span class="c1"># For primal-like discretizations like the MPFA, internal boundaries are handled</span>
+        <span class="c1"># by assigning Neumann conditions.</span>
         <span class="n">is_dir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">bnd</span><span class="o">.</span><span class="n">is_dir</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">bnd</span><span class="o">.</span><span class="n">is_internal</span><span class="p">))</span>
         <span class="n">is_neu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_or</span><span class="p">(</span><span class="n">bnd</span><span class="o">.</span><span class="n">is_neu</span><span class="p">,</span> <span class="n">bnd</span><span class="o">.</span><span class="n">is_internal</span><span class="p">)</span>
         <span class="n">is_rob</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">bnd</span><span class="o">.</span><span class="n">is_rob</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">bnd</span><span class="o">.</span><span class="n">is_internal</span><span class="p">))</span>
@@ -1545,13 +1638,12 @@
 
         <span class="n">num_bound</span> <span class="o">=</span> <span class="n">num_neu</span> <span class="o">+</span> <span class="n">num_dir</span> <span class="o">+</span> <span class="n">num_rob</span>
 
-        <span class="c1"># Neumann and Robin boundary conditions. Neumann and Robin conditions</span>
-        <span class="c1"># are essentially the same for the rhs (the rhs for both is a flux).</span>
-        <span class="c1"># However, we need to be carefull and get the indexing correct as seen</span>
-        <span class="c1"># from the local system, that is, first Neumann, then Robin and last</span>
-        <span class="c1"># Dirichlet.</span>
-        <span class="c1"># Find Neumann and Robin faces, exclude Dirichlet faces (since these are excluded</span>
-        <span class="c1"># from the right hand side linear system), and do necessary formating.</span>
+        <span class="c1"># Neumann and Robin boundary conditions. Neumann and Robin conditions are</span>
+        <span class="c1"># essentially the same for the rhs (the rhs for both is a flux). However, we</span>
+        <span class="c1"># need to be carefull and get the indexing correct as seen from the local</span>
+        <span class="c1"># system, that is, first Neumann, then Robin and last Dirichlet. Find Neumann</span>
+        <span class="c1"># and Robin faces, exclude Dirichlet faces (since these are excluded from the</span>
+        <span class="c1"># right hand side linear system), and do necessary formating.</span>
         <span class="n">neu_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span>
             <span class="n">bound_exclusion</span><span class="o">.</span><span class="n">exclude_robin_dirichlet</span><span class="p">(</span><span class="n">is_neu</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int64&quot;</span><span class="p">))</span>
         <span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
@@ -1568,15 +1660,15 @@
             <span class="n">neu_rob_ind</span> <span class="o">=</span> <span class="n">neu_ind</span>
 
         <span class="c1"># We also need to map the respective Neumann, Robin, and Dirichlet half-faces to</span>
-        <span class="c1"># the global half-face numbering (also interior faces). The latter should</span>
-        <span class="c1"># not have Dirichlet and Neumann excluded (respectively), and thus we need</span>
-        <span class="c1"># new fields</span>
+        <span class="c1"># the global half-face numbering (also interior faces). The latter should not</span>
+        <span class="c1"># have Dirichlet and Neumann excluded (respectively), and thus we need new</span>
+        <span class="c1"># fields.</span>
         <span class="n">neu_ind_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">is_neu</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
         <span class="n">rob_ind_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">is_rob</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
         <span class="n">dir_ind_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">is_dir</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
         <span class="n">num_face_nodes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indptr</span><span class="p">)</span>
 
-        <span class="c1"># We now merge the neuman and robin indices since they are treated equivalent</span>
+        <span class="c1"># We now merge the neuman and robin indices since they are treated equivalent.</span>
         <span class="k">if</span> <span class="n">rob_ind</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">neu_rob_ind</span> <span class="o">=</span> <span class="n">neu_ind</span>
         <span class="k">elif</span> <span class="n">neu_ind</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -1587,8 +1679,8 @@
 
         <span class="c1"># For the Neumann/Robin boundary conditions, we define the value as seen from</span>
         <span class="c1"># the innside of the domain. E.g. outflow is defined to be positive. We</span>
-        <span class="c1"># therefore set the matrix indices to -1. We also have to scale it with</span>
-        <span class="c1"># the number of nodes per face because the flux of a face is the sum of its</span>
+        <span class="c1"># therefore set the matrix indices to -1. We also have to scale it with the</span>
+        <span class="c1"># number of nodes per face because the flux of a face is the sum of its</span>
         <span class="c1"># half-face fluxes.</span>
         <span class="c1">#</span>
         <span class="c1"># EK: My understanding of the multiple -1s in the flux equation for boundary</span>
@@ -1598,17 +1690,16 @@
         <span class="c1"># 2) During global assembly, the flux matrix is hit by the divergence</span>
         <span class="c1">#    operator, which will give another -1 for cells with inwards pointing</span>
         <span class="c1">#    normal vector.</span>
-        <span class="c1"># NOW WHAT?</span>
         <span class="k">if</span> <span class="n">subface_rhs</span><span class="p">:</span>
             <span class="c1"># In this case we set the rhs for the sub-faces. Note that the rhs values</span>
             <span class="c1"># should be integrated over the subfaces, that is</span>
-            <span class="c1"># flux_neumann *\cdot * normal * subface_area</span>
+            <span class="c1">#       flux_neumann *\cdot * normal * subface_area</span>
             <span class="n">scaled_sgn</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">neu_rob_ind_all</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="c1"># In this case we set the value at a face, thus, we need to distribute the</span>
             <span class="c1"># face values to the subfaces. We do this by an area-weighted average. Note</span>
-            <span class="c1"># that the rhs values should in this case be integrated over the faces, that is:</span>
-            <span class="c1"># flux_neumann *\cdot * normal * face_area</span>
+            <span class="c1"># that the rhs values should in this case be integrated over the faces, that</span>
+            <span class="c1"># is: flux_neumann *\cdot * normal * face_area</span>
             <span class="n">scaled_sgn</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">/</span> <span class="n">num_face_nodes</span><span class="p">[</span><span class="n">fno</span><span class="p">[</span><span class="n">neu_rob_ind_all</span><span class="p">]]</span>
 
         <span class="c1"># Build up the boundary conditions. First for flux continuity equations</span>
@@ -1635,8 +1726,8 @@
             <span class="c1"># No need to do anything here</span>
             <span class="k">pass</span>
 
-        <span class="c1"># Number of elements in neu_ind and neu_ind_all are equal, we can test with</span>
-        <span class="c1"># any of them. Same with dir.</span>
+        <span class="c1"># Number of elements in neu_ind and neu_ind_all are equal, we can test with any</span>
+        <span class="c1"># of them. Same with dir.</span>
         <span class="k">if</span> <span class="n">neu_rob_ind</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">dir_ind</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">neu_rob_dir_ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">neu_rob_ind_all</span><span class="p">,</span> <span class="n">dir_ind_all</span><span class="p">])</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
         <span class="k">elif</span> <span class="n">neu_rob_ind</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
@@ -1651,7 +1742,7 @@
         <span class="n">num_subfno</span> <span class="o">=</span> <span class="n">subcell_topology</span><span class="o">.</span><span class="n">num_subfno_unique</span>
 
         <span class="c1"># The columns in neu_cell, dir_cell are ordered from 0 to num_bound-1.</span>
-        <span class="c1"># Map these to all half-face indices</span>
+        <span class="c1"># Map these to all half-face indices.</span>
         <span class="n">bnd_2_all_hf</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
             <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_bound</span><span class="p">),</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_bound</span><span class="p">),</span> <span class="n">neu_rob_dir_ind</span><span class="p">)),</span>
             <span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="n">num_bound</span><span class="p">,</span> <span class="n">num_subfno</span><span class="p">),</span>
@@ -1663,14 +1754,14 @@
 
         <span class="k">return</span> <span class="n">rhs_bound</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_bc_for_subgrid</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bc_for_subgrid</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">bc</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">,</span>
         <span class="n">sub_sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">face_map</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">full_grid</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Obtain a representation of a boundary condition for a subgrid of</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain a representation of a boundary condition for a subgrid of</span>
 <span class="sd">        the original grid.</span>
 
 <span class="sd">        This is somehow better fit for the BoundaryCondition class, but it is not clear</span>
@@ -1692,8 +1783,8 @@
         <span class="n">sub_bc</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryCondition</span><span class="p">(</span><span class="n">sub_sd</span><span class="p">)</span>
 
         <span class="c1"># In certain cases (EK: DFM upscaling) it may be of interest to set boundary</span>
-        <span class="c1"># conditions for non-boundary faces - don&#39;t ask.</span>
-        <span class="c1"># If such conditions are found, we copy them to the subgrid.</span>
+        <span class="c1"># conditions for non-boundary faces - don&#39;t ask. If such conditions are found,</span>
+        <span class="c1"># we copy them to the subgrid.</span>
         <span class="n">neu_condition_on_interior</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">setdiff1d</span><span class="p">(</span>
             <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">bc</span><span class="o">.</span><span class="n">is_neu</span><span class="p">),</span> <span class="n">full_grid</span><span class="o">.</span><span class="n">get_all_boundary_faces</span><span class="p">()</span>
         <span class="p">)</span>
@@ -1710,59 +1801,75 @@
 
         <span class="k">return</span> <span class="n">sub_bc</span>
 
-    <span class="k">def</span> <span class="nf">_constit_for_subgrid</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">constit</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">SecondOrderTensor</span><span class="p">,</span> <span class="n">loc_cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_constit_for_subgrid</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">K</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">SecondOrderTensor</span><span class="p">,</span> <span class="n">loc_cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">SecondOrderTensor</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract the permeability tensor for a subgrid.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">            K: Permeability tensor for the full grid.</span>
+<span class="sd">            loc_cells: Indices of the cells in the subgrid.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Permeability tensor for the subgrid.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Copy stiffness tensor, and restrict to local cells</span>
-        <span class="n">loc_c</span> <span class="o">=</span> <span class="n">constit</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="n">loc_c</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">loc_c</span><span class="o">.</span><span class="n">values</span><span class="p">[::,</span> <span class="p">::,</span> <span class="n">loc_cells</span><span class="p">]</span>
-        <span class="k">return</span> <span class="n">loc_c</span></div>
+        <span class="n">loc_K</span> <span class="o">=</span> <span class="n">K</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">loc_K</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">loc_K</span><span class="o">.</span><span class="n">values</span><span class="p">[::,</span> <span class="p">::,</span> <span class="n">loc_cells</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">loc_K</span></div>
 
 
-<div class="viewcode-block" id="reconstruct_presssure"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.reconstruct_presssure">[docs]</a><span class="k">def</span> <span class="nf">reconstruct_presssure</span><span class="p">(</span>
-    <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">,</span> <span class="n">eta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+
+<div class="viewcode-block" id="reconstruct_presssure">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.reconstruct_presssure">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">reconstruct_presssure</span><span class="p">(</span>
+    <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">,</span> <span class="n">eta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Function for reconstructing the pressure at the half faces given the</span>
-<span class="sd">    local gradients. For a subcell Ks associated with cell K and node s, the</span>
-<span class="sd">    pressure at a point x is given by</span>
-<span class="sd">    p_Ks + G_Ks (x - x_k),</span>
-<span class="sd">    x_K is the cell center of cell k. The point at which we evaluate the pressure</span>
-<span class="sd">    is given by eta, which is equivalent to the continuity points in mpfa.</span>
-<span class="sd">    For an internal subface we will obtain two values for the pressure,</span>
-<span class="sd">    one for each of the cells associated with the subface. The pressure given</span>
-<span class="sd">    here is the average of the two. Note that at the continuity points the two</span>
-<span class="sd">    pressures will by construction be equal.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Function for reconstructing the pressure at the half faces given the</span>
+<span class="sd">    local gradients.</span>
 
-<span class="sd">    Args:</span>
+<span class="sd">    For a subcell Ks associated with cell K and node s, the pressure at a point x is</span>
+<span class="sd">    given by</span>
+
+<span class="sd">        p_Ks + G_Ks (x - x_k),</span>
+
+<span class="sd">    x_K is the cell center of cell k. The point at which we evaluate the pressure is</span>
+<span class="sd">    given by eta, which is equivalent to the continuity points in mpfa. For an internal</span>
+<span class="sd">    subface we will obtain two values for the pressure, one for each of the cells</span>
+<span class="sd">    associated with the subface. The pressure given here is the average of the two. Note</span>
+<span class="sd">    that at the continuity points the two pressures will by construction be equal.</span>
+
+<span class="sd">    Parameters:</span>
 <span class="sd">        sd: Grid</span>
 <span class="sd">        subcell_topology: Wrapper class for numbering of subcell faces, cells</span>
 <span class="sd">            etc.</span>
-<span class="sd">        eta (float or ndarray, range=[0,1)): Optional. Parameter determining the point</span>
-<span class="sd">            at which the pressures is evaluated. If eta is a nd-array it should be on</span>
-<span class="sd">            the size of subcell_topology.num_subfno. If eta is not given the method will</span>
-<span class="sd">            call fvutils.determine_eta(g) to set it.</span>
+<span class="sd">        eta (range=[0,1)): Parameter determining the point</span>
+<span class="sd">            at which the pressures is evaluated. If ``eta`` is a ``nd-array`` it should</span>
+<span class="sd">            be on the size of subcell_topology.num_subfno. If ``eta`` is not given the</span>
+<span class="sd">            method will call ``:meth:~pp.numerics.fv.fvutils.determine_eta`` to set it.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        scipy.sparse.csr_matrix (num_sub_faces, num_cells):</span>
-<span class="sd">            pressure reconstruction for the displacement at the half faces. This is</span>
-<span class="sd">            the contribution from the cell-center pressures.</span>
-<span class="sd">        scipy.sparse.csr_matrix (num_sub_faces, num_faces):</span>
-<span class="sd">            Pressure reconstruction for the pressures at the half faces.</span>
-<span class="sd">            This is the contribution from the boundary conditions.</span>
+<span class="sd">        :obj:`~scipy.sparse.spmatrix`: ``(shape=(num_half_faces, sd.num_cells))``</span>
+
+<span class="sd">            Pressure reconstruction for the displacement at the half faces. This is the</span>
+<span class="sd">            contribution from the cell-center pressures.</span>
+<span class="sd">        :obj:`~scipy.sparse.spmatrix`: ``(shape=(num_half_faces, sd.num_cells))``</span>
+
+<span class="sd">            Pressure reconstruction for the pressures at the half faces. This is the</span>
+<span class="sd">            contribution from the boundary conditions.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">if</span> <span class="n">eta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">eta</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">determine_eta</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
 
-    <span class="c1"># Calculate the distance from the cell centers to continuity points</span>
+    <span class="c1"># Calculate the distance from the cell centers to continuity points.</span>
     <span class="n">D_g</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">compute_dist_face_cell</span><span class="p">(</span>
         <span class="n">sd</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">return_paired</span><span class="o">=</span><span class="kc">False</span>
     <span class="p">)</span>
-    <span class="c1"># We here average the contribution on internal sub-faces.</span>
-    <span class="c1"># If you want to get out both displacements on a sub-face your can remove</span>
-    <span class="c1"># the averaging.</span>
+    <span class="c1"># We here average the contribution on internal sub-faces. To get out both pressures</span>
+    <span class="c1"># on a sub-face, remove the averaging.</span>
     <span class="n">_</span><span class="p">,</span> <span class="n">IC</span><span class="p">,</span> <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span>
         <span class="n">subcell_topology</span><span class="o">.</span><span class="n">subfno</span><span class="p">,</span> <span class="n">return_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span>
     <span class="p">)</span>
@@ -1773,12 +1880,13 @@
     <span class="n">D_g</span> <span class="o">=</span> <span class="n">avg_over_subfaces</span> <span class="o">*</span> <span class="n">D_g</span>
     <span class="n">D_g</span> <span class="o">=</span> <span class="n">D_g</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
 
-    <span class="c1"># Get a mapping from cell centers to half-faces</span>
+    <span class="c1"># Get a mapping from cell centers to half-faces.</span>
     <span class="n">D_c</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">(</span>
         <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">counts</span><span class="p">[</span><span class="n">IC</span><span class="p">],</span> <span class="p">(</span><span class="n">subcell_topology</span><span class="o">.</span><span class="n">subfno</span><span class="p">,</span> <span class="n">subcell_topology</span><span class="o">.</span><span class="n">cno</span><span class="p">))</span>
     <span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
 
     <span class="k">return</span> <span class="n">D_g</span><span class="p">,</span> <span class="n">D_c</span></div>
+
 </pre></div>
 
            </div>

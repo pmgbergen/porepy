@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.units &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/units.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/units.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.units</li>
       <li class="wy-breadcrumbs-aside">
@@ -276,34 +276,28 @@
 
 <span class="sd">This is part of a system for setting the units of measurement of a problem.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 <span class="n">number</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">number</span>
 
 
-<div class="viewcode-block" id="Units"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.units.html#porepy.models.units.Units">[docs]</a><span class="k">class</span> <span class="nc">Units</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Units for material properties.</span>
+<div class="viewcode-block" id="Units">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.units.html#porepy.models.units.Units">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Units</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Units for material properties.</span>
 
 <span class="sd">    This is a sketch of a class for scaling material properties. The idea is that the</span>
 <span class="sd">    material properties should be stored in SI units, but that the user may want to</span>
 <span class="sd">    specify them in other units. These are defined in init.</span>
-
-<span class="sd">    Example:</span>
-<span class="sd">        Running a simulation in km, days and  MPa is achieved by setting</span>
-
-<span class="sd">        .. code-block:: Python</span>
-
-<span class="sd">            my_material = Units(m=1e3, s=86400, Pa=1e6)</span>
 
 <span class="sd">    Base units are attributes of the class, and can be accessed as e.g.</span>
 <span class="sd">    my_material.length Derived units are properties computed from the base units, and</span>
 <span class="sd">    can be accessed as e.g. my_material.Pa. This ensures consistency between the base</span>
 <span class="sd">    and derived units while allowing reference to derived units in usage of the class.</span>
 
-<span class="sd">    TODO: Consider whether this needs to be incorporated in TimeStepManager and</span>
-<span class="sd">    ModelGeometry.</span>
+<span class="sd">    TODO: Consider whether this needs to be incorporated in TimeStepManager.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        **kwargs: Dictionary of units. The keys are the name of the unit, and the</span>
@@ -313,13 +307,17 @@
 
 <span class="sd">            .. code-block:: Python</span>
 
-<span class="sd">                {&#39;m&#39;: 1e3, &#39;s&#39;: 3600, &#39;mol&#39;: 1e-3}</span>
+<span class="sd">                {&#39;m&#39;: 1e3, &#39;kg&#39;: 1e-3, &#39;mol&#39;: 1e-3}</span>
 
 <span class="sd">            or, equivalently,</span>
 
 <span class="sd">            .. code-block:: Python</span>
 
-<span class="sd">                {&#39;m&#39;:pp.KILO * pp.METER, &#39;s&#39;: pp.HOUR, &#39;mol&#39;:pp.MILLI * pp.MOLE}</span>
+<span class="sd">                {</span>
+<span class="sd">                    &#39;m&#39;:pp.KILO * pp.METER,</span>
+<span class="sd">                    &#39;kg&#39;: pp.MILLI * pp.KILOGRAM,</span>
+<span class="sd">                    &#39;mol&#39;:pp.MILLI * pp.MOLE,</span>
+<span class="sd">                }</span>
 
 <span class="sd">            Permitted keys are:</span>
 <span class="sd">                - ``m``: Length unit.</span>
@@ -332,20 +330,20 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">m</span><span class="p">:</span> <span class="n">number</span>
-    <span class="sd">&quot;&quot;&quot;Length unit, defaults to 1 m.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Length unit, defaults to 1 m.&quot;&quot;&quot;</span>
     <span class="n">s</span><span class="p">:</span> <span class="n">number</span>
-    <span class="sd">&quot;&quot;&quot;Time unit, defaults to 1 s.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Time unit, defaults to 1 s.&quot;&quot;&quot;</span>
     <span class="n">kg</span><span class="p">:</span> <span class="n">number</span>
-    <span class="sd">&quot;&quot;&quot;Mass unit, defaults to 1 kg.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mass unit, defaults to 1 kg.&quot;&quot;&quot;</span>
     <span class="n">K</span><span class="p">:</span> <span class="n">number</span>
-    <span class="sd">&quot;&quot;&quot;Temperature unit, defaults to 1 K.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Temperature unit, defaults to 1 K.&quot;&quot;&quot;</span>
     <span class="n">mol</span><span class="p">:</span> <span class="n">number</span>
-    <span class="sd">&quot;&quot;&quot;Mole unit, defaults to 1 mol.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mole unit, defaults to 1 mol.&quot;&quot;&quot;</span>
     <span class="n">rad</span><span class="p">:</span> <span class="n">number</span>
-    <span class="sd">&quot;&quot;&quot;Angle unit, defaults to 1 rad.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Angle unit, defaults to 1 rad.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Initialize the units.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the units.&quot;&quot;&quot;</span>
         <span class="c1"># Sanity check on input values</span>
         <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">)):</span>
@@ -358,45 +356,46 @@
 
         <span class="c1"># Set known base units</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">m</span><span class="p">:</span> <span class="n">number</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;m&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Length unit in meters.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Length unit in meters.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">s</span><span class="p">:</span> <span class="n">number</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;s&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Time unit in seconds.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Time unit in seconds.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">s</span><span class="p">,</span> <span class="mi">1</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Non-unitary time scaling is not implemented.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">kg</span><span class="p">:</span> <span class="n">number</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;kg&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Mass unit in kilograms.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mass unit in kilograms.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">K</span><span class="p">:</span> <span class="n">number</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;K&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Temperature unit in Kelvin.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Temperature unit in Kelvin.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mol</span><span class="p">:</span> <span class="n">number</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mol&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Mole unit in moles.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mole unit in moles.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">rad</span><span class="p">:</span> <span class="n">number</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;rad&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Angle unit in radians.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Angle unit in radians.&quot;&quot;&quot;</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">Pa</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Pressure (or stress) unit, derived from kg, m and s.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">Pa</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pressure (or stress) unit, derived from kg, m and s.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">kg</span> <span class="o">/</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">m</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">s</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">J</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Energy unit, derived from m, kg and s.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">J</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Energy unit, derived from m, kg and s.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">kg</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">m</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">s</span><span class="o">**</span><span class="mi">2</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">N</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Force unit, derived from m, kg and s.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">N</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Force unit, derived from m, kg and s.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">kg</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">m</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">s</span><span class="o">**</span><span class="mi">2</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">W</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Power unit, derived from m, kg and s.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">W</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Power unit, derived from m, kg and s.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">kg</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">m</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">s</span><span class="o">**</span><span class="mi">3</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">degree</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Angle unit, derived from rad.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">degree</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Angle unit, derived from rad.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">rad</span> <span class="o">*</span> <span class="mi">180</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span></div>
+
 </pre></div>
 
            </div>

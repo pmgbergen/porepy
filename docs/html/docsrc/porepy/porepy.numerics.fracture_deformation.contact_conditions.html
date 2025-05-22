@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.fracture_deformation.contact_conditions module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.fracture_deformation.html">porepy.numerics.fracture_deformation package</a></li>
@@ -276,7 +276,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.fracture_deformation.contact_conditions">
-<span id="porepy-numerics-fracture-deformation-contact-conditions-module"></span><h1>porepy.numerics.fracture_deformation.contact_conditions module<a class="headerlink" href="#module-porepy.numerics.fracture_deformation.contact_conditions" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-fracture-deformation-contact-conditions-module"></span><h1>porepy.numerics.fracture_deformation.contact_conditions module<a class="headerlink" href="#module-porepy.numerics.fracture_deformation.contact_conditions" title="Link to this heading"></a></h1>
 <p>For details on the conditions discretized herein, see</p>
 <p>Berge et al., 2019: Finite volume discretization for poroelastic media with fractures
 modeled by contact mechanics.</p>
@@ -310,29 +310,29 @@ For the case u_t = 0, we extend the Jacobian to 0, i.e.</p>
 </div></blockquote>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ColoumbContact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ambient_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_h</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ColoumbContact"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ColoumbContact</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ambient_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_h</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ColoumbContact"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw" title="porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractInterfaceLaw</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>ambient_dimension</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>ambient_dimension</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ColoumbContact.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ColoumbContact.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_intf</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_intf</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -340,7 +340,7 @@ For the case u_t = 0, we extend the Jacobian to 0, i.e.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_edge</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ColoumbContact.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.discretize" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_edge</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ColoumbContact.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.discretize" title="Link to this definition"></a></dt>
 <dd><p>Discretize the contact conditions using a semi-smooth Newton
 approach.</p>
 <p>The function relates the contact forces, represented on the
@@ -384,17 +384,17 @@ cell, then the normal component, then tangential of the second cell
 etc.</p>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_edge</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_edge</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -402,10 +402,10 @@ etc.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.ndof">
-<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ColoumbContact.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.ndof" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ColoumbContact.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.ndof" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -414,7 +414,7 @@ etc.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.fracture_deformation.contact_conditions.ContactTraction">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ContactTraction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ambient_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_h</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ContactTraction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ContactTraction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ambient_dimension</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">discr_h</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ContactTraction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.interface_laws.abstract_interface_law.html#porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw" title="porepy.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractInterfaceLaw</span></code></a></p>
 <p>Discretization class for obtaining contact traction from contact force.</p>
 <p>Contact force is the primary variable used in the Model classes. However,
@@ -423,16 +423,16 @@ The traction is scaled with the inverse of a characteristic elastic
 modulus for stable comparison with displacement jumps in the contact
 equations.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>ambient_dimension</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>ambient_dimension</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_interface</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ContactTraction.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_interface</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ContactTraction.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Abstract method required by base class.</p>
 <div class="admonition-todo admonition" id="id1">
 <p class="admonition-title">Todo</p>
@@ -440,7 +440,7 @@ equations.</p>
 to AD</p>
 </div>
 <section id="parameters">
-<h2>Parameters<a class="headerlink" href="#parameters" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#parameters" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>sd_primary<span class="classifier">pp.Grid</span></dt><dd><p>Higher-dimensional grid.</p>
 </dd>
@@ -457,25 +457,25 @@ to AD</p>
 </dl>
 </section>
 <section id="raises">
-<h2>Raises<a class="headerlink" href="#raises" title="Permalink to this heading"></a></h2>
+<h2>Raises<a class="headerlink" href="#raises" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>NotImplementedError</dt><dd><p>The class is not intended for use without the ad framework.</p>
 </dd>
 </dl>
 </section>
 <section id="returns">
-<h2>Returns<a class="headerlink" href="#returns" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h2>
 <p>None.</p>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_interface</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_interface</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -483,12 +483,12 @@ to AD</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_interface</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ContactTraction.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.discretize" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data_interface</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ContactTraction.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.discretize" title="Link to this definition"></a></dt>
 <dd><p>Discretize the conversion from contact force to contact traction.</p>
 <p>The diagonal discretization matrix is stored in the self.keyword
 discretization matrix dictionary under the name self.traction_scaling_matrix_key</p>
 <section id="id2">
-<h2>Parameters<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>sd_primary<span class="classifier">pp.Grid</span></dt><dd><p>Grid of the matrix subdomain.</p>
 </dd>
@@ -503,24 +503,24 @@ discretization matrix dictionary under the name self.traction_scaling_matrix_key
 </dl>
 </section>
 <section id="id3">
-<h2>Returns<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>None</dt><dd><p>DESCRIPTION.</p>
 </dd>
 </dl>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>data_interface</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>data_interface</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -528,10 +528,10 @@ discretization matrix dictionary under the name self.traction_scaling_matrix_key
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.ndof">
-<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ContactTraction.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.ndof" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#ContactTraction.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.ndof" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -540,7 +540,7 @@ discretization matrix dictionary under the name self.traction_scaling_matrix_key
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fracture_deformation.contact_conditions.set_projections">
-<span class="sig-name descname"><span class="pre">set_projections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#set_projections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.set_projections" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_projections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fracture_deformation/contact_conditions.html#set_projections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fracture_deformation.contact_conditions.set_projections" title="Link to this definition"></a></dt>
 <dd><p>Define a local coordinate system, and projection matrices, for all
 grids of co-dimension 1.</p>
 <p>The function adds one item to the data dictionary of all MixedDimensionalGrid edges
@@ -555,13 +555,13 @@ that neighbors a co-dimension 1 grid, defined as:</p>
 as we do not plan to do contact mechanics on these objects.</p>
 <p>It is assumed that the surface is planar.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – </p></li>
-<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>porepy.grids.mortar_grid.MortarGrid</em></a><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>)</p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>] </em><em>| </em><em>None</em>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>

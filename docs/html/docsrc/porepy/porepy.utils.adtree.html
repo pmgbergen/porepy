@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.utils.adtree module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.adtree.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.adtree.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.utils.html">porepy.utils package</a></li>
       <li class="breadcrumb-item active">porepy.utils.adtree module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.utils.adtree">
-<span id="porepy-utils-adtree-module"></span><h1>porepy.utils.adtree module<a class="headerlink" href="#module-porepy.utils.adtree" title="Permalink to this heading"></a></h1>
+<span id="porepy-utils-adtree-module"></span><h1>porepy.utils.adtree module<a class="headerlink" href="#module-porepy.utils.adtree" title="Link to this heading"></a></h1>
 <p>Module containing the implementation of an alternating digital tree (ADT)
 for 3D geometric searching and intersection problems.</p>
 <p>See the following works: 10.1002/nme.1620310102 and 10.1201/9781420050349 section 14.</p>
@@ -332,23 +332,23 @@ To avoid floating point problems, all the “points” are rescaled in [0, 1].</
 intersect the given one.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTNode">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ADTNode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/adtree.html#ADTNode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.adtree.ADTNode" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ADTNode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">box</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/adtree.html#ADTNode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.adtree.ADTNode" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Simple bookkeeping class that contains the basic information of a tree node.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>key</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a>) – </p></li>
-<li><p><strong>box</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
+<li><p><strong>key</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><em>Any</em></a>)</p></li>
+<li><p><strong>box</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTNode.key">
-<span class="sig-name descname"><span class="pre">key</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTNode.key" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">key</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTNode.key" title="Link to this definition"></a></dt>
 <dd><p>any key related to the node</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Any</span></code></p>
 </dd>
 </dl>
@@ -356,10 +356,10 @@ intersect the given one.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTNode.box">
-<span class="sig-name descname"><span class="pre">box</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTNode.box" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">box</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTNode.box" title="Link to this definition"></a></dt>
 <dd><p>the bounding box associated to the node</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code></p>
 </dd>
 </dl>
@@ -367,24 +367,24 @@ intersect the given one.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTNode.child">
-<span class="sig-name descname"><span class="pre">child</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTNode.child" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">child</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTNode.child" title="Link to this definition"></a></dt>
 <dd><p>list of identification of right and left children, if a children is not
 present is marked as -1.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTNode.parent">
-<span class="sig-name descname"><span class="pre">parent</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTNode.parent" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">parent</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTNode.parent" title="Link to this definition"></a></dt>
 <dd><p>identification of the parent node, marked -1 if not present (the root
 of a tree)</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -393,110 +393,110 @@ of a tree)</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ADTree</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tree_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phys_dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/adtree.html#ADTree"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.adtree.ADTree" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ADTree</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tree_dim</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">phys_dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/adtree.html#ADTree"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.adtree.ADTree" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>ADT structure, it is possible to fill the tree by giving a PorePy grid and then search for
 possible intersections. The implementation does not include some features, like removing a
 node, that are not used so far. Possible extensions in the future.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>tree_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
-<li><p><strong>phys_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>tree_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
+<li><p><strong>phys_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree.tree_dim">
-<span class="sig-name descname"><span class="pre">tree_dim</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.tree_dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tree_dim</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.tree_dim" title="Link to this definition"></a></dt>
 <dd><p>search dimension of the tree, typically (e.g., when a pp.Grid is
 given) the double of the phys_dim</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree.phys_dim">
-<span class="sig-name descname"><span class="pre">phys_dim</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.phys_dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">phys_dim</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.phys_dim" title="Link to this definition"></a></dt>
 <dd><p>physical dimension of nodes in the tree, e.g., a 2d grid will have
 phys_dim = 2</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree.nodes">
-<span class="sig-name descname"><span class="pre">nodes</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">nodes</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.nodes" title="Link to this definition"></a></dt>
 <dd><p>the list of nodes as ADTNode</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree.region_min">
-<span class="sig-name descname"><span class="pre">region_min</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.region_min" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">region_min</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.region_min" title="Link to this definition"></a></dt>
 <dd><p>to scale the bounding box of all the elements in [0, 1]^phys_dim
 we need the minimum corner point of the all region</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree.delta">
-<span class="sig-name descname"><span class="pre">delta</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.delta" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">delta</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.delta" title="Link to this definition"></a></dt>
 <dd><p>a parameter to scale and get all the bounding box of the elements in
 [0, 1]^phys_dim</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree.LEFT">
-<span class="sig-name descname"><span class="pre">LEFT</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.LEFT" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">LEFT</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.LEFT" title="Link to this definition"></a></dt>
 <dd><p>define the index of the left child, being equal to 0</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree.RIGHT">
-<span class="sig-name descname"><span class="pre">RIGHT</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.RIGHT" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">RIGHT</span></span><a class="headerlink" href="#porepy.utils.adtree.ADTree.RIGHT" title="Link to this definition"></a></dt>
 <dd><p>define the index of the right child, being equal to 1</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree.add_node">
-<span class="sig-name descname"><span class="pre">add_node</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/adtree.html#ADTree.add_node"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.adtree.ADTree.add_node" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_node</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/adtree.html#ADTree.add_node"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.adtree.ADTree.add_node" title="Link to this definition"></a></dt>
 <dd><p>Add a new node to the tree. We traverse the tree as previously specified and
 assign the new node accordingly.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>node</strong> (<a class="reference internal" href="#porepy.utils.adtree.ADTNode" title="porepy.utils.adtree.ADTNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">ADTNode</span></code></a>) – the new node to be added.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -504,17 +504,17 @@ assign the new node accordingly.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree.from_grid">
-<span class="sig-name descname"><span class="pre">from_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">only_cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/adtree.html#ADTree.from_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.adtree.ADTree.from_grid" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">from_grid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">only_cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/adtree.html#ADTree.from_grid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.adtree.ADTree.from_grid" title="Link to this definition"></a></dt>
 <dd><p>Function that constructs the tree from a grid by adding one cell at a time.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – The grid to be used to construct the tree</p></li>
-<li><p><strong>only_cells</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">optional</span></code>) – Consider only a portion of the cells
+<li><p><strong>only_cells</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <em>optional</em>) – Consider only a portion of the cells
 due to some a-priori estimates of the searching elements.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -522,20 +522,20 @@ due to some a-priori estimates of the searching elements.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.adtree.ADTree.search">
-<span class="sig-name descname"><span class="pre">search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0e-6</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/adtree.html#ADTree.search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.adtree.ADTree.search" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">search</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">node</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2.0e-6</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/adtree.html#ADTree.search"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.adtree.ADTree.search" title="Link to this definition"></a></dt>
 <dd><p>Search all possible nodes in the tree that might intersect with the input node.
 The node is not added to the tree.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>node</strong> (<a class="reference internal" href="#porepy.utils.adtree.ADTNode" title="porepy.utils.adtree.ADTNode"><code class="xref py py-class docutils literal notranslate"><span class="pre">ADTNode</span></code></a>) – Input node</p></li>
-<li><p><strong>tol</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float,</span> <span class="pre">optional</span></code>) – Geometrical tolerance to avoid floating point problems</p></li>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>, <em>optional</em>) – Geometrical tolerance to avoid floating point problems</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Sorted, by id, list of nodes id that might intersect the node</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>nodes (np.ndarray)</p>
 </dd>
 </dl>
@@ -543,12 +543,12 @@ The node is not added to the tree.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id0">
-<span class="sig-name descname"><span class="pre">LEFT</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#id0" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">LEFT</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#id0" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id1">
-<span class="sig-name descname"><span class="pre">RIGHT</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#id1" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">RIGHT</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#id1" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>

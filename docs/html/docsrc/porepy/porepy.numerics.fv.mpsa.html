@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.fv.mpsa module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.fv.mpsa.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.fv.mpsa.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.fv.html">porepy.numerics.fv package</a></li>
@@ -276,7 +276,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.fv.mpsa">
-<span id="porepy-numerics-fv-mpsa-module"></span><h1>porepy.numerics.fv.mpsa module<a class="headerlink" href="#module-porepy.numerics.fv.mpsa" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-fv-mpsa-module"></span><h1>porepy.numerics.fv.mpsa module<a class="headerlink" href="#module-porepy.numerics.fv.mpsa" title="Link to this heading"></a></h1>
 <p>Implementation of the multi-point stress appoximation method.</p>
 <p>The implementation is based on the weakly symmetric version of MPSA, described in</p>
 <blockquote>
@@ -287,182 +287,170 @@
 </div></blockquote>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Mpsa</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Mpsa</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.discretization.html#porepy.numerics.discretization.Discretization" title="porepy.numerics.discretization.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <p>Implementation of the Multi-point stress approximation.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.keyword">
-<span class="sig-name descname"><span class="pre">keyword</span></span><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.keyword" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">keyword</span></span><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.keyword" title="Link to this definition"></a></dt>
 <dd><p>Keyword used to identify the parameter dictionary.
 Defaults to “mechanics”.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.stress_matrix_key">
-<span class="sig-name descname"><span class="pre">stress_matrix_key</span></span><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.stress_matrix_key" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">stress_matrix_key</span></span><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.stress_matrix_key" title="Link to this definition"></a></dt>
 <dd><p>Keyword used to identify the discretization matrix for
 the stress. Defaults to “stress”.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.bound_stress_matrix_key">
-<span class="sig-name descname"><span class="pre">bound_stress_matrix_key</span></span><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.bound_stress_matrix_key" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">bound_stress_matrix_key</span></span><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.bound_stress_matrix_key" title="Link to this definition"></a></dt>
 <dd><p>Keyword used to identify the discretization
 matrix for the boundary conditions for stress. Defaults to “bound_stress”.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.bound_displacement_cell_matrix_key">
-<span class="sig-name descname"><span class="pre">bound_displacement_cell_matrix_key</span></span><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.bound_displacement_cell_matrix_key" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">bound_displacement_cell_matrix_key</span></span><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.bound_displacement_cell_matrix_key" title="Link to this definition"></a></dt>
 <dd><p>Keyword used to identify the
 discretization matrix for the cell center displacement contribution to
 boundary displacement reconstrution. Defaults to “bound_displacement_cell”.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.bound_displacement_face_matrix_key">
-<span class="sig-name descname"><span class="pre">bound_displacement_face_matrix_key</span></span><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.bound_displacement_face_matrix_key" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">bound_displacement_face_matrix_key</span></span><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.bound_displacement_face_matrix_key" title="Link to this definition"></a></dt>
 <dd><p>Keyword used to identify the
 discretization matrix for the boundary conditions’ contribution to
 boundary displacement reconstrution. Defaults to “bound_displacement_face”.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.assemble_matrix">
-<span class="sig-name descname"><span class="pre">assemble_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.assemble_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.assemble_matrix" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.assemble_matrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.assemble_matrix" title="Link to this definition"></a></dt>
 <dd><p>Return the matrix for a discretization of a second order elliptic vector
 equation using a FV method.</p>
-<p>The name of data in the input dictionary (data) are:
-fourth_order_tensor: FourthOrderTensor stiffness tensor defined cell-wise.
-bc: boundary conditions, pp.BoundaryConditionVectorial.
-bc_values: (sd.dim * sd.num_faces) Values of the boundary conditions.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code>) – Computational grid, with geometry fields computed.</p></li>
-<li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – With data stored.</p></li>
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>g</strong> – Grid to be discretized.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – dictionary to store the data. For details on necessary keywords,
+see <code class="docutils literal notranslate"><span class="pre">:meth:discretize</span></code>.</p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>System matrix of this discretization. The</dt><dd><p>size of the matrix will depend on the specific discretization.</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
-</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)">scipy.sparse.csr_matrix</a></p>
+<dl>
+<dt>Returns</dt><dd><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">spmatrix</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(sd.dim</span> <span class="pre">*</span> <span class="pre">g_num_cells,</span> <span class="pre">sd.dim</span> <span class="pre">*</span> <span class="pre">g_num_cells)</span></code></p>
+<blockquote>
+<div><p>Discretization matrix.</p>
+</div></blockquote>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Return the matrix and right-hand side for a discretization of a second
 order elliptic equation using a FV method with a multi-point stress
 approximation.</p>
-<section id="parameters">
-<h2>Parameters<a class="headerlink" href="#parameters" title="Permalink to this heading"></a></h2>
-<p>g : grid, or a subclass, with geometry fields computed.
-data: dictionary to store the data. For details on necessary keywords,</p>
-<blockquote>
-<div><p>see method discretize()</p>
-</div></blockquote>
-<dl class="simple">
-<dt>discretize (boolean, optional): default True. Whether to discetize</dt><dd><p>prior to matrix assembly. If False, data should already contain
-discretization.</p>
-</dd>
-</dl>
-</section>
-<section id="return">
-<h2>Return<a class="headerlink" href="#return" title="Permalink to this heading"></a></h2>
-<dl class="simple">
-<dt>matrix: sparse csr (sd.dim * g_num_cells, sd.dim * g_num_cells)</dt><dd><p>Discretization matrix.</p>
-</dd>
-<dt>rhs: array (sd.dim * g_num_cells)</dt><dd><p>Right-hand side which contains the boundary conditions and the vector
-source term.</p>
-</dd>
-</dl>
-</section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>g</strong> – Grid to be discretized.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – dictionary to store the data. For details on necessary keywords,
+see <code class="docutils literal notranslate"><span class="pre">:meth:discretize</span></code>.</p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)">scipy.sparse._base.spmatrix</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl>
+<dt><a href="#id1"><span class="problematic" id="id2">``</span></a>(sd.dim * g_num_cells,</dt><dd><blockquote>
+<div><p>sd.dim * g_num_cells)``</p>
+</div></blockquote>
+<p>Discretization matrix.</p>
+</dd>
+</dl>
+<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code>: <code class="docutils literal notranslate"><span class="pre">(sd.dim</span> <span class="pre">*</span> <span class="pre">g_num_cells)</span></code></p>
+<blockquote>
+<div><p>Right-hand side which contains the boundary conditions and the vector
+source term.</p>
+</div></blockquote>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">spmatrix</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.assemble_rhs">
-<span class="sig-name descname"><span class="pre">assemble_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.assemble_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.assemble_rhs" title="Permalink to this definition"></a></dt>
-<dd><p>Return the right-hand side for a discretization of a second
-order elliptic equation using a finite volume method.</p>
-<p>Also discretize the necessary operators if the data dictionary does not
-contain a discretization of the boundary equation.</p>
+<span class="sig-name descname"><span class="pre">assemble_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.assemble_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.assemble_rhs" title="Link to this definition"></a></dt>
+<dd><p>Return the right-hand side for a discretization of a second order elliptic
+equation using a finite volume method.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code>) – Computational grid, with geometry fields computed.</p></li>
-<li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – With data stored.</p></li>
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>g</strong> – Grid to be discretized.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – dictionary to store the data. For details on necessary keywords,
+see <code class="docutils literal notranslate"><span class="pre">:meth:discretize</span></code>.</p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>Right hand side vector with representation of boundary</dt><dd><p>conditions. The size of the vector will depend on the
-discretization.</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
-</p>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>np.ndarray</p>
+<dl>
+<dt>Returns</dt><dd><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code>: <code class="docutils literal notranslate"><span class="pre">(sd.dim</span> <span class="pre">*</span> <span class="pre">g_num_cells)</span></code></p>
+<p>Right-hand side which contains the boundary conditions and the vector
+source term.</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.discretize" title="Permalink to this definition"></a></dt>
-<dd><p>Discretize the second order vector elliptic equation using multi-point
-stress approximation.</p>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.discretize" title="Link to this definition"></a></dt>
+<dd><p>Discretize the second order vector elliptic equation using multi-point stress
+approximation.</p>
 <p>The method computes traction over faces in terms of cell center displacements.</p>
 <p>It is possible to do a partial discretization via parameters specified_cells,
 _nodes and _faces. This is considered an advanced, and only partly tested
@@ -471,56 +459,78 @@ option.</p>
 dictionary:</p>
 <blockquote>
 <div><dl class="simple">
-<dt>parameter_dictionary, storing all parameters.</dt><dd><p>Stored in data[pp.PARAMETERS][self.keyword].</p>
+<dt>parameter_dictionary, storing all parameters.</dt><dd><p>Stored in <code class="docutils literal notranslate"><span class="pre">data[pp.PARAMETERS][self.keyword]</span></code>.</p>
 </dd>
-<dt>matrix_dictionary, for storage of discretization matrices.</dt><dd><p>Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]</p>
+<dt>matrix_dictionary, for storage of discretization matrices.</dt><dd><p>Stored in <code class="docutils literal notranslate"><span class="pre">data[pp.DISCRETIZATION_MATRICES][self.keyword]</span></code></p>
 </dd>
 </dl>
 </div></blockquote>
 <dl>
-<dt>parameter_dictionary contains the entries:</dt><dd><p>fourth_order_tensor: (pp.FourthOrderTensor) Stiffness tensor defined cell-wise.
-bc: (BoundaryConditionVectorial) boundary conditions
-mpsa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of</p>
-<blockquote>
-<div><p>displacement continuity point: eta. eta = 0 gives cont. pt. at face midpoint,
-eta = 1 at the vertex. If not given, porepy tries to set an optimal
-value. If a float is given this value is set to all subfaces, except the
-boundary (where, 0 is used). If eta is a np.ndarray its size should
-equal SubcellTopology(sd).num_subfno.</p>
-</div></blockquote>
+<dt>parameter_dictionary contains the entries:</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>fourth_order_tensor: <code class="docutils literal notranslate"><span class="pre">class:~porepy.params.tensor.FourthOrderTensor</span></code></dt><dd><p>Stiffness tensor defined cell-wise.</p>
 </dd>
-<dt>matrix_dictionary will be updated with the following entries:</dt><dd><dl>
-<dt>stress: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_cells)</dt><dd><p>stress discretization, cell center contribution</p>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>bc: <code class="docutils literal notranslate"><span class="pre">class:~porepy.params.bc.BoundaryConditionVectorial</span></code></dt><dd><p>Boundary conditions</p>
 </dd>
-<dt>bound_flux: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim * sd.num_faces)</dt><dd><p>stress discretization, face contribution</p>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>mpsa_eta: <code class="docutils literal notranslate"><span class="pre">float</span></code> Optional. Range [0, 1). Location of displacement</dt><dd><p>continuity point: eta. <code class="docutils literal notranslate"><span class="pre">eta</span> <span class="pre">=</span> <span class="pre">0</span></code> gives cont. pt. at face midpoint,
+<code class="docutils literal notranslate"><span class="pre">eta</span> <span class="pre">=</span> <span class="pre">1</span></code> at the vertex. If not given, PorePy tries to set an optimal
+value. This value is set to all subfaces, except the boundary (where,
+0 is used).</p>
 </dd>
-<dt>bound_displacement_cell: sps.csc_matrix (sd.dim * sd.num_faces,</dt><dd><blockquote>
-<div><p>sd.dim * sd.num_cells)</p>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>inverter (<code class="docutils literal notranslate"><span class="pre">str</span></code>): Optional. Inverter to apply for local problems.</dt><dd><p>Can take values ‘numba’ (default), or ‘python’.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+<dt>matrix_dictionary will be updated with the following entries:</dt><dd><ul>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">stress:</span> <span class="pre">sps.csc_matrix</span> <span class="pre">(sd.dim</span> <span class="pre">*</span> <span class="pre">sd.num_faces,</span> <span class="pre">sd.dim</span> <span class="pre">*</span> <span class="pre">sd.num_cells)</span></code></dt><dd><p>stress discretization, cell center contribution</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><a href="#id3"><span class="problematic" id="id4">``</span></a>bound_flux: sps.csc_matrix (sd.dim * sd.num_faces, sd.dim *</dt><dd><p>sd.num_faces)`` stress discretization, face contribution</p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt><a href="#id5"><span class="problematic" id="id6">``</span></a>bound_displacement_cell: sps.csc_matrix (sd.dim * sd.num_faces,</dt><dd><blockquote>
+<div><p>sd.dim * sd.num_cells)``</p>
 </div></blockquote>
 <p>Operator for reconstructing the displacement trace. Cell center
 contribution.</p>
 </dd>
-<dt>bound_displacement_face: sps.csc_matrix (sd.dim * sd.num_faces,</dt><dd><blockquote>
-<div><p>sd.dim * sd.num_faces)</p>
+</dl>
+</li>
+<li><dl>
+<dt><a href="#id7"><span class="problematic" id="id8">``</span></a>bound_displacement_face: sps.csc_matrix (sd.dim * sd.num_faces,</dt><dd><blockquote>
+<div><p>sd.dim * sd.num_faces)``</p>
 </div></blockquote>
 <p>Operator for reconstructing the displacement trace. Face contribution.</p>
 </dd>
 </dl>
-</dd>
-</dl>
-<section id="id1">
-<h2>Parameters<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h2>
-<p>sd (pp.Grid): grid, or a subclass, with geometry fields computed.
-data (dict): For entries, see above.</p>
-</section>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+</li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – grid, or a subclass, with geometry fields computed.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – For entries, see above.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -528,26 +538,26 @@ data (dict): For entries, see above.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.extract_displacement">
-<span class="sig-name descname"><span class="pre">extract_displacement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.extract_displacement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.extract_displacement" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">extract_displacement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.extract_displacement"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.extract_displacement" title="Link to this definition"></a></dt>
 <dd><p>Extract the displacement part of a solution.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">grid</span></code>) – To which the solution array belongs.</p></li>
 <li><p><strong>solution_array</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>) – Solution for this grid.</p></li>
 <li><p><strong>d</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary associated with the grid. Not used,
 but included for consistency reasons.</p></li>
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Displacement solution vector. Will be identical</dt><dd><p>to solution_array.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.array (sd.num_cells)</p>
 </dd>
 </dl>
@@ -555,23 +565,23 @@ but included for consistency reasons.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.extract_stress">
-<span class="sig-name descname"><span class="pre">extract_stress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.extract_stress"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.extract_stress" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">extract_stress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">solution_array</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">d</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.extract_stress"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.extract_stress" title="Link to this definition"></a></dt>
 <dd><p>Extract the stress corresponding to a solution</p>
 <p>The stress is composed of contributions from the solution variable and the
 boundary conditions.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">grid</span></code>) – To which the solution array belongs.</p></li>
 <li><p><strong>solution_array</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>) – Solution for this grid.</p></li>
 <li><p><strong>d</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary associated with the grid.</p></li>
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Vector of stresses on the grid faces.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.array (sd.num_cells)</p>
 </dd>
 </dl>
@@ -579,30 +589,30 @@ boundary conditions.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.ndof">
-<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.ndof" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.ndof" title="Link to this definition"></a></dt>
 <dd><p>Return the number of degrees of freedom associated to the method.
 In this case number of cells times dimension (stress dof).</p>
 <section id="parameter">
-<h2>Parameter<a class="headerlink" href="#parameter" title="Permalink to this heading"></a></h2>
+<h2>Parameter<a class="headerlink" href="#parameter" title="Link to this heading"></a></h2>
 <p>sd: grid, or a subclass.</p>
 </section>
-<section id="id2">
-<h2>Return<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h2>
+<section id="return">
+<h2>Return<a class="headerlink" href="#return" title="Link to this heading"></a></h2>
 <p>dof: the number of degrees of freedom.</p>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpsa.Mpsa.update_discretization">
-<span class="sig-name descname"><span class="pre">update_discretization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.update_discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.update_discretization" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">update_discretization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpsa.html#Mpsa.update_discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpsa.Mpsa.update_discretization" title="Link to this definition"></a></dt>
 <dd><p>Update discretization.</p>
 <dl class="simple">
 <dt>The updates can generally come as a combination of two forms:</dt><dd><ol class="arabic simple">
@@ -637,14 +647,14 @@ how to update the numbering of degrees of freedom. If the discretization
 method does not provide a tailored implementation for update, it is not
 necessary to provide this information.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Grid to be rediscretized.</p></li>
-<li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – With discretization parameters.</p></li>
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>g</strong> – Grid to be rediscretized.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – With discretization parameters.</p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>

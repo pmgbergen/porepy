@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.material_constants &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/material_constants.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/material_constants.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.material_constants</li>
       <li class="wy-breadcrumbs-aside">
@@ -282,17 +282,19 @@
 <span class="sd">problems with scaling/rounding errors and condition numbers.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 <span class="n">number</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">number</span>
 
 
-<div class="viewcode-block" id="MaterialConstants"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.MaterialConstants">[docs]</a><span class="k">class</span> <span class="nc">MaterialConstants</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Material property container and conversion class.</span>
+<div class="viewcode-block" id="MaterialConstants">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.MaterialConstants">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MaterialConstants</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Material property container and conversion class.</span>
 
 <span class="sd">    Modifications to parameter values should be done by subclassing. To set a different</span>
 <span class="sd">    constant value, simply define a new class attribute with the same name. If a</span>
@@ -301,16 +303,16 @@
 <span class="sd">    be most relevant for solids.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constants</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constants</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># Default units are SI</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_units</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Units</span>
 
-        <span class="sd">&quot;&quot;&quot;Units of the material.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Units of the material.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_constants</span> <span class="o">=</span> <span class="n">constants</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">units</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Units</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Units of the material.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">units</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Units</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Units of the material.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Units object.</span>
@@ -318,8 +320,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_units</span>
 
-<div class="viewcode-block" id="MaterialConstants.set_units"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.MaterialConstants.set_units">[docs]</a>    <span class="k">def</span> <span class="nf">set_units</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">units</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Units</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set units of the material.</span>
+<div class="viewcode-block" id="MaterialConstants.set_units">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.MaterialConstants.set_units">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_units</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">units</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Units</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set units of the material.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            units: Units object.</span>
@@ -328,9 +332,10 @@
         <span class="c1"># TODO: Should we use a @property setter here?</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_units</span> <span class="o">=</span> <span class="n">units</span></div>
 
+
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">constants</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Constants of the material.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">constants</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Constants of the material.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Dictionary of constants.</span>
@@ -338,10 +343,12 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_constants</span>
 
-<div class="viewcode-block" id="MaterialConstants.convert_units"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.MaterialConstants.convert_units">[docs]</a>    <span class="k">def</span> <span class="nf">convert_units</span><span class="p">(</span>
+<div class="viewcode-block" id="MaterialConstants.convert_units">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.MaterialConstants.convert_units">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">convert_units</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">number</span><span class="p">,</span> <span class="n">units</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_si</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Convert value between SI and user specified units.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert value between SI and user specified units.</span>
 
 <span class="sd">        The method divides the value by the units as defined by the user. As an example,</span>
 <span class="sd">        if the user has defined the unit for pressure to be 1 MPa, then a value of  1e8</span>
@@ -385,11 +392,15 @@
                 <span class="n">value</span> <span class="o">*=</span> <span class="n">factor</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="n">value</span> <span class="o">/=</span> <span class="n">factor</span>
-        <span class="k">return</span> <span class="n">value</span></div></div>
+        <span class="k">return</span> <span class="n">value</span></div>
+</div>
 
 
-<div class="viewcode-block" id="FluidConstants"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants">[docs]</a><span class="k">class</span> <span class="nc">FluidConstants</span><span class="p">(</span><span class="n">MaterialConstants</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FluidConstants">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FluidConstants</span><span class="p">(</span><span class="n">MaterialConstants</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Class giving scaled values of fluid parameters.</span>
 
 <span class="sd">    Each constant (class attribute) typically corresponds to exactly one method which</span>
@@ -413,7 +424,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constants</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">number</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constants</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">number</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="c1"># Default values, sorted alphabetically</span>
         <span class="n">default_constants</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">number</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;compressibility&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
@@ -430,8 +441,10 @@
             <span class="n">default_constants</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">constants</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">default_constants</span><span class="p">)</span>
 
-<div class="viewcode-block" id="FluidConstants.compressibility"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.compressibility">[docs]</a>    <span class="k">def</span> <span class="nf">compressibility</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compressibility [1/Pa].</span>
+<div class="viewcode-block" id="FluidConstants.compressibility">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.compressibility">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compressibility</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compressibility [1/Pa].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Compressibility array in converted pressure units.</span>
@@ -439,8 +452,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;compressibility&quot;</span><span class="p">],</span> <span class="s2">&quot;Pa^-1&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FluidConstants.density"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.density">[docs]</a>    <span class="k">def</span> <span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Density [kg/m^3].</span>
+
+<div class="viewcode-block" id="FluidConstants.density">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.density">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Density [kg/m^3].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Density in converted mass and length units.</span>
@@ -448,8 +464,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;density&quot;</span><span class="p">],</span> <span class="s2">&quot;kg * m^-3&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FluidConstants.normal_thermal_conductivity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.normal_thermal_conductivity">[docs]</a>    <span class="k">def</span> <span class="nf">normal_thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Normal thermal conductivity [W/m/K].</span>
+
+<div class="viewcode-block" id="FluidConstants.normal_thermal_conductivity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.normal_thermal_conductivity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">normal_thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Normal thermal conductivity [W/m/K].</span>
 
 <span class="sd">        Resides in fluid, not solid, because of the assumption of open fractures.</span>
 
@@ -462,8 +481,11 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;normal_thermal_conductivity&quot;</span><span class="p">],</span> <span class="s2">&quot;W * m^-1 * K^-1&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="FluidConstants.pressure"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.pressure">[docs]</a>    <span class="k">def</span> <span class="nf">pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Pressure [Pa].</span>
+
+<div class="viewcode-block" id="FluidConstants.pressure">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.pressure">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">pressure</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Pressure [Pa].</span>
 
 <span class="sd">        Intended usage: Reference pressure.</span>
 
@@ -473,8 +495,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;pressure&quot;</span><span class="p">],</span> <span class="s2">&quot;Pa&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FluidConstants.specific_heat_capacity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.specific_heat_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Specific heat [J/kg/K].</span>
+
+<div class="viewcode-block" id="FluidConstants.specific_heat_capacity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.specific_heat_capacity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Specific heat [J/kg/K].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Specific heat in converted mass, temperature and time units.</span>
@@ -484,8 +509,11 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;specific_heat_capacity&quot;</span><span class="p">],</span> <span class="s2">&quot;J * kg^-1 * K^-1&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="FluidConstants.temperature"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.temperature">[docs]</a>    <span class="k">def</span> <span class="nf">temperature</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Temperature [K].</span>
+
+<div class="viewcode-block" id="FluidConstants.temperature">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.temperature">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">temperature</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Temperature [K].</span>
 
 <span class="sd">        Intended usage: Reference temperature.</span>
 
@@ -495,8 +523,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;temperature&quot;</span><span class="p">],</span> <span class="s2">&quot;K&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FluidConstants.thermal_conductivity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.thermal_conductivity">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Thermal conductivity [W/m/K].</span>
+
+<div class="viewcode-block" id="FluidConstants.thermal_conductivity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.thermal_conductivity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Thermal conductivity [W/m/K].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Thermal conductivity in converted mass, length and temperature units.</span>
@@ -506,8 +537,11 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;thermal_conductivity&quot;</span><span class="p">],</span> <span class="s2">&quot;W * m^-1 * K^-1&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="FluidConstants.thermal_expansion"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.thermal_expansion">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Thermal expansion coefficient [1/K].</span>
+
+<div class="viewcode-block" id="FluidConstants.thermal_expansion">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.thermal_expansion">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Thermal expansion coefficient [1/K].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Thermal expansion coefficient in converted temperature units.</span>
@@ -515,18 +549,25 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;thermal_expansion&quot;</span><span class="p">],</span> <span class="s2">&quot;K^-1&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FluidConstants.viscosity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.viscosity">[docs]</a>    <span class="k">def</span> <span class="nf">viscosity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Viscosity [Pa s].</span>
+
+<div class="viewcode-block" id="FluidConstants.viscosity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.FluidConstants.viscosity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">viscosity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Viscosity [Pa s].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Viscosity array in converted pressure and time units.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;viscosity&quot;</span><span class="p">],</span> <span class="s2">&quot;Pa*s&quot;</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;viscosity&quot;</span><span class="p">],</span> <span class="s2">&quot;Pa*s&quot;</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="SolidConstants"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants">[docs]</a><span class="k">class</span> <span class="nc">SolidConstants</span><span class="p">(</span><span class="n">MaterialConstants</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Solid material with unit values.</span>
+
+<div class="viewcode-block" id="SolidConstants">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SolidConstants</span><span class="p">(</span><span class="n">MaterialConstants</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Solid material with unit values.</span>
 
 <span class="sd">    Each constant (class attribute) typically corresponds to exactly one method which</span>
 <span class="sd">    scales the value and broadcasts to relevant size, typically number of cells in the</span>
@@ -542,13 +583,14 @@
 <span class="sd">                - ``normal_permeability``: Normal permeability [m^2].</span>
 <span class="sd">                - ``lame_lambda``: Lame parameter lambda [Pa].</span>
 <span class="sd">                - ``shear_modulus``: Shear modulus [Pa].</span>
+<span class="sd">                - ``specific_storage``: Specific storage [Pa^-1].</span>
 <span class="sd">                - ``friction_coefficient``: Friction coefficient [-].</span>
 <span class="sd">                - ``fracture_gap``: Fracture gap [m].</span>
 <span class="sd">                - ``dilation_angle``: Dilation angle [radians].</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constants</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constants</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
         <span class="c1"># Default values, sorted alphabetically</span>
         <span class="n">default_constants</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;biot_coefficient&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
@@ -563,6 +605,7 @@
             <span class="s2">&quot;residual_aperture&quot;</span><span class="p">:</span> <span class="mf">0.1</span><span class="p">,</span>
             <span class="s2">&quot;shear_modulus&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
             <span class="s2">&quot;specific_heat_capacity&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="s2">&quot;specific_storage&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
             <span class="s2">&quot;temperature&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
             <span class="s2">&quot;thermal_conductivity&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
             <span class="s2">&quot;thermal_expansion&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
@@ -572,8 +615,10 @@
             <span class="n">default_constants</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">constants</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">default_constants</span><span class="p">)</span>
 
-<div class="viewcode-block" id="SolidConstants.biot_coefficient"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.biot_coefficient">[docs]</a>    <span class="k">def</span> <span class="nf">biot_coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Biot coefficient [-].</span>
+<div class="viewcode-block" id="SolidConstants.biot_coefficient">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.biot_coefficient">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">biot_coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Biot coefficient [-].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Biot coefficient.</span>
@@ -581,8 +626,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;biot_coefficient&quot;</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="SolidConstants.density"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.density">[docs]</a>    <span class="k">def</span> <span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Density [kg/m^3].</span>
+
+<div class="viewcode-block" id="SolidConstants.density">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.density">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">density</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Density [kg/m^3].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Density in converted mass and length units.</span>
@@ -590,8 +638,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;density&quot;</span><span class="p">],</span> <span class="s2">&quot;kg * m^-3&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.thermal_expansion"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.thermal_expansion">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Thermal expansion coefficient [1/K].</span>
+
+<div class="viewcode-block" id="SolidConstants.thermal_expansion">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.thermal_expansion">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_expansion</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Thermal expansion coefficient [1/K].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Thermal expansion coefficient in converted temperature units.</span>
@@ -599,8 +650,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;thermal_expansion&quot;</span><span class="p">],</span> <span class="s2">&quot;K^-1&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.specific_heat_capacity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.specific_heat_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Specific heat [energy / (mass * temperature)].</span>
+
+<div class="viewcode-block" id="SolidConstants.specific_heat_capacity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.specific_heat_capacity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Specific heat [energy / (mass * temperature)].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Specific heat in converted energy, mass and temperature units.</span>
@@ -610,8 +664,11 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;specific_heat_capacity&quot;</span><span class="p">],</span> <span class="s2">&quot;J * kg^-1 * K^-1&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.normal_permeability"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.normal_permeability">[docs]</a>    <span class="k">def</span> <span class="nf">normal_permeability</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Normal permeability [m^2].</span>
+
+<div class="viewcode-block" id="SolidConstants.normal_permeability">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.normal_permeability">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">normal_permeability</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Normal permeability [m^2].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Normal permeability in converted length units.</span>
@@ -619,8 +676,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;normal_permeability&quot;</span><span class="p">],</span> <span class="s2">&quot;m^2&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.thermal_conductivity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.thermal_conductivity">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Thermal conductivity [W/m/K].</span>
+
+<div class="viewcode-block" id="SolidConstants.thermal_conductivity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.thermal_conductivity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Thermal conductivity [W/m/K].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Thermal conductivity in converted energy, length and temperature units.</span>
@@ -630,8 +690,11 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;thermal_conductivity&quot;</span><span class="p">],</span> <span class="s2">&quot;W * m^-1 * K^-1&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.porosity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.porosity">[docs]</a>    <span class="k">def</span> <span class="nf">porosity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Porosity [-].</span>
+
+<div class="viewcode-block" id="SolidConstants.porosity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.porosity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">porosity</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Porosity [-].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Porosity.</span>
@@ -639,8 +702,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;porosity&quot;</span><span class="p">],</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.permeability"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.permeability">[docs]</a>    <span class="k">def</span> <span class="nf">permeability</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Permeability [m^2].</span>
+
+<div class="viewcode-block" id="SolidConstants.permeability">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.permeability">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">permeability</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Permeability [m^2].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Permeability in converted length units.</span>
@@ -648,8 +714,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;permeability&quot;</span><span class="p">],</span> <span class="s2">&quot;m^2&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.residual_aperture"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.residual_aperture">[docs]</a>    <span class="k">def</span> <span class="nf">residual_aperture</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Residual aperture [m].</span>
+
+<div class="viewcode-block" id="SolidConstants.residual_aperture">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.residual_aperture">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">residual_aperture</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Residual aperture [m].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Residual aperture.</span>
@@ -657,8 +726,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;residual_aperture&quot;</span><span class="p">],</span> <span class="s2">&quot;m&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.shear_modulus"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.shear_modulus">[docs]</a>    <span class="k">def</span> <span class="nf">shear_modulus</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Young&#39;s modulus [Pa].</span>
+
+<div class="viewcode-block" id="SolidConstants.shear_modulus">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.shear_modulus">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">shear_modulus</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Young&#39;s modulus [Pa].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Shear modulus in converted pressure units.</span>
@@ -666,8 +738,23 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;shear_modulus&quot;</span><span class="p">],</span> <span class="s2">&quot;Pa&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.lame_lambda"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.lame_lambda">[docs]</a>    <span class="k">def</span> <span class="nf">lame_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Lame&#39;s first parameter [Pa].</span>
+
+<div class="viewcode-block" id="SolidConstants.specific_storage">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.specific_storage">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">specific_storage</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Specific storage [1/Pa].</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Specific storage in converted pressure units.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;specific_storage&quot;</span><span class="p">],</span> <span class="s2">&quot;Pa^-1&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SolidConstants.lame_lambda">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.lame_lambda">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">lame_lambda</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Lame&#39;s first parameter [Pa].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Lame&#39;s first parameter in converted pressure units.</span>
@@ -675,8 +762,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;lame_lambda&quot;</span><span class="p">],</span> <span class="s2">&quot;Pa&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.gap"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.gap">[docs]</a>    <span class="k">def</span> <span class="nf">gap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Fracture gap [m].</span>
+
+<div class="viewcode-block" id="SolidConstants.gap">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.gap">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">gap</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fracture gap [m].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Fracture gap in converted length units.</span>
@@ -684,8 +774,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;fracture_gap&quot;</span><span class="p">],</span> <span class="s2">&quot;m&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.friction_coefficient"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.friction_coefficient">[docs]</a>    <span class="k">def</span> <span class="nf">friction_coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Friction coefficient [-].</span>
+
+<div class="viewcode-block" id="SolidConstants.friction_coefficient">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.friction_coefficient">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">friction_coefficient</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Friction coefficient [-].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Friction coefficient.</span>
@@ -693,8 +786,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;friction_coefficient&quot;</span><span class="p">],</span> <span class="s2">&quot;-&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.dilation_angle"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.dilation_angle">[docs]</a>    <span class="k">def</span> <span class="nf">dilation_angle</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Dilation angle.</span>
+
+<div class="viewcode-block" id="SolidConstants.dilation_angle">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.dilation_angle">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">dilation_angle</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dilation angle.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Dilation angle in converted angle units.</span>
@@ -702,14 +798,19 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;dilation_angle&quot;</span><span class="p">],</span> <span class="s2">&quot;rad&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="SolidConstants.temperature"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.temperature">[docs]</a>    <span class="k">def</span> <span class="nf">temperature</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Temperature [K].</span>
+
+<div class="viewcode-block" id="SolidConstants.temperature">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.material_constants.html#porepy.models.material_constants.SolidConstants.temperature">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">temperature</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">number</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Temperature [K].</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Temperature in converted temperature units.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;temperature&quot;</span><span class="p">],</span> <span class="s2">&quot;K&quot;</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">convert_units</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="s2">&quot;temperature&quot;</span><span class="p">],</span> <span class="s2">&quot;K&quot;</span><span class="p">)</span></div>
+</div>
+
 </pre></div>
 
            </div>

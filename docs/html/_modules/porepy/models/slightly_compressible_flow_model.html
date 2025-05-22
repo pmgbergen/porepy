@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.slightly_compressible_flow_model &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/slightly_compressible_flow_model.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/slightly_compressible_flow_model.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.slightly_compressible_flow_model</li>
       <li class="wy-breadcrumbs-aside">
@@ -275,24 +275,26 @@
 <span class="sd">including a time derivative of the pressure and constant compressibility.</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">_AdVariables</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">incompressible_flow_model</span><span class="o">.</span><span class="n">_AdVariables</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">_AdVariables</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">incompressible_flow_model</span><span class="o">.</span><span class="n">_AdVariables</span><span class="p">):</span>
     <span class="n">time_step</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Scalar</span>
 
 
-<div class="viewcode-block" id="SlightlyCompressibleFlow"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html#porepy.models.slightly_compressible_flow_model.SlightlyCompressibleFlow">[docs]</a><span class="k">class</span> <span class="nc">SlightlyCompressibleFlow</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">incompressible_flow_model</span><span class="o">.</span><span class="n">IncompressibleFlow</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;This class extends the Incompressible flow model by including a</span>
+<div class="viewcode-block" id="SlightlyCompressibleFlow">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html#porepy.models.slightly_compressible_flow_model.SlightlyCompressibleFlow">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SlightlyCompressibleFlow</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">incompressible_flow_model</span><span class="o">.</span><span class="n">IncompressibleFlow</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This class extends the Incompressible flow model by including a</span>
 <span class="sd">    cumulative term expressed through pressure and a constant compressibility</span>
 <span class="sd">    coefficient. For a full documentation refer to the parent class.</span>
 
@@ -311,8 +313,8 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Parameters:</span>
 <span class="sd">            params (dict): Dictionary of parameters used to control the solution procedure.</span>
 <span class="sd">                Some frequently used entries are file and folder names for export,</span>
@@ -329,8 +331,8 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_ad</span> <span class="o">=</span> <span class="n">_AdVariables</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set default (unitary/zero) parameters for the flow problem.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set default (unitary/zero) parameters for the flow problem.</span>
 
 <span class="sd">        The parameters fields of the data dictionaries are updated for all</span>
 <span class="sd">        subdomains and interfaces (of codimension 1).</span>
@@ -342,15 +344,15 @@
                 <span class="n">sd</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">parameter_key</span><span class="p">,</span> <span class="p">{</span><span class="s2">&quot;mass_weight&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compressibility</span><span class="p">(</span><span class="n">sd</span><span class="p">)}</span>
             <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_compressibility</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Unitary compressibility.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compressibility</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Unitary compressibility.</span>
 
 <span class="sd">        Units: Pa^(-1)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">g</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_assign_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Upgrade incompressible flow equations to slightly compressible</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Upgrade incompressible flow equations to slightly compressible</span>
 <span class="sd">            by adding the accumulation term.</span>
 
 <span class="sd">        Time derivative is approximated with Implicit Euler time stepping.</span>
@@ -372,12 +374,16 @@
         <span class="c1">#  Adding accumulation term to incompressible flow equations</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">equations</span><span class="p">[</span><span class="s2">&quot;subdomain_flow&quot;</span><span class="p">]</span> <span class="o">+=</span> <span class="n">accumulation_term</span>
 
-    <span class="k">def</span> <span class="nf">_export</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_export</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;exporter&quot;</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">exporter</span><span class="o">.</span><span class="n">write_vtu</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">variable</span><span class="p">],</span> <span class="n">time_dependent</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-<div class="viewcode-block" id="SlightlyCompressibleFlow.after_simulation"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html#porepy.models.slightly_compressible_flow_model.SlightlyCompressibleFlow.after_simulation">[docs]</a>    <span class="k">def</span> <span class="nf">after_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">exporter</span><span class="o">.</span><span class="n">write_pvd</span><span class="p">()</span></div></div>
+<div class="viewcode-block" id="SlightlyCompressibleFlow.after_simulation">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.slightly_compressible_flow_model.html#porepy.models.slightly_compressible_flow_model.SlightlyCompressibleFlow.after_simulation">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">after_simulation</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exporter</span><span class="o">.</span><span class="n">write_pvd</span><span class="p">()</span></div>
+</div>
+
 </pre></div>
 
            </div>

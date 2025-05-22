@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.fv.mpfa module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.fv.mpfa.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.fv.mpfa.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.fv.html">porepy.numerics.fv package</a></li>
@@ -276,78 +276,101 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.fv.mpfa">
-<span id="porepy-numerics-fv-mpfa-module"></span><h1>porepy.numerics.fv.mpfa module<a class="headerlink" href="#module-porepy.numerics.fv.mpfa" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-fv-mpfa-module"></span><h1>porepy.numerics.fv.mpfa module<a class="headerlink" href="#module-porepy.numerics.fv.mpfa" title="Link to this heading"></a></h1>
 <p>Implementation of the multi-point flux approximation O-method.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpfa.Mpfa">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Mpfa</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpfa.html#Mpfa"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpfa.Mpfa" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Mpfa</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpfa.html#Mpfa"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpfa.Mpfa" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.fv.fv_elliptic.html#porepy.numerics.fv.fv_elliptic.FVElliptic" title="porepy.numerics.fv.fv_elliptic.FVElliptic"><code class="xref py py-class docutils literal notranslate"><span class="pre">FVElliptic</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpfa.Mpfa.discretize">
-<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpfa.html#Mpfa.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpfa.Mpfa.discretize" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">discretize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpfa.html#Mpfa.discretize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpfa.Mpfa.discretize" title="Link to this definition"></a></dt>
 <dd><p>Discretize the second order elliptic equation using multi-point flux
 approximation.</p>
-<p>The method computes fluxes over faces in terms of pressures defined at the
-cell centers.</p>
+<p>The method computes fluxes over faces in terms of pressures defined at the cell
+centers.</p>
 <p>We assume the following two sub-dictionaries to be present in the data
 dictionary:</p>
 <blockquote>
 <div><dl class="simple">
-<dt>parameter_dictionary, storing all parameters.</dt><dd><p>Stored in data[pp.PARAMETERS][self.keyword].</p>
+<dt>parameter_dictionary, storing all parameters.</dt><dd><p>Stored in <code class="docutils literal notranslate"><span class="pre">data[pp.PARAMETERS][self.keyword]</span></code>.</p>
 </dd>
-<dt>matrix_dictionary, for storage of discretization matrices.</dt><dd><p>Stored in data[pp.DISCRETIZATION_MATRICES][self.keyword]</p>
+<dt>matrix_dictionary, for storage of discretization matrices.</dt><dd><p>Stored in <code class="docutils literal notranslate"><span class="pre">data[pp.DISCRETIZATION_MATRICES][self.keyword]</span></code></p>
 </dd>
 </dl>
 </div></blockquote>
-<dl>
-<dt>parameter_dictionary contains the entries:</dt><dd><dl class="simple">
-<dt>second_order_tensor: (SecondOrderTensor) Permeability defined</dt><dd><p>cell-wise. This is the effective permeability; any scaling of
-the permeability (such as with fracture apertures) should be
+<dl class="simple">
+<dt>parameter_dictionary contains the entries:</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>second_order_tensor (<code class="docutils literal notranslate"><span class="pre">class:~porepy.params.tensor.SecondOrderTensor</span></code>):</dt><dd><p>Permeability defined cell-wise. This is the effective permeability; any
+scaling of the permeability (such as with fracture apertures) should be
 included in the permeability.</p>
 </dd>
 </dl>
-<p>bc: (BoundaryCondition) boundary conditions
-ambient_dimension: (int) Optional. Ambient dimension, used in the</p>
-<blockquote>
-<div><p>discretization of vector source terms. Defaults to the dimension of the
+</li>
+<li><p>bc (<code class="docutils literal notranslate"><span class="pre">class:~porepy.params.bc.BoundaryCondition</span></code>): boundary conditions.</p></li>
+<li><dl class="simple">
+<dt>ambient_dimension (<code class="docutils literal notranslate"><span class="pre">int</span></code>): Optional. Ambient dimension, used in the</dt><dd><p>discretization of vector source terms. Defaults to the dimension of the
 grid.</p>
-</div></blockquote>
-<dl class="simple">
-<dt>mpfa_eta: (float/np.ndarray) Optional. Range [0, 1). Location of</dt><dd><p>pressure continuity point. If not given, porepy tries to set an optimal
-value.</p>
-</dd>
-<dt>mpfa_inverter (str): Optional. Inverter to apply for local problems.</dt><dd><p>Can take values ‘numba’ (default), ‘cython’ or ‘python’.</p>
 </dd>
 </dl>
+</li>
+<li><dl class="simple">
+<dt>mpfa_eta (<code class="docutils literal notranslate"><span class="pre">float</span></code>): Optional. Range [0, 1). Location of pressure</dt><dd><p>continuity point. If not given, porepy tries to set an optimal value.</p>
 </dd>
-<dt>matrix_dictionary will be updated with the following entries:</dt><dd><dl class="simple">
-<dt>flux: sps.csc_matrix (sd.num_faces, sd.num_cells)</dt><dd><p>flux discretization, cell center contribution</p>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>mpfa_inverter (<code class="docutils literal notranslate"><span class="pre">str</span></code>): Optional. Inverter to apply for local problems.</dt><dd><p>Can take values ‘numba’ (default), or ‘python’.</p>
 </dd>
-<dt>bound_flux: sps.csc_matrix (sd.num_faces, sd.num_faces)</dt><dd><p>flux discretization, face contribution</p>
+</dl>
+</li>
+</ul>
 </dd>
-<dt>bound_pressure_cell: sps.csc_matrix (sd.num_faces, sd.num_cells)</dt><dd><p>Operator for reconstructing the pressure trace. Cell center contribution</p>
+<dt>matrix_dictionary will be updated with the following entries:</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">flux:</span> <span class="pre">sps.csc_matrix</span> <span class="pre">(sd.num_faces,</span> <span class="pre">sd.num_cells)</span></code></dt><dd><p>flux discretization, cell center contribution</p>
 </dd>
-<dt>bound_pressure_face: sps.csc_matrix (sd.num_faces, sd.num_faces)</dt><dd><p>Operator for reconstructing the pressure trace. Face contribution</p>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">bound_flux:</span> <span class="pre">ps.csc_matrix</span> <span class="pre">(sd.num_faces,</span> <span class="pre">sd.num_faces)</span></code></dt><dd><p>flux discretization, face contribution</p>
 </dd>
-<dt>vector_source: sps.csc_matrix (sd.num_faces, sd.num_cells*dim)</dt><dd><p>Discretization of the flux due to vector source term, cell center
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">bound_pressure_cell:</span> <span class="pre">sps.csc_matrix</span> <span class="pre">(sd.num_faces,</span> <span class="pre">sd.num_cells)</span></code></dt><dd><p>Operator for reconstructing the pressure trace. Cell center contribution</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">bound_pressure_face:</span> <span class="pre">sps.csc_matrix</span> <span class="pre">(sd.num_faces,</span> <span class="pre">sd.num_faces)</span></code></dt><dd><p>Operator for reconstructing the pressure trace. Face contribution</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">vector_source:</span> <span class="pre">sps.csc_matrix</span> <span class="pre">(sd.num_faces,</span> <span class="pre">sd.num_cells</span> <span class="pre">*</span> <span class="pre">dim)</span></code></dt><dd><p>Discretization of the flux due to vector source term, cell center
 contribution.</p>
 </dd>
 </dl>
+</li>
+</ul>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – The grid to be discretized.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – The dictionary containing relevant information. See above for a
+description of required fields and storage of computed values.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -355,25 +378,24 @@ contribution.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpfa.Mpfa.ndof">
-<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpfa.html#Mpfa.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpfa.Mpfa.ndof" title="Permalink to this definition"></a></dt>
-<dd><p>Return the number of degrees of freedom associated to the method.
-In this case number of cells (pressure dof).</p>
+<span class="sig-name descname"><span class="pre">ndof</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpfa.html#Mpfa.ndof"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpfa.Mpfa.ndof" title="Link to this definition"></a></dt>
+<dd><p>Return the number of degrees of freedom associated to the method.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – A grid.</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – A grid.</p>
 </dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>the number of degrees of freedom.</p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The number of degrees of freedom.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpfa.Mpfa.update_discretization">
-<span class="sig-name descname"><span class="pre">update_discretization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpfa.html#Mpfa.update_discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpfa.Mpfa.update_discretization" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">update_discretization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpfa.html#Mpfa.update_discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpfa.Mpfa.update_discretization" title="Link to this definition"></a></dt>
 <dd><p>Update discretization.</p>
 <dl class="simple">
 <dt>The updates can generally come as a combination of two forms:</dt><dd><ol class="arabic simple">
@@ -392,11 +414,11 @@ reorder accordingly.</p></li>
 <blockquote>
 <div><p>modified_cells, modified_faces</p>
 </div></blockquote>
-<p>define cells, faces and nodes that have been modified (either parameters,
+<p>These define cells, faces and nodes that have been modified (either parameters,
 geometry or topology), and should be rediscretized. It is up to the
 discretization method to implement the change necessary by this modification.
-Note that depending on the computational stencil of the discretization method,
-a grid quantity may be rediscretized even if it is not marked as modified.</p>
+Note that depending on the computational stencil of the discretization method, a
+grid quantity may be rediscretized even if it is not marked as modified.</p>
 <p>The dictionary data[‘update_discretization’] should further have keys:</p>
 <blockquote>
 <div><p>cell_index_map, face_index_map</p>
@@ -408,14 +430,14 @@ how to update the numbering of degrees of freedom. If the discretization
 method does not provide a tailored implementation for update, it is not
 necessary to provide this information.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>g</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Grid to be rediscretized.</p></li>
-<li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – With discretization parameters.</p></li>
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
+<li><p><strong>g</strong> – Grid to be rediscretized.</p></li>
+<li><p><strong>data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>) – With discretization parameters. See above for more information.</p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -425,41 +447,46 @@ necessary to provide this information.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.fv.mpfa.reconstruct_presssure">
-<span class="sig-name descname"><span class="pre">reconstruct_presssure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subcell_topology</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpfa.html#reconstruct_presssure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpfa.reconstruct_presssure" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">reconstruct_presssure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subcell_topology</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/fv/mpfa.html#reconstruct_presssure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.fv.mpfa.reconstruct_presssure" title="Link to this definition"></a></dt>
 <dd><p>Function for reconstructing the pressure at the half faces given the
-local gradients. For a subcell Ks associated with cell K and node s, the
-pressure at a point x is given by
-p_Ks + G_Ks (x - x_k),
-x_K is the cell center of cell k. The point at which we evaluate the pressure
-is given by eta, which is equivalent to the continuity points in mpfa.
-For an internal subface we will obtain two values for the pressure,
-one for each of the cells associated with the subface. The pressure given
-here is the average of the two. Note that at the continuity points the two
-pressures will by construction be equal.</p>
+local gradients.</p>
+<p>For a subcell Ks associated with cell K and node s, the pressure at a point x is
+given by</p>
+<blockquote>
+<div><p>p_Ks + G_Ks (x - x_k),</p>
+</div></blockquote>
+<p>x_K is the cell center of cell k. The point at which we evaluate the pressure is
+given by eta, which is equivalent to the continuity points in mpfa. For an internal
+subface we will obtain two values for the pressure, one for each of the cells
+associated with the subface. The pressure given here is the average of the two. Note
+that at the continuity points the two pressures will by construction be equal.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Grid</p></li>
 <li><p><strong>subcell_topology</strong> – Wrapper class for numbering of subcell faces, cells
 etc.</p></li>
-<li><p><strong>eta</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">float</span> <span class="pre">or</span> <span class="pre">ndarray,</span> <span class="pre">range=[0,1)</span></code>) – Optional. Parameter determining the point
-at which the pressures is evaluated. If eta is a nd-array it should be on
-the size of subcell_topology.num_subfno. If eta is not given the method will
-call fvutils.determine_eta(g) to set it.</p></li>
+<li><p><strong>eta</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">range=[0,1)</span></code>) – Parameter determining the point
+at which the pressures is evaluated. If <code class="docutils literal notranslate"><span class="pre">eta</span></code> is a <code class="docutils literal notranslate"><span class="pre">nd-array</span></code> it should
+be on the size of subcell_topology.num_subfno. If <code class="docutils literal notranslate"><span class="pre">eta</span></code> is not given the
+method will call <code class="docutils literal notranslate"><span class="pre">:meth:~pp.numerics.fv.fvutils.determine_eta</span></code> to set it.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p><dl class="simple">
-<dt>pressure reconstruction for the displacement at the half faces. This is</dt><dd><p>the contribution from the cell-center pressures.</p>
-</dd>
-<dt>scipy.sparse.csr_matrix (num_sub_faces, num_faces):</dt><dd><p>Pressure reconstruction for the pressures at the half faces.
-This is the contribution from the boundary conditions.</p>
-</dd>
-</dl>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p><code class="docutils literal notranslate"><span class="pre">(shape=(num_half_faces,</span> <span class="pre">sd.num_cells))</span></code></p>
+<blockquote>
+<div><p>Pressure reconstruction for the displacement at the half faces. This is the
+contribution from the cell-center pressures.</p>
+</div></blockquote>
+<p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">spmatrix</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(num_half_faces,</span> <span class="pre">sd.num_cells))</span></code></p>
+<blockquote>
+<div><p>Pressure reconstruction for the pressures at the half faces. This is the
+contribution from the boundary conditions.</p>
+</div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csr_matrix.html#scipy.sparse.csr_matrix" title="(in SciPy v1.10.0)">scipy.sparse.csr_matrix</a> (num_sub_faces, num_cells)</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">spmatrix</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>

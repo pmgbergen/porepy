@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.params.bc module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.params.bc.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.params.bc.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.params.html">porepy.params package</a></li>
       <li class="breadcrumb-item active">porepy.params.bc module</li>
@@ -275,25 +275,25 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.params.bc">
-<span id="porepy-params-bc-module"></span><h1>porepy.params.bc module<a class="headerlink" href="#module-porepy.params.bc" title="Permalink to this heading"></a></h1>
+<span id="porepy-params-bc-module"></span><h1>porepy.params.bc module<a class="headerlink" href="#module-porepy.params.bc" title="Link to this heading"></a></h1>
 <p>Classes representing of boundary conditions.</p>
 <p>The classes identify faces of a grid which have Dirichlet, Neumann and Robin type
 boundary conditions. There is one class for scalar problems and one for nd-vectors.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.params.bc.AbstractBoundaryCondition">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AbstractBoundaryCondition</span></span><a class="reference internal" href="../../_modules/porepy/params/bc.html#AbstractBoundaryCondition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.AbstractBoundaryCondition" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">AbstractBoundaryCondition</span></span><a class="reference internal" href="../../_modules/porepy/params/bc.html#AbstractBoundaryCondition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.AbstractBoundaryCondition" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
 <p>This is an abstract class that include the shared functionality of the
 boundary conditions</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.params.bc.AbstractBoundaryCondition.copy">
-<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#AbstractBoundaryCondition.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.AbstractBoundaryCondition.copy" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">copy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#AbstractBoundaryCondition.copy"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.AbstractBoundaryCondition.copy" title="Link to this definition"></a></dt>
 <dd><p>Create a deep copy of the boundary condition.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>A deep copy of self. All attributes will also be copied.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="#porepy.params.bc.AbstractBoundaryCondition" title="porepy.params.bc.AbstractBoundaryCondition">AbstractBoundaryCondition</a></p>
 </dd>
 </dl>
@@ -301,15 +301,15 @@ boundary conditions</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.params.bc.AbstractBoundaryCondition.internal_to_dirichlet">
-<span class="sig-name descname"><span class="pre">internal_to_dirichlet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#AbstractBoundaryCondition.internal_to_dirichlet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.AbstractBoundaryCondition.internal_to_dirichlet" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">internal_to_dirichlet</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#AbstractBoundaryCondition.internal_to_dirichlet"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.AbstractBoundaryCondition.internal_to_dirichlet" title="Link to this definition"></a></dt>
 <dd><p>Change the boundary condition to Dirichlet on all internal faces.</p>
 <p>Useful for mixed-dimensional deformation problems, where the interface variable
 is displacement, corresponding to a Dirichlet condition on the internal faces.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – Subdomain grid on which <code class="docutils literal notranslate"><span class="pre">self</span></code> is defined.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -317,13 +317,13 @@ is displacement, corresponding to a Dirichlet condition on the internal faces.</
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.AbstractBoundaryCondition.is_dir">
-<span class="sig-name descname"><span class="pre">is_dir</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.params.bc.AbstractBoundaryCondition.is_dir" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_dir</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.params.bc.AbstractBoundaryCondition.is_dir" title="Link to this definition"></a></dt>
 <dd><p>Element i is true if face i has been assigned a Dirichlet condition.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.AbstractBoundaryCondition.is_neu">
-<span class="sig-name descname"><span class="pre">is_neu</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.params.bc.AbstractBoundaryCondition.is_neu" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_neu</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.params.bc.AbstractBoundaryCondition.is_neu" title="Link to this definition"></a></dt>
 <dd><p>Element i is true if face i has been assigned a Neumann condition.</p>
 </dd></dl>
 
@@ -331,99 +331,87 @@ is displacement, corresponding to a Dirichlet condition on the internal faces.</
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryCondition">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryCondition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">faces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cond</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#BoundaryCondition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.BoundaryCondition" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryCondition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">faces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cond</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#BoundaryCondition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.BoundaryCondition" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.params.bc.AbstractBoundaryCondition" title="porepy.params.bc.AbstractBoundaryCondition"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractBoundaryCondition</span></code></a></p>
 <p>Class to store information on boundary conditions for problems of a single
 variable.</p>
 <p>The BCs are specified by face number, and can have type Dirichlet, Neumann
 or Robin. For details on default values etc. see constructor.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<em>pp.Grid</em>) – </p></li>
-<li><p><strong>faces</strong> (<em>Optional</em><em>[</em><em>np.ndarray</em><em>]</em>) – </p></li>
-<li><p><strong>cond</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>sd</strong> (<em>pp.Grid</em>)</p></li>
+<li><p><strong>faces</strong> (<em>Optional</em><em>[</em><em>np.ndarray</em><em>]</em>)</p></li>
+<li><p><strong>cond</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryCondition.num_faces">
-<span class="sig-name descname"><span class="pre">num_faces</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryCondition.num_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_faces</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryCondition.num_faces" title="Link to this definition"></a></dt>
 <dd><p>Number of faces in the grid of the subdomain</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryCondition.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryCondition.dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryCondition.dim" title="Link to this definition"></a></dt>
 <dd><p>Dimension of the boundary. One less than the dimension of
 the subdomain.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryCondition.is_neu">
-<span class="sig-name descname"><span class="pre">is_neu</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryCondition.is_neu" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_neu</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryCondition.is_neu" title="Link to this definition"></a></dt>
 <dd><p>Element i is true if
 face i has been assigned a Neumann condition. Tacitly assumes that
 the face is on the boundary. Should be false for internal faces, as
 well as Dirichlet faces.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span> <span class="pre">boolean,</span> <span class="pre">size</span> <span class="pre">sd.num_faces</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span> <span class="pre">boolean</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">size</span> <span class="pre">sd.num_faces</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryCondition.is_dir">
-<span class="sig-name descname"><span class="pre">is_dir</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryCondition.is_dir" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_dir</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryCondition.is_dir" title="Link to this definition"></a></dt>
 <dd><p>Element i is true if
 face i has been assigned a Dirichlet condition.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">boolean,</span> <span class="pre">size</span> <span class="pre">sd.num_faces</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">size</span> <span class="pre">sd.num_faces</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryCondition.is_rob">
-<span class="sig-name descname"><span class="pre">is_rob</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryCondition.is_rob" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_rob</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryCondition.is_rob" title="Link to this definition"></a></dt>
 <dd><p>Element i is true if
 face i has been assigned a Robin condition.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">boolean,</span> <span class="pre">size</span> <span class="pre">sd.num_faces</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">size</span> <span class="pre">sd.num_faces</span></code></p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="id0">
-<span class="sig-name descname"><span class="pre">is_dir</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#id0" title="Permalink to this definition"></a></dt>
-<dd><p>Element i is true if face i has been assigned a Dirichlet condition.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="id1">
-<span class="sig-name descname"><span class="pre">is_neu</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#id1" title="Permalink to this definition"></a></dt>
-<dd><p>Element i is true if face i has been assigned a Neumann condition.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryConditionVectorial">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryConditionVectorial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">faces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cond</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#BoundaryConditionVectorial"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryConditionVectorial</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">faces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cond</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#BoundaryConditionVectorial"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.params.bc.AbstractBoundaryCondition" title="porepy.params.bc.AbstractBoundaryCondition"><code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractBoundaryCondition</span></code></a></p>
 <p>Class to store information on boundary conditions for problems with vector variables
 (e.g. momentum conservation).</p>
@@ -441,134 +429,118 @@ and the boundary condition should be given in the coordinates of these bases.</p
 refer to the above class BoundaryCondition.</p>
 <p>NOTE: sd.dim &gt; 1 for the procedure to make sense</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<em>pp.Grid</em>) – </p></li>
-<li><p><strong>faces</strong> (<em>Optional</em><em>[</em><em>np.ndarray</em><em>]</em>) – </p></li>
-<li><p><strong>cond</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>List</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>sd</strong> (<em>pp.Grid</em>)</p></li>
+<li><p><strong>faces</strong> (<em>Optional</em><em>[</em><em>np.ndarray</em><em>]</em>)</p></li>
+<li><p><strong>cond</strong> (<em>Optional</em><em>[</em><em>Union</em><em>[</em><em>List</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryConditionVectorial.num_faces">
-<span class="sig-name descname"><span class="pre">num_faces</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.num_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_faces</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.num_faces" title="Link to this definition"></a></dt>
 <dd><p>Number of faces in the grid of the subdomain.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryConditionVectorial.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.dim" title="Link to this definition"></a></dt>
 <dd><p>Dimension of the boundary. One less than the dimension of
 the subdomain.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryConditionVectorial.is_neu">
-<span class="sig-name descname"><span class="pre">is_neu</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.is_neu" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_neu</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.is_neu" title="Link to this definition"></a></dt>
 <dd><p>Element i is true if
 face i has been assigned a Neumann condition. Tacitly assumes that
 the face is on the boundary. Should be false for internal faces, as
 well as Dirichlet faces.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span> <span class="pre">boolean,</span> <span class="pre">size</span> <span class="pre">sd.dim</span> <span class="pre">x</span> <span class="pre">sd.num_faces</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span> <span class="pre">boolean</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">size</span> <span class="pre">sd.dim</span> <span class="pre">x</span> <span class="pre">sd.num_faces</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryConditionVectorial.is_dir">
-<span class="sig-name descname"><span class="pre">is_dir</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.is_dir" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_dir</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.is_dir" title="Link to this definition"></a></dt>
 <dd><p>Element i is true if
 face i has been assigned a Dirichlet condition.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">boolean,</span> <span class="pre">size</span> <span class="pre">sd.dim</span> <span class="pre">x</span> <span class="pre">sd.num_faces</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">size</span> <span class="pre">sd.dim</span> <span class="pre">x</span> <span class="pre">sd.num_faces</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryConditionVectorial.is_rob">
-<span class="sig-name descname"><span class="pre">is_rob</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.is_rob" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_rob</span></span><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.is_rob" title="Link to this definition"></a></dt>
 <dd><p>Element i is true if
 face i has been assigned a Robin condition.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">boolean,</span> <span class="pre">size</span> <span class="pre">sd.dim</span> <span class="pre">x</span> <span class="pre">sd.num_faces</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">size</span> <span class="pre">sd.dim</span> <span class="pre">x</span> <span class="pre">sd.num_faces</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.params.bc.BoundaryConditionVectorial.set_bc">
-<span class="sig-name descname"><span class="pre">set_bc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">faces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cond</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#BoundaryConditionVectorial.set_bc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.set_bc" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">set_bc</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">faces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cond</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#BoundaryConditionVectorial.set_bc"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.BoundaryConditionVectorial.set_bc" title="Link to this definition"></a></dt>
 <dd><p>Define a single boundary condition.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>faces</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">optional</span></code>) – Boolean array determining which face is
+<li><p><strong>faces</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <em>optional</em>) – Boolean array determining which face is
 considered.</p></li>
-<li><p><strong>cond</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span> <span class="pre">or</span> <span class="pre">list</span> <span class="pre">of</span> <span class="pre">str,</span> <span class="pre">optional</span></code>) – Boundary condition type</p></li>
+<li><p><strong>cond</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a> or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <em>optional</em>) – Boundary condition type</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><ul class="simple">
-<li><p><strong>ValueError if faces are a boolean array with size not matching the number</strong><strong> of </strong><strong>faces.</strong> – </p></li>
-<li><p><strong>ValueError if internal faces are marked</strong> – </p></li>
-<li><p><strong>ValueError if the numbers</strong><strong> of </strong><strong>boundary condition types and faces are not matching</strong> – </p></li>
-<li><p><strong>ValueError if another keyword is used as for the boundary condition type than</strong> – “dir”, “neu” or “rob”</p></li>
-</ul>
-</dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p>None</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="id2">
-<span class="sig-name descname"><span class="pre">is_dir</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#id2" title="Permalink to this definition"></a></dt>
-<dd><p>Element i is true if face i has been assigned a Dirichlet condition.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="id3">
-<span class="sig-name descname"><span class="pre">is_neu</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#id3" title="Permalink to this definition"></a></dt>
-<dd><p>Element i is true if face i has been assigned a Neumann condition.</p>
+<p>:raises ValueError if faces are a boolean array with size not matching the number` of <code class="xref py py-class docutils literal notranslate"><span class="pre">faces.:</span>
+<span class="pre">:raises</span> <span class="pre">ValueError</span> <span class="pre">if</span> <span class="pre">internal</span> <span class="pre">faces</span> <span class="pre">are</span> <span class="pre">marked:</span>
+<span class="pre">:raises</span> <span class="pre">ValueError</span> <span class="pre">if</span> <span class="pre">the</span> <span class="pre">numbers</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">boundary</span> <span class="pre">condition</span> <span class="pre">types</span></code> and :py:class:<a href="#id1"><span class="problematic" id="id2">`</span></a>faces are not matching:
+:raises ValueError if another keyword is used as for the boundary condition type than: “dir”, “neu” or “rob”</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.params.bc.face_on_side">
-<span class="sig-name descname"><span class="pre">face_on_side</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">side</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#face_on_side"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.face_on_side" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">face_on_side</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">side</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/params/bc.html#face_on_side"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.params.bc.face_on_side" title="Link to this definition"></a></dt>
 <dd><p>Find faces on specified sides of a subdomain.</p>
 <p>It is assumed that the grid forms a box in 2d or 3d.</p>
 <p>The faces are specified by one of two type of keywords: (xmin / west),
 (xmax / east), (ymin / south), (ymax / north), (zmin, bottom),
 (zmax / top).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Subdomain for which we want to find faces.</p></li>
-<li><p><strong>side</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">str,</span> <span class="pre">or</span> <span class="pre">list</span> <span class="pre">of</span> <span class="pre">str</span></code>) – Sides for which we want to find the
+<li><p><strong>side</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, or <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code></a> of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Sides for which we want to find the
 boundary faces.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Geometric tolerance for deciding whether a face
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – Geometric tolerance for deciding whether a face
 lays on the boundary. Defaults to 1e-8.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Outer list has one element per element in side (same</dt><dd><p>ordering). Arrays contain global indices of faces laying on
 that side.</p>
@@ -576,13 +548,11 @@ that side.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a> of arrays</p>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><p><strong>ValueError if not supported keyword is used to identify a boundary part</strong> – </p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a> of arrays</p>
 </dd>
 </dl>
+<p>:raises ValueError if not supported keyword is used` to :py:class:<a href="#id3"><span class="problematic" id="id4">`</span></a>identify a boundary part:</p>
 </dd></dl>
 
 </section>

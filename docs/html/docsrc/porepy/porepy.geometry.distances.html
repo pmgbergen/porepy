@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.geometry.distances module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.geometry.distances.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.geometry.distances.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.geometry.html">porepy.geometry package</a></li>
       <li class="breadcrumb-item active">porepy.geometry.distances module</li>
@@ -275,190 +275,190 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.geometry.distances">
-<span id="porepy-geometry-distances-module"></span><h1>porepy.geometry.distances module<a class="headerlink" href="#module-porepy.geometry.distances" title="Permalink to this heading"></a></h1>
+<span id="porepy-geometry-distances-module"></span><h1>porepy.geometry.distances module<a class="headerlink" href="#module-porepy.geometry.distances" title="Link to this heading"></a></h1>
 <p>The module contains functions for distance computations.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.distances.point_pointset">
-<span class="sig-name descname"><span class="pre">point_pointset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exponent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#point_pointset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.point_pointset" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">point_pointset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pset</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exponent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#point_pointset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.point_pointset" title="Link to this definition"></a></dt>
 <dd><p>Compute distance between a point and a set of points.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">1)</span></code></p>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">1)</span></code></p>
 <p>Point from which distances will be computed.</p>
 </p></li>
-<li><p><strong>pset</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_points)</span></code></p>
+<li><p><strong>pset</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_points)</span></code></p>
 <p>Point cloud to which we compute distances.</p>
 </p></li>
-<li><p><strong>exponent</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=2</span></code></p>
+<li><p><strong>exponent</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=2</span></code></p>
 <p>Exponent of the norm used.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Array of distances <code class="docutils literal notranslate"><span class="pre">(shape=(num_points,))</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.distances.points_polygon">
-<span class="sig-name descname"><span class="pre">points_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#points_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.points_polygon" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">points_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#points_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.points_polygon" title="Link to this definition"></a></dt>
 <dd><p>Compute distance from points to a polygon. Also find closest point on the
 polygon.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_points)</span></code></p>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_points)</span></code></p>
 <p>Points for which we will compute distances.</p>
 </p></li>
-<li><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_vertexes)</span></code></p>
+<li><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_vertexes)</span></code></p>
 <p>Vertexes of polygon. Edges are formed by subsequent points.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
 <p>Tolerance to be used.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>A tuple of 3 elements.</p>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_points,)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_points,)</span></code></p>
 <blockquote>
 <div><p>Distance from points to polygon.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_points,)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_points,)</span></code></p>
 <blockquote>
 <div><p>For each point, the closest point on the polygon.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_points)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_points)</span></code></p>
 <blockquote>
 <div><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the point is found in the interior,
 <code class="docutils literal notranslate"><span class="pre">False</span></code> if on a bounding segment.</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.distances.points_segments">
-<span class="sig-name descname"><span class="pre">points_segments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#points_segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.points_segments" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">points_segments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#points_segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.points_segments" title="Link to this definition"></a></dt>
 <dd><p>Compute distances between points and line segments.</p>
 <p>The function also returns the closest points on the segments.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_points)</span></code></p>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_points)</span></code></p>
 <p>Individual points.</p>
 </p></li>
-<li><p><strong>start</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<li><p><strong>start</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <p>Start points of segments.</p>
 </p></li>
-<li><p><strong>end</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<li><p><strong>end</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <p>End point of segments.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>A tuple of 2 elements.</p>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_points,</span> <span class="pre">num_segments)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_points,</span> <span class="pre">num_segments)</span></code></p>
 <blockquote>
 <div><p>Distances.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_points,</span> <span class="pre">num_segments,</span> <span class="pre">nd)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_points,</span> <span class="pre">num_segments,</span> <span class="pre">nd)</span></code></p>
 <blockquote>
 <div><p>Points on the segments closest to the individual points.</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.distances.pointset">
-<span class="sig-name descname"><span class="pre">pointset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_diag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#pointset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.pointset" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">pointset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_diag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#pointset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.pointset" title="Link to this definition"></a></dt>
 <dd><p>Compute mutual distance between all points in a point set.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_points)</span></code></p>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_points)</span></code></p>
 <p>A set of points.</p>
 </p></li>
-<li><p><strong>max_diag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
+<li><p><strong>max_diag</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
 <p>If True, the diagonal value corresponding to each point is set to twice the
 maximum of the distances for that point, rather than 0.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Array of distances between points <code class="docutils literal notranslate"><span class="pre">(shape=(num_points,</span> <span class="pre">num_points))</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.distances.segment_overlap_segment_set">
-<span class="sig-name descname"><span class="pre">segment_overlap_segment_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_set</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_set</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_indices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#segment_overlap_segment_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.segment_overlap_segment_set" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">segment_overlap_segment_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_set</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_set</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_indices</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#segment_overlap_segment_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.segment_overlap_segment_set" title="Link to this definition"></a></dt>
 <dd><p>Detects whether a given segment overlaps the segments in a set.</p>
 <p>The function currently works only for 2D geometries: <code class="docutils literal notranslate"><span class="pre">nd</span> <span class="pre">==</span> <span class="pre">2</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>start</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,)</span></code></p>
+<li><p><strong>start</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,)</span></code></p>
 <p>Start point of a segment.</p>
 </p></li>
-<li><p><strong>end</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,)</span></code></p>
+<li><p><strong>end</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,)</span></code></p>
 <p>End point of a segment.</p>
 </p></li>
-<li><p><strong>start_set</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<li><p><strong>start_set</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <p>Start points of the set of segments.</p>
 </p></li>
-<li><p><strong>end_set</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<li><p><strong>end_set</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <p>End points of the set of segments.</p>
 </p></li>
-<li><p><strong>return_indices</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
+<li><p><strong>return_indices</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
 <p>Whether the function should also return indices of overlappings.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
 <p>Tolerance to be used.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>If <code class="docutils literal notranslate"><span class="pre">return_indices==True</span></code>, we return a tuple of 2 elements.</p>
 <dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the segment overlaps any of the segments in the set, <code class="docutils literal notranslate"><span class="pre">False</span></code>
+<dt><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bool</span></code></a>:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the segment overlaps any of the segments in the set, <code class="docutils literal notranslate"><span class="pre">False</span></code>
 otherwise.</p>
 </dd>
 </dl>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_overlapping,)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_overlapping,)</span></code></p>
 <blockquote>
 <div><p>Indices of overlappings.</p>
 </div></blockquote>
 <p>Otherwise, the 0th element of the tuple is returned.</p>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a> | <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.distances.segment_segment_set">
-<span class="sig-name descname"><span class="pre">segment_segment_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_set</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_set</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#segment_segment_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.segment_segment_set" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">segment_segment_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_set</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end_set</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#segment_segment_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.segment_segment_set" title="Link to this definition"></a></dt>
 <dd><p>Compute distance and closest points between a segment and a set of segments.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -467,114 +467,114 @@ otherwise.</p>
 function <code class="docutils literal notranslate"><span class="pre">dist3D_Segment_to_Segment()</span></code>).</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>start</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">1)</span></code></p>
+<li><p><strong>start</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">1)</span></code></p>
 <p>Start point of the main segment.</p>
 </p></li>
-<li><p><strong>end</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">1)</span></code></p>
+<li><p><strong>end</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">1)</span></code></p>
 <p>End point of the main segment.</p>
 </p></li>
-<li><p><strong>start_set</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<li><p><strong>start_set</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <p>Start points for the segment set.</p>
 </p></li>
-<li><p><strong>end_set</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<li><p><strong>end_set</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <p>End points for the segment set.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>A tuple of 3 elements.</p>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_segments,)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_segments,)</span></code></p>
 <blockquote>
 <div><p>The distance from the main segment to each of the segments in the set.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <blockquote>
 <div><p>For each segment in the segment set, the point closest on the main segment.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <blockquote>
 <div><p>For each segment in the segment set, the point closest on the secondary
 segment.</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.distances.segment_set">
-<span class="sig-name descname"><span class="pre">segment_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#segment_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.segment_set" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">segment_set</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#segment_set"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.segment_set" title="Link to this definition"></a></dt>
 <dd><p>Compute distance and closest points between sets of line segments.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>start</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<li><p><strong>start</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <p>Start points of segments.</p>
 </p></li>
-<li><p><strong>end</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<li><p><strong>end</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <p>End points of segments.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>A tuple of 2 elements.</p>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_segments,</span> <span class="pre">num_segments)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_segments,</span> <span class="pre">num_segments)</span></code></p>
 <blockquote>
 <div><p>Distances between segments.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_segments,</span> <span class="pre">num_segments,</span> <span class="pre">nd)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(num_segments,</span> <span class="pre">num_segments,</span> <span class="pre">nd)</span></code></p>
 <blockquote>
 <div><p>For segment <code class="docutils literal notranslate"><span class="pre">i</span></code> and <code class="docutils literal notranslate"><span class="pre">j</span></code>, element <code class="docutils literal notranslate"><span class="pre">[i,</span> <span class="pre">j]</span></code> gives the point on <code class="docutils literal notranslate"><span class="pre">i</span></code>
 closest to segment <code class="docutils literal notranslate"><span class="pre">j</span></code>.</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.distances.segments_polygon">
-<span class="sig-name descname"><span class="pre">segments_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#segments_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.segments_polygon" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">segments_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">start</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">end</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">poly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/distances.html#segments_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.distances.segments_polygon" title="Link to this definition"></a></dt>
 <dd><p>Compute the distance from line segments to a polygon.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>start</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<li><p><strong>start</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <p>One endpoint of segments.</p>
 </p></li>
-<li><p><strong>end</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<li><p><strong>end</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <p>Other endpoint of segments.</p>
 </p></li>
-<li><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">n_vert)</span></code></p>
+<li><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">n_vert)</span></code></p>
 <p>Vertexes of polygon.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
 <p>Tolerance to be used.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>A tuple of 2 elements.</p>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(num_segments,),</span> <span class="pre">dtype=double)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(num_segments,),</span> <span class="pre">dtype=double)</span></code></p>
 <blockquote>
 <div><p>Distance from segment to polygon.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">num_segments)</span></code></p>
 <blockquote>
 <div><p>Closest point.</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>

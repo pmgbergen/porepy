@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.refinement &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/refinement.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/refinement.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.grids.refinement</li>
       <li class="wy-breadcrumbs-aside">
@@ -277,26 +277,28 @@
 <span class="sd">class to generate sets of refined grids.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">abc</span>
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">abc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">gmsh</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">gmsh</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">from</span> <span class="nn">porepy.grids.grid</span> <span class="kn">import</span> <span class="n">Grid</span>
-<span class="kn">from</span> <span class="nn">porepy.grids.simplex</span> <span class="kn">import</span> <span class="n">TriangleGrid</span>
-<span class="kn">from</span> <span class="nn">porepy.grids.structured</span> <span class="kn">import</span> <span class="n">TensorGrid</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.grids.grid</span><span class="w"> </span><span class="kn">import</span> <span class="n">Grid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.grids.simplex</span><span class="w"> </span><span class="kn">import</span> <span class="n">TriangleGrid</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.grids.structured</span><span class="w"> </span><span class="kn">import</span> <span class="n">TensorGrid</span>
 
 
-<div class="viewcode-block" id="distort_grid_1d"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.distort_grid_1d">[docs]</a><span class="k">def</span> <span class="nf">distort_grid_1d</span><span class="p">(</span>
+<div class="viewcode-block" id="distort_grid_1d">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.distort_grid_1d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">distort_grid_1d</span><span class="p">(</span>
     <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span> <span class="n">fixed_nodes</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Randomly distort internal nodes in a 1d grid.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Randomly distort internal nodes in a 1d grid.</span>
 
 <span class="sd">    The boundary nodes are left untouched, and the perturbations will not perturb the</span>
 <span class="sd">    topology of the mesh.</span>
@@ -334,8 +336,11 @@
     <span class="k">return</span> <span class="n">g</span></div>
 
 
-<div class="viewcode-block" id="refine_grid_1d"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.refine_grid_1d">[docs]</a><span class="k">def</span> <span class="nf">refine_grid_1d</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">ratio</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Refine the cells in a 1D grid.</span>
+
+<div class="viewcode-block" id="refine_grid_1d">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.refine_grid_1d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">refine_grid_1d</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">ratio</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Refine the cells in a 1D grid.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        g: The 1D grid that is to be refined.</span>
@@ -419,8 +424,11 @@
     <span class="k">return</span> <span class="n">g</span></div>
 
 
-<div class="viewcode-block" id="refine_triangle_grid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.refine_triangle_grid">[docs]</a><span class="k">def</span> <span class="nf">refine_triangle_grid</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">TriangleGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">TriangleGrid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Uniform refinement of triangular grids.</span>
+
+<div class="viewcode-block" id="refine_triangle_grid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.refine_triangle_grid">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">refine_triangle_grid</span><span class="p">(</span><span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">TriangleGrid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">TriangleGrid</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Uniform refinement of triangular grids.</span>
 
 <span class="sd">    All cells are split into four subcells by combining existing nodes and face centers.</span>
 
@@ -501,8 +509,11 @@
     <span class="k">return</span> <span class="n">new_grid</span><span class="p">,</span> <span class="n">parent</span></div>
 
 
-<div class="viewcode-block" id="remesh_1d"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.remesh_1d">[docs]</a><span class="k">def</span> <span class="nf">remesh_1d</span><span class="p">(</span><span class="n">g_old</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Create a new 1d mesh covering the same domain as an old one.</span>
+
+<div class="viewcode-block" id="remesh_1d">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.remesh_1d">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">remesh_1d</span><span class="p">(</span><span class="n">g_old</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-6</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a new 1d mesh covering the same domain as an old one.</span>
 
 <span class="sd">    The new grid is equi-spaced, and there is no guarantee that the nodes in the old and</span>
 <span class="sd">    new grids are coinciding. Use with care, in particular for grids with internal</span>
@@ -556,8 +567,11 @@
     <span class="k">return</span> <span class="n">g</span></div>
 
 
-<div class="viewcode-block" id="GridSequenceIterator"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.GridSequenceIterator">[docs]</a><span class="k">class</span> <span class="nc">GridSequenceIterator</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Iterator for generating successively refined grids by the use of a grid factory.</span>
+
+<div class="viewcode-block" id="GridSequenceIterator">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.GridSequenceIterator">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GridSequenceIterator</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Iterator for generating successively refined grids by the use of a grid factory.</span>
 
 <span class="sd">    See Also:</span>
 <span class="sd">        :class:`GridSequenceFactory`</span>
@@ -567,14 +581,14 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factory</span><span class="p">:</span> <span class="n">GridSequenceFactory</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">factory</span><span class="p">:</span> <span class="n">GridSequenceFactory</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_factory</span> <span class="o">=</span> <span class="n">factory</span>
-        <span class="sd">&quot;&quot;&quot;The factory instance passed at instantiation.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The factory instance passed at instantiation.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_counter</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-        <span class="sd">&quot;&quot;&quot;A counter for the iterator.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A counter for the iterator.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__next__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Choose the next grid in grid iterator.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__next__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Choose the next grid in grid iterator.</span>
 
 <span class="sd">        See also:</span>
 <span class="sd">            1. `Documentation of Python built in __next__ function</span>
@@ -598,8 +612,11 @@
             <span class="k">return</span> <span class="n">mdg</span></div>
 
 
-<div class="viewcode-block" id="GridSequenceFactory"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.GridSequenceFactory">[docs]</a><span class="k">class</span> <span class="nc">GridSequenceFactory</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Factory class to generate a set of refined grids.</span>
+
+<div class="viewcode-block" id="GridSequenceFactory">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.GridSequenceFactory">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GridSequenceFactory</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Factory class to generate a set of refined grids.</span>
 
 <span class="sd">    To define new refinement types, inherit from this class and override the</span>
 <span class="sd">    :meth:`_generate` method.</span>
@@ -640,7 +657,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">network</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">FractureNetwork2d</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">FractureNetwork3d</span><span class="p">],</span> <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_network</span> <span class="o">=</span> <span class="n">network</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -648,7 +665,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_set_parameters</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span> <span class="nb">int</span>
-        <span class="sd">&quot;&quot;&quot;Dimension of the fracture network.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Dimension of the fracture network.&quot;&quot;&quot;</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">network</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">FractureNetwork2d</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="mi">2</span>
@@ -660,8 +677,8 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_refinement_mode</span> <span class="o">==</span> <span class="s2">&quot;nested&quot;</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_prepare_nested</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GridSequenceIterator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Grid sequence iterator object.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GridSequenceIterator</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Grid sequence iterator object.</span>
 
 <span class="sd">        See also:</span>
 <span class="sd">            1. `Documentation of Python built in __iter__ function</span>
@@ -673,8 +690,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">GridSequenceIterator</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 
-<div class="viewcode-block" id="GridSequenceFactory.close"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.GridSequenceFactory.close">[docs]</a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Method for finalizing ``gmsh``.</span>
+<div class="viewcode-block" id="GridSequenceFactory.close">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.refinement.html#porepy.grids.refinement.GridSequenceFactory.close">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method for finalizing ``gmsh``.</span>
 
 <span class="sd">        ``gmsh`` will be informed that it should be finalized. Final method to be called</span>
 <span class="sd">        when the iteration is going to be stopped.</span>
@@ -685,8 +704,9 @@
             <span class="c1"># Also inform the GmshWriter class that gmsh is no longer initialized.</span>
             <span class="n">pp</span><span class="o">.</span><span class="n">fracs</span><span class="o">.</span><span class="n">gmsh_interface</span><span class="o">.</span><span class="n">GmshWriter</span><span class="o">.</span><span class="n">gmsh_initialized</span> <span class="o">=</span> <span class="kc">False</span></div>
 
-    <span class="k">def</span> <span class="nf">_generate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">counter</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Which kind of grid refinement that is to be used is selected by this method.</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_generate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">counter</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Which kind of grid refinement that is to be used is selected by this method.</span>
 
 <span class="sd">        Based on the refinement mode, this method will decide if nested or unstructured</span>
 <span class="sd">        refinement should be used.</span>
@@ -714,8 +734,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown refinement mode </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_refinement_mode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_prepare_nested</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Prepare nested refinement.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_prepare_nested</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Prepare nested refinement.</span>
 
 <span class="sd">        Nested refinement is in this method prepared by initializing ``gmsh`` and</span>
 <span class="sd">        generating the first grid.</span>
@@ -740,8 +760,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_out_file</span> <span class="o">=</span> <span class="n">file_name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_gmsh</span> <span class="o">=</span> <span class="n">gmsh</span>
 
-    <span class="k">def</span> <span class="nf">_generate_nested</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">counter</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Generates nested refinement.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_nested</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">counter</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generates nested refinement.</span>
 
 <span class="sd">        A refined grid, based on the previous grid, is generated. Original cell faces</span>
 <span class="sd">        will be kept, and the refinement happens locally to the cells instead of</span>
@@ -767,8 +787,8 @@
         <span class="n">pp</span><span class="o">.</span><span class="n">contact_conditions</span><span class="o">.</span><span class="n">set_projections</span><span class="p">(</span><span class="n">mdg</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">mdg</span>
 
-    <span class="k">def</span> <span class="nf">_generate_unstructured</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">counter</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Generate unstructured refinement.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_unstructured</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">counter</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate unstructured refinement.</span>
 
 <span class="sd">        Refinement is done from &quot;scratch&quot; every time. Instead of refining already</span>
 <span class="sd">        existing grid, this method will create a new grid that is more refined than the</span>
@@ -787,8 +807,8 @@
         <span class="n">mdg</span> <span class="o">=</span> <span class="n">net</span><span class="o">.</span><span class="n">mesh</span><span class="p">(</span><span class="n">mesh_args</span><span class="p">,</span> <span class="o">**</span><span class="n">grid_param</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">mdg</span>
 
-    <span class="k">def</span> <span class="nf">_set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Method for setting parameters.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_set_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">param</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method for setting parameters.</span>
 
 <span class="sd">        Mode of refinement, number of refinement, mesh parameters and the grid</span>
 <span class="sd">        parameters are saved as attributes.</span>
@@ -804,6 +824,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_mesh_parameters</span> <span class="o">=</span> <span class="n">param</span><span class="p">[</span><span class="s2">&quot;mesh_param&quot;</span><span class="p">]</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_grid_parameters</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;grid_param&quot;</span><span class="p">,</span> <span class="p">{})</span></div>
+
 </pre></div>
 
            </div>

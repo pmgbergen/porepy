@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.utils.derived_discretizations.implicit_euler module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.utils.html">porepy.utils package</a></li>
           <li class="breadcrumb-item"><a href="porepy.utils.derived_discretizations.html">porepy.utils.derived_discretizations package</a></li>
@@ -276,27 +276,27 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.utils.derived_discretizations.implicit_euler">
-<span id="porepy-utils-derived-discretizations-implicit-euler-module"></span><h1>porepy.utils.derived_discretizations.implicit_euler module<a class="headerlink" href="#module-porepy.utils.derived_discretizations.implicit_euler" title="Permalink to this heading"></a></h1>
+<span id="porepy-utils-derived-discretizations-implicit-euler-module"></span><h1>porepy.utils.derived_discretizations.implicit_euler module<a class="headerlink" href="#module-porepy.utils.derived_discretizations.implicit_euler" title="Link to this heading"></a></h1>
 <p>Module for extending the Upwind, MPFA and MassMatrix discretizations in PorePy to handle
 implicit Euler time-stepping. Flux terms are multiplied by time step and the mass term
 has a rhs contribution from the previous time step.
 See the parent discretizations for further documentation.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitMassMatrix">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImplicitMassMatrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flow'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pressure'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMassMatrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMassMatrix" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImplicitMassMatrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flow'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variable</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'pressure'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMassMatrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMassMatrix" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.fv.mass_matrix.html#porepy.numerics.fv.mass_matrix.MassMatrix" title="porepy.numerics.fv.mass_matrix.MassMatrix"><code class="xref py py-class docutils literal notranslate"><span class="pre">MassMatrix</span></code></a></p>
 <p>Return rhs contribution based on the previous solution, which is stored in the
 pp.STATE field of the data dictionary.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitMassMatrix.assemble_rhs">
-<span class="sig-name descname"><span class="pre">assemble_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMassMatrix.assemble_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMassMatrix.assemble_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMassMatrix.assemble_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMassMatrix.assemble_rhs" title="Link to this definition"></a></dt>
 <dd><p>Overwrite MassMatrix method to return the correct rhs for an IE time
 discretization, e.g. of the Biot problem.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -306,33 +306,33 @@ discretization, e.g. of the Biot problem.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImplicitMpfa</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMpfa"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImplicitMpfa</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMpfa"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.fv.mpfa.html#porepy.numerics.fv.mpfa.Mpfa" title="porepy.numerics.fv.mpfa.Mpfa"><code class="xref py py-class docutils literal notranslate"><span class="pre">Mpfa</span></code></a></p>
 <p>Multiply all contributions by the time step.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_int_bound_flux">
-<span class="sig-name descname"><span class="pre">assemble_int_bound_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_secondary_proj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMpfa.assemble_int_bound_flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_int_bound_flux" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_int_bound_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_secondary_proj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMpfa.assemble_int_bound_flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_int_bound_flux" title="Link to this definition"></a></dt>
 <dd><p>Overwrite the MPFA method to be consistent with the Biot dt convention</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>cc</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – </p></li>
-<li><p><strong>rhs</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
-<li><p><strong>use_secondary_proj</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>cc</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>)</p></li>
+<li><p><strong>rhs</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
+<li><p><strong>use_secondary_proj</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -340,7 +340,7 @@ discretization, e.g. of the Biot problem.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_int_bound_source">
-<span class="sig-name descname"><span class="pre">assemble_int_bound_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMpfa.assemble_int_bound_source"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_int_bound_source" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_int_bound_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMpfa.assemble_int_bound_source"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_int_bound_source" title="Link to this definition"></a></dt>
 <dd><p>Abstract method. Assemble the contribution from an internal
 boundary, manifested as a source term.</p>
 <p>The intended use is when the internal boundary is coupled to another
@@ -350,15 +350,15 @@ used to impose flux continuity on a lower-dimensional domain.</p>
 <p>Implementations of this method will use an interplay between the grid on
 the node and the mortar grid on the relevant edge.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Grid which the condition should be imposed on.</p></li>
 <li><p><strong>sd_data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the node in the
 mixed-dimensional grid.</p></li>
 <li><p><strong>intf</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MortarGrid</span></code>) – interface</p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Data dictionary for the interface in the
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – Data dictionary for the interface in the
 mixed-dimensional grid.</p></li>
-<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix,</span> <span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
+<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
 The first and second rows and columns are identified with the
 primary and secondary side; the third belongs to the edge variable.
 The discretization of the relevant term is done in-place in cc.</p></li>
@@ -366,11 +366,11 @@ The discretization of the relevant term is done in-place in cc.</p></li>
 the two adjacent nodes.</p></li>
 <li><p><strong>rhs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block_array</span> <span class="pre">3x1</span></code>) – Right hand side contribution for the edge and
 the two adjacent nodes.</p></li>
-<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
+<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
 Should be either 1 or 2.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -378,13 +378,13 @@ Should be either 1 or 2.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMpfa.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitMpfa.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Overwrite MPFA method to be consistent with the Biot dt convention.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -394,35 +394,35 @@ Should be either 1 or 2.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImplicitTpfa</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitTpfa"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImplicitTpfa</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitTpfa"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.fv.tpfa.html#porepy.numerics.fv.tpfa.Tpfa" title="porepy.numerics.fv.tpfa.Tpfa"><code class="xref py py-class docutils literal notranslate"><span class="pre">Tpfa</span></code></a></p>
 <p>Multiply all contributions by the time step.</p>
 <p>Implementation note: This is a copy of ImplicitMpfa, modified to inherit from Tpfa.
 A unified implementation would have been preferable.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_int_bound_flux">
-<span class="sig-name descname"><span class="pre">assemble_int_bound_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_secondary_proj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitTpfa.assemble_int_bound_flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_int_bound_flux" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_int_bound_flux</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_secondary_proj</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitTpfa.assemble_int_bound_flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_int_bound_flux" title="Link to this definition"></a></dt>
 <dd><p>Overwrite the MPFA method to be consistent with the Biot dt convention</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>) – </p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
-<li><p><strong>cc</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – </p></li>
-<li><p><strong>rhs</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
-<li><p><strong>use_secondary_proj</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>intf</strong> (<a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a>)</p></li>
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
+<li><p><strong>cc</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>)</p></li>
+<li><p><strong>rhs</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
+<li><p><strong>use_secondary_proj</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -430,7 +430,7 @@ A unified implementation would have been preferable.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_int_bound_source">
-<span class="sig-name descname"><span class="pre">assemble_int_bound_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitTpfa.assemble_int_bound_source"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_int_bound_source" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_int_bound_source</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rhs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">self_ind</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitTpfa.assemble_int_bound_source"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_int_bound_source" title="Link to this definition"></a></dt>
 <dd><p>Abstract method. Assemble the contribution from an internal
 boundary, manifested as a source term.</p>
 <p>The intended use is when the internal boundary is coupled to another
@@ -440,7 +440,7 @@ used to impose flux continuity on a lower-dimensional domain.</p>
 <p>Implementations of this method will use an interplay between the grid on
 the node and the mortar grid on the relevant edge.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – Grid which the condition should be imposed on.</p></li>
 <li><p><strong>sd_data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the node in the
@@ -448,7 +448,7 @@ mixed-dimensional grid.</p></li>
 <li><p><strong>intf</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MortarGrid</span></code>) – interface</p></li>
 <li><p><strong>intf_data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">dictionary</span></code>) – Data dictionary for the edge in the
 mixed-dimensional grid.</p></li>
-<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix,</span> <span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
+<li><p><strong>cc</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block</span> <span class="pre">matrix</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">3x3</span></code>) – Block matrix for the coupling condition.
 The first and second rows and columns are identified with the
 primary and secondary side; the third belongs to the edge variable.
 The discretization of the relevant term is done in-place in cc.</p></li>
@@ -456,11 +456,11 @@ The discretization of the relevant term is done in-place in cc.</p></li>
 the two adjacent nodes.</p></li>
 <li><p><strong>rhs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">block_array</span> <span class="pre">3x1</span></code>) – Right-hand side contribution for the edge and
 the two adjacent nodes.</p></li>
-<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
+<li><p><strong>self_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index in cc and matrix associated with this node.
 Should be either 1 or 2.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -468,13 +468,13 @@ Should be either 1 or 2.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitTpfa.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitTpfa.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Overwrite MPFA method to be consistent with the Biot dt convention.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -484,29 +484,29 @@ Should be either 1 or 2.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwind">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImplicitUpwind</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'transport'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitUpwind"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwind" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImplicitUpwind</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'transport'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitUpwind"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwind" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.fv.upwind.html#porepy.numerics.fv.upwind.Upwind" title="porepy.numerics.fv.upwind.Upwind"><code class="xref py py-class docutils literal notranslate"><span class="pre">Upwind</span></code></a></p>
 <p>Multiply all contributions by the time step and advection weight.
 The latter may be a scalar or cell-wise values, in which case the upwind
 value is used. Note that the interior cell value is taken for BCs,
 regardless of the direction of the flux on the boundary.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwind.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitUpwind.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwind.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitUpwind.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwind.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a>) – </p></li>
+<li><p><strong>sd</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)">scipy.sparse._base.spmatrix</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -515,35 +515,35 @@ regardless of the direction of the flux on the boundary.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwindCoupling">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImplicitUpwindCoupling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitUpwindCoupling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwindCoupling" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ImplicitUpwindCoupling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitUpwindCoupling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwindCoupling" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.interface_laws.hyperbolic_interface_laws.html#porepy.numerics.interface_laws.hyperbolic_interface_laws.UpwindCoupling" title="porepy.numerics.interface_laws.hyperbolic_interface_laws.UpwindCoupling"><code class="xref py py-class docutils literal notranslate"><span class="pre">UpwindCoupling</span></code></a></p>
 <p>Multiply the advective mortar fluxes by the time step and advection weight.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwindCoupling.assemble_matrix_rhs">
-<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitUpwindCoupling.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwindCoupling.assemble_matrix_rhs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">assemble_matrix_rhs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_data_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intf_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/derived_discretizations/implicit_euler.html#ImplicitUpwindCoupling.assemble_matrix_rhs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwindCoupling.assemble_matrix_rhs" title="Link to this definition"></a></dt>
 <dd><p>Construct the matrix (and right-hand side) for the coupling conditions.
 Note: the right-hand side is not implemented now.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd_primary</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – grid of higher dimension</p></li>
 <li><p><strong>sd_secondary</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – grid of lower dimension</p></li>
 <li><p><strong>intf</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MortarGrid</span></code>) – interface</p></li>
-<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – dictionary which stores the data for the higher
+<li><p><strong>sd_data_primary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – dictionary which stores the data for the higher
 dimensional grid</p></li>
-<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – dictionary which stores the data for the lower
+<li><p><strong>sd_data_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – dictionary which stores the data for the lower
 dimensional grid</p></li>
-<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – dictionary which stores the data for the edges of the
+<li><p><strong>intf_data</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a>) – dictionary which stores the data for the edges of the
 grid bucket</p></li>
-<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a>) – Uncoupled discretization matrix.</p></li>
+<li><p><strong>matrix</strong> (<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>) – Uncoupled discretization matrix.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>block matrix which store the contribution of the coupling</dt><dd><p>condition. See the abstract coupling class for a more detailed
 description.</p>
@@ -551,7 +551,7 @@ description.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>cc</p>
 </dd>
 </dl>

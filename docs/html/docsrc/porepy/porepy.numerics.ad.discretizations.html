@@ -1,23 +1,23 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.ad.discretizations module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.ad.discretizations.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.ad.discretizations.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +30,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +263,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
@@ -276,7 +277,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.ad.discretizations">
-<span id="porepy-numerics-ad-discretizations-module"></span><h1>porepy.numerics.ad.discretizations module<a class="headerlink" href="#module-porepy.numerics.ad.discretizations" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-ad-discretizations-module"></span><h1>porepy.numerics.ad.discretizations module<a class="headerlink" href="#module-porepy.numerics.ad.discretizations" title="Link to this heading"></a></h1>
 <p>For any discretization class compatible with PorePy, wrap_discretization associates
 a discretization with all attributes of the class’ attributes that end with
 ‘_matrix_key’.</p>
@@ -297,16 +298,16 @@ discretization matrices) is performed before the operator tree is parsed.</p>
 </div>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.BiotAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BiotAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flow'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#BiotAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.BiotAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BiotAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flow_keyword</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flow'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#BiotAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.BiotAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <p>Ad wrapper around the Biot discretization class.</p>
 <p>For description of the method, we refer to the standard Biot class.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
-<li><p><strong>flow_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>flow_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -314,13 +315,13 @@ discretization matrices) is performed before the operator tree is parsed.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.BiotStabilizationAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BiotStabilizationAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#BiotStabilizationAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.BiotStabilizationAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BiotStabilizationAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#BiotStabilizationAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.BiotStabilizationAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -328,13 +329,13 @@ discretization matrices) is performed before the operator tree is parsed.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.ColoumbContactAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ColoumbContactAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#ColoumbContactAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.ColoumbContactAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ColoumbContactAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#ColoumbContactAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.ColoumbContactAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>interfaces</strong> (<em>List</em><em>[</em><em>pp.MortarGrid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -342,14 +343,14 @@ discretization matrices) is performed before the operator tree is parsed.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.ContactTractionAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ContactTractionAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">low_dim_subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#ContactTractionAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.ContactTractionAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ContactTractionAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">low_dim_subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#ContactTractionAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.ContactTractionAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>interfaces</strong> (<em>List</em><em>[</em><em>pp.MortarGrid</em><em>]</em>) – </p></li>
-<li><p><strong>low_dim_subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>)</p></li>
+<li><p><strong>low_dim_subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><em>pp.Grid</em><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -357,52 +358,47 @@ discretization matrices) is performed before the operator tree is parsed.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.DifferentiableFVAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DifferentiableFVAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_discr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">system_manager</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">permeability_function</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">permeability_argument</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">potential</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#DifferentiableFVAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.DifferentiableFVAd" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DifferentiableFVAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_discr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">equation_system</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">permeability_function</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">permeability_argument</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">potential</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#DifferentiableFVAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.DifferentiableFVAd" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>This class represents the application of the product and chain rule of the
 flux expression</p>
-<blockquote>
-<div><p>q = T(k(u)) * p</p>
-</div></blockquote>
-<p>Where the transmissibility matrix T is a function of the cell permeability k, which
+<div class="math notranslate nohighlight">
+\[q = T(k(u)) * p.\]</div>
+<p>Here, the transmissibility matrix T is a function of the cell permeability k, which
 again is a function of a primary variable u, while p is the potential (pressure).
 The chain rule applied to this expression reads</p>
-<blockquote>
-<div><p>dq = p * dT/dk * dk/du * du + T * dp</p>
-</div></blockquote>
+<div class="math notranslate nohighlight">
+\[dq = p * dT/dk * dk/du * du + T * dp\]</div>
 <p>The transmissibility matrix can be computed from a Tpfa or Mpfa discretization, or
 (in principle) any other finite volume method. The derivative of the
 transmissibilities, dT/dk, is approximated with a two-point flux stencil.</p>
 <p>If vector sources are included, p should be replaced by (p - dist * vector_source),
 with dist the distance roughly corresponding to the inverse of the gradient.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
-<li><p><strong>mdg</strong> (<em>pp.MixedDimensionalGrid</em>) – </p></li>
-<li><p><strong>base_discr</strong> (<em>Union</em><em>[</em><em>pp.ad.MpfaAd</em><em>, </em><em>pp.ad.TpfaAd</em><em>]</em>) – </p></li>
-<li><p><strong>system_manager</strong> (<em>pp.ad.EquationSystem</em>) – </p></li>
-<li><p><strong>permeability_function</strong> (<em>Callable</em><em>[</em><em>[</em><em>pp.ad.Variable</em><em>]</em><em>, </em><em>pp.ad.Ad_array</em><em>]</em>) – </p></li>
-<li><p><strong>permeability_argument</strong> (<em>pp.ad.Variable</em>) – </p></li>
-<li><p><strong>potential</strong> (<em>pp.ad.Variable</em>) – </p></li>
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><em>pp.Grid</em><em>]</em>)</p></li>
+<li><p><strong>mdg</strong> (<em>pp.MixedDimensionalGrid</em>)</p></li>
+<li><p><strong>base_discr</strong> (<em>Union</em><em>[</em><em>pp.ad.MpfaAd</em><em>, </em><em>pp.ad.TpfaAd</em><em>]</em>)</p></li>
+<li><p><strong>equation_system</strong> (<em>pp.ad.EquationSystem</em>)</p></li>
+<li><p><strong>permeability_function</strong> (<em>Callable</em><em>[</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><em>pp.Grid</em><em>]</em><em>]</em><em>, </em><em>pp.ad.Operator</em><em>]</em>)</p></li>
+<li><p><strong>permeability_argument</strong> (<em>pp.ad.Variable</em>)</p></li>
+<li><p><strong>potential</strong> (<em>pp.ad.Variable</em>)</p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.DifferentiableFVAd.bound_pressure_face">
-<span class="sig-name descname"><span class="pre">bound_pressure_face</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#DifferentiableFVAd.bound_pressure_face"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.DifferentiableFVAd.bound_pressure_face" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">bound_pressure_face</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#DifferentiableFVAd.bound_pressure_face"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.DifferentiableFVAd.bound_pressure_face" title="Link to this definition"></a></dt>
 <dd><p>Boundary face contribution to pressure reconstruction.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p><dl class="simple">
-<dt>pp.ad.Operator representing the value and jacobian of bound_pressure_face,</dt><dd><p>which is used to reconstruct the pressure trace on the boundary (see FV
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pp.ad.Operator representing the value and jacobian of bound_pressure_face,
+which is used to reconstruct the pressure trace on the boundary (see FV
 discretizations).</p>
 </dd>
-</dl>
-</p>
-</dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
 </dd>
 </dl>
@@ -410,40 +406,96 @@ discretizations).</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.DifferentiableFVAd.flux">
-<span class="sig-name descname"><span class="pre">flux</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#DifferentiableFVAd.flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.DifferentiableFVAd.flux" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">flux</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#DifferentiableFVAd.flux"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.DifferentiableFVAd.flux" title="Link to this definition"></a></dt>
 <dd><p>Flux from potential, BCs and vector sources.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>pp.ad.Operator representing the flux.</p>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Operator representing the flux.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><em>Operator</em></a></p>
 </dd>
 </dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.DifferentiableFVAd.equation_system">
+<span class="sig-name descname"><span class="pre">equation_system</span></span><a class="headerlink" href="#porepy.numerics.ad.discretizations.DifferentiableFVAd.equation_system" title="Link to this definition"></a></dt>
+<dd><p>Equation system used to evaluate Ad operators.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.DifferentiableFVAd.keyword">
+<span class="sig-name descname"><span class="pre">keyword</span></span><a class="headerlink" href="#porepy.numerics.ad.discretizations.DifferentiableFVAd.keyword" title="Link to this definition"></a></dt>
+<dd><p>Keyword used to identify the discretization in the data dictionary.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.DifferentiableFVAd.mdg">
+<span class="sig-name descname"><span class="pre">mdg</span></span><a class="headerlink" href="#porepy.numerics.ad.discretizations.DifferentiableFVAd.mdg" title="Link to this definition"></a></dt>
+<dd><p>Mixed-dimensional grid.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.DifferentiableFVAd.subdomains">
+<span class="sig-name descname"><span class="pre">subdomains</span></span><a class="headerlink" href="#porepy.numerics.ad.discretizations.DifferentiableFVAd.subdomains" title="Link to this definition"></a></dt>
+<dd><p>List of subdomains on which the discretization is defined.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.Discretization">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Discretization</span></span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#Discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.Discretization" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Discretization</span></span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#Discretization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.Discretization" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
 <p>General/utility methods for AD discretization classes.</p>
 <p>The init of the children classes below typically calls wrap_discretization
 and has arguments including subdomains or interfaces and keywords for parameter and
 possibly matrix storage.</p>
+<dl class="field-list simple">
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.Discretization.interfaces">
+<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><span class="pre">MortarGrid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.discretizations.Discretization.interfaces" title="Link to this definition"></a></dt>
+<dd><p>List of interfaces on which the discretization is defined.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.Discretization.keyword">
+<span class="sig-name descname"><span class="pre">keyword</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.numerics.ad.discretizations.Discretization.keyword" title="Link to this definition"></a></dt>
+<dd><p>Keyword for parameter storage in the data dictionary.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.Discretization.mat_dict_key">
+<span class="sig-name descname"><span class="pre">mat_dict_key</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.numerics.ad.discretizations.Discretization.mat_dict_key" title="Link to this definition"></a></dt>
+<dd><p>Keyword for matrix storage in the data dictionary.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.Discretization.name">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></em><a class="headerlink" href="#porepy.numerics.ad.discretizations.Discretization.name" title="Link to this definition"></a></dt>
+<dd><p>Name of the discretization.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.Discretization.subdomains">
+<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">Grid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.discretizations.Discretization.subdomains" title="Link to this definition"></a></dt>
+<dd><p>List of grids on which the discretization is defined.</p>
+</dd></dl>
+
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.DivUAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DivUAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mat_dict_keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#DivUAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.DivUAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DivUAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mat_dict_keyword</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#DivUAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.DivUAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
-<li><p><strong>mat_dict_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>mat_dict_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -451,13 +503,13 @@ possibly matrix storage.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.GradPAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GradPAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#GradPAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.GradPAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">GradPAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#GradPAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.GradPAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -465,13 +517,13 @@ possibly matrix storage.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.MassMatrixAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MassMatrixAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#MassMatrixAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.MassMatrixAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MassMatrixAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#MassMatrixAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.MassMatrixAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -479,13 +531,13 @@ possibly matrix storage.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.MpfaAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MpfaAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#MpfaAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.MpfaAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MpfaAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#MpfaAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.MpfaAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -493,13 +545,13 @@ possibly matrix storage.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.MpsaAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MpsaAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#MpsaAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.MpsaAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MpsaAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#MpsaAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.MpsaAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -507,13 +559,13 @@ possibly matrix storage.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.RobinCouplingAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">RobinCouplingAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#RobinCouplingAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.RobinCouplingAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">RobinCouplingAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#RobinCouplingAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.RobinCouplingAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>interfaces</strong> (<em>List</em><em>[</em><em>pp.MortarGrid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -521,13 +573,13 @@ possibly matrix storage.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.TpfaAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TpfaAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#TpfaAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.TpfaAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TpfaAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#TpfaAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.TpfaAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -535,13 +587,13 @@ possibly matrix storage.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.UpwindAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">UpwindAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#UpwindAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.UpwindAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">UpwindAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#UpwindAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.UpwindAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>List</em><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -549,13 +601,13 @@ possibly matrix storage.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.UpwindCouplingAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">UpwindCouplingAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#UpwindCouplingAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.UpwindCouplingAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">UpwindCouplingAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#UpwindCouplingAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.UpwindCouplingAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>interfaces</strong> (<em>List</em><em>[</em><em>pp.MortarGrid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -563,13 +615,13 @@ possibly matrix storage.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.discretizations.WellCouplingAd">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">WellCouplingAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#WellCouplingAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.WellCouplingAd" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">WellCouplingAd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/discretizations.html#WellCouplingAd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.discretizations.WellCouplingAd" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.discretizations.Discretization" title="porepy.numerics.ad.discretizations.Discretization"><code class="xref py py-class docutils literal notranslate"><span class="pre">Discretization</span></code></a></p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>interfaces</strong> (<em>List</em><em>[</em><em>pp.MortarGrid</em><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>

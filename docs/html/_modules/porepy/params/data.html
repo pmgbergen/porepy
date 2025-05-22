@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.params.data &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/params/data.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/params/data.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.params.data</li>
       <li class="wy-breadcrumbs-aside">
@@ -335,20 +335,22 @@
 
 <span class="sd">data[pp.STATE][keyword][&quot;bc_values&quot;].</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">numbers</span>
-<span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numbers</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">import</span> <span class="nn">porepy.params.parameter_dictionaries</span> <span class="k">as</span> <span class="nn">dicts</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy.params.parameter_dictionaries</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">dicts</span>
 
 
-<div class="viewcode-block" id="Parameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters">[docs]</a><span class="k">class</span> <span class="nc">Parameters</span><span class="p">(</span><span class="n">Dict</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class to store all physical parameters used by solvers.</span>
+<div class="viewcode-block" id="Parameters">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Parameters</span><span class="p">(</span><span class="n">Dict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class to store all physical parameters used by solvers.</span>
 
 <span class="sd">    The intention is to provide a unified way of passing around parameters, and</span>
 <span class="sd">    also circumvent the issue of using a solver for multiple physical</span>
@@ -361,13 +363,13 @@
 <span class="sd">    one sub-dictionary for each keyword.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">grid</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">keywords</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dictionaries</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Initialize Data object.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize Data object.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            grid (pp.Grid or pp.MortarGrid, optional): Grid where the data is valid.</span>
@@ -384,7 +386,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">update_dictionaries</span><span class="p">(</span><span class="n">keywords</span><span class="p">,</span> <span class="n">dictionaries</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">grid</span> <span class="o">=</span> <span class="n">grid</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Data object for physical processes &quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
         <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
@@ -392,10 +394,12 @@
             <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="Parameters.update_dictionaries"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters.update_dictionaries">[docs]</a>    <span class="k">def</span> <span class="nf">update_dictionaries</span><span class="p">(</span>
+<div class="viewcode-block" id="Parameters.update_dictionaries">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters.update_dictionaries">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_dictionaries</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">keywords</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">dictionaries</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Update the dictionaries corresponding to some keywords.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the dictionaries corresponding to some keywords.</span>
 
 <span class="sd">        Use either the dictionaries OR the property_ids / values.</span>
 
@@ -425,10 +429,13 @@
             <span class="k">else</span><span class="p">:</span>
                 <span class="bp">self</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">dictionaries</span><span class="p">[</span><span class="n">i</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Parameters.set_from_other"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters.set_from_other">[docs]</a>    <span class="k">def</span> <span class="nf">set_from_other</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Parameters.set_from_other">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters.set_from_other">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_from_other</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">keyword_add</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">keyword_get</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Add parameters from existing values for a different keyword.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add parameters from existing values for a different keyword.</span>
 
 <span class="sd">        Typical usage: Ensure parameters like aperture and porosity are consistent</span>
 <span class="sd">        between keywords, by making reference the same object. Subsequent calls to</span>
@@ -445,8 +452,11 @@
         <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parameters</span><span class="p">:</span>
             <span class="bp">self</span><span class="p">[</span><span class="n">keyword_add</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="p">[</span><span class="n">keyword_get</span><span class="p">][</span><span class="n">p</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Parameters.overwrite_shared_parameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters.overwrite_shared_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">overwrite_shared_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">values</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Updates the given parameter for all keywords.</span>
+
+<div class="viewcode-block" id="Parameters.overwrite_shared_parameters">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters.overwrite_shared_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">overwrite_shared_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">values</span><span class="p">:</span> <span class="nb">list</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Updates the given parameter for all keywords.</span>
 
 <span class="sd">        Brute force method to ensure a parameter is updated/overwritten for all</span>
 <span class="sd">        keywords where they are defined.</span>
@@ -460,10 +470,13 @@
                 <span class="k">if</span> <span class="n">p</span> <span class="ow">in</span> <span class="bp">self</span><span class="p">[</span><span class="n">kw</span><span class="p">]:</span>
                     <span class="bp">self</span><span class="p">[</span><span class="n">kw</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">v</span></div>
 
-<div class="viewcode-block" id="Parameters.modify_parameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters.modify_parameters">[docs]</a>    <span class="k">def</span> <span class="nf">modify_parameters</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Parameters.modify_parameters">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters.modify_parameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">modify_parameters</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">values</span><span class="p">:</span> <span class="nb">list</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Modify the values of some parameters of a given keyword.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Modify the values of some parameters of a given keyword.</span>
 
 <span class="sd">        Usage: Ensure consistent parameter updates, see set_from_other. Does not work</span>
 <span class="sd">        on Numbers.</span>
@@ -478,14 +491,17 @@
         <span class="k">for</span> <span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
             <span class="n">modify_variable</span><span class="p">(</span><span class="bp">self</span><span class="p">[</span><span class="n">keyword</span><span class="p">][</span><span class="n">p</span><span class="p">],</span> <span class="n">v</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Parameters.expand_scalars"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters.expand_scalars">[docs]</a>    <span class="k">def</span> <span class="nf">expand_scalars</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Parameters.expand_scalars">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.Parameters.expand_scalars">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">expand_scalars</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">n_vals</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">parameters</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
         <span class="n">defaults</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Expand parameters assigned as a single scalar to n_vals arrays.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Expand parameters assigned as a single scalar to n_vals arrays.</span>
 <span class="sd">        Used e.g. for parameters which may be heterogeneous in space (cellwise),</span>
 <span class="sd">        but are often homogeneous and assigned as a scalar.</span>
 
@@ -510,7 +526,9 @@
             <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="n">val</span> <span class="o">*=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">n_vals</span><span class="p">)</span>
             <span class="n">values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">values</span></div></div>
+        <span class="k">return</span> <span class="n">values</span></div>
+</div>
+
 
 
 <span class="sd">&quot;&quot;&quot;</span>
@@ -520,14 +538,16 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 
-<div class="viewcode-block" id="initialize_default_data"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.initialize_default_data">[docs]</a><span class="k">def</span> <span class="nf">initialize_default_data</span><span class="p">(</span>
+<div class="viewcode-block" id="initialize_default_data">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.initialize_default_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">initialize_default_data</span><span class="p">(</span>
     <span class="n">grid</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span>
     <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">parameter_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">specified_parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">keyword</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Initialize a data dictionary for a single keyword.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize a data dictionary for a single keyword.</span>
 
 <span class="sd">    The initialization consists of adding a parameter dictionary and initializing a</span>
 <span class="sd">    matrix dictionary in the proper fields of data. Default data are added for a certain</span>
@@ -570,13 +590,16 @@
     <span class="k">return</span> <span class="n">initialize_data</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">keyword</span><span class="p">,</span> <span class="n">d</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="initialize_data"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.initialize_data">[docs]</a><span class="k">def</span> <span class="nf">initialize_data</span><span class="p">(</span>
+
+<div class="viewcode-block" id="initialize_data">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.initialize_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">initialize_data</span><span class="p">(</span>
     <span class="n">grid</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span>
     <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">specified_parameters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Initialize a data dictionary for a single keyword.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize a data dictionary for a single keyword.</span>
 
 <span class="sd">    The initialization consists of adding a parameter dictionary and initializing a</span>
 <span class="sd">    matrix dictionary in the proper fields of data. If there is a Parameters object</span>
@@ -602,8 +625,11 @@
     <span class="k">return</span> <span class="n">data</span></div>
 
 
-<div class="viewcode-block" id="set_state"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.set_state">[docs]</a><span class="k">def</span> <span class="nf">set_state</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Initialize or update a state dictionary.</span>
+
+<div class="viewcode-block" id="set_state">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.set_state">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_state</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize or update a state dictionary.</span>
 
 <span class="sd">    The initialization consists of adding a state dictionary in the proper field of the</span>
 <span class="sd">    data dictionary. If there is a state dictionary in data, the new state is added</span>
@@ -625,8 +651,11 @@
     <span class="k">return</span> <span class="n">data</span></div>
 
 
-<div class="viewcode-block" id="set_iterate"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.set_iterate">[docs]</a><span class="k">def</span> <span class="nf">set_iterate</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">iterate</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Initialize or update an iterate dictionary.</span>
+
+<div class="viewcode-block" id="set_iterate">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.set_iterate">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_iterate</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">iterate</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize or update an iterate dictionary.</span>
 
 <span class="sd">    Same as set_state for subfield pp.ITERATE</span>
 <span class="sd">    Also checks whether pp.STATE field is set, and adds it if not, see set_state.</span>
@@ -649,8 +678,11 @@
     <span class="k">return</span> <span class="n">data</span></div>
 
 
-<div class="viewcode-block" id="modify_variable"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.modify_variable">[docs]</a><span class="k">def</span> <span class="nf">modify_variable</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">new_value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Changes the value (not id) of the stored parameter.</span>
+
+<div class="viewcode-block" id="modify_variable">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.modify_variable">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">modify_variable</span><span class="p">(</span><span class="n">variable</span><span class="p">,</span> <span class="n">new_value</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Changes the value (not id) of the stored parameter.</span>
 
 <span class="sd">    Mutes the value of a variable to new_value. Note that this method cannot be</span>
 <span class="sd">    extended to cover Numbers, as these are immutable in Python.</span>
@@ -684,8 +716,11 @@
         <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="add_nonpresent_dictionary"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.add_nonpresent_dictionary">[docs]</a><span class="k">def</span> <span class="nf">add_nonpresent_dictionary</span><span class="p">(</span><span class="n">dictionary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Check if key is in the dictionary, if not add it with an empty dictionary.</span>
+
+<div class="viewcode-block" id="add_nonpresent_dictionary">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.add_nonpresent_dictionary">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_nonpresent_dictionary</span><span class="p">(</span><span class="n">dictionary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if key is in the dictionary, if not add it with an empty dictionary.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        dictionary (dict): Dictionary to be updated.</span>
@@ -695,8 +730,11 @@
         <span class="n">dictionary</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span></div>
 
 
-<div class="viewcode-block" id="add_discretization_matrix_keyword"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.add_discretization_matrix_keyword">[docs]</a><span class="k">def</span> <span class="nf">add_discretization_matrix_keyword</span><span class="p">(</span><span class="n">dictionary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Ensure presence of sub-dictionaries.</span>
+
+<div class="viewcode-block" id="add_discretization_matrix_keyword">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.data.html#porepy.params.data.add_discretization_matrix_keyword">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">add_discretization_matrix_keyword</span><span class="p">(</span><span class="n">dictionary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ensure presence of sub-dictionaries.</span>
 
 <span class="sd">    Specific method ensuring that there is a sub-dictionary for discretization matrices,</span>
 <span class="sd">    and that this contains a sub-sub-dictionary for the given key. Called previous to</span>
@@ -713,6 +751,7 @@
     <span class="n">add_nonpresent_dictionary</span><span class="p">(</span><span class="n">dictionary</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">)</span>
     <span class="n">add_nonpresent_dictionary</span><span class="p">(</span><span class="n">dictionary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">],</span> <span class="n">keyword</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">dictionary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="n">keyword</span><span class="p">]</span></div>
+
 </pre></div>
 
            </div>

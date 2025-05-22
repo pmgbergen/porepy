@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>example_docstrings &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/example_docstrings.html" />
-  <!--[if lt IE 9]>
-    <script src="../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
-        <script src="../_static/jquery.js"></script>
-        <script src="../_static/underscore.js"></script>
-        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../_static/doctools.js"></script>
-        <script src="../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/example_docstrings.html" />
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../index.html" class="icon icon-home"></a></li>
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="index.html">Module code</a></li>
       <li class="breadcrumb-item active">example_docstrings</li>
       <li class="wy-breadcrumbs-aside">
@@ -320,14 +320,13 @@
 <span class="sd">directives and their options beforehand.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Generator</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
-<span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">DTypeLike</span><span class="p">,</span> <span class="n">NDArray</span>
-
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArrayLike</span><span class="p">,</span> <span class="n">DTypeLike</span><span class="p">,</span> <span class="n">NDArray</span>
 
 <span class="n">example_var_1</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;var&quot;</span>
 <span class="sd">&quot;&quot;&quot;Variables at the module level are documented inline after declaration.&quot;&quot;&quot;</span>
@@ -387,8 +386,8 @@
 <span class="sd">&quot;&quot;&quot;This is a custom type alias, including lists and numpy&#39;s ``ndarray``.&quot;&quot;&quot;</span>
 
 
-<span class="k">class</span> <span class="nc">ExampleArrayLike_T</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;This is a custom type alias, including lists and numpy&#39;s ``ndarray``.&quot;&quot;&quot;</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExampleArrayLike_T</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This is a custom type alias, including lists and numpy&#39;s ``ndarray``.&quot;&quot;&quot;</span>
 
     <span class="k">pass</span>
 
@@ -397,8 +396,10 @@
 <span class="n">ExampleArrayLike</span><span class="o">.</span><span class="n">__supertype__</span> <span class="o">=</span> <span class="n">_ExampleArrayLike</span>
 
 
-<div class="viewcode-block" id="example_function_1"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_1">[docs]</a><span class="k">def</span> <span class="nf">example_function_1</span><span class="p">(</span><span class="n">arg1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arg2</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">arg3</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;A short description of the functionality must fit in the first line.</span>
+<div class="viewcode-block" id="example_function_1">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_1">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">example_function_1</span><span class="p">(</span><span class="n">arg1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arg2</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">arg3</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A short description of the functionality must fit in the first line.</span>
 
 <span class="sd">    Detailed description can be given next if necessary. The extended description</span>
 <span class="sd">    can of course span several lines.</span>
@@ -442,8 +443,11 @@
     <span class="k">return</span> <span class="p">(</span><span class="n">arg1</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">arg2</span><span class="p">))</span> <span class="ow">and</span> <span class="n">arg3</span></div>
 
 
-<div class="viewcode-block" id="example_function_2"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_2">[docs]</a><span class="k">def</span> <span class="nf">example_function_2</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;This function demonstrates linking to objects inside docstrings, the usage of</span>
+
+<div class="viewcode-block" id="example_function_2">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">example_function_2</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This function demonstrates linking to objects inside docstrings, the usage of</span>
 <span class="sd">    ``*args`` and ``**kwargs``, and the *Raises:* directive.</span>
 
 <span class="sd">    As evident, you can link objects in-text. You can also link functions like</span>
@@ -483,7 +487,10 @@
     <span class="k">pass</span></div>
 
 
-<div class="viewcode-block" id="example_function_3"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_3">[docs]</a><span class="k">def</span> <span class="nf">example_function_3</span><span class="p">(</span>
+
+<div class="viewcode-block" id="example_function_3">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_3">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">example_function_3</span><span class="p">(</span>
     <span class="n">vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
     <span class="n">optional_arg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -493,7 +500,7 @@
     <span class="n">option_2</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="n">option_3</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-16</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;This function demonstrates how to document special requirements for arguments.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This function demonstrates how to document special requirements for arguments.</span>
 
 <span class="sd">    Optional arguments must be type-hinted using :obj:`typing.Optional`.</span>
 
@@ -516,8 +523,8 @@
 <span class="sd">            If unclear to what the number refers, explain.</span>
 
 <span class="sd">            Use explicitly ``shape`` for numpy arrays to describe as precise as possible</span>
-<span class="sd">            which dimensions are allowed. </span>
-<span class="sd">            </span>
+<span class="sd">            which dimensions are allowed.</span>
+
 <span class="sd">            Note:</span>
 <span class="sd">                In ``numpy`` and ``scipy`` it holds ``(3,) != (3, 1)``.</span>
 <span class="sd">        matrix: ``shape=(3, num_cells)``</span>
@@ -579,11 +586,14 @@
     <span class="k">pass</span></div>
 
 
-<div class="viewcode-block" id="example_function_4"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_4">[docs]</a><span class="k">def</span> <span class="nf">example_function_4</span><span class="p">(</span>
+
+<div class="viewcode-block" id="example_function_4">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_4">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">example_function_4</span><span class="p">(</span>
     <span class="n">vector</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;This function demonstrates how to document multiple return values in the</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This function demonstrates how to document multiple return values in the</span>
 <span class="sd">    *Returns:* directive.</span>
 
 <span class="sd">    Parameters:</span>
@@ -615,12 +625,15 @@
     <span class="k">pass</span></div>
 
 
-<div class="viewcode-block" id="example_function_5"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_5">[docs]</a><span class="k">def</span> <span class="nf">example_function_5</span><span class="p">(</span>
+
+<div class="viewcode-block" id="example_function_5">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_function_5">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">example_function_5</span><span class="p">(</span>
     <span class="n">array_like</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
     <span class="n">ndarray_like</span><span class="p">:</span> <span class="n">NDArray</span><span class="p">,</span>
     <span class="n">dtype_like</span><span class="p">:</span> <span class="n">DTypeLike</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExampleArrayLike</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;This function demonstrates type annotations using custom type aliases,</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This function demonstrates type annotations using custom type aliases,</span>
 <span class="sd">    including those from third-party packages.</span>
 
 <span class="sd">    For Sphinx to display type aliases without parsing their complete expression,</span>
@@ -650,8 +663,11 @@
     <span class="k">pass</span></div>
 
 
-<div class="viewcode-block" id="example_generator"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_generator">[docs]</a><span class="k">def</span> <span class="nf">example_generator</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;When documenting a generator, use the *Yields:* directive instead of *Returns:*.</span>
+
+<div class="viewcode-block" id="example_generator">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.example_generator">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">example_generator</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Generator</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;When documenting a generator, use the *Yields:* directive instead of *Returns:*.</span>
 
 <span class="sd">    Their usage is equivalent,</span>
 <span class="sd">    indicating only that this is a generator object, not a regular function.</span>
@@ -674,8 +690,11 @@
         <span class="k">yield</span> <span class="n">i</span></div>
 
 
-<div class="viewcode-block" id="ExampleClass"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ExampleClass">[docs]</a><span class="k">class</span> <span class="nc">ExampleClass</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;A quick purpose of the class is to be provided in the first line.</span>
+
+<div class="viewcode-block" id="ExampleClass">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ExampleClass">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExampleClass</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A quick purpose of the class is to be provided in the first line.</span>
 
 <span class="sd">    After the first line, a broader, multi-line description of the class can follow.</span>
 <span class="sd">    It can contain multiple paragraphs as well as elements like code snippets.</span>
@@ -719,7 +738,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">class_attribute_1</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
-    <span class="sd">&quot;&quot;&quot;This is how to properly document a class-level attribute.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This is how to properly document a class-level attribute.</span>
 
 <span class="sd">    The value 1 is shown in the docs, because it is static upon class type creation and</span>
 <span class="sd">    Sphinx realizes that.</span>
@@ -727,7 +746,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">class_attribute_2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;A&quot;</span>
-    <span class="sd">&quot;&quot;&quot;str: This is a class attribute with a redundant field &#39;Type:&#39; caused by</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;str: This is a class attribute with a redundant field &#39;Type:&#39; caused by</span>
 <span class="sd">    type hints in the docstring.</span>
 
 <span class="sd">    The type should only be given by its annotation.</span>
@@ -736,18 +755,18 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">_private_class_attribute</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span>
-    <span class="sd">&quot;&quot;&quot;Document private class attributes as well.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Document private class attributes as well.</span>
 
 <span class="sd">    Like everything private, they are not included by default in the docs.</span>
 <span class="sd">    Mention their inclusion into the docs upon integration, if necessary.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arg2</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arg2</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="c1"># !!! no docstring for __init__ !!!</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">attribute_1</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">arg1</span>
-        <span class="sd">&quot;&quot;&quot;This is how to properly document an instance-level attribute in the</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;This is how to properly document an instance-level attribute in the</span>
 <span class="sd">        constructor.</span>
 
 <span class="sd">        If an attribute has certain properties, like specific shape for arrays or a</span>
@@ -755,7 +774,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">attribute_2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">arg2</span>
-        <span class="sd">&quot;&quot;&quot;str: This is an instance-level attribute with a redundant field &#39;Type:&#39;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;str: This is an instance-level attribute with a redundant field &#39;Type:&#39;</span>
 <span class="sd">        caused by type hints in the docstring.</span>
 
 <span class="sd">        The type should only be given by its annotation.</span>
@@ -764,7 +783,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">attribute_3</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_attribute_3</span><span class="p">()</span>
-        <span class="sd">&quot;&quot;&quot;Some attributes are calculated during construction,</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Some attributes are calculated during construction,</span>
 <span class="sd">        possibly in a separate method.</span>
 
 <span class="sd">        Document nevertheless what the attribute contains and what it is used for etc.,</span>
@@ -773,7 +792,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">attribute_4</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-        <span class="sd">&quot;&quot;&quot;Some attributes are only available after a specific method is called,</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Some attributes are only available after a specific method is called,</span>
 <span class="sd">        without having an initial value.</span>
 
 <span class="sd">        Document such attributes using type annotations *without* instantiation as seen</span>
@@ -793,20 +812,20 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_private_attribute</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;This is a private attribute.&quot;</span>
-        <span class="sd">&quot;&quot;&quot;This is a private (instance) attribute and is not included by default.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;This is a private (instance) attribute and is not included by default.</span>
 
 <span class="sd">        Document them properly anyway.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">readonly_property</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Document properties only in their getter-methods.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">readonly_property</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Document properties only in their getter-methods.&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="s2">&quot;readonly&quot;</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">readwrite_property</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Properties with both a getter and setter should only be documented in their</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">readwrite_property</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Properties with both a getter and setter should only be documented in their</span>
 <span class="sd">        getter method.</span>
 
 <span class="sd">        If the setter method contains notable behavior, it should be</span>
@@ -816,21 +835,26 @@
         <span class="k">return</span> <span class="s2">&quot;readwrite&quot;</span>
 
     <span class="nd">@readwrite_property</span><span class="o">.</span><span class="n">setter</span>
-    <span class="k">def</span> <span class="nf">readwrite_property</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">readwrite_property</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
         <span class="n">value</span>
 
-<div class="viewcode-block" id="ExampleClass.example_static_method"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ExampleClass.example_static_method">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">example_static_method</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;This is the docstring of a static method.</span>
+<div class="viewcode-block" id="ExampleClass.example_static_method">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ExampleClass.example_static_method">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">example_static_method</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;This is the docstring of a static method.</span>
 
 <span class="sd">        Note the absence of ``self`` or ``cls`` in the signature.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
-<div class="viewcode-block" id="ExampleClass.example_class_method"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ExampleClass.example_class_method">[docs]</a>    <span class="nd">@classmethod</span>
-    <span class="k">def</span> <span class="nf">example_class_method</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;This is the docstring of a class method.</span>
+
+<div class="viewcode-block" id="ExampleClass.example_class_method">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ExampleClass.example_class_method">[docs]</a>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">example_class_method</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;This is the docstring of a class method.</span>
 
 <span class="sd">        Note that the ``self`` argument is replaced by the ``cls`` argument, but not</span>
 <span class="sd">        included in the docs.</span>
@@ -838,8 +862,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span></div>
 
-<div class="viewcode-block" id="ExampleClass.example_method"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ExampleClass.example_method">[docs]</a>    <span class="k">def</span> <span class="nf">example_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;A short description of the method must fit in the first line.</span>
+
+<div class="viewcode-block" id="ExampleClass.example_method">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ExampleClass.example_method">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">example_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;A short description of the method must fit in the first line.</span>
 
 <span class="sd">        A more elaborate description can follow afterwards.</span>
 
@@ -852,8 +879,9 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="kc">True</span></div>
 
-    <span class="k">def</span> <span class="nf">_calculate_attribute_3</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;The private attribute is calculated in this private method.</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_attribute_3</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The private attribute is calculated in this private method.</span>
 
 <span class="sd">        Document here what is done, like for any other method,</span>
 <span class="sd">        including parameters and return values.</span>
@@ -864,8 +892,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 
-    <span class="k">def</span> <span class="nf">__special__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Special methods (starting and ending with two underscores) are by default not</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">__special__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Special methods (starting and ending with two underscores) are by default not</span>
 <span class="sd">        included.</span>
 
 <span class="sd">        Their inclusion needs to be assured by an *option* in the rst files.</span>
@@ -881,8 +909,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">pass</span>
 
-    <span class="k">def</span> <span class="nf">_private</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Another private method, by default not included.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_private</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Another private method, by default not included.</span>
 
 <span class="sd">        They should be nevertheless documented properly, including parameters,</span>
 <span class="sd">        returns values etc.</span>
@@ -891,8 +919,11 @@
         <span class="k">pass</span></div>
 
 
-<div class="viewcode-block" id="ChildClass"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ChildClass">[docs]</a><span class="k">class</span> <span class="nc">ChildClass</span><span class="p">(</span><span class="n">ExampleClass</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;This is a derived class from :class:`ExampleClass`.</span>
+
+<div class="viewcode-block" id="ChildClass">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ChildClass">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ChildClass</span><span class="p">(</span><span class="n">ExampleClass</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This is a derived class from :class:`ExampleClass`.</span>
 
 <span class="sd">    Sphinx is configured such that all base classes are shown below the class name.</span>
 
@@ -919,14 +950,16 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_arg</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arg1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arg2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;A&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">new_arg</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arg1</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">arg2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;A&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">arg1</span><span class="p">,</span> <span class="n">arg2</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">attribute_2</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;B&quot;</span>
-        <span class="sd">&quot;&quot;&quot;Something changed. Attribute 2 is now set to something else.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Something changed. Attribute 2 is now set to something else.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="ChildClass.example_method"><a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ChildClass.example_method">[docs]</a>    <span class="k">def</span> <span class="nf">example_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Something changed.</span>
+<div class="viewcode-block" id="ChildClass.example_method">
+<a class="viewcode-back" href="../docsrc/howto/howto-docstring.html#example_docstrings.ChildClass.example_method">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">example_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">arg</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Something changed.</span>
 
 <span class="sd">        Describe what is being done,</span>
 <span class="sd">        if and when a super-call to the parent method is performed</span>
@@ -939,7 +972,9 @@
 <span class="sd">            Returns something dependent the parent method result.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">pass</span></div></div>
+        <span class="k">pass</span></div>
+</div>
+
 </pre></div>
 
            </div>

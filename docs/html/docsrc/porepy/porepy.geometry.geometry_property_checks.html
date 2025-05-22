@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.geometry.geometry_property_checks module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.geometry.geometry_property_checks.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.geometry.geometry_property_checks.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.geometry.html">porepy.geometry package</a></li>
       <li class="breadcrumb-item active">porepy.geometry.geometry_property_checks module</li>
@@ -275,12 +275,12 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.geometry.geometry_property_checks">
-<span id="porepy-geometry-geometry-property-checks-module"></span><h1>porepy.geometry.geometry_property_checks module<a class="headerlink" href="#module-porepy.geometry.geometry_property_checks" title="Permalink to this heading"></a></h1>
+<span id="porepy-geometry-geometry-property-checks-module"></span><h1>porepy.geometry.geometry_property_checks module<a class="headerlink" href="#module-porepy.geometry.geometry_property_checks" title="Link to this heading"></a></h1>
 <p>This module contains functions for (boolean) inquiries about geometric objects,
 and relations between objects.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.is_ccw_polygon">
-<span class="sig-name descname"><span class="pre">is_ccw_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#is_ccw_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.is_ccw_polygon" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_ccw_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#is_ccw_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.is_ccw_polygon" title="Link to this definition"></a></dt>
 <dd><p>Determine if the vertices of a polygon are sorted counterclockwise.</p>
 <p>The method computes the winding number of the polygon, see below references.</p>
 <p>The algorithm should work for non-convex polygons. If the polygon is
@@ -312,23 +312,23 @@ ordered in a natural fashion, that is, not self-intersecting.</p>
 <p><a class="reference internal" href="#porepy.geometry.geometry_property_checks.is_ccw_polyline" title="porepy.geometry.geometry_property_checks.is_ccw_polyline"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_ccw_polyline()</span></code></a></p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">n)</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">n)</span></code></p>
 <p>Polygon vertices. n is number of points.</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>True if the polygon is ccw.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.is_ccw_polyline">
-<span class="sig-name descname"><span class="pre">is_ccw_polyline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#is_ccw_polyline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.is_ccw_polyline" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">is_ccw_polyline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p3</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#is_ccw_polyline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.is_ccw_polyline" title="Link to this definition"></a></dt>
 <dd><p>Checks if a polyline of three points goes in a counterclockwise direction.</p>
 <p>The line segment going from <code class="docutils literal notranslate"><span class="pre">p1</span></code> to <code class="docutils literal notranslate"><span class="pre">p2</span></code> is tested vs. a third point to
 determine whether the combined line segments (polyline) is part of a
@@ -362,43 +362,43 @@ points should be merged into a 2d array.</p>
 <p><a class="reference internal" href="#porepy.geometry.geometry_property_checks.is_ccw_polygon" title="porepy.geometry.geometry_property_checks.is_ccw_polygon"><code class="xref py py-func docutils literal notranslate"><span class="pre">is_ccw_polygon()</span></code></a></p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p1</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,)</span></code></p>
+<li><p><strong>p1</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,)</span></code></p>
 <p>First point on dividing line.</p>
 </p></li>
-<li><p><strong>p2</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,)</span></code></p>
+<li><p><strong>p2</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,)</span></code></p>
 <p>Second point on dividing line.</p>
 </p></li>
-<li><p><strong>p3</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(2,)</span> <span class="pre">or</span> <span class="pre">shape=(2,</span> <span class="pre">n))</span></code></p>
+<li><p><strong>p3</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(2,)</span> <span class="pre">or</span> <span class="pre">shape=(2,</span> <span class="pre">n))</span></code></p>
 <p>Point(s) to be tested. For one point, only arrays of <code class="docutils literal notranslate"><span class="pre">shape=(2,)</span></code> is
 accepted. For two or more points the array will have <code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">n)</span></code>,
 where the first row corresponds to x-coordinates and the second row
 corresponds to y-coordinates. See examples.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=0</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=0</span></code></p>
 <p>Tolerance used in the comparison, can be used to
 account for rounding errors.</p>
 </p></li>
-<li><p><strong>default</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
+<li><p><strong>default</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
 <p>Mode returned if the point is within the tolerance. Should be set according
 to what is desired behavior of the function (will vary with application).</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>An array of booleans, with one entry for each point in <code class="docutils literal notranslate"><span class="pre">p3</span></code>. True if the point
 is to the left of the line segment <code class="docutils literal notranslate"><span class="pre">p1-p2</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.point_in_cell">
-<span class="sig-name descname"><span class="pre">point_in_cell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">if_make_planar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#point_in_cell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.point_in_cell" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">point_in_cell</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">if_make_planar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#point_in_cell"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.point_in_cell" title="Link to this definition"></a></dt>
 <dd><p>Check whether a point is inside a cell.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
@@ -407,34 +407,34 @@ current implementation deals with concave cells as well. Not sure which is the
 best, in terms of performance, for convex cells.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
+<li><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
 <p>Vertexes of polygon. The segments are formed by connecting
 subsequent columns of poly.</p>
 </p></li>
-<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">1)</span></code></p>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">1)</span></code></p>
 <p>Point to be tested.</p>
 </p></li>
-<li><p><strong>if_make_planar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=True</span></code></p>
+<li><p><strong>if_make_planar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=True</span></code></p>
 <p>The cell needs to lie on (s, t) plane. If not already done, this flag need
 to be used. Projects the points to the plane of the polygon.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the point is inside the cell. If a point is on the boundary of the
 cell the result may be either <code class="docutils literal notranslate"><span class="pre">True</span></code> or <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.point_in_polygon">
-<span class="sig-name descname"><span class="pre">point_in_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#point_in_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.point_in_polygon" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">point_in_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">default</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#point_in_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.point_in_polygon" title="Link to this definition"></a></dt>
 <dd><p>Check if a set of points are inside a polygon.</p>
 <p>The polygon need not be convex.</p>
 <div class="admonition-references admonition">
@@ -444,138 +444,138 @@ cell the result may be either <code class="docutils literal notranslate"><span c
 </ol>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_poly)</span></code></p>
+<li><p><strong>poly</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_poly)</span></code></p>
 <p>Vertexes of polygon. The segments are formed by connecting subsequent
 columns of poly.</p>
 </p></li>
-<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_pt)</span></code></p>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_pt)</span></code></p>
 <p>Points to be tested.</p>
 </p></li>
-<li><p><strong>default</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
+<li><p><strong>default</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=False</span></code></p>
 <p>Default behavior if the point is close to the boundary of the polygon.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>A boolean array containing <code class="docutils literal notranslate"><span class="pre">True</span></code> for each of the points that are inside
 polygon.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.point_in_polyhedron">
-<span class="sig-name descname"><span class="pre">point_in_polyhedron</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">polyhedron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#point_in_polyhedron"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.point_in_polyhedron" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">point_in_polyhedron</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">polyhedron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">test_points</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#point_in_polyhedron"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.point_in_polyhedron" title="Link to this definition"></a></dt>
 <dd><p>Test whether a set of point is inside a polyhedron.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>polyhedron</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>numpy.ndarray</em></a><em>]</em><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(num_sides,</span> <span class="pre">3,</span> <span class="pre">num_polygon_vertices)</span></code></p>
+<li><p><strong>polyhedron</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(num_sides,</span> <span class="pre">3,</span> <span class="pre">num_polygon_vertices)</span></code></p>
 <p>Each outer element represents a side of the polyhedron, and each side is
 assumed to be a convex polygon.</p>
 </p></li>
-<li><p><strong>test_points</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
+<li><p><strong>test_points</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
 <p>Points to be tested.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-10</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-10</span></code></p>
 <p>Geometric tolerance, used in comparison of points.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>For each point, element <code class="docutils literal notranslate"><span class="pre">i</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code> if <code class="docutils literal notranslate"><span class="pre">test_points[:,</span> <span class="pre">i]</span></code> is inside the
 polygon, else it is <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.points_are_collinear">
-<span class="sig-name descname"><span class="pre">points_are_collinear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#points_are_collinear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.points_are_collinear" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">points_are_collinear</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#points_are_collinear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.points_are_collinear" title="Link to this definition"></a></dt>
 <dd><p>Check if the points lie on a line.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">n)</span></code></p>
 <p>The points.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
 <p>Absolute tolerance used in comparison.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the points lie on a line.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.points_are_planar">
-<span class="sig-name descname"><span class="pre">points_are_planar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#points_are_planar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.points_are_planar" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">points_are_planar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#points_are_planar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.points_are_planar" title="Link to this definition"></a></dt>
 <dd><p>Check if the points lie on a plane.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">np)</span></code></p>
 <p>The points.</p>
 </p></li>
-<li><p><strong>normal</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>normal</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em> | </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>The normal of the plane, otherwise at least three points are required.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-5</span></code></p>
 <p>Geometric tolerance for test.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">True</span></code> if the points lie on a plane.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)">bool</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)">bool</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.geometry_property_checks.polygon_hanging_nodes">
-<span class="sig-name descname"><span class="pre">polygon_hanging_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#polygon_hanging_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.polygon_hanging_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">polygon_hanging_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/geometry_property_checks.html#polygon_hanging_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.geometry_property_checks.polygon_hanging_nodes" title="Link to this definition"></a></dt>
 <dd><p>Find hanging nodes of a polygon.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">n_pt)</span></code></p>
+<li><p><strong>p</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">n_pt)</span></code></p>
 <p>Point coordinates. Number of rows is number of dimensions, number of columns
 is number of points.</p>
 </p></li>
-<li><p><strong>edges</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_edges)</span></code></p>
+<li><p><strong>edges</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_edges)</span></code></p>
 <p>Indices, referring to columns in p, of edges in
 the polygon. Should be ordered so that <code class="docutils literal notranslate"><span class="pre">edges[1,</span> <span class="pre">i]</span> <span class="pre">==</span> <span class="pre">edges[0,</span> <span class="pre">i+1]</span></code>,
 and <code class="docutils literal notranslate"><span class="pre">edges[0,</span> <span class="pre">0]</span> <span class="pre">==</span> <span class="pre">edges[1,</span> <span class="pre">-1]</span></code>.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-8</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-8</span></code></p>
 <p>Tolerance for when two segments will be considered parallel.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Index of edges with hanging nodes. For an index i, the lines defined by
 <code class="docutils literal notranslate"><span class="pre">edges[:,</span> <span class="pre">i]</span></code> and <code class="docutils literal notranslate"><span class="pre">edges[:,</span> <span class="pre">i+1]</span></code> (or <code class="docutils literal notranslate"><span class="pre">edges[:,</span> <span class="pre">0]</span></code> if
 <code class="docutils literal notranslate"><span class="pre">i</span> <span class="pre">==</span> <span class="pre">edges.shape[1]</span></code> - 1) are parallel.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>

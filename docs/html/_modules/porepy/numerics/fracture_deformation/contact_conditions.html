@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.fracture_deformation.contact_conditions &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fracture_deformation/contact_conditions.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fracture_deformation/contact_conditions.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.fracture_deformation.contact_conditions</li>
       <li class="wy-breadcrumbs-aside">
@@ -307,23 +307,25 @@
 <span class="sd">    dg/du_t(|| u_t || = 0) = 0.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">import</span> <span class="nn">porepy.numerics.interface_laws.abstract_interface_law</span>
-<span class="kn">from</span> <span class="nn">porepy.numerics.interface_laws.abstract_interface_law</span> <span class="kn">import</span> <span class="n">AbstractInterfaceLaw</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy.numerics.interface_laws.abstract_interface_law</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.numerics.interface_laws.abstract_interface_law</span><span class="w"> </span><span class="kn">import</span> <span class="n">AbstractInterfaceLaw</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="ColoumbContact"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact">[docs]</a><span class="k">class</span> <span class="nc">ColoumbContact</span><span class="p">(</span><span class="n">AbstractInterfaceLaw</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ambient_dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">discr_h</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="ColoumbContact">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ColoumbContact</span><span class="p">(</span><span class="n">AbstractInterfaceLaw</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ambient_dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">discr_h</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">=</span> <span class="n">keyword</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">ambient_dimension</span>
@@ -339,16 +341,21 @@
         <span class="c1"># Tolerance used to define numbers that effectively are zero.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tol</span> <span class="o">=</span> <span class="mf">1e-10</span>
 
-    <span class="k">def</span> <span class="nf">_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span>
 
-    <span class="k">def</span> <span class="nf">_discretization_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_discretization_key</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_key</span><span class="p">()</span> <span class="o">+</span> <span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION</span>
 
-<div class="viewcode-block" id="ColoumbContact.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<div class="viewcode-block" id="ColoumbContact.ndof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.ndof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">g</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span></div>
 
-<div class="viewcode-block" id="ColoumbContact.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ColoumbContact.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
@@ -357,7 +364,7 @@
         <span class="n">data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
         <span class="n">data_edge</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Discretize the contact conditions using a semi-smooth Newton</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize the contact conditions using a semi-smooth Newton</span>
 <span class="sd">        approach.</span>
 
 <span class="sd">        The function relates the contact forces, represented on the</span>
@@ -704,7 +711,10 @@
         <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span><span class="s2">&quot;penetration&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">penetration_bc</span>
         <span class="n">data_secondary</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="n">pp</span><span class="o">.</span><span class="n">ITERATE</span><span class="p">][</span><span class="s2">&quot;sliding&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">sliding_bc</span></div>
 
-<div class="viewcode-block" id="ColoumbContact.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ColoumbContact.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ColoumbContact.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
@@ -729,9 +739,10 @@
 
         <span class="k">return</span> <span class="n">traction_coefficient</span><span class="p">,</span> <span class="n">displacement_coefficient</span><span class="p">,</span> <span class="n">rhs</span></div>
 
+
     <span class="c1"># Active and inactive boundary faces</span>
-    <span class="k">def</span> <span class="nf">_sliding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ct</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Find faces where the frictional bound is exceeded, that is, the face is</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sliding</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ct</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find faces where the frictional bound is exceeded, that is, the face is</span>
 <span class="sd">        sliding.</span>
 
 <span class="sd">        Arguments:</span>
@@ -750,10 +761,10 @@
         <span class="c1"># Not sure about the sensitivity to the tolerance parameter here.</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_l2</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">ct</span> <span class="o">*</span> <span class="n">ut</span><span class="p">)</span> <span class="o">-</span> <span class="n">bf</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span>
 
-    <span class="k">def</span> <span class="nf">_penetration</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_penetration</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">Tn</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">un</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cn</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">gap</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Find faces that are in contact.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find faces that are in contact.</span>
 
 <span class="sd">        Arguments:</span>
 <span class="sd">            Tn (np.array, num_cells): Normal forces.</span>
@@ -773,11 +784,11 @@
     <span class="c1">## Below here are different help function for calculating the Newton step</span>
     <span class="c1">#####</span>
 
-    <span class="k">def</span> <span class="nf">_e</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_e</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
         <span class="c1"># Compute part of (32) in Berge et al.</span>
         <span class="k">return</span> <span class="n">bf</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_l2</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_Q</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_Q</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
         <span class="c1"># Implementation of the term Q involved in the calculation of (32) in Berge</span>
         <span class="c1"># et al.</span>
         <span class="c1"># This is the regularized Q</span>
@@ -789,20 +800,20 @@
 
         <span class="k">return</span> <span class="n">numerator</span> <span class="o">/</span> <span class="n">denominator</span>
 
-    <span class="k">def</span> <span class="nf">_M</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute the coefficient M used in Eq. (32) in Berge et al.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_M</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the coefficient M used in Eq. (32) in Berge et al.&quot;&quot;&quot;</span>
         <span class="n">Id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">Tt</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
         <span class="c1"># M = e * (I - Q)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_e</span><span class="p">(</span><span class="n">Tt</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">bf</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">Id</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Q</span><span class="p">(</span><span class="n">Tt</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">bf</span><span class="p">))</span>
 
-    <span class="k">def</span> <span class="nf">_hf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_hf</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">cut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
         <span class="c1"># This is the product e * Q * (-Tt + cut), used in computation of r in (32)</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_e</span><span class="p">(</span><span class="n">Tt</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">bf</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_Q</span><span class="p">(</span><span class="n">Tt</span><span class="p">,</span> <span class="n">cut</span><span class="p">,</span> <span class="n">bf</span><span class="p">)</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="o">-</span><span class="n">Tt</span> <span class="o">-</span> <span class="n">cut</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_sliding_coefficients</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sliding_coefficients</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">Tt</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">ut</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bf</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Compute the regularized versions of coefficients L, v and r, defined in</span>
 <span class="sd">        Eq. (32) and section 3.2.1 in Berge et al. and used in Eq. (31).</span>
 
@@ -863,15 +874,18 @@
 
         <span class="k">return</span> <span class="n">L</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">v</span>
 
-    <span class="k">def</span> <span class="nf">_l2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_l2</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">atleast_2d</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span></div>
 
 
-<div class="viewcode-block" id="set_projections"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.set_projections">[docs]</a><span class="k">def</span> <span class="nf">set_projections</span><span class="p">(</span>
+
+<div class="viewcode-block" id="set_projections">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.set_projections">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_projections</span><span class="p">(</span>
     <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Define a local coordinate system, and projection matrices, for all</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Define a local coordinate system, and projection matrices, for all</span>
 <span class="sd">    grids of co-dimension 1.</span>
 
 <span class="sd">    The function adds one item to the data dictionary of all MixedDimensionalGrid edges</span>
@@ -945,8 +959,11 @@
         <span class="n">d_l</span><span class="p">[</span><span class="s2">&quot;tangential_normal_projection&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">projection</span></div>
 
 
-<div class="viewcode-block" id="ContactTraction"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction">[docs]</a><span class="k">class</span> <span class="nc">ContactTraction</span><span class="p">(</span><span class="n">AbstractInterfaceLaw</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Discretization class for obtaining contact traction from contact force.</span>
+
+<div class="viewcode-block" id="ContactTraction">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ContactTraction</span><span class="p">(</span><span class="n">AbstractInterfaceLaw</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Discretization class for obtaining contact traction from contact force.</span>
 
 <span class="sd">    Contact force is the primary variable used in the Model classes. However,</span>
 <span class="sd">    it is beneficial to also use the secondary variable traction.</span>
@@ -955,7 +972,7 @@
 <span class="sd">    equations.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ambient_dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">discr_h</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ambient_dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">discr_h</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">=</span> <span class="n">keyword</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">=</span> <span class="n">ambient_dimension</span>
 
@@ -964,10 +981,15 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">area_matrix_key</span> <span class="o">=</span> <span class="s2">&quot;fracture_area&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">discr_h</span> <span class="o">=</span> <span class="n">discr_h</span>
 
-<div class="viewcode-block" id="ContactTraction.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<div class="viewcode-block" id="ContactTraction.ndof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.ndof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span></div>
 
-<div class="viewcode-block" id="ContactTraction.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ContactTraction.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
@@ -976,7 +998,7 @@
         <span class="n">data_secondary</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
         <span class="n">data_interface</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Discretize the conversion from contact force to contact traction.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize the conversion from contact force to contact traction.</span>
 
 <span class="sd">        The diagonal discretization matrix is stored in the self.keyword</span>
 <span class="sd">        discretization matrix dictionary under the name self.traction_scaling_matrix_key</span>
@@ -1020,7 +1042,10 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">traction_scaling_matrix_key</span>
         <span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">traction_scaling</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="ContactTraction.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ContactTraction.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fracture_deformation.contact_conditions.html#porepy.numerics.fracture_deformation.contact_conditions.ContactTraction.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
@@ -1030,7 +1055,7 @@
         <span class="n">data_interface</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
         <span class="n">matrix</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Abstract method required by base class.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method required by base class.</span>
 
 <span class="sd">        TODO:</span>
 <span class="sd">            Decide if the abstract method should be removed as part of our migration</span>
@@ -1063,7 +1088,9 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
             <span class="s2">&quot;This discretization has been designed for AD only and has no assemble method&quot;</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span></div>
+</div>
+
 </pre></div>
 
            </div>

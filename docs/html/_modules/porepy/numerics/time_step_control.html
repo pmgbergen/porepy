@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.time_step_control &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/time_step_control.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/time_step_control.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.time_step_control</li>
       <li class="wy-breadcrumbs-aside">
@@ -361,19 +361,21 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">warnings</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">numpy.typing</span> <span class="kn">import</span> <span class="n">ArrayLike</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">ArrayLike</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;TimeManager&quot;</span><span class="p">]</span>
 
 
-<div class="viewcode-block" id="TimeManager"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager">[docs]</a><span class="k">class</span> <span class="nc">TimeManager</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Parent class for iteration-based time-stepping control routine.</span>
+<div class="viewcode-block" id="TimeManager">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TimeManager</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parent class for iteration-based time-stepping control routine.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        schedule: Array-like object containing the target times for the simulation.</span>
@@ -462,7 +464,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">schedule</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">,</span>
         <span class="n">dt_init</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
@@ -655,7 +657,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_recomp_sol</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_iters</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Time-stepping control object with attributes:</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;Initial and final simulation time = (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">time_init</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">time_final</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -669,10 +671,12 @@
 
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="TimeManager.compute_time_step"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.compute_time_step">[docs]</a>    <span class="k">def</span> <span class="nf">compute_time_step</span><span class="p">(</span>
+<div class="viewcode-block" id="TimeManager.compute_time_step">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.compute_time_step">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_time_step</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">iterations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">recompute_solution</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="kc">None</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Determine next time step based on the previous number of iterations.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Determine next time step based on the previous number of iterations.</span>
 
 <span class="sd">        See also Algorithm Overview and Algorithm Workflow from the module documentation.</span>
 
@@ -723,16 +727,23 @@
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span></div>
 
-<div class="viewcode-block" id="TimeManager.increase_time"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.increase_time">[docs]</a>    <span class="k">def</span> <span class="nf">increase_time</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Increase simulation time by the current time step.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="TimeManager.increase_time">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.increase_time">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">increase_time</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Increase simulation time by the current time step.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span></div>
 
-<div class="viewcode-block" id="TimeManager.increase_time_index"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.increase_time_index">[docs]</a>    <span class="k">def</span> <span class="nf">increase_time_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Increase time index counter by one.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="TimeManager.increase_time_index">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.increase_time_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">increase_time_index</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Increase time index counter by one.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">time_index</span> <span class="o">+=</span> <span class="mi">1</span></div>
 
-    <span class="k">def</span> <span class="nf">_adaptation_based_on_iterations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iterations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Provided convergence, adapt time step based on the number of iterations.</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_adaptation_based_on_iterations</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iterations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Provided convergence, adapt time step based on the number of iterations.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            iterations: Number of non-linear iterations needed to achieve convergence.</span>
@@ -783,8 +794,8 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">pass</span>  <span class="c1"># (C3)</span>
 
-    <span class="k">def</span> <span class="nf">_adaptation_based_on_recomputation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Adapt (decrease) time step when `recompute_solution` = True.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_adaptation_based_on_recomputation</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Adapt (decrease) time step when `recompute_solution` = True.</span>
 
 <span class="sd">        Raises:</span>
 <span class="sd">            ValueError if dt = dt_min, since any recomputation attempt will be pointless.</span>
@@ -841,8 +852,8 @@
             <span class="p">)</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_correction_based_on_dt_min</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Correct time step if dt &lt; dt_min.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_correction_based_on_dt_min</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Correct time step if dt &lt; dt_min.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_print_info</span><span class="p">:</span>
@@ -850,8 +861,8 @@
                     <span class="sa">f</span><span class="s2">&quot;Calculated dt &lt; dt_min. Using dt_min = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
                 <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_correction_based_on_dt_max</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Correct time step if dt &gt; dt_max.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_correction_based_on_dt_max</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Correct time step if dt &gt; dt_max.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
             <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_print_info</span><span class="p">:</span>
@@ -859,8 +870,8 @@
                     <span class="sa">f</span><span class="s2">&quot;Calculated dt &gt; dt_max. Using dt_max = </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dt_min_max</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
                 <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_correction_based_on_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Correct time step if time + dt &gt; scheduled_time.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_correction_based_on_schedule</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Correct time step if time + dt &gt; scheduled_time.&quot;&quot;&quot;</span>
         <span class="n">schedule_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">schedule</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_scheduled_idx</span><span class="p">]</span>
         <span class="k">if</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">time</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">dt</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">schedule_time</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">dt</span> <span class="o">=</span> <span class="n">schedule_time</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">time</span>  <span class="c1"># correct  time step</span>
@@ -879,8 +890,8 @@
 
     <span class="c1"># Helpers</span>
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_is_strictly_increasing</span><span class="p">(</span><span class="n">check_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Checks if a list is strictly increasing.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_is_strictly_increasing</span><span class="p">(</span><span class="n">check_array</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if a list is strictly increasing.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            check_array: Array to be tested.</span>
@@ -890,14 +901,16 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">a</span> <span class="o">&lt;</span> <span class="n">b</span> <span class="k">for</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">check_array</span><span class="p">,</span> <span class="n">check_array</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
 
-<div class="viewcode-block" id="TimeManager.is_schedule_in_simulated_times"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.is_schedule_in_simulated_times">[docs]</a>    <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">is_schedule_in_simulated_times</span><span class="p">(</span>
+<div class="viewcode-block" id="TimeManager.is_schedule_in_simulated_times">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.numerics.time_step_control.html#porepy.numerics.time_step_control.TimeManager.is_schedule_in_simulated_times">[docs]</a>
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_schedule_in_simulated_times</span><span class="p">(</span>
         <span class="n">schedule</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">sim_times</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">rtol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-05</span><span class="p">,</span>
         <span class="n">atol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-08</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Checks if ``schedule`` is a proper subset of ``sim_times`` for given tolerances</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Checks if ``schedule`` is a proper subset of ``sim_times`` for given tolerances</span>
 
 <span class="sd">        Reference: https://github.com/numpy/numpy/issues/7784#issuecomment-848036186</span>
 
@@ -916,7 +929,9 @@
         <span class="n">in1d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">schedule</span><span class="p">[</span><span class="n">ss</span><span class="p">],</span> <span class="n">sim_times</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span><span class="p">)</span> <span class="o">|</span> <span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span>
             <span class="n">schedule</span><span class="p">[</span><span class="n">ss</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span> <span class="n">sim_times</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="n">rtol</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">atol</span>
         <span class="p">)</span>
-        <span class="k">return</span> <span class="n">schedule</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">in1d</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">schedule</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">in1d</span><span class="p">)</span></div>
+</div>
+
 </pre></div>
 
            </div>

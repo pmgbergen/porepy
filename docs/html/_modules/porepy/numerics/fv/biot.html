@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.fv.biot &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fv/biot.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/fv/biot.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.fv.biot</li>
       <li class="wy-breadcrumbs-aside">
@@ -294,24 +294,26 @@
 <span class="sd">turn into a standard poro-elasticity equation for non-fractured domains).</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">time</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">time</span><span class="w"> </span><span class="kn">import</span> <span class="n">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Literal</span><span class="p">,</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">from</span> <span class="nn">porepy.numerics.discretization</span> <span class="kn">import</span> <span class="n">Discretization</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.numerics.discretization</span><span class="w"> </span><span class="kn">import</span> <span class="n">Discretization</span>
 
 <span class="c1"># Module-wide logger</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="Biot"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot">[docs]</a><span class="k">class</span> <span class="nc">Biot</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Mpsa</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Discretization class for poro-elasticity, based on MPSA.</span>
+<div class="viewcode-block" id="Biot">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Biot</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Mpsa</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Discretization class for poro-elasticity, based on MPSA.</span>
 
 <span class="sd">    This is a subclass of pp.Mpsa()</span>
 
@@ -340,14 +342,14 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">mechanics_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mechanics&quot;</span><span class="p">,</span>
         <span class="n">flow_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;flow&quot;</span><span class="p">,</span>
         <span class="n">vector_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;displacement&quot;</span><span class="p">,</span>
         <span class="n">scalar_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;pressure&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set the two keywords.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the two keywords.</span>
 
 <span class="sd">        The keywords are used to access and store parameters and discretization</span>
 <span class="sd">        matrices.</span>
@@ -373,8 +375,10 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">mass_matrix_key</span> <span class="o">=</span> <span class="s2">&quot;mass&quot;</span>
 
-<div class="viewcode-block" id="Biot.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
+<div class="viewcode-block" id="Biot.ndof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.ndof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd (pp.Grid): A grid.</span>
@@ -385,10 +389,13 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">+</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Biot.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Biot.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Method inherited from superclass should not be used.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Method inherited from superclass should not be used.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd (pp.Grid): Grid to be discretized.</span>
@@ -407,12 +414,15 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="sd">&quot;&quot;&quot;This class cannot be used for assembly.</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;This class cannot be used for assembly.</span>
 <span class="sd">    Use the ContactMechanicsBiot class instead.&quot;&quot;&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Biot.assemble_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.assemble_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the right-hand side for a poro-elastic system.</span>
+
+<div class="viewcode-block" id="Biot.assemble_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.assemble_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the right-hand side for a poro-elastic system.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd (pp.Grid): Grid to be discretized.</span>
@@ -429,12 +439,15 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="sd">&quot;&quot;&quot;This class cannot be used for assembly.</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;This class cannot be used for assembly.</span>
 <span class="sd">    Use the ContactMechanicsBiot class instead.&quot;&quot;&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Biot.assemble_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.assemble_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the poro-elastic system matrix.</span>
+
+<div class="viewcode-block" id="Biot.assemble_matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.assemble_matrix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the poro-elastic system matrix.</span>
 
 <span class="sd">        The discretization is presumed stored in the data dictionary.</span>
 
@@ -454,12 +467,15 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="sd">&quot;&quot;&quot;This class cannot be used for assembly.</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;This class cannot be used for assembly.</span>
 <span class="sd">    Use the ContactMechanicsBiot class instead.&quot;&quot;&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Biot.update_discretization"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.update_discretization">[docs]</a>    <span class="k">def</span> <span class="nf">update_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Update discretization.</span>
+
+<div class="viewcode-block" id="Biot.update_discretization">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.update_discretization">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update discretization.</span>
 
 <span class="sd">        The updates can generally come as a combination of two forms:</span>
 <span class="sd">            1) The discretization on part of the grid should be recomputed.</span>
@@ -578,8 +594,11 @@
         <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">mech_in_flow</span><span class="p">:</span>
             <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">mechanics_keyword</span><span class="p">]</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Biot.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Discretize the mechanics terms in a poromechanical system.</span>
+
+<div class="viewcode-block" id="Biot.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize the mechanics terms in a poromechanical system.</span>
 
 <span class="sd">        NOTE: This function does *not* discretize purely flow-related terms (Darcy flow</span>
 <span class="sd">        and compressibility).</span>
@@ -627,7 +646,9 @@
         <span class="n">constit</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">FourthOrderTensor</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="p">[</span><span class="s2">&quot;fourth_order_tensor&quot;</span><span class="p">]</span>
 
         <span class="n">eta</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;mpsa_eta&quot;</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">determine_eta</span><span class="p">(</span><span class="n">sd</span><span class="p">))</span>
-        <span class="n">inverter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;inverter&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="n">inverter</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="s2">&quot;numba&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+            <span class="s2">&quot;inverter&quot;</span><span class="p">,</span> <span class="s2">&quot;numba&quot;</span>
+        <span class="p">)</span>
 
         <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">parameter_dictionary</span><span class="p">[</span><span class="s2">&quot;biot_alpha&quot;</span><span class="p">]</span>
 
@@ -778,7 +799,7 @@
             <span class="n">active_bound_displacement_pressure</span> <span class="o">+=</span> <span class="p">(</span>
                 <span class="n">face_map_vec</span> <span class="o">*</span> <span class="n">loc_bound_displacement_pressure</span> <span class="o">*</span> <span class="n">cell_map_scalar</span>
             <span class="p">)</span>
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Done with subproblem </span><span class="si">{</span><span class="n">reg_i</span><span class="si">}</span><span class="s2">. Elapsed time </span><span class="si">{</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">tic</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Done with subproblem </span><span class="si">{</span><span class="n">reg_i</span><span class="si">}</span><span class="s2">. Elapsed time </span><span class="si">{</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">tic</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="c1"># Done with this subdomain, move on to the next one</span>
 
         <span class="c1"># We are done with the discretization. What remains is to map the computed</span>
@@ -883,14 +904,15 @@
             <span class="n">matrices_f</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">bound_div_u_matrix_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">bound_div_u</span>
             <span class="n">matrices_f</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">stabilization_matrix_key</span><span class="p">]</span> <span class="o">=</span> <span class="n">stabilization</span></div>
 
-    <span class="k">def</span> <span class="nf">_local_discretization</span><span class="p">(</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_local_discretization</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">constit</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">FourthOrderTensor</span><span class="p">,</span>
         <span class="n">bound_mech</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">BoundaryConditionVectorial</span><span class="p">,</span>
         <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">eta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
-        <span class="n">inverter</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">inverter</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;python&quot;</span><span class="p">,</span> <span class="s2">&quot;numba&quot;</span><span class="p">],</span>
         <span class="n">hf_output</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span>
         <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
@@ -903,7 +925,7 @@
         <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
         <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
     <span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Discretization of poro-elastic system.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretization of poro-elastic system.&quot;&quot;&quot;</span>
 
         <span class="c1"># The grid coordinates are always three-dimensional, even if the grid</span>
         <span class="c1"># is really 2D. This means that there is not a 1-1 relation between the</span>
@@ -1026,14 +1048,14 @@
 
         <span class="c1"># Add discretizations to data</span>
 
-    <span class="k">def</span> <span class="nf">_create_rhs_grad_p</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_rhs_grad_p</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">subcell_topology</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">SubcellTopology</span><span class="p">,</span>
         <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
         <span class="n">bound_exclusion</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">ExcludeBoundaries</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Consistent discretization of grad_p-term in MPSA-W method.</span>
 
 <span class="sd">        Args:</span>
@@ -1053,7 +1075,7 @@
 <span class="sd">                pressure from a unique side.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Method properties and implementation details.</span>
 <span class="sd">        Basis functions, namely &#39;stress&#39; and &#39;bound_stress&#39;, for the displacement</span>
 <span class="sd">        discretization are obtained as in standard MPSA-W method.</span>
@@ -1117,7 +1139,7 @@
         <span class="c1"># to component-based. This is to build a block diagonal sparse matrix</span>
         <span class="c1"># compatible with igrad * rhs_units, that is first all x-component, then y, and z</span>
 
-        <span class="k">def</span> <span class="nf">map_tensor</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">nd</span><span class="p">,</span> <span class="n">ind</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">map_tensor</span><span class="p">(</span><span class="n">mat</span><span class="p">,</span> <span class="n">nd</span><span class="p">,</span> <span class="n">ind</span><span class="p">):</span>
             <span class="n">newmat</span> <span class="o">=</span> <span class="n">mat</span><span class="p">[:,</span> <span class="n">ind</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
 
             <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">nd</span><span class="p">):</span>
@@ -1136,7 +1158,7 @@
         <span class="c1"># as a force on the faces. The right-hand side is thus formed of the</span>
         <span class="c1"># unit vector.</span>
 
-        <span class="k">def</span> <span class="nf">build_rhs_units_single_dimension</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">build_rhs_units_single_dimension</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
             <span class="c1"># EK: Can we skip argument dim?</span>
             <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">num_subfno_unique</span><span class="p">)</span>
             <span class="n">ind</span> <span class="o">=</span> <span class="n">subcell_topology</span><span class="o">.</span><span class="n">subfno_unique</span>
@@ -1230,8 +1252,8 @@
 
         <span class="k">return</span> <span class="n">rhs_jumps</span><span class="p">,</span> <span class="n">grad_p_face</span>
 
-    <span class="k">def</span> <span class="nf">_face_vector_to_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nf</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create a mapping from vector quantities on faces (stresses) to scalar</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_face_vector_to_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nf</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">nd</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a mapping from vector quantities on faces (stresses) to scalar</span>
 <span class="sd">        quantities. The mapping is intended for the boundary discretization of the</span>
 <span class="sd">        displacement divergence term  (coupling term in the flow equation).</span>
 
@@ -1244,10 +1266,10 @@
         <span class="n">vals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">nf</span> <span class="o">*</span> <span class="n">nd</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">coo_matrix</span><span class="p">((</span><span class="n">vals</span><span class="p">,</span> <span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">cols</span><span class="p">)))</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">_subcell_gradient_to_cell_scalar</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_subcell_gradient_to_cell_scalar</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">cell_node_blocks</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create a mapping from sub-cell gradients to cell-wise traces of the gradient</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a mapping from sub-cell gradients to cell-wise traces of the gradient</span>
 <span class="sd">        operator. The mapping is intended for the discretization of the term div(u)</span>
 <span class="sd">        (coupling term in flow equation).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -1289,14 +1311,16 @@
 
     <span class="c1"># ----------------------- Methods for post processing -------------------------</span>
 
-<div class="viewcode-block" id="Biot.extract_vector"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.extract_vector">[docs]</a>    <span class="k">def</span> <span class="nf">extract_vector</span><span class="p">(</span>
+<div class="viewcode-block" id="Biot.extract_vector">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.extract_vector">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_vector</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">dims</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">as_vector</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Extract displacement field from solution.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract displacement field from solution.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd: grid, or a subclass.</span>
@@ -1322,8 +1346,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">vals</span></div>
 
-<div class="viewcode-block" id="Biot.extract_scalar"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.extract_scalar">[docs]</a>    <span class="k">def</span> <span class="nf">extract_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Extract pressure field from solution.</span>
+
+<div class="viewcode-block" id="Biot.extract_scalar">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.extract_scalar">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">extract_scalar</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Extract pressure field from solution.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd: grid, or a subclass.</span>
@@ -1336,8 +1363,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">u</span><span class="p">[</span><span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">*</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span> <span class="p">:]</span></div>
 
-<div class="viewcode-block" id="Biot.compute_flux"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.compute_flux">[docs]</a>    <span class="k">def</span> <span class="nf">compute_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute flux field corresponding to a solution.</span>
+
+<div class="viewcode-block" id="Biot.compute_flux">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.compute_flux">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_flux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute flux field corresponding to a solution.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd: grid, or a subclass.</span>
@@ -1359,8 +1389,11 @@
         <span class="n">flux</span> <span class="o">=</span> <span class="n">flux_discr</span> <span class="o">*</span> <span class="n">p</span> <span class="o">+</span> <span class="n">bound_flux</span> <span class="o">*</span> <span class="n">bound_val</span>
         <span class="k">return</span> <span class="n">flux</span></div>
 
-<div class="viewcode-block" id="Biot.compute_stress"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.compute_stress">[docs]</a>    <span class="k">def</span> <span class="nf">compute_stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute stress field corresponding to a solution.</span>
+
+<div class="viewcode-block" id="Biot.compute_stress">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.Biot.compute_stress">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_stress</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">u</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute stress field corresponding to a solution.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd: grid, or a subclass.</span>
@@ -1380,14 +1413,18 @@
         <span class="n">bound_val</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">mechanics_keyword</span><span class="p">][</span><span class="s2">&quot;bc_values&quot;</span><span class="p">]</span>
         <span class="n">d</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">extract_vector</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">u</span><span class="p">,</span> <span class="n">as_vector</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">stress</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">stress_discr</span> <span class="o">*</span> <span class="n">d</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">bound_stress</span> <span class="o">*</span> <span class="n">bound_val</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">stress</span></div></div>
+        <span class="k">return</span> <span class="n">stress</span></div>
+</div>
 
 
-<div class="viewcode-block" id="GradP"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP">[docs]</a><span class="k">class</span> <span class="nc">GradP</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class for the pressure gradient term of the Biot equation.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set the discretization, with the keyword used for storing various</span>
+<div class="viewcode-block" id="GradP">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GradP</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for the pressure gradient term of the Biot equation.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the discretization, with the keyword used for storing various</span>
 <span class="sd">        information associated with the discretization.</span>
 
 <span class="sd">        Args:</span>
@@ -1399,8 +1436,10 @@
         <span class="c1"># Use the same key to access the discretization matrix as the Biot class.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">grad_p_matrix_key</span> <span class="o">=</span> <span class="n">Biot</span><span class="p">()</span><span class="o">.</span><span class="n">grad_p_matrix_key</span>
 
-<div class="viewcode-block" id="GradP.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
+<div class="viewcode-block" id="GradP.ndof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP.ndof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd (pp.Grid): A grid.</span>
@@ -1411,8 +1450,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">*</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span></div>
 
-<div class="viewcode-block" id="GradP.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Discretize the pressure gradient term of the Biot equation.</span>
+
+<div class="viewcode-block" id="GradP.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize the pressure gradient term of the Biot equation.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd (pp.Grid): grid, or a subclass, with geometry fields computed.</span>
@@ -1424,14 +1466,17 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="sd">&quot;&quot;&quot;No discretize method implemented for the GradP</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;No discretize method implemented for the GradP</span>
 <span class="sd">                                  class. See the Biot class.&quot;&quot;&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="GradP.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="GradP.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the pressure</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the pressure</span>
 <span class="sd">        gradient term of the Biot equation.</span>
 
 <span class="sd">        Args:</span>
@@ -1447,8 +1492,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_rhs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="GradP.assemble_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP.assemble_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the pressure</span>
+
+<div class="viewcode-block" id="GradP.assemble_matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP.assemble_matrix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the pressure</span>
 <span class="sd">        gradient term of the Biot equation.</span>
 
 <span class="sd">        Args:</span>
@@ -1468,7 +1516,7 @@
         <span class="n">mat_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">grad_p_matrix_key</span>
         <span class="k">if</span> <span class="n">mat_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mat_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;GradP class requires a pre-computed discretization to be</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;GradP class requires a pre-computed discretization to be</span>
 <span class="sd">                             stored in the matrix dictionary.&quot;&quot;&quot;</span>
             <span class="p">)</span>
         <span class="n">div_mech</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">fvutils</span><span class="o">.</span><span class="n">vector_divergence</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
@@ -1480,8 +1528,11 @@
             <span class="n">grad_p</span> <span class="o">=</span> <span class="n">mat_dict</span><span class="p">[</span><span class="n">mat_key</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">div_mech</span> <span class="o">*</span> <span class="n">grad_p</span></div>
 
-<div class="viewcode-block" id="GradP.assemble_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP.assemble_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the right-hand side for a discretization of the pressure gradient term.</span>
+
+<div class="viewcode-block" id="GradP.assemble_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.GradP.assemble_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the right-hand side for a discretization of the pressure gradient term.</span>
 
 <span class="sd">        The contribution is nonzero only for nonzero p_reference, which mainly is of</span>
 <span class="sd">        relevance for thermal stress on the form</span>
@@ -1514,20 +1565,24 @@
 
         <span class="c1"># The rhs contribution is the lhs discretization applied to the reference</span>
         <span class="c1"># value.</span>
-        <span class="k">return</span> <span class="n">div_mech</span> <span class="o">*</span> <span class="n">grad_p</span> <span class="o">*</span> <span class="n">p_reference</span></div></div>
+        <span class="k">return</span> <span class="n">div_mech</span> <span class="o">*</span> <span class="n">grad_p</span> <span class="o">*</span> <span class="n">p_reference</span></div>
+</div>
 
 
-<div class="viewcode-block" id="DivU"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU">[docs]</a><span class="k">class</span> <span class="nc">DivU</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class for the displacement divergence term of the Biot equation.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+<div class="viewcode-block" id="DivU">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DivU</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for the displacement divergence term of the Biot equation.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">mechanics_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mechanics&quot;</span><span class="p">,</span>
         <span class="n">flow_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;flow&quot;</span><span class="p">,</span>
         <span class="n">variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;displacement&quot;</span><span class="p">,</span>
         <span class="n">mortar_variable</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mortar_displacement&quot;</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set the mechanics keyword and specify the variables.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the mechanics keyword and specify the variables.</span>
 
 <span class="sd">        The keywords are used to access and store parameters and discretization</span>
 <span class="sd">        matrices.</span>
@@ -1549,8 +1604,10 @@
         <span class="c1"># Set the variable used for contact mechanics.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mortar_variable</span> <span class="o">=</span> <span class="n">mortar_variable</span>
 
-<div class="viewcode-block" id="DivU.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
+<div class="viewcode-block" id="DivU.ndof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.ndof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd (pp.Grid): A grid.</span>
@@ -1561,8 +1618,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span></div>
 
-<div class="viewcode-block" id="DivU.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Discretize the displacement divergence term of the Biot equation.</span>
+
+<div class="viewcode-block" id="DivU.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize the displacement divergence term of the Biot equation.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            g (pp.Grid): grid, or a subclass, with geometry fields computed.</span>
@@ -1573,14 +1633,17 @@
 <span class="sd">            discretize method of the Biot class.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="sd">&quot;&quot;&quot;No discretize method implemented for the GradP</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;No discretize method implemented for the GradP</span>
 <span class="sd">                                  class. See the Biot class.&quot;&quot;&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="DivU.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="DivU.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the</span>
 <span class="sd">        displacement divergence term of the Biot equation.</span>
 
 <span class="sd">        Args:</span>
@@ -1596,8 +1659,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_rhs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="DivU.assemble_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.assemble_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the</span>
+
+<div class="viewcode-block" id="DivU.assemble_matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.assemble_matrix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the</span>
 <span class="sd">        displacement divergence term of the Biot equation.</span>
 
 <span class="sd">        Args:</span>
@@ -1618,14 +1684,17 @@
         <span class="n">mat_key</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">div_u_matrix_key</span>
         <span class="k">if</span> <span class="n">mat_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">matrix_dictionary</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;DivU class requires a pre-computed discretization to be</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;DivU class requires a pre-computed discretization to be</span>
 <span class="sd">                             stored in the matrix dictionary.&quot;&quot;&quot;</span>
             <span class="p">)</span>
         <span class="n">biot_alpha</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">flow_keyword</span><span class="p">][</span><span class="s2">&quot;biot_alpha&quot;</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">matrix_dictionary</span><span class="p">[</span><span class="n">mat_key</span><span class="p">]</span> <span class="o">*</span> <span class="n">biot_alpha</span></div>
 
-<div class="viewcode-block" id="DivU.assemble_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.assemble_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the right-hand side for a discretization of the displacement</span>
+
+<div class="viewcode-block" id="DivU.assemble_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.assemble_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the right-hand side for a discretization of the displacement</span>
 <span class="sd">        divergence term.</span>
 
 <span class="sd">        For the time being, we assume an IE temporal discretization.</span>
@@ -1665,7 +1734,10 @@
         <span class="n">rhs_time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">biot_alpha</span> <span class="o">*</span> <span class="n">div_u</span> <span class="o">*</span> <span class="n">d_cell</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">rhs_bound</span> <span class="o">+</span> <span class="n">rhs_time</span></div>
 
-<div class="viewcode-block" id="DivU.assemble_int_bound_displacement_trace"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.assemble_int_bound_displacement_trace">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_displacement_trace</span><span class="p">(</span>
+
+<div class="viewcode-block" id="DivU.assemble_int_bound_displacement_trace">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.assemble_int_bound_displacement_trace">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_displacement_trace</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -1677,7 +1749,7 @@
         <span class="n">rhs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">self_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the contribution from the displacement mortar on an internal boundary,</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the contribution from the displacement mortar on an internal boundary,</span>
 <span class="sd">        manifested as a displacement boundary condition.</span>
 
 <span class="sd">        The intended use is when the internal boundary is coupled to another</span>
@@ -1720,7 +1792,7 @@
 
         <span class="k">if</span> <span class="n">bound_div_u</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">proj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;Inconsistent shapes. Did you define a</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Inconsistent shapes. Did you define a</span>
 <span class="sd">            sub-face boundary condition but only a face-wise mortar?&quot;&quot;&quot;</span>
             <span class="p">)</span>
         <span class="c1"># The mortar will act as a boundary condition for the div_u term.</span>
@@ -1730,10 +1802,13 @@
         <span class="n">cc</span><span class="p">[</span><span class="n">self_ind</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="n">biot_alpha</span> <span class="o">*</span> <span class="n">bound_div_u</span> <span class="o">*</span> <span class="n">proj</span>
         <span class="n">rhs</span><span class="p">[</span><span class="n">self_ind</span><span class="p">]</span> <span class="o">+=</span> <span class="n">biot_alpha</span> <span class="o">*</span> <span class="n">bound_div_u</span> <span class="o">*</span> <span class="n">proj</span> <span class="o">*</span> <span class="n">u_bound_previous</span></div>
 
-<div class="viewcode-block" id="DivU.assemble_int_bound_displacement_source"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.assemble_int_bound_displacement_source">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_displacement_source</span><span class="p">(</span>
+
+<div class="viewcode-block" id="DivU.assemble_int_bound_displacement_source">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.DivU.assemble_int_bound_displacement_source">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_displacement_source</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">,</span> <span class="n">intf</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">,</span> <span class="n">intf_data</span><span class="p">,</span> <span class="n">cc</span><span class="p">,</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span><span class="p">,</span> <span class="n">self_ind</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the contribution from the displacement mortar on an internal boundary,</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the contribution from the displacement mortar on an internal boundary,</span>
 <span class="sd">        manifested as a source term. Only the normal component of the mortar displacement</span>
 <span class="sd">        is considered.</span>
 
@@ -1802,14 +1877,18 @@
         <span class="c1"># rhs for the coupling variable also.</span>
         <span class="c1"># This term is second part of (u^k - u^{k-1}) moved to</span>
         <span class="c1"># the rhs, yielding the same sign as for the k term on the lhs.</span>
-        <span class="n">rhs</span><span class="p">[</span><span class="n">self_ind</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">biot_alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">vol</span> <span class="o">*</span> <span class="n">previous_displacement_jump_normal</span></div></div>
+        <span class="n">rhs</span><span class="p">[</span><span class="n">self_ind</span><span class="p">]</span> <span class="o">+=</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">biot_alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">vol</span> <span class="o">*</span> <span class="n">previous_displacement_jump_normal</span></div>
+</div>
 
 
-<div class="viewcode-block" id="BiotStabilization"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization">[docs]</a><span class="k">class</span> <span class="nc">BiotStabilization</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Class for the stabilization term of the Biot equation.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="o">=</span><span class="s2">&quot;mechanics&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="s2">&quot;pressure&quot;</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the two keywords.</span>
+<div class="viewcode-block" id="BiotStabilization">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BiotStabilization</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class for the stabilization term of the Biot equation.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="o">=</span><span class="s2">&quot;mechanics&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="s2">&quot;pressure&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the two keywords.</span>
 
 <span class="sd">        The keywords are used to access and store parameters and discretization</span>
 <span class="sd">        matrices.</span>
@@ -1821,8 +1900,10 @@
         <span class="c1"># Use same keyword as in Biot class</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stabilization_matrix_key</span> <span class="o">=</span> <span class="n">Biot</span><span class="p">()</span><span class="o">.</span><span class="n">stabilization_matrix_key</span>
 
-<div class="viewcode-block" id="BiotStabilization.ndof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization.ndof">[docs]</a>    <span class="k">def</span> <span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
+<div class="viewcode-block" id="BiotStabilization.ndof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization.ndof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ndof</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the number of degrees of freedom associated to the method.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            sd (pp.Grid): A grid.</span>
@@ -1833,8 +1914,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">sd</span><span class="o">.</span><span class="n">num_cells</span></div>
 
-<div class="viewcode-block" id="BiotStabilization.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Discretize the stabilization term of the Biot equation.</span>
+
+<div class="viewcode-block" id="BiotStabilization.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretize the stabilization term of the Biot equation.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            g (pp.Grid): grid, or a subclass, with geometry fields computed.</span>
@@ -1846,14 +1930,17 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span>
-            <span class="sd">&quot;&quot;&quot;No discretize method implemented for the BiotStabilization</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;No discretize method implemented for the BiotStabilization</span>
 <span class="sd">                                  class. See the Biot class.&quot;&quot;&quot;</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="BiotStabilization.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+
+<div class="viewcode-block" id="BiotStabilization.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the</span>
 <span class="sd">        stabilization term of the Biot equation.</span>
 
 <span class="sd">        Args:</span>
@@ -1869,8 +1956,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_matrix</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">assemble_rhs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="BiotStabilization.assemble_matrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization.assemble_matrix">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the</span>
+
+<div class="viewcode-block" id="BiotStabilization.assemble_matrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization.assemble_matrix">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the matrix and right-hand side for a discretization of the</span>
 <span class="sd">        stabilization term of the Biot equation.</span>
 
 <span class="sd">        Args:</span>
@@ -1891,13 +1981,16 @@
         <span class="n">matrix_dictionary</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">mat_key</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">matrix_dictionary</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;BiotStabilization class requires a pre-computed</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;BiotStabilization class requires a pre-computed</span>
 <span class="sd">                             discretization to be stored in the matrix dictionary.&quot;&quot;&quot;</span>
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">matrix_dictionary</span><span class="p">[</span><span class="n">mat_key</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="BiotStabilization.assemble_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization.assemble_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return the right-hand side for the stabilization part of the displacement</span>
+
+<div class="viewcode-block" id="BiotStabilization.assemble_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.fv.biot.html#porepy.numerics.fv.biot.BiotStabilization.assemble_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the right-hand side for the stabilization part of the displacement</span>
 <span class="sd">        divergence term.</span>
 
 <span class="sd">        For the time being, we assume an IE temporal discretization.</span>
@@ -1923,7 +2016,9 @@
         <span class="c1"># The stabilization has no rhs.</span>
         <span class="n">rhs_bound</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ndof</span><span class="p">(</span><span class="n">sd</span><span class="p">))</span>
 
-        <span class="k">return</span> <span class="n">rhs_bound</span> <span class="o">+</span> <span class="n">rhs_time</span></div></div>
+        <span class="k">return</span> <span class="n">rhs_bound</span> <span class="o">+</span> <span class="n">rhs_time</span></div>
+</div>
+
 </pre></div>
 
            </div>

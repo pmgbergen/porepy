@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.mixed_dim.assembler &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/mixed_dim/assembler.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/mixed_dim/assembler.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.mixed_dim.assembler</li>
       <li class="wy-breadcrumbs-aside">
@@ -275,14 +275,14 @@
 <span class="sd">The module contains the Assembler class, which is responsible for assembly of</span>
 <span class="sd">system matrix and right hand side for a general multi-domain, multi-physics problem.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
-<span class="kn">from</span> <span class="nn">warnings</span> <span class="kn">import</span> <span class="n">warn</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">namedtuple</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Set</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">warnings</span><span class="w"> </span><span class="kn">import</span> <span class="n">warn</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 <span class="n">csc_or_csr_matrix</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">]</span>
 
@@ -305,8 +305,10 @@
 <span class="p">)</span>
 
 
-<div class="viewcode-block" id="Assembler"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler">[docs]</a><span class="k">class</span> <span class="nc">Assembler</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;A class that assembles multi-physics problems on mixed-dimensional</span>
+<div class="viewcode-block" id="Assembler">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Assembler</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;A class that assembles multi-physics problems on mixed-dimensional</span>
 <span class="sd">    domains.</span>
 
 <span class="sd">    The class is designed to combine different variables on different grids,</span>
@@ -317,7 +319,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">__init_subclass__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
         <span class="n">msg</span> <span class="o">=</span> <span class="s2">&quot;&quot;&quot;The Assembler class is deprecated, and will be deleted from PorePy,</span>
 <span class="s2">        most likely during the second half of 2022.</span>
 
@@ -325,14 +327,14 @@
 <span class="s2">        (highly recommended), or use the algorithmic differentiation framework.</span>
 <span class="s2">        &quot;&quot;&quot;</span>
 
-        <span class="sd">&quot;&quot;&quot;This throws a deprecation warning on subclassing.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;This throws a deprecation warning on subclassing.&quot;&quot;&quot;</span>
         <span class="n">warn</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="ne">DeprecationWarning</span><span class="p">,</span> <span class="n">stacklevel</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init_subclass__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span> <span class="n">dof_manager</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DofManager</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Construct an assembler for a given MixedDimensionalGrid on a given set of variables.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Construct an assembler for a given MixedDimensionalGrid on a given set of variables.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            self.mdg (pp.MixedDimensionalGrid): Mixed-dimensional grid where the equations are</span>
@@ -361,17 +363,17 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_identify_variable_combinations</span><span class="p">()</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_discretization_key</span><span class="p">(</span><span class="n">row</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">col</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_discretization_key</span><span class="p">(</span><span class="n">row</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">col</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">col</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">row</span> <span class="o">==</span> <span class="n">col</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">row</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">row</span> <span class="o">+</span> <span class="s2">&quot;_&quot;</span> <span class="o">+</span> <span class="n">col</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_variable_term_key</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_variable_term_key</span><span class="p">(</span>
         <span class="n">term</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key_1</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key_2</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">key_3</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get the key-variable combination used to identify a specific term in the</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the key-variable combination used to identify a specific term in the</span>
 <span class="sd">        equation.</span>
 
 <span class="sd">        For subdomains and internally to interfaces in the MixedDimensionalGrid (i.e.</span>
@@ -415,7 +417,9 @@
             <span class="c1"># Coupling between subdomain and interface</span>
             <span class="k">return</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">term</span><span class="p">,</span> <span class="n">key_1</span><span class="p">,</span> <span class="n">key_2</span><span class="p">,</span> <span class="n">key_3</span><span class="p">])</span>
 
-<div class="viewcode-block" id="Assembler.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+<div class="viewcode-block" id="Assembler.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">filt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">assembler_filters</span><span class="o">.</span><span class="n">AssemblerFilter</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">matrix_format</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;csr&quot;</span><span class="p">,</span>
@@ -426,7 +430,7 @@
         <span class="n">Tuple</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">csc_or_csr_matrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
         <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
     <span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Assemble the system matrix and right hand side for a general linear</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assemble the system matrix and right hand side for a general linear</span>
 <span class="sd">        multi-physics problem, and return a block matrix and right hand side.</span>
 
 <span class="sd">        For examples on how to use the assembler, confer the tutorial</span>
@@ -536,10 +540,13 @@
 
             <span class="k">return</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span></div>
 
-<div class="viewcode-block" id="Assembler.update_discretization"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.update_discretization">[docs]</a>    <span class="k">def</span> <span class="nf">update_discretization</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Assembler.update_discretization">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.update_discretization">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_discretization</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">filt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">assembler_filters</span><span class="o">.</span><span class="n">AssemblerFilter</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Update discretizations without a full rediscretization.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update discretizations without a full rediscretization.</span>
 
 <span class="sd">        The method will invoke the update_discretization() method on discretizations</span>
 <span class="sd">        on all grids which have the parameter partial_update set to True in its data</span>
@@ -628,10 +635,13 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_operate_on_mdg</span><span class="p">(</span><span class="n">operation</span><span class="o">=</span><span class="s2">&quot;update_discretization&quot;</span><span class="p">,</span> <span class="n">filt</span><span class="o">=</span><span class="n">new_filt</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Assembler.discretize"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.discretize">[docs]</a>    <span class="k">def</span> <span class="nf">discretize</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Assembler.discretize">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.discretize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">discretize</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">filt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">assembler_filters</span><span class="o">.</span><span class="n">AssemblerFilter</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Run the discretization operation on discretizations specified in</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the discretization operation on discretizations specified in</span>
 <span class="sd">        the mixed-dimensional grid.</span>
 
 <span class="sd">        Discretization can be applied selectively to specific discretization objects</span>
@@ -646,7 +656,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_operate_on_mdg</span><span class="p">(</span><span class="s2">&quot;discretize&quot;</span><span class="p">,</span> <span class="n">filt</span><span class="o">=</span><span class="n">filt</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_operate_on_mdg</span><span class="p">(</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_operate_on_mdg</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">operation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">filt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">assembler_filters</span><span class="o">.</span><span class="n">AssemblerFilter</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -656,7 +667,7 @@
         <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">csc_or_csr_matrix</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
         <span class="kc">None</span><span class="p">,</span>
     <span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Helper method, loop over the MixedDimensionalGrid, identify subdomain or</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Helper method, loop over the MixedDimensionalGrid, identify subdomain or</span>
 <span class="sd">        interface variables and discretizations, and perform an operation on these.</span>
 
 <span class="sd">        Implemented actions are discretization and assembly.</span>
@@ -716,7 +727,7 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">None</span>
 
-    <span class="k">def</span> <span class="nf">_operate_on_subdomains_and_interfaces</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_operate_on_subdomains_and_interfaces</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">filt</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">assembler_filters</span><span class="o">.</span><span class="n">AssemblerFilter</span><span class="p">,</span>
         <span class="n">operation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -804,7 +815,7 @@
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">assemble_matrix_only</span><span class="p">:</span>
                     <span class="n">rhs</span><span class="p">[</span><span class="n">var_key_name</span><span class="p">][</span><span class="n">ri</span><span class="p">]</span> <span class="o">+=</span> <span class="n">loc_b</span>  <span class="c1"># type:ignore</span>
 
-    <span class="k">def</span> <span class="nf">_operate_on_interface_coupling</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_operate_on_interface_coupling</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">filt</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">assembler_filters</span><span class="o">.</span><span class="n">AssemblerFilter</span><span class="p">,</span>
         <span class="n">operation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
@@ -814,7 +825,7 @@
         <span class="n">assemble_matrix_only</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">assemble_rhs_only</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Perform operation on all interface-subdomain couplings.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Perform operation on all interface-subdomain couplings.</span>
 
 <span class="sd">        This method should not be invoked directly, but instead accessed via the public</span>
 <span class="sd">        methods discretize() or assemble_matrix_rhs()</span>
@@ -1315,8 +1326,8 @@
                     <span class="k">assert</span> <span class="n">rhs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
                     <span class="n">rhs</span><span class="p">[</span><span class="n">mat_key</span><span class="p">][</span><span class="n">intf_idx</span><span class="p">]</span> <span class="o">+=</span> <span class="n">loc_rhs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">_identify_variable_combinations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_identify_variable_combinations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize local matrices for all combinations of variables and operators.</span>
 
 <span class="sd">        The function serves two purposes:</span>
@@ -1492,8 +1503,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">variable_combinations</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">variable_combinations</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_grid_variable_term_combinations</span> <span class="o">=</span> <span class="n">grid_variable_term_combinations</span>
 
-<div class="viewcode-block" id="Assembler.update_dof_count"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.update_dof_count">[docs]</a>    <span class="k">def</span> <span class="nf">update_dof_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Update the count of degrees of freedom related to a MixedDimensionalGrid.</span>
+<div class="viewcode-block" id="Assembler.update_dof_count">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.update_dof_count">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_dof_count</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Update the count of degrees of freedom related to a MixedDimensionalGrid.</span>
 
 <span class="sd">        The method loops through the defined combinations of grids (standard or mortar)</span>
 <span class="sd">        and variables, and updates the number of fine-scale degree of freedom for this</span>
@@ -1528,10 +1541,11 @@
             <span class="c1"># Update local counting</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_dof_manager</span><span class="o">.</span><span class="n">full_dof</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">num_dofs</span></div>
 
-    <span class="k">def</span> <span class="nf">_initialize_matrix_rhs</span><span class="p">(</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_initialize_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sps_matrix</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">csc_or_csr_matrix</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">csc_or_csr_matrix</span><span class="p">],</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Initialize a set of matrices (for left-hand sides) and vectors (rhs)</span>
 <span class="sd">        for all operators associated with a variable (example: a temperature</span>
 <span class="sd">        variable in an advection-diffusion problem will typically have two</span>
@@ -1591,10 +1605,10 @@
         <span class="k">return</span> <span class="n">matrix_dict</span><span class="p">,</span> <span class="n">rhs_dict</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_assign_matrix_vector</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_assign_matrix_vector</span><span class="p">(</span>
         <span class="n">dof</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">sps_matrix</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">csc_or_csr_matrix</span><span class="p">],</span> <span class="n">create_matrix</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;Assign a block matrix and vector with specified number of dofs per block&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Assign a block matrix and vector with specified number of dofs per block&quot;&quot;&quot;</span>
         <span class="n">num_blocks</span> <span class="o">=</span> <span class="n">dof</span><span class="o">.</span><span class="n">size</span>
 
         <span class="k">if</span> <span class="n">create_matrix</span><span class="p">:</span>
@@ -1612,8 +1626,10 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">rhs</span>
 
-<div class="viewcode-block" id="Assembler.assemble_operator"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.assemble_operator">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">operator_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="Assembler.assemble_operator">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.assemble_operator">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_operator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">operator_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Assemble a global agebraic operator from the local algebraic operators on</span>
 <span class="sd">        the subdomains or interfaces of a mixed-dimensional grid.</span>
 <span class="sd">        The global operator is a block diagonal matrix with the local operators</span>
@@ -1631,7 +1647,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">operator</span> <span class="o">=</span> <span class="p">[]</span>
 
-        <span class="k">def</span> <span class="nf">_get_operator</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">_keyword</span><span class="p">,</span> <span class="n">_operator_name</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">_get_operator</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">_keyword</span><span class="p">,</span> <span class="n">_operator_name</span><span class="p">):</span>
             <span class="n">loc_disc</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">_keyword</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
             <span class="k">if</span> <span class="n">loc_disc</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># Return if keyword is not found</span>
                 <span class="k">return</span> <span class="kc">None</span>
@@ -1660,8 +1676,11 @@
             <span class="p">)</span>
         <span class="k">return</span> <span class="n">sps</span><span class="o">.</span><span class="n">block_diag</span><span class="p">(</span><span class="n">operator</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Assembler.assemble_parameter"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.assemble_parameter">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Assembler.assemble_parameter">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.assemble_parameter">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_parameter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">parameter_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Assemble a global parameter from the local parameters defined on</span>
 <span class="sd">        the subdomains or interfaces of a mixed-dimensional grid.</span>
 <span class="sd">        The global parameter is a nd-vector of the stacked local parameters.</span>
@@ -1681,8 +1700,9 @@
             <span class="n">parameter</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="n">keyword</span><span class="p">][</span><span class="n">parameter_name</span><span class="p">])</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">parameter</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_local_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;Find variables defined in a data dictionary, and do intersection</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_local_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="n">Dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Find variables defined in a data dictionary, and do intersection</span>
 <span class="sd">        with defined active variables.</span>
 
 <span class="sd">        If no active variables are specified, returned all declared variables.</span>
@@ -1700,10 +1720,12 @@
         <span class="c1"># Active variables</span>
         <span class="k">return</span> <span class="n">d</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">PRIMARY_VARIABLES</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
-<div class="viewcode-block" id="Assembler.distribute_variable"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.distribute_variable">[docs]</a>    <span class="k">def</span> <span class="nf">distribute_variable</span><span class="p">(</span>
+<div class="viewcode-block" id="Assembler.distribute_variable">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.distribute_variable">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">distribute_variable</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">variable_names</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Distribute a vector to the subdomains and interfaces in the</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Distribute a vector to the subdomains and interfaces in the</span>
 <span class="sd">        MixedDimensionalGrid.</span>
 
 <span class="sd">        The intended use is to split a multi-physics solution vector into its</span>
@@ -1720,16 +1742,22 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_dof_manager</span><span class="o">.</span><span class="n">distribute_variable</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">variables</span><span class="o">=</span><span class="n">variable_names</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Assembler.num_dof"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.num_dof">[docs]</a>    <span class="k">def</span> <span class="nf">num_dof</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">int_</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get total number of unknowns of the identified variables.</span>
+
+<div class="viewcode-block" id="Assembler.num_dof">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.num_dof">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_dof</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">int_</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get total number of unknowns of the identified variables.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            np.int_: Number of unknowns. Size of solution vector.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dof_manager</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">()</span></div>
 
-<div class="viewcode-block" id="Assembler.variables_of_grid"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.variables_of_grid">[docs]</a>    <span class="k">def</span> <span class="nf">variables_of_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Get all variables defined for a given subdomain or interface.</span>
+
+<div class="viewcode-block" id="Assembler.variables_of_grid">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.mixed_dim.assembler.html#porepy.numerics.mixed_dim.assembler.Assembler.variables_of_grid">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">variables_of_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get all variables defined for a given subdomain or interface.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            g (Union[pp.Grid, Tuple[pp.Grid, pp.Grid]]): Target subdomain, or an interface.</span>
@@ -1740,7 +1768,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dof_manager</span><span class="o">.</span><span class="n">block_dof</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">g</span><span class="p">]</span></div>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dof_manager</span><span class="o">.</span><span class="n">block_dof</span><span class="o">.</span><span class="n">keys</span><span class="p">()]</span>
         <span class="n">unique_vars</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">names</span><span class="p">))</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
@@ -1754,7 +1783,7 @@
 
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Assembler objcet with in total </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_dof</span><span class="p">()</span><span class="si">}</span><span class="s2"> dofs&quot;</span>
             <span class="sa">f</span><span class="s2">&quot; on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_dof_manager</span><span class="o">.</span><span class="n">block_dof</span><span class="p">)</span><span class="si">}</span><span class="s2"> subdomain and interface variables.</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -1762,7 +1791,7 @@
             <span class="sa">f</span><span class="s2">&quot;Minimum grid dimension: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_min</span><span class="p">()</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="p">)</span>
         <span class="k">for</span> <span class="n">dim</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_max</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">dim_min</span><span class="p">()</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">):</span>
-            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;In dimension </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">([</span><span class="n">sd</span> <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)])</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">s</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;In dimension </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">([</span><span class="n">sd</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">sd</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomains</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="n">dim</span><span class="p">)])</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;grids.</span><span class="se">\n</span><span class="s2">&quot;</span>
             <span class="n">unique_vars</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="n">key</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
@@ -1836,6 +1865,7 @@
                             <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">s</span></div>
+
 </pre></div>
 
            </div>

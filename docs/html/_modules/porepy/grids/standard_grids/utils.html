@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.standard_grids.utils &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/standard_grids/utils.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/standard_grids/utils.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.grids.standard_grids.utils</li>
       <li class="wy-breadcrumbs-aside">
@@ -271,21 +271,24 @@
            <div itemprop="articleBody">
              
   <h1>Source code for porepy.grids.standard_grids.utils</h1><div class="highlight"><pre>
-<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span></span><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="unit_domain"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html#porepy.grids.standard_grids.utils.unit_domain">[docs]</a><span class="k">def</span> <span class="nf">unit_domain</span><span class="p">(</span><span class="n">dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Return a domain of unitary size extending from 0 to 1 in all dimensions.</span>
+<div class="viewcode-block" id="unit_domain">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html#porepy.grids.standard_grids.utils.unit_domain">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">unit_domain</span><span class="p">(</span><span class="n">dimension</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a domain of unitary size extending from 0 to 1 in all dimensions.</span>
 
 <span class="sd">    Parameters:</span>
-<span class="sd">        dimension (int): the dimension of the domain.</span>
+<span class="sd">        dimension: the dimension of the domain.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        dict: specification of max and min in all dimensions</span>
+<span class="sd">        dict: specification of max and min in all dimensions.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">assert</span> <span class="n">dimension</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
     <span class="n">domain</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;xmin&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;xmax&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}</span>
@@ -296,10 +299,14 @@
     <span class="k">return</span> <span class="n">domain</span></div>
 
 
-<div class="viewcode-block" id="set_mesh_sizes"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html#porepy.grids.standard_grids.utils.set_mesh_sizes">[docs]</a><span class="k">def</span> <span class="nf">set_mesh_sizes</span><span class="p">(</span><span class="n">mesh_args</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="set_mesh_sizes">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html#porepy.grids.standard_grids.utils.set_mesh_sizes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">set_mesh_sizes</span><span class="p">(</span><span class="n">mesh_args</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Checks whether mesh_size_min and mesh_size_bound are present in the mesh_args dictionary.</span>
 <span class="sd">    If not, they are set to 1/5 and 2 of the mesh_size_frac value, respectively.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="s2">&quot;mesh_size_frac&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">mesh_args</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Mesh size parameters should be specified via mesh_size_frac&quot;</span><span class="p">)</span>
@@ -309,26 +316,26 @@
         <span class="n">mesh_args</span><span class="p">[</span><span class="s2">&quot;mesh_size_min&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">/</span> <span class="mi">5</span> <span class="o">*</span> <span class="n">mesh_args</span><span class="p">[</span><span class="s2">&quot;mesh_size_frac&quot;</span><span class="p">]</span></div>
 
 
-<div class="viewcode-block" id="make_mdg_2d_simplex"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html#porepy.grids.standard_grids.utils.make_mdg_2d_simplex">[docs]</a><span class="k">def</span> <span class="nf">make_mdg_2d_simplex</span><span class="p">(</span>
+
+<div class="viewcode-block" id="make_mdg_2d_simplex">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html#porepy.grids.standard_grids.utils.make_mdg_2d_simplex">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_mdg_2d_simplex</span><span class="p">(</span>
     <span class="n">mesh_args</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">points</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">fractures</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">domain</span><span class="p">:</span> <span class="nb">dict</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Construct a grid bucket with triangle grid in the 2d domain.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Construct a mixed-dimensional simplex grid in the 2d domain.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        mesh_args:</span>
-<span class="sd">            Contains at least &quot;mesh_size_frac&quot;. If the optional values of</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        mesh_args: Contains at least &quot;mesh_size_frac&quot;. If the optional values of</span>
 <span class="sd">            &quot;mesh_size_bound&quot; and &quot;mesh_size_min&quot; are not provided, these are set by</span>
 <span class="sd">            set_mesh_sizes.</span>
-<span class="sd">        points:</span>
-<span class="sd">            Fracture endpoints.</span>
-<span class="sd">        fractures:</span>
-<span class="sd">            Connectivity list of the fractures, pointing to the provided</span>
+<span class="sd">        points: Fracture endpoints.</span>
+<span class="sd">        fractures: Connectivity list of the fractures, pointing to the provided</span>
 <span class="sd">            endpoint list.</span>
-<span class="sd">        domain:</span>
-<span class="sd">            Defines the size of the rectangular domain.</span>
+<span class="sd">        domain: Defines the size of the rectangular domain.</span>
 
-<span class="sd">    Returns: Grid bucket with geometry computation and node ordering performed.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        Mixed-dimensional grid with geometry computation and node ordering performed.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">set_mesh_sizes</span><span class="p">(</span><span class="n">mesh_args</span><span class="p">)</span>
     <span class="n">network</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">FractureNetwork2d</span><span class="p">(</span><span class="n">points</span><span class="p">,</span> <span class="n">fractures</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
@@ -337,27 +344,29 @@
     <span class="k">return</span> <span class="n">mdg</span></div>
 
 
-<div class="viewcode-block" id="make_mdg_2d_cartesian"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html#porepy.grids.standard_grids.utils.make_mdg_2d_cartesian">[docs]</a><span class="k">def</span> <span class="nf">make_mdg_2d_cartesian</span><span class="p">(</span>
+
+<div class="viewcode-block" id="make_mdg_2d_cartesian">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.grids.standard_grids.utils.html#porepy.grids.standard_grids.utils.make_mdg_2d_cartesian">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_mdg_2d_cartesian</span><span class="p">(</span>
     <span class="n">n_cells</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">fractures</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">domain</span><span class="p">:</span> <span class="nb">dict</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Construct a grid bucket with Cartesian grid in the 2d domain.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct a Cartesian mixed-dimensional grid in the 2d domain.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        n_cells:</span>
-<span class="sd">            Contains number of cells in x and y direction.</span>
-<span class="sd">        fractures:</span>
-<span class="sd">            Each element is an np.array([[x0, x1],[y0,y1]])</span>
-<span class="sd">        domain:</span>
-<span class="sd">            Defines the size of the rectangular domain.</span>
+<span class="sd">    Parameters:</span>
+<span class="sd">        n_cells: Contains number of cells in x and y direction.</span>
+<span class="sd">        fractures: Each element is an np.array([[x0, x1],[y0,y1]])</span>
+<span class="sd">        domain: Defines the size of the rectangular domain.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        Grid bucket with geometry computation and node ordering performed.</span>
+<span class="sd">        Mixed-dimensional grid with geometry computation and node ordering performed.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">meshing</span><span class="o">.</span><span class="n">cart_grid</span><span class="p">(</span>
         <span class="n">fractures</span><span class="p">,</span> <span class="n">n_cells</span><span class="p">,</span> <span class="n">physdims</span><span class="o">=</span><span class="p">[</span><span class="n">domain</span><span class="p">[</span><span class="s2">&quot;xmax&quot;</span><span class="p">],</span> <span class="n">domain</span><span class="p">[</span><span class="s2">&quot;ymax&quot;</span><span class="p">]]</span>
     <span class="p">)</span>
     <span class="k">return</span> <span class="n">mdg</span></div>
+
 </pre></div>
 
            </div>

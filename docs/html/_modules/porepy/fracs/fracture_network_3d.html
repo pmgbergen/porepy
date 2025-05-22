@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.fracture_network_3d &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/fracs/fracture_network_3d.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/fracs/fracture_network_3d.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.fracs.fracture_network_3d</li>
       <li class="wy-breadcrumbs-aside">
@@ -277,32 +277,34 @@
 <span class="sd">The model relies heavily on functions in the computational geometry library.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">copy</span>
-<span class="kn">import</span> <span class="nn">csv</span>
-<span class="kn">import</span> <span class="nn">logging</span>
-<span class="kn">import</span> <span class="nn">time</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">csv</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">meshio</span>
-<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">scipy.spatial</span> <span class="kn">import</span> <span class="n">ConvexHull</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">meshio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">networkx</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nx</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">ConvexHull</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">from</span> <span class="nn">porepy.fracs.gmsh_interface</span> <span class="kn">import</span> <span class="n">GmshData3d</span><span class="p">,</span> <span class="n">GmshWriter</span>
-<span class="kn">from</span> <span class="nn">porepy.fracs.plane_fracture</span> <span class="kn">import</span> <span class="n">PlaneFracture</span>
-<span class="kn">from</span> <span class="nn">porepy.utils</span> <span class="kn">import</span> <span class="n">setmembership</span><span class="p">,</span> <span class="n">sort_points</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.fracs.gmsh_interface</span><span class="w"> </span><span class="kn">import</span> <span class="n">GmshData3d</span><span class="p">,</span> <span class="n">GmshWriter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.fracs.plane_fracture</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlaneFracture</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">setmembership</span><span class="p">,</span> <span class="n">sort_points</span>
 
-<span class="kn">from</span> <span class="nn">.gmsh_interface</span> <span class="kn">import</span> <span class="n">Tags</span> <span class="k">as</span> <span class="n">GmshInterfaceTags</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.gmsh_interface</span><span class="w"> </span><span class="kn">import</span> <span class="n">Tags</span> <span class="k">as</span> <span class="n">GmshInterfaceTags</span>
 
 <span class="c1"># Module-wide logger</span>
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="FractureNetwork3d"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d">[docs]</a><span class="k">class</span> <span class="nc">FractureNetwork3d</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="FractureNetwork3d">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FractureNetwork3d</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Collection of Fractures with geometrical information. Facilitates</span>
 <span class="sd">    computation of intersections of the fracture. Also incorporates the</span>
 <span class="sd">    bounding box of the domain. To ensure</span>
@@ -335,14 +337,14 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">fractures</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">PlaneFracture</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">domain</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span><span class="p">,</span>
         <span class="n">run_checks</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Initialize fracture network.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize fracture network.</span>
 
 <span class="sd">        Generate network from specified fractures. The fractures will have</span>
 <span class="sd">        their index set (and existing values overridden), according to the</span>
@@ -404,8 +406,10 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">bounding_box_imposed</span> <span class="o">=</span> <span class="kc">False</span>
 
-<div class="viewcode-block" id="FractureNetwork3d.add"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.add">[docs]</a>    <span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Add a fracture to the network.</span>
+<div class="viewcode-block" id="FractureNetwork3d.add">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.add">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a fracture to the network.</span>
 
 <span class="sd">        The fracture will be assigned a new index, higher than the maximum</span>
 <span class="sd">        value currently found in the network.</span>
@@ -422,8 +426,11 @@
             <span class="n">f</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_fractures</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.copy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Create deep copy of the network.</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.copy">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create deep copy of the network.</span>
 
 <span class="sd">        The method will create a deep copy of all fractures, as well as the domain, of</span>
 <span class="sd">        the network. Note that if the fractures have had extra points imposed as part</span>
@@ -442,8 +449,11 @@
 
         <span class="k">return</span> <span class="n">FractureNetwork3d</span><span class="p">(</span><span class="n">fracs</span><span class="p">,</span> <span class="n">domain</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.num_frac"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.num_frac">[docs]</a>    <span class="k">def</span> <span class="nf">num_frac</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get number of fractures in the network, not counting planes on</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.num_frac">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.num_frac">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_frac</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get number of fractures in the network, not counting planes on</span>
 <span class="sd">        the domain boundary.</span>
 
 <span class="sd">        Returns:</span>
@@ -460,7 +470,10 @@
 
         <span class="k">return</span> <span class="n">num</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.mesh"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh">[docs]</a>    <span class="k">def</span> <span class="nf">mesh</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.mesh">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.mesh">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">mesh</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">mesh_args</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
         <span class="n">dfn</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
@@ -472,7 +485,7 @@
         <span class="n">clear_gmsh</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Mesh the fracture network, and generate a mixed-dimensional grid.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mesh the fracture network, and generate a mixed-dimensional grid.</span>
 
 <span class="sd">        The mesh itself is generated by Gmsh.</span>
 
@@ -551,8 +564,11 @@
         <span class="n">mdg</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">meshing</span><span class="o">.</span><span class="n">subdomains_to_mdg</span><span class="p">(</span><span class="n">subdomains</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">mdg</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.prepare_for_gmsh"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.prepare_for_gmsh">[docs]</a>    <span class="k">def</span> <span class="nf">prepare_for_gmsh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mesh_args</span><span class="p">,</span> <span class="n">dfn</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GmshData3d</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Process network intersections and write a gmsh .geo configuration file,</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.prepare_for_gmsh">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.prepare_for_gmsh">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">prepare_for_gmsh</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mesh_args</span><span class="p">,</span> <span class="n">dfn</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">constraints</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GmshData3d</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Process network intersections and write a gmsh .geo configuration file,</span>
 <span class="sd">        ready to be processed by gmsh.</span>
 
 <span class="sd">        NOTE: Consider using the mesh() function instead to get a ready MixedDimensionalGrid.</span>
@@ -852,13 +868,16 @@
 
         <span class="k">return</span> <span class="n">gmsh_repr</span></div>
 
-    <span class="k">def</span> <span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">position</span><span class="p">):</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">position</span><span class="p">):</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fractures</span><span class="p">[</span><span class="n">position</span><span class="p">]</span>
 
-<div class="viewcode-block" id="FractureNetwork3d.intersections_of_fracture"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.intersections_of_fracture">[docs]</a>    <span class="k">def</span> <span class="nf">intersections_of_fracture</span><span class="p">(</span>
+<div class="viewcode-block" id="FractureNetwork3d.intersections_of_fracture">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.intersections_of_fracture">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">intersections_of_fracture</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">frac</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">PlaneFracture</span><span class="p">]</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">bool</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;Get all known intersections for a fracture.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get all known intersections for a fracture.</span>
 
 <span class="sd">        If called before find_intersections(), the returned list will be empty.</span>
 
@@ -887,8 +906,11 @@
 
         <span class="k">return</span> <span class="n">isects</span><span class="p">,</span> <span class="n">is_first</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.find_intersections"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.find_intersections">[docs]</a>    <span class="k">def</span> <span class="nf">find_intersections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_orig_points</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.find_intersections">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.find_intersections">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">find_intersections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">use_orig_points</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Find intersections between fractures in terms of coordinates.</span>
 
 <span class="sd">        The intersections are stored in the attribute self.Intersections.</span>
@@ -980,8 +1002,11 @@
             <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">,</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.split_intersections"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.split_intersections">[docs]</a>    <span class="k">def</span> <span class="nf">split_intersections</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.split_intersections">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.split_intersections">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">split_intersections</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Based on the fracture network, and their known intersections, decompose</span>
 <span class="sd">        the fractures into non-intersecting sub-polygons. These can</span>
 <span class="sd">        subsequently be exported to gmsh.</span>
@@ -1046,8 +1071,9 @@
             <span class="s2">&quot;Finished fracture splitting after </span><span class="si">%.5f</span><span class="s2"> seconds&quot;</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
         <span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_fracs_2_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Invert the mapping between edges and fractures.</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_fracs_2_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Invert the mapping between edges and fractures.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            List of list: For each fracture, index of all edges that points to</span>
@@ -1062,8 +1088,8 @@
             <span class="n">f2e</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">f_l</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">f2e</span>
 
-    <span class="k">def</span> <span class="nf">_point_and_edge_lists</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_point_and_edge_lists</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Obtain lists of all points and connections necessary to describe</span>
 <span class="sd">        fractures and their intersections.</span>
 
@@ -1156,11 +1182,11 @@
             <span class="n">all_p</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">,</span> <span class="n">is_boundary_edge</span>
         <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_uniquify_points_and_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">all_p</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">,</span> <span class="n">is_boundary_edge</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_uniquify_points_and_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">all_p</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">,</span> <span class="n">is_boundary_edge</span><span class="p">):</span>
 
         <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sd">&quot;&quot;&quot;Uniquify points and edges, starting with %i points, %i</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Uniquify points and edges, starting with %i points, %i</span>
 <span class="sd">                    edges&quot;&quot;&quot;</span><span class="p">,</span>
             <span class="n">all_p</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
             <span class="n">edges</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
@@ -1222,7 +1248,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">_verify_fractures_in_plane</span><span class="p">(</span><span class="n">p_unique</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">)</span>
 
         <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-            <span class="sd">&quot;&quot;&quot;Uniquify complete. %i points, %i edges. Elapsed time</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Uniquify complete. %i points, %i edges. Elapsed time</span>
 <span class="sd">                    %.5f&quot;&quot;&quot;</span><span class="p">,</span>
             <span class="n">p_unique</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
             <span class="n">edges</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
@@ -1231,8 +1257,8 @@
 
         <span class="k">return</span> <span class="n">p_unique</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">,</span> <span class="n">is_boundary_edge</span>
 
-    <span class="k">def</span> <span class="nf">_remove_edge_intersections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">all_p</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">,</span> <span class="n">is_boundary_edge</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_remove_edge_intersections</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">all_p</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">,</span> <span class="n">is_boundary_edge</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Remove crossings from the set of fracture intersections.</span>
 
 <span class="sd">        Intersecting intersections (yes) are split, and new points are</span>
@@ -1410,8 +1436,10 @@
             <span class="n">all_p</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">,</span> <span class="n">is_boundary_edge</span>
         <span class="p">)</span>
 
-<div class="viewcode-block" id="FractureNetwork3d.fractures_of_points"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.fractures_of_points">[docs]</a>    <span class="k">def</span> <span class="nf">fractures_of_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pts</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="FractureNetwork3d.fractures_of_points">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.fractures_of_points">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fractures_of_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pts</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        For a given point, find all fractures that refer to it, either as</span>
 <span class="sd">        vertex or as internal.</span>
 
@@ -1438,8 +1466,11 @@
             <span class="n">fracs_of_points</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">fracs_loc</span><span class="p">)))</span>
         <span class="k">return</span> <span class="n">fracs_of_points</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.close_points"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.close_points">[docs]</a>    <span class="k">def</span> <span class="nf">close_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dist</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.close_points">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.close_points">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">close_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dist</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        In the set of points used to describe the fractures (after</span>
 <span class="sd">        decomposition), find pairs that are closer than a certain distance.</span>
 <span class="sd">        Intended use: Debugging.</span>
@@ -1467,8 +1498,9 @@
 
         <span class="k">return</span> <span class="n">c_points</span></div>
 
-    <span class="k">def</span> <span class="nf">_verify_fractures_in_plane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_verify_fractures_in_plane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edges_2_frac</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Essentially a debugging method that verify that the given set of</span>
 <span class="sd">        points, edges and edge connections indeed form planes.</span>
 
@@ -1490,8 +1522,8 @@
             <span class="c1"># Run through points_2_plane, to check the assertions</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_points_2_plane</span><span class="p">(</span><span class="n">p_loc</span><span class="p">,</span> <span class="n">edges_loc</span><span class="p">,</span> <span class="n">p_ind_loc</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_points_2_plane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p_loc</span><span class="p">,</span> <span class="n">edges_loc</span><span class="p">,</span> <span class="n">p_ind_loc</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_points_2_plane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">p_loc</span><span class="p">,</span> <span class="n">edges_loc</span><span class="p">,</span> <span class="n">p_ind_loc</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Convenience method for rotating a point cloud into its own 2d-plane.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Center point cloud around the origin</span>
@@ -1521,7 +1553,7 @@
 
         <span class="k">return</span> <span class="n">p_2d</span><span class="p">,</span> <span class="n">edges_2d</span><span class="p">,</span> <span class="n">p_loc_c</span><span class="p">,</span> <span class="n">rot</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Fracture set with &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fractures</span><span class="p">))</span> <span class="o">+</span> <span class="s2">&quot; planes</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="k">if</span> <span class="s2">&quot;boundary&quot;</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">:</span>
             <span class="n">bnd</span> <span class="o">=</span> <span class="s2">&quot;boundary&quot;</span>
@@ -1530,12 +1562,14 @@
             <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;No boundary information is given&quot;</span>
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="nf">_reindex_fractures</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_reindex_fractures</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">fi</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_fractures</span><span class="p">):</span>
             <span class="n">f</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="n">fi</span>
 
-<div class="viewcode-block" id="FractureNetwork3d.bounding_box"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.bounding_box">[docs]</a>    <span class="k">def</span> <span class="nf">bounding_box</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Obtain bounding box for fracture network.</span>
+<div class="viewcode-block" id="FractureNetwork3d.bounding_box">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.bounding_box">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bounding_box</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain bounding box for fracture network.</span>
 
 <span class="sd">        The box is defined by the external boundary, if imposed, or if not by</span>
 <span class="sd">        the maximal extent of the fractures in each direction.</span>
@@ -1560,7 +1594,10 @@
             <span class="s2">&quot;zmax&quot;</span><span class="p">:</span> <span class="n">max_coord</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
         <span class="p">}</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.impose_external_boundary"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.impose_external_boundary">[docs]</a>    <span class="k">def</span> <span class="nf">impose_external_boundary</span><span class="p">(</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.impose_external_boundary">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.impose_external_boundary">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">impose_external_boundary</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">domain</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">keep_box</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
@@ -1568,7 +1605,7 @@
         <span class="n">clear_gmsh</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">finalize_gmsh</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set an external boundary for the fracture set.</span>
 
 <span class="sd">        There are two permissible data formats for the domain boundary:</span>
@@ -1781,7 +1818,7 @@
             <span class="n">tris</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
 
             <span class="c1"># Helper function to get i2 move to the next available node</span>
-            <span class="k">def</span> <span class="nf">_next_i2</span><span class="p">(</span><span class="n">i2</span><span class="p">):</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">_next_i2</span><span class="p">(</span><span class="n">i2</span><span class="p">):</span>
                 <span class="n">start</span> <span class="o">=</span> <span class="n">i2</span>
                 <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
                     <span class="n">i2</span> <span class="o">+=</span> <span class="mi">1</span>
@@ -1957,7 +1994,7 @@
             <span class="c1"># Helper function to combine edges (prepare for merge of the neighboring</span>
             <span class="c1"># edge pairs in both ends of the edge). Also compute angle in the</span>
             <span class="c1"># candidate new pair.</span>
-            <span class="k">def</span> <span class="nf">new_pairs_and_angles</span><span class="p">(</span><span class="n">ei</span><span class="p">):</span>
+            <span class="k">def</span><span class="w"> </span><span class="nf">new_pairs_and_angles</span><span class="p">(</span><span class="n">ei</span><span class="p">):</span>
                 <span class="n">old_pairs</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="n">new_pairs</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="n">new_angles</span> <span class="o">=</span> <span class="p">[]</span>
@@ -2053,8 +2090,9 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_reindex_fractures</span><span class="p">()</span>
         <span class="k">return</span> <span class="n">ind_map</span></div>
 
-    <span class="k">def</span> <span class="nf">_classify_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">polygon_edges</span><span class="p">,</span> <span class="n">constraints</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_classify_edges</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">polygon_edges</span><span class="p">,</span> <span class="n">constraints</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Classify the edges into fracture boundary, intersection, or auxiliary.</span>
 <span class="sd">        Also identify points on intersections between intersections (fractures</span>
 <span class="sd">        of co-dimension 3)</span>
@@ -2126,8 +2164,8 @@
 
         <span class="k">return</span> <span class="n">tag</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_not</span><span class="p">(</span><span class="n">all_bound</span><span class="p">),</span> <span class="n">some_bound</span>
 
-    <span class="k">def</span> <span class="nf">_on_domain_boundary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edge_tags</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_on_domain_boundary</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">edges</span><span class="p">,</span> <span class="n">edge_tags</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Finds edges and points on boundary, to avoid that these</span>
 <span class="sd">        are gridded.</span>
 
@@ -2201,8 +2239,8 @@
 
         <span class="k">return</span> <span class="n">point_tags</span><span class="p">,</span> <span class="n">edge_tags</span>
 
-    <span class="k">def</span> <span class="nf">_poly_2_segment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_poly_2_segment</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Represent the polygons by the global edges, and determine if the lines</span>
 <span class="sd">        must be reversed (locally) for the polygon to form a closed loop.</span>
 
@@ -2238,8 +2276,8 @@
 
         <span class="k">return</span> <span class="n">poly_2_line</span><span class="p">,</span> <span class="n">line_reverse</span>
 
-    <span class="k">def</span> <span class="nf">_determine_mesh_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point_tags</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_determine_mesh_size</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">point_tags</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set the preferred mesh size for geometrical points as specified by</span>
 <span class="sd">        gmsh.</span>
 
@@ -2280,10 +2318,10 @@
             <span class="n">mesh_size</span><span class="p">[</span><span class="n">on_boundary</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">mesh_size</span><span class="p">,</span> <span class="n">mesh_size_bound</span><span class="p">)[</span><span class="n">on_boundary</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">mesh_size</span>
 
-    <span class="k">def</span> <span class="nf">_insert_auxiliary_points</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_insert_auxiliary_points</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">mesh_size_frac</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mesh_size_min</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mesh_size_bound</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Insert auxiliary points on fracture edges. Used to guide gmsh mesh</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Insert auxiliary points on fracture edges. Used to guide gmsh mesh</span>
 <span class="sd">        size parameters.</span>
 
 <span class="sd">        The function should only be called once to avoid insertion of multiple</span>
@@ -2334,7 +2372,7 @@
         <span class="c1"># physical. The operation should only be done for fracture pairs where no</span>
         <span class="c1"># auxiliary points were added because of close segments.</span>
 
-        <span class="k">def</span> <span class="nf">dist_p</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">dist_p</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">):</span>
             <span class="c1"># Helper function to get the distance from a set of points (a) to a single point</span>
             <span class="c1"># (b).</span>
             <span class="k">if</span> <span class="n">a</span><span class="o">.</span><span class="n">size</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
@@ -2569,8 +2607,8 @@
                     <span class="c1"># inserted auxiliary points.</span>
                     <span class="n">start_index</span> <span class="o">+=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">sorted_new</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="nf">_split_intersections_of_fracture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cp</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Check if a point lies on intersections of a given fracture, and if so,</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_split_intersections_of_fracture</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cp</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if a point lies on intersections of a given fracture, and if so,</span>
 <span class="sd">        split the intersection into two.</span>
 
 <span class="sd">        The intended usage is when auxiliary points are added to a fracture&#39;s vertexes</span>
@@ -2643,7 +2681,7 @@
                 <span class="bp">self</span><span class="o">.</span><span class="n">intersections</span><span class="p">[</span><span class="n">key</span><span class="p">],</span> <span class="n">to_replace</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span>
             <span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_add_intersection</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_intersection</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">first</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">PlaneFracture</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
         <span class="n">second</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">PlaneFracture</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -2674,13 +2712,15 @@
             <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">intersections</span><span class="p">[</span><span class="s2">&quot;bound_second&quot;</span><span class="p">],</span> <span class="n">bound_second</span><span class="p">)</span>
         <span class="p">)</span>
 
-<div class="viewcode-block" id="FractureNetwork3d.to_file"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_file">[docs]</a>    <span class="k">def</span> <span class="nf">to_file</span><span class="p">(</span>
+<div class="viewcode-block" id="FractureNetwork3d.to_file">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_file">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_file</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">file_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">data</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Export the fracture network to file.</span>
 
 <span class="sd">        The file format is given as an kwarg, by default vtu will be used. The writing is</span>
@@ -2767,8 +2807,11 @@
         <span class="p">)</span>
         <span class="n">meshio</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">folder_name</span> <span class="o">+</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">meshio_grid_to_export</span><span class="p">,</span> <span class="n">binary</span><span class="o">=</span><span class="n">binary</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.to_csv"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_csv">[docs]</a>    <span class="k">def</span> <span class="nf">to_csv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.to_csv">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_csv">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_csv</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save the 3d network on a csv file with comma , as separator.</span>
 <span class="sd">        Note: the file is overwritten if present.</span>
 <span class="sd">        The format is</span>
@@ -2794,8 +2837,11 @@
             <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fractures</span><span class="p">:</span>
                 <span class="n">csv_writer</span><span class="o">.</span><span class="n">writerow</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">pts</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.to_fab"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_fab">[docs]</a>    <span class="k">def</span> <span class="nf">to_fab</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.to_fab">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.to_fab">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">to_fab</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_name</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Save the 3d network on a fab file, as specified by FracMan.</span>
 
 <span class="sd">        The filter is based on the .fab-files needed at the time of writing, and</span>
@@ -2806,7 +2852,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># function to write a numpy matrix as string</span>
 
-        <span class="k">def</span> <span class="nf">to_file</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">to_file</span><span class="p">(</span><span class="n">p</span><span class="p">):</span>
             <span class="k">return</span> <span class="s2">&quot;</span><span class="se">\n\t\t</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">p</span><span class="p">)</span>
 
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_name</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
@@ -2837,8 +2883,11 @@
                 <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">0 -1 -1 -1</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;END FRACTURE&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="FractureNetwork3d.fracture_to_plane"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.fracture_to_plane">[docs]</a>    <span class="k">def</span> <span class="nf">fracture_to_plane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frac_num</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Project fracture vertexes and intersection points to the natural</span>
+
+<div class="viewcode-block" id="FractureNetwork3d.fracture_to_plane">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.fracs.fracture_network_3d.html#porepy.fracs.fracture_network_3d.FractureNetwork3d.fracture_to_plane">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fracture_to_plane</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frac_num</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Project fracture vertexes and intersection points to the natural</span>
 <span class="sd">        plane of the fracture.</span>
 
 <span class="sd">        Parameters:</span>
@@ -2864,7 +2913,7 @@
 
         <span class="n">rot</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">map_geometry</span><span class="o">.</span><span class="n">project_plane_matrix</span><span class="p">(</span><span class="n">frac</span><span class="o">.</span><span class="n">pts</span><span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">rot_translate</span><span class="p">(</span><span class="n">pts</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">rot_translate</span><span class="p">(</span><span class="n">pts</span><span class="p">):</span>
             <span class="c1"># Convenience method to translate and rotate a point.</span>
             <span class="k">return</span> <span class="n">rot</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">pts</span> <span class="o">-</span> <span class="n">cp</span><span class="p">)</span>
 
@@ -2890,7 +2939,9 @@
                 <span class="k">assert</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">tmp_p</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">tol</span>
                 <span class="n">ip</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">tmp_p</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">p_2d</span><span class="p">,</span> <span class="n">ip</span><span class="p">,</span> <span class="n">other_frac</span><span class="p">,</span> <span class="n">rot</span><span class="p">,</span> <span class="n">cp</span></div></div>
+        <span class="k">return</span> <span class="n">p_2d</span><span class="p">,</span> <span class="n">ip</span><span class="p">,</span> <span class="n">other_frac</span><span class="p">,</span> <span class="n">rot</span><span class="p">,</span> <span class="n">cp</span></div>
+</div>
+
 </pre></div>
 
            </div>

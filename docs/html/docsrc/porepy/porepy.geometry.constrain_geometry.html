@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.geometry.constrain_geometry module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.geometry.constrain_geometry.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.geometry.constrain_geometry.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.geometry.html">porepy.geometry package</a></li>
       <li class="breadcrumb-item active">porepy.geometry.constrain_geometry module</li>
@@ -275,117 +275,117 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.geometry.constrain_geometry">
-<span id="porepy-geometry-constrain-geometry-module"></span><h1>porepy.geometry.constrain_geometry module<a class="headerlink" href="#module-porepy.geometry.constrain_geometry" title="Permalink to this heading"></a></h1>
+<span id="porepy-geometry-constrain-geometry-module"></span><h1>porepy.geometry.constrain_geometry module<a class="headerlink" href="#module-porepy.geometry.constrain_geometry" title="Link to this heading"></a></h1>
 <p>Module with various functions to constrain a geometry.</p>
 <p>Examples are to cut objects to lie within other objects, etc.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.constrain_geometry.lines_by_polygon">
-<span class="sig-name descname"><span class="pre">lines_by_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly_pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/constrain_geometry.html#lines_by_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.constrain_geometry.lines_by_polygon" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">lines_by_polygon</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">poly_pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/constrain_geometry.html#lines_by_polygon"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.constrain_geometry.lines_by_polygon" title="Link to this definition"></a></dt>
 <dd><p>Compute the intersections between a polygon (also not convex) and a set of lines.</p>
 <p>The computation is done line by line to avoid the splitting of edges caused by other
 edges. The implementation assumes that the polygon and lines are on the plane <code class="docutils literal notranslate"><span class="pre">(x,</span>
 <span class="pre">y)</span></code>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>poly_pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">np)</span></code></p>
+<li><p><strong>poly_pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">np)</span></code></p>
 <p>Points that define the polygon.</p>
 </p></li>
-<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">np)</span></code></p>
+<li><p><strong>pts</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">np)</span></code></p>
 <p>Points associated to the lines.</p>
 </p></li>
-<li><p><strong>edges</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">np)</span></code></p>
+<li><p><strong>edges</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">np)</span></code></p>
 <p>for each column the id of the points for the line.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>A 3-tuple containing</p>
 <dl class="simple">
-<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">np)</span></code></dt><dd><p>Points associated to the lines after the intersection.</p>
+<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">np)</span></code></dt><dd><p>Points associated to the lines after the intersection.</p>
 </dd>
-<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(2,</span> <span class="pre">np),</span> <span class="pre">dtype=int)</span></code></dt><dd><p>For each column the id of the points for the line after the intersection. If
+<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(2,</span> <span class="pre">np),</span> <span class="pre">dtype=int)</span></code></dt><dd><p>For each column the id of the points for the line after the intersection. If
 the input edges have tags, stored in <code class="docutils literal notranslate"><span class="pre">rows[2:]</span></code>, these will be preserved.</p>
 </dd>
-<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(np,</span> <span class="pre">),</span> <span class="pre">dtype=int)</span></code></dt><dd><p>Column index of the kept edges. This will have recurring values if an edge
+<dt><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(np,</span> <span class="pre">),</span> <span class="pre">dtype=int)</span></code></dt><dd><p>Column index of the kept edges. This will have recurring values if an edge
 is cut by a non-convex domain.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>, <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.constrain_geometry.polygons_by_polyhedron">
-<span class="sig-name descname"><span class="pre">polygons_by_polyhedron</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">polygons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polyhedron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/constrain_geometry.html#polygons_by_polyhedron"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.constrain_geometry.polygons_by_polyhedron" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">polygons_by_polyhedron</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">polygons</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polyhedron</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-8</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/constrain_geometry.html#polygons_by_polyhedron"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.constrain_geometry.polygons_by_polyhedron" title="Link to this definition"></a></dt>
 <dd><p>Constrain polygons in 3d to lie inside a (generally non-convex) polyhedron.</p>
 <p>Polygons not inside the polyhedron will be removed from descriptions. For non-convex
 polyhedra, polygons can be split in several parts.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>polygons</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><em>Union</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>numpy.ndarray</em></a><em>]</em><em>]</em>) – Each element is an array of <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_vertex)</span></code>, describing the
+<li><p><strong>polygons</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>]</em>) – Each element is an array of <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_vertex)</span></code>, describing the
 vertexes of a polygon.</p></li>
-<li><p><strong>polyhedron</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>numpy.ndarray</em></a><em>]</em>) – Each element is an array of <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_vertex)</span></code>,
+<li><p><strong>polyhedron</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>]</em>) – Each element is an array of <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_vertex)</span></code>,
 describing the vertexes of the polygons that together form the polygon.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-8</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1e-8</span></code></p>
 <p>Tolerance used to compare points.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><p>A tuple with two elements.</p>
-<p>list of <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</p>
+<p>list of <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>:</p>
 <blockquote>
 <div><p>Polygons lying inside the polyhedra.
 Each array has <code class="docutils literal notranslate"><span class="pre">shape=(3,</span> <span class="pre">num_vertex)</span></code>.</p>
 </div></blockquote>
-<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(num_polygons,</span> <span class="pre">),</span> <span class="pre">dytpe=int)</span></code></p>
+<p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ndarray</span></code></a>: <code class="docutils literal notranslate"><span class="pre">(shape=(num_polygons,</span> <span class="pre">),</span> <span class="pre">dytpe=int)</span></code></p>
 <blockquote>
 <div><p>For each constrained polygon, corresponding list of its original polygon.</p>
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)">numpy.ndarray</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>], <a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.geometry.constrain_geometry.snap_points_to_segments">
-<span class="sig-name descname"><span class="pre">snap_points_to_segments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p_edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_to_snap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/constrain_geometry.html#snap_points_to_segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.constrain_geometry.snap_points_to_segments" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">snap_points_to_segments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">p_edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">edges</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">p_to_snap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/geometry/constrain_geometry.html#snap_points_to_segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.geometry.constrain_geometry.snap_points_to_segments" title="Link to this definition"></a></dt>
 <dd><p>Snap points in the proximity of lines to the lines.</p>
 <p>Note that if two vertices of two edges are close, they may effectively be co-located
 by the snapping. Thus, the modified point set may have duplicate coordinates.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>p_edges</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">np)</span></code></p>
+<li><p><strong>p_edges</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">np)</span></code></p>
 <p>Points defining endpoints of segments.</p>
 </p></li>
-<li><p><strong>edges</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_edges)</span></code></p>
+<li><p><strong>edges</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">shape=(2,</span> <span class="pre">num_edges)</span></code></p>
 <p>Connection between lines in <code class="docutils literal notranslate"><span class="pre">p_edges</span></code>. If
 <code class="docutils literal notranslate"><span class="pre">edges.shape[0]</span> <span class="pre">&gt;</span> <span class="pre">2</span></code>, the extra rows are ignored.</p>
 </p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – Tolerance for snapping, points that are closer will be snapped.</p></li>
-<li><p><strong>p_to_snap</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(nd,</span> <span class="pre">np_to_snap),</span> <span class="pre">default=None)</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>) – Tolerance for snapping, points that are closer will be snapped.</p></li>
+<li><p><strong>p_to_snap</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em> | </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">(shape=(nd,</span> <span class="pre">np_to_snap),</span> <span class="pre">default=None)</span></code></p>
 <p>The points to snap.
 If not provided, <code class="docutils literal notranslate"><span class="pre">p_edges</span></code> will be snapped,
 that is, the lines will be modified.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>A copy of <code class="docutils literal notranslate"><span class="pre">p_to_snap</span></code> (or <code class="docutils literal notranslate"><span class="pre">p_edges</span></code>) with modified coordinates of
 <code class="docutils literal notranslate"><span class="pre">shape=(nd,</span> <span class="pre">np_to_snap)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>

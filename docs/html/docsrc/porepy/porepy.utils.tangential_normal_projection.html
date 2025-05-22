@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.utils.tangential_normal_projection module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.tangential_normal_projection.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.utils.tangential_normal_projection.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.utils.html">porepy.utils package</a></li>
       <li class="breadcrumb-item active">porepy.utils.tangential_normal_projection module</li>
@@ -275,13 +275,13 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.utils.tangential_normal_projection">
-<span id="porepy-utils-tangential-normal-projection-module"></span><h1>porepy.utils.tangential_normal_projection module<a class="headerlink" href="#module-porepy.utils.tangential_normal_projection" title="Permalink to this heading"></a></h1>
+<span id="porepy-utils-tangential-normal-projection-module"></span><h1>porepy.utils.tangential_normal_projection module<a class="headerlink" href="#module-porepy.utils.tangential_normal_projection" title="Link to this heading"></a></h1>
 <p>Geometric projections related to the tangential and normal spaces of a set of
 vectors.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.utils.tangential_normal_projection.TangentialNormalProjection">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TangentialNormalProjection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">normals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tangential_normal_projection.html#TangentialNormalProjection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TangentialNormalProjection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">normals</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tangential_normal_projection.html#TangentialNormalProjection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Represent a set of projections into tangent and normal vectors.</p>
 <p>The spaces are defined by the normal vector (see __init__ documentation).
 The basis for the tangential space is arbitrary (arbitrary direction in 2d,
@@ -289,22 +289,22 @@ rotation angle in 3d). The basis for the tangential is stored in the attribute
 tangential_basis.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.tangential_normal_projection.TangentialNormalProjection.num_vecs">
-<span class="sig-name descname"><span class="pre">num_vecs</span></span><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.num_vecs" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_vecs</span></span><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.num_vecs" title="Link to this definition"></a></dt>
 <dd><p>Number of tangent/normal spaces represented by this object.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.tangential_normal_projection.TangentialNormalProjection.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.dim" title="Link to this definition"></a></dt>
 <dd><p>Dimension of the ambient space.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -318,38 +318,38 @@ tangential space.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.tangential_normal_projection.TangentialNormalProjection.projection">
-<span class="sig-name descname"><span class="pre">projection</span></span><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.projection" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">projection</span></span><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.projection" title="Link to this definition"></a></dt>
 <dd><p>Projection matrices onto the
 tangential and normal space. The first dim-1 rows represent projection to the
 tangential space, the final row is the normal component.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.array,</span> <span class="pre">size</span> <span class="pre">dim</span> <span class="pre">x</span> <span class="pre">dim</span> <span class="pre">x</span> <span class="pre">num_vecs</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">size</span> <span class="pre">dim</span> <span class="pre">x</span> <span class="pre">dim</span> <span class="pre">x</span> <span class="pre">num_vecs</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.utils.tangential_normal_projection.TangentialNormalProjection.normals">
-<span class="sig-name descname"><span class="pre">normals</span></span><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.normals" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">normals</span></span><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.normals" title="Link to this definition"></a></dt>
 <dd><p>Unit normal vectors.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.array,</span> <span class="pre">size</span> <span class="pre">dim</span> <span class="pre">x</span> <span class="pre">num_vecs</span></code></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">np.array</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">size</span> <span class="pre">dim</span> <span class="pre">x</span> <span class="pre">num_vecs</span></code></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.tangential_normal_projection.TangentialNormalProjection.local_projection">
-<span class="sig-name descname"><span class="pre">local_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tangential_normal_projection.html#TangentialNormalProjection.local_projection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.local_projection" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">local_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ind</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tangential_normal_projection.html#TangentialNormalProjection.local_projection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.local_projection" title="Link to this definition"></a></dt>
 <dd><p>Get the local projection matrix (reference)</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>ind</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Index (referring to the order of the normal vectors
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Index (referring to the order of the normal vectors
 provided to __init__) of the basis to return. Defaults to the first one.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Local projection matrix. Multiplication</dt><dd><p>gives projection to the tangential space (first self.dim - 1 rows)
 and normal space (last)</p>
@@ -357,7 +357,7 @@ and normal space (last)</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.array (self.dim x self.dim)</p>
 </dd>
 </dl>
@@ -365,7 +365,7 @@ and normal space (last)</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.tangential_normal_projection.TangentialNormalProjection.project_normal">
-<span class="sig-name descname"><span class="pre">project_normal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tangential_normal_projection.html#TangentialNormalProjection.project_normal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.project_normal" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">project_normal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tangential_normal_projection.html#TangentialNormalProjection.project_normal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.project_normal" title="Link to this definition"></a></dt>
 <dd><p>Define a projection matrix of a specific size onto the normal space.</p>
 <p>The intended usage is to project a grid-based vector variable onto the
 normal space of the grid, with the tacit understanding that there is
@@ -374,8 +374,8 @@ a single normal vector shared for all the cells (or faces) in the grid.</p>
 One projection will be generated per column in self.normal. To activate
 this behavior, set num=None.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>num</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Number of (equal) projections to be generated.
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>num</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Number of (equal) projections to be generated.
 Will correspond to the number of cells / faces in the grid.
 The projection matrix will have num * self.dim columns. If not
 specified (default), one projection will be generated per vector in
@@ -383,7 +383,7 @@ self.normals.
 NOTE: If self.num_vecs &gt; 1, but num is not None, only the first
 given normal vector will be used to generate the normal space.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Tangential projection matrix, structure as a block</dt><dd><p>diagonal matrix. The first 1 x dim block projects onto the first
 tangent space, etc.
@@ -393,15 +393,15 @@ size: num_vecs x (self.dim * num_vecs) els.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)">scipy.sparse.csc_matrix</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.15.3)">scipy.sparse.csc_matrix</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.tangential_normal_projection.TangentialNormalProjection.project_tangential">
-<span class="sig-name descname"><span class="pre">project_tangential</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tangential_normal_projection.html#TangentialNormalProjection.project_tangential"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.project_tangential" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">project_tangential</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tangential_normal_projection.html#TangentialNormalProjection.project_tangential"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.project_tangential" title="Link to this definition"></a></dt>
 <dd><p>Define a projection matrix of a specific size onto the tangent space.</p>
 <p>The intended usage is to project a grid-based vector variable onto the
 tangent space of the grid, with the tacit understanding that there is
@@ -410,8 +410,8 @@ a single normal vector shared for all the cells (or faces) in the grid.</p>
 One projection will be generated per column in self.normal. To activate
 this behavior, set num=None.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>num</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Number of (equal) projections to be generated.
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>num</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Number of (equal) projections to be generated.
 Will correspond to the number of cells / faces in the grid.
 The projection matrix will have num * self.dim columns. If not
 specified (default), one projection will be generated per vector in
@@ -419,7 +419,7 @@ self.normals.
 NOTE: If self.num_vecs &gt; 1, but num is not None, only the first
 given normal vector will be used to generate the tangential space.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Tangential projection matrix, structure as a block</dt><dd><p>diagonal matrix. The first (dim-1) x dim block projects onto the first
 tangent space, etc.
@@ -429,15 +429,15 @@ size: ((self.dim - 1) * num_vecs) x (self.dim * num_vecs)</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)">scipy.sparse.csc_matrix</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.15.3)">scipy.sparse.csc_matrix</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.utils.tangential_normal_projection.TangentialNormalProjection.project_tangential_normal">
-<span class="sig-name descname"><span class="pre">project_tangential_normal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tangential_normal_projection.html#TangentialNormalProjection.project_tangential_normal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.project_tangential_normal" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">project_tangential_normal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/utils/tangential_normal_projection.html#TangentialNormalProjection.project_tangential_normal"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.utils.tangential_normal_projection.TangentialNormalProjection.project_tangential_normal" title="Link to this definition"></a></dt>
 <dd><p>Define a projection matrix to decompose a matrix into tangential
 and normal components.</p>
 <p>The intended usage is to decompose a grid-based vector variable into the
@@ -447,8 +447,8 @@ a single normal vector shared for all the cells (or faces) in the grid.</p>
 One projection will be generated per column in self.normal. To activate
 this behavior, set num=None.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>num</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Number of (equal) projections to be generated.
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>num</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Number of (equal) projections to be generated.
 Will correspond to the number of cells / faces in the grid.
 The projection matrix will have num * self.dim columns. If not
 specified (default), one projection will be generated per vector in
@@ -456,7 +456,7 @@ self.normals.
 NOTE: If self.num_vecs &gt; 1, but num is not None, only the first
 given normal vector will be used to generate the tangential space.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Projection matrix, structure as a block</dt><dd><p>diagonal matrix, with block size dim x dim.
 For each block, the first dim-1 rows projects onto the tangent
@@ -467,8 +467,8 @@ size: ((self.dim * num_vecs) x (self.dim * num_vecs)</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)">scipy.sparse.csc_matrix</a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.15.3)">scipy.sparse.csc_matrix</a></p>
 </dd>
 </dl>
 </dd></dl>

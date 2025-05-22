@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.fracs.split_grid module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.split_grid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.fracs.split_grid.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.fracs.html">porepy.fracs package</a></li>
       <li class="breadcrumb-item active">porepy.fracs.split_grid module</li>
@@ -275,14 +275,14 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.fracs.split_grid">
-<span id="porepy-fracs-split-grid-module"></span><h1>porepy.fracs.split_grid module<a class="headerlink" href="#module-porepy.fracs.split_grid" title="Permalink to this heading"></a></h1>
+<span id="porepy-fracs-split-grid-module"></span><h1>porepy.fracs.split_grid module<a class="headerlink" href="#module-porepy.fracs.split_grid" title="Link to this heading"></a></h1>
 <p>Module for splitting a grid at the fractures.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.split_grid.duplicate_faces">
-<span class="sig-name descname"><span class="pre">duplicate_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_cells</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#duplicate_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.duplicate_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">duplicate_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_cells</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#duplicate_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.duplicate_faces" title="Link to this definition"></a></dt>
 <dd><p>Duplicate all faces that are connected to a lower-dim cell</p>
 <section id="parameters">
-<h2>Parameters:<a class="headerlink" href="#parameters" title="Permalink to this heading"></a></h2>
+<h2>Parameters:<a class="headerlink" href="#parameters" title="Link to this heading"></a></h2>
 <blockquote>
 <div><dl class="simple">
 <dt>sd_primary:</dt><dd><p>Higher-dim grid</p>
@@ -294,10 +294,10 @@ subdomain to the faces of the higher-dimensional subdomain.</p>
 </div></blockquote>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>face_cells</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>face_cells</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -305,7 +305,7 @@ subdomain to the faces of the higher-dimensional subdomain.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.split_grid.duplicate_nodes">
-<span class="sig-name descname"><span class="pre">duplicate_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nodes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#duplicate_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.duplicate_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">duplicate_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nodes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#duplicate_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.duplicate_nodes" title="Link to this definition"></a></dt>
 <dd><p>Duplicate nodes on a fracture. The number of duplication will depend on
 the cell topology around the node. If the node is not on a fracture 1
 duplicate will be added. If the node is on a single fracture 2 duplicates
@@ -313,7 +313,7 @@ will be added. If the node is on a T-intersection 3 duplicates will be
 added. If the node is on a X-intersection 4 duplicates will be added.
 Equivalently for other types of intersections.</p>
 <section id="id1">
-<h2>Parameters:<a class="headerlink" href="#id1" title="Permalink to this heading"></a></h2>
+<h2>Parameters:<a class="headerlink" href="#id1" title="Link to this heading"></a></h2>
 <p>g         - The grid for which the nodes are duplicated
 nodes     - The nodes to be duplicated
 offset    - How far from the original node the duplications should be</p>
@@ -325,10 +325,10 @@ offset    - How far from the original node the duplications should be</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.split_grid.remove_faces">
-<span class="sig-name descname"><span class="pre">remove_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rem_cell_faces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#remove_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.remove_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">remove_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rem_cell_faces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#remove_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.remove_faces" title="Link to this definition"></a></dt>
 <dd><p>Remove faces from grid.</p>
 <section id="id2">
-<h2>PARAMETERS:<a class="headerlink" href="#id2" title="Permalink to this heading"></a></h2>
+<h2>PARAMETERS:<a class="headerlink" href="#id2" title="Link to this heading"></a></h2>
 <p>g              - A grid
 face_id        - Indices of faces to remove
 rem_cell_faces - Defaults to True. If set to false, the g.cell_faces matrix</p>
@@ -340,7 +340,7 @@ rem_cell_faces - Defaults to True. If set to false, the g.cell_faces matrix</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.split_grid.remove_nodes">
-<span class="sig-name descname"><span class="pre">remove_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rem</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#remove_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.remove_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">remove_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rem</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#remove_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.remove_nodes" title="Link to this definition"></a></dt>
 <dd><p>Remove nodes from grid.
 g - a valid grid definition
 rem - a ndarray of indices of nodes to be removed</p>
@@ -348,7 +348,7 @@ rem - a ndarray of indices of nodes to be removed</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.split_grid.split_faces">
-<span class="sig-name descname"><span class="pre">split_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_cells</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#split_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.split_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">split_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gh</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_cells</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#split_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.split_faces" title="Link to this definition"></a></dt>
 <dd><p>Split faces of the grid along each fracture. This function will
 add an extra face to each fracture face. Note that the original
 and new fracture face will share the same nodes. However, the
@@ -361,13 +361,13 @@ map to the same lower-dim cell.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.split_grid.split_fractures">
-<span class="sig-name descname"><span class="pre">split_fractures</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_pairs</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#split_fractures"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.split_fractures" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">split_fractures</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_pairs</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#split_fractures"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.split_fractures" title="Link to this definition"></a></dt>
 <dd><p>Wrapper function to split all fractures. For each grid in the mdg,
 we locate the corresponding lower-dimensional grids. The faces and
 nodes corresponding to these grids are then split, creating internal
 boundaries.</p>
 <section id="id3">
-<h2>Parameters<a class="headerlink" href="#id3" title="Permalink to this heading"></a></h2>
+<h2>Parameters<a class="headerlink" href="#id3" title="Link to this heading"></a></h2>
 <p>mdg    - A mixed-dimensional grid
 <a href="#id4"><span class="problematic" id="id5">**</span></a>kwargs:</p>
 <blockquote>
@@ -379,7 +379,7 @@ E.g., the face centers are not perturbed.</p>
 </div></blockquote>
 </section>
 <section id="returns">
-<h2>Returns<a class="headerlink" href="#returns" title="Permalink to this heading"></a></h2>
+<h2>Returns<a class="headerlink" href="#returns" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>mdg    - A valid mdg where the faces are split at</dt><dd><p>internal boundaries.</p>
 </dd>
@@ -398,17 +398,17 @@ E.g., the face centers are not perturbed.</p>
 </div></blockquote>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">mdg</span> <span class="o">=</span> <span class="n">meshing</span><span class="o">.</span><span class="n">create_grid</span><span class="p">(</span><span class="n">f_set</span><span class="p">,</span> <span class="n">domain</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">g</span><span class="o">.</span><span class="n">compute_geometry</span><span class="p">()</span> <span class="k">for</span> <span class="n">g</span><span class="p">,</span><span class="n">_</span> <span class="ow">in</span> <span class="n">mdg</span><span class="p">]</span>
-<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">split_grid</span><span class="o">.</span><span class="n">split_fractures</span><span class="p">(</span><span class="n">mdg</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">export_vtk</span><span class="p">(</span><span class="n">mdg</span><span class="p">,</span> <span class="s2">&quot;grid&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – </p></li>
-<li><p><strong>sd_pairs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>scipy.sparse._base.spmatrix</em></a><em>]</em>) – </p></li>
+<li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>)</p></li>
+<li><p><strong>sd_pairs</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><em>tuple</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -416,10 +416,10 @@ E.g., the face centers are not perturbed.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.split_grid.split_nodes">
-<span class="sig-name descname"><span class="pre">split_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">primary_to_secondary_nodes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">visualization_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#split_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.split_nodes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">split_nodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">primary_to_secondary_nodes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">visualization_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#split_nodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.split_nodes" title="Link to this definition"></a></dt>
 <dd><p>Splits the nodes of a subdomain grid</p>
 <section id="id6">
-<h2>Parameters:<a class="headerlink" href="#id6" title="Permalink to this heading"></a></h2>
+<h2>Parameters:<a class="headerlink" href="#id6" title="Link to this heading"></a></h2>
 <blockquote>
 <div><dl class="simple">
 <dt>sd_primary:</dt><dd><p>Higher-dimension grid.</p>
@@ -440,12 +440,12 @@ visualization, e.g., g.face_centers is not updated.</p>
 </div></blockquote>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>sd_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
-<li><p><strong>primary_to_secondary_nodes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>numpy.ndarray</em></a><em>]</em>) – </p></li>
-<li><p><strong>visualization_offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>sd_secondary</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>primary_to_secondary_nodes</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a><em>]</em>)</p></li>
+<li><p><strong>visualization_offset</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -453,7 +453,7 @@ visualization, e.g., g.face_centers is not updated.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.split_grid.split_specific_faces">
-<span class="sig-name descname"><span class="pre">split_specific_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_cell_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">faces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cells</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secondary_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">non_planar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#split_specific_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.split_specific_faces" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">split_specific_faces</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_cell_list</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">faces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cells</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">secondary_ind</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">non_planar</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#split_specific_faces"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.split_specific_faces" title="Link to this definition"></a></dt>
 <dd><p>For a given pair of sd_primary and sd_secondary.
 Split only the faces specified by faces (higher-dimensional), corresponding
 to new cells (lower-dimensional). gl_ind identifies gl in
@@ -463,14 +463,14 @@ face_cell_list, i.e.</p>
 face_cell_list[gl_ind] = mdg.interface_data(intf, ‘face_cells’)</p>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>face_cell_list</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>scipy.sparse._base.spmatrix</em></a><em>]</em>) – </p></li>
-<li><p><strong>faces</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>cells</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>secondary_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
-<li><p><strong>non_planar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – </p></li>
+<li><p><strong>sd_primary</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>face_cell_list</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a><em>]</em>)</p></li>
+<li><p><strong>faces</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>cells</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>secondary_ind</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
+<li><p><strong>non_planar</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><em>bool</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
@@ -478,7 +478,7 @@ face_cell_list[gl_ind] = mdg.interface_data(intf, ‘face_cells’)</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.fracs.split_grid.update_cell_connectivity">
-<span class="sig-name descname"><span class="pre">update_cell_connectivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#update_cell_connectivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.update_cell_connectivity" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">update_cell_connectivity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">normal</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/fracs/split_grid.html#update_cell_connectivity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.fracs.split_grid.update_cell_connectivity" title="Link to this definition"></a></dt>
 <dd><p>After the faces in a grid are duplicated, we update the cell connectivity
 list. Cells on the right side of the fracture do not change, but the cells
 on the left side are attached to the face duplicates. We assume that all
@@ -487,7 +487,7 @@ described by a normal and a point, x0. We attach cell on the left side of
 the plane to the duplicate of face_id. The cell on the right side is
 attached to the face frac_id.</p>
 <section id="id7">
-<h2>Parameters:<a class="headerlink" href="#id7" title="Permalink to this heading"></a></h2>
+<h2>Parameters:<a class="headerlink" href="#id7" title="Link to this heading"></a></h2>
 <p>g         - The grid for which the cell_face mapping is updated
 frac_id   - Indices of the faces that have been duplicated
 normal    - Normal of faces that have been duplicated. Note that we assume</p>
@@ -497,27 +497,27 @@ normal    - Normal of faces that have been duplicated. Note that we assume</p>
 <p>x0        - A point in the plane where the faces lie</p>
 </section>
 <section id="id8">
-<h2>Returns:<a class="headerlink" href="#id8" title="Permalink to this heading"></a></h2>
+<h2>Returns:<a class="headerlink" href="#id8" title="Link to this heading"></a></h2>
 <dl class="simple">
 <dt>int: Flag that informs on what action has been taken. 0 means g.cell_faces has been</dt><dd><p>split. -1 means the fracture was on the boundary, and no action taken.</p>
 </dd>
 </dl>
 </section>
 <section id="raises">
-<h2>Raises:<a class="headerlink" href="#raises" title="Permalink to this heading"></a></h2>
+<h2>Raises:<a class="headerlink" href="#raises" title="Link to this heading"></a></h2>
 <p>ValueError: If the fracture is not planar</p>
 </section>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – </p></li>
-<li><p><strong>face_id</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>normal</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
-<li><p><strong>x0</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a>) – </p></li>
+<li><p><strong>g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>)</p></li>
+<li><p><strong>face_id</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>normal</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
+<li><p><strong>x0</strong> (<a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>

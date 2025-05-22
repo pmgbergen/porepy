@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.thm_model module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.thm_model.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.models.thm_model.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.models.html">porepy.models package</a></li>
       <li class="breadcrumb-item active">porepy.models.thm_model module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.models.thm_model">
-<span id="porepy-models-thm-model-module"></span><h1>porepy.models.thm_model module<a class="headerlink" href="#module-porepy.models.thm_model" title="Permalink to this heading"></a></h1>
+<span id="porepy-models-thm-model-module"></span><h1>porepy.models.thm_model module<a class="headerlink" href="#module-porepy.models.thm_model" title="Link to this heading"></a></h1>
 <p>This is a setup class for solving the THM equations with contact mechanics at the
 fractures, if present.</p>
 <p>We build on two other model classes: The class ContactMechanicsBiot inherits from
@@ -299,7 +299,7 @@ temperature. For typical reservoir conditions, choosing a large (e.g. 1e6) press
 is a good place to start.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">THM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/thm_model.html#THM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.thm_model.THM" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">THM</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/thm_model.html#THM"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.thm_model.THM" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot" title="porepy.models.contact_mechanics_biot_model.ContactMechanicsBiot"><code class="xref py py-class docutils literal notranslate"><span class="pre">ContactMechanicsBiot</span></code></a></p>
 <p>This is a shell class for poroelastic contact mechanics problems.</p>
 <p>Setting up such problems requires a lot of boilerplate definitions of variables,
@@ -309,75 +309,75 @@ values. The intended use is to inherit from this class, and do the necessary
 modifications and specifications for the problem to be fully defined. The minimal
 adjustment needed is to specify the method create_grid().</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><em>Dict</em><em>]</em>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>params</strong> (<em>Optional</em><em>[</em><em>Dict</em><em>]</em>)</p>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.time_manager">
-<span class="sig-name descname"><span class="pre">time_manager</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.time_manager" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">time_manager</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.time_manager" title="Link to this definition"></a></dt>
 <dd><p>Time-stepping control manager.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.displacement_variable">
-<span class="sig-name descname"><span class="pre">displacement_variable</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.displacement_variable" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">displacement_variable</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.displacement_variable" title="Link to this definition"></a></dt>
 <dd><p>Name assigned to the displacement variable in the
 highest-dimensional subdomain. Will be used throughout the simulations,
 including in ParaView export.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.mortar_displacement_variable">
-<span class="sig-name descname"><span class="pre">mortar_displacement_variable</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.mortar_displacement_variable" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mortar_displacement_variable</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.mortar_displacement_variable" title="Link to this definition"></a></dt>
 <dd><p>Name assigned to the displacement variable
 on the fracture walls. Will be used throughout the simulations, including in
 ParaView export.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.contact_traction_variable">
-<span class="sig-name descname"><span class="pre">contact_traction_variable</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.contact_traction_variable" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">contact_traction_variable</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.contact_traction_variable" title="Link to this definition"></a></dt>
 <dd><p>Name assigned to the variable for contact
 forces in the fracture. Will be used throughout the simulations, including
 in ParaView export.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.scalar_variable">
-<span class="sig-name descname"><span class="pre">scalar_variable</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.scalar_variable" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">scalar_variable</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.scalar_variable" title="Link to this definition"></a></dt>
 <dd><p>Name assigned to the pressure variable. Will be used
 throughout the simulations, including in ParaView export.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.temperature_variable">
-<span class="sig-name descname"><span class="pre">temperature_variable</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.temperature_variable" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">temperature_variable</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.temperature_variable" title="Link to this definition"></a></dt>
 <dd><p>Name assigned to the temperature variable. Will be used
 throughout the simulations, including in ParaView export.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -389,89 +389,89 @@ throughout the simulations, including in ParaView export.</p>
 representing flux between subdomains. Will be used throughout the simulations,
 including in ParaView export.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.mechanics_parameter_key">
-<span class="sig-name descname"><span class="pre">mechanics_parameter_key</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.mechanics_parameter_key" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mechanics_parameter_key</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.mechanics_parameter_key" title="Link to this definition"></a></dt>
 <dd><p>Keyword used to define parameters and
 discretizations for the mechanics problem.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.scalar_parameter_key">
-<span class="sig-name descname"><span class="pre">scalar_parameter_key</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.scalar_parameter_key" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">scalar_parameter_key</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.scalar_parameter_key" title="Link to this definition"></a></dt>
 <dd><p>Keyword used to define parameters and
 discretizations for the flow problem.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.temperature_parameter_key">
-<span class="sig-name descname"><span class="pre">temperature_parameter_key</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.temperature_parameter_key" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">temperature_parameter_key</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.temperature_parameter_key" title="Link to this definition"></a></dt>
 <dd><p>Keyword used to define parameters and
 discretizations for the temperature problem.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.mechanics_temperature_parameter_key">
-<span class="sig-name descname"><span class="pre">mechanics_temperature_parameter_key</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.mechanics_temperature_parameter_key" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mechanics_temperature_parameter_key</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.mechanics_temperature_parameter_key" title="Link to this definition"></a></dt>
 <dd><p>Keyword used to define parameters and
 discretizations for the coupling between temperature and mechanics.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.params">
-<span class="sig-name descname"><span class="pre">params</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.params" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">params</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.params" title="Link to this definition"></a></dt>
 <dd><p>Dictionary of parameters used to control the solution procedure.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">dict</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.viz_folder_name">
-<span class="sig-name descname"><span class="pre">viz_folder_name</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.viz_folder_name" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">viz_folder_name</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.viz_folder_name" title="Link to this definition"></a></dt>
 <dd><p>Folder for visualization export.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.mdg">
-<span class="sig-name descname"><span class="pre">mdg</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.mdg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mdg</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.mdg" title="Link to this definition"></a></dt>
 <dd><p>Mixed-dimensional grid. Should be set by a method
 create_grid which should be provided by the user.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code></p>
 </dd>
 </dl>
@@ -479,60 +479,60 @@ create_grid which should be provided by the user.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.convergence_status">
-<span class="sig-name descname"><span class="pre">convergence_status</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.convergence_status" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">convergence_status</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.convergence_status" title="Link to this definition"></a></dt>
 <dd><p>Whether the non-linear iterations have converged.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.linear_solver">
-<span class="sig-name descname"><span class="pre">linear_solver</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.linear_solver" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">linear_solver</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.linear_solver" title="Link to this definition"></a></dt>
 <dd><p>Specification of linear solver. Only known permissible
 value is ‘direct’</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.scalar_scale">
-<span class="sig-name descname"><span class="pre">scalar_scale</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.scalar_scale" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">scalar_scale</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.scalar_scale" title="Link to this definition"></a></dt>
 <dd><p>Scaling coefficient for the pressure variable. Can be used
 to get comparable size of the mechanical and flow problem.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="id0">
-<span class="sig-name descname"><span class="pre">scalar_scale</span></span><a class="headerlink" href="#id0" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">scalar_scale</span></span><a class="headerlink" href="#id0" title="Link to this definition"></a></dt>
 <dd><p>Scaling coefficient for the vector variable. Can be used
 to get comparable size of the mechanical and flow problem.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.temperature_scale">
-<span class="sig-name descname"><span class="pre">temperature_scale</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.temperature_scale" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">temperature_scale</span></span><a class="headerlink" href="#porepy.models.thm_model.THM.temperature_scale" title="Link to this definition"></a></dt>
 <dd><p>Scaling coefficient for the temperature variable.
 Can be used to get comparable size of the mechanical and flow problem.
 NOTE: This has not been properly tested, assign unit value to stay safe.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -541,10 +541,10 @@ NOTE: This has not been properly tested, assign unit value to stay safe.</p>
 the class.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.before_newton_iteration">
-<span class="sig-name descname"><span class="pre">before_newton_iteration</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/thm_model.html#THM.before_newton_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.thm_model.THM.before_newton_iteration" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">before_newton_iteration</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/thm_model.html#THM.before_newton_iteration"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.thm_model.THM.before_newton_iteration" title="Link to this definition"></a></dt>
 <dd><p>Re-discretize the nonlinear terms</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -552,11 +552,11 @@ the class.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.compute_fluxes">
-<span class="sig-name descname"><span class="pre">compute_fluxes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/thm_model.html#THM.compute_fluxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.thm_model.THM.compute_fluxes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_fluxes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/thm_model.html#THM.compute_fluxes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.thm_model.THM.compute_fluxes" title="Link to this definition"></a></dt>
 <dd><p>Compute the fluxes in the mixed-dimensional grid from the current state of
 the pressure variables.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -564,18 +564,18 @@ the pressure variables.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THM.reconstruct_stress">
-<span class="sig-name descname"><span class="pre">reconstruct_stress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">previous_iterate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/thm_model.html#THM.reconstruct_stress"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.thm_model.THM.reconstruct_stress" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">reconstruct_stress</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">previous_iterate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/models/thm_model.html#THM.reconstruct_stress"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.thm_model.THM.reconstruct_stress" title="Link to this definition"></a></dt>
 <dd><p>Compute the stress in the highest-dimensional grid based on the displacement
 pressure and temperature states in that grid, adjacent interfaces and global
 boundary conditions.</p>
 <p>The stress is stored in the data dictionary of the highest dimensional grid,
 in [pp.STATE][‘stress’].</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>previous_iterate</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean,</span> <span class="pre">optional</span></code>) – If True, use values from previous
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>previous_iterate</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">boolean</span></code>, <em>optional</em>) – If True, use values from previous
 iteration to compute the stress. Defaults to False.</p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -585,28 +585,28 @@ iteration to compute the stress. Defaults to False.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THMAdObjects">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">THMAdObjects</span></span><a class="reference internal" href="../../_modules/porepy/models/thm_model.html#THMAdObjects"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.thm_model.THMAdObjects" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">THMAdObjects</span></span><a class="reference internal" href="../../_modules/porepy/models/thm_model.html#THMAdObjects"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.models.thm_model.THMAdObjects" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.models.contact_mechanics_biot_model.html#porepy.models.contact_mechanics_biot_model.ContactMechanicsBiotAdObjects" title="porepy.models.contact_mechanics_biot_model.ContactMechanicsBiotAdObjects"><code class="xref py py-class docutils literal notranslate"><span class="pre">ContactMechanicsBiotAdObjects</span></code></a></p>
 <p>Storage class for ad related objects.</p>
 <p>Stored objects include variables, compound ad operators and projections.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THMAdObjects.advective_interface_flux">
-<span class="sig-name descname"><span class="pre">advective_interface_flux</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><span class="pre">Variable</span></a></em><a class="headerlink" href="#porepy.models.thm_model.THMAdObjects.advective_interface_flux" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">advective_interface_flux</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><span class="pre">Variable</span></a></em><a class="headerlink" href="#porepy.models.thm_model.THMAdObjects.advective_interface_flux" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THMAdObjects.conductive_interface_flux">
-<span class="sig-name descname"><span class="pre">conductive_interface_flux</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><span class="pre">Variable</span></a></em><a class="headerlink" href="#porepy.models.thm_model.THMAdObjects.conductive_interface_flux" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">conductive_interface_flux</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><span class="pre">Variable</span></a></em><a class="headerlink" href="#porepy.models.thm_model.THMAdObjects.conductive_interface_flux" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THMAdObjects.heat_conduction_discretization">
-<span class="sig-name descname"><span class="pre">heat_conduction_discretization</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.11)"><span class="pre">Union</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="porepy.numerics.ad.discretizations.html#porepy.numerics.ad.discretizations.MpfaAd" title="porepy.numerics.ad.discretizations.MpfaAd"><span class="pre">MpfaAd</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.discretizations.html#porepy.numerics.ad.discretizations.TpfaAd" title="porepy.numerics.ad.discretizations.TpfaAd"><span class="pre">TpfaAd</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.models.thm_model.THMAdObjects.heat_conduction_discretization" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">heat_conduction_discretization</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.discretizations.html#porepy.numerics.ad.discretizations.MpfaAd" title="porepy.numerics.ad.discretizations.MpfaAd"><span class="pre">MpfaAd</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.discretizations.html#porepy.numerics.ad.discretizations.TpfaAd" title="porepy.numerics.ad.discretizations.TpfaAd"><span class="pre">TpfaAd</span></a></em><a class="headerlink" href="#porepy.models.thm_model.THMAdObjects.heat_conduction_discretization" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.models.thm_model.THMAdObjects.temperature">
-<span class="sig-name descname"><span class="pre">temperature</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><span class="pre">Variable</span></a></em><a class="headerlink" href="#porepy.models.thm_model.THMAdObjects.temperature" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">temperature</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Variable" title="porepy.numerics.ad.operators.Variable"><span class="pre">Variable</span></a></em><a class="headerlink" href="#porepy.models.thm_model.THMAdObjects.temperature" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>

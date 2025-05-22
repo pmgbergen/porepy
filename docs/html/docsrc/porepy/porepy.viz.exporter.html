@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.viz.exporter module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.viz.exporter.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.viz.exporter.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.viz.html">porepy.viz package</a></li>
       <li class="breadcrumb-item active">porepy.viz.exporter module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.viz.exporter">
-<span id="porepy-viz-exporter-module"></span><h1>porepy.viz.exporter module<a class="headerlink" href="#module-porepy.viz.exporter" title="Permalink to this heading"></a></h1>
+<span id="porepy-viz-exporter-module"></span><h1>porepy.viz.exporter module<a class="headerlink" href="#module-porepy.viz.exporter" title="Link to this heading"></a></h1>
 <p>Module for exporting to vtu for (e.g. ParaView) visualization using the vtk module.</p>
 <p>The Exporter class contains methods for exporting a single grid or mixed-dimensional
 with associated data to the vtu format. For mixed-dimensional grids, one
@@ -284,8 +284,8 @@ time steps, a single pvd file takes care of the ordering of all printed vtu
 files.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Exporter">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Exporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">folder_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/exporter.html#Exporter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.exporter.Exporter" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Exporter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">folder_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/exporter.html#Exporter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.exporter.Exporter" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Class for exporting data to vtu files.</p>
 <p>The Exporter allows for various way to express which state variables,
 on which grids, and which extra data should be exported. A thorough
@@ -318,17 +318,17 @@ while time:</p>
 # the time steps will be used instead.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>grid</strong> (<em>Union</em><em>[</em><em>pp.Grid</em><em>, </em><em>pp.MixedDimensionalGrid</em><em>]</em>) – </p></li>
-<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>folder_name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+<li><p><strong>grid</strong> (<em>Union</em><em>[</em><em>pp.Grid</em><em>, </em><em>pp.MixedDimensionalGrid</em><em>]</em>)</p></li>
+<li><p><strong>file_name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>folder_name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Exporter.add_constant_data">
-<span class="sig-name descname"><span class="pre">add_constant_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/exporter.html#Exporter.add_constant_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.exporter.Exporter.add_constant_data" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">add_constant_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/exporter.html#Exporter.add_constant_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.exporter.Exporter.add_constant_data" title="Link to this definition"></a></dt>
 <dd><p>Collect user-defined constant-in-time data, associated with grids,
 and to be exported to separate files instead of the main files.</p>
 <p>In principle, constant data is not different from standard output
@@ -338,8 +338,8 @@ Hence, the same input formats are allowed as for the usual field data,
 which is varying in time. As part of the routine, the data is converted
 to the same unified format.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Union[DataInput,</span> <span class="pre">list[DataInput]],</span> <span class="pre">optional</span></code>) – <p>subdomain and
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Union[DataInput</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">list[DataInput]]</span></code>, <em>optional</em>) – <p>subdomain and
 interface data, prescribed through strings, or tuples of
 subdomains/interfaces, keys and values. If not provided, only
 geometrical information is exported.</p>
@@ -348,7 +348,7 @@ associated data values for all or no grids of each specific
 dimension.</p>
 </p>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -356,26 +356,26 @@ dimension.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Exporter.write_pvd">
-<span class="sig-name descname"><span class="pre">write_pvd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_extension</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/exporter.html#Exporter.write_pvd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.exporter.Exporter.write_pvd" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">write_pvd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">times</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file_extension</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/exporter.html#Exporter.write_pvd"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.exporter.Exporter.write_pvd" title="Link to this definition"></a></dt>
 <dd><p>Interface function to export in PVD file the time loop information.
 The user should open only this file in ParaView.</p>
 <p>We assume that the VTU associated files have the same name, and that.
 the VTU associated files are in the working directory.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>times</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray,</span> <span class="pre">optional</span></code>) – array of actual times to be exported. These will
+<li><p><strong>times</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.ndarray</span></code>, <em>optional</em>) – array of actual times to be exported. These will
 be the times associated with individual time steps in, say, ParaView.
 By default, the times will be associated with the order in which the time
 steps were exported. This can be overridden by the file_extension argument.
 If no times are provided, the exported time steps are used.</p></li>
-<li><p><strong>file_extension</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array-like,</span> <span class="pre">optional</span></code>) – End of file names used in the export
+<li><p><strong>file_extension</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">np.array-like</span></code>, <em>optional</em>) – End of file names used in the export
 of individual time steps, see self.write_vtu(). If provided, it should have
 the same length as time. If not provided, the file names will be picked
 from those used when writing individual time steps.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Return type</dt>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p>None</p>
 </dd>
 </dl>
@@ -383,15 +383,15 @@ from those used when writing individual time steps.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Exporter.write_vtu">
-<span class="sig-name descname"><span class="pre">write_vtu</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_dependent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/exporter.html#Exporter.write_vtu"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.exporter.Exporter.write_vtu" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">write_vtu</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_dependent</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">time_step</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">grid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/viz/exporter.html#Exporter.write_vtu"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.viz.exporter.Exporter.write_vtu" title="Link to this definition"></a></dt>
 <dd><p>Interface function to export the grid and additional data with meshio.</p>
 <p>In 1d the cells are represented as lines, 2d the cells as polygon or
 triangle/quad, while in 3d as polyhedra/tetrahedra/hexahedra.
 In all the dimensions the geometry of the mesh needs to be computed.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Union[DataInput,</span> <span class="pre">list[DataInput]],</span> <span class="pre">optional</span></code>) – <p>subdomain and
+<li><p><strong>data</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Union[DataInput</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">list[DataInput]]</span></code>, <em>optional</em>) – <p>subdomain and
 interface data, prescribed through strings, or tuples of
 subdomains/interfaces, keys and values. If not provided only
 geometrical infos are exported.</p>
@@ -403,16 +403,16 @@ dimension.</p>
 not be appended with an index that marks the time step.
 Can be overwritten by giving a value to time_step; if not,
 the file names will subsequently be ending with 1, 2, etc.</p></li>
-<li><p><strong>time_step</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – will be used as appendix to define
+<li><p><strong>time_step</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – will be used as appendix to define
 the file corresponding to this specific time step.</p></li>
-<li><p><strong>grid</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Union[pp.Grid,</span> <span class="pre">pp.MixedDimensionalGrid],</span> <span class="pre">optional</span></code>) – subdomain or
+<li><p><strong>grid</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Union[pp.Grid</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid]</span></code>, <em>optional</em>) – subdomain or
 mixed-dimensional grid if it is not fixed and should be updated.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><p><strong>ValueError if a grid is provided as argument although the exporter</strong> – has been instructed that the grid is fixed</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -422,17 +422,17 @@ mixed-dimensional grid if it is not fixed and should be updated.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Field">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#porepy.viz.exporter.Field" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#porepy.viz.exporter.Field" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Field.name">
-<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#porepy.viz.exporter.Field.name" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">name</span></span><a class="headerlink" href="#porepy.viz.exporter.Field.name" title="Link to this definition"></a></dt>
 <dd><p>Alias for field number 0</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Field.values">
-<span class="sig-name descname"><span class="pre">values</span></span><a class="headerlink" href="#porepy.viz.exporter.Field.values" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">values</span></span><a class="headerlink" href="#porepy.viz.exporter.Field.values" title="Link to this definition"></a></dt>
 <dd><p>Alias for field number 1</p>
 </dd></dl>
 
@@ -440,23 +440,23 @@ mixed-dimensional grid if it is not fixed and should be updated.</p></li>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Meshio_Geom">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Meshio_Geom</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connectivity</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_ids</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#porepy.viz.exporter.Meshio_Geom" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Meshio_Geom</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pts</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">connectivity</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell_ids</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#porepy.viz.exporter.Meshio_Geom" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">tuple</span></code></a></p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Meshio_Geom.cell_ids">
-<span class="sig-name descname"><span class="pre">cell_ids</span></span><a class="headerlink" href="#porepy.viz.exporter.Meshio_Geom.cell_ids" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_ids</span></span><a class="headerlink" href="#porepy.viz.exporter.Meshio_Geom.cell_ids" title="Link to this definition"></a></dt>
 <dd><p>Alias for field number 2</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Meshio_Geom.connectivity">
-<span class="sig-name descname"><span class="pre">connectivity</span></span><a class="headerlink" href="#porepy.viz.exporter.Meshio_Geom.connectivity" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">connectivity</span></span><a class="headerlink" href="#porepy.viz.exporter.Meshio_Geom.connectivity" title="Link to this definition"></a></dt>
 <dd><p>Alias for field number 1</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.viz.exporter.Meshio_Geom.pts">
-<span class="sig-name descname"><span class="pre">pts</span></span><a class="headerlink" href="#porepy.viz.exporter.Meshio_Geom.pts" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">pts</span></span><a class="headerlink" href="#porepy.viz.exporter.Meshio_Geom.pts" title="Link to this definition"></a></dt>
 <dd><p>Alias for field number 0</p>
 </dd></dl>
 

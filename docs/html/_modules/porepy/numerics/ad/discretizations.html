@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.ad.discretizations &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/ad/discretizations.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/numerics/ad/discretizations.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.numerics.ad.discretizations</li>
       <li class="wy-breadcrumbs-aside">
@@ -293,17 +293,17 @@
 <span class="sd">    It is assumed that the actual action of discretization (creation of the</span>
 <span class="sd">    discretization matrices) is performed before the operator tree is parsed.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">abc</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">abc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
-<span class="kn">from</span> <span class="nn">._ad_utils</span> <span class="kn">import</span> <span class="n">MergedOperator</span><span class="p">,</span> <span class="n">wrap_discretization</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._ad_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">MergedOperator</span><span class="p">,</span> <span class="n">wrap_discretization</span>
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
     <span class="s2">&quot;Discretization&quot;</span><span class="p">,</span>
@@ -325,8 +325,10 @@
 <span class="p">]</span>
 
 
-<div class="viewcode-block" id="Discretization"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.Discretization">[docs]</a><span class="k">class</span> <span class="nc">Discretization</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;General/utility methods for AD discretization classes.</span>
+<div class="viewcode-block" id="Discretization">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.Discretization">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Discretization</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;General/utility methods for AD discretization classes.</span>
 
 <span class="sd">    The init of the children classes below typically calls wrap_discretization</span>
 <span class="sd">    and has arguments including subdomains or interfaces and keywords for parameter and</span>
@@ -334,43 +336,55 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;&quot;&quot;&quot;</span>
-
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span>
             <span class="s2">&quot;pp.numerics.discretization.Discretization&quot;</span><span class="p">,</span>
             <span class="s2">&quot;pp.numerics.interface_laws.abstract_interface_law.AbstractInterfaceLaw&quot;</span><span class="p">,</span>
         <span class="p">]</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The discretization object, which is wrapped by this class.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mat_dict_key</span><span class="p">:</span> <span class="nb">str</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">=</span> <span class="nb">str</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Keyword for matrix storage in the data dictionary.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Keyword for parameter storage in the data dictionary.&quot;&quot;&quot;</span>
 
-        <span class="c1"># Get the name of this discretization.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List of grids on which the discretization is defined.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List of interfaces on which the discretization is defined.&quot;&quot;&quot;</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="p">:</span> <span class="nb">str</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
-<span class="s2">        Ad discretization of type </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">. Defined on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">)</span><span class="si">}</span><span class="s2"> subdomains</span>
+<span class="s2">        Ad discretization of type </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">. Defined on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">)</span><span class="si">}</span>
+<span class="s2">        subdomains and </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">)</span><span class="si">}</span><span class="s2"> interfaces.</span>
 <span class="s2">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="si">}</span><span class="s2">)&quot;</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="si">}</span><span class="s2">)&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Name of the discretization.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span></div>
+
 
 
 <span class="c1"># Mechanics related discretizations</span>
 
 
-<div class="viewcode-block" id="BiotAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.BiotAd">[docs]</a><span class="k">class</span> <span class="nc">BiotAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Ad wrapper around the Biot discretization class.</span>
+<div class="viewcode-block" id="BiotAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.BiotAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BiotAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ad wrapper around the Biot discretization class.</span>
 
 <span class="sd">    For description of the method, we refer to the standard Biot class.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">flow_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;flow&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">flow_keyword</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;flow&quot;</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Biot</span><span class="p">(</span><span class="n">keyword</span><span class="p">,</span> <span class="n">flow_keyword</span><span class="p">)</span>
@@ -400,8 +414,11 @@
         <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="MpsaAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.MpsaAd">[docs]</a><span class="k">class</span> <span class="nc">MpsaAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="MpsaAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.MpsaAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MpsaAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Mpsa</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;Mpsa&quot;</span>
@@ -419,8 +436,11 @@
         <span class="n">wrap_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="n">subdomains</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="GradPAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.GradPAd">[docs]</a><span class="k">class</span> <span class="nc">GradPAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="GradPAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.GradPAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GradPAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">GradP</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;GradP from Biot&quot;</span>
@@ -431,9 +451,12 @@
         <span class="n">wrap_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="n">subdomains</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="DivUAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.DivUAd">[docs]</a><span class="k">class</span> <span class="nc">DivUAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">mat_dict_keyword</span><span class="p">:</span> <span class="nb">str</span>
+
+<div class="viewcode-block" id="DivUAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.DivUAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DivUAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span> <span class="n">mat_dict_keyword</span><span class="p">:</span> <span class="nb">str</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">DivU</span><span class="p">(</span><span class="n">keyword</span><span class="p">,</span> <span class="n">mat_dict_keyword</span><span class="p">)</span>
@@ -452,8 +475,11 @@
         <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="BiotStabilizationAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.BiotStabilizationAd">[docs]</a><span class="k">class</span> <span class="nc">BiotStabilizationAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="BiotStabilizationAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.BiotStabilizationAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BiotStabilizationAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">BiotStabilization</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;Biot stabilization term&quot;</span>
@@ -464,8 +490,11 @@
         <span class="n">wrap_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="n">subdomains</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="ColoumbContactAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.ColoumbContactAd">[docs]</a><span class="k">class</span> <span class="nc">ColoumbContactAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="ColoumbContactAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.ColoumbContactAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ColoumbContactAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="o">=</span> <span class="n">interfaces</span>
 
         <span class="c1"># Special treatment is needed to cover the case when the edge list happens to</span>
@@ -473,7 +502,7 @@
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">interfaces</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
             <span class="n">dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">([</span><span class="n">intf</span><span class="o">.</span><span class="n">dim</span> <span class="k">for</span> <span class="n">intf</span> <span class="ow">in</span> <span class="n">interfaces</span><span class="p">]))</span>
             <span class="c1"># FIXME: No access to subdomains</span>
-            <span class="n">low_dim_subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">low_dim_subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="s2">&quot;Expected unique dimension of subdomains with contact problems&quot;</span>
@@ -502,22 +531,23 @@
         <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="ContactTractionAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.ContactTractionAd">[docs]</a><span class="k">class</span> <span class="nc">ContactTractionAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ContactTractionAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.ContactTractionAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ContactTractionAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-        <span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span>
-        <span class="n">low_dim_subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">],</span>
+        <span class="n">low_dim_subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Contact traction discretization.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            keyword:</span>
-<span class="sd">                Parameter key</span>
-<span class="sd">            interfaces:</span>
-<span class="sd">                Fracture-matrix interfaces</span>
-<span class="sd">            low_dim_subdomains:</span>
-<span class="sd">                Fracture subdomains</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            keyword: Parameter key.</span>
+<span class="sd">            interfaces: Fracture-matrix interfaces.</span>
+<span class="sd">            low_dim_subdomains: Fracture subdomains.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="o">=</span> <span class="n">interfaces</span>
 
@@ -549,11 +579,14 @@
         <span class="p">)</span></div>
 
 
+
 <span class="c1">## Flow related</span>
 
 
-<div class="viewcode-block" id="MpfaAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.MpfaAd">[docs]</a><span class="k">class</span> <span class="nc">MpfaAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="MpfaAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.MpfaAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MpfaAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Mpfa</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;Mpfa&quot;</span>
@@ -569,8 +602,11 @@
         <span class="n">wrap_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="n">subdomains</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="TpfaAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.TpfaAd">[docs]</a><span class="k">class</span> <span class="nc">TpfaAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="TpfaAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.TpfaAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TpfaAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Tpfa</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;Tpfa&quot;</span>
@@ -586,8 +622,11 @@
         <span class="n">wrap_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="n">subdomains</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="MassMatrixAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.MassMatrixAd">[docs]</a><span class="k">class</span> <span class="nc">MassMatrixAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="MassMatrixAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.MassMatrixAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MassMatrixAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">MassMatrix</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;Mass matrix&quot;</span>
@@ -597,8 +636,11 @@
         <span class="n">wrap_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="n">subdomains</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="UpwindAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.UpwindAd">[docs]</a><span class="k">class</span> <span class="nc">UpwindAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="UpwindAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.UpwindAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UpwindAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">Upwind</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;Upwind&quot;</span>
@@ -610,11 +652,14 @@
         <span class="n">wrap_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">,</span> <span class="n">subdomains</span><span class="o">=</span><span class="n">subdomains</span><span class="p">)</span></div>
 
 
+
 <span class="c1">## Interface coupling discretizations</span>
 
 
-<div class="viewcode-block" id="WellCouplingAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.WellCouplingAd">[docs]</a><span class="k">class</span> <span class="nc">WellCouplingAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="WellCouplingAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.WellCouplingAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">WellCouplingAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="o">=</span> <span class="n">interfaces</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">WellCoupling</span><span class="p">(</span><span class="n">keyword</span><span class="p">,</span> <span class="n">primary_keyword</span><span class="o">=</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;Well interface coupling&quot;</span>
@@ -624,7 +669,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">well_vector_source</span><span class="p">:</span> <span class="n">MergedOperator</span>
         <span class="n">wrap_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">,</span> <span class="n">interfaces</span><span class="o">=</span><span class="n">interfaces</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Ad discretization of type </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">.&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;Defined on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">)</span><span class="si">}</span><span class="s2"> interfaces.&quot;</span>
@@ -632,8 +677,11 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
 
-<div class="viewcode-block" id="RobinCouplingAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.RobinCouplingAd">[docs]</a><span class="k">class</span> <span class="nc">RobinCouplingAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="RobinCouplingAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.RobinCouplingAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">RobinCouplingAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="o">=</span> <span class="n">interfaces</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">RobinCoupling</span><span class="p">(</span><span class="n">keyword</span><span class="p">,</span> <span class="n">primary_keyword</span><span class="o">=</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;Robin interface coupling&quot;</span>
@@ -643,7 +691,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">mortar_vector_source</span><span class="p">:</span> <span class="n">MergedOperator</span>
         <span class="n">wrap_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">,</span> <span class="n">interfaces</span><span class="o">=</span><span class="n">interfaces</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Ad discretization of type </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">.&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;Defined on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">)</span><span class="si">}</span><span class="s2"> interfaces.&quot;</span>
@@ -651,8 +699,11 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
 
-<div class="viewcode-block" id="UpwindCouplingAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.UpwindCouplingAd">[docs]</a><span class="k">class</span> <span class="nc">UpwindCouplingAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+
+<div class="viewcode-block" id="UpwindCouplingAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.UpwindCouplingAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UpwindCouplingAd</span><span class="p">(</span><span class="n">Discretization</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">interfaces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">MortarGrid</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span> <span class="o">=</span> <span class="n">interfaces</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">UpwindCoupling</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="s2">&quot;Upwind coupling&quot;</span>
@@ -666,7 +717,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">upwind_secondary</span><span class="p">:</span> <span class="n">MergedOperator</span>
         <span class="n">wrap_discretization</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="p">,</span> <span class="n">interfaces</span><span class="o">=</span><span class="n">interfaces</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="n">s</span> <span class="o">=</span> <span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;Ad discretization of type </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_name</span><span class="si">}</span><span class="s2">.&quot;</span>
             <span class="sa">f</span><span class="s2">&quot;Defined on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">interfaces</span><span class="p">)</span><span class="si">}</span><span class="s2"> interfaces.&quot;</span>
@@ -674,17 +725,20 @@
         <span class="k">return</span> <span class="n">s</span></div>
 
 
-<div class="viewcode-block" id="DifferentiableFVAd"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.DifferentiableFVAd">[docs]</a><span class="k">class</span> <span class="nc">DifferentiableFVAd</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;This class represents the application of the product and chain rule of the</span>
+
+<div class="viewcode-block" id="DifferentiableFVAd">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.DifferentiableFVAd">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">DifferentiableFVAd</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;This class represents the application of the product and chain rule of the</span>
 <span class="sd">    flux expression</span>
 
-<span class="sd">        q = T(k(u)) * p</span>
+<span class="sd">    .. math:: q = T(k(u)) * p.</span>
 
-<span class="sd">    Where the transmissibility matrix T is a function of the cell permeability k, which</span>
+<span class="sd">    Here, the transmissibility matrix T is a function of the cell permeability k, which</span>
 <span class="sd">    again is a function of a primary variable u, while p is the potential (pressure).</span>
 <span class="sd">    The chain rule applied to this expression reads</span>
 
-<span class="sd">        dq = p * dT/dk * dk/du * du + T * dp</span>
+<span class="sd">    .. math:: dq = p * dT/dk * dk/du * du + T * dp</span>
 
 <span class="sd">    The transmissibility matrix can be computed from a Tpfa or Mpfa discretization, or</span>
 <span class="sd">    (in principle) any other finite volume method. The derivative of the</span>
@@ -695,109 +749,114 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">subdomains</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
+        <span class="n">subdomains</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">],</span>
         <span class="n">mdg</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">MixedDimensionalGrid</span><span class="p">,</span>
         <span class="n">base_discr</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">MpfaAd</span><span class="p">,</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">TpfaAd</span><span class="p">],</span>
-        <span class="n">system_manager</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span><span class="p">,</span>
-        <span class="n">permeability_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span><span class="p">],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">],</span>
+        <span class="n">equation_system</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">EquationSystem</span><span class="p">,</span>
+        <span class="n">permeability_function</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">]],</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">],</span>
         <span class="n">permeability_argument</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span><span class="p">,</span>
         <span class="n">potential</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span><span class="p">,</span>
         <span class="n">keyword</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Initialize the differentiable finite volume method.</span>
 
-<span class="sd">        Parameters:</span>
-<span class="sd">            subdomains: List of subdomains on which the discretization is defined.</span>
-<span class="sd">            mdg: Mixed-dimensional grid.</span>
-<span class="sd">            base_discr: Tpfa or Mpfa discretization (Ad), gol which we want to</span>
-<span class="sd">                approximate the transmissibility matrix.</span>
-<span class="sd">            system_manager (pp.EquationSystem): Needed to evaluate Ad operators.</span>
-<span class="sd">            permeability_function: returning permeability as an Ad_array given the</span>
-<span class="sd">                perm_argument.</span>
-<span class="sd">            permeability_argument: pp.ad.Variable representing the variable upon which</span>
-<span class="sd">                perm_function depends.</span>
-<span class="sd">            potential: pp.ad.Variable representation of potential for the flux law</span>
-<span class="sd">                flux=-K\nabla(potential - vector_source)</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span> <span class="o">=</span> <span class="n">subdomains</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List of subdomains on which the discretization is defined.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span> <span class="o">=</span> <span class="n">mdg</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Mixed-dimensional grid.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span> <span class="o">=</span> <span class="n">base_discr</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span> <span class="o">=</span> <span class="n">system_manager</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Discretization used to compute the transmissibility matrix.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span> <span class="o">=</span> <span class="n">equation_system</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Equation system used to evaluate Ad operators.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">keyword</span> <span class="o">=</span> <span class="n">keyword</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Keyword used to identify the discretization in the data dictionary.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_projections</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">SubdomainProjections</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_perm_function</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span>
-            <span class="n">permeability_function</span><span class="p">,</span> <span class="s2">&quot;permeability_function&quot;</span>
-        <span class="p">)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Subdomain projections used between full set of subdomains and individual ones.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_perm_function</span> <span class="o">=</span> <span class="n">permeability_function</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Function returning permeability as an Ad_array given the perm_argument.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_perm_argument</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span> <span class="o">=</span> <span class="n">permeability_argument</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;pp.ad.Variable representing the variable upon which perm_function depends.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_potential</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Variable</span> <span class="o">=</span> <span class="n">potential</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;pp.ad.Variable representation of potential for the flux law</span>
+<span class="sd">        :math:`flux=-K\nabla(potential - vector_source)`.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="DifferentiableFVAd.flux"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.DifferentiableFVAd.flux">[docs]</a>    <span class="k">def</span> <span class="nf">flux</span><span class="p">(</span>
+<div class="viewcode-block" id="DifferentiableFVAd.flux">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.DifferentiableFVAd.flux">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">flux</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Flux from potential, BCs and vector sources.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Flux from potential, BCs and vector sources.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            pp.ad.Operator representing the flux.</span>
+<span class="sd">            Operator representing the flux.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">ad_func</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_flux_function</span><span class="p">,</span> <span class="s2">&quot;differentiated_flux&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">ad_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_perm_argument</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_potential</span><span class="p">)</span></div>
+        <span class="k">return</span> <span class="n">ad_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_potential</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="DifferentiableFVAd.bound_pressure_face"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.DifferentiableFVAd.bound_pressure_face">[docs]</a>    <span class="k">def</span> <span class="nf">bound_pressure_face</span><span class="p">(</span>
+
+<div class="viewcode-block" id="DifferentiableFVAd.bound_pressure_face">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.numerics.ad.discretizations.html#porepy.numerics.ad.DifferentiableFVAd.bound_pressure_face">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">bound_pressure_face</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Operator</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Boundary face contribution to pressure reconstruction.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Boundary face contribution to pressure reconstruction.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            pp.ad.Operator representing the value and jacobian of bound_pressure_face,</span>
-<span class="sd">                which is used to reconstruct the pressure trace on the boundary (see FV</span>
-<span class="sd">                discretizations).</span>
+<span class="sd">            which is used to reconstruct the pressure trace on the boundary (see FV</span>
+<span class="sd">            discretizations).</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">ad_func</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Function</span><span class="p">(</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_bound_pressure_face_function</span><span class="p">,</span> <span class="s2">&quot;differentiated_bound_pressure_face&quot;</span>
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">ad_func</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_perm_argument</span><span class="p">)</span></div>
 
-    <span class="k">def</span> <span class="nf">_flux_function</span><span class="p">(</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_flux_function</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">perm_argument</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">,</span>
         <span class="n">potential</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Flux from potential, BCs and vector sources.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            perm_function: pp.ad.Function returning permeability given the perm_argument.</span>
-<span class="sd">            perm_argument: Ad_array representing the variable upon which perm_function depends.</span>
-<span class="sd">            potential: Potential for the flux law: flux=-K\grad(potential - vector_source)</span>
+<span class="sd">        Parameters:</span>
+<span class="sd">            perm_function: pp.ad.Function returning permeability given a list of</span>
+<span class="sd">                subdomains.</span>
+<span class="sd">            perm_argument: Ad_array representing the variable upon which perm_function</span>
+<span class="sd">                depends.</span>
+<span class="sd">            potential: Potential for the flux law</span>
+<span class="sd">                :math:`flux=-K\nabla(potential - vector_source)`.</span>
 
 <span class="sd">        Returns:</span>
+<span class="sd">            Ad_array representing the flux.</span>
 
-<span class="sd">        Note on parameters: When this function is called, potential should be an Ad</span>
-<span class="sd">        operator (say, a MixedDimensionalVariable representation of the pressure). During</span>
-<span class="sd">        evaluation, because of the way operator trees are evaluated, potential will be</span>
-<span class="sd">        an Ad_array (it is closer to being an atomic variable, thus it will be</span>
-<span class="sd">        evaluated before this function).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Implementation note:</span>
+        <span class="c1"># When this function is called, potential should be an Ad operator (say, a</span>
+        <span class="c1"># MixedDimensionalVariable representation of the pressure). During evaluation,</span>
+        <span class="c1"># because of the way operator trees are evaluated, potential will be an</span>
+        <span class="c1"># Ad_array (it is closer to being an atomic variable, thus it will be</span>
+        <span class="c1"># evaluated before this function).</span>
 
         <span class="c1"># The product rule applied to q = T(k(u)) * p gives</span>
         <span class="c1">#   dT/dk * dk/du * p + T * dp/dp.</span>
         <span class="c1"># The first part is rather involved and is handled inside self._transmissibility</span>
 
         <span class="c1"># Get hold of the underlying flux discretization.</span>
-        <span class="n">base_flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="o">.</span><span class="n">flux</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span><span class="p">)</span>
+        <span class="n">base_flux</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="o">.</span><span class="n">flux</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="p">)</span>
 
         <span class="c1"># The Jacobian matrix should have the same size as the base.</span>
-        <span class="n">flux_jac</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">base_flux</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">()))</span>
+        <span class="n">flux_jac</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">((</span><span class="n">base_flux</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">()))</span>
 
         <span class="c1"># The differentiation of transmissibilities with respect to permeability is</span>
-        <span class="c1"># implemented as a loop over all subdomains. It could be possible to gather all grid</span>
-        <span class="c1"># information in arrays as a preprocessing step, but that seems not to be worth</span>
-        <span class="c1"># the effort. However, to avoid evaluating the permeability function multiple</span>
-        <span class="c1"># times, we precompute it here</span>
-        <span class="n">global_permeability</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_perm_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_perm_argument</span><span class="p">)</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span>
+        <span class="c1"># implemented as a loop over all subdomains. It could be possible to gather all</span>
+        <span class="c1"># grid information in arrays as a preprocessing step, but that seems not to be</span>
+        <span class="c1"># worth the effort. However, to avoid evaluating the permeability function</span>
+        <span class="c1"># multiple times, we precompute it here</span>
+        <span class="n">global_permeability</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_perm_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">)</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span>
         <span class="p">)</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span>
         <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span>
@@ -806,7 +865,7 @@
             <span class="n">params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd</span><span class="p">)[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
             <span class="c1"># Potential for this grid</span>
             <span class="n">cells_of_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_projections</span><span class="o">.</span><span class="n">cell_restriction</span><span class="p">([</span><span class="n">sd</span><span class="p">])</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span>
             <span class="p">)</span>
             <span class="n">potential_value</span> <span class="o">=</span> <span class="n">cells_of_grid</span> <span class="o">*</span> <span class="n">potential</span><span class="o">.</span><span class="n">val</span>
 
@@ -850,7 +909,7 @@
             <span class="c1"># Prolong this Jacobian to the full set of faces and add.</span>
             <span class="n">face_prolongation</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_projections</span><span class="o">.</span><span class="n">face_prolongation</span><span class="p">(</span>
                 <span class="p">[</span><span class="n">sd</span><span class="p">]</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="p">)</span>
             <span class="n">flux_jac</span> <span class="o">+=</span> <span class="n">face_prolongation</span> <span class="o">*</span> <span class="n">grad_p_jac</span>
             <span class="n">flux_jac</span> <span class="o">+=</span> <span class="n">face_prolongation</span> <span class="o">*</span> <span class="n">jac_bound</span>
 
@@ -884,25 +943,21 @@
         <span class="n">flux</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">(</span><span class="n">block_val</span><span class="p">,</span> <span class="n">flux_jac</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">flux</span>
 
-    <span class="k">def</span> <span class="nf">_bound_pressure_face_function</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_bound_pressure_face_function</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">perm_argument</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;The actual implementation of the</span>
-
-<span class="sd">        Parameters:</span>
-<span class="sd">            perm_argument (pp.ad.Ad_array, evaluation of a pp.ad.Variable): Variable(s)</span>
-<span class="sd">                upon which the permeability depends.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The actual implementation of the bound_pressure_face function.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            Ad_array: The flux, q, and its Jacobian matrix, where the latter accounts</span>
-<span class="sd">                for dependencies in the transmissibilities on cell center permeabilities.</span>
+<span class="sd">            The flux, q, and its Jacobian matrix, where the latter accounts for</span>
+<span class="sd">            dependencies in the transmissibilities on cell center permeabilities.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Note on parameters: When this function is called, potential should be an Ad</span>
-        <span class="c1"># operator (say, a MixedDimensionalVariable representation of the pressure). During</span>
-        <span class="c1"># evaluation, because of the way operator trees are evaluated, potential will be</span>
-        <span class="c1"># an Ad_array (it is closer to being an atomic variable, thus it will be</span>
+        <span class="c1"># operator (say, a MixedDimensionalVariable representation of the pressure).</span>
+        <span class="c1"># During evaluation, because of the way operator trees are evaluated, potential</span>
+        <span class="c1"># will be an Ad_array (it is closer to being an atomic variable, thus it will be</span>
         <span class="c1"># evaluated before this function).</span>
 
         <span class="c1"># The product rule applied to q = T(k(u)) * p gives</span>
@@ -911,35 +966,34 @@
 
         <span class="c1"># Get hold of the underlying flux discretization.</span>
         <span class="n">base_bound_pressure_face</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_discretization</span><span class="o">.</span><span class="n">bound_pressure_face</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span>
         <span class="p">)</span>
         <span class="c1"># The Jacobian matrix should have the same size as the base.</span>
         <span class="n">bound_pressure_face_jac</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">base_bound_pressure_face</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">())</span>
+            <span class="p">(</span><span class="n">base_bound_pressure_face</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span><span class="o">.</span><span class="n">num_dofs</span><span class="p">())</span>
         <span class="p">)</span>
 
         <span class="n">projections</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">SubdomainProjections</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">)</span>
 
         <span class="c1"># The differentiation of transmissibilities with respect to permeability is</span>
-        <span class="c1"># implemented as a loop over all subdomains. It could be possible to gather all grid</span>
-        <span class="c1"># information in arrays as a preprocessing step, but that seems not to be worth</span>
-        <span class="c1"># the effort. However, to avoid evaluating the permeability function multiple</span>
-        <span class="c1"># times, we precompute it here</span>
-        <span class="n">global_permeability</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_perm_function</span><span class="p">(</span><span class="n">perm_argument</span><span class="p">)</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span>
+        <span class="c1"># implemented as a loop over all subdomains. It could be possible to gather all</span>
+        <span class="c1"># grid information in arrays as a preprocessing step, but that seems not to be</span>
+        <span class="c1"># worth the effort. However, to avoid evaluating the permeability function</span>
+        <span class="c1"># multiple times, we precompute it here</span>
+        <span class="n">global_permeability</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_perm_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">)</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span>
         <span class="p">)</span>
 
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span>
         <span class="k">for</span> <span class="n">sd</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">subdomains</span><span class="p">:</span>
-            <span class="n">params</span><span class="p">:</span> <span class="n">Dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd</span><span class="p">)[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
+            <span class="n">params</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mdg</span><span class="o">.</span><span class="n">subdomain_data</span><span class="p">(</span><span class="n">sd</span><span class="p">)[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
             <span class="n">transmissibility_jac</span><span class="p">,</span> <span class="n">inverse_sum_squared</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transmissibility</span><span class="p">(</span>
                 <span class="n">sd</span><span class="p">,</span> <span class="n">global_permeability</span>
             <span class="p">)</span>
 
             <span class="c1"># On Dirichlet faces, the tpfa discretization simply recovers boundary</span>
-            <span class="c1"># condition. Thus, no t-differentiation enters.</span>
-            <span class="c1"># On Neumann faces, however, the tpfa contribution is</span>
-            <span class="c1"># v_face[bnd.is_neu] = -1 / t_full[bnd.is_neu]</span>
+            <span class="c1"># condition. Thus, no t-differentiation enters. On Neumann faces, however,</span>
+            <span class="c1"># the tpfa contribution is v_face[bnd.is_neu] = -1 / t_full[bnd.is_neu]</span>
             <span class="c1"># Differentiate and multiply with transmissibility jacobian</span>
             <span class="n">v_face</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">sd</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
             <span class="n">is_neu</span> <span class="o">=</span> <span class="n">params</span><span class="p">[</span><span class="s2">&quot;bc&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">is_neu</span>
@@ -950,7 +1004,7 @@
 
             <span class="c1"># Prolong this Jacobian to the full set of faces and add.</span>
             <span class="n">face_prolongation</span> <span class="o">=</span> <span class="n">projections</span><span class="o">.</span><span class="n">face_prolongation</span><span class="p">([</span><span class="n">sd</span><span class="p">])</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span>
             <span class="p">)</span>
             <span class="n">bound_pressure_face_jac</span> <span class="o">+=</span> <span class="n">face_prolongation</span> <span class="o">*</span> <span class="n">jac_bound_pressure_face</span>
 
@@ -959,17 +1013,17 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">bound_pressure</span>
 
-    <span class="k">def</span> <span class="nf">_geometry_information</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_geometry_information</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Utility function to retrieve geometry information.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Utility function to retrieve geometry information.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            g: pp.Grid for which the information is extracted.</span>
 
 <span class="sd">        Returns:</span>
-<span class="sd">            Arrays representing face indices, cell indices, normal vector signs and vectors</span>
-<span class="sd">            between face centers and cell centers. The former three have size</span>
+<span class="sd">            Arrays representing face indices, cell indices, normal vector signs and</span>
+<span class="sd">            vectors between face centers and cell centers. The former three have size</span>
 <span class="sd">                    n = num_face_cell_pairs = g.num_face * 2 (two cells per face),</span>
 <span class="sd">            while fc_cc.shape = (3, n).</span>
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -979,18 +1033,19 @@
         <span class="n">fc_cc</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">face_centers</span><span class="p">[::,</span> <span class="n">fi</span><span class="p">]</span> <span class="o">-</span> <span class="n">g</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">[::,</span> <span class="n">ci</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">fi</span><span class="p">,</span> <span class="n">ci</span><span class="p">,</span> <span class="n">sgn</span><span class="p">,</span> <span class="n">fc_cc</span>
 
-    <span class="k">def</span> <span class="nf">_transmissibility</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_transmissibility</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">g</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">global_permeability</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">ad</span><span class="o">.</span><span class="n">Ad_array</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Compute Jacobian of a variable transmissibility.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute Jacobian of a variable transmissibility.</span>
 
-<span class="sd">        Args:</span>
+<span class="sd">        Parameters:</span>
 <span class="sd">            g: pp.Grid for which we compute transmissibility</span>
 <span class="sd">            global_permeability: Array representing the global (in mixed-dimensional</span>
 <span class="sd">                sense) permeability</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            Jacobian of the transmissibility for this grid.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># The first few lines are pasted from the standard Tpfa implementation</span>
         <span class="n">fi</span><span class="p">,</span> <span class="n">ci</span><span class="p">,</span> <span class="n">sgn</span><span class="p">,</span> <span class="n">fc_cc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_geometry_information</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
@@ -1052,7 +1107,7 @@
         <span class="c1"># Then, map the computed permeability to the faces (distinguishing between</span>
         <span class="c1"># the left and right sides of the face).</span>
         <span class="n">cells_of_grid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_subdomain_projections</span><span class="o">.</span><span class="n">cell_restriction</span><span class="p">([</span><span class="n">g</span><span class="p">])</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">system_manager</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">equation_system</span>
         <span class="p">)</span>
         <span class="n">k_one_sided</span> <span class="o">=</span> <span class="n">cell_2_one_sided_face</span> <span class="o">*</span> <span class="n">cells_of_grid</span> <span class="o">*</span> <span class="n">global_permeability</span>
 
@@ -1092,6 +1147,7 @@
         <span class="c1"># Compose chain rule for T(t(K(u)). k_one_sided.jac is dK/du.</span>
         <span class="n">transmissibility_jac</span> <span class="o">=</span> <span class="n">d_transmissibility_d_t</span> <span class="o">*</span> <span class="n">d_t_d_k</span> <span class="o">*</span> <span class="n">k_one_sided</span><span class="o">.</span><span class="n">jac</span>
         <span class="k">return</span> <span class="n">transmissibility_jac</span><span class="p">,</span> <span class="n">inverse_sum_squared</span></div>
+
 </pre></div>
 
            </div>

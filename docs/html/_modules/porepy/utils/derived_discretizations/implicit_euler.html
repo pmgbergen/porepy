@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.utils.derived_discretizations.implicit_euler &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/utils/derived_discretizations/implicit_euler.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../../" id="documentation_options" src="../../../../_static/documentation_options.js"></script>
-        <script src="../../../../_static/jquery.js"></script>
-        <script src="../../../../_static/underscore.js"></script>
-        <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../../_static/doctools.js"></script>
-        <script src="../../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/utils/derived_discretizations/implicit_euler.html" />
+      <script src="../../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.utils.derived_discretizations.implicit_euler</li>
       <li class="wy-breadcrumbs-aside">
@@ -277,22 +277,24 @@
 <span class="sd">has a rhs contribution from the previous time step.</span>
 <span class="sd">See the parent discretizations for further documentation.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy.sparse</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.sparse</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="ImplicitMassMatrix"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMassMatrix">[docs]</a><span class="k">class</span> <span class="nc">ImplicitMassMatrix</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">MassMatrix</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="ImplicitMassMatrix">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMassMatrix">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ImplicitMassMatrix</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">MassMatrix</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return rhs contribution based on the previous solution, which is stored in the</span>
 <span class="sd">    pp.STATE field of the data dictionary.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="o">=</span><span class="s2">&quot;flow&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="s2">&quot;pressure&quot;</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the discretization, with the keyword used for storing various</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keyword</span><span class="o">=</span><span class="s2">&quot;flow&quot;</span><span class="p">,</span> <span class="n">variable</span><span class="o">=</span><span class="s2">&quot;pressure&quot;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the discretization, with the keyword used for storing various</span>
 <span class="sd">        information associated with the discretization. The time discretization also</span>
 <span class="sd">        requires the previous solution, thus the variable needs to be specified.</span>
 
@@ -303,30 +305,41 @@
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">keyword</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">variable</span> <span class="o">=</span> <span class="n">variable</span>
 
-<div class="viewcode-block" id="ImplicitMassMatrix.assemble_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMassMatrix.assemble_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Overwrite MassMatrix method to return the correct rhs for an IE time</span>
+<div class="viewcode-block" id="ImplicitMassMatrix.assemble_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMassMatrix.assemble_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Overwrite MassMatrix method to return the correct rhs for an IE time</span>
 <span class="sd">        discretization, e.g. of the Biot problem.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">matrix_dictionary</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">DISCRETIZATION_MATRICES</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">]</span>
         <span class="n">previous_solution</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">STATE</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">variable</span><span class="p">]</span>
 
-        <span class="k">return</span> <span class="n">matrix_dictionary</span><span class="p">[</span><span class="s2">&quot;mass&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">previous_solution</span></div></div>
+        <span class="k">return</span> <span class="n">matrix_dictionary</span><span class="p">[</span><span class="s2">&quot;mass&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">previous_solution</span></div>
+</div>
 
 
-<div class="viewcode-block" id="ImplicitMpfa"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa">[docs]</a><span class="k">class</span> <span class="nc">ImplicitMpfa</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Mpfa</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ImplicitMpfa">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ImplicitMpfa</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Mpfa</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Multiply all contributions by the time step.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="ImplicitMpfa.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Overwrite MPFA method to be consistent with the Biot dt convention.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="ImplicitMpfa.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Overwrite MPFA method to be consistent with the Biot dt convention.&quot;&quot;&quot;</span>
         <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">assemble_matrix_rhs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">)</span>
         <span class="n">dt</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span><span class="s2">&quot;time_step&quot;</span><span class="p">]</span>
         <span class="n">a</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">dt</span>
         <span class="n">b</span> <span class="o">=</span> <span class="n">b</span> <span class="o">*</span> <span class="n">dt</span>
         <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span></div>
 
-<div class="viewcode-block" id="ImplicitMpfa.assemble_int_bound_flux"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_int_bound_flux">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_flux</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ImplicitMpfa.assemble_int_bound_flux">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_int_bound_flux">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_flux</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -338,7 +351,7 @@
         <span class="n">self_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">use_secondary_proj</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Overwrite the MPFA method to be consistent with the Biot dt convention</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">dt</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span><span class="s2">&quot;time_step&quot;</span><span class="p">]</span>
@@ -361,13 +374,16 @@
             <span class="n">bound_flux</span> <span class="o">=</span> <span class="n">hf2f</span> <span class="o">*</span> <span class="n">bound_flux</span>
         <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">bound_flux</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">proj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;Inconsistent shapes. Did you define a</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Inconsistent shapes. Did you define a</span>
 <span class="sd">            sub-face boundary condition but only a face-wise mortar?&quot;&quot;&quot;</span>
             <span class="p">)</span>
 
         <span class="n">cc</span><span class="p">[</span><span class="n">self_ind</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">div</span> <span class="o">*</span> <span class="n">bound_flux</span> <span class="o">*</span> <span class="n">proj</span></div>
 
-<div class="viewcode-block" id="ImplicitMpfa.assemble_int_bound_source"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_int_bound_source">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_source</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ImplicitMpfa.assemble_int_bound_source">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitMpfa.assemble_int_bound_source">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_source</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -378,7 +394,7 @@
         <span class="n">rhs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">self_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
 <span class="sd">        boundary, manifested as a source term.</span>
 
 <span class="sd">        The intended use is when the internal boundary is coupled to another</span>
@@ -410,11 +426,15 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">proj</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_int</span><span class="p">()</span>
         <span class="n">dt</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span><span class="s2">&quot;time_step&quot;</span><span class="p">]</span>
-        <span class="n">cc</span><span class="p">[</span><span class="n">self_ind</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">-=</span> <span class="n">proj</span> <span class="o">*</span> <span class="n">dt</span></div></div>
+        <span class="n">cc</span><span class="p">[</span><span class="n">self_ind</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">-=</span> <span class="n">proj</span> <span class="o">*</span> <span class="n">dt</span></div>
+</div>
 
 
-<div class="viewcode-block" id="ImplicitTpfa"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa">[docs]</a><span class="k">class</span> <span class="nc">ImplicitTpfa</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Tpfa</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ImplicitTpfa">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ImplicitTpfa</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Tpfa</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Multiply all contributions by the time step.</span>
 
 <span class="sd">    Implementation note: This is a copy of ImplicitMpfa, modified to inherit from Tpfa.</span>
@@ -422,8 +442,10 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="ImplicitTpfa.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Overwrite MPFA method to be consistent with the Biot dt convention.&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="ImplicitTpfa.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Overwrite MPFA method to be consistent with the Biot dt convention.&quot;&quot;&quot;</span>
         <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">assemble_matrix_rhs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">)</span>
 
         <span class="n">dt</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span><span class="s2">&quot;time_step&quot;</span><span class="p">]</span>
@@ -431,7 +453,10 @@
         <span class="n">b</span> <span class="o">=</span> <span class="n">b</span> <span class="o">*</span> <span class="n">dt</span>
         <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span></div>
 
-<div class="viewcode-block" id="ImplicitTpfa.assemble_int_bound_flux"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_int_bound_flux">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_flux</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ImplicitTpfa.assemble_int_bound_flux">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_int_bound_flux">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_flux</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -443,7 +468,7 @@
         <span class="n">self_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">use_secondary_proj</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Overwrite the MPFA method to be consistent with the Biot dt convention</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">dt</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span><span class="s2">&quot;time_step&quot;</span><span class="p">]</span>
@@ -464,13 +489,16 @@
             <span class="n">bound_flux</span> <span class="o">=</span> <span class="n">hf2f</span> <span class="o">*</span> <span class="n">bound_flux</span>
         <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">bound_flux</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">proj</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sd">&quot;&quot;&quot;Inconsistent shapes. Did you define a</span>
+<span class="w">                </span><span class="sd">&quot;&quot;&quot;Inconsistent shapes. Did you define a</span>
 <span class="sd">            sub-face boundary condition but only a face-wise mortar?&quot;&quot;&quot;</span>
             <span class="p">)</span>
 
         <span class="n">cc</span><span class="p">[</span><span class="n">self_ind</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">div</span> <span class="o">*</span> <span class="n">bound_flux</span> <span class="o">*</span> <span class="n">proj</span></div>
 
-<div class="viewcode-block" id="ImplicitTpfa.assemble_int_bound_source"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_int_bound_source">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_int_bound_source</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ImplicitTpfa.assemble_int_bound_source">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitTpfa.assemble_int_bound_source">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_int_bound_source</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
@@ -481,7 +509,7 @@
         <span class="n">rhs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
         <span class="n">self_ind</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Abstract method. Assemble the contribution from an internal</span>
 <span class="sd">        boundary, manifested as a source term.</span>
 
 <span class="sd">        The intended use is when the internal boundary is coupled to another</span>
@@ -513,18 +541,24 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">proj</span> <span class="o">=</span> <span class="n">intf</span><span class="o">.</span><span class="n">mortar_to_secondary_int</span><span class="p">()</span>
         <span class="n">dt</span> <span class="o">=</span> <span class="n">sd_data</span><span class="p">[</span><span class="n">pp</span><span class="o">.</span><span class="n">PARAMETERS</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">keyword</span><span class="p">][</span><span class="s2">&quot;time_step&quot;</span><span class="p">]</span>
-        <span class="n">cc</span><span class="p">[</span><span class="n">self_ind</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">-=</span> <span class="n">proj</span> <span class="o">*</span> <span class="n">dt</span></div></div>
+        <span class="n">cc</span><span class="p">[</span><span class="n">self_ind</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">-=</span> <span class="n">proj</span> <span class="o">*</span> <span class="n">dt</span></div>
+</div>
 
 
-<div class="viewcode-block" id="ImplicitUpwind"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwind">[docs]</a><span class="k">class</span> <span class="nc">ImplicitUpwind</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Upwind</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ImplicitUpwind">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwind">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ImplicitUpwind</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">Upwind</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Multiply all contributions by the time step and advection weight.</span>
 <span class="sd">    The latter may be a scalar or cell-wise values, in which case the upwind</span>
 <span class="sd">    value is used. Note that the interior cell value is taken for BCs,</span>
 <span class="sd">    regardless of the direction of the flux on the boundary.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="ImplicitUpwind.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwind.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+<div class="viewcode-block" id="ImplicitUpwind.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwind.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">sd</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">:</span> <span class="nb">dict</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
         <span class="k">if</span> <span class="n">sd</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -543,15 +577,21 @@
         <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">assemble_matrix_rhs</span><span class="p">(</span><span class="n">sd</span><span class="p">,</span> <span class="n">sd_data</span><span class="p">)</span>
         <span class="n">a</span> <span class="o">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
         <span class="n">b</span> <span class="o">=</span> <span class="n">b</span> <span class="o">*</span> <span class="n">sps</span><span class="o">.</span><span class="n">diags</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span></div></div>
+        <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span></div>
+</div>
 
 
-<div class="viewcode-block" id="ImplicitUpwindCoupling"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwindCoupling">[docs]</a><span class="k">class</span> <span class="nc">ImplicitUpwindCoupling</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">UpwindCoupling</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ImplicitUpwindCoupling">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwindCoupling">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ImplicitUpwindCoupling</span><span class="p">(</span><span class="n">pp</span><span class="o">.</span><span class="n">UpwindCoupling</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Multiply the advective mortar fluxes by the time step and advection weight.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="ImplicitUpwindCoupling.assemble_matrix_rhs"><a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwindCoupling.assemble_matrix_rhs">[docs]</a>    <span class="k">def</span> <span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
+<div class="viewcode-block" id="ImplicitUpwindCoupling.assemble_matrix_rhs">
+<a class="viewcode-back" href="../../../../docsrc/porepy/porepy.utils.derived_discretizations.implicit_euler.html#porepy.utils.derived_discretizations.implicit_euler.ImplicitUpwindCoupling.assemble_matrix_rhs">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">assemble_matrix_rhs</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">sd_primary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
         <span class="n">sd_secondary</span><span class="p">:</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">,</span>
@@ -561,7 +601,7 @@
         <span class="n">intf_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
         <span class="n">matrix</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Construct the matrix (and right-hand side) for the coupling conditions.</span>
 <span class="sd">        Note: the right-hand side is not implemented now.</span>
 
@@ -659,7 +699,9 @@
         <span class="c1"># rhs is zero</span>
         <span class="n">rhs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dof</span><span class="p">[</span><span class="mi">2</span><span class="p">])])</span>
         <span class="n">matrix</span> <span class="o">+=</span> <span class="n">cc</span>
-        <span class="k">return</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span></div></div>
+        <span class="k">return</span> <span class="n">matrix</span><span class="p">,</span> <span class="n">rhs</span></div>
+</div>
+
 </pre></div>
 
            </div>

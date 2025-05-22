@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.displacement_correlation module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.displacement_correlation.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.displacement_correlation.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
       <li class="breadcrumb-item active">porepy.numerics.displacement_correlation module</li>
@@ -275,7 +275,7 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.displacement_correlation">
-<span id="porepy-numerics-displacement-correlation-module"></span><h1>porepy.numerics.displacement_correlation module<a class="headerlink" href="#module-porepy.numerics.displacement_correlation" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-displacement-correlation-module"></span><h1>porepy.numerics.displacement_correlation module<a class="headerlink" href="#module-porepy.numerics.displacement_correlation" title="Link to this heading"></a></h1>
 <p>Estimation of stress intensity factors using the displacement correlation
 method, see e.g.</p>
 <blockquote>
@@ -288,25 +288,25 @@ Engineering Fracture Mechanics 144 (2015) 194–221</p>
 is (at least partly) for purposes of investigation of the method.</p>
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.displacement_correlation.determine_onset">
-<span class="sig-name descname"><span class="pre">determine_onset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sifs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critical_values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#determine_onset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.determine_onset" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">determine_onset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sifs</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critical_values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#determine_onset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.determine_onset" title="Link to this definition"></a></dt>
 <dd><p>For the time being, very crude criterion: K_I &gt; K_I,cricial.
 TODO: Extend to equivalent SIF, taking all three modes into account.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sifs</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>) – stress intensity factors.</p></li>
 <li><p><strong>critical_values</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>) – critical SIF values to which the above are</p></li>
-<li><p><strong>compared.</strong> – </p></li>
+<li><p><strong>compared.</strong></p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>bool indicating which sifs meet the</dt><dd><p>criterion.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>exceed_critical (array)</p>
 </dd>
 </dl>
@@ -314,16 +314,16 @@ TODO: Extend to equivalent SIF, taking all three modes into account.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.displacement_correlation.estimate_rm">
-<span class="sig-name descname"><span class="pre">estimate_rm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kw</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#estimate_rm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.estimate_rm" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">estimate_rm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kw</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#estimate_rm"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.estimate_rm" title="Link to this definition"></a></dt>
 <dd><p>Estimate the optimal distance between tip face centers and correlation
 points. Based on the findings in Nejati et al. (see
 displacement_correlation), where a optimum is found related to local cell
 size.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>grid.</strong> (<em>g  - fracture</em>) – </p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>grid.</strong> (<em>g  - fracture</em>)</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>rm  - distance estimate.</p>
 </dd>
 </dl>
@@ -331,7 +331,7 @@ size.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.displacement_correlation.faces_to_open">
-<span class="sig-name descname"><span class="pre">faces_to_open</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critical_sifs</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kw</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#faces_to_open"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.faces_to_open" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">faces_to_open</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">critical_sifs</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kw</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#faces_to_open"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.faces_to_open" title="Link to this definition"></a></dt>
 <dd><p>Determine where a fracture should propagate based on the displacement
 solution u using the displacement correlation technique.
 :param mdg: mixed-dimensional grid. For now, contains one higher-dimensional (2D or 3D)</p>
@@ -342,7 +342,7 @@ should contain the Young’s modulus and Poisson’s ratio, both
 assumed (for now) to be constant.</p>
 </div></blockquote>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>u</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>) – <p>solution as computed by FracturedMpsa. One displacement
 vector for each cell center in g_h and one for each of the fracture
@@ -371,10 +371,10 @@ may differ for 2d fractures.</p>
 </dd>
 </dl>
 </p></li>
-<li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>) – </p></li>
+<li><p><strong>mdg</strong> (<a class="reference internal" href="porepy.grids.md_grid.html#porepy.grids.md_grid.MixedDimensionalGrid" title="porepy.grids.md_grid.MixedDimensionalGrid"><em>MixedDimensionalGrid</em></a>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>list (one entry for each fracture subdomain) of (possibly empty)</dt><dd><p>arrays of higher-dimensional faces to be split.</p>
 </dd>
@@ -384,7 +384,7 @@ listed arrays: mode, tip face.</p>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>faces_nd_to_open</p>
 </dd>
 </dl>
@@ -392,7 +392,7 @@ listed arrays: mode, tip face.</p>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.displacement_correlation.identify_correlation_points">
-<span class="sig-name descname"><span class="pre">identify_correlation_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_cells</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#identify_correlation_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.identify_correlation_points" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">identify_correlation_points</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_cells</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#identify_correlation_points"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.identify_correlation_points" title="Link to this definition"></a></dt>
 <dd><p>Get the relative displacement for displacement correlation SIF computation.
 For each tip face of the fracture, the displacements are evaluated on the
 two fracture walls, on the (higher-dimensional) face midpoints closest to
@@ -402,16 +402,16 @@ boundary.
 TODO: Account for sign (in local coordinates), to ensure positive relative
 displacement for fracture opening.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd_primary</strong> – higher-dimensional grid</p></li>
 <li><p><strong>sd_secondary</strong> – lower-dimensional grid</p></li>
-<li><p><strong>rm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – optimal distance from fracture front to correlation point.</p></li>
+<li><p><strong>rm</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>) – optimal distance from fracture front to correlation point.</p></li>
 <li><p><strong>u</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>) – displacement solution.</p></li>
 <li><p><strong>face_cells</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>) – face_cells of the grid pair.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Lower-dimensional cells containing the correlation</dt><dd><p>point (as its cell center).</p>
 </dd>
@@ -427,7 +427,7 @@ actual_rm if rm_vectors are non-orthogonal to the tip faces (in
 </div></blockquote>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>cells_secondary (array)</p>
 </dd>
 </dl>
@@ -435,13 +435,13 @@ actual_rm if rm_vectors are non-orthogonal to the tip faces (in
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.displacement_correlation.identify_faces_to_open">
-<span class="sig-name descname"><span class="pre">identify_faces_to_open</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tips_to_propagate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rm_vectors</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#identify_faces_to_open"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.identify_faces_to_open" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">identify_faces_to_open</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tips_to_propagate</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rm_vectors</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#identify_faces_to_open"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.identify_faces_to_open" title="Link to this definition"></a></dt>
 <dd><p>Identify the faces to open. For now, just pick out the face lying
 immediately outside the existing fracture tip faces which we wish to
 propagate (as close to the fracture plane as possible).
 TODO: Include angle computation.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>sd_primary</strong> – higher-dimensional grid</p></li>
 <li><p><strong>sd_secondary</strong> – lower-dimensional grid</p></li>
@@ -451,10 +451,10 @@ fracture at each of the tip faces.</p></li>
 lying in the fracture plane.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>The higher-dimensional faces which should be opened.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>faces_primary (array)</p>
 </dd>
 </dl>
@@ -462,17 +462,17 @@ lying in the fracture plane.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.displacement_correlation.relative_displacements">
-<span class="sig-name descname"><span class="pre">relative_displacements</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_cells</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cells_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">faces_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#relative_displacements"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.relative_displacements" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">relative_displacements</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">face_cells</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cells_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">faces_secondary</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sd_primary</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#relative_displacements"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.relative_displacements" title="Link to this definition"></a></dt>
 <dd><p>Compute the relative displacements between the higher-dimensional faces
 on either side of each correlation point.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>u</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>) – displacements on the higher-dimensional grid, as computed by
 FracturedMpsa, g_h.dim x (g_h.num_cells + g_l.num_cells * 2), see e.g.
 displacement_correlation for description.</p></li>
 <li><p><strong>face_cells</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>) – the face_cells connectivity matrix corresponding to g_l</p></li>
-<li><p><strong>g_h.</strong> (<em>and</em>) – </p></li>
+<li><p><strong>g_h.</strong> (<em>and</em>)</p></li>
 <li><p><strong>sd_primary</strong> – and …</p></li>
 <li><p><strong>sd_secondary</strong> – higher- and lower-dimensional grid.</p></li>
 <li><p><strong>cells_secondary</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>) – the lower-dimensional cells containing the correlation
@@ -481,10 +481,10 @@ points as their cell centers.</p></li>
 may occur.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>the relative displacements, g_h.dim x n_tips.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>delta_u (array)</p>
 </dd>
 </dl>
@@ -492,20 +492,20 @@ may occur.</p></li>
 
 <dl class="py function">
 <dt class="sig sig-object py" id="porepy.numerics.displacement_correlation.sif_from_delta_u">
-<span class="sig-name descname"><span class="pre">sif_from_delta_u</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">d_u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#sif_from_delta_u"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.sif_from_delta_u" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sif_from_delta_u</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">d_u</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rm</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mu</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/displacement_correlation.html#sif_from_delta_u"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.displacement_correlation.sif_from_delta_u" title="Link to this definition"></a></dt>
 <dd><p>Compute the stress intensity factors from the relative displacements</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>d_u</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>) – relative displacements, g_h.dim x n.</p></li>
 <li><p><strong>rm</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">array</span></code>) – distance from correlation point to fracture tip.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>the displacement correlation stress intensity factor
 estimates.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sifs (array)</p>
 </dd>
 </dl>

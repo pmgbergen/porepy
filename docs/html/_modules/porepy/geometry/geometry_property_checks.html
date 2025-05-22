@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.geometry.geometry_property_checks &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/geometry/geometry_property_checks.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/geometry/geometry_property_checks.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.geometry.geometry_property_checks</li>
       <li class="wy-breadcrumbs-aside">
@@ -273,18 +273,20 @@
   <h1>Source code for porepy.geometry.geometry_property_checks</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;This module contains functions for (boolean) inquiries about geometric objects,</span>
 <span class="sd">and relations between objects.&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">scipy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="is_ccw_polygon"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.is_ccw_polygon">[docs]</a><span class="k">def</span> <span class="nf">is_ccw_polygon</span><span class="p">(</span><span class="n">poly</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Determine if the vertices of a polygon are sorted counterclockwise.</span>
+<div class="viewcode-block" id="is_ccw_polygon">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.is_ccw_polygon">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">is_ccw_polygon</span><span class="p">(</span><span class="n">poly</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Determine if the vertices of a polygon are sorted counterclockwise.</span>
 
 <span class="sd">    The method computes the winding number of the polygon, see below references.</span>
 
@@ -331,14 +333,17 @@
     <span class="k">return</span> <span class="n">value</span> <span class="o">&lt;</span> <span class="mi">0</span></div>
 
 
-<div class="viewcode-block" id="is_ccw_polyline"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.is_ccw_polyline">[docs]</a><span class="k">def</span> <span class="nf">is_ccw_polyline</span><span class="p">(</span>
+
+<div class="viewcode-block" id="is_ccw_polyline">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.is_ccw_polyline">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">is_ccw_polyline</span><span class="p">(</span>
     <span class="n">p1</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">p2</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">p3</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
     <span class="n">default</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Checks if a polyline of three points goes in a counterclockwise direction.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Checks if a polyline of three points goes in a counterclockwise direction.</span>
 
 <span class="sd">    The line segment going from ``p1`` to ``p2`` is tested vs. a third point to</span>
 <span class="sd">    determine whether the combined line segments (polyline) is part of a</span>
@@ -419,10 +424,13 @@
     <span class="k">return</span> <span class="n">is_ccw</span></div>
 
 
-<div class="viewcode-block" id="point_in_polygon"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.point_in_polygon">[docs]</a><span class="k">def</span> <span class="nf">point_in_polygon</span><span class="p">(</span>
+
+<div class="viewcode-block" id="point_in_polygon">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.point_in_polygon">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">point_in_polygon</span><span class="p">(</span>
     <span class="n">poly</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Check if a set of points are inside a polygon.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if a set of points are inside a polygon.</span>
 
 <span class="sd">    The polygon need not be convex.</span>
 
@@ -507,12 +515,15 @@
     <span class="k">return</span> <span class="n">inside</span></div>
 
 
-<div class="viewcode-block" id="point_in_polyhedron"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.point_in_polyhedron">[docs]</a><span class="k">def</span> <span class="nf">point_in_polyhedron</span><span class="p">(</span>
+
+<div class="viewcode-block" id="point_in_polyhedron">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.point_in_polyhedron">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">point_in_polyhedron</span><span class="p">(</span>
     <span class="n">polyhedron</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]],</span>
     <span class="n">test_points</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
     <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-10</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Test whether a set of point is inside a polyhedron.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Test whether a set of point is inside a polyhedron.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        polyhedron: ``shape=(num_sides, 3, num_polygon_vertices)``</span>
@@ -604,10 +615,13 @@
     <span class="k">return</span> <span class="n">is_inside</span></div>
 
 
-<div class="viewcode-block" id="points_are_planar"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.points_are_planar">[docs]</a><span class="k">def</span> <span class="nf">points_are_planar</span><span class="p">(</span>
+
+<div class="viewcode-block" id="points_are_planar">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.points_are_planar">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">points_are_planar</span><span class="p">(</span>
     <span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">normal</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Check if the points lie on a plane.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if the points lie on a plane.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        pts: ``shape=(3, np)``</span>
@@ -642,8 +656,11 @@
     <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">isclose</span><span class="p">(</span><span class="n">dot_prod</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">tol</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">)))</span></div>
 
 
-<div class="viewcode-block" id="point_in_cell"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.point_in_cell">[docs]</a><span class="k">def</span> <span class="nf">point_in_cell</span><span class="p">(</span><span class="n">poly</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">if_make_planar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Check whether a point is inside a cell.</span>
+
+<div class="viewcode-block" id="point_in_cell">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.point_in_cell">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">point_in_cell</span><span class="p">(</span><span class="n">poly</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">if_make_planar</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check whether a point is inside a cell.</span>
 
 <span class="sd">    Note:</span>
 <span class="sd">        A similar behavior could be reached using :func:`is_inside_polygon`, however the</span>
@@ -693,8 +710,11 @@
     <span class="k">return</span> <span class="n">is_odd</span></div>
 
 
-<div class="viewcode-block" id="points_are_collinear"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.points_are_collinear">[docs]</a><span class="k">def</span> <span class="nf">points_are_collinear</span><span class="p">(</span><span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Check if the points lie on a line.</span>
+
+<div class="viewcode-block" id="points_are_collinear">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.points_are_collinear">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">points_are_collinear</span><span class="p">(</span><span class="n">pts</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Check if the points lie on a line.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        pts: ``shape=(3, n)``</span>
@@ -727,10 +747,13 @@
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">coll</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">coll</span><span class="o">.</span><span class="n">size</span><span class="p">),</span> <span class="n">atol</span><span class="o">=</span><span class="n">tol</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="polygon_hanging_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.polygon_hanging_nodes">[docs]</a><span class="k">def</span> <span class="nf">polygon_hanging_nodes</span><span class="p">(</span>
+
+<div class="viewcode-block" id="polygon_hanging_nodes">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.geometry.geometry_property_checks.html#porepy.geometry.geometry_property_checks.polygon_hanging_nodes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">polygon_hanging_nodes</span><span class="p">(</span>
     <span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">edges</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1e-8</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Find hanging nodes of a polygon.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find hanging nodes of a polygon.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        p: ``shape=(nd, n_pt)``</span>
@@ -771,6 +794,7 @@
             <span class="n">ind</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span></div>
+
 </pre></div>
 
            </div>

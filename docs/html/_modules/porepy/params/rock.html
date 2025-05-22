@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.params.rock &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/params/rock.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/params/rock.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.params.rock</li>
       <li class="wy-breadcrumbs-aside">
@@ -279,15 +279,17 @@
 <span class="sd">Note that thermal expansion coefficients are linear (m/mK) for rocks, but</span>
 <span class="sd">volumetric (m^3/m^3) for fluids.</span>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
 
-<div class="viewcode-block" id="poisson_from_lame"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.poisson_from_lame">[docs]</a><span class="k">def</span> <span class="nf">poisson_from_lame</span><span class="p">(</span><span class="n">mu</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">lmbda</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Compute Poisson&#39;s ratio from Lamé parameters.</span>
+<div class="viewcode-block" id="poisson_from_lame">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.poisson_from_lame">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">poisson_from_lame</span><span class="p">(</span><span class="n">mu</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">lmbda</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute Poisson&#39;s ratio from Lamé parameters.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        mu (float): shear modulus (second Lamé parameter)</span>
@@ -300,8 +302,11 @@
     <span class="k">return</span> <span class="n">lmbda</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="n">mu</span> <span class="o">+</span> <span class="n">lmbda</span><span class="p">))</span></div>
 
 
-<div class="viewcode-block" id="lame_from_young_poisson"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.lame_from_young_poisson">[docs]</a><span class="k">def</span> <span class="nf">lame_from_young_poisson</span><span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">nu</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-    <span class="sd">&quot;&quot;&quot;Compute Lamé parameters from Young&#39;s modulus and Poisson&#39;s ratio.</span>
+
+<div class="viewcode-block" id="lame_from_young_poisson">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.lame_from_young_poisson">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">lame_from_young_poisson</span><span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">nu</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute Lamé parameters from Young&#39;s modulus and Poisson&#39;s ratio.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        e (float): Young&#39;s modulus</span>
@@ -317,8 +322,11 @@
     <span class="k">return</span> <span class="n">lmbda</span><span class="p">,</span> <span class="n">mu</span></div>
 
 
-<div class="viewcode-block" id="young_from_lame"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.young_from_lame">[docs]</a><span class="k">def</span> <span class="nf">young_from_lame</span><span class="p">(</span><span class="n">lmbda</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mu</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="young_from_lame">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.young_from_lame">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">young_from_lame</span><span class="p">(</span><span class="n">lmbda</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mu</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute Young&#39;s modulus from Lamé parameters.</span>
 
 <span class="sd">    Args:</span>
@@ -331,8 +339,11 @@
     <span class="k">return</span> <span class="n">mu</span> <span class="o">*</span> <span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">lmbda</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">mu</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">lmbda</span> <span class="o">+</span> <span class="n">mu</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="bulk_from_lame"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.bulk_from_lame">[docs]</a><span class="k">def</span> <span class="nf">bulk_from_lame</span><span class="p">(</span><span class="n">lmbda</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mu</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="bulk_from_lame">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.bulk_from_lame">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">bulk_from_lame</span><span class="p">(</span><span class="n">lmbda</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">mu</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Compute bulk modulus from Lamé parameters.</span>
 
 <span class="sd">    Args:</span>
@@ -345,8 +356,11 @@
     <span class="k">return</span> <span class="n">lmbda</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">mu</span></div>
 
 
-<div class="viewcode-block" id="UnitRock"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.UnitRock">[docs]</a><span class="k">class</span> <span class="nc">UnitRock</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Mother of all rocks, all values are unity.</span>
+
+<div class="viewcode-block" id="UnitRock">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.UnitRock">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UnitRock</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mother of all rocks, all values are unity.</span>
 
 <span class="sd">    Attributes:</span>
 <span class="sd">        PERMEABILITY: Permeability</span>
@@ -358,7 +372,7 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">PERMEABILITY</span> <span class="o">=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">THERMAL_EXPANSION</span> <span class="o">=</span> <span class="mi">1</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">DENSITY</span> <span class="o">=</span> <span class="mi">1</span>
@@ -373,8 +387,10 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">theta_ref</span> <span class="o">=</span> <span class="n">theta_ref</span>
 
-<div class="viewcode-block" id="UnitRock.specific_heat_capacity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.UnitRock.specific_heat_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Determines specific heat capacity.</span>
+<div class="viewcode-block" id="UnitRock.specific_heat_capacity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.UnitRock.specific_heat_capacity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Determines specific heat capacity.</span>
 
 <span class="sd">        Arguments:</span>
 <span class="sd">            theta (float, optional): temperature</span>
@@ -384,27 +400,34 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="mf">1.0</span></div>
 
-<div class="viewcode-block" id="UnitRock.thermal_conductivity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.UnitRock.thermal_conductivity">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return themal conductivity.</span>
+
+<div class="viewcode-block" id="UnitRock.thermal_conductivity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.UnitRock.thermal_conductivity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return themal conductivity.</span>
 
 <span class="sd">        May depend on temperature, but currently is fixed.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            float: thermal conductivity</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="mf">1.0</span></div></div>
+        <span class="k">return</span> <span class="mf">1.0</span></div>
+</div>
 
 
-<div class="viewcode-block" id="SandStone"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.SandStone">[docs]</a><span class="k">class</span> <span class="nc">SandStone</span><span class="p">(</span><span class="n">UnitRock</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Generic values for Sandstone.</span>
+
+<div class="viewcode-block" id="SandStone">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.SandStone">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SandStone</span><span class="p">(</span><span class="n">UnitRock</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generic values for Sandstone.</span>
 
 <span class="sd">    Data partially from:</span>
 <span class="sd">        http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Initialize material parameters for sand stone.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize material parameters for sand stone.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta_ref (float, optional): reference temperature in Celsius</span>
@@ -428,8 +451,10 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">DENSITY</span> <span class="o">=</span> <span class="mi">2650</span> <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">KILOGRAM</span> <span class="o">/</span> <span class="n">pp</span><span class="o">.</span><span class="n">METER</span><span class="o">**</span><span class="mi">3</span>
 
-<div class="viewcode-block" id="SandStone.specific_heat_capacity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.SandStone.specific_heat_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Determines specific heat capacity of sandstone.</span>
+<div class="viewcode-block" id="SandStone.specific_heat_capacity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.SandStone.specific_heat_capacity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Determines specific heat capacity of sandstone.</span>
 
 <span class="sd">        Arguments:</span>
 <span class="sd">            theta (float, optional): temperature</span>
@@ -442,11 +467,15 @@
         <span class="n">c_ref</span> <span class="o">=</span> <span class="mf">823.82</span>
         <span class="n">eta</span> <span class="o">=</span> <span class="mf">8.9</span> <span class="o">*</span> <span class="mf">1e-2</span>
         <span class="n">theta_ref</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">CELSIUS</span>
-        <span class="k">return</span> <span class="n">c_ref</span> <span class="o">+</span> <span class="n">eta</span> <span class="o">*</span> <span class="p">(</span><span class="n">theta</span> <span class="o">-</span> <span class="n">theta_ref</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">c_ref</span> <span class="o">+</span> <span class="n">eta</span> <span class="o">*</span> <span class="p">(</span><span class="n">theta</span> <span class="o">-</span> <span class="n">theta_ref</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="Shale"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.Shale">[docs]</a><span class="k">class</span> <span class="nc">Shale</span><span class="p">(</span><span class="n">UnitRock</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Generic values for shale.</span>
+
+<div class="viewcode-block" id="Shale">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.Shale">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Shale</span><span class="p">(</span><span class="n">UnitRock</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generic values for shale.</span>
 
 
 <span class="sd">    Data partially from:</span>
@@ -454,8 +483,8 @@
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Initialize material parameters for shale.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize material parameters for shale.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta_ref (float, optional): reference temperature in Celsius</span>
@@ -479,8 +508,10 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">DENSITY</span> <span class="o">=</span> <span class="mi">2650</span> <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">KILOGRAM</span> <span class="o">/</span> <span class="n">pp</span><span class="o">.</span><span class="n">METER</span><span class="o">**</span><span class="mi">3</span>
 
-<div class="viewcode-block" id="Shale.specific_heat_capacity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.Shale.specific_heat_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Determines specific heat capacity of shale.</span>
+<div class="viewcode-block" id="Shale.specific_heat_capacity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.Shale.specific_heat_capacity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Determines specific heat capacity of shale.</span>
 
 <span class="sd">        Arguments:</span>
 <span class="sd">            theta (float, optional): temperature</span>
@@ -493,19 +524,23 @@
         <span class="n">c_ref</span> <span class="o">=</span> <span class="mf">794.37</span>
         <span class="n">eta</span> <span class="o">=</span> <span class="mf">10.26</span> <span class="o">*</span> <span class="mf">1e-2</span>
         <span class="n">theta_ref</span> <span class="o">=</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">pp</span><span class="o">.</span><span class="n">CELSIUS</span>
-        <span class="k">return</span> <span class="n">c_ref</span> <span class="o">+</span> <span class="n">eta</span> <span class="o">*</span> <span class="p">(</span><span class="n">theta</span> <span class="o">-</span> <span class="n">theta_ref</span><span class="p">)</span></div></div>
+        <span class="k">return</span> <span class="n">c_ref</span> <span class="o">+</span> <span class="n">eta</span> <span class="o">*</span> <span class="p">(</span><span class="n">theta</span> <span class="o">-</span> <span class="n">theta_ref</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="Granite"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.Granite">[docs]</a><span class="k">class</span> <span class="nc">Granite</span><span class="p">(</span><span class="n">UnitRock</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Generic values for granite.</span>
+
+<div class="viewcode-block" id="Granite">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.Granite">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Granite</span><span class="p">(</span><span class="n">UnitRock</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Generic values for granite.</span>
 <span class="sd">    Data partially from:</span>
 <span class="sd">        http://civilblog.org/2015/02/13/what-are-the-values-of-modulus-of-elasticity-poissons-ratio-for-different-rocks/</span>
 <span class="sd">    And:</span>
 <span class="sd">    https://www.jsg.utexas.edu/tyzhu/files/Some-Useful-Numbers.pdf</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Initialize material parameters for granite.</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta_ref</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize material parameters for granite.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta_ref (float, optional): reference temperature in Celsius</span>
@@ -531,8 +566,10 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">theta_ref</span> <span class="o">=</span> <span class="n">theta_ref</span>
 
-<div class="viewcode-block" id="Granite.specific_heat_capacity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.Granite.specific_heat_capacity">[docs]</a>    <span class="k">def</span> <span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Determines specific heat capacity of granite.</span>
+<div class="viewcode-block" id="Granite.specific_heat_capacity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.Granite.specific_heat_capacity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">specific_heat_capacity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Determines specific heat capacity of granite.</span>
 
 <span class="sd">        Arguments:</span>
 <span class="sd">            theta (float, optional): temperature</span>
@@ -548,8 +585,11 @@
         <span class="n">theta_ref</span> <span class="o">=</span> <span class="mi">0</span>
         <span class="k">return</span> <span class="n">c_ref</span> <span class="o">+</span> <span class="n">eta</span> <span class="o">*</span> <span class="p">(</span><span class="n">theta</span> <span class="o">-</span> <span class="n">theta_ref</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Granite.thermal_conductivity"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.Granite.thermal_conductivity">[docs]</a>    <span class="k">def</span> <span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Return themal conductivity of granite.</span>
+
+<div class="viewcode-block" id="Granite.thermal_conductivity">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.params.rock.html#porepy.params.rock.Granite.thermal_conductivity">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return themal conductivity of granite.</span>
 
 <span class="sd">        Args:</span>
 <span class="sd">            theta (float, optional): temperature in Celsius (not used)</span>
@@ -557,7 +597,9 @@
 <span class="sd">        Returns:</span>
 <span class="sd">            float: thermal conductivity</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="mf">3.07</span></div></div>
+        <span class="k">return</span> <span class="mf">3.07</span></div>
+</div>
+
 </pre></div>
 
            </div>

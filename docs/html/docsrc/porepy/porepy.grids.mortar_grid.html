@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.mortar_grid module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.mortar_grid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.grids.mortar_grid.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.grids.html">porepy.grids package</a></li>
       <li class="breadcrumb-item active">porepy.grids.mortar_grid module</li>
@@ -275,13 +275,13 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.grids.mortar_grid">
-<span id="porepy-grids-mortar-grid-module"></span><h1>porepy.grids.mortar_grid module<a class="headerlink" href="#module-porepy.grids.mortar_grid" title="Permalink to this heading"></a></h1>
+<span id="porepy-grids-mortar-grid-module"></span><h1>porepy.grids.mortar_grid module<a class="headerlink" href="#module-porepy.grids.mortar_grid" title="Link to this heading"></a></h1>
 <p>A module containing the class for the mortar grid, a geometric representation of
 interfaces between two subdomains in the mixed-dimensional sense.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MortarGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MortarGrid</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Parent class for mortar grids.</p>
 <p>It contains two grids representing the left and right part of the mortar grid and
 the weighted mapping from the primary grid to the mortar grids and from the
@@ -296,7 +296,7 @@ same dimension as the mortar grid. Especially, the updating of any grid should
 not be expected to work and will most likely throw an error.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>dim</strong> – Grid dimension.</p></li>
 <li><p><strong>side_grids</strong> – Grid on each side.</p></li>
@@ -323,38 +323,38 @@ faces.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">dim==3</span></code> , The mortar grid can not be three-dimensional.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the mortar grids have different dimensions.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the number of sides is not 1 or 2.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">face_duplicate_ind</span></code> is not <code class="docutils literal notranslate"><span class="pre">None</span></code> and the co-dimension is 2.
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">dim==3</span></code> , The mortar grid can not be three-dimensional.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the mortar grids have different dimensions.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the number of sides is not 1 or 2.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">face_duplicate_ind</span></code> is not <code class="docutils literal notranslate"><span class="pre">None</span></code> and the co-dimension is 2.
     In this case there are no faces to duplicate.</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.cell_diameters">
-<span class="sig-name descname"><span class="pre">cell_diameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.cell_diameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.cell_diameters" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_diameters</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.cell_diameters"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.cell_diameters" title="Link to this definition"></a></dt>
 <dd><dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An array containing the diameters of each cell in the mortar grid and
 <code class="docutils literal notranslate"><span class="pre">shape=(mortar_grid.num_cells,)</span></code>.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><em>ndarray</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><em>ndarray</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.compute_geometry">
-<span class="sig-name descname"><span class="pre">compute_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.compute_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.compute_geometry" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">compute_geometry</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.compute_geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.compute_geometry" title="Link to this definition"></a></dt>
 <dd><p>Compute the geometry of the mortar grids.</p>
 <p>We assume that they are not aligned with the x-axis (1D) or the x-y-plane (2D).</p>
 <p>Performs calls to each grid’s <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid.compute_geometry" title="porepy.grids.grid.Grid.compute_geometry"><code class="xref py py-meth docutils literal notranslate"><span class="pre">compute_geometry()</span></code></a>.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -362,7 +362,7 @@ faces.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_avg">
-<span class="sig-name descname"><span class="pre">mortar_to_primary_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_primary_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_avg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mortar_to_primary_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_primary_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_avg" title="Link to this definition"></a></dt>
 <dd><p>Project values from the mortar to faces of primary, by averaging quantities
 from the mortar side.</p>
 <p>The projection matrix is scaled so that the row sum is unity, that is, values on
@@ -371,25 +371,25 @@ according to the overlap between (in general several) mortar cells and a primary
 face.</p>
 <p>This mapping is intended for intensive properties, e.g. pressures.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
 <p>Spatial dimension of the projected quantity. Defaults to 1
 (mapping for scalar quantities).</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Projection matrix with row sum unity and
 <code class="docutils literal notranslate"><span class="pre">shape=(nd*mortar_grid.num_cells,</span> <span class="pre">nd*g_primary.num_faces)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_int">
-<span class="sig-name descname"><span class="pre">mortar_to_primary_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_primary_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_int" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mortar_to_primary_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_primary_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_primary_int" title="Link to this definition"></a></dt>
 <dd><p>Project values from the mortar to faces of primary, by summing quantities
 from the mortar side.</p>
 <p>The projection matrix is scaled so that the column sum is unity, that is, values
@@ -397,25 +397,25 @@ on the mortar side are distributed to the primary according to the overlap
 between a mortar cell and (in general several) primary faces.</p>
 <p>This mapping is intended for extensive properties, e.g. fluxes.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
 <p>Spatial dimension of the projected quantity. Defaults to 1
 (mapping for scalar quantities).</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Projection matrix with column sum unity and
 <code class="docutils literal notranslate"><span class="pre">shape=(nd*mortar_grid.num_cells,</span> <span class="pre">nd*g_primary.num_faces)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_avg">
-<span class="sig-name descname"><span class="pre">mortar_to_secondary_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_secondary_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_avg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mortar_to_secondary_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_secondary_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_avg" title="Link to this definition"></a></dt>
 <dd><p>Project values from the mortar to secondary, by averaging quantities from the
 mortar side.</p>
 <p>The projection matrix is scaled so that the row sum is unity, that is, values on
@@ -424,25 +424,25 @@ according to the overlap between (in general several) mortar cells and a
 secondary cell.</p>
 <p>This mapping is intended for intensive properties, e.g. pressures.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
 <p>Spatial dimension of the projected quantity. Defaults to 1
 (mapping for scalar quantities).</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Projection matrix with row sum unity and
 <code class="docutils literal notranslate"><span class="pre">shape=(nd*mortar_grid.num_cells,</span> <span class="pre">nd*g_secondary.num_faces)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_int">
-<span class="sig-name descname"><span class="pre">mortar_to_secondary_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_secondary_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_int" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mortar_to_secondary_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.mortar_to_secondary_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.mortar_to_secondary_int" title="Link to this definition"></a></dt>
 <dd><p>Project values from the mortar to cells at the secondary, by summing
 quantities from the mortar side.</p>
 <p>The projection matrix is scaled so that the column sum is unity, that is, values
@@ -450,39 +450,39 @@ on the mortar side are distributed to the secondary according to the overlap
 between a mortar cell and (in general several) secondary cells.</p>
 <p>This mapping is intended for extensive properties, e.g. fluxes.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
 <p>Spatial dimension of the projected quantity. Defaults to 1
 (mapping for scalar quantities).</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Projection matrix with column sum unity and
 <code class="docutils literal notranslate"><span class="pre">shape=(nd*mortar_grid.num_cells,</span> <span class="pre">nd*g_secondary.num_faces)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.num_sides">
-<span class="sig-name descname"><span class="pre">num_sides</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.num_sides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.num_sides" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_sides</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.num_sides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.num_sides" title="Link to this definition"></a></dt>
 <dd><p>Shortcut to compute the number of sides. It has to be 2 or 1.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>Number of sides.</p>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)">int</a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)">int</a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_avg">
-<span class="sig-name descname"><span class="pre">primary_to_mortar_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.primary_to_mortar_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_avg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">primary_to_mortar_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.primary_to_mortar_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_avg" title="Link to this definition"></a></dt>
 <dd><p>Project values from faces of primary to the mortar, by averaging quantities
 from the primary side.</p>
 <p>The projection matrix is scaled so that the row sum is unity, that is, values on
@@ -491,25 +491,25 @@ according to the overlap between (in general several) primary faces and a mortar
 cell.</p>
 <p>This mapping is intended for intensive properties, e.g. pressures.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
 <p>Spatial dimension of the projected quantity. Defaults to 1
 (mapping for scalar quantities).</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Projection matrix with row sum unity and
 <code class="docutils literal notranslate"><span class="pre">shape=(nd*g_primary.num_faces,</span> <span class="pre">nd*mortar_grid.num_cells)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_int">
-<span class="sig-name descname"><span class="pre">primary_to_mortar_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.primary_to_mortar_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_int" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">primary_to_mortar_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.primary_to_mortar_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.primary_to_mortar_int" title="Link to this definition"></a></dt>
 <dd><p>Project values from faces of primary to the mortar, by summing quantities
 from the primary side.</p>
 <p>The projection matrix is scaled so that the column sum is unity, that is, values
@@ -517,47 +517,47 @@ on the primary side are distributed to the mortar according to the overlap
 between a primary face and (in general several) mortar cells.</p>
 <p>This mapping is intended for extensive properties, e.g. fluxes.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
 <p>Spatial dimension of the projected quantity. Defaults to 1
 (mapping for scalar quantities).</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Projection matrix with column sum unity and
 <code class="docutils literal notranslate"><span class="pre">shape=(nd*g_primary.num_faces,</span> <span class="pre">nd*mortar_grid.num_cells)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.project_to_side_grids">
-<span class="sig-name descname"><span class="pre">project_to_side_grids</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.project_to_side_grids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.project_to_side_grids" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">project_to_side_grids</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.project_to_side_grids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.project_to_side_grids" title="Link to this definition"></a></dt>
 <dd><p>Generator for the side grids and projection operators from the mortar cells,
 combining cells on all the sides, to the specific side grids.</p>
 <dl class="field-list">
-<dt class="field-odd">Yields</dt>
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
 <dd class="field-odd"><p>A 2-tuple containing</p>
 <dl class="simple">
-<dt><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.10.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">csc_matrix</span></code></a>:</dt><dd><p>Projection from the mortar cells to this side grid.</p>
+<dt><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.csc_matrix.html#scipy.sparse.csc_matrix" title="(in SciPy v1.15.3)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">csc_matrix</span></code></a>:</dt><dd><p>Projection from the mortar cells to this side grid.</p>
 </dd>
 <dt><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><code class="xref py py-class docutils literal notranslate"><span class="pre">Grid</span></code></a>:</dt><dd><p>PorePy grid representing one of the sides of the mortar grid. Can
 be used for standard discretizations.</p>
 </dd>
 </dl>
 </dd>
-<dt class="field-even">Return type</dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.11)"><em>Generator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.11)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)">scipy.sparse._base.spmatrix</a>, <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid">porepy.grids.grid.Grid</a>], None, None]</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Generator" title="(in Python v3.13)"><em>Generator</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)">tuple</a>[<a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a>, <a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>], None, None]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_avg">
-<span class="sig-name descname"><span class="pre">secondary_to_mortar_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.secondary_to_mortar_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_avg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">secondary_to_mortar_avg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.secondary_to_mortar_avg"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_avg" title="Link to this definition"></a></dt>
 <dd><p>Project values from cells at the secondary to the mortar, by averaging
 quantities from the secondary side.</p>
 <p>The projection matrix is scaled so that the row sum is unity, that is, values on
@@ -566,25 +566,25 @@ according to the overlap between (in general several) primary cells and the
 mortar cells.</p>
 <p>This mapping is intended for intensive properties, e.g. pressures.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
 <p>Spatial dimension of the projected quantity. Defaults to 1
 (mapping for scalar quantities).</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Projection matrix with row sum unity and
 <code class="docutils literal notranslate"><span class="pre">shape=(nd*g_secondary.num_cells,</span> <span class="pre">nd*mortar_grid.num_cells)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_int">
-<span class="sig-name descname"><span class="pre">secondary_to_mortar_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.secondary_to_mortar_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_int" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">secondary_to_mortar_int</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.secondary_to_mortar_int"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.secondary_to_mortar_int" title="Link to this definition"></a></dt>
 <dd><p>Project values from cells on the secondary side to the mortar, by summing
 quantities from the secondary side.</p>
 <p>The projection matrix is scaled so that the column sum is unity, that is, values
@@ -592,25 +592,25 @@ on the secondary side are distributed to the mortar according to the overlap
 between a secondary cell and (in general several) mortar cells.</p>
 <p>This mapping is intended for extensive properties, e.g. sources.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
 <p>Spatial dimension of the projected quantity. Defaults to 1
 (mapping for scalar quantities).</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Projection matrix with column sum unity and
 <code class="docutils literal notranslate"><span class="pre">shape=(nd*g_secondary.num_cells,</span> <span class="pre">nd*mortar_grid.num_cells)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.sign_of_mortar_sides">
-<span class="sig-name descname"><span class="pre">sign_of_mortar_sides</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.sign_of_mortar_sides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.sign_of_mortar_sides" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sign_of_mortar_sides</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nd</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.sign_of_mortar_sides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.sign_of_mortar_sides" title="Link to this definition"></a></dt>
 <dd><p>Assign positive or negative weight to the two sides of a mortar grid.</p>
 <p>This is needed e.g. to make projection operators into signed projections, for
 variables that have no particular defined sign conventions.</p>
@@ -633,47 +633,47 @@ and there is no need to adjust the signs further.</p>
 the two side grids are non-matching.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>) – <p><code class="docutils literal notranslate"><span class="pre">default=1</span></code></p>
 <p>Spatial dimension of the projected quantity. Defaults to 1
 (mapping for scalar quantities).</p>
 </p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Diagonal matrix with positive signs on variables belonging to the first of
 the side_grids and
 <code class="docutils literal notranslate"><span class="pre">shape=(nd*mortar_grid.num_cells,</span> <span class="pre">nd*mortar_grid.num_cells)</span></code>.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.10.0)"><em>spmatrix</em></a></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.spmatrix.html#scipy.sparse.spmatrix" title="(in SciPy v1.15.3)"><em>spmatrix</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.update_mortar">
-<span class="sig-name descname"><span class="pre">update_mortar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_side_grids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.update_mortar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.update_mortar" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">update_mortar</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_side_grids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.update_mortar"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.update_mortar" title="Link to this definition"></a></dt>
 <dd><p>Update the <code class="docutils literal notranslate"><span class="pre">low_to_mortar_int</span></code> and <code class="docutils literal notranslate"><span class="pre">high_to_mortar_int</span></code> maps when the
 mortar grids are changed.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>new_side_grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><em>dict</em></a><em>[</em><a class="reference internal" href="#porepy.grids.mortar_grid.MortarSides" title="porepy.grids.mortar_grid.MortarSides"><em>porepy.grids.mortar_grid.MortarSides</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – A dictionary containing for each side
+<li><p><strong>new_side_grids</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><em>dict</em></a><em>[</em><a class="reference internal" href="#porepy.grids.mortar_grid.MortarSides" title="porepy.grids.mortar_grid.MortarSides"><em>MortarSides</em></a><em>, </em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>) – A dictionary containing for each side
 (identified with the enumeration <a class="reference internal" href="#porepy.grids.mortar_grid.MortarSides" title="porepy.grids.mortar_grid.MortarSides"><code class="xref py py-class docutils literal notranslate"><span class="pre">MortarSides</span></code></a>) a matrix
 representing the new mapping between the old and new mortar grids.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em> | </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Tolerance used for matching the new and old grids.</p>
 <p>If not provided, <a class="reference internal" href="#porepy.grids.mortar_grid.MortarGrid.tol" title="porepy.grids.mortar_grid.MortarGrid.tol"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tol</span></code></a> is used.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the old and new mortar grids are not of the same dimension.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the mortar grid is not of dimension 0,1 or 2.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the old and new mortar grids are not of the same dimension.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the mortar grid is not of dimension 0,1 or 2.</p></li>
 </ul>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -681,29 +681,29 @@ representing the new mapping between the old and new mortar grids.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.update_primary">
-<span class="sig-name descname"><span class="pre">update_primary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g_new</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g_old</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.update_primary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.update_primary" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">update_primary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">g_new</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">g_old</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.update_primary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.update_primary" title="Link to this definition"></a></dt>
 <dd><p>Update the <code class="docutils literal notranslate"><span class="pre">_primary_to_mortar_int</span></code> map when the primary
 (higher-dimensional) grid is changed.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>g_new</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – The new primary grid.</p></li>
 <li><p><strong>g_old</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – The old primary grid.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em> | </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Tolerance used for matching the new and old grids.</p>
 <p>If not provided, <a class="reference internal" href="#porepy.grids.mortar_grid.MortarGrid.tol" title="porepy.grids.mortar_grid.MortarGrid.tol"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tol</span></code></a> is used.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – For 0d mortar grids, if the faces of the old primary grid do
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – For 0d mortar grids, if the faces of the old primary grid do
     not correspond to the same physical point.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError" title="(in Python v3.11)"><strong>NotImplementedError</strong></a> – If the dimension of the mortar grid is &gt;1 (this has not
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError" title="(in Python v3.13)"><strong>NotImplementedError</strong></a> – If the dimension of the mortar grid is &gt;1 (this has not
     been implemented yet).</p></li>
 </ul>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -711,7 +711,7 @@ representing the new mapping between the old and new mortar grids.</p></li>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.update_secondary">
-<span class="sig-name descname"><span class="pre">update_secondary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.update_secondary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.update_secondary" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">update_secondary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_g</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarGrid.update_secondary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.update_secondary" title="Link to this definition"></a></dt>
 <dd><p>Update the mappings between mortar and secondary grid when the latter is
 changed.</p>
 <div class="admonition note">
@@ -722,25 +722,25 @@ okay, but replacing a non-matching secondary grid with another one will not
 work.</p>
 </div>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>new_g</strong> (<a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a>) – The new secondary grid.</p></li>
-<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Optional" title="(in Python v3.11)"><em>Optional</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a><em>]</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
+<li><p><strong>tol</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><em>float</em></a><em> | </em><em>None</em>) – <p><code class="docutils literal notranslate"><span class="pre">default=None</span></code></p>
 <p>Tolerance used for matching the new and old grids.</p>
 <p>If not provided, <a class="reference internal" href="#porepy.grids.mortar_grid.MortarGrid.tol" title="porepy.grids.mortar_grid.MortarGrid.tol"><code class="xref py py-attr docutils literal notranslate"><span class="pre">tol</span></code></a> is used.</p>
 </p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises</dt>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
 <dd class="field-even"><ul class="simple">
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError" title="(in Python v3.11)"><strong>NotImplementedError</strong></a> – If the new secondary grid and the mortar grid are not
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#NotImplementedError" title="(in Python v3.13)"><strong>NotImplementedError</strong></a> – If the new secondary grid and the mortar grid are not
     of the same dimension.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the old and new secondary grids are not of the same
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the old and new secondary grids are not of the same
     dimension.</p></li>
-<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.11)"><strong>ValueError</strong></a> – If the mortar grid is not of dimension 0,1 or 2.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><strong>ValueError</strong></a> – If the mortar grid is not of dimension 0,1 or 2.</p></li>
 </ul>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>None</p>
 </dd>
 </dl>
@@ -748,31 +748,31 @@ work.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.cell_centers">
-<span class="sig-name descname"><span class="pre">cell_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.cell_centers" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_centers</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.cell_centers" title="Link to this definition"></a></dt>
 <dd><p>Cell centers of each cell in the side grids.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.cell_volumes">
-<span class="sig-name descname"><span class="pre">cell_volumes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.cell_volumes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_volumes</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.cell_volumes" title="Link to this definition"></a></dt>
 <dd><p>Cell volumes of each cell in the side grids.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.codim">
-<span class="sig-name descname"><span class="pre">codim</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.codim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">codim</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.codim" title="Link to this definition"></a></dt>
 <dd><p>The co-dimension of the mortar grid.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.dim" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">dim</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.dim" title="Link to this definition"></a></dt>
 <dd><p>The ambient dimension of the mortar grid.</p>
 </dd></dl>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.id">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">id</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.id" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">id</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.id" title="Link to this definition"></a></dt>
 <dd><p>Grid ID.</p>
 <p>The returned attribute must not be changed.
 This may severely compromise other parts of the code,
@@ -783,33 +783,33 @@ This avoids calls to the super constructor in child classes.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.name">
-<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.name" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.name" title="Link to this definition"></a></dt>
 <dd><p>The name of mortar grid stored as a list of relevant information.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.num_cells">
-<span class="sig-name descname"><span class="pre">num_cells</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.num_cells" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">num_cells</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.num_cells" title="Link to this definition"></a></dt>
 <dd><p>Total number of cells in all side grids.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.side_grids">
-<span class="sig-name descname"><span class="pre">side_grids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.11)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#porepy.grids.mortar_grid.MortarSides" title="porepy.grids.mortar_grid.MortarSides"><span class="pre">porepy.grids.mortar_grid.MortarSides</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">porepy.grids.grid.Grid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.side_grids" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">side_grids</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#porepy.grids.mortar_grid.MortarSides" title="porepy.grids.mortar_grid.MortarSides"><span class="pre">MortarSides</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><span class="pre">Grid</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.side_grids" title="Link to this definition"></a></dt>
 <dd><p>A dictionary containing for each enumeration <a class="reference internal" href="#porepy.grids.mortar_grid.MortarSides" title="porepy.grids.mortar_grid.MortarSides"><code class="xref py py-class docutils literal notranslate"><span class="pre">MortarSides</span></code></a> the
 respective side grid.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.sides">
-<span class="sig-name descname"><span class="pre">sides</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v1.24)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.sides" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sides</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray" title="(in NumPy v2.2)"><span class="pre">ndarray</span></a></em><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.sides" title="Link to this definition"></a></dt>
 <dd><p>An array containing the enumeration of each side grid
 (keys of <a class="reference internal" href="#porepy.grids.mortar_grid.MortarGrid.side_grids" title="porepy.grids.mortar_grid.MortarGrid.side_grids"><code class="xref py py-attr docutils literal notranslate"><span class="pre">side_grids</span></code></a>).</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarGrid.tol">
-<span class="sig-name descname"><span class="pre">tol</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.tol" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">tol</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarGrid.tol" title="Link to this definition"></a></dt>
 <dd><p>The tolerance given at instantiation.</p>
 </dd></dl>
 
@@ -817,23 +817,23 @@ respective side grid.</p>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarSides">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MortarSides</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarSides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MortarSides</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/grids/mortar_grid.html#MortarSides"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides" title="Link to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
 <p>A custom enumeration for the left, the right and empty side of an
 interface represented by a mortar grid.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarSides.LEFT_SIDE">
-<span class="sig-name descname"><span class="pre">LEFT_SIDE</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides.LEFT_SIDE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">LEFT_SIDE</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides.LEFT_SIDE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarSides.NONE_SIDE">
-<span class="sig-name descname"><span class="pre">NONE_SIDE</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides.NONE_SIDE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">NONE_SIDE</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides.NONE_SIDE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.grids.mortar_grid.MortarSides.RIGHT_SIDE">
-<span class="sig-name descname"><span class="pre">RIGHT_SIDE</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides.RIGHT_SIDE" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">RIGHT_SIDE</span></span><a class="headerlink" href="#porepy.grids.mortar_grid.MortarSides.RIGHT_SIDE" title="Link to this definition"></a></dt>
 <dd></dd></dl>
 
 </dd></dl>

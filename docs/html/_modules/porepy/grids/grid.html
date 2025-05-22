@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.grids.grid &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/grid.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/grids/grid.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.grids.grid</li>
       <li class="wy-breadcrumbs-aside">
@@ -284,22 +284,24 @@
 <span class="sd">    2016.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span> <span class="nn">copy</span>
-<span class="kn">import</span> <span class="nn">itertools</span>
-<span class="kn">from</span> <span class="nn">itertools</span> <span class="kn">import</span> <span class="n">count</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">count</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
-<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">scipy</span> <span class="kn">import</span> <span class="n">sparse</span> <span class="k">as</span> <span class="n">sps</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">sparse</span> <span class="k">as</span> <span class="n">sps</span>
 
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
-<span class="kn">from</span> <span class="nn">porepy.utils</span> <span class="kn">import</span> <span class="n">mcolon</span><span class="p">,</span> <span class="n">tags</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">porepy.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">mcolon</span><span class="p">,</span> <span class="n">tags</span>
 
 
-<div class="viewcode-block" id="Grid"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid">[docs]</a><span class="k">class</span> <span class="nc">Grid</span><span class="p">:</span>
-    <span class="sd">&quot;&quot;&quot;Parent class for all grids.</span>
+<div class="viewcode-block" id="Grid">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Grid</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Parent class for all grids.</span>
 
 <span class="sd">    The grid stores topological information, as well as geometric information. Geometric</span>
 <span class="sd">    information requires calling :meth:`compute_geometry` to be initialized.</span>
@@ -330,18 +332,18 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="n">_counter</span> <span class="o">=</span> <span class="n">count</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-    <span class="sd">&quot;&quot;&quot;Counter of instantiated grids. See :meth:`__new__` and :meth:`id`.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Counter of instantiated grids. See :meth:`__new__` and :meth:`id`.&quot;&quot;&quot;</span>
     <span class="n">__id</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="sd">&quot;&quot;&quot;Name-mangled reference to assigned ID.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Name-mangled reference to assigned ID.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Grid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Make object and set ID by forwarding :attr:`_counter`.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Grid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Make object and set ID by forwarding :attr:`_counter`.&quot;&quot;&quot;</span>
 
         <span class="n">obj</span> <span class="o">=</span> <span class="nb">object</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
         <span class="n">obj</span><span class="o">.</span><span class="n">__id</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="bp">cls</span><span class="o">.</span><span class="n">_counter</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">obj</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">nodes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]],</span>
@@ -355,14 +357,14 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;A grid has to be of dimension 0, 1, 2, or 3.&quot;</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">dim</span>
-        <span class="sd">&quot;&quot;&quot;Grid dimension. Should be in ``{0, 1, 2, 3}``.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Grid dimension. Should be in ``{0, 1, 2, 3}``.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">nodes</span>
-        <span class="sd">&quot;&quot;&quot;An array with ``shape=(ambient_dimension, num_nodes)`` containing node</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;An array with ``shape=(ambient_dimension, num_nodes)`` containing node</span>
 <span class="sd">        coordinates column-wise.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span> <span class="o">=</span> <span class="n">cell_faces</span>
-        <span class="sd">&quot;&quot;&quot;An array with ``shape=(num_faces, num_cells)`` representing the map from</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;An array with ``shape=(num_faces, num_cells)`` representing the map from</span>
 <span class="sd">        cells to faces bordering respective cell.</span>
 
 <span class="sd">        Matrix elements have value +-1, where + corresponds to the face normal vector</span>
@@ -370,7 +372,7 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">face_nodes</span><span class="p">:</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span> <span class="o">=</span> <span class="n">face_nodes</span>
-        <span class="sd">&quot;&quot;&quot;An array with ``shape=(num_nodes, num_faces)`` representing the map from</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;An array with ``shape=(num_nodes, num_faces)`` representing the map from</span>
 <span class="sd">        faces to nodes spanning respective face.</span>
 
 <span class="sd">        Assumes the nodes of each face are ordered according to the right-hand rule.</span>
@@ -394,10 +396,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">name</span>
-        <span class="sd">&quot;&quot;&quot;Name assigned to this grid.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Name assigned to this grid.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
-        <span class="sd">&quot;&quot;&quot;Information on the formation of the grid, such as the</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Information on the formation of the grid, such as the</span>
 <span class="sd">        constructor, computations of geometry etc.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
@@ -411,22 +413,22 @@
 
         <span class="c1"># Infer bookkeeping from size of parameters</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">nodes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="sd">&quot;&quot;&quot;Number of nodes in the grid.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of nodes in the grid.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_faces</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">face_nodes</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="sd">&quot;&quot;&quot;Number of faces in the grid.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of faces in the grid.&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">cell_faces</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-        <span class="sd">&quot;&quot;&quot;Number of cells in the grid.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Number of cells in the grid.&quot;&quot;&quot;</span>
 
         <span class="c1"># NOTE: Variables that are only relevant for some grids.</span>
         <span class="c1"># Use with caution.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">frac_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
-        <span class="sd">&quot;&quot;&quot;Index of the fracture the grid corresponds to. Take</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Index of the fracture the grid corresponds to. Take</span>
 <span class="sd">        value ``(0, 1, ...)`` if the grid corresponds to a fracture, -1 if not.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">parent_cell_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_cells</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Index of parent the cell in the parent grid for grids that have refined</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Index of parent the cell in the parent grid for grids that have refined</span>
 <span class="sd">        sub-grids or are sub-grids of larger grids.</span>
 
 <span class="sd">        Defaults to a mapping to its own index with ``shape=(num_cells,)``.</span>
@@ -434,7 +436,7 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">global_point_ind</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;An array with ``shape=(num_nodes,)`` containing indices of each point,</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;An array with ``shape=(num_nodes,)`` containing indices of each point,</span>
 <span class="sd">        assigned during processing of mixed-dimensional grids created by gmsh.</span>
 
 <span class="sd">        Used to identify points that are geometrically equal, though on different grids.</span>
@@ -445,16 +447,16 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_physical_name_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
-        <span class="sd">&quot;&quot;&quot;Used to keep track of processing of grids generated by gmsh.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Used to keep track of processing of grids generated by gmsh.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">well_num</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
-        <span class="sd">&quot;&quot;&quot;Index of the well associated to the grid. Takes a value in</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Index of the well associated to the grid. Takes a value in</span>
 <span class="sd">        ``(0, 1, ..)`` if the grid corresponds to a well, -1 if not.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">periodic_face_map</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-        <span class="sd">&quot;&quot;&quot;Index of periodic boundary faces,</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Index of periodic boundary faces,</span>
 <span class="sd">        ``(shape=(2, num_periodic_faces), dtype=int)``.</span>
 
 <span class="sd">        Face index ``periodic_face_map[0, i]`` is periodic with</span>
@@ -464,14 +466,14 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">frac_pairs</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[]],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
-        <span class="sd">&quot;&quot;&quot;Indices of faces that are geometrically coinciding, but</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Indices of faces that are geometrically coinciding, but</span>
 <span class="sd">        lay on different side of a lower-dimensional grid.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="c1"># Add tag for the boundary faces</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]</span>
-        <span class="sd">&quot;&quot;&quot;Tags allow to mark subdomains of interest.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Tags allow to mark subdomains of interest.</span>
 
 <span class="sd">        The default tags are used to mark fractures, tips and domain boundaries.</span>
 <span class="sd">        Tags are used for nodes, as well as faces.</span>
@@ -492,17 +494,17 @@
 
         <span class="c1"># NOTE: These attributes are defined in compute_geometry.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">face_areas</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-        <span class="sd">&quot;&quot;&quot;Areas of all faces ``(shape=(num_cells,))``.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Areas of all faces ``(shape=(num_cells,))``.</span>
 <span class="sd">        Available after calling :meth:`~compute_geometry`.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">face_centers</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-        <span class="sd">&quot;&quot;&quot;Centers of all faces. ``(shape=(ambient_dimension, num_faces))``.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Centers of all faces. ``(shape=(ambient_dimension, num_faces))``.</span>
 <span class="sd">        Available after calling :meth:`~compute_geometry`.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">face_normals</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-        <span class="sd">&quot;&quot;&quot;An array containing column-wise normal vectors of all faces with</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;An array containing column-wise normal vectors of all faces with</span>
 <span class="sd">        ``shape=(ambient_dimenaion, num_faces)``.</span>
 
 <span class="sd">        See also :attr:`cell_faces`.</span>
@@ -511,14 +513,14 @@
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-        <span class="sd">&quot;&quot;&quot;An array containing column-wise the centers of all cells with</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;An array containing column-wise the centers of all cells with</span>
 <span class="sd">        ``shape=(ambient_dimension, num_cells)``.</span>
 
 <span class="sd">        Available after calling :meth:`~compute_geometry`.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cell_volumes</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
-        <span class="sd">&quot;&quot;&quot;An array containing column-wise the volumes per cell with</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;An array containing column-wise the volumes per cell with</span>
 <span class="sd">        ``shape=(num_cells,)``.</span>
 
 <span class="sd">        Available after calling :meth:`~compute_geometry`.</span>
@@ -526,8 +528,8 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
     <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Grid ID.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">id</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Grid ID.</span>
 
 <span class="sd">        The returned attribute must not be changed. This may severely compromise other</span>
 <span class="sd">        parts of the code, such as sorting in md grids.</span>
@@ -538,8 +540,10 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__id</span>
 
-<div class="viewcode-block" id="Grid.copy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.copy">[docs]</a>    <span class="k">def</span> <span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create a new instance with some attributes deep-copied from the grid.</span>
+<div class="viewcode-block" id="Grid.copy">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.copy">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">copy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pp</span><span class="o">.</span><span class="n">Grid</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new instance with some attributes deep-copied from the grid.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            A deep copy of ``self``. Some predefined attributes are also copied.</span>
@@ -569,8 +573,9 @@
 
         <span class="k">return</span> <span class="n">h</span></div>
 
-    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns a string representation of the grid including topological information</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a string representation of the grid including topological information</span>
 <span class="sd">        .&quot;&quot;&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Grid with name </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> and id </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="s2">&quot;Grid history: &quot;</span> <span class="o">+</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">history</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
@@ -580,8 +585,8 @@
         <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;Dimension &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dim</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">s</span>
 
-    <span class="k">def</span> <span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Returns a simplified string representation including the given name and some</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Returns a simplified string representation including the given name and some</span>
 <span class="sd">        topological information.&quot;&quot;&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="nb">str</span><span class="p">()</span>
 
@@ -614,8 +619,10 @@
 
         <span class="k">return</span> <span class="n">s</span>
 
-<div class="viewcode-block" id="Grid.compute_geometry"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.compute_geometry">[docs]</a>    <span class="k">def</span> <span class="nf">compute_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute geometric quantities for the grid.</span>
+<div class="viewcode-block" id="Grid.compute_geometry">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.compute_geometry">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">compute_geometry</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute geometric quantities for the grid.</span>
 
 <span class="sd">        The method could have been called from the constructor, however, in cases where</span>
 <span class="sd">        the grid is modified after the initial construction ( say, grid refinement),</span>
@@ -636,8 +643,9 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_compute_geometry_3d</span><span class="p">()</span></div>
 
-    <span class="k">def</span> <span class="nf">_compute_geometry_0d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Compute 0D geometry&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_geometry_0d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute 0D geometry&quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">face_areas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">face_centers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">face_normals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>  <span class="c1"># not well-defined</span>
@@ -650,8 +658,8 @@
         <span class="c1"># Here, we should assign the cell centers, however this does nothing:</span>
         <span class="c1"># self.cell_centers = self.cell_centers</span>
 
-    <span class="k">def</span> <span class="nf">_compute_geometry_1d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Auxiliary function to compute the geometry for 1D grids.&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_geometry_1d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Auxiliary function to compute the geometry for 1D grids.&quot;&quot;&quot;</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">face_areas</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_faces</span><span class="p">)</span>
 
@@ -673,7 +681,7 @@
         <span class="c1"># Ensure that normal vector direction corresponds with sign convention</span>
         <span class="c1"># in self.cellFaces</span>
 
-        <span class="k">def</span> <span class="nf">nrm</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">nrm</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">u</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">u</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
 
         <span class="p">[</span><span class="n">fi</span><span class="p">,</span> <span class="n">ci</span><span class="p">,</span> <span class="n">val</span><span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">)</span>
@@ -692,8 +700,8 @@
         <span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">face_normals</span><span class="p">[:,</span> <span class="n">flip</span><span class="p">]</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span>
 
-    <span class="k">def</span> <span class="nf">_compute_geometry_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Auxiliary function to compute the geometry for 2D grids.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_geometry_2d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Auxiliary function to compute the geometry for 2D grids.</span>
 
 <span class="sd">        The method is motivated by MRST.</span>
 
@@ -746,7 +754,7 @@
         <span class="c1"># Ensure that normal vector direction corresponds with sign convention</span>
         <span class="c1"># in self.cellFaces</span>
 
-        <span class="k">def</span> <span class="nf">nrm</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">nrm</span><span class="p">(</span><span class="n">u</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">u</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">u</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">u</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
 
         <span class="p">[</span><span class="n">fi</span><span class="p">,</span> <span class="n">ci</span><span class="p">,</span> <span class="n">val</span><span class="p">]</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">find</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">)</span>
@@ -772,8 +780,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">face_centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">R</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">face_centers</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cell_centers</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">R</span><span class="o">.</span><span class="n">T</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_centers</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_compute_geometry_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Auxiliary function to compute the geometry for 3D grids.</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_compute_geometry_3d</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Auxiliary function to compute the geometry for 3D grids.</span>
 
 <span class="sd">        The implementation is motivated by the similar MRST function.</span>
 
@@ -831,7 +839,7 @@
             <span class="o">/</span> <span class="mi">2</span>
         <span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">nrm</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">nrm</span><span class="p">(</span><span class="n">v</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">v</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 
         <span class="c1"># Calculate area of sub-face associated with each edge - note that the</span>
@@ -903,8 +911,8 @@
         <span class="c1"># Number of edges per cell</span>
         <span class="n">num_cell_edges</span> <span class="o">=</span> <span class="n">edge_2_cell</span><span class="o">.</span><span class="n">indptr</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">edge_2_cell</span><span class="o">.</span><span class="n">indptr</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 
-        <span class="k">def</span> <span class="nf">bincount_nd</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">weights</span><span class="p">):</span>
-            <span class="sd">&quot;&quot;&quot;Utility function to sum vector quantities by np.bincount. We</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">bincount_nd</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">weights</span><span class="p">):</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Utility function to sum vector quantities by np.bincount. We</span>
 <span class="sd">            could probably have used np.apply_along_axis, but I could not</span>
 <span class="sd">            make it work.</span>
 
@@ -966,8 +974,10 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">cell_centers</span> <span class="o">=</span> <span class="n">cell_centers</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">cell_volumes</span> <span class="o">=</span> <span class="n">cell_volumes</span>
 
-<div class="viewcode-block" id="Grid.cell_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.cell_nodes">[docs]</a>    <span class="k">def</span> <span class="nf">cell_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Obtain mapping between cells and nodes.</span>
+<div class="viewcode-block" id="Grid.cell_nodes">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.cell_nodes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">csc_matrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain mapping between cells and nodes.</span>
 
 <span class="sd">        Returns:</span>
 <span class="sd">            An array with ``shape=(num_nodes, num_cells)`` representing the mapping from</span>
@@ -979,8 +989,11 @@
         <span class="n">mat</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">face_nodes</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_faces</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span>
         <span class="k">return</span> <span class="n">mat</span></div>
 
-<div class="viewcode-block" id="Grid.num_cell_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.num_cell_nodes">[docs]</a>    <span class="k">def</span> <span class="nf">num_cell_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.num_cell_nodes">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.num_cell_nodes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">num_cell_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            An array with ``shape=(num_cells,)`` containing the number of nodes per</span>
 <span class="sd">            cell.</span>
@@ -988,8 +1001,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_nodes</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">A</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span></div>
 
-<div class="viewcode-block" id="Grid.get_internal_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_internal_nodes">[docs]</a>    <span class="k">def</span> <span class="nf">get_internal_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.get_internal_nodes">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_internal_nodes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_internal_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            An array with ``shape=(num_internal_nodes,)`` containing the indices of</span>
 <span class="sd">            internal nodes.</span>
@@ -1000,8 +1016,11 @@
         <span class="p">)</span>
         <span class="k">return</span> <span class="n">internal_nodes</span></div>
 
-<div class="viewcode-block" id="Grid.get_all_boundary_faces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_all_boundary_faces">[docs]</a>    <span class="k">def</span> <span class="nf">get_all_boundary_faces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.get_all_boundary_faces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_all_boundary_faces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_all_boundary_faces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            An array with ``shape=(num_boundary_faces,)`` containing the indices of</span>
 <span class="sd">            all faces tagged as either fractures, domain boundary or tip.</span>
@@ -1009,8 +1028,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indices</span><span class="p">(</span><span class="n">tags</span><span class="o">.</span><span class="n">all_face_tags</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="Grid.get_all_boundary_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_all_boundary_nodes">[docs]</a>    <span class="k">def</span> <span class="nf">get_all_boundary_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.get_all_boundary_nodes">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_all_boundary_nodes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_all_boundary_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            An array with Indices of all boundary nodes ``shape=(num_boundary_nodes,)``</span>
 <span class="sd">            containing the indices of all faces tagged as either fractures,</span>
@@ -1019,8 +1041,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indices</span><span class="p">(</span><span class="n">tags</span><span class="o">.</span><span class="n">all_node_tags</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">))</span></div>
 
-<div class="viewcode-block" id="Grid.get_boundary_faces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_boundary_faces">[docs]</a>    <span class="k">def</span> <span class="nf">get_boundary_faces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.get_boundary_faces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_boundary_faces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_boundary_faces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            An array with ``shape=(n,)`` containing the indices of all faces tagged as</span>
 <span class="sd">            domain boundary.</span>
@@ -1028,8 +1053,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_faces&quot;</span><span class="p">])</span></div>
 
-<div class="viewcode-block" id="Grid.get_internal_faces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_internal_faces">[docs]</a>    <span class="k">def</span> <span class="nf">get_internal_faces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.get_internal_faces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_internal_faces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_internal_faces</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            An array with ``shape=(num_internal_faces,)`` containing indices of internal</span>
 <span class="sd">            faces.</span>
@@ -1039,8 +1067,11 @@
             <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_faces</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_all_boundary_faces</span><span class="p">(),</span> <span class="n">assume_unique</span><span class="o">=</span><span class="kc">True</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Grid.get_boundary_nodes"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_boundary_nodes">[docs]</a>    <span class="k">def</span> <span class="nf">get_boundary_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.get_boundary_nodes">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.get_boundary_nodes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_boundary_nodes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Returns:</span>
 <span class="sd">            An array with ``shape=(n,)`` containing indices of all domain</span>
 <span class="sd">            boundary nodes.</span>
@@ -1048,16 +1079,22 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_indices</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_nodes&quot;</span><span class="p">])</span></div>
 
-<div class="viewcode-block" id="Grid.update_boundary_face_tag"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.update_boundary_face_tag">[docs]</a>    <span class="k">def</span> <span class="nf">update_boundary_face_tag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Tags faces on the boundary of the grid with boundary tag.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.update_boundary_face_tag">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.update_boundary_face_tag">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_boundary_face_tag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Tags faces on the boundary of the grid with boundary tag.&quot;&quot;&quot;</span>
         <span class="n">zeros</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_faces&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">zeros</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># by default no 0d grid at the boundary of the domain</span>
             <span class="n">bd_faces</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cell_faces</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span><span class="o">.</span><span class="n">indptr</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_faces&quot;</span><span class="p">][</span><span class="n">bd_faces</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span></div>
 
-<div class="viewcode-block" id="Grid.set_periodic_map"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.set_periodic_map">[docs]</a>    <span class="k">def</span> <span class="nf">set_periodic_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">periodic_face_map</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Sets the index map between periodic boundary faces.</span>
+
+<div class="viewcode-block" id="Grid.set_periodic_map">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.set_periodic_map">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_periodic_map</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">periodic_face_map</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Sets the index map between periodic boundary faces.</span>
 
 <span class="sd">        The mapping assumes a one to one mapping between the periodic boundary faces</span>
 <span class="sd">        (i.e., matching faces).</span>
@@ -1090,8 +1127,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">periodic_face_map</span> <span class="o">=</span> <span class="n">periodic_face_map</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="s2">&quot;domain_boundary_faces&quot;</span><span class="p">][</span><span class="bp">self</span><span class="o">.</span><span class="n">periodic_face_map</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;C&quot;</span><span class="p">)]</span> <span class="o">=</span> <span class="kc">False</span></div>
 
-<div class="viewcode-block" id="Grid.update_boundary_node_tag"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.update_boundary_node_tag">[docs]</a>    <span class="k">def</span> <span class="nf">update_boundary_node_tag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Tags nodes on the boundary of the grid with boundary tag.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.update_boundary_node_tag">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.update_boundary_node_tag">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update_boundary_node_tag</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Tags nodes on the boundary of the grid with boundary tag.&quot;&quot;&quot;</span>
 
         <span class="n">mask</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;domain_boundary_faces&quot;</span><span class="p">:</span> <span class="s2">&quot;domain_boundary_nodes&quot;</span><span class="p">,</span>
@@ -1109,8 +1149,11 @@
                 <span class="n">nodes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">face_nodes</span><span class="o">.</span><span class="n">indices</span><span class="p">[</span><span class="n">mcolon</span><span class="o">.</span><span class="n">mcolon</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">)]</span>
                 <span class="bp">self</span><span class="o">.</span><span class="n">tags</span><span class="p">[</span><span class="n">node_tag</span><span class="p">][</span><span class="n">nodes</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span></div>
 
-<div class="viewcode-block" id="Grid.cell_diameters"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.cell_diameters">[docs]</a>    <span class="k">def</span> <span class="nf">cell_diameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Computes the cell diameters.</span>
+
+<div class="viewcode-block" id="Grid.cell_diameters">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.cell_diameters">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell_diameters</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">cn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">sps</span><span class="o">.</span><span class="n">spmatrix</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Computes the cell diameters.</span>
 
 <span class="sd">        Parameters:</span>
 <span class="sd">            cn: ``default=None``</span>
@@ -1126,12 +1169,12 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dim</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">comb</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">comb</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">fromiter</span><span class="p">(</span>
                 <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">itertools</span><span class="o">.</span><span class="n">combinations</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="n">n</span><span class="o">.</span><span class="n">dtype</span>
             <span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s2">&quot;F&quot;</span><span class="p">)</span>
 
-        <span class="k">def</span> <span class="nf">diam</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">diam</span><span class="p">(</span><span class="n">n</span><span class="p">):</span>
             <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">amax</span><span class="p">(</span>
                 <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">n</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:]]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">nodes</span><span class="p">[:,</span> <span class="n">n</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="p">:]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
             <span class="p">)</span>
@@ -1145,8 +1188,11 @@
             <span class="p">]</span>
         <span class="p">)</span></div>
 
-<div class="viewcode-block" id="Grid.cell_face_as_dense"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.cell_face_as_dense">[docs]</a>    <span class="k">def</span> <span class="nf">cell_face_as_dense</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Obtain the cell-face relation in the form of two rows, rather than a</span>
+
+<div class="viewcode-block" id="Grid.cell_face_as_dense">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.cell_face_as_dense">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell_face_as_dense</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Obtain the cell-face relation in the form of two rows, rather than a</span>
 <span class="sd">        sparse matrix.</span>
 
 <span class="sd">        This alternative format can be useful in some cases.</span>
@@ -1176,8 +1222,11 @@
         <span class="c1"># pointing from first to second row.</span>
         <span class="k">return</span> <span class="n">neighs</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span></div>
 
-<div class="viewcode-block" id="Grid.cell_connection_map"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.cell_connection_map">[docs]</a>    <span class="k">def</span> <span class="nf">cell_connection_map</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Get a matrix representation of cell-cell connections, as defined by</span>
+
+<div class="viewcode-block" id="Grid.cell_connection_map">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.cell_connection_map">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cell_connection_map</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">sps</span><span class="o">.</span><span class="n">csr_matrix</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a matrix representation of cell-cell connections, as defined by</span>
 <span class="sd">        two cells sharing a face.</span>
 
 <span class="sd">        Returns:</span>
@@ -1202,10 +1251,13 @@
 
         <span class="k">return</span> <span class="n">c2c</span></div>
 
-<div class="viewcode-block" id="Grid.signs_and_cells_of_boundary_faces"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.signs_and_cells_of_boundary_faces">[docs]</a>    <span class="k">def</span> <span class="nf">signs_and_cells_of_boundary_faces</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Grid.signs_and_cells_of_boundary_faces">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.signs_and_cells_of_boundary_faces">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">signs_and_cells_of_boundary_faces</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">faces</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-        <span class="sd">&quot;&quot;&quot;Get the direction of the normal vector (inward or outwards from a cell)</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the direction of the normal vector (inward or outwards from a cell)</span>
 <span class="sd">        and the cell neighbor of **boundary** faces.</span>
 
 <span class="sd">        Parameters:</span>
@@ -1245,10 +1297,13 @@
         <span class="n">sgn</span><span class="p">,</span> <span class="n">ci</span> <span class="o">=</span> <span class="n">sgn</span><span class="p">[</span><span class="n">IC</span><span class="p">],</span> <span class="n">ci</span><span class="p">[</span><span class="n">IC</span><span class="p">]</span>
         <span class="k">return</span> <span class="n">sgn</span><span class="p">,</span> <span class="n">ci</span></div>
 
-<div class="viewcode-block" id="Grid.closest_cell"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.closest_cell">[docs]</a>    <span class="k">def</span> <span class="nf">closest_cell</span><span class="p">(</span>
+
+<div class="viewcode-block" id="Grid.closest_cell">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.closest_cell">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">closest_cell</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">return_distance</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]]:</span>
-        <span class="sd">&quot;&quot;&quot;For a set of points, find closest cell by cell center.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;For a set of points, find closest cell by cell center.</span>
 
 <span class="sd">        If several centers have the same distance, one of them will be returned.</span>
 
@@ -1277,7 +1332,7 @@
             <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">3</span> <span class="o">-</span> <span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">p</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
             <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">((</span><span class="n">p</span><span class="p">,</span> <span class="n">z</span><span class="p">))</span>
 
-        <span class="k">def</span> <span class="nf">min_dist</span><span class="p">(</span><span class="n">pts</span><span class="p">):</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">min_dist</span><span class="p">(</span><span class="n">pts</span><span class="p">):</span>
             <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cell_centers</span>
             <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">power</span><span class="p">(</span><span class="n">c</span> <span class="o">-</span> <span class="n">pts</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
             <span class="n">min_id</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
@@ -1293,20 +1348,27 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">ci</span></div>
 
-<div class="viewcode-block" id="Grid.initiate_face_tags"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.initiate_face_tags">[docs]</a>    <span class="k">def</span> <span class="nf">initiate_face_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create zero arrays for the standard face tags and update :attr:`tags`.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.initiate_face_tags">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.initiate_face_tags">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initiate_face_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create zero arrays for the standard face tags and update :attr:`tags`.&quot;&quot;&quot;</span>
         <span class="n">keys</span> <span class="o">=</span> <span class="n">tags</span><span class="o">.</span><span class="n">standard_face_tags</span><span class="p">()</span>
         <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_faces</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">]</span>
         <span class="n">tags</span><span class="o">.</span><span class="n">add_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="p">)))</span></div>
 
-<div class="viewcode-block" id="Grid.initiate_node_tags"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.initiate_node_tags">[docs]</a>    <span class="k">def</span> <span class="nf">initiate_node_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Create zero arrays for the standard node tags and update :attr:`tags`.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="Grid.initiate_node_tags">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.grids.grid.html#porepy.grids.grid.Grid.initiate_node_tags">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initiate_node_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create zero arrays for the standard node tags and update :attr:`tags`.&quot;&quot;&quot;</span>
         <span class="n">keys</span> <span class="o">=</span> <span class="n">tags</span><span class="o">.</span><span class="n">standard_node_tags</span><span class="p">()</span>
         <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">]</span>
         <span class="n">tags</span><span class="o">.</span><span class="n">add_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">dict</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="p">)))</span></div>
 
-    <span class="k">def</span> <span class="nf">_check_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Check if all the standard tags are specified in :attr:`tags`,</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_tags</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if all the standard tags are specified in :attr:`tags`,</span>
 <span class="sd">        and the tag arrays have correct sizes.</span>
 
 <span class="sd">        Raises:</span>
@@ -1328,9 +1390,10 @@
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Wrong size of value for tag </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">_indices</span><span class="p">(</span><span class="n">true_false</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Auxiliary function for :obj:`~numpy.argwhere` with ``ravel(&#39;F&#39;).&quot;&quot;&quot;</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_indices</span><span class="p">(</span><span class="n">true_false</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Auxiliary function for :obj:`~numpy.argwhere` with ``ravel(&#39;F&#39;).&quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">true_false</span><span class="p">)</span><span class="o">.</span><span class="n">ravel</span><span class="p">(</span><span class="s2">&quot;F&quot;</span><span class="p">)</span></div>
+
 </pre></div>
 
            </div>

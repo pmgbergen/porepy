@@ -1,23 +1,22 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.numerics.ad.grid_operators module &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.ad.grid_operators.html" />
-  <!--[if lt IE 9]>
-    <script src="../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
-        <script src="../../_static/jquery.js"></script>
-        <script src="../../_static/underscore.js"></script>
-        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/docsrc/porepy/porepy.numerics.ad.grid_operators.html" />
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
@@ -30,14 +29,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -262,7 +262,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="porepy.html">porepy package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.html">porepy.numerics package</a></li>
           <li class="breadcrumb-item"><a href="porepy.numerics.ad.html">porepy.numerics.ad package</a></li>
@@ -276,132 +276,104 @@
            <div itemprop="articleBody">
              
   <section id="module-porepy.numerics.ad.grid_operators">
-<span id="porepy-numerics-ad-grid-operators-module"></span><h1>porepy.numerics.ad.grid_operators module<a class="headerlink" href="#module-porepy.numerics.ad.grid_operators" title="Permalink to this heading"></a></h1>
+<span id="porepy-numerics-ad-grid-operators-module"></span><h1>porepy.numerics.ad.grid_operators module<a class="headerlink" href="#module-porepy.numerics.ad.grid_operators" title="Link to this heading"></a></h1>
 <p>Ad representation of grid-related quantities needed to write equations. The classes
 defined here are mainly wrappers that constructs Ad matrices based on grid information.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.BoundaryCondition">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryCondition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#BoundaryCondition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.BoundaryCondition" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">BoundaryCondition</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#BoundaryCondition"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.BoundaryCondition" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a></p>
 <p>Wrapper class for Ad representations of boundary conditions for a given keyword.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
-<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+<li><p><strong>keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.BoundaryCondition.parse">
-<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#BoundaryCondition.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.BoundaryCondition.parse" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#BoundaryCondition.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.BoundaryCondition.parse" title="Link to this definition"></a></dt>
 <dd><p>Convert the Ad expression into numerical values for the boundary conditions,
 in the form of an np.ndarray concatenated for all subdomains.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>mdg</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code>) – Mixed-dimensional grid. The boundary condition
 will be taken from the data dictionaries with the relevant keyword.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Value of boundary conditions.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray</p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.BoundaryCondition.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.BoundaryCondition.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific interfaces.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.BoundaryCondition.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.BoundaryCondition.subdomains" title="Permalink to this definition"></a></dt>
-<dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Divergence">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Divergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Divergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Divergence" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Divergence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Divergence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Divergence" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a></p>
 <p>Wrapper class for Ad representations of divergence operators.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
-<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
+<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Divergence.parse">
-<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Divergence.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Divergence.parse" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Divergence.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Divergence.parse" title="Link to this definition"></a></dt>
 <dd><p>Convert the Ad expression into a divergence operators on all relevant subdomains,
 represented as a sparse block matrix.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>mdg</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code>) – Not used, but needed for compatibility with
 the general parsing method for Operators.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Block matrix representation of a divergence operator on</dt><dd><p>multiple subdomains.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sps.spmatrix</p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Divergence.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Divergence.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific interfaces.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Divergence.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Divergence.subdomains" title="Permalink to this definition"></a></dt>
-<dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Geometry">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Geometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Geometry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nd</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">matrix_names</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Geometry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a></p>
 <p>Wrapper class for Ad representations of grids.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
-<li><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
-<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
-<li><p><strong>matrix_names</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em><em>]</em>) – </p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>nd</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
+<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em>)</p></li>
+<li><p><strong>matrix_names</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Geometry.cell_volumes">
-<span class="sig-name descname"><span class="pre">cell_volumes</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.cell_volumes" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_volumes</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.cell_volumes" title="Link to this definition"></a></dt>
 <dd><p>Diagonal ad matrix of cell volumes.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -409,10 +381,10 @@ the general parsing method for Operators.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Geometry.face_areas">
-<span class="sig-name descname"><span class="pre">face_areas</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.face_areas" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">face_areas</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.face_areas" title="Link to this definition"></a></dt>
 <dd><p>Diagonal ad matrix of face areas.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -420,11 +392,11 @@ the general parsing method for Operators.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Geometry.nd">
-<span class="sig-name descname"><span class="pre">nd</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.nd" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">nd</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.nd" title="Link to this definition"></a></dt>
 <dd><p>Ambient/highest dimension of the mixed-dimensional grid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -432,85 +404,71 @@ the general parsing method for Operators.</p>
 <p>FIXME: Implement parse??</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Geometry.basis">
-<span class="sig-name descname"><span class="pre">basis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Geometry.basis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.basis" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">basis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Geometry.basis"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.basis" title="Link to this definition"></a></dt>
 <dd><p>Return a cell-wise basis for all subdomains.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>dim</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int,</span> <span class="pre">optional</span></code>) – Dimension of the base. Defaults to the dimension of
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>, <em>optional</em>) – Dimension of the base. Defaults to the dimension of
 the Geometry.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Array of dim pp.ad.Matrix, each of which is represents a basis function.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)">list</a>[<a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix">porepy.numerics.ad.operators.Matrix</a>]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)">list</a>[<a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Matrix" title="porepy.numerics.ad.operators.Matrix"><em>Matrix</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Geometry.e_i">
-<span class="sig-name descname"><span class="pre">e_i</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Geometry.e_i"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.e_i" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">e_i</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">i</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Geometry.e_i"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.e_i" title="Link to this definition"></a></dt>
 <dd><p>Return a cell-wise basis function for all subdomains.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Dimension of the functions.</p></li>
-<li><p><strong>i</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index of the basis function. Note: Counts from 0.</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Dimension of the functions.</p></li>
+<li><p><strong>i</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>) – Index of the basis function. Note: Counts from 0.</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Ad representation of a matrix with the basis functions as</dt><dd><p>columns.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>pp.ad.Matrix</p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Geometry.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific interfaces.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Geometry.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Geometry.subdomains" title="Permalink to this definition"></a></dt>
-<dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MortarProjections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#MortarProjections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MortarProjections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#MortarProjections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a></p>
 <p>Wrapper class to generate projections to and from MortarGrids.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>mdg</strong> (<em>pp.MixedDimensionalGrid</em>) – </p></li>
-<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>porepy.grids.grid.Grid</em></a><em>]</em>) – </p></li>
-<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>porepy.grids.mortar_grid.MortarGrid</em></a><em>]</em>) – </p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>mdg</strong> (<em>pp.MixedDimensionalGrid</em>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>)</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_primary_int">
-<span class="sig-name descname"><span class="pre">mortar_to_primary_int</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_primary_int" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mortar_to_primary_int</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_primary_int" title="Link to this definition"></a></dt>
 <dd><p>Matrix of projections from the mortar
 grid to the primary grid. Intended for extensive quantities (so fluxes).
 Represented as an Ad Matrix operator.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -518,12 +476,12 @@ Represented as an Ad Matrix operator.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_primary_avg">
-<span class="sig-name descname"><span class="pre">mortar_to_primary_avg</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_primary_avg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mortar_to_primary_avg</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_primary_avg" title="Link to this definition"></a></dt>
 <dd><p>Matrix of projections from the mortar
 grid to the primary grid. Intended for intensive quantities (so pressures).
 Represented as an Ad Matrix operator.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -531,12 +489,12 @@ Represented as an Ad Matrix operator.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.primary_to_mortar_int">
-<span class="sig-name descname"><span class="pre">primary_to_mortar_int</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.primary_to_mortar_int" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">primary_to_mortar_int</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.primary_to_mortar_int" title="Link to this definition"></a></dt>
 <dd><p>Matrix of projections from the primary
 grid to the mortar grid. Intended for extensive quantities (so fluxes).
 Represented as an Ad Matrix operator.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -544,12 +502,12 @@ Represented as an Ad Matrix operator.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.primary_to_mortar_avg">
-<span class="sig-name descname"><span class="pre">primary_to_mortar_avg</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.primary_to_mortar_avg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">primary_to_mortar_avg</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.primary_to_mortar_avg" title="Link to this definition"></a></dt>
 <dd><p>Matrix of projections from the primary
 grid to the mortar grid. Intended for intensive quantities (so pressures).
 Represented as an Ad Matrix operator.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -557,12 +515,12 @@ Represented as an Ad Matrix operator.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_secondary_int">
-<span class="sig-name descname"><span class="pre">mortar_to_secondary_int</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_secondary_int" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mortar_to_secondary_int</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_secondary_int" title="Link to this definition"></a></dt>
 <dd><p>Matrix of projections from the mortar
 grid to the secondary grid. Intended for extensive quantities (so fluxes).
 Represented as an Ad Matrix operator.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -570,12 +528,12 @@ Represented as an Ad Matrix operator.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_secondary_avg">
-<span class="sig-name descname"><span class="pre">mortar_to_secondary_avg</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_secondary_avg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">mortar_to_secondary_avg</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.mortar_to_secondary_avg" title="Link to this definition"></a></dt>
 <dd><p>Matrix of projections from the mortar
 grid to the secondary grid. Intended for intensive quantities (so pressures).
 Represented as an Ad Matrix operator.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -583,12 +541,12 @@ Represented as an Ad Matrix operator.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.secondary_to_mortar_int">
-<span class="sig-name descname"><span class="pre">secondary_to_mortar_int</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.secondary_to_mortar_int" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">secondary_to_mortar_int</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.secondary_to_mortar_int" title="Link to this definition"></a></dt>
 <dd><p>Matrix of projections from the secondary
 grid to the mortar grid. Intended for extensive quantities (so fluxes).
 Represented as an Ad Matrix operator.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -596,12 +554,12 @@ Represented as an Ad Matrix operator.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.secondary_to_mortar_avg">
-<span class="sig-name descname"><span class="pre">secondary_to_mortar_avg</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.secondary_to_mortar_avg" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">secondary_to_mortar_avg</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.secondary_to_mortar_avg" title="Link to this definition"></a></dt>
 <dd><p>Matrix of projections from the secondary
 grid to the mortar grid. Intended for intensive quantities (so pressures).
 Represented as an Ad Matrix operator.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -609,90 +567,62 @@ Represented as an Ad Matrix operator.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.sign_of_mortar_sides">
-<span class="sig-name descname"><span class="pre">sign_of_mortar_sides</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.sign_of_mortar_sides" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">sign_of_mortar_sides</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.sign_of_mortar_sides" title="Link to this definition"></a></dt>
 <dd><p>Matrix representation that assigns signs
 to two mortar sides. Needed to implement a jump operator in contact
 mechanics.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Ad.Matrix</span></code></p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific interfaces.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.MortarProjections.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.MortarProjections.subdomains" title="Permalink to this definition"></a></dt>
-<dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.ParameterArray">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ParameterArray</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param_keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#ParameterArray"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterArray" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ParameterArray</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param_keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#ParameterArray"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterArray" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a></p>
 <p>Extract an array from the parameter dictionaries for a given set of subdomains.</p>
 <p>Can be used to implement sources, and general arrays to be picked from the
 parameter array (and thereby could be changed during the simulation, without
 having to redefine the abstract Ad representation of the equations).</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>param_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>array_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><em>pp.Grid</em><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>interfaces</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><em>pp.MortarGrid</em><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+<li><p><strong>param_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>array_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>)</p></li>
+<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.ParameterArray.parse">
-<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#ParameterArray.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterArray.parse" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#ParameterArray.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterArray.parse" title="Link to this definition"></a></dt>
 <dd><p>Convert the Ad expression into numerical values for the scalar sources,
 in the form of an np.ndarray concatenated for all subdomains.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>mdg</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code>) – Mixed-dimensional grid. The boundary condition
 will be taken from the data dictionaries with the relevant keyword.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Value of boundary conditions.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray</p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.ParameterArray.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterArray.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific interfaces.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.ParameterArray.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterArray.subdomains" title="Permalink to this definition"></a></dt>
-<dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.ParameterMatrix">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ParameterMatrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param_keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#ParameterMatrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterMatrix" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ParameterMatrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">param_keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">array_keyword</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subdomains</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">interfaces</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#ParameterMatrix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterMatrix" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="#porepy.numerics.ad.grid_operators.ParameterArray" title="porepy.numerics.ad.grid_operators.ParameterArray"><code class="xref py py-class docutils literal notranslate"><span class="pre">ParameterArray</span></code></a></p>
 <p>Extract a matrix from the parameter dictionaries for a given set of subdomains.</p>
 <dl class="simple">
@@ -700,84 +630,70 @@ will be taken from the data dictionaries with the relevant keyword.</p>
 </dd>
 </dl>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>param_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>array_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – </p></li>
-<li><p><strong>subdomains</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><em>pp.Grid</em><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>interfaces</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><em>pp.MortarGrid</em><em>]</em><em>]</em>) – </p></li>
-<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+<li><p><strong>param_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>array_keyword</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a>)</p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>interfaces</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.mortar_grid.html#porepy.grids.mortar_grid.MortarGrid" title="porepy.grids.mortar_grid.MortarGrid"><em>MortarGrid</em></a><em>]</em>)</p></li>
+<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.ParameterMatrix.parse">
-<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#ParameterMatrix.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterMatrix.parse" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">parse</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mdg</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#ParameterMatrix.parse"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterMatrix.parse" title="Link to this definition"></a></dt>
 <dd><p>Convert the Ad expression into numerical values for the scalar sources,
 in the form of an np.ndarray concatenated for all subdomains.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>mdg</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">pp.MixedDimensionalGrid</span></code>) – Mixed-dimensional grid. The boundary condition
 will be taken from the data dictionaries with the relevant keyword.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Value of boundary conditions.</p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>sps.spmatrix</p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.ParameterMatrix.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterMatrix.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific interfaces.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.ParameterMatrix.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.ParameterMatrix.subdomains" title="Permalink to this definition"></a></dt>
-<dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.SubdomainProjections">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SubdomainProjections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#SubdomainProjections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SubdomainProjections</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#SubdomainProjections"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a></p>
 <p>Wrapper class for generating projection to and from subdomains.</p>
 <p>One use case in when variables are defined on only some subdomains.</p>
 <p>The class should be used through the methods {cell, face}_{projection, restriction}.</p>
 <p>See also MortarProjections for projections to and from mortar subdomains.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.SubdomainProjections.cell_prolongation">
-<span class="sig-name descname"><span class="pre">cell_prolongation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#SubdomainProjections.cell_prolongation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections.cell_prolongation" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_prolongation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#SubdomainProjections.cell_prolongation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections.cell_prolongation" title="Link to this definition"></a></dt>
 <dd><p>Construct prolongation from subdomain to global cell quantities.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">List</span> <span class="pre">of</span> <span class="pre">pp.Grid</span></code>) – One or several subdomains to which
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – One or several subdomains to which
 the prolongation should apply.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Matrix operator (in the Ad sense) that represent the</dt><dd><p>prolongation.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>pp.ad.Matrix</p>
 </dd>
 </dl>
@@ -785,21 +701,21 @@ the prolongation should apply.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.SubdomainProjections.cell_restriction">
-<span class="sig-name descname"><span class="pre">cell_restriction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#SubdomainProjections.cell_restriction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections.cell_restriction" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">cell_restriction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#SubdomainProjections.cell_restriction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections.cell_restriction" title="Link to this definition"></a></dt>
 <dd><p>Construct restrictions from global to subdomain cell quantities.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">List</span> <span class="pre">of</span> <span class="pre">pp.Grid</span></code>) – One or several subdomains to which
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – One or several subdomains to which
 the projection should apply.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Matrix operator (in the Ad sense) that represents the</dt><dd><p>projection.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>pp.ad.Matrix</p>
 </dd>
 </dl>
@@ -807,21 +723,21 @@ the projection should apply.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.SubdomainProjections.face_prolongation">
-<span class="sig-name descname"><span class="pre">face_prolongation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#SubdomainProjections.face_prolongation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections.face_prolongation" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">face_prolongation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#SubdomainProjections.face_prolongation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections.face_prolongation" title="Link to this definition"></a></dt>
 <dd><p>Construct prolongation from subdomain to global face quantities.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">List</span> <span class="pre">of</span> <span class="pre">pp.Grid</span></code>) – One or several subdomains to which
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – One or several subdomains to which
 the prolongation should apply.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Matrix operator (in the Ad sense) that represent the</dt><dd><p>prolongation.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>pp.ad.Matrix</p>
 </dd>
 </dl>
@@ -829,45 +745,31 @@ the prolongation should apply.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.SubdomainProjections.face_restriction">
-<span class="sig-name descname"><span class="pre">face_restriction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#SubdomainProjections.face_restriction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections.face_restriction" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">face_restriction</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#SubdomainProjections.face_restriction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections.face_restriction" title="Link to this definition"></a></dt>
 <dd><p>Construct restrictions from global to subdomain face quantities.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>subdomains</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">List</span> <span class="pre">of</span> <span class="pre">pp.Grid</span></code>) – One or several subdomains to which
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>subdomains</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code> of <code class="xref py py-class docutils literal notranslate"><span class="pre">pp.Grid</span></code>) – One or several subdomains to which
 the projection should apply.</p>
 </dd>
-<dt class="field-even">Returns</dt>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><dl class="simple">
 <dt>Matrix operator (in the Ad sense) that represent the</dt><dd><p>projection.</p>
 </dd>
 </dl>
 </p>
 </dd>
-<dt class="field-odd">Return type</dt>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>pp.ad.Matrix</p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.SubdomainProjections.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific interfaces.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.SubdomainProjections.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.SubdomainProjections.subdomains" title="Permalink to this definition"></a></dt>
-<dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
 
 </dd></dl>
 
 <dl class="py class">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Trace">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Trace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Trace"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Trace" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">Trace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">subdomains</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/porepy/numerics/ad/grid_operators.html#Trace"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Trace" title="Link to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="porepy.numerics.ad.operators.html#porepy.numerics.ad.operators.Operator" title="porepy.numerics.ad.operators.Operator"><code class="xref py py-class docutils literal notranslate"><span class="pre">Operator</span></code></a></p>
 <p>Wrapper class for Ad representations of trace operators and their inverse,
 that is, mappings between grid cells and faces.</p>
@@ -877,20 +779,20 @@ mortar mapping).</p>
 <p>The mapping does not alter signs of variables, that is, the direction
 of face normal vectors is not accounted for.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><em>list</em></a><em>[</em><em>pp.Grid</em><em>]</em>) – </p></li>
-<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – </p></li>
-<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – </p></li>
+<li><p><strong>subdomains</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><em>list</em></a><em>[</em><a class="reference internal" href="porepy.grids.grid.html#porepy.grids.grid.Grid" title="porepy.grids.grid.Grid"><em>Grid</em></a><em>]</em>)</p></li>
+<li><p><strong>dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><em>int</em></a>)</p></li>
+<li><p><strong>name</strong> (<em>Optional</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><em>str</em></a><em>]</em>)</p></li>
 </ul>
 </dd>
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Trace.trace">
-<span class="sig-name descname"><span class="pre">trace</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Trace.trace" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">trace</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Trace.trace" title="Link to this definition"></a></dt>
 <dd><p>Matrix of trace projections from cells to faces.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
@@ -898,32 +800,13 @@ of face normal vectors is not accounted for.</p>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Trace.inv_trace">
-<span class="sig-name descname"><span class="pre">inv_trace</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Trace.inv_trace" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">inv_trace</span></span><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Trace.inv_trace" title="Link to this definition"></a></dt>
 <dd><p>Matrix of trace projections from faces to cells.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Type</dt>
+<dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">pp.ad.Matrix</span></code></p>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Trace.dim">
-<span class="sig-name descname"><span class="pre">dim</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Trace.dim" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Trace.interfaces">
-<span class="sig-name descname"><span class="pre">interfaces</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.MortarGrid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Trace.interfaces" title="Permalink to this definition"></a></dt>
-<dd><p>List of interfaces on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific interfaces.</p>
-</dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="porepy.numerics.ad.grid_operators.Trace.subdomains">
-<span class="sig-name descname"><span class="pre">subdomains</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.11)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">pp.Grid</span><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#porepy.numerics.ad.grid_operators.Trace.subdomains" title="Permalink to this definition"></a></dt>
-<dd><p>List of subdomains on which the operator is defined, passed at instantiation.</p>
-<p>Will be empty for operators not associated with specific subdomains.</p>
 </dd></dl>
 
 </dd></dl>

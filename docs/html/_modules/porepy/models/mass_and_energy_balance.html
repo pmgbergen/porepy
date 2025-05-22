@@ -1,22 +1,21 @@
+
+
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../../../">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>porepy.models.mass_and_energy_balance &mdash; PorePy 1.6.0 documentation</title>
-      <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
-    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/mass_and_energy_balance.html" />
-  <!--[if lt IE 9]>
-    <script src="../../../_static/js/html5shiv.min.js"></script>
-  <![endif]-->
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=e59714d7" />
+
   
-        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js"></script>
-        <script src="../../../_static/jquery.js"></script>
-        <script src="../../../_static/underscore.js"></script>
-        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
-        <script src="../../../_static/doctools.js"></script>
-        <script src="../../../_static/sphinx_highlight.js"></script>
+    <link rel="canonical" href="https://pmgbergen.github.io/porepy/_modules/porepy/models/mass_and_energy_balance.html" />
+      <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../../_static/documentation_options.js?v=cfbabd6b"></script>
+      <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" /> 
@@ -27,14 +26,15 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search"  style="background: #2980B9" >
-            <a href="../../../index.html" class="icon icon-home"> PorePy
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            PorePy
           </a>
-              <div class="version">
-                1.6.0
-              </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" />
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
     <input type="hidden" name="check_keywords" value="yes" />
     <input type="hidden" name="area" value="default" />
   </form>
@@ -259,7 +259,7 @@
         <div class="rst-content style-external-links">
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-      <li><a href="../../../index.html" class="icon icon-home"></a></li>
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
       <li class="breadcrumb-item active">porepy.models.mass_and_energy_balance</li>
       <li class="wy-breadcrumbs-aside">
@@ -272,20 +272,24 @@
              
   <h1>Source code for porepy.models.mass_and_energy_balance</h1><div class="highlight"><pre>
 <span></span><span class="sd">&quot;&quot;&quot;Combine single-physics models into coupled mass and energy balance equations. &quot;&quot;&quot;</span>
-<span class="kn">import</span> <span class="nn">porepy</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">porepy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pp</span>
 
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">energy_balance</span> <span class="k">as</span> <span class="n">energy</span>
-<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">fluid_mass_balance</span> <span class="k">as</span> <span class="n">mass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">energy_balance</span> <span class="k">as</span> <span class="n">energy</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.</span><span class="w"> </span><span class="kn">import</span> <span class="n">fluid_mass_balance</span> <span class="k">as</span> <span class="n">mass</span>
 
 
-<div class="viewcode-block" id="EquationsFluidMassAndEnergy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.EquationsFluidMassAndEnergy">[docs]</a><span class="k">class</span> <span class="nc">EquationsFluidMassAndEnergy</span><span class="p">(</span>
+<div class="viewcode-block" id="EquationsFluidMassAndEnergy">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.EquationsFluidMassAndEnergy">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EquationsFluidMassAndEnergy</span><span class="p">(</span>
     <span class="n">energy</span><span class="o">.</span><span class="n">EnergyBalanceEquations</span><span class="p">,</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">MassBalanceEquations</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance equations.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance equations.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="EquationsFluidMassAndEnergy.set_equations"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.EquationsFluidMassAndEnergy.set_equations">[docs]</a>    <span class="k">def</span> <span class="nf">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;Set the equations for the fluid mass and energy balance problem.</span>
+<div class="viewcode-block" id="EquationsFluidMassAndEnergy.set_equations">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.EquationsFluidMassAndEnergy.set_equations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the equations for the fluid mass and energy balance problem.</span>
 
 <span class="sd">        Call both parent classes&#39; set_equations methods.</span>
 
@@ -293,27 +297,37 @@
         <span class="c1"># Energy balance</span>
         <span class="n">energy</span><span class="o">.</span><span class="n">EnergyBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
         <span class="c1"># Mass balance</span>
-        <span class="n">mass</span><span class="o">.</span><span class="n">MassBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+        <span class="n">mass</span><span class="o">.</span><span class="n">MassBalanceEquations</span><span class="o">.</span><span class="n">set_equations</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="VariablesFluidMassAndEnergy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.VariablesFluidMassAndEnergy">[docs]</a><span class="k">class</span> <span class="nc">VariablesFluidMassAndEnergy</span><span class="p">(</span>
+
+<div class="viewcode-block" id="VariablesFluidMassAndEnergy">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.VariablesFluidMassAndEnergy">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">VariablesFluidMassAndEnergy</span><span class="p">(</span>
     <span class="n">energy</span><span class="o">.</span><span class="n">VariablesEnergyBalance</span><span class="p">,</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">VariablesSinglePhaseFlow</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance variables.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance variables.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="VariablesFluidMassAndEnergy.create_variables"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.VariablesFluidMassAndEnergy.create_variables">[docs]</a>    <span class="k">def</span> <span class="nf">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="sd">&quot;&quot;&quot;Set the variables for the fluid mass and energy balance problem.</span>
+<div class="viewcode-block" id="VariablesFluidMassAndEnergy.create_variables">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.VariablesFluidMassAndEnergy.create_variables">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the variables for the fluid mass and energy balance problem.</span>
 
 <span class="sd">        Call both parent classes&#39; set_variables methods.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Energy balance</span>
         <span class="n">energy</span><span class="o">.</span><span class="n">VariablesEnergyBalance</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
-        <span class="n">mass</span><span class="o">.</span><span class="n">VariablesSinglePhaseFlow</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div></div>
+        <span class="n">mass</span><span class="o">.</span><span class="n">VariablesSinglePhaseFlow</span><span class="o">.</span><span class="n">create_variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span></div>
+</div>
 
 
-<div class="viewcode-block" id="ConstitutiveLawFluidMassAndEnergy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.ConstitutiveLawFluidMassAndEnergy">[docs]</a><span class="k">class</span> <span class="nc">ConstitutiveLawFluidMassAndEnergy</span><span class="p">(</span>
+
+<div class="viewcode-block" id="ConstitutiveLawFluidMassAndEnergy">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.ConstitutiveLawFluidMassAndEnergy">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ConstitutiveLawFluidMassAndEnergy</span><span class="p">(</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">FluidDensityFromPressureAndTemperature</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ConstantSolidDensity</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">EnthalpyFromTemperature</span><span class="p">,</span>
@@ -327,7 +341,7 @@
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ConstantPermeability</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">constitutive_laws</span><span class="o">.</span><span class="n">ConstantViscosity</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance constitutive laws.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance constitutive laws.</span>
 
 <span class="sd">    Fluid density dependends on pressure and temperature in the mass and energy class,</span>
 <span class="sd">    respectively. Here, both dependencies are included.</span>
@@ -337,20 +351,26 @@
     <span class="k">pass</span></div>
 
 
-<div class="viewcode-block" id="BoundaryConditionsFluidMassAndEnergy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy">[docs]</a><span class="k">class</span> <span class="nc">BoundaryConditionsFluidMassAndEnergy</span><span class="p">(</span>
+
+<div class="viewcode-block" id="BoundaryConditionsFluidMassAndEnergy">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.BoundaryConditionsFluidMassAndEnergy">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">BoundaryConditionsFluidMassAndEnergy</span><span class="p">(</span>
     <span class="n">energy</span><span class="o">.</span><span class="n">BoundaryConditionsEnergyBalance</span><span class="p">,</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">BoundaryConditionsSinglePhaseFlow</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance boundary conditions.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance boundary conditions.&quot;&quot;&quot;</span>
 
     <span class="k">pass</span></div>
 
 
-<div class="viewcode-block" id="SolutionStrategyFluidMassAndEnergy"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.SolutionStrategyFluidMassAndEnergy">[docs]</a><span class="k">class</span> <span class="nc">SolutionStrategyFluidMassAndEnergy</span><span class="p">(</span>
+
+<div class="viewcode-block" id="SolutionStrategyFluidMassAndEnergy">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.SolutionStrategyFluidMassAndEnergy">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SolutionStrategyFluidMassAndEnergy</span><span class="p">(</span>
     <span class="n">energy</span><span class="o">.</span><span class="n">SolutionStrategyEnergyBalance</span><span class="p">,</span>
     <span class="n">mass</span><span class="o">.</span><span class="n">SolutionStrategySinglePhaseFlow</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance solution strategies.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance solution strategies.</span>
 
 <span class="sd">    Solution strategies are proper classes (not mixins) and inherit from</span>
 <span class="sd">    :class:`~porepy.models.solution_strategies.SolutionStrategy`. Thus, overridden</span>
@@ -362,7 +382,10 @@
     <span class="k">pass</span></div>
 
 
-<div class="viewcode-block" id="MassAndEnergyBalance"><a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.MassAndEnergyBalance">[docs]</a><span class="k">class</span> <span class="nc">MassAndEnergyBalance</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
+
+<div class="viewcode-block" id="MassAndEnergyBalance">
+<a class="viewcode-back" href="../../../docsrc/porepy/porepy.models.mass_and_energy_balance.html#porepy.models.mass_and_energy_balance.MassAndEnergyBalance">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MassAndEnergyBalance</span><span class="p">(</span>  <span class="c1"># type: ignore</span>
     <span class="n">EquationsFluidMassAndEnergy</span><span class="p">,</span>
     <span class="n">VariablesFluidMassAndEnergy</span><span class="p">,</span>
     <span class="n">ConstitutiveLawFluidMassAndEnergy</span><span class="p">,</span>
@@ -371,13 +394,14 @@
     <span class="n">pp</span><span class="o">.</span><span class="n">ModelGeometry</span><span class="p">,</span>
     <span class="n">pp</span><span class="o">.</span><span class="n">DataSavingMixin</span><span class="p">,</span>
 <span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance models into a single class.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Combine fluid mass and energy balance models into a single class.</span>
 
 <span class="sd">    The equations assume single-phase flow and local thermal equilibrium.</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="k">pass</span></div>
+
 </pre></div>
 
            </div>
