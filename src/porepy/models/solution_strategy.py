@@ -13,9 +13,9 @@ import warnings
 from functools import cached_property, partial
 from typing import Any, Callable, Optional, cast
 
+import networkx as nx
 import numpy as np
 import scipy.sparse as sps
-import networkx as nx 
 
 import porepy as pp
 
@@ -891,8 +891,10 @@ class SolutionStrategy(pp.PorePyModel):
             return inv_A
 
         return inverter
-    
-    def generate_block_permutations(self, A: sps.csr_matrix) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+
+    def generate_block_permutations(
+        self, A: sps.csr_matrix
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Compute row and column permutations to transform a non-diagonal block matrix into
         block-diagonal form by analyzing its sparsity pattern.
 
@@ -929,7 +931,7 @@ class SolutionStrategy(pp.PorePyModel):
         if A.shape[0] == 0 or A.shape[1] == 0:
             raise ValueError("Matrix cannot be empty")
         assert A.shape[0] == A.shape[1], f"Matrix must be square, got shape {A.shape}"
-        
+
         # Find non-zero entries in the sparse matrix
         rows, cols, _ = sps.find(A)
 
@@ -953,15 +955,15 @@ class SolutionStrategy(pp.PorePyModel):
 
         # Extract permutations and sub-block sizes
         for comp in components:
-            eqs = sorted(int(n[3:]) for n in comp if n.startswith("eq_"))
+            eqs_ = sorted(int(n[3:]) for n in comp if n.startswith("eq_"))
             vars_ = sorted(int(n[4:]) for n in comp if n.startswith("var_"))
-            
+
             # each block must be square
-            assert len(eqs) == len(vars_), (
-                f"Block mismatch: {len(eqs)} eqs vs {len(vars_)} vars"
+            assert len(eqs_) == len(vars_), (
+                f"Block mismatch: {len(eqs_)} eqs vs {len(vars_)} vars"
             )
-            block_sizes.append(len(eqs))
-            block_row_indices.extend(eqs)
+            block_sizes.append(len(eqs_))
+            block_row_indices.extend(eqs_)
             block_col_indices.extend(vars_)
 
         # final permutations: flattening all component-wise ordered indices
@@ -969,11 +971,14 @@ class SolutionStrategy(pp.PorePyModel):
         col_perm = np.array(block_col_indices, dtype=int)
 
         # verify we've covered all equations and variables
-        assert len(block_row_indices) == A.shape[0], "Not all equations were assigned to blocks"
-        assert len(block_col_indices) == A.shape[1], "Not all variables were assigned to blocks"
+        assert len(block_row_indices) == A.shape[0], (
+            "Not all equations were assigned to blocks"
+        )
+        assert len(block_col_indices) == A.shape[1], (
+            "Not all variables were assigned to blocks"
+        )
 
         return (row_perm, col_perm, np.array(block_sizes).astype(np.int32))
-    
 
     def invert_non_diagonal_matrix(self, A: sps.csr_matrix) -> sps.csr_matrix:
         """Compute A^{-1} by
@@ -992,10 +997,10 @@ class SolutionStrategy(pp.PorePyModel):
         # find the permutations that makes A block-diagonal
         row_perm_idxs, col_perm_idxs, block_sizes = self.generate_block_permutations(A)
         row_slicer = pp.matrix_operations.ArraySlicer(
-            range_indices=row_perm_idxs,range_size=A.shape[0]
+            range_indices=row_perm_idxs, range_size=A.shape[0]
         )
         col_slicer = pp.matrix_operations.ArraySlicer(
-            domain_indices=col_perm_idxs,domain_size=A.shape[1]
+            domain_indices=col_perm_idxs, domain_size=A.shape[1]
         )
 
         # apply permutations to transform A into diagonal block
@@ -1005,7 +1010,7 @@ class SolutionStrategy(pp.PorePyModel):
         # compute the inverse of each block in place
         inv_A_block_diag = pp.matrix_operations.invert_diagonal_blocks(
             A_block_diag, block_sizes, method="numba"
-        ) 
+        )
 
         # undo the permutations to obtain the inverse of the original matrix
         # A^{-1} = P_col A_block_diag^{-1} P_row
@@ -1013,8 +1018,6 @@ class SolutionStrategy(pp.PorePyModel):
         inv_A = col_slicer @ (inv_row_slicer @ inv_A_block_diag.T).T
 
         return inv_A
-    
-
 
     def solve_linear_system(self) -> np.ndarray:
         """Solve linear system.
