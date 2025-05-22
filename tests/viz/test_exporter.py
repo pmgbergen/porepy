@@ -88,6 +88,11 @@ def subdomain(request: pytest.FixtureRequest) -> SingleSubdomain:
 
     # Define the collection of subdomains
     subdomains: list[SingleSubdomain] = [
+        # 0d grid
+        SingleSubdomain(
+            pp.PointGrid(np.zeros(3)),
+            f"{FOLDER_REFERENCE}/single_subdomain_0d.vtu",
+        ),
         # 1d grid
         SingleSubdomain(
             pp.CartGrid(3, 1),
