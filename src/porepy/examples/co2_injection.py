@@ -1,5 +1,8 @@
 """Example for 2-phase, 2-component flow using equilibrium calculations.
 
+Simulates the injection of CO2 into an initially water-saturated 2D domain, using a
+mD model with points as wells.
+
 Note:
     It uses the numba-compiled version of the Peng-Robinson EoS and a numba-compiled
     unified flash.
